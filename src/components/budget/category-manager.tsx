@@ -148,7 +148,7 @@ export function CategoryManager({
   const savings = categories.filter((c) => c.type === "SAVINGS");
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+    <div className="list-bleed flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-heading text-base font-semibold">{dict.categories.title}</h2>
         <AddCategoryDialog dict={dict} createAction={createAction} />

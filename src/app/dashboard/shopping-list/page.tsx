@@ -16,7 +16,7 @@ export const maxDuration = 60;
 
 function ShoppingListsSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
+    <div className="list-bleed flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-16 rounded-md border bg-muted/40" />
       ))}

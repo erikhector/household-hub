@@ -68,8 +68,8 @@ export function InstallAppCard({ dict }: { dict: Dictionary["profile"]["installA
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-4">
-      <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+    <div className="list-bleed flex flex-col gap-2 rounded-md border p-4">
+      <h3 className="font-heading text-base font-semibold">{dict.title}</h3>
       {isStandalone ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Check className="size-4 text-success" />

@@ -11,6 +11,7 @@ import { DeleteHouseholdDialog } from "@/components/household/delete-household-d
 import { AutoAddSetting } from "@/components/household/auto-add-setting";
 import { HouseholdNotes } from "@/components/household/household-notes";
 import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
+import { RenameHousehold } from "@/components/household/rename-household";
 import { CurrencySetting } from "@/components/household/currency-setting";
 import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
 import { ShoppingExpenseSetting } from "@/components/household/shopping-expense-setting";
@@ -59,7 +60,7 @@ async function SharedWithNote({
 
 function MemberListSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2 rounded-lg border p-4" role="status" aria-label={label}>
+    <div className="list-bleed flex animate-pulse flex-col gap-2 rounded-lg border p-4" role="status" aria-label={label}>
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="h-12 rounded-md bg-muted/40" />
       ))}
@@ -162,6 +163,8 @@ export default async function HouseholdPage() {
       <Suspense fallback={<MemberListSkeleton label={dict.common.loading} />}>
         <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
       </Suspense>
+      {/* Owner-only (see renameHouseholdAction). */}
+      {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}
       {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
           shopping behaviour every member already fully operates. */}
       <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
@@ -192,7 +195,7 @@ export default async function HouseholdPage() {
         dict={dict.household.calendarFeed}
       />
       {isOwner && (
-        <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+        <div className="list-bleed flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
           <div>
             <h2 className="font-heading text-base font-semibold">{dict.household.dangerZoneTitle}</h2>
             <p className="text-sm text-muted-foreground">{dict.household.dangerZoneDescription}</p>

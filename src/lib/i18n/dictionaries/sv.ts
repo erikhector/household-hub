@@ -244,6 +244,14 @@ export const sv = {
       defaultOption: "Groceries (skapas vid första inköpet)",
       savedToast: "Sparat",
     },
+    rename: {
+      title: "Hushållets namn",
+      label: "Namn",
+      description: "Visas för alla i hushållet, i inbjudningsmejl och på sidan för att gå med.",
+      save: "Spara namn",
+      saving: "Sparar…",
+      savedToast: "Hushållet har bytt namn",
+    },
     currency: {
       title: "Valuta",
       label: "Visa belopp i",
@@ -360,6 +368,7 @@ export const sv = {
     title: "Översikt",
     subtitle: "Det som behöver din uppmärksamhet just nu.",
     greeting: {
+      hello: "Hej, {name}",
       morning: "God morgon, {name}",
       afternoon: "God eftermiddag, {name}",
       evening: "God kväll, {name}",
@@ -474,6 +483,18 @@ export const sv = {
       confirm: "Markera som klar",
       confirming: "Markerar…",
     },
+    // UX-87: steget före klarmarkering när bara en del av de köpta varorna
+    // har pris.
+    partialPrice: {
+      title: "Vissa köpta varor saknar pris",
+      description: {
+        one: "{unpriced} av {total} köpta varor saknar pris, så summan nedan kan vara lägre än vad inköpet kostade. Justera beloppet eller hoppa över att logga något i budgeten.",
+        other: "{unpriced} av {total} köpta varor saknar pris, så summan nedan kan vara lägre än vad inköpet kostade. Justera beloppet eller hoppa över att logga något i budgeten.",
+      },
+      amountLabel: "Belopp att logga i budgeten",
+      log: "Logga belopp",
+      skip: "Logga inget",
+    },
     unarchive: "Återställ",
     archive: "Arkivera",
     delete: "Ta bort",
@@ -506,7 +527,7 @@ export const sv = {
     rowActionsAriaLabel: "Fler åtgärder för {name}",
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
-    estimatedTotal: "Cirka {amount} kvar att spendera",
+    estimatedTotal: "≈ {amount} kvar att köpa ({priced} av {total} med pris)",
     addPriceLabel: "Lägg till pris",
     editPriceAriaLabel: "Redigera uppskattat pris för {name}",
     addPriceAriaLabel: "Lägg till ett uppskattat pris för {name}",
@@ -939,7 +960,7 @@ export const sv = {
     quantityLabel: "Antal",
     unitLabel: "Enhet",
     unitPlaceholder: "t.ex. st",
-    lowStockAtLabel: "Lågt lager vid",
+    runningLowBelowLabel: "Lågt lager under",
     expiresAtLabel: "Utgår",
     neverExpiresLabel: "Den här varan går inte ut",
     useWithinDaysOpenedLabel: "Håller (dagar) efter öppning",
@@ -1224,7 +1245,7 @@ export const sv = {
       backToCatalog: "Hantera varor",
       backToRecipes: "Recept",
       inStock: "I lager: {amount}",
-      lowStockAt: "lågt vid {amount}",
+      lowStockAt: "lågt lager under {amount}",
       changeUnit: "Byt enhet…",
       unitsTitle: "Enheter",
       countedIn: "Räknas i {unit}",
@@ -1279,7 +1300,7 @@ export const sv = {
         newUnitLabel: "Ny enhet",
         factorLabel: "Hur många {to} är 1 {from}?",
         stock: "Lager: {before} → {after}",
-        threshold: "Lågt vid: {before} → {after}",
+        threshold: "Lågt lager under: {before} → {after}",
         conversion: "{before} → {after}",
         save: "Byt enhet",
         saving: "Byter…",
@@ -1375,7 +1396,7 @@ export const sv = {
         barcodeTaken: "Tar över streckkoden {barcode}",
         barcodeDropped: "Streckkoden {barcode} tas bort, eftersom {name} redan har en",
         expiry: "Bäst före: {date}",
-        threshold: "Lågt lager vid: {amount}",
+        threshold: "Lågt lager under: {amount}",
         price: "Senaste pris: {price}",
         category: "Kategori: {category}",
         conversion: "Sparar {sentence}",
@@ -1716,7 +1737,13 @@ export const sv = {
     newListNameLabel: "Listans namn",
     newListNamePlaceholder: "t.ex. Veckohandling",
     addMissingIngredientsSubmit: "Lägg till i listan",
-    missingIngredientsAddedToast: 'Tillagd i "{list}"',
+    missingIngredientsAddedToast: {
+      one: '{count} vara tillagd i "{list}"',
+      other: '{count} varor tillagda i "{list}"',
+    },
+    missingIngredientsAlreadyOnListToast: 'Allt fanns redan i "{list}"',
+    openShoppingList: "Öppna listan",
+    addMissingToShoppingList: "Lägg till {count} saknade i inköpslista",
     markCookedAriaLabel: "Markera som lagad",
     markCookedUnavailableForCustomMeal:
       "Egna måltider är inte kopplade till ett recept, så det finns inget att markera som lagat",
@@ -1901,6 +1928,8 @@ export const sv = {
     rowActionsAriaLabel: "Fler åtgärder för {title}",
     toggleCompleteAriaLabel: "Markera {title} som klar",
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
+    doneToast: "Klart: {title}",
+    caughtUpTitle: "Nu är allt klart!",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",
     weeklyRecapDismissAriaLabel: "Stäng",
     recurrenceLabel: "Upprepa",
@@ -2068,6 +2097,12 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Lägg till din inkomst och dina återkommande räkningar för att se vad som är säkert att spendera.",
+      setupIncome: "Lägg till inkomst",
+      setupBills: "Lägg till återkommande räkningar",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ lägger till det som är säkert att spendera, – dras av, → sätts undan som sparande.",
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
@@ -2497,6 +2532,12 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Lägg till din inkomst och dina återkommande räkningar för att se vad som är säkert att spendera.",
+      setupIncome: "Lägg till inkomst",
+      setupBills: "Lägg till återkommande räkningar",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ lägger till det som är säkert att spendera, – dras av, → sätts undan som sparande.",
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
@@ -2726,6 +2767,13 @@ export const sv = {
     title: "Profil",
     subtitle: "Dina kontouppgifter.",
     reauthRateLimited: "För många försök. Vänta 15 minuter och försök igen.",
+    // UX-76: the four section headings that group the page's cards.
+    sections: {
+      account: "Konto",
+      preferences: "Inställningar",
+      notifications: "Aviseringar",
+      data: "Data och integritet",
+    },
     about: {
       title: "Om Squirrel",
       version: "Version {version}",
@@ -2735,7 +2783,6 @@ export const sv = {
       description: "Din avatar genereras automatiskt utifrån dina initialer — ingen uppladdning behövs.",
     },
     displayNameForm: {
-      title: "Visningsnamn",
       label: "Visningsnamn",
       saved: "Sparat",
       saving: "Sparar…",

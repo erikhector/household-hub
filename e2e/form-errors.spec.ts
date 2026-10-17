@@ -60,7 +60,7 @@ test("save & add another keeps quantity and threshold but clears expiry and use-
 
   await dialog.getByLabel(t.nameLabel, { exact: true }).fill(`Kept values ${Date.now().toString(36)}`);
   await dialog.getByLabel(t.quantityLabel).fill("3");
-  await dialog.getByLabel(t.lowStockAtLabel).fill("2");
+  await dialog.getByLabel(t.runningLowBelowLabel).fill("5");
   await dialog.getByLabel(t.expiresAtLabel).fill("2030-01-15");
   await dialog.getByLabel(t.useWithinDaysOpenedLabel).fill("5");
   await dialog.getByRole("button", { name: t.saveAndAddAnother }).click();
@@ -68,7 +68,7 @@ test("save & add another keeps quantity and threshold but clears expiry and use-
   await expect(dialog.getByText("1 item added this session")).toBeVisible();
   await expect(dialog.getByLabel(t.nameLabel, { exact: true })).toHaveValue("");
   await expect(dialog.getByLabel(t.quantityLabel)).toHaveValue("3");
-  await expect(dialog.getByLabel(t.lowStockAtLabel)).toHaveValue("2");
+  await expect(dialog.getByLabel(t.runningLowBelowLabel)).toHaveValue("5");
   await expect(dialog.getByLabel(t.expiresAtLabel)).toHaveValue("");
   await expect(dialog.getByLabel(t.useWithinDaysOpenedLabel)).toHaveValue("");
 });

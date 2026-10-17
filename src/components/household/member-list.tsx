@@ -78,7 +78,7 @@ export function MemberList({
         return (
           <div
             key={member.id}
-            className="flex items-center justify-between rounded-md border px-3 py-2"
+            className="list-bleed flex items-center justify-between rounded-md border px-3 py-2"
           >
             <div className="min-w-0">
               <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={member.displayName}>

@@ -49,7 +49,7 @@ export function CalendarFeedSetting({
   const webcalUrl = feedUrl?.replace(/^https?:\/\//, "webcal://") ?? null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="list-bleed flex flex-col gap-3 rounded-md border p-4">
       <div className="flex flex-col gap-1">
         <h2 className="flex items-center gap-2 font-heading text-base font-semibold">
           <CalendarDays className="size-4 shrink-0" />

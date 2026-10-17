@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, openRowSheet, saveScreenshot } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory } from "./ui";
 
 // GAP-49 meal prep, end to end: record a batch on the Prep tab, spread its
 // portions over the planner, give one back, eat one, discard the rest; and
@@ -14,6 +14,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
+});
+
+// Set by a test to remove the rows it planned, pass or fail. The desktop and
+// mobile runs (and a retry) share the household, so a dinner left behind can
+// sit in the slot a later run picks and take its name there.
+let cleanup: (() => Promise<void>) | null = null;
+test.afterEach(async () => {
+  await cleanup?.();
+  cleanup = null;
 });
 
 function utcDay(offset: number) {
@@ -134,8 +143,26 @@ const plannedNames = (page: Page, recipeName: string) =>
 const preppedBadges = (names: Locator) => names.locator("xpath=ancestor::button[1]").getByText("Prepped", { exact: true });
 
 test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) => {
+  // The whole GAP-49 journey in one test: about twenty steps, five server
+  // actions and seven page loads, 17-20 s on an idle machine. That leaves
+  // too little of the default 30 s under three loaded workers, where it
+  // timed out at the last step (Discard) with that save still in flight. Each
+  // assertion keeps its own 5 s wait; only the test's total budget grows.
+  test.slow();
   const recipeName = unique("Prep curry");
-  const { itemId } = await seedRecipe(recipeName);
+  const { recipeId, itemId } = await seedRecipe(recipeName);
+  const takeaway = `Takeaway ${suffix()}`;
+  cleanup = () =>
+    withClient(async (client) => {
+      await client.query(
+        `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
+         WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1
+           AND (entry."recipeId" = $2 OR entry."freeformName" = $3)`,
+        [E2E_HOUSEHOLD.id, recipeId, takeaway],
+      );
+      await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
+      await client.query(`DELETE FROM "InventoryItem" WHERE id = $1 AND "householdId" = $2`, [itemId, E2E_HOUSEHOLD.id]);
+    });
   // The dialog opens on this week (the batch is cooked today), so the spec
   // pages forward a few weeks to plan where no other spec plans meals
   // (they stay on this week and next, or in fixed weeks years ahead).
@@ -145,7 +172,6 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   const weeksAhead = 3 + Math.floor(Math.random() * 18);
   const targetWeek = weekAhead(weeksAhead);
   const takenDinnerDay = new Date(targetWeek.getTime() + 2 * DAY_MS);
-  const takeaway = `Takeaway ${suffix()}`;
   await planFreeformDinner(takenDinnerDay, takeaway);
 
   // The Prep tab renders cleanly.
@@ -258,6 +284,8 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await batchCard(page, recipeName).getByRole("button", { name: "Discard" }).click();
   await page.getByRole("dialog", { name: `Discard ${recipeName}?` }).getByRole("button", { name: "Discard" }).click();
   await expect(page.getByText(`Discarded ${recipeName}`)).toBeVisible();
+  // The confirm dialog's history.back() can still be on its way here.
+  await waitForDialogHistory(page);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Meal prep", exact: true })).toBeVisible();
   await expect(batchCard(page, recipeName)).toHaveCount(0);

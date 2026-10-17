@@ -22,6 +22,8 @@ import { getStockStatus } from "@/lib/stock-status";
 import { parseRecipeTags } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 import type { ItemUnitConversionLike } from "@/lib/units";
+import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
+import { parseMissingIngredientsRange, weekRange } from "@/app/dashboard/meal-planning/missing-ingredients";
 import { PageTitle } from "@/components/dashboard/page-title";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -213,6 +215,14 @@ async function PlannerTabSection({
     getActiveBatches(householdId),
     getLocale(),
   ]);
+  // UX-91: the count behind the planner's "Add N missing" button. Skipped
+  // (no query) for a week with no recipe planned, where nothing can be
+  // missing.
+  const weekDates = parseMissingIngredientsRange(weekRange(weekStartKey));
+  const missingCount =
+    weekDates && entries.some((entry) => entry.recipeId)
+      ? (await loadMissingIngredients(householdId, weekDates)).items.length
+      : 0;
   // The two recaps sit below the week (on a phone the week bar and today
   // come first, DESIGN.md M6), inside the planner's Suspense boundary
   // rather than each in their own. With their own boundaries they streamed
@@ -234,6 +244,7 @@ async function PlannerTabSection({
         entries={entries}
         activeShoppingLists={activeShoppingLists}
         batches={batches}
+        missingCount={missingCount}
       />
       <MealVarietyRecapSection householdId={householdId} dict={dict} />
       <MealNutritionRecapSection householdId={householdId} dict={dict} weekStartKey={weekStartKey} />
@@ -243,7 +254,7 @@ async function PlannerTabSection({
 
 function PlannerTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label={label}>
+    <div className="list-bleed grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label={label}>
       {Array.from({ length: 7 }).map((_, i) => (
         <div key={i} className="h-48 rounded-lg border bg-muted/40" />
       ))}
@@ -424,7 +435,7 @@ async function RecipesTabSection({
 
 function RecipesTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
+    <div className="list-bleed flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="h-14 rounded-md border bg-muted/40" />
       ))}
@@ -465,7 +476,7 @@ async function CookTabSection({
 
 function CookTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col divide-y rounded-md border" role="status" aria-label={label}>
+    <div className="list-bleed flex animate-pulse flex-col divide-y rounded-md border" role="status" aria-label={label}>
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-16 bg-muted/40" />
       ))}
@@ -512,7 +523,7 @@ function PrepTabSkeleton({ label }: { label: string }) {
       <div className="h-14 rounded-md bg-muted/40" />
       <div className="h-11 rounded-lg border bg-muted/40" />
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-36 rounded-xl border bg-muted/40" />
+        <div key={i} className="list-bleed h-36 rounded-xl border bg-muted/40" />
       ))}
     </div>
   );

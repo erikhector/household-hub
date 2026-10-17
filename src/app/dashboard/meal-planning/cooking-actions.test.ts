@@ -472,10 +472,25 @@ describe("addMissingIngredientsToShoppingListAction", () => {
 
     const result = await addMissingIngredientsToShoppingListAction({}, fd);
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ listId: "list-1", addedCount: 1 });
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
       data: [expect.objectContaining({ name: "Carrot", quantity: 2 })],
     });
+  });
+
+  it("reports zero added when every row is already pending on the list (UX-91)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([{ inventoryItemId: null, name: "carrot" }]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "Carrot");
+    fd.append("itemQuantity", "2");
+    fd.append("itemUnit", "pcs");
+
+    const result = await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(result).toEqual({ listId: "list-1", addedCount: 0 });
+    expect(shoppingListItemCreateManyMock).not.toHaveBeenCalled();
   });
 
   it("returns 'Shopping list not found' for a list outside the caller's household (IDOR guard)", async () => {
@@ -502,7 +517,7 @@ describe("addMissingIngredientsToShoppingListAction", () => {
 
     const result = await addMissingIngredientsToShoppingListAction({}, fd);
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ listId: "new-list", addedCount: 1 });
     expect(shoppingListCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ householdId: "household-1" }) }),
     );
@@ -524,7 +539,7 @@ describe("addMissingIngredientsToShoppingListAction", () => {
 
     const result = await addMissingIngredientsToShoppingListAction({}, fd);
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ listId: "list-1", addedCount: 2 });
     // One household-scoped inventory fetch for every row, and no create.
     expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
     expect(inventoryItemFindManyMock).toHaveBeenCalledWith(

@@ -35,8 +35,8 @@ export function WeeklyDigestSetting({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
-      <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+    <div className="list-bleed flex flex-col gap-3 rounded-md border p-4">
+      <h3 className="font-heading text-base font-semibold">{dict.title}</h3>
       <label className="flex cursor-pointer items-start gap-3">
         <Checkbox
           className="mt-0.5"

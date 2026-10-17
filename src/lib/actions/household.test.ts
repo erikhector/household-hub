@@ -18,6 +18,7 @@ const {
   householdUpdateManyMock,
   userFindUniqueMock,
   invitationFindUniqueMock,
+  txUserCreateMock,
   invitationFindFirstMock,
   invitationUpdateManyMock,
   householdMemberFindFirstMock,
@@ -45,6 +46,7 @@ const {
   householdUpdateManyMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
+  txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   invitationFindFirstMock: vi.fn(),
   invitationUpdateManyMock: vi.fn(async (): Promise<{ count: number }> => ({ count: 1 })),
   householdMemberFindFirstMock: vi.fn(),
@@ -73,7 +75,7 @@ const {
   transactionMock: vi.fn(async (arg: unknown) => {
     if (Array.isArray(arg)) return Promise.all(arg);
     return (arg as (tx: unknown) => unknown)({
-      user: { create: vi.fn(async () => ({ id: "new-user" })) },
+      user: { create: txUserCreateMock },
       householdMember: { create: vi.fn(async () => ({})), delete: householdMemberDeleteMock },
       invitation: { updateMany: invitationUpdateManyMock },
       transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
@@ -156,6 +158,7 @@ const {
   regenerateCalendarFeedAction,
   disableCalendarFeedAction,
   setHouseholdCurrencyAction,
+  renameHouseholdAction,
   setInventorySyncModeAction,
   setShoppingExpenseCategoryAction,
 } = await import("@/lib/actions/household");
@@ -311,6 +314,26 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
     const result = await joinViaInviteSignupAction({}, formData(validInput));
 
     expect(result.error).toBe("This invite link is invalid or has expired");
+  });
+
+  // UX-56: the account locale outranks the cookie after sign-in, so it must
+  // be stored from the language the form was shown in.
+  it("stores the UI language on the new account", async () => {
+    getLocaleMock.mockResolvedValueOnce("sv");
+    invitationFindUniqueMock.mockResolvedValue({
+      id: "invite-1",
+      householdId: "household-1",
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      household: { name: "The Hectors" },
+    });
+    userFindUniqueMock.mockResolvedValue(null);
+
+    await joinViaInviteSignupAction({}, formData(validInput));
+
+    expect(txUserCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ email: validInput.email, locale: "sv" }),
+    });
   });
 
   // joinViaInviteSignupAction no longer signs the new account in — a plain
@@ -1193,6 +1216,51 @@ describe("setHouseholdCurrencyAction (GAP-13)", () => {
     householdUpdateMock.mockRejectedValue(new Error("db down"));
 
     const result = await setHouseholdCurrencyAction("SEK");
+
+    expect(result.error).toBeTruthy();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("renameHouseholdAction (UX-75)", () => {
+  it("is owner-only", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+
+    const result = await renameHouseholdAction("New name");
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("renames the session's household with the trimmed name and revalidates the dashboard", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await renameHouseholdAction("  The Flat  ");
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { name: "The Flat" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard", "layout");
+  });
+
+  it.each([[""], ["   "], ["x".repeat(61)]])("rejects %j without writing", async (value) => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await renameHouseholdAction(value);
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly error when the write fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await renameHouseholdAction("Home");
 
     expect(result.error).toBeTruthy();
     expect(revalidatePathMock).not.toHaveBeenCalled();

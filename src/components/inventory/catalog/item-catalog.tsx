@@ -85,7 +85,7 @@ export function ItemCatalog({
         groups.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.empty.duplicates}</p>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="list-bleed flex flex-col gap-3">
             {groups.map((group) => (
               <DuplicateGroupCard
                 key={group.members.map((member) => member.id).join(",")}
@@ -125,7 +125,7 @@ function CatalogRows({
         <span>{dict.columns.stock}</span>
         <span>{dict.columns.usedIn}</span>
       </div>
-      <ul className="flex flex-col gap-2 sm:gap-0 sm:divide-y sm:rounded-lg sm:border">
+      <ul className="list-bleed flex flex-col gap-2 sm:gap-0 sm:divide-y sm:rounded-lg sm:border">
         {rows.map((row) => (
           <li key={row.id} className="rounded-lg border sm:rounded-none sm:border-0">
             <Link

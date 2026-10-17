@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import type { UiRoute } from "./routes";
 
@@ -78,6 +79,19 @@ export async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow, "content wider than the viewport (horizontal scroll)").toEqual([]);
 }
 
+// While a sheet is open on a phone, SheetIndent (sheet-indent.tsx) scales
+// the page behind it down to 0.94, and once the sheet closes it eases back
+// to 1 over 400 ms. Measured inside that window every box is a few percent
+// small: straight after a sheet's Add, each 44 px target read 42-43 px and
+// failed M3. Waits for the indent's transition to finish. With a sheet still
+// open the page stays scaled, but it's inert then and the checks skip it.
+async function waitForSheetIndent(page: Page) {
+  await page.waitForFunction(() => {
+    const indent = document.querySelector('[data-slot="sheet-indent"]');
+    return !indent || indent.getAnimations().length === 0;
+  });
+}
+
 // DESIGN.md rule M3: every tap target is at least 44 x 44 CSS px on phones.
 // Measures every visible button, link, input and checkbox/switch/tab/menu
 // item. A control passes when its own box is big enough, or when the thing
@@ -88,6 +102,7 @@ export async function expectNoHorizontalOverflow(page: Page) {
 // its own. Call on every touch project (not desktop); mouse sizing is deliberately
 // denser. `min` is the 44px of M3, with 0.5px of slack for sub-pixel layout.
 export async function expectTouchTargets(page: Page, min = 44) {
+  await waitForSheetIndent(page);
   const small = await page.evaluate((min) => {
     const selector = 'button, a[href], input:not([type="hidden"]), [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="button"], [role="option"]';
     const found: string[] = [];
@@ -144,6 +159,7 @@ export async function expectTouchTargets(page: Page, min = 44) {
 // pairwise; a pair where one contains the other (a button in a label) is
 // skipped. Call on touch projects.
 export async function expectTargetsApart(scope: Locator, gap = 8) {
+  await waitForSheetIndent(scope.page());
   const close = await scope.evaluate((root, gap) => {
     const els = Array.from(root.querySelectorAll<HTMLElement>('button, a[href], input:not([type="hidden"]), [role="checkbox"], [role="switch"], [role="option"]')).filter((el) => {
       const r = el.getBoundingClientRect();
@@ -245,6 +261,29 @@ export async function openRowSheet(page: Page, name: string) {
   const sheet = page.getByRole("dialog", { name, exact: true });
   await expect(sheet).toBeVisible();
   return sheet;
+}
+
+/** Waits until every dialog is closed and the history.back() the last one
+ * took its entry off with has landed. A dialog closed from the UI (a
+ * submit, Undo removing the row it edits) does that back() asynchronously
+ * (src/components/ui/dialog-history.ts, which marks <html> until it
+ * lands): a page.reload() issued before then races it and comes back
+ * net::ERR_ABORTED. Call it before a reload that follows a dialog closing. */
+export async function waitForDialogHistory(page: Page) {
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
+}
+
+/** page.goto, then waits until React has revealed every streamed Suspense
+ * boundary. goto resolves on `load`, but React 19.2 batches the reveals,
+ * so on a loaded runner the page can still be showing a loading.tsx
+ * skeleton (a pending boundary's `B:` template) while its content waits in
+ * a hidden `S:` div outside main. Measuring then gets the skeleton or a
+ * null box, and a bare getByText can match the hidden copy as well. Use it
+ * before measuring a page's layout. */
+export async function gotoRevealed(page: Page, url: string) {
+  await page.goto(url);
+  await page.waitForFunction(() => !document.querySelector("template[id^='B:'], div[hidden][id^='S:']"));
 }
 
 function escape(value: string) {

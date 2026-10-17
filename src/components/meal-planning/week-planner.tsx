@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { FillEmptyDaysDialog } from "@/components/meal-planning/fill-empty-days-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
@@ -123,6 +124,7 @@ export function WeekPlanner({
   entries,
   activeShoppingLists,
   batches,
+  missingCount,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -133,6 +135,10 @@ export function WeekPlanner({
   // GAP-49: active meal-prep batches, for the add-meal dialog's
   // "From meal prep" source.
   batches: PreparedBatchData[];
+  // UX-91: how many ingredients the planned week still needs, counted on
+  // the server (same diff as the review dialog's first preview). Zero on an
+  // empty week or a fully stocked one, which hides the primary action.
+  missingCount: number;
 }) {
   // GAP-39: the "Plan leftovers" toast action's dialog. Held here, not in the
   // cooked row, because that row stops rendering MarkCookedDialog the moment
@@ -281,7 +287,7 @@ export function WeekPlanner({
         />
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
+      <div className="list-bleed grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
         {days.map((day) => {
           // A day lists only what's planned, slot by slot, then one
           // "+ Add meal" that asks for the slot (UX-21's empty-day row, now
@@ -334,6 +340,20 @@ export function WeekPlanner({
           );
         })}
       </div>
+      {/* UX-91: turning the week into a shopping list is the planner's
+          primary action (DESIGN.md Hierarchy, M2), so it is a labelled
+          button at the bottom, floating above the bottom bar on phones,
+          not just the ⋯ menu's last item. It opens the same review dialog,
+          so nothing lands on a list unseen. Hidden when there is nothing
+          to add. */}
+      {entries.length > 0 && missingCount > 0 && (
+        <PrimaryAction>
+          <Button type="button" onClick={() => setMissingOpen(true)}>
+            <ListPlus className="size-4" />
+            {format(dict.addMissingToShoppingList, { count: missingCount })}
+          </Button>
+        </PrimaryAction>
+      )}
       {leftoversPlan && (
         <AddToPlanDialog
           key={leftoversPlan.batchId}

@@ -13,6 +13,8 @@ import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { getStockStatus } from "@/lib/stock-status";
+import { Greeting } from "@/components/dashboard/greeting";
+import { firstName } from "@/lib/greeting";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 
@@ -25,13 +27,6 @@ import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches
 // "View shopping lists" on one line: unwrapped, it pushed the chevron out
 // onto the card's border.
 const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto pointer-coarse:h-auto max-sm:min-h-11 pointer-coarse:min-h-11";
-
-function greetingKey(now: Date): "morning" | "afternoon" | "evening" {
-  const hour = now.getHours();
-  if (hour < 12) return "morning";
-  if (hour < 18) return "afternoon";
-  return "evening";
-}
 
 export default async function DashboardOverviewPage() {
   const [{ household, userId }, dict, locale] = await Promise.all([
@@ -140,7 +135,7 @@ export default async function DashboardOverviewPage() {
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>
-          {format(dict.dashboard.greeting[greetingKey(now)], { name: user.displayName })}
+          <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
         </PageTitle>
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>
@@ -149,7 +144,7 @@ export default async function DashboardOverviewPage() {
         <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="list-bleed grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
@@ -199,6 +194,10 @@ export default async function DashboardOverviewPage() {
             householdDebts={personalPosition.householdDebts}
             showHouseholdName={personalPosition.showHouseholdName}
             projection={personalPosition.safeToSpendProjection}
+            setupHrefs={{
+              income: "/dashboard/personal-budget?tab=transactions",
+              bills: "/dashboard/personal-budget?tab=manage",
+            }}
             dict={{
               ...dict.personalBudget.safeToSpend,
               title: dict.dashboard.yourBudgetTitle,
@@ -234,7 +233,7 @@ export default async function DashboardOverviewPage() {
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold tracking-tight">{dict.dashboard.householdSectionTitle}</h2>
         {memberCount > 0 && (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          <div className="list-bleed flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
             <Users className="size-4 shrink-0" />
             <span
               className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1"
@@ -253,7 +252,7 @@ export default async function DashboardOverviewPage() {
             </Link>
           </div>
         )}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="list-bleed grid gap-4 sm:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">

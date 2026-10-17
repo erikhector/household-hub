@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, gotoRevealed } from "./ui";
 
 // Core write paths through the real UI, server actions and database. Each
 // test creates its own uniquely named data, so reruns against the same
@@ -10,7 +10,11 @@ const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 // width. It used to collapse to a lone "+" below `sm`. Runs on both
 // projects, so the mobile run checks the 412 px phone layout.
 test("the Add task button shows its label", async ({ page }) => {
-  await page.goto("/dashboard/tasks");
+  // The button streams in its own Suspense boundary (tasks/page.tsx), and
+  // React 19.2 batches the reveals: on the iphone project's first visit (a
+  // cold WebKit, 11-13 s in CI) the skeleton could outlast the 5 s
+  // toBeVisible below. gotoRevealed (e2e/ui.ts) waits for the reveal.
+  await gotoRevealed(page, "/dashboard/tasks");
   const button = page.getByRole("button", { name: "Add task" });
   await expect(button).toBeVisible();
   await expect(button).toHaveText("Add task");
@@ -65,8 +69,8 @@ test("create a shopping list and add items to it", async ({ page, context, baseU
   // Each item renders as a checkbox labelled "<name> × <qty> <unit>".
   // Wait for both before reloading: the add runs in a transition, and a
   // reload that races it drops the request.
-  const milk = page.getByRole("checkbox", { name: /^milk ×/ });
-  const bread = page.getByRole("checkbox", { name: /^bread ×/ });
+  const milk = page.getByRole("checkbox", { name: /^milk\b/ });
+  const bread = page.getByRole("checkbox", { name: /^bread\b/ });
   await expect(milk).toBeVisible();
   await expect(bread).toBeVisible();
 
