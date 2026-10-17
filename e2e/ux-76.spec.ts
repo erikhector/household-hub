@@ -1,11 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { en } from "../src/lib/i18n/dictionaries/en";
-import { expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-76: the Profile is four sections (Account, Preferences, Notifications,
 // Data & privacy) with the rare items behind disclosures and Log out at the
 // end, instead of eleven loose cards.
 const t = en.profile;
+
+// The cookie notice sits over the bottom of a phone screen and would catch
+// the taps on the disclosures and Log out.
+test.beforeEach(async ({ context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+});
 
 test("profile is grouped into four sections, with Swish under Preferences", async ({ page }) => {
   await page.goto("/dashboard/profile");

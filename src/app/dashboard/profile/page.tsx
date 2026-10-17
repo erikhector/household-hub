@@ -47,7 +47,7 @@ export default async function ProfilePage() {
           <p className="mt-1 text-xs text-muted-foreground">{dict.profile.avatar.description}</p>
         </div>
       </div>
-      <div className="grid max-w-4xl items-start gap-x-6 gap-y-8 lg:grid-cols-2">
+      <div className="grid max-w-4xl items-start gap-x-6 gap-y-8 grid-cols-1 lg:grid-cols-2">
         <section aria-labelledby="profile-account" className="flex flex-col gap-3">
           <h2 id="profile-account" className={sectionHeading}>
             {dict.profile.sections.account}
