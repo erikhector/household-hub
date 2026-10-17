@@ -5922,8 +5922,22 @@ the locale fallback.
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
-- Profile has an "About Squirrel" card with the version and a link to the
-  page.
+- Profile has an "About Squirrel" disclosure with the version and a link to
+  the page (see "Profile sections" below).
+
+**Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
+`h2` region, instead of eleven loose cards: **Account** (display name,
+email and password as one card with a divider between the three forms, each
+keeping its own Save), **Preferences** (the Swish number; the Appearance and
+Language controls of UX-51 join it here), **Notifications** (push, weekly
+digest, install app) and **Data & privacy** (Export my data; the "About
+Squirrel" version and "Danger zone" account deletion behind native
+`<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
+`LogoutButton` as `no-household`, so the push subscription is dropped
+first, SEC-5) is the last element. One column on phones; from `lg` up
+the sections sit in two columns, row by row, so the DOM order is the phone
+order. The display-name card no longer repeats "Display name" as its own
+heading. `e2e/ux-76.spec.ts` covers it.
 
 ## Notification center
 

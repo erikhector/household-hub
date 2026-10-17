@@ -2759,6 +2759,13 @@ export const sv = {
     title: "Profil",
     subtitle: "Dina kontouppgifter.",
     reauthRateLimited: "För många försök. Vänta 15 minuter och försök igen.",
+    // UX-76: the four section headings that group the page's cards.
+    sections: {
+      account: "Konto",
+      preferences: "Inställningar",
+      notifications: "Aviseringar",
+      data: "Data och integritet",
+    },
     about: {
       title: "Om Squirrel",
       version: "Version {version}",
@@ -2768,7 +2775,6 @@ export const sv = {
       description: "Din avatar genereras automatiskt utifrån dina initialer — ingen uppladdning behövs.",
     },
     displayNameForm: {
-      title: "Visningsnamn",
       label: "Visningsnamn",
       saved: "Sparat",
       saving: "Sparar…",

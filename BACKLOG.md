@@ -322,7 +322,7 @@ UX-89, UX-90, UX-102, UX-113.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
   UX-105, UX-106.
-- `src/app/dashboard/profile/`: UX-51, UX-76.
+- `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
 - `src/components/meal-planning/week-planner.tsx`: UX-49, UX-91, UX-99.
@@ -418,7 +418,7 @@ UX-89, UX-90, UX-102, UX-113.
       - Profile has no language or theme setting at all.
       Acceptance: a first visit with no stored theme renders the system
       theme, and the browser chrome colour matches the page in both
-      schemes. Profile has "Language" and "Appearance (Light / Dark /
+      schemes. Profile has, in its Preferences section (UX-76), "Language" and "Appearance (Light / Dark /
       System)" segmented controls showing the current value. The
       menu/sidebar shortcuts show the current state.
 
@@ -721,19 +721,6 @@ UX-89, UX-90, UX-102, UX-113.
       instead.
 
 #### Profile and household settings
-
-- [ ] **UX-76. Profile grouped into a few sections** (impact: med,
-      effort: M) — breaks M6 and Hierarchy. `/dashboard/profile` is 11
-      cards, each with its own Save, four phone screens tall, and a
-      single 380 px column on desktop.
-      - "Swish number" (Sweden-only, split bills only) is second, above
-        email and password, even in English.
-      - The "Display name" card labels its field "Display name" again.
-      - There's no sign out on the page.
-      Acceptance: Profile has Account, Preferences (with UX-51's
-      Appearance and Language, and Swish), Notifications, and Data &
-      privacy. Rare items sit behind disclosures, and Sign out is at the
-      end. Desktop uses two columns or a settings nav.
 
 - [ ] **UX-77. Deleting your only household: explain instead of a button
       that refuses** (impact: low, effort: S) — breaks User control.
