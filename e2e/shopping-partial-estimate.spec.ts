@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
 
 // UX-87: a partial estimate must not pass for the trip's cost. The header
 // says how many rows the amount covers, and completing a list whose bought
@@ -61,12 +61,9 @@ test("the header says how many of the rows still to buy the estimate covers", as
     { name: "Mystery one", purchased: false, price: null },
     { name: "Mystery two", purchased: false, price: null },
   ]);
-  await page.goto(`/dashboard/shopping-list/${listId}`);
-  // Scoped to main: until React reveals the streamed page, a copy of it sits
-  // in a hidden div outside main, and an unscoped getByText can match both.
-  const main = page.getByRole("main");
-  await expect(main.getByText(/^≈ .*24[.,]50.* still to buy \(1 of 3 priced\)$/)).toBeVisible();
-  await expect(main.getByText(/left to spend/)).toHaveCount(0);
+  await gotoRevealed(page, `/dashboard/shopping-list/${listId}`);
+  await expect(page.getByRole("main").getByText(/^≈ .*24[.,]50.* still to buy \(1 of 3 priced\)$/)).toBeVisible();
+  await expect(page.getByText(/left to spend/)).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 
