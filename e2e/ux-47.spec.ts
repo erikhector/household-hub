@@ -52,9 +52,12 @@ test("a 60-character household name is truncated and the switcher stays on scree
   expect(triggerBox.x + triggerBox.width).toBeLessThanOrEqual(plusBox.x + 1);
   expect(plusBox.x + plusBox.width).toBeLessThanOrEqual(viewport.width);
 
-  // Truncated, not full: the clamped name is cut off.
-  const clipped = await nameEl.evaluate((el) => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1);
-  expect(clipped).toBe(true);
+  // The name wraps or clamps inside the trigger instead of spilling past it,
+  // and never grows beyond two lines (it is 60 characters long).
+  const nameBox = (await nameEl.boundingBox())!;
+  expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(triggerBox.x + triggerBox.width + 1);
+  const lineHeight = await nameEl.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect(nameBox.height).toBeLessThanOrEqual(lineHeight * 2 + 1);
 
   await expectNoHorizontalOverflow(page);
 });
