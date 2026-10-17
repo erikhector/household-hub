@@ -321,7 +321,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
-UX-87, UX-89, UX-90, UX-102, UX-113, UX-116.
+UX-89, UX-90, UX-102, UX-113, UX-116.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -877,20 +877,6 @@ UX-87, UX-89, UX-90, UX-102, UX-113, UX-116.
       Acceptance: quantity 1 with the default unit shows only the name in
       rows, the dock, the share page and copied text. Any other quantity
       ("milk × 2 l") still shows.
-
-- [ ] **UX-87. Don't log a partial estimate as the trip's cost**
-      (impact: high, effort: S) — breaks User control (automation
-      suggests) and Consistency. ⚠️ Touches transaction logging (money,
-      human-only area).
-      - Completing a 14-item shop with one priced item toasts "Logged
-        24.90 to Groceries in your budget"
-        (`shopping-list/actions.ts:2088-2109`). The budget silently
-        records a fraction of the trip.
-      - Mid-shop, the header's "About 24.90 left to spend" (`en.ts:534`)
-        reads like the budget's safe to spend.
-      Acceptance: the header reads "≈ 24.90 still to buy (1 of 14
-      priced)". When some bought items are unpriced, completion says so
-      and lets the user edit or skip the amount before it is logged.
 
 - [ ] **UX-88. Smart add: don't split on commas inside brackets**
       (impact: low, effort: S) — Usability. "dishwasher tablets

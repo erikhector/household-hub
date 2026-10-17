@@ -21,3 +21,14 @@
 export function sumEstimatedPendingTotal(pendingItems: { estimatedPrice: number | null }[]): number {
   return pendingItems.reduce((sum, item) => sum + (item.estimatedPrice ?? 0), 0);
 }
+
+/**
+ * UX-87: how much of a set of rows actually carries a price. The header
+ * shows "≈ 24.90 still to buy (1 of 14 priced)" instead of a bare amount,
+ * because a sum over one priced row of fourteen reads as the trip's cost
+ * when it is a fraction of it. Counts a row as priced exactly when
+ * sumEstimatedPendingTotal would add something for it (non-null price).
+ */
+export function countPriced(items: { estimatedPrice: number | null }[]): { priced: number; total: number } {
+  return { priced: items.filter((item) => item.estimatedPrice != null).length, total: items.length };
+}
