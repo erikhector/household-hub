@@ -247,19 +247,6 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
-- [ ] **MAINT-22. Flaky: `page.reload` aborted in the duplicate-recipe Undo
-      test** (medium, S) — `[desktop]` and `[mobile]`
-      `e2e/duplicate-recipe.spec.ts:67` ("Undo on the toast removes the
-      copy and leaves the original") fails with `page.reload:
-      net::ERR_ABORTED`. On clean `next` (2c99254) it failed 5 of 16 runs
-      with `--repeat-each=8`; it also failed and passed on re-run in
-      builder gates for PRs #268 and #272. The reload is probably issued
-      while the Undo server action's revalidation navigation is still in
-      flight. Fix the cause in the app or in what the test waits for
-      (wait for the undo to settle before reloading). Don't loosen the
-      assertion, skip it or add a retry. Acceptance: `npx playwright test
-      e2e/duplicate-recipe.spec.ts:67 --project=desktop --project=mobile
-      --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
