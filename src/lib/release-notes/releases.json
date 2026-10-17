@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.73.0",
+    "date": "2026-10-17",
+    "pr": 312,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Low stock at\" field is now \"Running low below\" and starts at 2 for items counted in pieces, so you get a low-stock warning before an item runs out. Items in grams or millilitres start empty.\n\nTicking a task now shows \"Done\" with an Undo button, the list no longer jumps when you tick your first task of the week, and finishing your last open task gets a friendly \"You're all caught up!\" from the squirrel.\n\nThe planner now has an \"Add N missing to shopping list\" button under your week. After adding, the confirmation tells you how many items went on the list and lets you open it.\n\nFixed a rare glitch where a confirmation (for example \"Remove meal?\") could close by itself right after you opened it from a sheet.\n\nShopping lists are more compact on phones: each item takes one line, so you see more of your list while you shop. Add a price from the ⋯ menu on a row.",
+      "sv": "Fältet \"Lågt lager vid\" heter nu \"Lågt lager under\" och börjar på 2 för varor som räknas i styck, så du får en varning om lågt lager innan varan tar slut. Varor i gram eller milliliter börjar tomma.\n\nNär du bockar av en syssla visas nu \"Klart\" med en Ångra-knapp, listan hoppar inte längre när du bockar av veckans första syssla, och när sista sysslan är klar får du ett glatt \"Nu är allt klart!\" av ekorren.\n\nPlaneraren har nu en knapp, \"Lägg till N saknade i inköpslista\", under veckan. Efteråt visas hur många varor som lades till, och du kan öppna listan direkt.\n\nÅtgärdade ett sällsynt fel där en bekräftelse (till exempel \"Ta bort måltid?\") kunde stängas av sig själv direkt efter att du öppnat den från ett blad.\n\nInköpslistor är kompaktare på mobilen: varje vara tar en rad, så du ser mer av listan medan du handlar. Lägg till ett pris via ⋯-menyn på raden."
+    }
+  },
+  {
     "version": "0.72.0",
     "date": "2026-10-17",
     "pr": 304,
