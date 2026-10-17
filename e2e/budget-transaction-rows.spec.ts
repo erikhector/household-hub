@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets, waitForDialogHistory } from "./ui";
 
 // Phone pass (Oct 2026), P2: transactions on a phone are compact rows under
 // day headers. The row itself opens the edit sheet (which holds Delete),
@@ -93,13 +93,19 @@ test("phone rows open the edit sheet, name themselves and delete from the sheet"
 
   await del.click();
   await page.getByRole("dialog", { name: "Delete this transaction?" }).getByRole("button", { name: "Delete" }).click();
+  // Wait for the delete itself before checking the row or reloading. While
+  // the confirm shows "Deleting…" the row is still on the page, but the two
+  // open modals hide it from the accessibility tree, so `toHaveCount(0)`
+  // passes before the server has answered. A reload at that point aborts
+  // the action's POST (the server still commits it, but the reloaded page
+  // can be rendered first and still show the row). Both sheets close only
+  // once the delete has returned (ConfirmDialog awaits it, then the edit
+  // sheet closes on success), and their history.back()s land
+  // asynchronously after that (dialog-history.ts), which
+  // waitForDialogHistory also waits for so the reload isn't aborted.
+  await waitForDialogHistory(page);
   await expect(row).toHaveCount(0);
-  // Closing the two sheets steps back over their history entries
-  // (dialog-history.ts), asynchronously; a reload racing that back() is
-  // aborted, so retry it until the page has settled.
-  await expect(async () => {
-    await page.reload();
-  }).toPass();
+  await page.reload();
   await expect(main.getByRole("button", { name: new RegExp(`^${category}`) })).toBeVisible();
   await expect(main.getByRole("button", { name: new RegExp(`^${described}`) })).toHaveCount(0);
 });
