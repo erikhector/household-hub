@@ -2230,6 +2230,15 @@ which delegates the actual math to a pure, dependency-free
 import, so no mocking needed) rather than inlining it, since a Server
 Component page function can't itself be unit-tested.
 
+- **Empty budget (UX-116)**: with nothing recorded at all: no income
+  (logged or expected), no recurring or due items, nothing owed from
+  earlier and no logged expenses or savings (`needsSafeToSpendSetup`;
+  spending without income still shows its negative number), the card shows no number and no "good shape"
+  line. It says "Add your income and regular bills to see what's safe to
+  spend" with two actions, "Add income" (the Transactions tab) and "Add
+  regular bills" (the Manage tab), keeping the month and household in the
+  URL. Once there is data the totals carry a one-line legend for the "+",
+  "–" and "→" in front of them.
 - **The headline number** ("Remaining after expenses and savings"): the
   selected month's income so far, minus that month's expenses and savings
   so far (the same totals `PeriodSummary` computes from the page's
@@ -5609,6 +5618,11 @@ components directly.
   isn't part of the bottom bar. The switcher row spans its container, so
   its "Create household" `+` sits at the right edge of the header (and of
   the expanded sidebar) rather than just after the household name (UX-26).
+  A long household name (the field allows 60 characters) is clamped (two
+  lines on a phone, one on desktop) with the full name in its `title` and in
+  the dropdown: the trigger `Button` overrides its base `shrink-0
+  whitespace-nowrap`, so the chevron and "+" stay on screen at 412 and 1280
+  px (UX-47, `e2e/ux-47.spec.ts`).
 - **Where you are (UX-27)**: the current page is marked in both layouts
   (`aria-current="page"` plus the active fill). On a phone, What's new and
   the notification centre belong to the "More" menu, so while one is open

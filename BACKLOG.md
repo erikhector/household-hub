@@ -247,19 +247,6 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
-- [ ] **MAINT-22. Flaky: `page.reload` aborted in the duplicate-recipe Undo
-      test** (medium, S) — `[desktop]` and `[mobile]`
-      `e2e/duplicate-recipe.spec.ts:67` ("Undo on the toast removes the
-      copy and leaves the original") fails with `page.reload:
-      net::ERR_ABORTED`. On clean `next` (2c99254) it failed 5 of 16 runs
-      with `--repeat-each=8`; it also failed and passed on re-run in
-      builder gates for PRs #268 and #272. The reload is probably issued
-      while the Undo server action's revalidation navigation is still in
-      flight. Fix the cause in the app or in what the test waits for
-      (wait for the undo to settle before reloading). Don't loosen the
-      assertion, skip it or add a retry. Acceptance: `npx playwright test
-      e2e/duplicate-recipe.spec.ts:67 --project=desktop --project=mobile
-      --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
@@ -321,7 +308,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-46, UX-47, UX-48, UX-55, UX-57,
-UX-89, UX-90, UX-102, UX-113, UX-116.
+UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -353,21 +340,6 @@ UX-89, UX-90, UX-102, UX-113, UX-116.
       Acceptance: the phone header has no standalone "+". "Create
       household" is a menu item at the bottom of the household switcher
       dropdown, on desktop too.
-
-- [ ] **UX-47. Long household names break the header and sidebar**
-      (impact: high, effort: S) — breaks M1 and M9.
-      - The name field accepts 60 characters, but the switcher trigger is
-        a `Button`, whose base `shrink-0 whitespace-nowrap`
-        (`src/components/ui/button.tsx:6`) overrides the switcher's
-        `min-w-0 line-clamp-2` (`household-switcher.tsx:93`).
-      - On a phone a 58-character name pushes the chevron and "+" off
-        the 412 px screen, out of reach.
-      - On desktop even a 37-character name ("Familjen Öberg-Håkansson på
-        Södermalm") spills over the sidebar onto the page heading.
-      Acceptance: with a 60-character household name, the header and
-      sidebar truncate the name and the full name is reachable (dropdown
-      or title). The chevron stays visible at 412 and 1280 px, and
-      `expectNoHorizontalOverflow` passes.
 
 - [ ] **UX-48. Keep toasts off bottom-sheet buttons and the shopping
       dock** (impact: high, effort: S) — breaks M2 and User control. On
@@ -1197,19 +1169,6 @@ UX-89, UX-90, UX-102, UX-113, UX-116.
       Acceptance: bars are one neutral colour, `warning` from 90% with
       "Almost at limit", and `destructive` when over. Sparklines may keep
       category hues.
-
-- [ ] **UX-116. An empty budget isn't "in good shape"** (impact: high,
-      effort: S) — breaks Usability (every state designed) and honest
-      status. ⚠️ money.
-      - Right after "Add 6 categories" the card shows a giant green
-        "+0.00" and "You're in good shape for the rest of the month."
-      - The starter categories have no limits, and onboarding stops
-        there.
-      - The "+", "–" and "→" glyphs on totals are unexplained.
-      Acceptance: with no income or recurring items, the card shows a
-      setup state ("Add your income and regular bills to see what's safe
-      to spend") with those two actions, not a green 0. Totals carry
-      words or a legend for the glyphs.
 
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
