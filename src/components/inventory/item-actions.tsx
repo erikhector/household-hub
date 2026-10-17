@@ -133,7 +133,6 @@ export function ItemActions({
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onAddToList(item)}>{dict.addToList.menu}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
           {!autoAddEnabled && (
             <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>
@@ -217,6 +216,7 @@ export function ItemActions({
           {canMarkOpened && <DropdownMenuItem onClick={() => onMarkOpened(item)}>{dict.markOpened}</DropdownMenuItem>}
           {canFreeze && <DropdownMenuItem onClick={() => onFreeze(item)}>{dict.freeze}</DropdownMenuItem>}
           <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddToList(item)}>{dict.addToList.menu}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
           {!autoAddEnabled && (
             <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>
