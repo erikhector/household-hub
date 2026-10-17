@@ -330,7 +330,7 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
-  UX-80, UX-81, UX-84, UX-85, UX-86.
+  UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
@@ -868,15 +868,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       Acceptance: the list ⋯ menu (and tapping the title) offers Rename.
       The New list sheet offers "Start from: blank / a template / a
       recent list (unbought or all items)". Template rows say "Use".
-
-- [ ] **UX-86. Hide the default "× 1 pcs"** (impact: med, effort: S) —
-      breaks Hierarchy and M6. "Bananas × 1 pcs", "coffee × 1 pcs" appear
-      on most rows (`shopping-list-client.tsx:1235-1240`), in the dock
-      (`shopping-mode.tsx:159`), on the share page and in copied text
-      ("- 1 pcs dill").
-      Acceptance: quantity 1 with the default unit shows only the name in
-      rows, the dock, the share page and copied text. Any other quantity
-      ("milk × 2 l") still shows.
 
 - [ ] **UX-87. Don't log a partial estimate as the trip's cost**
       (impact: high, effort: S) — breaks User control (automation
