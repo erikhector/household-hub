@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.73.1",
+    "date": "2026-10-17",
+    "pr": 315,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed a rare glitch where a confirmation (for example \"Remove meal?\") could close by itself right after you opened it from a sheet.\n\nJoining a household from an invite link now confirms that you've joined, instead of wrongly saying the invite is invalid.",
+      "sv": "Åtgärdade ett sällsynt fel där en bekräftelse (till exempel \"Ta bort måltid?\") kunde stängas av sig själv direkt efter att du öppnat den från ett blad.\n\nAtt gå med i ett hushåll via en inbjudningslänk bekräftar nu att du har gått med, i stället för att felaktigt säga att inbjudan är ogiltig."
+    }
+  },
+  {
     "version": "0.73.0",
     "date": "2026-10-17",
     "pr": 312,
