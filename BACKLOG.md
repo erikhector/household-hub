@@ -1193,16 +1193,6 @@ UX-89, UX-90, UX-102, UX-113.
       amount). Step sizes suit the unit (g by 50 or 100). A gram item
       drops by 200 g in at most two taps.
 
-- [ ] **UX-120. Make "Low stock at N" match the rule** (impact: high,
-      effort: S) — breaks Consistency. The rule is deliberately strict
-      (`quantity < threshold`, `src/lib/stock-status.ts:18`), but the field
-      says "Low stock at" (`en.ts:1007`) and defaults to 1. So every
-      whole-piece item goes from "In stock" straight to "Out of stock" and
-      never warns. REQUIREMENTS.md still says `<=`.
-      Acceptance: the field reads "Running low below" (sv too) with a
-      default that fits the unit (2 for pcs, empty for g/ml), and
-      REQUIREMENTS.md matches the rule.
-
 - [ ] **UX-121. What's low, out and expiring, at the top of the
       inventory** (impact: high, effort: M) — breaks Hierarchy and M6.
       With 4 out, 1 low and 4 expiring or expired, the header says nothing

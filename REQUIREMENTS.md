@@ -381,7 +381,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 
 **Inventory & shopping** (built)
 - `InventoryItem` — name, category, quantity, unit, `lowStockThreshold`,
-  location, `lastKnownPrice`. Low stock = `quantity <= lowStockThreshold`.
+  location, `lastKnownPrice`. Low stock = `0 < quantity < lowStockThreshold`
+  (strict, so restocking to exactly the threshold reads "in stock"); out =
+  `quantity <= 0`. The forms call the field "Running low below" (UX-120).
+  The add form pre-fills 2 for a piece count (1 would jump from "In stock"
+  straight to "Out of stock") and nothing for a weight or volume, which
+  follows the unit as it's picked; empty saves as 0, "warn only when out".
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
   status (in/low/out of stock); filter dropdown options come from the
@@ -412,8 +417,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       chips and the meal-planning tabs also write `?filter=` / `?tab=`
       with `history.replaceState`, so the browser's back button lands on
       the same filter or tab.
-    - **Header**: name, category · location, "In stock: 1 pcs · low stock
-      at 0.5 pcs" and "Change unit…".
+    - **Header**: name, category · location, "In stock: 1 pcs · running
+      low below 0.5 pcs" and "Change unit…".
     - **Units**: "Counted in {unit}" and each conversion, written the way
       people know the number (`conversionSentence`, the review's
       `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with

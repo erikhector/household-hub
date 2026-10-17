@@ -164,6 +164,18 @@ export function unitKind(unit: string): UnitKind | null {
 }
 
 /**
+ * UX-120: what the add-item form pre-fills in "Running low below" for a
+ * unit. The rule is strict (`quantity < threshold`, stock-status.ts), so a
+ * whole-piece item needs 2 to ever show "low" before "out" (1 would jump
+ * from "In stock" straight to "Out of stock"). A weight or volume has no
+ * natural level (500 g of flour is fine for one household and nothing for
+ * another), so it starts empty and the item is only ever "out".
+ */
+export function defaultLowStockThreshold(unit: string): string {
+  return unitKind(unit) === "count" ? "2" : "";
+}
+
+/**
  * How a recipe's unit relates to the unit an inventory item is counted in
  * (MATCH-1/MATCH-3, design §3.3):
  * - `same`: the same unit after canonicalizing ("st" and "pcs").
