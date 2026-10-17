@@ -2019,6 +2019,8 @@ export const en = {
     rowActionsAriaLabel: "More actions for {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
+    doneToast: "Done: {title}",
+    caughtUpTitle: "You're all caught up!",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
     recurrenceLabel: "Repeat",

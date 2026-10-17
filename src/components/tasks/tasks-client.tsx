@@ -6,6 +6,8 @@
 // editing a task both go through the shared TaskFormDialog (see
 // task-form-dialog.tsx) rather than delete-and-re-add.
 
+import { useState } from "react";
+import { toast } from "sonner";
 import { Check, Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,7 +27,7 @@ import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc"
 import { withLocalCompletion } from "@/lib/task-rotation";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
-import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
+import { MascotEmptyState, MascotMark } from "@/components/brand/mascot-empty-state";
 
 type MemberOption = { id: string; displayName: string };
 
@@ -72,8 +74,24 @@ export function TasksClient({
   const tasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed) =>
     withLocalCompletion(task, completed, currentMemberId, new Date()),
   );
+  // UX-104: set when a tick in this visit leaves no open task; it shows the
+  // "all caught up" card, and clears when a task is open again.
+  const [caughtUp, setCaughtUp] = useState(false);
   const toggleCompleted = (task: TaskRow) => {
-    const settle = local.markDone(task.id, !task.completed);
+    const completing = !task.completed;
+    const settle = local.markDone(task.id, completing);
+    if (completing) {
+      // The row leaves for "Completed" below the fold, so say what
+      // happened and offer the way back (M5, User control). Undo is the
+      // same toggle, from the state this tick left the task in.
+      toast(format(dict.doneToast, { title: task.title }), {
+        duration: 5000,
+        action: { label: dict.swipe.undo, onClick: () => toggleCompleted({ ...task, completed: true }) },
+      });
+      if (tasks.every((t) => t.completed || t.id === task.id)) setCaughtUp(true);
+    } else {
+      setCaughtUp(false);
+    }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
       settle(result !== null);
@@ -87,15 +105,21 @@ export function TasksClient({
 
   const openTasks = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
-  const recapGroups = computeWeeklyTaskRecap({
-    tasks: tasks
-      .filter((t) => t.completedAt !== null)
-      .sort((a, b) => a.completedAt!.getTime() - b.completedAt!.getTime()),
-    now,
-  }).map((group) => ({
-    memberName: group.completedByMemberId ? (memberNameById.get(group.completedByMemberId) ?? null) : null,
-    titles: group.titles,
-  }));
+  // UX-104: worked out once, from the list as the page opened. Following
+  // the list live mounted the recap (about 115 px) above the rows on the
+  // first tick of the week, so the rows jumped under the thumb (M5). A
+  // tick shows in the recap on the next visit.
+  const [recapGroups] = useState(() =>
+    computeWeeklyTaskRecap({
+      tasks: serverTasks
+        .filter((t) => t.completedAt !== null)
+        .sort((a, b) => a.completedAt!.getTime() - b.completedAt!.getTime()),
+      now,
+    }).map((group) => ({
+      memberName: group.completedByMemberId ? (memberNameById.get(group.completedByMemberId) ?? null) : null,
+      titles: group.titles,
+    })),
+  );
 
   return (
     <div ref={containerRef} className="relative flex flex-col gap-6">
@@ -121,6 +145,22 @@ export function TasksClient({
                 locale={locale}
               />
             ))}
+            {caughtUp && openTasks.length === 0 && (
+              // UX-104: the shopping list's "All done" moment, for chores.
+              // The squirrel rises in once and holds still; motion-safe
+              // keeps it a static image under prefers-reduced-motion. No
+              // count or streak (see "Household tasks": no tallies).
+              <div
+                role="status"
+                className="list-bleed flex flex-col items-center gap-2 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500"
+              >
+                <MascotMark
+                  alt={dict.mascotAlt}
+                  className="size-12 rounded-full motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:zoom-in-75 motion-safe:duration-700"
+                />
+                <p className="font-heading text-xl font-semibold">{dict.caughtUpTitle}</p>
+              </div>
+            )}
             {completedTasks.length > 0 && (
               <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
                 {dict.completedSectionLabel}

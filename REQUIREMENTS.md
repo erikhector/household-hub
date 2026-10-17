@@ -5196,6 +5196,13 @@ co-managers, not kids earning rewards.
   week renders nothing (`TasksWeeklyRecap`, dismissible, mirrors
   `MealVarietyRecap`'s shape exactly), same non-goal as the meal-planning
   variety recap.
+- **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
+  same toggle back, 5 s), since the row leaves for "Completed" below the
+  fold. The weekly recap is frozen at the list as the page opened, so the
+  first tick of the week doesn't shift rows. Ticking the last open task
+  shows a mascot "You're all caught up!" card in place of the open section
+  (squirrel rises in once; static under reduced motion; no count or
+  streak). It clears when a task is open again (Undo, a new task).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -6847,9 +6854,9 @@ as layout shift. Now:
   so the "Put away" button and badges appear at the tap. `withLocalCompletion` (`task-rotation.ts`) sets the task's
   completer (the page passes the viewer's member id), `completedAt` and a
   rotating task's next assignee. The tasks page's weekly recap is worked out
-  in `TasksClient` from those same rows (against the server's `now`), so a
-  completion shows in it at once instead of the recap growing when the
-  server answers and pushing the list down.
+  in `TasksClient` once, from the list as the page opened (UX-104), so a
+  tick never mounts or grows it above the rows under the thumb; it shows
+  in the recap on the next visit.
 - Used by the task list (tick, delete), the shopping list (delete) and
   inventory (delete). Shopping ticks have their own overlay with the same
   rules (`tick-overlay.ts`, UX-37), so each tap has one owner.

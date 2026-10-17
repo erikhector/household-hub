@@ -323,7 +323,7 @@ UX-89, UX-90, UX-102, UX-113.
   UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
   UX-105, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
@@ -996,21 +996,6 @@ UX-89, UX-90, UX-102, UX-113.
       Acceptance: choosing rotation with an assignee pre-fills the
       assignee as #1. A one-person rotation can't be submitted, and the
       hint shows as the error.
-
-- [ ] **UX-104. Ticking a task: undo, no list jump, and a "caught up"
-      moment** (impact: high, effort: M) — breaks M5 and User control,
-      and misses a delight moment.
-      - A ticked task vanishes to "Completed" below the fold with no toast
-        or undo.
-      - The first tick of the week mounts the "This week, the household
-        handled" recap above the list (`tasks-client.tsx:99-100`), so rows
-        jump about 115 px under the thumb.
-      - Ticking the last open task shows nothing, while shopping has the
-        mascot "All done" ring.
-      Acceptance: a tick shows "Done: {title} · Undo". The recap never
-      shifts rows during a tap (reserved space, or it appears on the next
-      visit). Ticking the last open task shows a mascot "You're all caught
-      up!" moment once (static under reduced motion).
 
 - [ ] **UX-105. An "all caught up" state, and old one-offs that leave**
       (impact: med, effort: S) — breaks Usability (every state designed)
