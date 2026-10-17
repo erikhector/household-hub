@@ -1162,6 +1162,12 @@ function ShoppingRow({
   // row you're reading at arm's length in the aisle — so it gets large
   // type. Ticked rows (In the cart) and read-only lists stay compact.
   const large = editable && !purchased;
+  // UX-79: on a phone a large row whose controls are only price and ⋯ keeps
+  // them on the name's line, so it is one 56 px line instead of two (118 px)
+  // and a 15-item list shows more than 2-3 rows above the dock. A row that
+  // also carries a chip or the "Match item" badge keeps the stacked second
+  // line: those are too wide to share a 412 px line with a readable name.
+  const inline = large && !needsMapping && !(item.category !== null && !groupedByCategory);
 
   // A just-added row scrolls into view if the list is long enough to have
   // hidden it ("nearest" leaves it alone if it's already on screen). New
@@ -1219,6 +1225,7 @@ function ShoppingRow({
           // this is when it matters most; a read-only list stays compact.
           editable ? "px-3 py-3" : "px-3 py-2",
           large && "min-h-14",
+          inline && "max-sm:py-1",
           highlighted && "border-primary/50 bg-primary/10",
           // UX-37: the just-ticked row drops and fades towards "In the cart"
           // below for LEAVE_MS, then moves there. motion-safe only; under
@@ -1233,7 +1240,12 @@ function ShoppingRow({
             since GAP-13 added a currency symbol — edit, delete) left a phone
             only a few pixels of truncated name, the one part of the row you
             actually need to read in the aisle. */}
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+        <div
+          className={cn(
+            "flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2",
+            inline && "max-sm:flex-row max-sm:items-center max-sm:gap-1",
+          )}
+        >
           <label
             className={cn(
               "flex min-w-0 flex-1 items-center gap-3",
@@ -1298,6 +1310,7 @@ function ShoppingRow({
               "relative z-10 flex shrink-0 flex-wrap items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2 empty:hidden sm:pl-0",
               editable ? "pl-8" : "pl-7",
               large && "max-sm:pl-9",
+              inline && "max-sm:flex-nowrap max-sm:pl-0",
             )}
           >
             {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
@@ -1316,7 +1329,7 @@ function ShoppingRow({
                 dict={dict.categoryChip}
               />
             )}
-            <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} />
+            <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} hideAddOnPhone={inline} />
             {editable && (
               <>
                 <ShoppingItemFormDialog
@@ -1358,6 +1371,10 @@ function ShoppingRow({
                   label={format(dict.rowActionsAriaLabel, { name: item.name })}
                   editLabel={dict.swipe.edit}
                   deleteLabel={dict.swipe.delete}
+                  // UX-79: an inline row has no room for "Add price" beside
+                  // the name, so the ⋯ carries it (the ≈ price button, once
+                  // there is one, stays on the row to correct it).
+                  priceLabel={inline && item.estimatedPrice == null ? dict.addPriceLabel : undefined}
                   disabled={isPending}
                 />
               </>
@@ -1418,6 +1435,7 @@ function PriceTag({
   startTransition,
   numberFormat,
   dict,
+  hideAddOnPhone = false,
 }: {
   item: ShoppingListItemRow;
   editable: boolean;
@@ -1425,6 +1443,7 @@ function PriceTag({
   startTransition: (fn: () => void) => void;
   numberFormat: Intl.NumberFormat;
   dict: ShoppingListDict;
+  hideAddOnPhone?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => (item.estimatedPrice != null ? String(item.estimatedPrice) : ""));
@@ -1441,7 +1460,14 @@ function PriceTag({
     return (
       <button
         type="button"
-        className="touch-target shrink-0 justify-center rounded px-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline tabular-nums"
+        className={cn(
+          "touch-target shrink-0 justify-center rounded px-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline tabular-nums",
+          // UX-79: on an inline row it's reached from the row's ⋯ instead
+          // (RowActionsMenu clicks this same button, so the inline editor
+          // is the one a tap opens).
+          hideAddOnPhone && item.estimatedPrice == null && "max-sm:hidden",
+        )}
+        data-price-edit
         disabled={isPending}
         onClick={() => {
           setDraft(item.estimatedPrice != null ? String(item.estimatedPrice) : "");

@@ -319,7 +319,7 @@ UX-89, UX-90, UX-102, UX-113.
 - Needs a decision before building: UX-135 to UX-138.
 
 **File conflicts.** Don't build these in parallel:
-- `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
+- `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
@@ -738,17 +738,6 @@ UX-89, UX-90, UX-102, UX-113.
       `squirrel-my-data-<date>.json`.
 
 #### Shopping
-
-- [ ] **UX-79. Compact rows on an active list** (impact: high, effort:
-      M) — breaks M6. Every pending row is 118 px: a name line plus
-      "Add price ✎ 🗑" (`shopping-list-client.tsx:1196-1340`). With the
-      264 px dock and the sticky add bar, only 2–3 rows fit at 412×839.
-      With a long list title, not one whole row shows on first load.
-      Bring! and AnyList show 8–10.
-      Acceptance: at 412×839 an active 15-item list shows at least 6 full
-      rows above the dock. A row without a note is 56–64 px. Price, edit
-      and delete are reachable by swipe or a row tap, and targets stay at
-      least 44 px.
 
 - [ ] **UX-80. Finish a shop in one step and carry unbought items over**
       (impact: high, effort: M) — breaks User control and Usability.
