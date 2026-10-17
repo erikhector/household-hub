@@ -227,29 +227,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-23. Flaky: the "Remove meal" confirm closes by itself after
-      the meal sheet hands over to it** (medium, S) — `[desktop]`
-      `e2e/meal-prep.spec.ts` ("record, plan, return and eat a prepped
-      batch", the `Remove ${recipeName}?` step) timed out once in 30 local
-      runs (`--repeat-each=15` on desktop and mobile, 3 workers): the
-      confirm opened, its Remove button detached, and the screenshot shows
-      the week with no dialog and both meals still planned. Not seen in
-      GitHub's e2e logs. Seen again 2026-10-17 at the "Mark as eaten"
-      step of the same test (`[mobile]`, full local suite): the confirm's
-      submit detached until the 30 s test timeout, the same sheet-to-dialog
-      handover. A probe that opens a meal's sheet, taps Remove
-      meal and checks the confirm 400 ms later passed 80/80 (settled page
-      and straight after `goto`), and 50/50 with 4–10× CPU throttling.
-      Suspect: `openFromSheet` closes the sheet and opens the confirm in
-      one render, so the sheet's `history.back()` and the confirm's
-      `pushDialogEntry` (a tick late) race in `dialog-history.ts`; if the
-      back lands on the entry below the sheet's after the push, the
-      `overwritten` path's `history.forward()` lands on the sheet's stale
-      entry and pops the confirm. Prove or rule that out first (log
-      `popstate` states on a failing run), then fix the cause. Don't
-      loosen the assertion or add a retry. Acceptance: `npx playwright
-      test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
-      --project=desktop --project=mobile --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
@@ -319,16 +296,16 @@ UX-89, UX-90, UX-102, UX-113.
 - Needs a decision before building: UX-135 to UX-138.
 
 **File conflicts.** Don't build these in parallel:
-- `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
+- `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
   UX-105, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
-- `src/components/meal-planning/week-planner.tsx`: UX-49, UX-91, UX-99.
+- `src/components/meal-planning/week-planner.tsx`: UX-49, UX-99.
 
 #### Shell and cross-cutting
 
@@ -739,17 +716,6 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Shopping
 
-- [ ] **UX-79. Compact rows on an active list** (impact: high, effort:
-      M) — breaks M6. Every pending row is 118 px: a name line plus
-      "Add price ✎ 🗑" (`shopping-list-client.tsx:1196-1340`). With the
-      264 px dock and the sticky add bar, only 2–3 rows fit at 412×839.
-      With a long list title, not one whole row shows on first load.
-      Bring! and AnyList show 8–10.
-      Acceptance: at 412×839 an active 15-item list shows at least 6 full
-      rows above the dock. A row without a note is 56–64 px. Price, edit
-      and delete are reachable by swipe or a row tap, and targets stay at
-      least 44 px.
-
 - [ ] **UX-80. Finish a shop in one step and carry unbought items over**
       (impact: high, effort: M) — breaks User control and Usability.
       - Marking an item "Didn't get it" in the put-away sheet and tapping
@@ -859,18 +825,6 @@ UX-89, UX-90, UX-102, UX-113.
       new" and needs a tap to accept. Saving a recipe with Rice and Cream
       on the defaults never links Ricotta or Breadcrumbs (unit test on the
       default choice).
-
-- [ ] **UX-91. The planner's primary action: "Add N missing to shopping
-      list"** (impact: high, effort: S) — breaks Hierarchy and M2. The
-      Planner tab has no primary action. Its most valuable step, turning a
-      week into a shopping list, hides in an unlabelled ⋯ at the top right
-      (`week-planner.tsx:234-262`) and shows even on an empty week. The
-      toast only says `Added to "Weekly shop"`
-      (`missing-ingredients-dialog.tsx:123`), with no count and no way
-      there.
-      Acceptance: a planned week shows a bottom-anchored primary "Add N
-      missing to shopping list" button, hidden on an empty week. The toast
-      names the count and has "Open list".
 
 - [ ] **UX-92. "Add to plan" and the instructions in the recipe sheet**
       (impact: high, effort: S) — User-centricity (shortest path from
@@ -996,21 +950,6 @@ UX-89, UX-90, UX-102, UX-113.
       Acceptance: choosing rotation with an assignee pre-fills the
       assignee as #1. A one-person rotation can't be submitted, and the
       hint shows as the error.
-
-- [ ] **UX-104. Ticking a task: undo, no list jump, and a "caught up"
-      moment** (impact: high, effort: M) — breaks M5 and User control,
-      and misses a delight moment.
-      - A ticked task vanishes to "Completed" below the fold with no toast
-        or undo.
-      - The first tick of the week mounts the "This week, the household
-        handled" recap above the list (`tasks-client.tsx:99-100`), so rows
-        jump about 115 px under the thumb.
-      - Ticking the last open task shows nothing, while shopping has the
-        mascot "All done" ring.
-      Acceptance: a tick shows "Done: {title} · Undo". The recap never
-      shifts rows during a tap (reserved space, or it appears on the next
-      visit). Ticking the last open task shows a mascot "You're all caught
-      up!" moment once (static under reduced motion).
 
 - [ ] **UX-105. An "all caught up" state, and old one-offs that leave**
       (impact: med, effort: S) — breaks Usability (every state designed)
@@ -1192,16 +1131,6 @@ UX-89, UX-90, UX-102, UX-113.
       keypad and "Used / Bought" with quick chips (½, all, the last
       amount). Step sizes suit the unit (g by 50 or 100). A gram item
       drops by 200 g in at most two taps.
-
-- [ ] **UX-120. Make "Low stock at N" match the rule** (impact: high,
-      effort: S) — breaks Consistency. The rule is deliberately strict
-      (`quantity < threshold`, `src/lib/stock-status.ts:18`), but the field
-      says "Low stock at" (`en.ts:1007`) and defaults to 1. So every
-      whole-piece item goes from "In stock" straight to "Out of stock" and
-      never warns. REQUIREMENTS.md still says `<=`.
-      Acceptance: the field reads "Running low below" (sv too) with a
-      default that fits the unit (2 for pcs, empty for g/ml), and
-      REQUIREMENTS.md matches the rule.
 
 - [ ] **UX-121. What's low, out and expiring, at the top of the
       inventory** (impact: high, effort: M) — breaks Hierarchy and M6.

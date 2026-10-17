@@ -228,19 +228,31 @@ test("a failed task tick rolls back at once while another tick is still saving",
       }
       if (body.includes(slowId)) {
         await slowHeld;
-        await route.continue();
-        slowAnswered = true;
-        return;
+        return route.continue();
       }
       return route.continue();
     },
   );
+  // Counted on the response, not after route.continue(): that resolves once
+  // the request is sent, so the reload below could beat the save to the
+  // database (or abort it) and find the task still open.
+  page.on("response", (response) => {
+    const request = response.request();
+    if (request.method() === "POST" && "next-action" in request.headers() && (request.postData() ?? "").includes(slowId)) {
+      slowAnswered = true;
+    }
+  });
 
   // Failing one first: Next sends a page's Server Actions one at a time, so
   // its request goes (and fails after a second) while the slow one, tapped
   // right after, waits behind it and is then held. Both are in flight when
-  // the first one fails.
+  // the first one fails. Wait for the failing save to leave the page before
+  // tapping the slow one (as shopping-mode.spec.ts does): otherwise the slow
+  // request can go first and be held, and the failing one queues behind it
+  // and never fails.
+  const failSent = page.waitForRequest((request) => request.method() === "POST" && (request.postData() ?? "").includes(failId));
   await page.getByRole("checkbox", { name: `Mark ${failTitle} as done` }).click();
+  await failSent;
   await page.getByRole("checkbox", { name: `Mark ${slowTitle} as done` }).click();
 
   await expect(page.getByRole("checkbox", { name: `Mark ${failTitle} as done` })).not.toBeChecked();

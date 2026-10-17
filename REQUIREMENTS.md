@@ -381,7 +381,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 
 **Inventory & shopping** (built)
 - `InventoryItem` — name, category, quantity, unit, `lowStockThreshold`,
-  location, `lastKnownPrice`. Low stock = `quantity <= lowStockThreshold`.
+  location, `lastKnownPrice`. Low stock = `0 < quantity < lowStockThreshold`
+  (strict, so restocking to exactly the threshold reads "in stock"); out =
+  `quantity <= 0`. The forms call the field "Running low below" (UX-120).
+  The add form pre-fills 2 for a piece count (1 would jump from "In stock"
+  straight to "Out of stock") and nothing for a weight or volume, which
+  follows the unit as it's picked; empty saves as 0, "warn only when out".
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
   status (in/low/out of stock); filter dropdown options come from the
@@ -412,8 +417,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       chips and the meal-planning tabs also write `?filter=` / `?tab=`
       with `history.replaceState`, so the browser's back button lands on
       the same filter or tab.
-    - **Header**: name, category · location, "In stock: 1 pcs · low stock
-      at 0.5 pcs" and "Change unit…".
+    - **Header**: name, category · location, "In stock: 1 pcs · running
+      low below 0.5 pcs" and "Change unit…".
     - **Units**: "Counted in {unit}" and each conversion, written the way
       people know the number (`conversionSentence`, the review's
       `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with
@@ -886,6 +891,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       its padding, note or hint ticks it, still through the native
       label/input pairing; the controls column (price, edit, delete) sits
       above it at `z-10`.
+    - *One line per row on a phone (UX-79)*: an unticked row whose
+      controls are only price and ⋯ (no category chip, not unlinked) keeps
+      them on the name's line, 56 px tall instead of 118, so 6+ whole rows
+      of a 15-item list fit between the sticky add bar and the dock at
+      412×839. With no price set, "Add price" isn't on the row; the ⋯
+      menu carries it (Edit, Add price, Delete) and opens the same inline
+      editor. Once there is a price, the ≈ price button stays on the row.
+      Rows with a chip or the "Match item" badge keep the stacked second
+      line.
     - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
       row into `ShoppingListClient`, because a ticked row now changes
       section. It's plain state, not `useOptimistic`: React 19 entangles
@@ -3845,7 +3859,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   rows on a phone (DESIGN.md M6). The controls are one row: ‹ ›, the week
   range, "This week" (only when another week is shown) and a ⋯ menu ("More
   planner actions") holding "Copy last week" (empty week only), "Fill
-  empty days" and "Add missing ingredients to shopping list". On phones
+  empty days" and "Add missing ingredients to shopping list" (the week's
+  main shopping-list action is the bottom "Add N missing" button, UX-91,
+  see "Meal-plan → shopping-list bridge"). On phones
   that row is sticky at the top of the scrolling page (the shopping list's
   frosted add-bar style), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
@@ -4328,10 +4344,20 @@ imported recipe" requirement.
 
 ### Meal-plan → shopping-list bridge
 
-An "Add missing ingredients to shopping list" button
-(`MissingIngredientsDialog`, `src/components/meal-planning/missing-ingredients-dialog.tsx`)
-sits next to the "This week" control in the weekly planner
-(`WeekPlanner`). By default it's scoped to the whole visible week — the
+A planned week's primary action (UX-91) is "Add N missing to shopping list",
+where N is the number of ingredients the visible week still needs (counted
+on the server by `loadMissingIngredients`, `missing-for-range.ts`, the same
+diff the dialog previews). It is a `PrimaryAction` button at the bottom of
+the planner, floating above the bottom bar on phones (M2), and it is hidden
+on an empty week or when nothing is missing. It opens the review dialog
+below; the ⋯ menu keeps "Add missing ingredients to shopping list" for
+other date ranges. After adding, the toast says how many items landed ("Added
+2 items to "Weekly shop"", or "Everything was already on …" when all were
+duplicates) and has an "Open list" action that goes to that list
+(`addMissingIngredientsToShoppingListAction` returns `{ listId, addedCount }`).
+The review dialog (`MissingIngredientsDialog`,
+`src/components/meal-planning/missing-ingredients-dialog.tsx`) opens from
+that button or the ⋯ menu in the weekly planner (`WeekPlanner`). By default it's scoped to the whole visible week — the
 pattern every competitor researched (Mealime, Paprika, Plan to Eat, Whisk)
 uses — but it can cover any date range up to 31 days (GAP-32):
 
@@ -5191,6 +5217,13 @@ co-managers, not kids earning rewards.
   week renders nothing (`TasksWeeklyRecap`, dismissible, mirrors
   `MealVarietyRecap`'s shape exactly), same non-goal as the meal-planning
   variety recap.
+- **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
+  same toggle back, 5 s), since the row leaves for "Completed" below the
+  fold. The weekly recap is frozen at the list as the page opened, so the
+  first tick of the week doesn't shift rows. Ticking the last open task
+  shows a mascot "You're all caught up!" card in place of the open section
+  (squirrel rises in once; static under reduced motion; no count or
+  streak). It clears when a task is open again (Undo, a new task).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -5770,7 +5803,11 @@ components directly.
   replaces, and steps forward again if the app navigated (e.g. the merge
   dialog's `router.replace`) before its own `back()` landed. A dialog
   whose owner refuses to close (one that stays open while saving) gets a
-  fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
+  fresh entry. A dialog that opens while another's own `back()` is still on
+  its way (a sheet handing over to its confirm) waits for that back to land
+  before pushing its entry; pushing sooner made the back land below both
+  entries and the repairing `forward()` pop the new dialog (MAINT-23).
+  `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
@@ -6842,9 +6879,9 @@ as layout shift. Now:
   so the "Put away" button and badges appear at the tap. `withLocalCompletion` (`task-rotation.ts`) sets the task's
   completer (the page passes the viewer's member id), `completedAt` and a
   rotating task's next assignee. The tasks page's weekly recap is worked out
-  in `TasksClient` from those same rows (against the server's `now`), so a
-  completion shows in it at once instead of the recap growing when the
-  server answers and pushing the list down.
+  in `TasksClient` once, from the list as the page opened (UX-104), so a
+  tick never mounts or grows it above the rows under the thumb; it shows
+  in the recap on the next visit.
 - Used by the task list (tick, delete), the shopping list (delete) and
   inventory (delete). Shopping ticks have their own overlay with the same
   rules (`tick-overlay.ts`, UX-37), so each tap has one owner.
@@ -7193,6 +7230,17 @@ UX-14's rapid ticks and the rollback toast.
   (the landscape and tablet projects are touch but `sm` and up). A test
   that plans rows in a shared week removes them in an `afterEach`, pass or
   fail, since the desktop and mobile runs and a retry share the household.
+  A page measured or asserted straight after `goto` uses `gotoRevealed`,
+  which waits for React 19.2's batched Suspense reveals (a cold WebKit
+  could still show the tasks page's Add task skeleton after 5 s).
+  `expectTouchTargets` and `expectTargetsApart` first wait for
+  `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
+  page is still scaling back from 0.94, and every 44 px target measured
+  42-43 px. A test that holds a Server Action with `page.route` counts it
+  as answered on its `response`, not when `route.continue()` resolves
+  (that's when the request is sent, so a reload could beat the save).
+  The meal-prep journey test is `test.slow()`: twenty steps took two
+  thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
   that asserts it and passes on both projects, and a new page goes in
   `e2e/routes.ts` (AGENTS.md, "UI tests"). The self-review checklist, the

@@ -303,7 +303,7 @@ export function InventoryTable({
     location: dict.locationLabel,
     unit: dict.unitLabel,
     quantity: dict.quantityLabel,
-    lowStockThreshold: dict.lowStockAtLabel,
+    lowStockThreshold: dict.runningLowBelowLabel,
   };
 
   const groups = groupItems(items, groupBy, dict);
