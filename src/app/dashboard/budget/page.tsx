@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
+import { format } from "@/lib/i18n/format";
 import { ExportButton } from "@/components/export/export-button";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
@@ -349,6 +350,7 @@ async function BudgetTabsSection({
   now,
   readOnly,
   householdParam,
+  householdName,
 }: {
   householdId: string;
   userId: string;
@@ -365,6 +367,8 @@ async function BudgetTabsSection({
   now: Date;
   readOnly: boolean;
   householdParam: string | undefined;
+  // UX-110: the viewed household's name, for the onboarding copy.
+  householdName: string;
 }) {
   const [
     categories,
@@ -977,7 +981,11 @@ async function BudgetTabsSection({
       onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
       onLogTemplateAsIs={logRecurringTemplateAction}
       savingsGoals={savingsGoals}
-      onboarding={<BudgetOnboarding dict={dict.budget} createCategoryAction={createCategoryAction} />}
+      onboarding={<BudgetOnboarding
+          dict={dict.budget}
+          householdName={householdName}
+          createCategoryAction={createCategoryAction}
+        />}
       manage={manage}
       transactions={transactionsTab}
       insights={insights}
@@ -1062,6 +1070,10 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
             month bar and tabs already filled ~40% of the first screen
             before any number showed. */}
         <p className="text-sm text-muted-foreground max-sm:hidden">{dict.budget.subtitle}</p>
+        {/* UX-110: phones get one line saying what this budget is for. */}
+        <p className="text-sm text-muted-foreground sm:hidden">
+          {format(dict.budget.purpose, { household: viewedHouseholdName })}
+        </p>
       </div>
 
       {readOnly && (
@@ -1077,6 +1089,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       <Suspense fallback={<BudgetTabsSkeleton label={dict.common.loading} />}>
         <BudgetTabsSection
           householdId={householdId}
+          householdName={viewedHouseholdName}
           userId={userId}
           dict={dict}
           locale={locale}

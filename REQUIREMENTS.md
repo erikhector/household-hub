@@ -2892,6 +2892,15 @@ product decision; each page builds its own onboarding element and passes it
 in as the `onboarding` `ReactNode`, so `BudgetTabs` doesn't care which one
 it gets.
 
+**What each budget is for (UX-110).** On phones the subtitle is hidden, so
+each budget page shows one short purpose line under its title instead
+(`budget.purpose`: "Shared money for {household}: rent, food, bills.";
+`personalBudget.purpose`: "Only yours — no one else in the household sees
+it."). The two first-run cards differ in the same way: the household card
+names the viewed household, the personal card says no one else in the
+household sees it. The household budget card on Home (shown once it has
+categories) is not built; it is part of the Today block (UX-70).
+
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
 had already moved cost analyzer and balances into the `insights` node the

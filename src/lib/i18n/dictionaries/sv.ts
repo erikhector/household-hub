@@ -1965,6 +1965,7 @@ export const sv = {
   budget: {
     title: "Hushållsbudget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
+    purpose: "Gemensamma pengar för {household}: hyra, mat, räkningar.",
     readOnlyHousehold: {
       message:
         "Du tittar på budgeten för {household}. Den går bara att läsa här eftersom {active} är ditt aktiva hushåll.",
@@ -2141,7 +2142,7 @@ export const sv = {
     },
     onboarding: {
       title: "Sätt igång din budget",
-      body: "Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
+      body: "Gemensamma pengar för {household}: hyra, mat, räkningar. Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
     },
     starterCategories: {
       heading: "Eller lägg till ett startpaket",
@@ -2406,6 +2407,7 @@ export const sv = {
   personalBudget: {
     title: "Personlig budget",
     subtitle: "Dina egna inkomster och utgifter — separat från hushåll du är med i.",
+    purpose: "Bara dina — ingen annan i hushållet ser dem.",
     previousMonth: "Föregående månad",
     nextMonth: "Nästa månad",
     thisMonth: "Denna månad",
@@ -2576,7 +2578,7 @@ export const sv = {
     },
     onboarding: {
       title: "Sätt igång din budget",
-      body: "Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
+      body: "Pengar som bara är dina — ingen annan i hushållet ser dem. Lägg till en kategori för att börja registrera dina inkomster, utgifter och sparande; du kan alltid lägga till fler senare.",
     },
     shared: {
       sharedBadge: "Delad",

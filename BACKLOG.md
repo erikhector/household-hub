@@ -298,7 +298,7 @@ UX-89, UX-90, UX-102, UX-113.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
+- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
   UX-105, UX-106.
@@ -999,22 +999,6 @@ UX-89, UX-90, UX-102, UX-113.
       Categories are chips or a grouped list with expenses first and
       recent ones on top. The filtered or last-used category is
       preselected. Saving shows "Added 129 kr to Restaurang & café · Undo".
-
-- [ ] **UX-110. Say what the household and personal budgets are for,
-      where people look** (impact: high, effort: S) — breaks
-      User-centricity and Context.
-      - On phones both pages hide their subtitle (`max-sm:hidden` at
-        `budget/page.tsx:1064` and `personal-budget/page.tsx:483`).
-      - Both show the same "Let's set up your budget" copy under the same
-        household switcher, so nothing says whether "my salary" goes here
-        or there.
-      - Home shows only the personal budget card.
-      - The one good explanation lives in the getting-started checklist.
-      Acceptance: each budget page shows a one-line purpose on phones. The
-      onboarding cards differ ("Shared money for {household}: rent, food,
-      bills" vs "Money that's only yours — no one else in the household
-      sees it"). Home shows the household budget once it has categories
-      (with UX-70).
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
       effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
