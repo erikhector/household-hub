@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
 
@@ -63,6 +63,18 @@ test.afterAll(async () => {
   );
 });
 
+// The Status filter is saved on the user, so even a failed run must not
+// leave one behind for the specs that list the inventory after this one.
+test.afterEach(async () => {
+  await withClient((client) => client.query(`UPDATE "User" SET "inventoryViewPrefs" = NULL WHERE id = $1`, [E2E_USER.id]));
+});
+
+// The list is a table on desktop and a list of cards on a phone.
+function itemRows(page: Page) {
+  const main = page.getByRole("main");
+  return main.getByRole("row").or(main.getByRole("listitem")).filter({ hasText: prefix, visible: true });
+}
+
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
@@ -76,7 +88,7 @@ test("tapping a count in the inventory header filters the list", async ({ page }
   await expect(search).toHaveCount(1);
   await search.fill(prefix);
 
-  const rows = main.getByRole("listitem").filter({ hasText: prefix });
+  const rows = itemRows(page);
   // Status is saved with the view prefs, so start from a clean slate.
   const pressed = summary.getByRole("button", { pressed: true });
   if ((await pressed.count()) > 0) await pressed.first().click();
@@ -129,7 +141,7 @@ test("the Status filter offers Expiring and Expired", async ({ page }) => {
   await page.getByRole("option", { name: "Expired" }).click();
   if (isMobile) await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
 
-  const rows = page.getByRole("main").getByRole("listitem").filter({ hasText: prefix });
+  const rows = itemRows(page);
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText(names.expired);
 
