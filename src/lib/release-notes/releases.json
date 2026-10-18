@@ -1,13 +1,24 @@
 [
   {
+    "version": "0.77.0",
+    "date": "2026-10-18",
+    "pr": 363,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "List budget categories near or over their limit on Overview (UX-108)\n\nThe overview now starts with a Today block: your tasks and the household's unassigned ones (tick them right there), tonight's dinner, how much the household can safely spend, and what is about to expire.\n\nLong release notes on the What's new page now wrap instead of making the page scroll sideways on phones.",
+      "sv": "List budget categories near or over their limit on Overview (UX-108)\n\nÖversikten börjar nu med ett Idag-block: dina uppgifter och hushållets otilldelade (bocka av direkt), kvällens middag, hur mycket hushållet säkert kan spendera och vad som snart går ut.\n\nLånga versionsanteckningar på sidan Nyheter radbryts nu i stället för att få sidan att scrolla i sidled på mobilen."
+    }
+  },
+  {
     "version": "0.76.0",
     "date": "2026-10-18",
     "pr": 347,
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Cook mode now asks before you leave with a timer running or steps ticked, has a big \"Next step\" button that follows you down the recipe, lets you tick off ingredients, and ends with \"Done — mark as cooked\".\n\nWhen you split an expense, Squirrel now shows how much is left to split as you type each person's share, or how far over the total the shares are.\n\nThe bulk-edit bar in Inventory now stays at the bottom of the screen on phones however far down you tick an item, and has a Select all button.\n\nNo user-facing change.\n\nTapping a task's name now opens it for editing instead of marking it done. Tick the circle, or swipe right, to complete a task.\n\nThe add bar on the shopping list is now solid, so items scrolling underneath no longer show through the text field.",
-      "sv": "Tillagningsläget frågar nu innan du lämnar det med en timer igång eller avprickade steg, har en stor \"Nästa steg\"-knapp som följer dig genom receptet, låter dig pricka av ingredienser och avslutar med \"Klart – markera som lagad\".\n\nNär du delar en utgift visar Squirrel nu hur mycket som återstår att fördela medan du skriver in varje persons andel, eller hur mycket andelarna överstiger totalen.\n\nMassredigeringsfältet i Förråd ligger nu kvar längst ned på skärmen på mobilen, hur långt ned du än markerar en vara, och har en Markera alla-knapp.\n\nIngen ändring för användare.\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01KHV6c7yxD8fdeKyxvapda4\n\nAtt trycka på en uppgifts namn öppnar nu uppgiften för redigering i stället för att markera den som klar. Kryssa i rutan eller svep åt höger för att slutföra en uppgift.\n\nFältet för att lägga till varor på inköpslistan är nu heltäckande, så varor som scrollar under det syns inte längre genom textfältet."
+      "en": "Cook mode now asks before you leave with a timer running or steps ticked, has a big \"Next step\" button that follows you down the recipe, lets you tick off ingredients, and ends with \"Done — mark as cooked\".\n\nThe bulk-edit bar in Inventory now stays at the bottom of the screen on phones however far down you tick an item, and has a Select all button.\n\nTapping a task's name now opens it for editing instead of marking it done. Tick the circle, or swipe right, to complete a task.\n\nThe add bar on the shopping list is now solid, so items scrolling underneath no longer show through the text field.",
+      "sv": "Tillagningsläget frågar nu innan du lämnar det med en timer igång eller avprickade steg, har en stor \"Nästa steg\"-knapp som följer dig genom receptet, låter dig pricka av ingredienser och avslutar med \"Klart – markera som lagad\".\n\nMassredigeringsfältet i Lager ligger nu kvar längst ned på skärmen på mobilen, hur långt ned du än markerar en vara, och har en Markera alla-knapp.\n\nAtt trycka på en uppgifts namn öppnar nu uppgiften för redigering i stället för att markera den som klar. Bocka av cirkeln eller svep åt höger för att slutföra en uppgift.\n\nFältet för att lägga till varor på inköpslistan är nu heltäckande, så varor som skrollar under det syns inte längre genom textfältet."
     }
   },
   {
@@ -17,8 +28,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Notifications on phones now appear at the top of the screen, so they no longer cover buttons like \"Complete list\" or the shopping list's \"Next up\" items.\n\nAdding a transaction is faster: it opens on the amount, shows your categories as tappable chips with expenses first and your recent ones on top, picks the category you used last (or the one you're filtering by), and confirms with \"Added … · Undo\".",
-      "sv": "Aviseringar på mobilen visas nu högst upp på skärmen, så de döljer inte längre knappar som \"Slutför lista\" eller raderna under \"Nästa på tur\" i inköpslistan.\n\nDet går snabbare att lägga till en transaktion: bladet öppnas på beloppet, kategorierna visas som knappar med utgifter först och dina senaste överst, den kategori du använde sist (eller filtrerar på) är förvald, och du får en bekräftelse med \"Ångra\"."
+      "en": "Pop-up messages on phones now appear at the top of the screen, so they no longer cover buttons like \"Complete list\" or the shopping list's \"Next up\" items.\n\nAdding a transaction is faster: it opens on the amount, shows your categories as tappable chips with expenses first and your recent ones on top, picks the category you used last (or the one you're filtering by), and confirms with \"Added … · Undo\".",
+      "sv": "Meddelanden som dyker upp på mobilen visas nu högst upp på skärmen, så de döljer inte längre knappar som \"Slutför lista\" eller raderna under \"Näst på tur\" i inköpslistan.\n\nDet går snabbare att lägga till en transaktion: bladet öppnas på beloppet, kategorierna visas som knappar med utgifter först och dina senaste överst, den kategori du använde sist (eller filtrerar på) är förvald, och du får en bekräftelse med \"Ångra\"."
     }
   },
   {
@@ -28,8 +39,8 @@
     "kind": "fix",
     "breaking": false,
     "notes": {
-      "en": "Make the cookie notice a quiet strip the page makes room for (UX-57)",
-      "sv": null
+      "en": "On phones, the cookie notice is now a slim strip at the bottom of the screen, and the page makes room for it so it no longer covers buttons or content.",
+      "sv": "På mobilen är cookiemeddelandet nu en smal list längst ned på skärmen, och sidan lämnar plats åt det så att det inte längre täcker knappar eller innehåll."
     }
   },
   {
@@ -40,7 +51,7 @@
     "breaking": false,
     "notes": {
       "en": "Open a recipe and add it to your meal plan straight away. The recipe's instructions are now shown there too, under the ingredients.\n\nEach budget now says what it is for: the household budget is shared money for your home, and your personal budget is only yours. Phones show this under the page title.\n\nYou can now add an item to your shopping list from Inventory without marking it empty, one at a time or for several selected items. Items already on a list are tagged \"On list\".",
-      "sv": "Öppna ett recept och lägg det direkt i veckomenyn. Receptets instruktioner visas nu också där, under ingredienserna.\n\nVarje budget säger nu vad den är till för: hushållsbudgeten är gemensamma pengar för hemmet och din personliga budget är bara din. På mobilen visas det under sidans rubrik.\n\nDu kan nu lägga till en vara i inköpslistan från Lager utan att markera den som slut, en i taget eller flera markerade varor. Varor som redan finns på en lista får taggen \"På listan\"."
+      "sv": "Öppna ett recept och lägg det direkt i matplaneringen. Receptets instruktioner visas nu också där, under ingredienserna.\n\nVarje budget säger nu vad den är till för: hushållsbudgeten är gemensamma pengar för hemmet och din personliga budget är bara din. På mobilen visas det under sidans rubrik.\n\nDu kan nu lägga till en vara i inköpslistan från Lager utan att markera den som slut, en i taget eller flera markerade varor. Varor som redan finns på en lista får taggen \"På listan\"."
     }
   },
   {
@@ -50,8 +61,8 @@
     "kind": "fix",
     "breaking": false,
     "notes": {
-      "en": "Fixed a rare glitch where a confirmation (for example \"Remove meal?\") could close by itself right after you opened it from a sheet.\n\nJoining a household from an invite link now confirms that you've joined, instead of wrongly saying the invite is invalid.",
-      "sv": "Åtgärdade ett sällsynt fel där en bekräftelse (till exempel \"Ta bort måltid?\") kunde stängas av sig själv direkt efter att du öppnat den från ett blad.\n\nAtt gå med i ett hushåll via en inbjudningslänk bekräftar nu att du har gått med, i stället för att felaktigt säga att inbjudan är ogiltig."
+      "en": "Joining a household from an invite link now confirms that you've joined, instead of wrongly saying the invite is invalid.",
+      "sv": "Att gå med i ett hushåll via en inbjudningslänk bekräftar nu att du har gått med, i stället för att felaktigt säga att inbjudan är ogiltig."
     }
   },
   {
@@ -62,7 +73,7 @@
     "breaking": false,
     "notes": {
       "en": "The \"Low stock at\" field is now \"Running low below\" and starts at 2 for items counted in pieces, so you get a low-stock warning before an item runs out. Items in grams or millilitres start empty.\n\nTicking a task now shows \"Done\" with an Undo button, the list no longer jumps when you tick your first task of the week, and finishing your last open task gets a friendly \"You're all caught up!\" from the squirrel.\n\nThe planner now has an \"Add N missing to shopping list\" button under your week. After adding, the confirmation tells you how many items went on the list and lets you open it.\n\nFixed a rare glitch where a confirmation (for example \"Remove meal?\") could close by itself right after you opened it from a sheet.\n\nShopping lists are more compact on phones: each item takes one line, so you see more of your list while you shop. Add a price from the ⋯ menu on a row.",
-      "sv": "Fältet \"Lågt lager vid\" heter nu \"Lågt lager under\" och börjar på 2 för varor som räknas i styck, så du får en varning om lågt lager innan varan tar slut. Varor i gram eller milliliter börjar tomma.\n\nNär du bockar av en syssla visas nu \"Klart\" med en Ångra-knapp, listan hoppar inte längre när du bockar av veckans första syssla, och när sista sysslan är klar får du ett glatt \"Nu är allt klart!\" av ekorren.\n\nPlaneraren har nu en knapp, \"Lägg till N saknade i inköpslista\", under veckan. Efteråt visas hur många varor som lades till, och du kan öppna listan direkt.\n\nÅtgärdade ett sällsynt fel där en bekräftelse (till exempel \"Ta bort måltid?\") kunde stängas av sig själv direkt efter att du öppnat den från ett blad.\n\nInköpslistor är kompaktare på mobilen: varje vara tar en rad, så du ser mer av listan medan du handlar. Lägg till ett pris via ⋯-menyn på raden."
+      "sv": "Fältet \"Lågt lager vid\" heter nu \"Lågt lager under\" och börjar på 2 för varor som räknas i styck, så du får en varning om lågt lager innan varan tar slut. Varor i gram eller milliliter börjar tomma.\n\nNär du bockar av en uppgift visas nu \"Klart\" med en Ångra-knapp, listan hoppar inte längre när du bockar av veckans första uppgift, och när sista uppgiften är klar får du ett glatt \"Nu är allt klart!\" av ekorren.\n\nPlaneraren har nu en knapp, \"Lägg till N saknade i inköpslista\", under veckan. Efteråt visas hur många varor som lades till, och du kan öppna listan direkt.\n\nÅtgärdade ett sällsynt fel där en bekräftelse (till exempel \"Ta bort måltid?\") kunde stängas av sig själv direkt efter att du öppnat den från ett blad.\n\nInköpslistor är kompaktare på mobilen: varje vara tar en rad, så du ser mer av listan medan du handlar. Lägg till ett pris via ⋯-menyn på raden."
     }
   },
   {
@@ -72,8 +83,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Pressing Enter after typing an ingredient name in a recipe now moves on to the quantity instead of saving the recipe too early. Tapping the \"Use ...\" suggestion now accepts what you typed.\n\nThe shopping list now shows how many of the items left to buy have a price, and when you finish a trip where only some bought items are priced, it asks what amount to log to your budget (or lets you skip it).\n\nAn empty budget no longer says you're \"in good shape\". It now asks you to add your income and regular bills, and the totals explain what +, – and → mean.\n\nLong household names no longer push the switcher's buttons off the screen; they are shortened, and the full name shows in the menu.\n\nIf you sign up or join a household while Squirrel is in Swedish, your account now stays in Swedish, including your first login and the emails we send you.\n\nItems you add without an amount now show just their name, instead of \"× 1 pcs\".\n\nYour profile is now organised into Account, Preferences, Notifications and Data & privacy, with Log out at the bottom. On larger screens the sections sit side by side.",
-      "sv": "Att trycka på Enter efter ett ingrediensnamn i ett recept flyttar nu till mängden i stället för att spara receptet för tidigt. Att trycka på förslaget \"Använd ...\" tar nu med det du skrev.\n\nInköpslistan visar nu hur många av de varor som återstår som har ett pris. När du avslutar ett inköp där bara några av de köpta varorna har pris frågar den vilket belopp som ska loggas i budgeten (eller låter dig hoppa över det).\n\nEn tom budget säger inte längre att det ser bra ut. Den ber dig i stället lägga till din inkomst och dina återkommande räkningar, och summorna förklarar vad +, – och → betyder.\n\nLånga hushållsnamn trycker inte längre ut hushållsväxlarens knappar ur bild. Namnet kortas av och hela namnet syns i menyn.\n\nOm du skapar konto eller går med i ett hushåll när Squirrel visas på svenska förblir ditt konto på svenska, även vid första inloggningen och i mejlen vi skickar.\n\nVaror du lägger till utan mängd visas nu bara med namnet, utan \"× 1 pcs\".\n\nDin profil är nu ordnad i Konto, Inställningar, Aviseringar och Data och integritet, med Logga ut längst ner. På större skärmar ligger avsnitten bredvid varandra."
+      "en": "Pressing Enter after typing an ingredient name in a recipe now moves on to the quantity instead of saving the recipe too early. Tapping the \"Use ...\" suggestion now accepts what you typed.\n\nThe shopping list now shows how many of the items left to buy have a price, and when you finish a trip where only some bought items are priced, it asks what amount to log to your budget (or lets you skip it).\n\nAn empty budget no longer says you're \"in good shape\". It now asks you to add your income and regular bills, and the totals explain what +, – and → mean.\n\nLong household names no longer push the switcher's buttons off the screen; they are shortened, and the full name shows in the menu.\n\nIf you sign up or join a household while Squirrel is in Swedish, your account now stays in Swedish, including your first login and the emails we send you.\n\nItems you add without an amount now show just their name, instead of \"× 1 pcs\".\n\nYour profile is now organized into Account, Preferences, Notifications and Data & privacy, with Log out at the bottom. On larger screens the sections sit side by side.",
+      "sv": "Att trycka på Enter efter ett ingrediensnamn i ett recept flyttar nu till mängden i stället för att spara receptet för tidigt. Att trycka på förslaget \"Använd ...\" tar nu med det du skrev.\n\nInköpslistan visar nu hur många av de varor som återstår som har ett pris. När du avslutar ett inköp där bara några av de köpta varorna har pris frågar den vilket belopp som ska loggas i budgeten (eller låter dig hoppa över det).\n\nEn tom budget säger inte längre att det ser bra ut. Den ber dig i stället lägga till din inkomst och dina återkommande räkningar, och summorna förklarar vad +, – och → betyder.\n\nLånga hushållsnamn trycker inte längre ut hushållsväxlarens knappar ur bild. Namnet kortas av och hela namnet syns i menyn.\n\nOm du skapar konto eller går med i ett hushåll när Squirrel visas på svenska förblir ditt konto på svenska, även vid första inloggningen och i mejlen vi skickar.\n\nVaror du lägger till utan mängd visas nu bara med namnet, utan \"× 1 st\".\n\nDin profil är nu ordnad i Konto, Inställningar, Aviseringar och Data och integritet, med Logga ut längst ner. På större skärmar ligger avsnitten bredvid varandra."
     }
   },
   {
@@ -84,7 +95,7 @@
     "breaking": false,
     "notes": {
       "en": "The overview now greets you by first name and by the time of day where you are, so it says \"Good afternoon, Åsa\" at 12:30 in Stockholm.\n\nTicking items from the \"Next up\" bar on the shopping list no longer ticks two when you double tap: the ticked item shows a check for a moment before the next one moves up.",
-      "sv": "Översikten hälsar nu på dig med förnamn och efter tiden på dygnet där du är, så det står \"God eftermiddag, Åsa\" klockan 12.30 i Stockholm.\n\nAtt bocka av varor i \"Nästa\"-fältet i inköpslistan bockar inte längre av två vid en dubbeltryckning: den avbockade varan visar en bock en kort stund innan nästa flyttar upp."
+      "sv": "Översikten hälsar nu på dig med förnamn och efter tiden på dygnet där du är, så det står \"God eftermiddag, Åsa\" klockan 12.30 i Stockholm.\n\nAtt bocka av varor i \"Näst på tur\"-fältet i inköpslistan bockar inte längre av två vid en dubbeltryckning: den avbockade varan visar en bock en kort stund innan nästa flyttar upp."
     }
   },
   {
@@ -95,7 +106,7 @@
     "breaking": false,
     "notes": {
       "en": "On phones, list rows are tidier: Edit and Delete live in each row's ⋯ menu and in the swipe-left tray instead of showing twice, and the list no longer scrolls while you swipe a row. Inventory items no longer add one on a right swipe; use the + button.\n\nYou can now duplicate a recipe to make a variant without retyping it. The copy opens for editing, and you can undo.\n\nTicking an item on the shopping list no longer makes screen readers announce it twice while the row slides into \"In the cart\".\n\nHousehold owners can now rename their household from the Household page.\n\nThe shopping list's \"Next up\" panel no longer jumps when a new item is added to a long aisle.\n\nOn phones, lists and cards now use more of the screen width, so names have more room before they're cut off.\n\nThe unit field in an item's \"Try it\" converter now has a name for screen readers.",
-      "sv": "På mobilen är listraderna luftigare: Redigera och Ta bort finns i radens ⋯-meny och när du sveper åt vänster, i stället för att visas två gånger, och listan rullar inte längre medan du sveper en rad. Lagervaror ökar inte längre med ett när du sveper åt höger – använd plusknappen.\n\nDu kan nu duplicera ett recept för att göra en variant utan att skriva om allt. Kopian öppnas för redigering och du kan ångra.\n\nNär du bockar av en vara i inköpslistan läses den inte längre upp två gånger av skärmläsare medan raden glider ner i \"I vagnen\".\n\nHushållets ägare kan nu byta namn på hushållet från hushållssidan.\n\nPanelen \"Nästa på tur\" i inköpslistan hoppar inte längre när en ny vara läggs till i en lång avdelning.\n\nPå mobilen använder listor och kort nu mer av skärmens bredd, så att namn får mer plats innan de kortas av.\n\nEnhetsfältet i en varas \"Testa\"-omräknare har nu ett namn för skärmläsare."
+      "sv": "På mobilen är listraderna luftigare: Redigera och Ta bort finns i radens ⋯-meny och när du sveper åt vänster, i stället för att visas två gånger, och listan rullar inte längre medan du sveper en rad. Lagervaror ökar inte längre med ett när du sveper åt höger – använd plusknappen.\n\nDu kan nu duplicera ett recept för att göra en variant utan att skriva om allt. Kopian öppnas för redigering och du kan ångra.\n\nNär du bockar av en vara i inköpslistan läses den inte längre upp två gånger av skärmläsare medan raden glider ner i \"I vagnen\".\n\nHushållets ägare kan nu byta namn på hushållet från hushållssidan.\n\nPanelen \"Näst på tur\" i inköpslistan hoppar inte längre när en ny vara läggs till i en lång avdelning.\n\nPå mobilen använder listor och kort nu mer av skärmens bredd, så att namn får mer plats innan de kortas av.\n\nEnhetsfältet i en varas \"Testa\"-omräknare har nu ett namn för skärmläsare."
     }
   },
   {
@@ -127,8 +138,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Meal planning is easier on your phone: tap a meal or a recipe to see everything you can do with it, days only list what's planned, the week stays in view as you scroll, and adding a meal starts with your recipes, favourites first.\n\nThe budget is much easier to use on a phone. Transactions are compact rows grouped by day: tap one to edit it, or swipe to delete with undo. You can filter by category or tap a category in Insights to see its transactions. Overview shows each number once, and changing month keeps you on the tab you were on.",
-      "sv": "Måltidsplaneringen är smidigare i mobilen: tryck på en måltid eller ett recept för att se allt du kan göra med det, dagarna visar bara det som är planerat, veckan syns medan du scrollar och när du lägger till en måltid börjar du med dina recept, favoriterna först.\n\nBudgeten är mycket enklare att använda i mobilen. Transaktioner visas som kompakta rader grupperade per dag: tryck på en för att redigera den eller svep för att ta bort med ångra. Du kan filtrera på kategori eller trycka på en kategori under Insikter för att se dess transaktioner. Översikten visar varje siffra en gång, och när du byter månad stannar du kvar på samma flik."
+      "en": "Meal planning is easier on your phone: tap a meal or a recipe to see everything you can do with it, days only list what's planned, the week stays in view as you scroll, and adding a meal starts with your recipes, favorites first.\n\nThe budget is much easier to use on a phone. Transactions are compact rows grouped by day: tap one to edit it, or swipe to delete with undo. You can filter by category or tap a category in Insights to see its transactions. Overview shows each number once, and changing month keeps you on the tab you were on.",
+      "sv": "Matplaneringen är smidigare i mobilen: tryck på en måltid eller ett recept för att se allt du kan göra med det, dagarna visar bara det som är planerat, veckan syns medan du skrollar och när du lägger till en måltid börjar du med dina recept, favoriterna först.\n\nBudgeten är mycket enklare att använda i mobilen. Transaktioner visas som kompakta rader grupperade per dag: tryck på en för att redigera den eller svep för att ta bort med ångra. Du kan filtrera på kategori eller trycka på en kategori under Insikter för att se dess transaktioner. Översikten visar varje siffra en gång, och när du byter månad stannar du kvar på samma flik."
     }
   },
   {
@@ -150,7 +161,7 @@
     "breaking": false,
     "notes": {
       "en": "Updated the app's underlying framework to a version with important security fixes.\n\nEach recipe now shows how many times you have cooked it and when you last did, so you can spot dinners that have dropped out of rotation.",
-      "sv": "Appens underliggande ramverk är uppdaterat till en version med viktiga säkerhetsrättningar.\n\nVarje recept visar nu hur många gånger ni har lagat det och när senast, så att ni ser vilka middagar som fallit ur rotationen."
+      "sv": "Appens underliggande ramverk är uppdaterat till en version med viktiga säkerhetsrättningar.\n\nVarje recept visar nu hur många gånger du har lagat det och när senast, så att du ser vilka middagar som fallit ur rotationen."
     }
   },
   {
@@ -161,7 +172,7 @@
     "breaking": false,
     "notes": {
       "en": "On phones, the inventory list is more compact, so you see about twice as many items without scrolling. When an item was last updated now shows on its details page.\n\nOn phones, page titles now start large and tuck into the top bar as you scroll (tap it to jump back up), and each page's main button, like Add item or Add task, floats at the bottom where your thumb is. Shopping mode got bigger rows, a progress ring and a \"Next up\" panel at the bottom, so you can tick off a whole shop one-handed. Budget charts now show their values when you tap them, categories get a small spending trend, and Safe to spend shows where the month is heading.\n\nSquirrel now moves: ticked and removed items slide out of the way the moment you tap, even on a slow connection, new items glide in, pages fade in when you switch tabs, and a list's name flies into its page when you open it. With \"reduce motion\" on, everything changes at once.\n\nThe meal planner no longer jumps when the page finishes loading. The weekly variety and nutrition summaries now sit at the top of the Planner tab.",
-      "sv": "På mobilen är lagerlistan kompaktare, så du ser ungefär dubbelt så många varor utan att skrolla. När en vara senast uppdaterades visas nu på dess detaljsida.\n\nPå mobilen börjar sidrubrikerna stora och flyttar upp i fältet högst upp när du skrollar (tryck på den för att komma tillbaka upp), och varje sidas huvudknapp, som Lägg till vara eller Lägg till uppgift, ligger längst ner där tummen når. Handlingsläget har fått större rader, en förloppsring och en \"Näst på tur\"-panel längst ner, så att du kan bocka av hela inköpet med en hand. Budgetdiagrammen visar sina värden när du trycker på dem, kategorierna får en liten utgiftstrend och Säkert att spendera visar vart månaden är på väg.\n\nSquirrel rör sig nu: avbockade och borttagna saker glider undan direkt när du trycker, även med dålig uppkoppling, nya saker glider in, sidor tonar in när du byter flik, och en listas namn flyger in på sidan när du öppnar den. Med \"minska rörelse\" påslaget ändras allt direkt.\n\nMåltidsplaneringen hoppar inte längre när sidan laddats klart. Veckans sammanfattningar av variation och näring ligger nu högst upp under fliken Planerare."
+      "sv": "På mobilen är lagerlistan kompaktare, så du ser ungefär dubbelt så många varor utan att skrolla. När en vara senast uppdaterades visas nu på dess detaljsida.\n\nPå mobilen börjar sidrubrikerna stora och flyttar upp i fältet högst upp när du skrollar (tryck på den för att komma tillbaka upp), och varje sidas huvudknapp, som Lägg till vara eller Lägg till uppgift, ligger längst ner där tummen når. Handlingsläget har fått större rader, en förloppsring och en \"Näst på tur\"-panel längst ner, så att du kan bocka av hela inköpet med en hand. Budgetdiagrammen visar sina värden när du trycker på dem, kategorierna får en liten utgiftstrend och Säkert att spendera visar vart månaden är på väg.\n\nSquirrel rör sig nu: avbockade och borttagna saker glider undan direkt när du trycker, även med dålig uppkoppling, nya saker glider in, sidor tonar in när du byter flik, och en listas namn flyger in på sidan när du öppnar den. Med \"minska rörelse\" påslaget ändras allt direkt.\n\nMatplaneringen hoppar inte längre när sidan laddats klart. Veckans sammanfattningar av variation och näring ligger nu högst upp under fliken Planerare."
     }
   },
   {
@@ -172,7 +183,7 @@
     "breaking": false,
     "notes": {
       "en": "Your personal budget's \"Fixed income & costs\" now includes your share of shared household bills like rent, in the totals, the breakdown and the monthly trend.\n\nMeal prep: record dishes you've batch-cooked, see how many portions are left, and plan those portions onto days in the meal planner. Leftovers from a cooked meal now go to Meal prep too.\n\nOn your phone, swipe a shopping item, task or pantry item to the right to tick it off, complete it or add one more. Swipe left to edit or delete it, and a quick Undo brings back anything you delete by mistake.\n\nSheets on your phone now feel native: drag one down to close it, long forms can rest at half height, and the page behind shrinks back while a sheet is open.",
-      "sv": "\"Fasta inkomster & utgifter\" i din personliga budget räknar nu med din andel av hushållets delade räkningar, som hyran, i summorna, uppdelningen och månadstrenden.\n\nMatlådor: registrera rätter du har förberett, se hur många portioner som finns kvar och planera in dem på dagar i måltidsplaneraren. Rester från en lagad måltid hamnar nu också under Matlådor.\n\nPå mobilen kan du svepa en vara, en uppgift eller något i skafferiet åt höger för att bocka av, markera som klar eller lägga till en till. Svep åt vänster för att redigera eller ta bort, och med Ångra får du snabbt tillbaka något du tagit bort av misstag.\n\nArken i mobilen känns nu som i en riktig app: dra nedåt för att stänga, långa formulär kan vila på halv höjd och sidan bakom krymper medan ett ark är öppet."
+      "sv": "\"Fasta inkomster & utgifter\" i din personliga budget räknar nu med din andel av hushållets delade räkningar, som hyran, i summorna, uppdelningen och månadstrenden.\n\nMatlådor: registrera rätter du har förberett, se hur många portioner som finns kvar och planera in dem på dagar i planeraren. Rester från en lagad måltid hamnar nu också under Matlådor.\n\nPå mobilen kan du svepa en vara, en uppgift eller något i skafferiet åt höger för att bocka av, markera som klar eller lägga till en till. Svep åt vänster för att redigera eller ta bort, och med Ångra får du snabbt tillbaka något du tagit bort av misstag.\n\nArken i mobilen känns nu som i en riktig app: dra nedåt för att stänga, långa formulär kan vila på halv höjd och sidan bakom krymper medan ett ark är öppet."
     }
   },
   {
@@ -205,7 +216,7 @@
     "breaking": false,
     "notes": {
       "en": "Pages in the app now show a placeholder of their layout the instant you open them, instead of staying blank or showing the previous page.",
-      "sv": "Sidorna i appen visar nu direkt en platshållare med sidans layout när du öppnar dem, i stället för att vara tomma eller visa föregående sida."
+      "sv": "Sidorna i appen visar nu direkt en platshållare i sidans form när du öppnar dem, i stället för att vara tomma eller visa föregående sida."
     }
   },
   {
@@ -238,7 +249,7 @@
     "breaking": false,
     "notes": {
       "en": "Buttons and links on phones and tablets are now easier to tap and no longer crowd each other, including meal rows, category chips, the password show/hide button and the footer links.",
-      "sv": "Knappar och länkar på mobiler och surfplattor är nu lättare att trycka på och sitter inte längre tätt ihop, bland annat måltidsrader, kategorichips, knappen för att visa lösenord och länkarna i sidfoten."
+      "sv": "Knappar och länkar på mobiler och surfplattor är nu lättare att trycka på och sitter inte längre tätt ihop, bland annat måltidsrader, kategoriknappar, knappen för att visa lösenord och länkarna i sidfoten."
     }
   },
   {
@@ -260,7 +271,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel now stays usable when your phone's text size is set to the largest setting: buttons wrap and pages no longer scroll sideways.",
-      "sv": "Squirrel fungerar nu även när telefonens textstorlek är inställd på störst: knappar radbryts och sidorna scrollar inte längre i sidled."
+      "sv": "Squirrel fungerar nu även när telefonens textstorlek är inställd på störst: knappar radbryts och sidorna skrollar inte längre i sidled."
     }
   },
   {
@@ -293,7 +304,7 @@
     "breaking": false,
     "notes": {
       "en": "Screen readers now announce unread notifications, long names wrap on phones instead of being cut off, and deleting a household no longer trips over autocorrect.",
-      "sv": "Skärmläsare läser nu upp olästa notiser, långa namn bryts över flera rader på mobilen i stället för att klippas, och autokorrigering stör inte längre när du tar bort ett hushåll."
+      "sv": "Skärmläsare läser nu upp olästa aviseringar, långa namn bryts över flera rader på mobilen i stället för att klippas, och autokorrigering stör inte längre när du tar bort ett hushåll."
     }
   },
   {
@@ -337,7 +348,7 @@
     "breaking": false,
     "notes": {
       "en": "Save buttons in pop-up sheets now stay visible while you fill in long forms, and sheets no longer hide behind the phone keyboard.",
-      "sv": "Spara-knapparna i popup-paneler ligger nu alltid synliga när du fyller i långa formulär, och panelerna hamnar inte längre bakom telefonens tangentbord."
+      "sv": "Spara-knapparna i paneler som glider upp ligger nu alltid synliga när du fyller i långa formulär, och panelerna hamnar inte längre bakom telefonens tangentbord."
     }
   },
   {
@@ -348,7 +359,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel now feels at home on your phone: iPhone and iPad users get the right install and notification steps, the browser chrome matches the app theme, and older browsers get a friendly nudge to update.",
-      "sv": "Squirrel känns nu mer hemma på telefonen: iPhone- och iPad-användare får rätt installations- och notisvägledning, webbläsaren matchar appens tema och äldre webbläsare får en vänlig puff att uppdatera."
+      "sv": "Squirrel känns nu mer hemma på telefonen: iPhone- och iPad-användare får rätt vägledning för installation och aviseringar, webbläsaren matchar appens tema och äldre webbläsare får en vänlig puff att uppdatera."
     }
   },
   {
@@ -370,7 +381,7 @@
     "breaking": false,
     "notes": {
       "en": "The mobile bottom bar now highlights \"More\" when you're on What's new or Notifications, its labels are easier to read, and the collapsed sidebar shows a tooltip naming each icon.",
-      "sv": "Mobilens nedre meny markerar nu \"Mer\" när du är på Nyheter eller Notiser, etiketterna är lättare att läsa, och det hopfällda sidofältet visar en förklaring för varje ikon."
+      "sv": "Mobilens nedre meny markerar nu \"Mer\" när du är på Nyheter eller Aviseringar, etiketterna är lättare att läsa, och det hopfällda sidofältet visar en förklaring för varje ikon."
     }
   },
   {
@@ -425,7 +436,7 @@
     "breaking": false,
     "notes": {
       "en": "Units now appear in your language: Swedish users see \"st\", \"msk\" and \"burk\" instead of \"pcs\", \"tbsp\" and \"can\".",
-      "sv": "Enheter visas nu på svenska: \"st\", \"msk\" och \"burk\" i stället för \"pcs\", \"tbsp\" och \"can\"."
+      "sv": "Enheter visas nu på svenska, till exempel \"st\", \"msk\" och \"burk\", i stället för på engelska."
     }
   },
   {
@@ -436,7 +447,7 @@
     "breaking": false,
     "notes": {
       "en": "The meal planner now opens on today, keeps its controls in one tidy row, and shows a single \"Add meal\" for each empty day, asking which meal when you tap it.",
-      "sv": "Måltidsplaneraren öppnas nu på idag, har sina knappar på en enda rad och visar en enda \"Lägg till måltid\" per tom dag, där du väljer vilken måltid det gäller."
+      "sv": "Planeraren öppnas nu på idag, har sina knappar på en enda rad och visar en enda \"Lägg till måltid\" per tom dag, där du väljer vilken måltid det gäller."
     }
   },
   {
@@ -458,7 +469,7 @@
     "breaking": false,
     "notes": {
       "en": "The back button or back swipe now closes an open form or dialog instead of leaving the page. \"Merge into another item\" also shows Cancel and Merge from the start and closes with Escape.",
-      "sv": "Bakåtknappen eller bakåtsvepet stänger nu ett öppet formulär eller en dialog i stället för att lämna sidan. \"Slå ihop med en annan vara\" visar också Avbryt och Slå ihop direkt och stängs med Escape."
+      "sv": "Bakåtknappen eller bakåtsvepet stänger nu ett öppet formulär eller en dialog i stället för att lämna sidan. \"Slå ihop med en annan vara\" visar också Avbryt och Slå ihop direkt och stängs med Esc-tangenten."
     }
   },
   {
@@ -502,7 +513,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel now fits tablets and phones held sideways: no more sideways scrolling, every menu section is reachable, and the inventory list uses the whole screen.",
-      "sv": "Squirrel passar nu surfplattor och mobiler på tvären: ingen mer sidledsscrollning, alla menyval går att nå och inventarielistan använder hela skärmen."
+      "sv": "Squirrel passar nu surfplattor och mobiler på tvären: ingen mer skrollning i sidled, alla menyval går att nå och lagerlistan använder hela skärmen."
     }
   },
   {
@@ -534,8 +545,8 @@
     "kind": "fix",
     "breaking": false,
     "notes": {
-      "en": "Toasts on your phone no longer cover the bottom navigation, and the Undo button is easier to tap. If copying a link fails you now see an error instead of \"copied\", and phones get a Share button for links.",
-      "sv": "Notiser på mobilen täcker inte längre nedre navigeringen, och Ångra-knappen är lättare att trycka på. Om det inte går att kopiera en länk visas nu ett felmeddelande i stället för \"kopierad\", och mobiler får en Dela-knapp för länkar."
+      "en": "Pop-up messages on your phone no longer cover the bottom navigation, and the Undo button is easier to tap. If copying a link fails you now see an error instead of \"copied\", and phones get a Share button for links.",
+      "sv": "Meddelanden som dyker upp på mobilen täcker inte längre nedre navigeringen, och Ångra-knappen är lättare att trycka på. Om det inte går att kopiera en länk visas nu ett felmeddelande i stället för \"kopierad\", och mobiler får en Dela-knapp för länkar."
     }
   },
   {
@@ -589,8 +600,8 @@
     "kind": "fix",
     "breaking": false,
     "notes": {
-      "en": "Behind-the-scenes errors in scheduled jobs (notification sync, weekly digest emails) are now reported to the maintainer, so failures get fixed faster.",
-      "sv": "Fel i schemalagda jobb i bakgrunden (notissynk, veckosammanfattning) rapporteras nu till utvecklaren, så att problem åtgärdas snabbare."
+      "en": "Behind-the-scenes errors in scheduled jobs (notification sync, weekly digest emails) are now reported to us, so they get fixed faster.",
+      "sv": "Fel i schemalagda jobb i bakgrunden (aviseringssynk, veckosammanfattning) rapporteras nu till oss, så att problem åtgärdas snabbare."
     }
   },
   {
@@ -601,7 +612,7 @@
     "breaking": false,
     "notes": {
       "en": "The dashboard, meal planner and personal budget pages load a little faster.",
-      "sv": "Startsidan, måltidsplaneringen och den personliga budgeten laddas lite snabbare."
+      "sv": "Översikten, matplaneringen och den personliga budgeten laddas lite snabbare."
     }
   },
   {
@@ -634,7 +645,7 @@
     "breaking": false,
     "notes": {
       "en": "Empty meal slots in the weekly planner are now a single \"Add meal\" row, so an empty week is much shorter on your phone.",
-      "sv": "Tomma måltidsplatser i veckoplaneringen är nu en enda rad, \"Lägg till måltid\", så en tom vecka blir mycket kortare på mobilen."
+      "sv": "Tomma måltidsplatser i planeraren är nu en enda rad, \"Lägg till måltid\", så en tom vecka blir mycket kortare på mobilen."
     }
   },
   {
@@ -711,7 +722,7 @@
     "breaking": false,
     "notes": {
       "en": "You can now choose which budget category your shopping trips are logged to, from the Household page. Renaming the category no longer starts a new \"Groceries\" one.",
-      "sv": "Nu kan du välja vilken budgetkategori dina inköp loggas på, under Hushåll. Byter du namn på kategorin skapas inte längre en ny \"Groceries\"."
+      "sv": "Nu kan du välja vilken budgetkategori dina inköp loggas på, under Hushåll. Byter du namn på kategorin skapas inte längre en ny kategori vid nästa inköp."
     }
   },
   {
@@ -744,7 +755,7 @@
     "breaking": false,
     "notes": {
       "en": "Checking off shopping items feels snappier, and push notifications for out-of-stock items and finished lists are more reliably delivered.",
-      "sv": "Att bocka av varor i inköpslistan går snabbare, och pushnotiser om slutna varor och färdiga listor kommer fram mer pålitligt."
+      "sv": "Att bocka av varor i inköpslistan går snabbare, och push-aviseringar om varor som tagit slut och färdiga listor kommer fram mer pålitligt."
     }
   },
   {
@@ -766,7 +777,7 @@
     "breaking": false,
     "notes": {
       "en": "The Unit field in the quick-add row on an empty inventory now shows the whole unit (like \"pcs\") instead of a single letter.",
-      "sv": "Fältet Enhet i snabbtilläggsraden på ett tomt förråd visar nu hela enheten (till exempel \"pcs\") i stället för en enda bokstav."
+      "sv": "Fältet Enhet i snabbtilläggsraden i ett tomt lager visar nu hela enheten i stället för en enda bokstav."
     }
   },
   {
@@ -864,8 +875,8 @@
     "kind": "fix",
     "breaking": false,
     "notes": {
-      "en": "Text, badges and form fields are easier to read in both light and dark mode, and pop-up messages are now coloured: green when something worked, red when it failed and amber for warnings.",
-      "sv": "Text, etiketter och formulärfält är lättare att läsa i både ljust och mörkt läge, och popup-meddelanden har nu färg: grönt när något lyckades, rött när det misslyckades och gult för varningar."
+      "en": "Text, badges and form fields are easier to read in both light and dark mode, and pop-up messages are now colored: green when something worked, red when it failed and amber for warnings.",
+      "sv": "Text, etiketter och formulärfält är lättare att läsa i både ljust och mörkt läge, och meddelanden som dyker upp har nu färg: grönt när något lyckades, rött när det misslyckades och gult för varningar."
     }
   },
   {
@@ -876,7 +887,7 @@
     "breaking": false,
     "notes": {
       "en": "A name you've matched once, like \"eggs\" for your pantry's \"Egg\", now links on its own everywhere: pasted shopping lists, templates, receipts and \"Resolve mappings\". Linking a shopping-list item teaches the name too. Recipes also have a new \"Review ingredient matches\" button to check or change which pantry item each ingredient uses.",
-      "sv": "Ett namn du har matchat en gång, som ”ägg” mot skafferiets ”Ägg”, kopplas nu automatiskt överallt: inklistrade inköpslistor, mallar, kvitton och ”Koppla varor till lagret”. När du kopplar en vara på inköpslistan lär sig appen namnet också. Recept har dessutom en ny knapp, ”Granska ingredienskopplingar”, där du ser och ändrar vilken vara i skafferiet varje ingrediens använder."
+      "sv": "Ett namn du har matchat en gång, som \"ägg\" mot skafferiets \"Ägg\", kopplas nu automatiskt överallt: inklistrade inköpslistor, mallar, kvitton och \"Koppla varor till lagret\". När du kopplar en vara på inköpslistan lär sig appen namnet också. Recept har dessutom en ny knapp, \"Granska ingredienskopplingar\", där du ser och ändrar vilken vara i skafferiet varje ingrediens använder."
     }
   },
   {
@@ -909,7 +920,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel can now find pantry items you've added twice, like \"Egg\" and \"eggs\". Open \"Manage items\" on the inventory page to merge them into one. You see exactly what moves before you confirm. You can also filter for items that were never stocked or have units that don't convert.",
-      "sv": "Squirrel hittar nu varor du har lagt in två gånger, som ”Ägg” och ”ägg”. Öppna ”Hantera varor” på lagersidan och slå ihop dem till en. Du ser exakt vad som flyttas innan du bekräftar. Du kan också filtrera fram varor som aldrig funnits i lager eller har enheter som inte går att räkna om."
+      "sv": "Squirrel hittar nu varor du har lagt in två gånger, som \"Ägg\" och \"ägg\". Öppna \"Hantera varor\" på lagersidan och slå ihop dem till en. Du ser exakt vad som flyttas innan du bekräftar. Du kan också filtrera fram varor som aldrig funnits i lager eller har enheter som inte går att räkna om."
     }
   },
   {
@@ -942,7 +953,7 @@
     "breaking": false,
     "notes": {
       "en": "Long forms such as recipes and receipts now scroll properly on iPhone.",
-      "sv": "Långa formulär, som recept och kvitton, går nu att scrolla ordentligt på iPhone."
+      "sv": "Långa formulär, som recept och kvitton, går nu att skrolla ordentligt på iPhone."
     }
   },
   {
@@ -1008,7 +1019,7 @@
     "breaking": false,
     "notes": {
       "en": "Security hardening for push notifications. Each account now keeps up to 10 devices, and the oldest is dropped when you add another.",
-      "sv": "Säkerhetsförbättring för pushnotiser. Varje konto sparar nu upp till 10 enheter, och den äldsta tas bort när du lägger till en ny."
+      "sv": "Säkerhetsförbättring för push-aviseringar. Varje konto sparar nu upp till 10 enheter, och den äldsta tas bort när du lägger till en ny."
     }
   },
   {
@@ -1019,7 +1030,7 @@
     "breaking": false,
     "notes": {
       "en": "Meal planning and the Cook tab load faster, especially if you have many recipes.",
-      "sv": "Måltidsplaneringen och fliken Laga laddas snabbare, särskilt om du har många recept."
+      "sv": "Matplaneringen och fliken Laga laddas snabbare, särskilt om du har många recept."
     }
   },
   {
@@ -1129,7 +1140,7 @@
     "breaking": false,
     "notes": {
       "en": "You can now move a planned meal to another day or meal, build a shopping list from several weeks of meal plans at once, and import recipes from many more websites. Cost analyzer also shows roughly what everything you have at home is worth, and what your whole shopping list would cost at each store.",
-      "sv": "Nu kan du flytta en planerad måltid till en annan dag eller måltid, skapa en inköpslista från flera veckors matsedel på en gång och importera recept från betydligt fler webbplatser. Kostnadsanalysen visar också ungefär vad allt du har hemma är värt, och vad hela inköpslistan skulle kosta i varje butik."
+      "sv": "Nu kan du flytta en planerad måltid till en annan dag eller måltid, skapa en inköpslista från flera veckors matplanering på en gång och importera recept från betydligt fler webbplatser. Kostnadsanalysen visar också ungefär vad allt du har hemma är värt, och vad hela inköpslistan skulle kosta i varje butik."
     }
   },
   {
@@ -1162,7 +1173,7 @@
     "breaking": false,
     "notes": {
       "en": "Shopping lists now suggest things you usually buy about now, like \"Coffee · usually every 12 days\". Tap a suggestion to add it, or dismiss it until next time.",
-      "sv": "Inköpslistor föreslår nu varor ni brukar köpa ungefär nu, till exempel \"Kaffe · brukar köpas med 12 dagars mellanrum\". Tryck för att lägga till, eller avfärda förslaget till nästa gång."
+      "sv": "Inköpslistor föreslår nu varor du brukar köpa ungefär nu, till exempel \"Kaffe · brukar köpas med 12 dagars mellanrum\". Tryck för att lägga till, eller avfärda förslaget till nästa gång."
     }
   },
   {
@@ -1206,7 +1217,7 @@
     "breaking": false,
     "notes": {
       "en": "You can now get a weekly email summary of your household: meals on the menu, tasks done, food about to expire and how the budget is doing. Turn it on under Profile. It's off by default, and every email has a one-click unsubscribe link.",
-      "sv": "Nu kan du få en veckosammanfattning av hushållet via e-post: måltider på menyn, sysslor som blivit gjorda, mat som snart går ut och hur budgeten ser ut. Slå på den under Profil. Den är avstängd från början, och varje mejl har en länk för att avsluta med ett klick."
+      "sv": "Nu kan du få en veckosammanfattning av hushållet via e-post: måltider på menyn, uppgifter som blivit gjorda, mat som snart går ut och hur budgeten ser ut. Slå på den under Profil. Den är avstängd från början, och varje mejl har en länk för att avsluta med ett klick."
     }
   },
   {
@@ -1228,7 +1239,7 @@
     "breaking": false,
     "notes": {
       "en": "You can now see your meal plan and monthly bill due dates in Google Calendar, Apple Calendar or Outlook. The household owner can turn on a private calendar link on the Household page and replace it at any time.",
-      "sv": "Nu kan ni se matplanen och förfallodagar för månadsräkningar i Google Kalender, Apple Kalender eller Outlook. Hushållets ägare kan slå på en privat kalenderlänk på sidan Hushåll och byta ut den när som helst."
+      "sv": "Nu kan du se matplaneringen och förfallodagar för månadsräkningar i Google Kalender, Apple Kalender eller Outlook. Hushållets ägare kan slå på en privat kalenderlänk på sidan Hushåll och byta ut den när som helst."
     }
   },
   {
@@ -1239,7 +1250,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel now tells you when you've paid noticeably more than usual for something. If a receipt or a checked-off price is well above what that item normally costs, you'll get a notification that links to your price trends.",
-      "sv": "Squirrel säger nu till när du har betalat märkbart mer än vanligt för något. Om ett kvitto eller ett avbockat pris ligger klart över vad varan brukar kosta får du en notis som leder till dina pristrender."
+      "sv": "Squirrel säger nu till när du har betalat märkbart mer än vanligt för något. Om ett kvitto eller ett avbockat pris ligger klart över vad varan brukar kosta får du en avisering som leder till dina pristrender."
     }
   },
   {
@@ -1261,7 +1272,7 @@
     "breaking": false,
     "notes": {
       "en": "When you add missing ingredients from your meal plan, Squirrel now suggests a common substitute for many staples, like milk with lemon juice when you're out of buttermilk.",
-      "sv": "När du lägger till saknade ingredienser från matsedeln föreslår Squirrel nu en vanlig ersättning för många basvaror, till exempel filmjölk eller mjölk med citronsaft när kärnmjölken är slut."
+      "sv": "När du lägger till saknade ingredienser från matplaneringen föreslår Squirrel nu en vanlig ersättning för många basvaror, till exempel filmjölk eller mjölk med citronsaft när kärnmjölken är slut."
     }
   },
   {
@@ -1349,7 +1360,7 @@
     "breaking": false,
     "notes": {
       "en": "Recipes now show a rough cost to make them, in total and per serving, based on what you last paid for each ingredient. If some ingredients don't have a price yet, the recipe says how many were left out.",
-      "sv": "Recept visar nu ungefär vad de kostar att laga, totalt och per portion, utifrån vad ni senast betalade för varje ingrediens. Om några ingredienser saknar pris står det hur många som inte räknats med."
+      "sv": "Recept visar nu ungefär vad de kostar att laga, totalt och per portion, utifrån vad du senast betalade för varje ingrediens. Om några ingredienser saknar pris står det hur många som inte räknats med."
     }
   },
   {
@@ -1370,8 +1381,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Scanned and registered receipts can now record which store you bought something at — an optional \"Store\" field. Once an item has prices from two or more stores, the Cost analyzer will show you which one was cheapest last time.",
-      "sv": "Skannade och registrerade kvitton kan nu spara vilken butik du köpte något i — ett valfritt \"Butik\"-fält. När en vara har priser från två eller fler butiker visar Kostnadsanalysen vilken som var billigast senast."
+      "en": "Scanned and registered receipts can now record which store you bought something at, in an optional \"Store\" field. Once an item has prices from two or more stores, the Cost analyzer will show you which one was cheapest last time.",
+      "sv": "Skannade och registrerade kvitton kan nu spara vilken butik du handlade i, med ett valfritt \"Butik\"-fält. När en vara har priser från två eller fler butiker visar Kostnadsanalysen vilken som var billigast senast."
     }
   },
   {
@@ -1381,8 +1392,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Meal planning now shows a soft weekly nutrition recap — a quick \"here's what\nyou've got planned\" total for any recipes with nutrition info filled in.\nDismiss it any time; it's just a summary, not a goal tracker.",
-      "sv": "Måltidsplaneringen visar nu en enkel veckosammanfattning av näringsvärden —\nen snabb totalsumma för recept där du fyllt i näringsinformation. Du kan\nstänga den när du vill; det är bara en sammanfattning, inget mål att nå."
+      "en": "Meal planning now shows a weekly nutrition summary: the totals for the recipes you've planned that have nutrition info filled in. It's only a summary, not a goal to hit, and you can dismiss it any time.",
+      "sv": "Matplaneringen visar nu en veckosammanfattning av näringsvärden: summan för de planerade recept där du fyllt i näringsinformation. Det är bara en sammanfattning, inget mål att nå, och du kan stänga den när du vill."
     }
   },
   {
@@ -1392,8 +1403,8 @@
     "kind": "perf",
     "breaking": false,
     "notes": {
-      "en": "Budget, Personal Budget and Meal Planning now load a bit faster — the page appears right away while its data streams in.",
-      "sv": "Budget, Personlig budget och Måltidsplanering laddas nu lite snabbare — sidan visas direkt medan datan strömmas in."
+      "en": "Budget, Personal Budget and Meal Planning now load a bit faster: the page appears right away and its data fills in as it arrives.",
+      "sv": "Budget, Personlig budget och Matplanering laddas nu lite snabbare: sidan visas direkt och fylls i allt eftersom datan kommer in."
     }
   },
   {
@@ -1414,8 +1425,8 @@
     "kind": "fix",
     "breaking": false,
     "notes": {
-      "en": "Behind-the-scenes fix: test versions of Squirrel can no longer change the live database.",
-      "sv": "Fix bakom kulisserna: testversioner av Squirrel kan inte längre ändra den riktiga databasen."
+      "en": "Behind-the-scenes safety fix: testing new versions of Squirrel can no longer touch your data.",
+      "sv": "Säkerhetsrättning bakom kulisserna: när nya versioner av Squirrel testas kan de inte längre röra dina data."
     }
   },
   {
@@ -1426,7 +1437,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel now keeps a \"Next shop\" list for you. When something runs low, it's added automatically, and you can undo that straight from the notice. You can turn this off on the Household page.",
-      "sv": "Squirrel håller nu en \"Att handla\"-lista åt er. När något börjar ta slut läggs det till automatiskt, och du kan ångra direkt i meddelandet. Du kan stänga av det på sidan Hushåll."
+      "sv": "Squirrel håller nu en \"Att handla\"-lista åt dig. När något börjar ta slut läggs det till automatiskt, och du kan ångra direkt i meddelandet. Du kan stänga av det på sidan Hushåll."
     }
   },
   {
@@ -1447,8 +1458,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Inventory items with a known shelf life (like dairy, bakery, meat, and produce) now get an estimated expiry date automatically when they're checked off a shopping list, added from a receipt, or added in bulk — shown with a \"≈\" so you know it's a guess. You can turn this off per item with a new \"doesn't expire\" option on the item form.",
-      "sv": "Varor med en känd hållbarhet (som mejeri, bröd, kött och frukt/grönt) får nu automatiskt ett uppskattat utgångsdatum när de bockas av på en inköpslista, läggs till från ett kvitto, eller läggs till i bulk — visas med ett \"≈\" så du vet att det är en gissning. Du kan stänga av det för enskilda varor med ett nytt alternativ \"Den här varan går inte ut\" i varuformuläret."
+      "en": "Inventory items with a known shelf life (like dairy, bakery, meat, and produce) now get an estimated expiry date automatically when they're checked off a shopping list, added from a receipt, or added in bulk. It's shown with a \"≈\" so you know it's a guess. You can turn this off per item with a new \"doesn't expire\" option on the item form.",
+      "sv": "Varor med en känd hållbarhet (som mejeri, bröd, kött och frukt/grönt) får nu automatiskt ett uppskattat utgångsdatum när de bockas av på en inköpslista, läggs till från ett kvitto, eller läggs till flera på en gång. Det visas med ett \"≈\" så du vet att det är en gissning. Du kan stänga av det för enskilda varor med ett nytt alternativ \"Den här varan går inte ut\" i varuformuläret."
     }
   },
   {
@@ -1458,8 +1469,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "The shopping list header is tidier: the less-used actions now live under a \"⋯\" menu. When you've checked off everything, tap \"Done shopping\" to finish the list in one go. You can undo it from the notification if you tapped by mistake.",
-      "sv": "Inköpslistans överdel är mer städad: mindre använda åtgärder finns nu under en \"⋯\"-meny. När du har bockat av allt trycker du på \"Klar med handlingen\" för att avsluta listan direkt. Du kan ångra från aviseringen om du tryckte fel."
+      "en": "The shopping list header is tidier: the less-used actions now live under a \"⋯\" menu. When you've checked off everything, tap \"Done shopping\" to finish the list in one go. If you tapped by mistake, you can undo it from the message that pops up.",
+      "sv": "Inköpslistans överdel är mer städad: mindre använda åtgärder finns nu under en \"⋯\"-meny. När du har bockat av allt trycker du på \"Klar med handlingen\" för att avsluta listan direkt. Om du tryckte fel kan du ångra i meddelandet som visas."
     }
   },
   {
@@ -1535,8 +1546,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "New items you add can now be categorized automatically using AI, when configured, if nothing else recognizes them.",
-      "sv": "Nya varor du lägger till kan nu kategoriseras automatiskt med AI, när det är aktiverat, om inget annat känner igen dem."
+      "en": "New items you add can now be sorted into a category by AI, where it's available, when nothing else recognizes them.",
+      "sv": "Nya varor du lägger till kan nu sorteras in i en kategori med AI, där det finns, när inget annat känner igen dem."
     }
   },
   {
@@ -1546,8 +1557,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Recipes tab now nudges you toward using ingredients before they expire or run low — a dismissible \"use it up\" suggestion shows which of your recipes would help.",
-      "sv": "Fliken Recept ger nu en påminnelse om att använda ingredienser innan de går ut eller börjar ta slut — ett avvisningsbart förslag visar vilka recept som hjälper till."
+      "en": "The Recipes tab now nudges you to use ingredients before they expire or run low: a \"Use it up\" suggestion, which you can dismiss, shows which of your recipes would help.",
+      "sv": "Fliken Recept påminner dig nu om att använda ingredienser innan de går ut eller börjar ta slut: ett förslag, \"Använd det du har\", som du kan stänga, visar vilka recept som hjälper till."
     }
   },
   {
@@ -1579,8 +1590,8 @@
     "kind": "perf",
     "breaking": false,
     "notes": {
-      "en": "Internal performance improvement (faster budget and \"expiring soon\" queries under the hood) — nothing changes in how the app looks or behaves.",
-      "sv": "Intern prestandaförbättring (snabbare frågor för budget och \"snart utgånget\" under huven) — inget ändras i hur appen ser ut eller fungerar."
+      "en": "The budget and the list of food about to expire load faster.",
+      "sv": "Budgeten och listan över mat som snart går ut laddas snabbare."
     }
   },
   {
@@ -1612,8 +1623,8 @@
     "kind": "feat",
     "breaking": false,
     "notes": {
-      "en": "Your shopping list now groups items by aisle — produce, dairy, meat, and so on — so you're not zig-zagging the store. Rows are easier to tap while you shop, and your phone's screen stays on while the list is open.",
-      "sv": "Din inköpslista grupperas nu efter avdelning — frukt & grönt, mejeri, kött och så vidare — så du slipper zick-zacka i butiken. Raderna är enklare att trycka på medan du handlar, och telefonens skärm hålls tänd medan listan är öppen."
+      "en": "Your shopping list now groups items by aisle (produce, dairy, meat and so on), so you're not zig-zagging the store. Rows are easier to tap while you shop, and your phone's screen stays on while the list is open.",
+      "sv": "Din inköpslista grupperas nu efter avdelning (frukt & grönt, mejeri, kött och så vidare), så du slipper zick-zacka i butiken. Raderna är enklare att trycka på medan du handlar, och telefonens skärm hålls tänd medan listan är öppen."
     }
   },
   {
@@ -1645,8 +1656,8 @@
     "kind": "perf",
     "breaking": false,
     "notes": {
-      "en": "Applying a scanned receipt or resolving several shopping-list items at once is now faster.",
-      "sv": "Att tillämpa ett skannat kvitto eller lösa flera inköpslistobjekt samtidigt går nu snabbare."
+      "en": "Applying a scanned receipt, or matching several shopping-list items to your inventory at once, is now faster.",
+      "sv": "Att lägga in ett skannat kvitto, eller koppla flera varor på inköpslistan till lagret samtidigt, går nu snabbare."
     }
   },
   {
@@ -1668,7 +1679,7 @@
     "breaking": false,
     "notes": {
       "en": "Adding missing ingredients from your meal plan to a shopping list is now faster for weeks with many ingredients.",
-      "sv": "Att lägga till saknade ingredienser från din matplan till en inköpslista går nu snabbare för veckor med många ingredienser."
+      "sv": "Att lägga till saknade ingredienser från matplaneringen till en inköpslista går nu snabbare för veckor med många ingredienser."
     }
   },
   {
