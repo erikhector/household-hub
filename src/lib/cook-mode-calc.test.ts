@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   cookScale,
+  currentStepIndex,
   formatCookQuantity,
   formatCountdown,
   formatTimerLabel,
+  hasCookProgress,
   parseStepDuration,
   splitSteps,
 } from "@/lib/cook-mode-calc";
@@ -94,5 +96,32 @@ describe("formatTimerLabel / formatCountdown", () => {
     expect(formatCountdown(3900)).toBe("1:05:00");
     expect(formatCountdown(-3)).toBe("0:00");
     expect(formatCountdown(0.2)).toBe("0:01");
+  });
+});
+
+describe("currentStepIndex", () => {
+  it("is the first step not ticked off", () => {
+    expect(currentStepIndex(3, new Set())).toBe(0);
+    expect(currentStepIndex(3, new Set([0]))).toBe(1);
+    expect(currentStepIndex(3, new Set([0, 2]))).toBe(1);
+  });
+  it("is null when every step is done or there are none", () => {
+    expect(currentStepIndex(2, new Set([0, 1]))).toBeNull();
+    expect(currentStepIndex(0, new Set())).toBeNull();
+  });
+  // The dialog shows "Done" exactly when this is null, so a recipe with no
+  // steps still offers it from a planned meal instead of a dead end.
+  it("is null for no steps whatever is in the done set", () => {
+    expect(currentStepIndex(0, new Set([0, 1]))).toBeNull();
+  });
+});
+
+describe("hasCookProgress", () => {
+  it("is true for a ticked step or a running timer", () => {
+    expect(hasCookProgress(1, 0)).toBe(true);
+    expect(hasCookProgress(0, 2)).toBe(true);
+  });
+  it("is false for a fresh view", () => {
+    expect(hasCookProgress(0, 0)).toBe(false);
   });
 });

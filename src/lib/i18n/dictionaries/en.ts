@@ -1732,6 +1732,18 @@ export const en = {
     cookTimerRemaining: "{time} left",
     cookTimerDone: "Timer done for step {step}",
     cookTimerDismiss: "Dismiss",
+    // UX-94: Next step / Done buttons and the confirm before closing with progress.
+    cookNextStep: "Next step",
+    cookDone: "Done — mark as cooked",
+    cookCurrentStep: "Current step",
+    cookStopConfirm: {
+      title: "Stop cooking?",
+      descriptionTimer: "Your timer will stop and your ticked steps will be cleared.",
+      descriptionSteps: "Your ticked steps will be cleared.",
+      cancel: "Keep cooking",
+      confirm: "Stop cooking",
+      confirming: "Stopping…",
+    },
     // GAP-43: copies the recipe as plain text to the clipboard.
     copyRecipeText: "Copy as text",
     copyRecipeTextToast: "Recipe copied as text",
