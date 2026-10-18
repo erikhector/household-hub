@@ -5799,7 +5799,12 @@ components directly.
   bottom right, 0.75rem above the bottom bar and the safe area, as a
   48 px pill (a long label wraps within the screen at 200% text); from
   `sm` it stays in the header where it was. The first-visit cookie notice
-  sits over it until dismissed, so e2e specs that tap a primary action on
+  (a slim strip on phones, UX-57: the dashboard reserves its height via
+  `--cookie-notice-h`, so the button rides above it, and public pages pad
+  the body by `--cookie-notice-space`, which is not published over
+  `/dashboard` (the shell scrolls inside itself, so the document must not
+  grow); both are set by `CookieNotice` and removed on dismissal, covered by `cookie-notice-room.mobile.spec.ts`)
+  still shares the bottom edge, so e2e specs that tap a primary action on
   a phone call `dismissCookieNotice` first, and `expectTargetsApart`
   doesn't pair the floating button with the content scrolling under it.
   Used for

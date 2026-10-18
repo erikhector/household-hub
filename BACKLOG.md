@@ -287,7 +287,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-57,
+build them first: UX-46, UX-47,
 UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -425,22 +425,6 @@ UX-89, UX-90, UX-102, UX-113.
       fires.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-57. The cookie notice covers submit buttons and the footer
-      toggle** (impact: high, effort: S) — breaks M2 and Hierarchy (one
-      primary per view). On a phone the fixed notice
-      (`src/components/legal/cookie-notice.tsx:50,62`) takes 158 px and
-      has a full-width purple "Got it":
-      - on `/signup` it covers "Create your household";
-      - on public pages the footer language toggle can't be tapped until
-        it's dismissed, because the page reserves no space for it;
-      - on the first dashboard it covers the getting-started card and
-        the FAB.
-      It only reports strictly necessary cookies, so it needn't be loud.
-      Acceptance: at 412 px the signup submit, the footer language toggle
-      and the dashboard primary action are fully visible and tappable
-      while the notice shows. The notice is a quiet one-line strip with a
-      ghost/outline button, and the page reserves its height.
 
 - [ ] **UX-58. A landing page that shows the product and claims only
       what's true** (impact: high, effort: M) — breaks User-centricity
