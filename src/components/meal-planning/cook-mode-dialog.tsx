@@ -89,7 +89,12 @@ export function CookModeDialog({
             // re-arm its history entry, so a second back gesture still works.
             eventDetails.cancel();
             setTimerRunning(progress.current.timers > 0);
-            confirmHandle.open(null);
+            // A task later, not now: the browser's close watcher (Android
+            // back, and Escape on touch devices) also fires 'close' for this
+            // same keypress, after the handlers. Opening the prompt here
+            // registers its own watcher in time to receive that 'close', and
+            // the prompt shuts 7 ms after it opened, leaving cook mode up.
+            setTimeout(() => confirmHandle.open(null), 0);
             return;
           }
           setOpen(next);

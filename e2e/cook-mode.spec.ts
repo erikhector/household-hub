@@ -87,7 +87,7 @@ test("a step with a duration starts a countdown timer and stops it", async ({ pa
 
 // UX-94: closing with progress asks first; a back gesture, Escape and the
 // Close button all go through the same check.
-test("closing cook mode with a ticked step (Close, then back) asks before throwing progress away", async ({ page }) => {
+test("closing cook mode with a ticked step asks before throwing progress away", async ({ page }) => {
   await page.goto("/dashboard/meal-planning?tab=recipes");
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Pancakes");
   await (await openRowSheet(page, "Pancakes")).getByRole("button", { name: "Cook", exact: true }).click();
@@ -107,7 +107,17 @@ test("closing cook mode with a ticked step (Close, then back) asks before throwi
   // before the next close so it can't be mistaken for a back gesture.
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 
-  // The back gesture is guarded too; this time stop.
+  // Escape is guarded too. The browser's own close watcher (Android back,
+  // Escape on a touch device) fires for the same keypress, so the prompt
+  // must still be open once that has had its say.
+  await page.keyboard.press("Escape");
+  const again = page.getByRole("dialog", { name: "Stop cooking?" });
+  await expect(again).toBeVisible();
+  await again.getByRole("button", { name: "Keep cooking" }).click();
+  await expect(again).toBeHidden();
+  await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
+
+  // So is the back gesture; this time stop.
   await page.goBack();
   await expect(page.getByRole("dialog", { name: "Stop cooking?" })).toBeVisible();
   await page.getByRole("dialog", { name: "Stop cooking?" }).getByRole("button", { name: "Stop cooking" }).click();
@@ -128,7 +138,7 @@ test("closing cook mode with a running timer says the timer will stop", async ({
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("Next step ticks the current step and moves the highlight on; ingredients tick during prep", async ({ page }) => {
+test("Next step ticks the current step and moves the highlight on; ingredients tick during prep", async ({ page }, testInfo) => {
   await page.goto("/dashboard/meal-planning?tab=recipes");
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Pancakes");
   await (await openRowSheet(page, "Pancakes")).getByRole("button", { name: "Cook", exact: true }).click();
@@ -148,6 +158,10 @@ test("Next step ticks the current step and moves the highlight on; ingredients t
   await expect(cook.getByRole("button", { name: "Whisk the batter" })).toHaveAttribute("aria-pressed", "true");
   await expect(steps.nth(1)).toHaveAttribute("aria-current", "step");
   await expect(steps.nth(1).getByRole("button")).toBeInViewport();
+  // For eyeballing the layout: only written when E2E_SCREENSHOT_DIR is set.
+  if (process.env.E2E_SCREENSHOT_DIR) {
+    await page.screenshot({ path: `${process.env.E2E_SCREENSHOT_DIR}/${testInfo.project.name}-en-cook-mode.png` });
+  }
 
   // The last step done: no more "Next step", and the recipe list has no meal
   // to mark, so only Close remains.
