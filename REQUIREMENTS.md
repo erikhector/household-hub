@@ -2299,6 +2299,20 @@ Component page function can't itself be unit-tested.
   regular bills" (the Manage tab), keeping the month and household in the
   URL. Once there is data the totals carry a one-line legend for the "+",
   "–" and "→" in front of them.
+- **Categories near or over their limit (UX-108)**: on the budget
+  Overview (household and personal), a "Near or over their limit" card sits
+  right under Safe to spend and lists every capped expense category at 90%
+  or more of its limit (`categoriesNearLimit` in
+  `src/lib/budget-category-limit.ts`, `NEAR_LIMIT_PERCENT`). Each row has a
+  warning icon, the name, "spent / limit" and either "N over" (red, past
+  the limit) or "N% used"; over ones come first, then by how far in. The
+  limit is the envelope Insights uses (monthly limit plus any rollover
+  carried in), and the list reads the same rows as Insights' "Expenses by
+  category", so the two tabs agree. A row links to Transactions filtered to
+  that category. With no such category the card isn't rendered. When the
+  number's status is healthy but the list isn't empty, the status line
+  reads "N categories are at or near their limit." instead of "You're in
+  good shape…"; a tight or over status keeps its own line.
 - **The headline number** ("Remaining after expenses and savings"): the
   selected month's income so far, minus that month's expenses and savings
   so far (the same totals `PeriodSummary` computes from the page's

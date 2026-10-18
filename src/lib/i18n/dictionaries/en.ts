@@ -2242,6 +2242,16 @@ export const en = {
       summaryHealthy: "You're in good shape for the rest of the month.",
       summaryTight: "It's getting tight for the rest of the month.",
       summaryOver: "You've gone over what's safe to spend this month.",
+      // UX-108: with a healthy number but categories at 90%+ of their limit,
+      // "good shape" would be wrong; the list under the card names them.
+      summaryLimits: {
+        one: "{count} category is at or near its limit.",
+        other: "{count} categories are at or near their limit.",
+      },
+      limitsTitle: "Near or over their limit",
+      limitSpentOfLimit: "{spent} / {limit}",
+      limitOver: "{amount} over",
+      limitUsed: "{percent}% used",
       caveat:
         "Due items come from your recurring items. Categories without one fall back to an estimate based on transactions marked as repeating.",
       notYetLoggedTitle: "Still due this month",
@@ -2691,6 +2701,16 @@ export const en = {
       summaryHealthy: "You're in good shape for the rest of the month.",
       summaryTight: "It's getting tight for the rest of the month.",
       summaryOver: "You've gone over what's safe to spend this month.",
+      // UX-108: with a healthy number but categories at 90%+ of their limit,
+      // "good shape" would be wrong; the list under the card names them.
+      summaryLimits: {
+        one: "{count} category is at or near its limit.",
+        other: "{count} categories are at or near their limit.",
+      },
+      limitsTitle: "Near or over their limit",
+      limitSpentOfLimit: "{spent} / {limit}",
+      limitOver: "{amount} over",
+      limitUsed: "{percent}% used",
       caveat:
         "Your share of a shared bill counts as spent in the month it's logged, whoever paid it. Anything still owed when the month started counts again until it's cleared.",
       notYetLoggedTitle: "Still due this month",
