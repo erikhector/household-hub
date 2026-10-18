@@ -227,6 +227,71 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
+- [ ] **MAINT-26. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
+      `e2e/copy-shopping-list-text.spec.ts:15` ("Copy as text puts the open
+      items on the clipboard and leaves ticked ones out"), `mobile` project.
+      Failed once and passed on the retry in the GitHub `End-to-end
+      (Playwright)` job on release `0444ce1` (2026-10-18); it also passed on
+      a local re-run. The failing assertion is
+      `getByRole("checkbox", { name: /^Oat drink <suffix>\b/i })` not
+      visible within 5 s (line 31). Fix the app's or the test's waiting
+      (when the added row renders in the list), never a loosened assertion,
+      a skip or a retry. Acceptance: `npx playwright test
+      e2e/copy-shopping-list-text.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
+- [ ] **MAINT-27. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
+      amount in the pantry's unit instead"), `mobile` project. Failed once
+      and passed on the retry in the GitHub `End-to-end (Playwright)` job on
+      release `0444ce1` (2026-10-18); it also passed on a local re-run. The
+      failing action is `getByRole("button", { name: "New recipe" }).click()`
+      timing out at 30 s, via `openNewRecipe` (line 45). Fix the app's or
+      the test's waiting (what the page renders before the button exists),
+      never a loosened assertion, a skip or a retry. Acceptance: `npx
+      playwright test e2e/recipe-ingredients.spec.ts --project=mobile
+      --repeat-each=30` passes 30/30.
+- [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
+      #336 (`feat: show what's left to split as shares are typed`) turned
+      `next` red and was reverted by #340, which also deleted
+      `e2e/split-remainder.spec.ts`. Its spec failed at `:31` and `:57`
+      (`mobile`, a `locator.fill` timeout; also `desktop` on a feature
+      branch) in the local `ci:local` gate on a clean `0444ce1` (2026-10-18,
+      780 passed, 3 failed) and in 3 of 3 full runs on the UX-82 branch
+      (#343), yet passed alone (`--repeat-each=3`, 14/14), so it depended on
+      something earlier specs leave in the worker's household or on a field
+      it didn't wait for. Re-apply #336 (revert #340), find why the share
+      field can't be filled in the full run and fix the spec's setup
+      (AGENTS.md "Parallel workers") or the app, never a skip or looser
+      assertion, and restore #336's REQUIREMENTS.md text. Acceptance: the
+      full `npm run test:e2e` passes with the re-landed
+      `e2e/split-remainder.spec.ts`, and `npx playwright test
+      e2e/split-remainder.spec.ts --repeat-each=10` passes.
+- [ ] **MAINT-28. Flaky: personal-budget Undo in `log-expense-fast.spec.ts`** (low, S) —
+      `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same sheet,
+      last-used category and Undo"), `mobile` project. Failed in the local
+      gate on clean `origin/next` `0444ce1` and on UX-82 (`79de34e`) and
+      passes alone. Fix the app's or the test's waiting, never a loosened
+      assertion, a skip or a retry. Acceptance: `npx playwright test
+      e2e/log-expense-fast.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30. Also failed on `desktop` (`d3cfbdb`) and `mobile`
+      (`2bc2121`) in the #354 gates, 2026-10-18: `toHaveCount(0)` received
+      2 after 5 s.
+- [ ] **MAINT-29. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
+      `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
+      `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
+      other agents' gates. Fix the app's or the test's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-38.spec.ts --project=desktop --repeat-each=30` passes
+      30/30.
+- [ ] **MAINT-30. Flaky: `plan-leftovers.spec.ts:146` fails in the full gate, passes alone** (low, S) —
+      `e2e/plan-leftovers.spec.ts:146`, `mobile` project. Failed in the
+      `ci:local` gates of #349 (`90bb208`) and #356 (`acffde8`,
+      2026-10-18) and passed on focused re-runs (22/22 with
+      `--repeat-each=2`). Find what earlier specs leave in the worker's
+      household that it relies on, or what it doesn't wait for. Never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/plan-leftovers.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
