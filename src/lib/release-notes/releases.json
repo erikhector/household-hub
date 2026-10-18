@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.78.0",
+    "date": "2026-10-18",
+    "pr": 366,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Tap a quantity in Inventory to say how much you used or bought. Grams, millilitres, kilos and litres now step by sensible amounts, so taking 200 g of butter is two taps.",
+      "sv": "Tryck på mängden i Lager för att ange hur mycket du har använt eller köpt. Gram, milliliter, kilo och liter ändras nu i rimliga steg, så att ta 200 g smör är två tryck."
+    }
+  },
+  {
     "version": "0.77.0",
     "date": "2026-10-18",
     "pr": 363,
