@@ -238,6 +238,29 @@ then MAINT-7 per feature, to avoid churn.
       (what the reloaded page renders and when), never a loosened assertion,
       a skip or a retry. Acceptance: `npx playwright test e2e/ux-38.spec.ts
       --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-19. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
+      `e2e/copy-shopping-list-text.spec.ts:15` ("Copy as text puts the open
+      items on the clipboard and leaves ticked ones out"), `mobile` project.
+      Failed once and passed on the retry in the GitHub `End-to-end
+      (Playwright)` job on release `0444ce1` (2026-10-18); it also passed on
+      a local re-run. The failing assertion is
+      `getByRole("checkbox", { name: /^Oat drink <suffix>\b/i })` not
+      visible within 5 s (line 31). Fix the app's or the test's waiting
+      (when the added row renders in the list), never a loosened assertion,
+      a skip or a retry. Acceptance: `npx playwright test
+      e2e/copy-shopping-list-text.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
+- [ ] **MAINT-20. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
+      amount in the pantry's unit instead"), `mobile` project. Failed once
+      and passed on the retry in the GitHub `End-to-end (Playwright)` job on
+      release `0444ce1` (2026-10-18); it also passed on a local re-run. The
+      failing action is `getByRole("button", { name: "New recipe" }).click()`
+      timing out at 30 s, via `openNewRecipe` (line 45). Fix the app's or
+      the test's waiting (what the page renders before the button exists),
+      never a loosened assertion, a skip or a retry. Acceptance: `npx
+      playwright test e2e/recipe-ingredients.spec.ts --project=mobile
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
