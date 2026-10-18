@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { E2E_SHOPPING_LIST } from "./seed-data";
 import { collectErrors, dismissCookieNotice } from "./ui";
 
 // UX-25 (light theme polish): computed-style regression guards for the
@@ -305,17 +304,13 @@ test("fields use the 1px outline", async ({ page }) => {
 test("phone sticky bars blur over the gradient", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 999) >= 640, "max-sm: sticky styles only apply on phones");
   const errors = collectErrors(page);
-  // The inventory search bar and the shopping-list add line: both used to
-  // paint an opaque band over the page gradient. Each is found through the
-  // field it holds (any other sticky on the page — a table header, a
-  // checkbox row — is not this bar), then its nearest sticky ancestor is
-  // the painted band.
+  // The inventory search bar used to paint an opaque band over the page
+  // gradient. It is found through the field it holds (any other sticky on
+  // the page — a table header, a checkbox row — is not this bar), then its
+  // nearest sticky ancestor is the painted band. The shopping-list add line
+  // is deliberately opaque instead (UX-82, e2e/ux-82.mobile.spec.ts).
   const bars = [
     { path: "/dashboard/inventory", field: page.getByRole("searchbox").first() },
-    {
-      path: `/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`,
-      field: page.getByRole("combobox", { name: "Add to the list" }),
-    },
   ];
   for (const { path, field } of bars) {
     await page.goto(path);

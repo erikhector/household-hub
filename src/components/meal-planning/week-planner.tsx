@@ -581,6 +581,7 @@ function MealEntryRow({
           recipe={cookRecipe}
           portions={entry.portions}
           handle={dialogs.cook}
+          onDone={!cooked && entry.recipeId ? () => dialogs.markCooked.open(null) : undefined}
         />
       )}
       {!cooked && entry.recipeId && (

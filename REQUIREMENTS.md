@@ -1170,6 +1170,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
     decrease and auto-adds (with Undo) when the item was in stock.
+  - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
+    bar is rendered last in the list's flex column (`order-last`) and is
+    `sticky` with a bottom offset that clears the bottom bar and the
+    Add-item button, so ticking a row at any scroll position shows it
+    there; `sticky bottom` does nothing for an element that sits before the
+    list. From `sm` it stays above the table. It has a "Select all" button
+    (hidden once everything is ticked) beside "Clear selection". There is
+    still no bulk delete.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
     offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):
@@ -1360,7 +1368,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the
   items, sticky to the top of the scroll area on phones (same treatment as
-  the inventory search bar). Typing `2 l mjölk, bröd, 6 ägg` and pressing
+  the inventory search bar, except that it is fully opaque, field included,
+  so rows scrolled under it never show through, UX-82). Typing `2 l mjölk, bröd, 6 ägg` and pressing
   Enter adds three rows; the text goes through the shared
   `parsePastedList` (via `parseSmartAddInput`), and a row with no typed
   unit takes its inventory item's usual unit rather than "pcs". The input
@@ -5050,11 +5059,29 @@ is a full-screen read view for cooking from a phone.
   denied it silently does nothing.
 - **Closing**: a full-width "Close" button at the bottom of the scroller
   (thumb zone) and Escape; the round close icon is dropped in favour of it.
+- **Progress, Next step and Done (UX-94)**: closing (the Close button,
+  Escape, the back gesture or a swipe down) with a timer running or a step
+  ticked asks "Stop cooking?" first ("Your timer will stop and your ticked
+  steps will be cleared." / "Your ticked steps will be cleared."), with
+  "Keep cooking" and "Stop cooking"; a fresh view, or one with only
+  ingredients ticked, closes at once (`hasCookProgress`). The first
+  unticked step is outlined and labelled "Current step"
+  (`aria-current="step"`, `currentStepIndex`). The bottom bar's primary
+  "Next step" (56 px) ticks it and scrolls the next into view (instant under
+  reduced motion). Once every step is ticked, a view opened from a planned,
+  not yet cooked meal swaps it for a primary "Done — mark as cooked" that
+  closes cook mode without the prompt and opens that meal's mark-as-cooked
+  review; opened from the recipe list there is no meal, so only Close
+  remains. Ingredients are tickable rows (44 px, `aria-pressed`, check and
+  strike-through) for gathering during prep. All still component state.
 - **Tests**: `cook-mode-calc.test.ts` (splitting, scaling, formatting,
   duration parsing); `e2e/cook-mode.spec.ts` opens the view, ticks and
   un-ticks a step and closes back to the list, and starts and stops a step
   timer, on desktop and mobile. The seeded "Pancakes" recipe has two steps
   for the first; "Porridge" has a "10-12 minutes" step for the timer.
+  UX-94 adds the close prompt (ticked step and running timer), Next step
+  with ingredient ticking, and Done from a planned meal opening the
+  mark-as-cooked review.
 
 ### Copy a recipe as text (GAP-43)
 
@@ -5272,6 +5299,12 @@ co-managers, not kids earning rewards.
   week renders nothing (`TasksWeeklyRecap`, dismissible, mirrors
   `MealVarietyRecap`'s shape exactly), same non-goal as the meal-planning
   variety recap.
+- **Title opens, tick completes (UX-101)**: tapping a task's title opens
+  its edit dialog (the title is a button that clicks the row's hidden
+  `data-swipe-edit` button, the same hand-off the swipe tray and the ⋯ menu
+  use). Only the checkbox or a right swipe completes or reopens a task, so a
+  stray tap while scrolling can't complete one silently
+  (`e2e/task-title-opens.spec.ts`).
 - **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
   same toggle back, 5 s), since the row leaves for "Completed" below the
   fold. The weekly recap is frozen at the list as the page opened, so the
