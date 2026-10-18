@@ -1690,9 +1690,27 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   tokens the summary and amounts use, so the income/expense meaning stays
   visually consistent everywhere on the page), description, and a signed,
   colored amount, with edit/delete per row. Add/edit share one
-  `TransactionDialog` component (category select, amount, date,
+  `TransactionDialog` component (amount, category chips, date,
   description, and a recurring toggle) — editing reuses the same dialog
   with the row's data as `defaultValue`s rather than a second form.
+  - **Log an expense in three taps (UX-109, DESIGN.md M4/M5)**: a new
+    transaction opens on **Amount**, focused with the decimal keypad even
+    on a touch open (`DialogContent focusOnTouch`, the one opt-out from
+    UX-34's keyboard-down rule: the sheet exists to type that number).
+    **Category** is a radio group of chips (`min-h-11` targets, native
+    `required`), not a combobox: grouped Expenses, then Savings, then
+    Income (`groupCategoriesForLogging` in `src/lib/recent-categories.ts`),
+    with the categories most recently logged (by `createdAt`, not by
+    transaction date; the latest 30 rows, at most 5 categories) on top of
+    their group. A new transaction starts on the Transactions tab's
+    `?category=` filter when that tab is open, else on the last-used
+    category (`defaultLoggingCategoryId`); a stale or foreign id is
+    ignored. Saving shows "Added 129 kr to Restaurang & café" with
+    **Undo**, which deletes exactly the created row: the create actions
+    return `{ createdId }` and `BudgetTabs` injects the delete action. A
+    log from a recurring template or planned bill keeps its own toast.
+    Same on the household and personal budgets. Covered by
+    `e2e/log-expense-fast.spec.ts` and `recent-categories.test.ts`.
 - **Recurring transactions**: `isRecurring` + `recurrenceFrequency`
   (`WEEKLY`/`MONTHLY`/`YEARLY`) on `Transaction` itself are metadata and
   display only — checking "this repeats" on a transaction marks it and
@@ -5511,10 +5529,18 @@ flat grayscale:
   (popover) — they're news, not an outcome. The variables have to be set
   inline on the Toaster, since Sonner's stylesheet sets the same ones on
   that element per theme.
-  On phones `mobileOffset` lifts toasts clear of the fixed BottomNav
-  (4.75rem + `env(safe-area-inset-bottom)` on `/dashboard` routes, just
-  the inset elsewhere), so they never cover the navigation or sit in the
-  iOS home-indicator strip. Under `pointer: coarse` the action ("Undo")
+  **Placement (UX-48)**: below 640 px (the BottomNav range, which the
+  Toaster checks itself with `matchMedia`, since Sonner's own phone
+  breakpoint is 600 px) toasts sit at the top, centred, below
+  `env(safe-area-inset-top)`. The bottom edge there is the BottomNav, a
+  bottom sheet's sticky footer ("Complete list", the share link's "Copy")
+  and the shopping "Next up" dock, and no bottom offset clears all three,
+  so a toast no longer hides a footer button or a dock row. From 640 px up
+  they keep Sonner's bottom-right corner. The pure choice is
+  `toastPlacement` (`src/components/ui/toast-placement.ts`). Tests:
+  `toast-placement.test.ts`; `e2e/toasts-clear-controls.spec.ts` finishes a
+  list with a "Didn't get it" row and asserts "Complete list" stays clear
+  and clickable, and that a toast misses the dock. Under `pointer: coarse` the action ("Undo")
   button is 44 px (`globals.css`).
 - **Copy-link buttons** (household invite, shopping-list share link,
   calendar feed) are one component, `CopyLinkButton`
@@ -7323,7 +7349,7 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   failed round. Before building anything new it gives each of its own red
   or reviewed PRs a fix sub-agent, and it builds nothing when
   `max_open_autopilot_prs` are open.
-- **Reviewer** (`autopilot-review`, twice a day and after each builder run)
+- **Reviewer** (`autopilot-review`, every three hours, 1.5 h after each builder slot, and after each builder run)
   reviews every open PR, whoever opened it, as inline comments marked
   `🤖 autopilot-review`. The top-level session delegates each PR's review
   round to its own sub-agent (in parallel, up to
@@ -7460,8 +7486,8 @@ runs don't queue behind everyone else's.
 | Autopilot scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Autopilot builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` (plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
-| Autopilot reviewer | `CRON_TZ=Europe/Stockholm 41 11,17 * * *` (plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot builder | `CRON_TZ=Europe/Stockholm 47 0,3,6,9,12,15,18,21 * * *` (every three hours, plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot reviewer | `CRON_TZ=Europe/Stockholm 17 2,5,8,11,14,17,20,23 * * *` (every three hours, 1.5 h after the builder, plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot: product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 

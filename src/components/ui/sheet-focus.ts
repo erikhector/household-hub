@@ -14,6 +14,10 @@
 // The dialog's own `initialFocus` (a ref to the field that should get focus
 // on desktop, say) still applies to every non-touch open, so callers don't
 // each re-implement the touch case.
+//
+// `focusOnTouch` is the one opt-out: a sheet whose whole job is typing one
+// number (UX-109's "Add transaction") lands on that field even on a touch
+// open, because the keyboard is what the person opened it for.
 
 type FocusResult = boolean | void | HTMLElement | null
 
@@ -28,14 +32,16 @@ export function resolveSheetInitialFocus({
   coarsePointer,
   popup,
   initialFocus,
+  focusOnTouch = false,
 }: {
   interactionType: string
   coarsePointer: boolean
   popup: HTMLElement | null
   initialFocus: InitialFocus
+  focusOnTouch?: boolean
 }): FocusResult {
   const touch = interactionType === "touch" || (interactionType === "" && coarsePointer)
-  if (touch) return popup
+  if (touch && !(focusOnTouch && initialFocus !== undefined)) return popup
   if (initialFocus === undefined) return true
   if (typeof initialFocus === "function") return initialFocus(interactionType)
   if (typeof initialFocus === "boolean") return initialFocus

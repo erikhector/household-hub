@@ -287,7 +287,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48,
+build them first: UX-46, UX-47,
 UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -299,7 +299,7 @@ UX-89, UX-90, UX-102, UX-113.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
-- `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
+- `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
   UX-105, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
@@ -320,20 +320,6 @@ UX-89, UX-90, UX-102, UX-113.
       Acceptance: the phone header has no standalone "+". "Create
       household" is a menu item at the bottom of the household switcher
       dropdown, on desktop too.
-
-- [ ] **UX-48. Keep toasts off bottom-sheet buttons and the shopping
-      dock** (impact: high, effort: S) — breaks M2 and User control. On
-      phones the toast's bottom offset is 4.75rem
-      (`src/components/ui/sonner.tsx:17-54`). That is the same band as a
-      sheet's sticky footer and the "Next up" dock. Seen while shopping:
-      - after "Put away & finish", two toasts hide the confirm sheet's
-        "Complete list" for about 4 s, leaving only Cancel visible;
-      - "List copied as text" covers the share link and its Copy button;
-      - an Undo toast covers a dock row mid-shop.
-      Acceptance: while a bottom sheet or the dock is showing, toasts
-      appear above it (or at the top) and never overlap its footer
-      buttons or dock rows. Check by finishing a list with one "Didn't
-      get it" row: "Complete list" stays visible and tappable.
 
 - [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
       (impact: med, effort: M) — breaks Consistency and User control
@@ -956,23 +942,6 @@ UX-89, UX-90, UX-102, UX-113.
       Overview lists those categories (name, spent / limit, "over" with an
       icon) right under safe to spend. The status line mentions them
       instead of "good shape".
-
-- [ ] **UX-109. Log an expense on a phone in three taps** (impact: high,
-      effort: M) — breaks M4, Usability (remembered choices) and M5.
-      ⚠️ money.
-      - Focus lands on the Category combobox, a text input, so the letter
-        keyboard opens first.
-      - Its popup mixes income, expense and savings with no group headers,
-        income first, and covers the sheet title.
-      - Amount comes second.
-      - Neither the last-used category nor the Transactions tab's filtered
-        category is preselected.
-      - Saving shows no toast (`transaction-dialog.tsx`, only recurring
-        logs toast, `:255-263`).
-      Acceptance: Amount is first and focused with the decimal keypad.
-      Categories are chips or a grouped list with expenses first and
-      recent ones on top. The filtered or last-used category is
-      preselected. Saving shows "Added 129 kr to Restaurang & café · Undo".
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
       effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split

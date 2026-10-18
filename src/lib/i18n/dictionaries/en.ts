@@ -2100,6 +2100,11 @@ export const en = {
     categoryPlaceholder: "Choose a category",
     categoryNoResults: "No matching categories",
     categoryToggleLabel: "Category",
+    // UX-109: the category chips in the Add transaction sheet, grouped.
+    categoryGroups: { expense: "Expenses", savings: "Savings", income: "Income" },
+    // "Added 129 kr to Groceries" + Undo (swipe.undo), after a save.
+    addedToast: "Added {amount} to {category}",
+    undoFailedToast: "Couldn't undo that. Remove it from Transactions instead.",
     descriptionLabel: "Description",
     descriptionPlaceholder: "Optional note",
     dateLabel: "Date",
@@ -2545,6 +2550,11 @@ export const en = {
     categoryPlaceholder: "Choose a category",
     categoryNoResults: "No matching categories",
     categoryToggleLabel: "Category",
+    // UX-109: the category chips in the Add transaction sheet, grouped.
+    categoryGroups: { expense: "Expenses", savings: "Savings", income: "Income" },
+    // "Added 129 kr to Groceries" + Undo (swipe.undo), after a save.
+    addedToast: "Added {amount} to {category}",
+    undoFailedToast: "Couldn't undo that. Remove it from Transactions instead.",
     descriptionLabel: "Description",
     descriptionPlaceholder: "Optional note",
     dateLabel: "Date",

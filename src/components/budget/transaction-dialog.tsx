@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ReactElement } from "react";
+import { useActionState, useMemo, useRef, useState, type ReactElement } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,15 +17,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxInput,
-  ComboboxInputGroup,
-  ComboboxItem,
-  ComboboxTrigger,
-  createComboboxItems,
-} from "@/components/ui/combobox";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,6 +28,7 @@ import { SplitEditor } from "@/components/budget/split-editor";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
+import { groupCategoriesForLogging, defaultLoggingCategoryId } from "@/lib/recent-categories";
 import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
@@ -175,6 +167,9 @@ export function TransactionDialog({
   updateAction,
   onDelete,
   numberFormat,
+  recentCategoryIds = [],
+  filterCategoryId,
+  onUndoCreate,
 }: {
   dict: BudgetDict;
   categories: CategoryRow[];
@@ -209,18 +204,33 @@ export function TransactionDialog({
   /** The caller's createMoneyFormat(locale, currencyCode) — only read by
    * SplitEditor's warnings (UX-15). */
   numberFormat: Intl.NumberFormat;
+  /** UX-109: the categories used most recently (newest first). They lead
+   * their group in the picker, and the first one is preselected on a new
+   * transaction. */
+  recentCategoryIds?: string[];
+  /** UX-109: the Transactions tab's category filter, preselected on a new
+   * transaction ahead of the last-used category. */
+  filterCategoryId?: string | null;
+  /** UX-109: deletes a transaction this dialog just created, for the saved
+   * toast's Undo (deleteTransactionAction or its personal twin). */
+  onUndoCreate?: (id: string) => Promise<ActionState>;
 }) {
   const isEdit = !!transaction;
   const canSplit = members.length > 1;
   const [open, setOpen] = useState(false);
-  const categoryItems = useMemo(
-    () =>
-      createComboboxItems(categories, {
-        getValue: (c: CategoryRow) => c.id,
-        getLabel: (c: CategoryRow) => c.name,
-      }),
-    [categories],
+  const amountRef = useRef<HTMLInputElement>(null);
+  const categoryGroups = useMemo(
+    () => groupCategoriesForLogging(categories, recentCategoryIds),
+    [categories, recentCategoryIds],
   );
+  // What a category starts as: the one being edited, a template's, or (for a
+  // plain new transaction) the filtered / last-used one.
+  const initialCategoryId = () =>
+    transaction?.categoryId ??
+    prefillFromTemplate?.categoryId ??
+    defaultLoggingCategoryId(categories, filterCategoryId, recentCategoryIds) ??
+    "";
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [isRecurring, setIsRecurring] = useState(
     transaction?.isRecurring ?? !!prefillFromTemplate?.templateId,
   );
@@ -252,6 +262,30 @@ export function TransactionDialog({
     const result = await action(prevState, formData);
     if (!result.error) {
       setOpen(false);
+      if (!isEdit && !prefillFromTemplate) {
+        // UX-109: say what was saved and offer to take it back, since the
+        // sheet closes on the new row and a mis-tapped chip is easy.
+        const savedCategory = categories.find((c) => c.id === formData.get("categoryId"));
+        const savedId = result.createdId;
+        toast.success(
+          format(dict.addedToast, {
+            amount: numberFormat.format(Number(formData.get("amount"))),
+            category: savedCategory?.name ?? "",
+          }),
+          savedId && onUndoCreate
+            ? {
+                action: {
+                  label: dict.swipe.undo,
+                  onClick: () => {
+                    void onUndoCreate(savedId).then((undone) => {
+                      if (undone.error) toast.error(dict.undoFailedToast);
+                    });
+                  },
+                },
+              }
+            : undefined,
+        );
+      }
       if (!isEdit && prefillFromTemplate) {
         // A planned bill is paid once, not "for this period" like a
         // recurring item. dict.planned only exists on the household side,
@@ -267,6 +301,7 @@ export function TransactionDialog({
   }, initialState);
 
   function resetForTransaction() {
+    setCategoryId(initialCategoryId());
     setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate?.templateId);
     setAmount(
       transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
@@ -310,7 +345,12 @@ export function TransactionDialog({
       }}
     >
       <DialogTrigger render={trigger} />
-      <DialogContent>
+      <DialogContent
+        // UX-109: a new transaction opens on Amount with the number keypad,
+        // even on a touch open (the sheet exists to type it).
+        initialFocus={isEdit ? undefined : amountRef}
+        focusOnTouch
+      >
         <DialogHeader>
           <DialogTitle>
             {isEdit ? dict.editTransactionDialogTitle : dict.addTransactionDialogTitle}
@@ -325,51 +365,63 @@ export function TransactionDialog({
             <input type="hidden" name="plannedExpenseId" value={prefillFromTemplate.plannedExpenseId} />
           )}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tx-category">{dict.categoryLabel}</Label>
-            <Combobox
-              items={categoryItems}
-              name="categoryId"
-              defaultValue={transaction?.categoryId ?? prefillFromTemplate?.categoryId}
-            >
-              <ComboboxInputGroup>
-                <ComboboxInput id="tx-category" placeholder={dict.categoryPlaceholder} />
-                <ComboboxTrigger aria-label={dict.categoryToggleLabel} />
-              </ComboboxInputGroup>
-              <ComboboxContent emptyMessage={dict.categoryNoResults}>
-                {(c: CategoryRow) => (
-                  <ComboboxItem key={c.id} value={c.id}>
-                    {c.name}
-                  </ComboboxItem>
-                )}
-              </ComboboxContent>
-            </Combobox>
+            <Label htmlFor="tx-amount">{dict.amountLabel}</Label>
+            <Input
+              id="tx-amount"
+              ref={amountRef}
+              name="amount"
+              type="number"
+              inputMode="decimal"
+              min={0.01}
+              step="any"
+              value={amount}
+              onChange={(e) => handleAmountChange(e.target.value)}
+              required
+            />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="tx-amount">{dict.amountLabel}</Label>
-              <Input
-                id="tx-amount"
-                name="amount"
-                type="number"
-                inputMode="decimal"
-                min={0.01}
-                step="any"
-                value={amount}
-                onChange={(e) => handleAmountChange(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="tx-date">{dict.dateLabel}</Label>
-              <Input
-                id="tx-date"
-                name="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
-            </div>
+          {/* UX-109: chips, not a combobox: one tap picks, nothing to type
+              (DESIGN.md M4). Expenses lead, recent categories lead their
+              group, and each chip is a 44 px target (M3). The radios are
+              visually hidden but real, so the group is a native radiogroup
+              with arrow keys, and `required` blocks an empty save. */}
+          <fieldset className="flex min-w-0 flex-col gap-3">
+            <legend className="mb-2 text-sm font-medium">{dict.categoryLabel}</legend>
+            {categoryGroups.map((group) => (
+              <div key={group.type} className="flex flex-col gap-1.5">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {dict.categoryGroups[group.type === "EXPENSE" ? "expense" : group.type === "SAVINGS" ? "savings" : "income"]}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {group.categories.map((c) => (
+                    <label key={c.id} className="relative">
+                      <input
+                        type="radio"
+                        name="categoryId"
+                        value={c.id}
+                        checked={categoryId === c.id}
+                        onChange={() => setCategoryId(c.id)}
+                        required
+                        className="peer sr-only"
+                      />
+                      <span className="flex min-h-11 items-center rounded-full border border-input px-3.5 text-sm transition-colors select-none hover:border-ring/40 active:bg-muted peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50">
+                        {c.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </fieldset>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="tx-date">{dict.dateLabel}</Label>
+            <Input
+              id="tx-date"
+              name="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="tx-description">{dict.descriptionLabel}</Label>

@@ -16,7 +16,12 @@ import { getLocale } from "@/lib/i18n/get-dictionary";
 import { logger } from "@/lib/logger";
 import { hashToken } from "@/lib/token-hash";
 
-export type ActionState = { error?: string };
+export type ActionState = {
+  error?: string;
+  /** Set by the create-transaction actions (UX-109), so the "Added … · Undo"
+   * toast can delete exactly the row it announced. */
+  createdId?: string;
+};
 
 // bcrypt silently truncates/ignores any bytes past 72 — without a matching
 // max here, two different long passwords sharing the same first 72 bytes

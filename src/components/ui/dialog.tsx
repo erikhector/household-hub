@@ -242,10 +242,14 @@ function DialogContent({
   children,
   showCloseButton = true,
   initialFocus,
+  focusOnTouch,
   ...props
 }: Omit<DrawerPrimitive.Popup.Props, "initialFocus"> & {
   showCloseButton?: boolean
   initialFocus?: InitialFocus
+  /** Also apply `initialFocus` on a touch open (sheet-focus.ts), for a
+   * sheet that exists to type one field. */
+  focusOnTouch?: boolean
 }) {
   // UX-12: lifts the sheet above the iOS keyboard (see keyboard-inset.ts).
   useKeyboardInset();
@@ -273,6 +277,7 @@ function DialogContent({
               coarsePointer,
               popup: popupRef.current,
               initialFocus,
+              focusOnTouch,
             })
           }
           className={cn(

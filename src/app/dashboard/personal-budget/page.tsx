@@ -15,6 +15,7 @@ import {
 import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
 import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
+import { RECENT_CATEGORY_SAMPLE, recentCategoryIds } from "@/lib/recent-categories";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
@@ -84,7 +85,7 @@ async function PersonalBudgetTabsSection({
   // headline number all come from one loader shared with the dashboard's
   // "Your budget" card, so the two can't drift apart — see
   // src/lib/personal-budget-position.ts.
-  const [categories, position, sharedTrendSplits] = await Promise.all([
+  const [categories, position, sharedTrendSplits, latestTransactions] = await Promise.all([
     prisma.personalBudgetCategory.findMany({
       where: { userId },
       orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -115,6 +116,14 @@ async function PersonalBudgetTabsSection({
         amountOwed: true,
         transaction: { select: { type: true, date: true, recurringTemplateId: true } },
       },
+    }),
+    // UX-109: the user's last-logged categories, for the Add transaction
+    // sheet (see the household page's identical query).
+    prisma.personalTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: RECENT_CATEGORY_SAMPLE,
+      select: { categoryId: true },
     }),
   ]);
   const {
@@ -419,6 +428,8 @@ async function PersonalBudgetTabsSection({
       logSharedDialogDict={dict.personalBudget}
       createTransactionAction={createPersonalTransactionAction}
       updateTransactionAction={updatePersonalTransactionAction}
+      deleteTransactionAction={deletePersonalTransactionAction}
+      recentCategoryIds={recentCategoryIds(latestTransactions)}
       onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
       onLogTemplateAsIs={logPersonalRecurringTemplateAction}
       savingsGoals={savingsGoals}

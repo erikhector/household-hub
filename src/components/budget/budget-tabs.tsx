@@ -138,6 +138,8 @@ export function BudgetTabs({
   logSharedDialogDict,
   createTransactionAction,
   updateTransactionAction,
+  deleteTransactionAction,
+  recentCategoryIds,
   onAcknowledgeTemplate,
   onLogTemplateAsIs,
   savingsGoals,
@@ -210,6 +212,11 @@ export function BudgetTabs({
   logSharedDialogDict?: Dictionary["personalBudget"];
   createTransactionAction: TransactionFormAction;
   updateTransactionAction: TransactionFormAction;
+  /** deleteTransactionAction (household) or deletePersonalTransactionAction
+   * (personal) — the Add transaction toast's Undo (UX-109). */
+  deleteTransactionAction: (id: string) => Promise<ActionState>;
+  /** UX-109: the viewer's most recently used category ids, newest first. */
+  recentCategoryIds: string[];
   /** acknowledgeTemplatePeriodAction (household) or
    * acknowledgePersonalTemplatePeriodAction (personal). */
   onAcknowledgeTemplate: (id: string) => Promise<ActionState>;
@@ -306,6 +313,12 @@ export function BudgetTabs({
                   monthKey={monthKey}
                   createAction={createTransactionAction}
                   updateAction={updateTransactionAction}
+                  onUndoCreate={deleteTransactionAction}
+                  recentCategoryIds={recentCategoryIds}
+                  // The filter is only in view on the Transactions tab; an
+                  // old ?category= left in the URL elsewhere shouldn't
+                  // steer Add.
+                  filterCategoryId={tab === "transactions" ? searchParams.get("category") : null}
                   trigger={<Button>{dict.addTransaction}</Button>}
                 />
               </PrimaryAction>

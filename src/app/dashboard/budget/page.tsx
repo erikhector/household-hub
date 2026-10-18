@@ -37,6 +37,7 @@ import {
 import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
 import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
+import { RECENT_CATEGORY_SAMPLE, recentCategoryIds } from "@/lib/recent-categories";
 import {
   PlannedExpensesPanel,
   type PlannedExpenseRow,
@@ -383,6 +384,7 @@ async function BudgetTabsSection({
     memberSettlementSums,
     savingsTotals,
     plannedExpenses,
+    latestTransactions,
   ] = await Promise.all([
       prisma.budgetCategory.findMany({
         where: { householdId },
@@ -503,6 +505,16 @@ async function BudgetTabsSection({
         },
         include: { category: true, splits: true, transaction: { select: { date: true } } },
         orderBy: { dueDate: "asc" },
+      }),
+      // UX-109: what was logged last, whatever month is on screen, so the
+      // Add transaction sheet can lead with those categories. By when it was
+      // logged, not the transaction's date: backdating a bill is still
+      // "the category I just used".
+      prisma.transaction.findMany({
+        where: { householdId },
+        orderBy: { createdAt: "desc" },
+        take: RECENT_CATEGORY_SAMPLE,
+        select: { categoryId: true },
       }),
     ]);
 
@@ -978,6 +990,8 @@ async function BudgetTabsSection({
       currentMemberId={currentMemberId}
       createTransactionAction={createTransactionAction}
       updateTransactionAction={updateTransactionAction}
+      deleteTransactionAction={deleteTransactionAction}
+      recentCategoryIds={recentCategoryIds(latestTransactions)}
       onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
       onLogTemplateAsIs={logRecurringTemplateAction}
       savingsGoals={savingsGoals}
