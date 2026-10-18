@@ -392,8 +392,19 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   follows the unit as it's picked; empty saves as 0, "warn only when out".
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
-  status (in/low/out of stock); filter dropdown options come from the
+  status (in/low/out of stock, expiring soon, expired); filter dropdown
+  options come from the
   distinct categories/locations already present in that household's items.
+  **What needs attention (UX-121)**: above the search row a "Needs
+  attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
+  "2 expired"), each hidden at zero. Tapping one sets the Status filter to
+  it (`aria-pressed`; tapping the active one clears it). Counts cover every
+  item, not the filtered list (`countProblemStatuses`). Expiring is the
+  3-day warning window of `getExpiryStatus`, expired is past the date, and
+  the two stock and expiry kinds are independent, so a low item that is also
+  expiring counts under both. Status also accepts `?status=expiring` and
+  `expired`, and the saved view prefs keep them. The "well stocked" note
+  needs no expiring or expired items either.
   Adding an item offers previously-used categories/locations via a native
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.

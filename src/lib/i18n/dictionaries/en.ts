@@ -1067,6 +1067,12 @@ export const en = {
     statusIn: "In stock",
     statusLow: "Low stock",
     statusOut: "Out of stock",
+    // UX-121: the tappable counts above the list; each filters it.
+    summaryLabel: "Needs attention",
+    summaryOut: "{count} out",
+    summaryLow: "{count} low",
+    summaryExpiring: "{count} expiring",
+    summaryExpired: "{count} expired",
     wellStocked: "Nothing low or out right now — the pantry's in good shape.",
     expiringSoon: "Expiring soon",
     expired: "Expired",

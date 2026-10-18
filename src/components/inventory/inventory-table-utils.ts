@@ -1,5 +1,6 @@
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import type { StockStatus } from "@/lib/stock-status";
+import { getStockStatus, type StockStatus } from "@/lib/stock-status";
+import { getExpiryStatus } from "@/lib/inventory/expiry";
 
 // Sentinel values InventoryClient's filter selects use for "no filter
 // applied" / "no location set", shared here so parseInventoryViewPrefs below
@@ -66,7 +67,11 @@ export type InventoryViewPrefs = {
 
 const GROUP_BY_VALUES = new Set<InventoryGroupBy>(["none", "category", "location", "both"]);
 const UPDATED_FILTER_VALUES = new Set<UpdatedFilter>(["all", "today", "week", "stale30", "stale90"]);
-const STATUS_VALUES = new Set<StockStatus>(["in", "low", "out"]);
+// UX-121: the Status filter covers expiry too, so "expiring" (inside the
+// warning window) and "expired" sit beside the three stock statuses.
+export type InventoryStatusFilter = StockStatus | "expiring" | "expired";
+
+const STATUS_VALUES = new Set<InventoryStatusFilter>(["in", "low", "out", "expiring", "expired"]);
 
 // Reads back whatever's in User.inventoryViewPrefs (untyped JSON — could be
 // null, stale from a schema change, or missing fields) and keeps only the
@@ -83,7 +88,7 @@ export function parseInventoryViewPrefs(value: unknown): Partial<InventoryViewPr
   }
   if (typeof v.category === "string") prefs.category = v.category;
   if (typeof v.location === "string") prefs.location = v.location;
-  if (typeof v.status === "string" && (v.status === ALL_FILTER || STATUS_VALUES.has(v.status as StockStatus))) {
+  if (typeof v.status === "string" && (v.status === ALL_FILTER || STATUS_VALUES.has(v.status as InventoryStatusFilter))) {
     prefs.status = v.status;
   }
   if (typeof v.updatedFilter === "string" && UPDATED_FILTER_VALUES.has(v.updatedFilter as UpdatedFilter)) {
@@ -137,4 +142,33 @@ export function groupItems(items: InventoryItemRow[], groupBy: InventoryGroupBy,
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, groupedItems]) => ({ key, items: groupedItems }));
+}
+
+/** UX-121: whether an item belongs under a Status filter value. The stock
+ * statuses and the expiry ones are independent: a low item can also be
+ * expiring, and shows under both. */
+export function matchesStatusFilter(
+  item: Pick<InventoryItemRow, "quantity" | "lowStockThreshold" | "expiresAt">,
+  filter: InventoryStatusFilter,
+  now: number,
+): boolean {
+  if (filter === "expiring") return getExpiryStatus(item.expiresAt, now) === "soon";
+  if (filter === "expired") return getExpiryStatus(item.expiresAt, now) === "expired";
+  return getStockStatus(item.quantity, item.lowStockThreshold) === filter;
+}
+
+/** UX-121: the counts the inventory header shows, one per problem status. */
+export function countProblemStatuses(
+  items: Pick<InventoryItemRow, "quantity" | "lowStockThreshold" | "expiresAt">[],
+  now: number,
+): Record<"out" | "low" | "expiring" | "expired", number> {
+  const counts = { out: 0, low: 0, expiring: 0, expired: 0 };
+  for (const item of items) {
+    const stock = getStockStatus(item.quantity, item.lowStockThreshold);
+    if (stock === "out" || stock === "low") counts[stock] += 1;
+    const expiry = getExpiryStatus(item.expiresAt, now);
+    if (expiry === "soon") counts.expiring += 1;
+    else if (expiry === "expired") counts.expired += 1;
+  }
+  return counts;
 }
