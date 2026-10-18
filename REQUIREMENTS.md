@@ -5511,10 +5511,18 @@ flat grayscale:
   (popover) — they're news, not an outcome. The variables have to be set
   inline on the Toaster, since Sonner's stylesheet sets the same ones on
   that element per theme.
-  On phones `mobileOffset` lifts toasts clear of the fixed BottomNav
-  (4.75rem + `env(safe-area-inset-bottom)` on `/dashboard` routes, just
-  the inset elsewhere), so they never cover the navigation or sit in the
-  iOS home-indicator strip. Under `pointer: coarse` the action ("Undo")
+  **Placement (UX-48)**: below 640 px (the BottomNav range, which the
+  Toaster checks itself with `matchMedia`, since Sonner's own phone
+  breakpoint is 600 px) toasts sit at the top, centred, below
+  `env(safe-area-inset-top)`. The bottom edge there is the BottomNav, a
+  bottom sheet's sticky footer ("Complete list", the share link's "Copy")
+  and the shopping "Next up" dock, and no bottom offset clears all three,
+  so a toast no longer hides a footer button or a dock row. From 640 px up
+  they keep Sonner's bottom-right corner. The pure choice is
+  `toastPlacement` (`src/components/ui/toast-placement.ts`). Tests:
+  `toast-placement.test.ts`; `e2e/toasts-clear-controls.spec.ts` finishes a
+  list with a "Didn't get it" row and asserts "Complete list" stays clear
+  and clickable, and that a toast misses the dock. Under `pointer: coarse` the action ("Undo")
   button is 44 px (`globals.css`).
 - **Copy-link buttons** (household invite, shopping-list share link,
   calendar feed) are one component, `CopyLinkButton`

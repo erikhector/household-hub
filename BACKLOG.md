@@ -287,7 +287,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-57,
+build them first: UX-46, UX-47, UX-57,
 UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -320,20 +320,6 @@ UX-89, UX-90, UX-102, UX-113.
       Acceptance: the phone header has no standalone "+". "Create
       household" is a menu item at the bottom of the household switcher
       dropdown, on desktop too.
-
-- [ ] **UX-48. Keep toasts off bottom-sheet buttons and the shopping
-      dock** (impact: high, effort: S) — breaks M2 and User control. On
-      phones the toast's bottom offset is 4.75rem
-      (`src/components/ui/sonner.tsx:17-54`). That is the same band as a
-      sheet's sticky footer and the "Next up" dock. Seen while shopping:
-      - after "Put away & finish", two toasts hide the confirm sheet's
-        "Complete list" for about 4 s, leaving only Cancel visible;
-      - "List copied as text" covers the share link and its Copy button;
-      - an Undo toast covers a dock row mid-shop.
-      Acceptance: while a bottom sheet or the dock is showing, toasts
-      appear above it (or at the top) and never overlap its footer
-      buttons or dock rows. Check by finishing a list with one "Didn't
-      get it" row: "Complete list" stays visible and tappable.
 
 - [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
       (impact: med, effort: M) — breaks Consistency and User control
