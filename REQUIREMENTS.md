@@ -1170,6 +1170,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
     decrease and auto-adds (with Undo) when the item was in stock.
+  - **Add to shopping list keeps the stock (UX-122).** The inventory row
+    (a cart button on desktop, a menu entry on phones) and the bulk bar
+    offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):
+    the same explicit, person-added row on the default list as above,
+    deduped against a row already pending there, with the stock untouched.
+    The toast says how many were added, or that they were already on the
+    list. A row with an unpurchased line on any active list shows an "On
+    list" tag. With auto-add on, the row menu drops "Mark as empty & add to
+    shopping list" (plain "Mark as empty" already does it); with it off,
+    both entries show.
   - **Household setting.** `Household.autoAddLowStockToList` (default on)
     is a checkbox under "Shopping" on the Household page
     (`AutoAddSetting`, `setAutoAddLowStockToListAction` in

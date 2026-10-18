@@ -649,6 +649,51 @@ export async function markItemEmptyAction(
   }
 }
 
+const addToListSchema = z.array(z.string().min(1)).min(1).max(200);
+
+// UX-122: "Add to shopping list" from a row's menu or the bulk bar. Unlike
+// markItemEmptyAction's "& add to shopping list" this never touches the
+// stock: buying more spaghetti while one packet is left shouldn't mean
+// wiping the count first. Same explicit-request rules as that path: onto the
+// default list, regardless of the household's auto-add setting, as a
+// person's own row (not `addedAutomatically`), and deduped against a row
+// already pending there. Returns how many rows were actually created so the
+// toast can say "already on the list" instead of claiming an add.
+export async function addInventoryItemsToShoppingListAction(
+  itemIds: string[],
+): Promise<{ listName?: string; added?: number; alreadyOnList?: number; error?: string }> {
+  const { household } = await requireHousehold();
+
+  const parsed = addToListSchema.safeParse(itemIds);
+  if (!parsed.success) return await fail("itemNotFound");
+  const ids = [...new Set(parsed.data)];
+
+  const items = await prisma.inventoryItem.findMany({
+    where: { id: { in: ids }, householdId: household.id },
+  });
+  if (items.length === 0) return await fail("itemNotFound");
+
+  try {
+    let listId = "";
+    let listName = "";
+    let added = 0;
+    for (const item of items) {
+      const { list, created } = await addItemToDefaultList(prisma, household.id, item, false);
+      listId = list.id;
+      listName = list.name;
+      if (created) added += 1;
+    }
+
+    revalidatePath(`/dashboard/shopping-list/${listId}`);
+    revalidatePath("/dashboard/shopping-list");
+    revalidatePath("/dashboard/inventory");
+
+    return { listName, added, alreadyOnList: items.length - added };
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+}
+
 // GAP-28: the expiry fields "Mark opened" overwrites, captured before the
 // write so the toast's Undo can put them back exactly — Guardrails' "undo
 // over confirm", same shape as MarkCookedDialog's Undo.

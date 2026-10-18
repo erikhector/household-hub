@@ -1304,6 +1304,21 @@ export const en = {
         other: "Updated {field} for {count} items",
       },
     },
+    // UX-122: adding to the shopping list without touching stock.
+    addToList: {
+      menu: "Add to shopping list",
+      ariaLabel: "Add {name} to shopping list",
+      bulk: "Add to shopping list",
+      onList: "On list",
+      addedToast: {
+        one: 'Added {count} item to "{list}"',
+        other: 'Added {count} items to "{list}"',
+      },
+      alreadyToast: {
+        one: 'Already on "{list}"',
+        other: 'All {count} items are already on "{list}"',
+      },
+    },
     // MATCH-6: the item form's pointer to the item page, and its refusal to
     // change the unit of an item whose amounts depend on it.
     unitsAndDetailsLink: "Units, recipes and details",

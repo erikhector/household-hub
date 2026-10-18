@@ -36,6 +36,9 @@ export type InventoryItemRow = {
   // — shown as a "+N on the way" hint beside the stock badge. The badge
   // itself stays on `quantity`: it isn't home yet. Absent or 0 = none.
   incoming?: number;
+  // UX-122: a row still to buy sits on an active shopping list — shows the
+  // "On list" tag. Absent = not on one.
+  onList?: boolean;
 };
 
 export type HouseholdMemberOption = { userId: string; displayName: string };

@@ -26,6 +26,7 @@ import {
   bulkUpdateFieldAction,
   deleteInventoryItemAction,
   markItemEmptyAction,
+  addInventoryItemsToShoppingListAction,
   markItemOpenedAction,
   undoMarkItemOpenedAction,
   freezeItemAction,
@@ -37,6 +38,7 @@ import { QuickAddBar } from "@/components/inventory/quick-add-bar";
 import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
+import { Badge } from "@/components/ui/badge";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
@@ -77,6 +79,7 @@ export function InventoryTable({
   dict,
   barcodeDict,
   aiCategoryFallbackEnabled = false,
+  autoAddEnabled = false,
   view,
 }: {
   items: InventoryItemRow[];
@@ -95,6 +98,8 @@ export function InventoryTable({
   /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
    * own doc comment in add-item-dialog.tsx. */
   aiCategoryFallbackEnabled?: boolean;
+  /** UX-122: the household's low-stock auto-add setting — see ItemActions. */
+  autoAddEnabled?: boolean;
   /** The search, filters and grouping being shown: changing it isn't a row
    * coming or going, so the rows don't animate (useFlipList). */
   view?: string;
@@ -193,6 +198,30 @@ export function InventoryTable({
         showAutoAddedToast(result.autoAdded, dict.autoAdd);
       }
     });
+  }
+
+  // UX-122: leaves stock alone; the toast says when everything was already
+  // on the list rather than claiming an add that didn't happen.
+  function addToShoppingList(ids: string[], clearSelection: boolean) {
+    startTransition(async () => {
+      const result = await addInventoryItemsToShoppingListAction(ids);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const list = result.listName ?? "";
+      const added = result.added ?? 0;
+      if (added === 0) {
+        toast.success(format(plural(ids.length, dict.addToList.alreadyToast), { count: ids.length, list }));
+      } else {
+        toast.success(format(plural(added, dict.addToList.addedToast), { count: added, list }));
+      }
+      if (clearSelection) setSelected(new Set());
+    });
+  }
+
+  function handleAddToList(item: InventoryItemRow) {
+    addToShoppingList([item.id], false);
   }
 
   // GAP-28: applied straight away with an Undo on the toast (Guardrails'
@@ -381,6 +410,15 @@ export function InventoryTable({
             <PendingLabel pending={isPending} busy={dict.bulkActions.applying} idle={dict.bulkActions.apply} />
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            disabled={isPending}
+            onClick={() => addToShoppingList([...selected], true)}
+          >
+            {dict.addToList.bulk}
+          </Button>
+          <Button
             variant="ghost"
             size="sm"
             className="h-8 text-muted-foreground"
@@ -454,6 +492,7 @@ export function InventoryTable({
                   <div className="flex flex-wrap items-center gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
                     <OnTheWayHint item={item} dict={dict} />
+                    <OnListTag item={item} dict={dict} />
                     <ExpiryBadge
                       expiresAt={item.expiresAt}
                       expiresAtEstimated={item.expiresAtEstimated}
@@ -477,6 +516,8 @@ export function InventoryTable({
                     dict={dict}
                     barcodeDict={barcodeDict}
                     isPending={isPending}
+                    autoAddEnabled={autoAddEnabled}
+                    onAddToList={handleAddToList}
                     onMarkEmpty={handleMarkEmpty}
                     onMarkOpened={handleMarkOpened}
                     onFreeze={handleFreeze}
@@ -561,6 +602,7 @@ export function InventoryTable({
                         <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
                           <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
                           <OnTheWayHint item={item} dict={dict} />
+                          <OnListTag item={item} dict={dict} />
                           <ExpiryBadge
                             expiresAt={item.expiresAt}
                             expiresAtEstimated={item.expiresAtEstimated}
@@ -583,6 +625,8 @@ export function InventoryTable({
                             dict={dict}
                             barcodeDict={barcodeDict}
                             isPending={isPending}
+                            autoAddEnabled={autoAddEnabled}
+                            onAddToList={handleAddToList}
                             onMarkEmpty={handleMarkEmpty}
                             onMarkOpened={handleMarkOpened}
                             onFreeze={handleFreeze}
@@ -737,5 +781,16 @@ function OnTheWayHint({ item, dict }: { item: InventoryItemRow; dict: Dictionary
     <span className="text-xs text-muted-foreground tabular-nums">
       {format(dict.onTheWay, { amount: `${formatQuantity(item.incoming)} ${unitLabel(item.unit)}` })}
     </span>
+  );
+}
+
+// UX-122: the item is already on an active shopping list, so adding it again
+// would be a no-op and a person buying it can see it's covered.
+function OnListTag({ item, dict }: { item: InventoryItemRow; dict: Dictionary["inventory"] }) {
+  if (!item.onList) return null;
+  return (
+    <Badge variant="outline" className="text-xs">
+      {dict.addToList.onList}
+    </Badge>
   );
 }

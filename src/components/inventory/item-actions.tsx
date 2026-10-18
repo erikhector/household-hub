@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Ban, Info, PackageOpen, Pencil, Snowflake, Trash2, Ellipsis } from "lucide-react";
+import { Ban, Info, PackageOpen, Pencil, ShoppingCart, Snowflake, Trash2, Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -30,6 +30,8 @@ export function ItemActions({
   dict,
   barcodeDict,
   isPending,
+  autoAddEnabled = false,
+  onAddToList,
   onMarkEmpty,
   onMarkOpened,
   onFreeze,
@@ -45,6 +47,12 @@ export function ItemActions({
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   isPending: boolean;
+  /** UX-122: with the household's low-stock auto-add on, plain "Mark as
+   * empty" already puts the item on the list, so the "& add to shopping
+   * list" entry would be a duplicate and is left out. */
+  autoAddEnabled?: boolean;
+  /** UX-122: puts the item on the list and leaves its stock unchanged. */
+  onAddToList: (item: InventoryItemRow) => void;
   onMarkEmpty: (item: InventoryItemRow, addToShoppingList: boolean) => void;
   onMarkOpened: (item: InventoryItemRow) => void;
   onFreeze: (item: InventoryItemRow) => void;
@@ -91,6 +99,17 @@ export function ItemActions({
           <Snowflake className="size-3.5" />
         </Button>
       )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
+        disabled={isPending}
+        aria-label={format(dict.addToList.ariaLabel, { name: item.name })}
+        title={dict.addToList.menu}
+        onClick={() => onAddToList(item)}
+      >
+        <ShoppingCart className="size-3.5" />
+      </Button>
       <Link
         href={`/dashboard/inventory/items/${item.id}`}
         className={cn(buttonVariants({ variant: "ghost", size: "icon" }), size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
@@ -115,9 +134,11 @@ export function ItemActions({
         />
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>
-            {dict.markEmptyAndAddToList}
-          </DropdownMenuItem>
+          {!autoAddEnabled && (
+            <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>
+              {dict.markEmptyAndAddToList}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -195,8 +216,11 @@ export function ItemActions({
           {canMarkOpened && <DropdownMenuItem onClick={() => onMarkOpened(item)}>{dict.markOpened}</DropdownMenuItem>}
           {canFreeze && <DropdownMenuItem onClick={() => onFreeze(item)}>{dict.freeze}</DropdownMenuItem>}
           <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddToList(item)}>{dict.addToList.menu}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>
+          {!autoAddEnabled && (
+            <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => deleteRef.current?.click()}>{dict.delete}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
