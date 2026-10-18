@@ -684,6 +684,55 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Shopping
 
+- [ ] **BUG-3. A scanned receipt price isn't divided by its quantity**
+      (impact: high, effort: M) — reported by the owner, 2026-10-18.
+      A receipt line "3 x Mjölk 45,00" matched to a list row "Mjölk ×1"
+      is saved as if one carton cost 45:
+      - The scan reads the line's quantity (`ScannedReceiptLine.quantity`,
+        `lib/actions/receipt-scan.ts:65`), but the review step drops it
+        when building matches (`receipt-scan-dialog.tsx:306`), and
+        `ReceiptScanMatch` has no quantity (`actions.ts:1328`).
+      - `applyReceiptScanAction` then writes PriceHistory with the list
+        row's quantity (`actions.ts:1475-1480`, and via `applyStockArrival`),
+        so the unit price is 45, not 15. GAP-9's price-spike check
+        compares that inflated unit price.
+      - `lastKnownPrice` becomes the line total (45), and every create
+        path copies it into a new row's `estimatedPrice` without regard to
+        quantity (`actions.ts:197,282,721,845`), so next week's "Mjölk ×1"
+        is estimated at 45. `registerReceiptAction` has the same
+        line-total problem (`actions.ts:1740-1760`).
+      Acceptance: scanning "3 x Mjölk 45,00" against "Mjölk ×1" prices
+      that row at 45 (what was paid) and records PriceHistory at 45 for 3
+      (unit 15). The item's next estimate is 15 for ×1 and 30 for ×2, and
+      no price-spike notification fires. Register receipt behaves the same.
+      The review row shows the quantity and unit price ("3 × 15,00") so a
+      misread can be caught. Stock still counts the list row's quantity,
+      as today. A unit test on `applyReceiptScanAction` (and one on
+      `registerReceiptAction`) fails without the fix, and the receipt e2e
+      spec covers a ×3 line.
+
+- [ ] **UX-140. Type prices in by hand when the receipt scan fails**
+      (impact: medium, effort: M) — reported by the owner, 2026-10-18.
+      Breaks User control and Error recovery.
+      - When the photo can't be read (`noLinesFound`, `ocrError`, a
+        provider error), `ReceiptScanDialog`'s only way forward is "Try
+        again" with another photo (`receipt-scan-dialog.tsx:578-590`).
+        Register receipt dead-ends the same way.
+      - The per-row "Add price" on the list exists, but on a row already
+        ticked as bought it only changes the row's estimate
+        (`updateShoppingListItemPriceAction`, `actions.ts:459`): it never
+        becomes `lastKnownPrice` or a PriceHistory row, so a typed price
+        counts for less than a scanned one.
+      Acceptance: the scan's error state offers "Enter prices by hand"
+      next to "Try again". It opens the same review step with one row per
+      receipt-matchable list item (name, quantity, an empty price), and
+      Apply records them exactly like scanned lines (PriceHistory,
+      `lastKnownPrice`, `priceRecordedAt`, divided by quantity per BUG-3).
+      Register receipt gets an "Add line" so a receipt can be typed in
+      without a photo. New strings in `en.ts` and `sv.ts`; an e2e flow
+      (AI mocked to fail) types a price and checks it after a reload, on
+      desktop and mobile.
+
 - [ ] **UX-80. Finish a shop in one step and carry unbought items over**
       (impact: high, effort: M) — breaks User control and Usability.
       - Marking an item "Didn't get it" in the put-away sheet and tapping
