@@ -769,8 +769,8 @@ function QuantityStepper({
         size="sm"
         className={
           isTable
-            ? "block w-14 shrink-0 truncate px-0 text-center font-normal tabular-nums"
-            : "max-w-24 truncate px-1 text-center font-normal tabular-nums"
+            ? "block w-14 shrink-0 truncate px-0 text-center text-sm font-normal tabular-nums"
+            : "max-w-24 truncate px-1 text-center text-sm font-normal tabular-nums"
         }
         disabled={disabled}
         aria-label={format(dict.quantitySheet.openAriaLabel, { name: item.name, amount: label })}
