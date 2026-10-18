@@ -109,6 +109,11 @@ describe("currentStepIndex", () => {
     expect(currentStepIndex(2, new Set([0, 1]))).toBeNull();
     expect(currentStepIndex(0, new Set())).toBeNull();
   });
+  // The dialog shows "Done" exactly when this is null, so a recipe with no
+  // steps still offers it from a planned meal instead of a dead end.
+  it("is null for no steps whatever is in the done set", () => {
+    expect(currentStepIndex(0, new Set([0, 1]))).toBeNull();
+  });
 });
 
 describe("hasCookProgress", () => {

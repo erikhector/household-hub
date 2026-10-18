@@ -296,7 +296,7 @@ function CookModeContent({
             <h3 id="cook-ingredients" className="font-heading text-lg font-semibold">
               {dict.cookModeIngredients}
             </h3>
-            <ul className="flex flex-col gap-1 text-base">
+            <ul className="flex flex-col gap-2 text-base">
               {recipe.ingredients.map((ingredient) => {
                 const isGathered = gathered.has(ingredient.id);
                 return (
@@ -446,7 +446,7 @@ function CookModeContent({
               {dict.cookNextStep}
             </Button>
           )}
-          {current == null && steps.length > 0 && onDone && (
+          {current == null && onDone && (
             <Button type="button" size="lg" className="h-auto min-h-14 w-full py-3 text-lg whitespace-normal" onClick={onDone}>
               <Check aria-hidden />
               {dict.cookDone}
