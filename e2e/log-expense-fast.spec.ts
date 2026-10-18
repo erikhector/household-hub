@@ -81,7 +81,7 @@ test("saving says what was added, and Undo takes it back", async ({ page }) => {
   // Amount, then Add: the preselected category needs no tap at all.
   await dialog.getByLabel("Amount", { exact: true }).fill("129");
   await dialog.getByLabel("Description").fill(`Lunch ${s.tag}`);
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await dialog.getByRole("button", { name: "Add transaction" }).click();
   await expect(dialog).toBeHidden();
 
   const toast = page.getByText(new RegExp(`Added .*129.* to ${s.names.restaurant}`));
@@ -103,7 +103,7 @@ test("another chip can be picked, and the toast names that category", async ({ p
   await dialog.getByLabel("Amount", { exact: true }).fill("55");
   await dialog.getByText(s.names.groceries, { exact: true }).click();
   await expect(dialog.getByRole("radio", { name: s.names.groceries })).toBeChecked();
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await dialog.getByRole("button", { name: "Add transaction" }).click();
   await expect(page.getByText(new RegExp(`Added .*55.* to ${s.names.groceries}`))).toBeVisible();
 });
 
@@ -132,7 +132,7 @@ test("personal budget: the same sheet, last-used category and Undo", async ({ pa
 
   await dialog.getByLabel("Amount", { exact: true }).fill("77");
   await dialog.getByLabel("Description").fill(`Cinema ${tag}`);
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await dialog.getByRole("button", { name: "Add transaction" }).click();
   await expect(page.getByText(new RegExp(`Added .*77.* to ${fun.name}`))).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await page.reload();
