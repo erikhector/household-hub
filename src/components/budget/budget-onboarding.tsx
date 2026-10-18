@@ -12,13 +12,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddCategoryDialog, type CategoryFormAction } from "@/components/budget/category-manager";
 import { StarterCategoryPicker } from "@/components/budget/starter-category-picker";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 export function BudgetOnboarding({
   dict,
+  householdName,
   createCategoryAction,
 }: {
   dict: Dictionary["budget"];
+  // UX-110: the body says whose shared money this is, by name.
+  householdName: string;
   // BUDGET-3 made AddCategoryDialog take its create action as a prop instead
   // of importing it directly — threaded straight through from page.tsx,
   // since this component doesn't otherwise touch Server Actions itself.
@@ -33,7 +37,7 @@ export function BudgetOnboarding({
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="max-w-md text-sm text-muted-foreground">{dict.onboarding.body}</p>
+          <p className="max-w-md text-sm text-muted-foreground">{format(dict.onboarding.body, { household: householdName })}</p>
           <AddCategoryDialog dict={dict} createAction={createCategoryAction} />
         </div>
         <div className="border-t border-primary/20 pt-6">

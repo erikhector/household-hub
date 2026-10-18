@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
+import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // Phone pass (Oct 2026), P6: the budget's first phone screen goes to the
@@ -15,15 +16,25 @@ async function overlaps(a: Locator, b: Locator) {
   return !(x.x + x.width <= y.x || y.x + y.width <= x.x || x.y + x.height <= y.y || y.y + y.height <= x.y);
 }
 
-for (const [path, subtitle] of [
-  ["/dashboard/budget", "Track household income and expenses, one-time or recurring."],
-  ["/dashboard/personal-budget", "Your own income and expenses — separate from any household you're part of."],
+// UX-110: in the subtitle's place, one short line says what the budget is for.
+for (const [path, subtitle, purpose] of [
+  [
+    "/dashboard/budget",
+    "Track household income and expenses, one-time or recurring.",
+    `Shared money for ${E2E_HOUSEHOLD.name}: rent, food, bills.`,
+  ],
+  [
+    "/dashboard/personal-budget",
+    "Your own income and expenses — separate from any household you're part of.",
+    "Only yours — no one else in the household sees it.",
+  ],
 ] as const) {
-  test(`${path}: no subtitle, and the tabs sit high on the first screen`, async ({ page }) => {
+  test(`${path}: no subtitle, a one-line purpose, and the tabs sit high on the first screen`, async ({ page }) => {
     await page.goto(path);
     const main = page.getByRole("main");
     await expect(main.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(main.getByText(subtitle)).toBeHidden();
+    await expect(main.getByText(purpose, { exact: true })).toBeVisible();
     // A tab, not the tablist: the list is `display: contents` (no box).
     const tabs = main.getByRole("tab", { name: "Overview" });
     await expect(tabs).toBeVisible();
