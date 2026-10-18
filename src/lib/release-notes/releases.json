@@ -7,7 +7,7 @@
     "breaking": false,
     "notes": {
       "en": "Cook mode now asks before you leave with a timer running or steps ticked, has a big \"Next step\" button that follows you down the recipe, lets you tick off ingredients, and ends with \"Done — mark as cooked\".\n\nThe bulk-edit bar in Inventory now stays at the bottom of the screen on phones however far down you tick an item, and has a Select all button.\n\nTapping a task's name now opens it for editing instead of marking it done. Tick the circle, or swipe right, to complete a task.\n\nThe add bar on the shopping list is now solid, so items scrolling underneath no longer show through the text field.",
-      "sv": "Tillagningsläget frågar nu innan du lämnar det med en timer igång eller avprickade steg, har en stor \"Nästa steg\"-knapp som följer dig genom receptet, låter dig pricka av ingredienser och avslutar med \"Klart – markera som lagad\".\n\nMassredigeringsfältet i Lager ligger nu kvar längst ned på skärmen på mobilen, hur långt ned du än markerar en vara, och har en Markera alla-knapp.\n\nAtt trycka på en uppgifts namn öppnar nu uppgiften för redigering i stället för att markera den som klar. Bocka av cirkeln eller svep åt höger för att slutföra en uppgift.\n\nFältet för att lägga till varor på inköpslistan är nu heltäckande, så varor som scrollar under det syns inte längre genom textfältet."
+      "sv": "Tillagningsläget frågar nu innan du lämnar det med en timer igång eller avprickade steg, har en stor \"Nästa steg\"-knapp som följer dig genom receptet, låter dig pricka av ingredienser och avslutar med \"Klart – markera som lagad\".\n\nMassredigeringsfältet i Lager ligger nu kvar längst ned på skärmen på mobilen, hur långt ned du än markerar en vara, och har en Markera alla-knapp.\n\nAtt trycka på en uppgifts namn öppnar nu uppgiften för redigering i stället för att markera den som klar. Bocka av cirkeln eller svep åt höger för att slutföra en uppgift.\n\nFältet för att lägga till varor på inköpslistan är nu heltäckande, så varor som skrollar under det syns inte längre genom textfältet."
     }
   },
   {
@@ -18,7 +18,7 @@
     "breaking": false,
     "notes": {
       "en": "Pop-up messages on phones now appear at the top of the screen, so they no longer cover buttons like \"Complete list\" or the shopping list's \"Next up\" items.\n\nAdding a transaction is faster: it opens on the amount, shows your categories as tappable chips with expenses first and your recent ones on top, picks the category you used last (or the one you're filtering by), and confirms with \"Added … · Undo\".",
-      "sv": "Popup-meddelanden på mobilen visas nu högst upp på skärmen, så de döljer inte längre knappar som \"Slutför lista\" eller raderna under \"Näst på tur\" i inköpslistan.\n\nDet går snabbare att lägga till en transaktion: bladet öppnas på beloppet, kategorierna visas som knappar med utgifter först och dina senaste överst, den kategori du använde sist (eller filtrerar på) är förvald, och du får en bekräftelse med \"Ångra\"."
+      "sv": "Meddelanden som dyker upp på mobilen visas nu högst upp på skärmen, så de döljer inte längre knappar som \"Slutför lista\" eller raderna under \"Näst på tur\" i inköpslistan.\n\nDet går snabbare att lägga till en transaktion: bladet öppnas på beloppet, kategorierna visas som knappar med utgifter först och dina senaste överst, den kategori du använde sist (eller filtrerar på) är förvald, och du får en bekräftelse med \"Ångra\"."
     }
   },
   {
@@ -128,7 +128,7 @@
     "breaking": false,
     "notes": {
       "en": "Meal planning is easier on your phone: tap a meal or a recipe to see everything you can do with it, days only list what's planned, the week stays in view as you scroll, and adding a meal starts with your recipes, favorites first.\n\nThe budget is much easier to use on a phone. Transactions are compact rows grouped by day: tap one to edit it, or swipe to delete with undo. You can filter by category or tap a category in Insights to see its transactions. Overview shows each number once, and changing month keeps you on the tab you were on.",
-      "sv": "Matplaneringen är smidigare i mobilen: tryck på en måltid eller ett recept för att se allt du kan göra med det, dagarna visar bara det som är planerat, veckan syns medan du scrollar och när du lägger till en måltid börjar du med dina recept, favoriterna först.\n\nBudgeten är mycket enklare att använda i mobilen. Transaktioner visas som kompakta rader grupperade per dag: tryck på en för att redigera den eller svep för att ta bort med ångra. Du kan filtrera på kategori eller trycka på en kategori under Insikter för att se dess transaktioner. Översikten visar varje siffra en gång, och när du byter månad stannar du kvar på samma flik."
+      "sv": "Matplaneringen är smidigare i mobilen: tryck på en måltid eller ett recept för att se allt du kan göra med det, dagarna visar bara det som är planerat, veckan syns medan du skrollar och när du lägger till en måltid börjar du med dina recept, favoriterna först.\n\nBudgeten är mycket enklare att använda i mobilen. Transaktioner visas som kompakta rader grupperade per dag: tryck på en för att redigera den eller svep för att ta bort med ångra. Du kan filtrera på kategori eller trycka på en kategori under Insikter för att se dess transaktioner. Översikten visar varje siffra en gång, och när du byter månad stannar du kvar på samma flik."
     }
   },
   {
@@ -205,7 +205,7 @@
     "breaking": false,
     "notes": {
       "en": "Pages in the app now show a placeholder of their layout the instant you open them, instead of staying blank or showing the previous page.",
-      "sv": "Sidorna i appen visar nu direkt en platshållare med sidans layout när du öppnar dem, i stället för att vara tomma eller visa föregående sida."
+      "sv": "Sidorna i appen visar nu direkt en platshållare i sidans form när du öppnar dem, i stället för att vara tomma eller visa föregående sida."
     }
   },
   {
@@ -238,7 +238,7 @@
     "breaking": false,
     "notes": {
       "en": "Buttons and links on phones and tablets are now easier to tap and no longer crowd each other, including meal rows, category chips, the password show/hide button and the footer links.",
-      "sv": "Knappar och länkar på mobiler och surfplattor är nu lättare att trycka på och sitter inte längre tätt ihop, bland annat måltidsrader, kategorichips, knappen för att visa lösenord och länkarna i sidfoten."
+      "sv": "Knappar och länkar på mobiler och surfplattor är nu lättare att trycka på och sitter inte längre tätt ihop, bland annat måltidsrader, kategoriknappar, knappen för att visa lösenord och länkarna i sidfoten."
     }
   },
   {
@@ -260,7 +260,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel now stays usable when your phone's text size is set to the largest setting: buttons wrap and pages no longer scroll sideways.",
-      "sv": "Squirrel fungerar nu även när telefonens textstorlek är inställd på störst: knappar radbryts och sidorna scrollar inte längre i sidled."
+      "sv": "Squirrel fungerar nu även när telefonens textstorlek är inställd på störst: knappar radbryts och sidorna skrollar inte längre i sidled."
     }
   },
   {
@@ -337,7 +337,7 @@
     "breaking": false,
     "notes": {
       "en": "Save buttons in pop-up sheets now stay visible while you fill in long forms, and sheets no longer hide behind the phone keyboard.",
-      "sv": "Spara-knapparna i popup-paneler ligger nu alltid synliga när du fyller i långa formulär, och panelerna hamnar inte längre bakom telefonens tangentbord."
+      "sv": "Spara-knapparna i paneler som glider upp ligger nu alltid synliga när du fyller i långa formulär, och panelerna hamnar inte längre bakom telefonens tangentbord."
     }
   },
   {
@@ -425,7 +425,7 @@
     "breaking": false,
     "notes": {
       "en": "Units now appear in your language: Swedish users see \"st\", \"msk\" and \"burk\" instead of \"pcs\", \"tbsp\" and \"can\".",
-      "sv": "Enheter visas nu på svenska: \"st\", \"msk\" och \"burk\" i stället för \"pcs\", \"tbsp\" och \"can\"."
+      "sv": "Enheter visas nu på svenska, till exempel \"st\", \"msk\" och \"burk\", i stället för på engelska."
     }
   },
   {
@@ -458,7 +458,7 @@
     "breaking": false,
     "notes": {
       "en": "The back button or back swipe now closes an open form or dialog instead of leaving the page. \"Merge into another item\" also shows Cancel and Merge from the start and closes with Escape.",
-      "sv": "Bakåtknappen eller bakåtsvepet stänger nu ett öppet formulär eller en dialog i stället för att lämna sidan. \"Slå ihop med en annan vara\" visar också Avbryt och Slå ihop direkt och stängs med Escape."
+      "sv": "Bakåtknappen eller bakåtsvepet stänger nu ett öppet formulär eller en dialog i stället för att lämna sidan. \"Slå ihop med en annan vara\" visar också Avbryt och Slå ihop direkt och stängs med Esc-tangenten."
     }
   },
   {
@@ -502,7 +502,7 @@
     "breaking": false,
     "notes": {
       "en": "Squirrel now fits tablets and phones held sideways: no more sideways scrolling, every menu section is reachable, and the inventory list uses the whole screen.",
-      "sv": "Squirrel passar nu surfplattor och mobiler på tvären: ingen mer sidledsscrollning, alla menyval går att nå och lagerlistan använder hela skärmen."
+      "sv": "Squirrel passar nu surfplattor och mobiler på tvären: ingen mer skrollning i sidled, alla menyval går att nå och lagerlistan använder hela skärmen."
     }
   },
   {
@@ -535,7 +535,7 @@
     "breaking": false,
     "notes": {
       "en": "Pop-up messages on your phone no longer cover the bottom navigation, and the Undo button is easier to tap. If copying a link fails you now see an error instead of \"copied\", and phones get a Share button for links.",
-      "sv": "Popup-meddelanden på mobilen täcker inte längre nedre navigeringen, och Ångra-knappen är lättare att trycka på. Om det inte går att kopiera en länk visas nu ett felmeddelande i stället för \"kopierad\", och mobiler får en Dela-knapp för länkar."
+      "sv": "Meddelanden som dyker upp på mobilen täcker inte längre nedre navigeringen, och Ångra-knappen är lättare att trycka på. Om det inte går att kopiera en länk visas nu ett felmeddelande i stället för \"kopierad\", och mobiler får en Dela-knapp för länkar."
     }
   },
   {
@@ -711,7 +711,7 @@
     "breaking": false,
     "notes": {
       "en": "You can now choose which budget category your shopping trips are logged to, from the Household page. Renaming the category no longer starts a new \"Groceries\" one.",
-      "sv": "Nu kan du välja vilken budgetkategori dina inköp loggas på, under Hushåll. Byter du namn på kategorin skapas inte längre en ny \"Groceries\"."
+      "sv": "Nu kan du välja vilken budgetkategori dina inköp loggas på, under Hushåll. Byter du namn på kategorin skapas inte längre en ny kategori vid nästa inköp."
     }
   },
   {
@@ -766,7 +766,7 @@
     "breaking": false,
     "notes": {
       "en": "The Unit field in the quick-add row on an empty inventory now shows the whole unit (like \"pcs\") instead of a single letter.",
-      "sv": "Fältet Enhet i snabbtilläggsraden i ett tomt lager visar nu hela enheten (till exempel \"pcs\") i stället för en enda bokstav."
+      "sv": "Fältet Enhet i snabbtilläggsraden i ett tomt lager visar nu hela enheten i stället för en enda bokstav."
     }
   },
   {
@@ -865,7 +865,7 @@
     "breaking": false,
     "notes": {
       "en": "Text, badges and form fields are easier to read in both light and dark mode, and pop-up messages are now colored: green when something worked, red when it failed and amber for warnings.",
-      "sv": "Text, etiketter och formulärfält är lättare att läsa i både ljust och mörkt läge, och popup-meddelanden har nu färg: grönt när något lyckades, rött när det misslyckades och gult för varningar."
+      "sv": "Text, etiketter och formulärfält är lättare att läsa i både ljust och mörkt läge, och meddelanden som dyker upp har nu färg: grönt när något lyckades, rött när det misslyckades och gult för varningar."
     }
   },
   {
@@ -942,7 +942,7 @@
     "breaking": false,
     "notes": {
       "en": "Long forms such as recipes and receipts now scroll properly on iPhone.",
-      "sv": "Långa formulär, som recept och kvitton, går nu att scrolla ordentligt på iPhone."
+      "sv": "Långa formulär, som recept och kvitton, går nu att skrolla ordentligt på iPhone."
     }
   },
   {
@@ -1448,7 +1448,7 @@
     "breaking": false,
     "notes": {
       "en": "Inventory items with a known shelf life (like dairy, bakery, meat, and produce) now get an estimated expiry date automatically when they're checked off a shopping list, added from a receipt, or added in bulk. It's shown with a \"≈\" so you know it's a guess. You can turn this off per item with a new \"doesn't expire\" option on the item form.",
-      "sv": "Varor med en känd hållbarhet (som mejeri, bröd, kött och frukt/grönt) får nu automatiskt ett uppskattat utgångsdatum när de bockas av på en inköpslista, läggs till från ett kvitto, eller läggs till i bulk. Det visas med ett \"≈\" så du vet att det är en gissning. Du kan stänga av det för enskilda varor med ett nytt alternativ \"Den här varan går inte ut\" i varuformuläret."
+      "sv": "Varor med en känd hållbarhet (som mejeri, bröd, kött och frukt/grönt) får nu automatiskt ett uppskattat utgångsdatum när de bockas av på en inköpslista, läggs till från ett kvitto, eller läggs till flera på en gång. Det visas med ett \"≈\" så du vet att det är en gissning. Du kan stänga av det för enskilda varor med ett nytt alternativ \"Den här varan går inte ut\" i varuformuläret."
     }
   },
   {
