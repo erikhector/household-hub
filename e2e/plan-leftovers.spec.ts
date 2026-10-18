@@ -77,20 +77,27 @@ async function planCookAndDinnerNextDay(recipeName: string, base: number) {
 async function expectToastButtonsTappable(page: Page, planLeftovers: Locator) {
   if (!(page.viewportSize() && page.viewportSize()!.width < 640)) return;
   const undo = page.getByRole("button", { name: "Undo" });
-  // Polled until the toast has finished sliding in: mid-animation its scale
-  // makes the buttons a hair under 44 px (seen once the toast moved to the
-  // top on phones, UX-48).
+  // Both buttons are measured together inside one poll, so the checks see
+  // the same settled frame: Sonner scales the toast while it slides in and
+  // when it restacks, and measuring the buttons one after the other let the
+  // second read land mid-transform (MAINT-24, MAINT-30).
+  //
+  // The CSS floor is a true 44 px (globals.css, `min-height: 44px`). A
+  // transformed element's bounding box can still come back as 43.999996 px,
+  // which is float rounding of the scale and not a short button, so the
+  // bound allows 0.01 px and nothing more.
+  const TOLERANCE = 0.01;
   await expect
-    .poll(async () => (await planLeftovers.boundingBox())?.height ?? 0)
-    .toBeGreaterThanOrEqual(44);
-  const [a, b] = [await planLeftovers.boundingBox(), await undo.boundingBox()];
-  expect(a && b).toBeTruthy();
-  for (const box of [a!, b!]) {
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.height).toBeGreaterThanOrEqual(44);
-  }
-  const gap = Math.max(a!.x - (b!.x + b!.width), b!.x - (a!.x + a!.width));
-  expect(gap).toBeGreaterThanOrEqual(8);
+    .poll(async () => {
+      const [a, b] = [await planLeftovers.boundingBox(), await undo.boundingBox()];
+      if (!a || !b) return false;
+      const gap = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width));
+      return (
+        [a, b].every((box) => box.width >= 44 - TOLERANCE && box.height >= 44 - TOLERANCE) &&
+        gap >= 8 - TOLERANCE
+      );
+    })
+    .toBe(true);
 }
 
 // Cooks the recipe's planned entry with 2 servings left over and taps

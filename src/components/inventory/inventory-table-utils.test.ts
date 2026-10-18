@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { groupItems, groupKeyFor, matchesUpdatedFilter, type InventoryItemRow } from "./inventory-table-utils";
+import {
+  countProblemStatuses,
+  groupItems,
+  groupKeyFor,
+  matchesStatusFilter,
+  matchesUpdatedFilter,
+  parseInventoryViewPrefs,
+  type InventoryItemRow,
+} from "./inventory-table-utils";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const dict = { noLocation: "No location" } as Dictionary["inventory"];
@@ -117,5 +125,47 @@ describe("groupItems", () => {
       { key: dict.noLocation, items: [unlocated] },
       { key: "Pantry", items: [located] },
     ]);
+  });
+});
+
+describe("matchesStatusFilter / countProblemStatuses (UX-121)", () => {
+  const now = new Date(2026, 8, 10).getTime();
+  const out = item({ quantity: 0 });
+  const low = item({ quantity: 1, lowStockThreshold: 2 });
+  const soon = item({ expiresAt: new Date(now + 2 * DAY_MS) });
+  const expired = item({ expiresAt: new Date(now - DAY_MS) });
+  const fine = item({ expiresAt: new Date(now + 30 * DAY_MS) });
+
+  it("matches the stock statuses by quantity", () => {
+    expect(matchesStatusFilter(out, "out", now)).toBe(true);
+    expect(matchesStatusFilter(low, "low", now)).toBe(true);
+    expect(matchesStatusFilter(fine, "in", now)).toBe(true);
+    expect(matchesStatusFilter(out, "in", now)).toBe(false);
+  });
+
+  it("matches expiring and expired by date", () => {
+    expect(matchesStatusFilter(soon, "expiring", now)).toBe(true);
+    expect(matchesStatusFilter(soon, "expired", now)).toBe(false);
+    expect(matchesStatusFilter(expired, "expired", now)).toBe(true);
+    expect(matchesStatusFilter(fine, "expiring", now)).toBe(false);
+    expect(matchesStatusFilter(item({ expiresAt: null }), "expiring", now)).toBe(false);
+  });
+
+  it("counts each problem status, an item can be in two", () => {
+    const lowAndSoon = item({ quantity: 1, lowStockThreshold: 2, expiresAt: new Date(now + DAY_MS) });
+    expect(countProblemStatuses([out, low, soon, expired, fine, lowAndSoon], now)).toEqual({
+      out: 1,
+      low: 2,
+      expiring: 2,
+      expired: 1,
+    });
+  });
+});
+
+describe("parseInventoryViewPrefs status (UX-121)", () => {
+  it("keeps the expiry statuses and drops unknown ones", () => {
+    expect(parseInventoryViewPrefs({ status: "expired" }).status).toBe("expired");
+    expect(parseInventoryViewPrefs({ status: "expiring" }).status).toBe("expiring");
+    expect(parseInventoryViewPrefs({ status: "bogus" }).status).toBeUndefined();
   });
 });

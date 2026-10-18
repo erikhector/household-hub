@@ -392,8 +392,19 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   follows the unit as it's picked; empty saves as 0, "warn only when out".
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
-  status (in/low/out of stock); filter dropdown options come from the
+  status (in/low/out of stock, expiring soon, expired); filter dropdown
+  options come from the
   distinct categories/locations already present in that household's items.
+  **What needs attention (UX-121)**: above the search row a "Needs
+  attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
+  "2 expired"), each hidden at zero. Tapping one sets the Status filter to
+  it (`aria-pressed`; tapping the active one clears it). Counts cover every
+  item, not the filtered list (`countProblemStatuses`). Expiring is the
+  3-day warning window of `getExpiryStatus`, expired is past the date, and
+  the two stock and expiry kinds are independent, so a low item that is also
+  expiring counts under both. Status also accepts `?status=expiring` and
+  `expired`, and the saved view prefs keep them. The "well stocked" note
+  needs no expiring or expired items either.
   Adding an item offers previously-used categories/locations via a native
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.
@@ -1187,12 +1198,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     the setting below); plain "Mark as empty" behaves like any other
     decrease and auto-adds (with Undo) when the item was in stock.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
-    bar is rendered last in the list's flex column (`order-last`) and is
-    `sticky` with a bottom offset that clears the bottom bar and the
-    Add-item button, so ticking a row at any scroll position shows it
-    there; `sticky bottom` does nothing for an element that sits before the
-    list. From `sm` it stays above the table. It has a "Select all" button
-    (hidden once everything is ticked) beside "Clear selection". There is
+    bar is a full-width toolbar `fixed` to the top of the bottom bar, two
+    rows high: the count, "Select all" (hidden once everything is ticked),
+    an icon-only cart for "Add to shopping list" and an ✕ for "Clear
+    selection" (both keep their labels as accessible names), then the
+    field select, the value and Apply. While it's up the Add-item button
+    is hidden and `<main>` reserves the bar's height instead
+    (`globals.css`, `[data-bulk-bar]`), so the last row scrolls out from
+    under it. It replaced a `sticky` card that wrapped to three rows and
+    floated mid-list above the Add-item button. From `sm` it's one
+    wrapping row above the table with "Clear selection" last. There is
     still no bulk delete.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
@@ -3752,12 +3767,12 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     normalized name: Don't track pre-selected, but the row stays open), a
     plural/singular fold of the last word
     (English -s/-es, Swedish -ar/-or/-er/-na, both sides; only ever a
-    pre-selected suggestion, since "creamer" also folds to "cream"), then
+    suggestion, since "creamer" also folds to "cream"), then
     `findInventoryMatches`
     with the AUTO-11 thresholds (`MATCH_*` constants in
     `src/lib/item-matching.ts`, shared with the receipt matcher):
     confident at ≥ 0.9 with a ≥ 0.15 lead, a pre-selected suggestion at
-    ≥ 0.35, otherwise none. A trailing parenthesized part of the name
+    ≥ 0.35 (offered, not pre-selected: see "Dialog"), otherwise none. A trailing parenthesized part of the name
     ("gul lök (finhackad)") is ignored for matching and for the default
     "Create new" name. Each match also carries a unit class from
     `classifyUnits` (`src/lib/units.ts`): `same` after `canonicalUnit`
@@ -3784,11 +3799,16 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     a nested dialog): confident rows are collapsed in an
     `AutoMatchedSection`, the rest listed under "Needs a look" with
     "Use existing" (an `ItemCombobox`, best candidates first) or "Create
-    new" (name, category, unit). The new item's unit defaults per kind:
+    new" (name, category, unit). Only a confident match (or a name that
+    exactly equals several items) starts on "Use existing"; a weaker
+    suggestion (a loose fuzzy hit or a plural fold) starts on "Create new"
+    and needs a tap to accept, so one tap on "Create recipe" never links
+    Rice to Ricotta (`defaultReviewChoice`, UX-90). The suggestion is
+    already chosen in the picker, so that tap lands on the guessed item. The new item's unit defaults per kind:
     count units stay (canonicalized), other volumes → `l`, weights → `g`,
     spoon measures, pinches and unknown units → `pcs`. Each open row says
-    why it's open ("Closest match: X. Check it's right." or "Nothing
-    close…") and whether the pantry unit reconciles; one that doesn't gets
+    why it's open ("Closest match: X. Tap Use existing if it's right." or
+    "Nothing close…") and whether the pantry unit reconciles; one that doesn't gets
     the three unit choices (see "Unit conversions" below). An untouched
     default unit gets a neutral note, not the mismatch warning. Saving with an incomplete row shows a count at the top
     (`role="alert"`), marks the field `aria-invalid` with its error in
@@ -5310,7 +5330,12 @@ co-managers, not kids earning rewards.
   between `null` and `new Date()` — or, for a recurring task past its
   interval, completes it again — always attributing completion to the
   *caller's own* household-member id, never a client-supplied one; on
-  un-complete, `completedByMemberId` is kept as "Last done by" history),
+  un-complete (UX-102), `completedAt` and `completedByMemberId` are put back
+  exactly from `previousCompletedAt` / `previousCompletedByMemberId`, which
+  the tick filled with the completion it overwrote — so a tick-untick on a
+  never-done task shows no "Last done by", and a recurring task keeps its
+  real earlier completion; a previous completer who has left the household
+  restores as no one),
   `deleteTaskAction`.
 - **UI**: one shared `TaskFormDialog` for create and edit (title on
   create, assignee, repeat; once a task repeats and the household has two

@@ -1067,6 +1067,12 @@ export const en = {
     statusIn: "In stock",
     statusLow: "Low stock",
     statusOut: "Out of stock",
+    // UX-121: the tappable counts above the list; each filters it.
+    summaryLabel: "Needs attention",
+    summaryOut: "{count} out",
+    summaryLow: "{count} low",
+    summaryExpiring: "{count} expiring",
+    summaryExpired: "{count} expired",
     wellStocked: "Nothing low or out right now — the pantry's in good shape.",
     expiringSoon: "Expiring soon",
     expired: "Expired",
@@ -1725,7 +1731,7 @@ export const en = {
       unitFactorError: "Enter a number greater than 0 for the conversion.",
       overrideQuantityError: "Enter an amount greater than 0.",
       newUnitDefault: "The pantry will count it in {unit}. Change it if you buy it differently.",
-      reasonSuggested: "Closest match: {name}. Check it's right.",
+      reasonSuggested: "Closest match: {name}. Tap Use existing if it's right.",
       reasonNone: "Nothing close in your pantry, so this becomes a new item.",
       reasonStaple: "Usually not kept in the pantry.",
       errorSummary: {
