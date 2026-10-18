@@ -50,6 +50,23 @@
   }
 }
 
+/* UX-123: while the inventory bulk-edit bar is up on a phone it is docked
+   above the bottom bar (inventory-table.tsx), where the Add-item button
+   floats. The button goes for as long as a selection is open, and <main>
+   reserves the bar's two 44 px rows and padding (7.5rem) on top of
+   BottomNav's 3.75rem instead of the button's 4.5rem, so the last row can
+   still scroll out from under the bar. Unlayered, so it beats main's own
+   has-[[data-primary-action]] padding utility. */
+@media (width < 40rem) {
+  [data-app-main]:has([data-bulk-bar]) {
+    padding-bottom: calc(11.25rem + min(2.125rem, env(safe-area-inset-bottom)) + var(--cookie-notice-h, 0px));
+    scroll-padding-bottom: calc(11.25rem + min(2.125rem, env(safe-area-inset-bottom)) + var(--cookie-notice-h, 0px));
+  }
+  [data-app-main]:has([data-bulk-bar]) [data-primary-action] {
+    display: none;
+  }
+}
+
 /* UX-139: a Card on a dashboard page is a surface too (the budget pages
    and the meal planner are mostly lists in cards), so every top-level
    one takes list-bleed and a page's cards and lists share one edge. Not a

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, ShoppingCart, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -343,103 +343,122 @@ export function InventoryTable({
   return (
     <div ref={containerRef} className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
-        // UX-123: on phones `order-last` puts the bar after the list, and
-        // `sticky` only holds an element to the bottom edge while it sits
-        // below that edge in the flow. Before the list it scrolled off the
-        // top as soon as a row further down was ticked. The offset is the
-        // bottom bar plus the Add-item button above it (the same room
-        // <main> reserves in layout.tsx), so the bar clears both.
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:order-last max-sm:z-10 max-sm:bg-background max-sm:px-4 max-sm:py-2 max-sm:shadow-md">
-          <span className="text-sm font-medium">
-            {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
-          </span>
-          <Select
-            value={bulkField}
-            onValueChange={(v) => {
-              setBulkField((v as BulkEditableField) ?? "location");
-              setBulkValue("");
-            }}
-          >
-            <SelectTrigger className="w-36 max-sm:h-11" aria-label={dict.bulkActions.fieldAriaLabel}>
-              <SelectValue>{(v: string) => fieldLabels[v as BulkEditableField]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {bulkEditableFields.map((f) => (
-                <SelectItem key={f} value={f}>
-                  {fieldLabels[f]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {bulkField === "quantity" || bulkField === "lowStockThreshold" ? (
-            <Input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="any"
-              value={bulkValue}
-              onChange={(e) => setBulkValue(e.target.value)}
-              className="h-8 w-28 max-sm:h-11"
-              aria-label={dict.bulkActions.valueAriaLabel}
-            />
-          ) : bulkField === "unit" ? (
-            <Input
-              value={bulkValue}
-              onChange={(e) => setBulkValue(e.target.value)}
-              maxLength={20}
-              className="h-8 w-28 max-sm:h-11"
-              aria-label={dict.bulkActions.valueAriaLabel}
-            />
-          ) : (
-            <>
+        // UX-123: on phones the bar is a toolbar docked to the top of the
+        // bottom bar, full width, in two rows: what's selected and the
+        // quick actions, then the field edit. It used to be a sticky card
+        // that wrapped to three rows, floated over the middle of the list
+        // with rows showing below it, and left a gap above the Add-item
+        // button. `fixed` is the same footing PrimaryAction stands on; the
+        // offset is BottomNav's height (layout.tsx). While it's up,
+        // globals.css hides the Add-item button (adding isn't the task
+        // while a selection is open, and the two fought for the same
+        // corner) and makes <main> reserve the bar's height instead, so the
+        // last row still scrolls out from under it. From `sm` it's one
+        // wrapping row above the table, as before: each row's groups are
+        // `sm:contents`, and Clear selection is ordered last.
+        <div
+          data-bulk-bar=""
+          className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] max-sm:shadow-[0_-4px_12px_-6px_rgb(0_0_0/0.25)] print:hidden"
+        >
+          <div className="flex items-center gap-2 sm:contents">
+            <span className="text-sm font-medium max-sm:min-w-0 max-sm:flex-1 max-sm:truncate">
+              {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
+            </span>
+            {!allSelected && (
+              <Button variant="ghost" size="sm" className="h-8 max-sm:h-11" disabled={isPending} onClick={toggleSelectAll}>
+                {dict.bulkActions.selectAll}
+              </Button>
+            )}
+            {/* Icon-only on phones, where the label doesn't fit beside the
+                count; the cart is the same one the row menu uses for this
+                action, and the label stays as the accessible name. */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 max-sm:size-11 max-sm:p-0"
+              disabled={isPending}
+              onClick={() => addToShoppingList([...selected], true)}
+            >
+              <ShoppingCart aria-hidden className="sm:hidden" />
+              <span className="max-sm:sr-only">{dict.addToList.bulk}</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-muted-foreground sm:order-last max-sm:size-11 max-sm:p-0"
+              disabled={isPending}
+              onClick={() => setSelected(new Set())}
+            >
+              <X aria-hidden className="sm:hidden" />
+              <span className="max-sm:sr-only">{dict.bulkActions.clearSelection}</span>
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 sm:contents">
+            <Select
+              value={bulkField}
+              onValueChange={(v) => {
+                setBulkField((v as BulkEditableField) ?? "location");
+                setBulkValue("");
+              }}
+            >
+              <SelectTrigger className="w-36 max-sm:h-11 max-sm:shrink-0" aria-label={dict.bulkActions.fieldAriaLabel}>
+                <SelectValue>{(v: string) => fieldLabels[v as BulkEditableField]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {bulkEditableFields.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {fieldLabels[f]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {bulkField === "quantity" || bulkField === "lowStockThreshold" ? (
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="any"
+                value={bulkValue}
+                onChange={(e) => setBulkValue(e.target.value)}
+                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                aria-label={dict.bulkActions.valueAriaLabel}
+              />
+            ) : bulkField === "unit" ? (
               <Input
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
-                placeholder={bulkField === "category" ? dict.categoryPlaceholder : dict.locationPlaceholder}
-                maxLength={bulkField === "category" ? 60 : 120}
-                list={`bulk-${bulkField}-options`}
-                autoComplete="off"
-                className="h-8 w-48 max-sm:h-11"
+                maxLength={20}
+                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
                 aria-label={dict.bulkActions.valueAriaLabel}
               />
-              <datalist id={`bulk-${bulkField}-options`}>
-                {(bulkField === "category" ? categories : locations).map((o) => (
-                  <option key={o} value={o} />
-                ))}
-              </datalist>
-            </>
-          )}
-          <Button
-            size="sm"
-            className="h-8 max-sm:h-11"
-            disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
-            onClick={handleBulkApply}
-          >
-            <PendingLabel pending={isPending} busy={dict.bulkActions.applying} idle={dict.bulkActions.apply} />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 max-sm:h-11"
-            disabled={isPending}
-            onClick={() => addToShoppingList([...selected], true)}
-          >
-            {dict.addToList.bulk}
-          </Button>
-          {!allSelected && (
-            <Button variant="outline" size="sm" className="h-8 max-sm:h-11" disabled={isPending} onClick={toggleSelectAll}>
-              {dict.bulkActions.selectAll}
+            ) : (
+              <>
+                <Input
+                  value={bulkValue}
+                  onChange={(e) => setBulkValue(e.target.value)}
+                  placeholder={bulkField === "category" ? dict.categoryPlaceholder : dict.locationPlaceholder}
+                  maxLength={bulkField === "category" ? 60 : 120}
+                  list={`bulk-${bulkField}-options`}
+                  autoComplete="off"
+                  className="h-8 w-48 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                  aria-label={dict.bulkActions.valueAriaLabel}
+                />
+                <datalist id={`bulk-${bulkField}-options`}>
+                  {(bulkField === "category" ? categories : locations).map((o) => (
+                    <option key={o} value={o} />
+                  ))}
+                </datalist>
+              </>
+            )}
+            <Button
+              size="sm"
+              className="h-8 max-sm:h-11 max-sm:shrink-0"
+              disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
+              onClick={handleBulkApply}
+            >
+              <PendingLabel pending={isPending} busy={dict.bulkActions.applying} idle={dict.bulkActions.apply} />
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-muted-foreground max-sm:h-11"
-            disabled={isPending}
-            onClick={() => setSelected(new Set())}
-          >
-            {dict.bulkActions.clearSelection}
-          </Button>
+          </div>
         </div>
       )}
       <div className="hidden sm:block sm:min-h-0 sm:flex-1 roomy:overflow-y-auto">
