@@ -309,7 +309,7 @@ UX-89, UX-90, UX-102, UX-113.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
+- `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
   UX-106.
@@ -612,23 +612,6 @@ UX-89, UX-90, UX-102, UX-113.
       overview shows one call to action per feature. "Plan this week's
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
-
-- [ ] **UX-70. A "Today" block that answers "what needs me now?"**
-      (impact: high, effort: M) — breaks Hierarchy ("key status first")
-      and M6. On a phone the first screen is a greeting, the getting-started
-      box and two cards.
-      - The tasks card lists titles as plain text you can't tick or open.
-      - It counts only tasks assigned to you (`page.tsx:65`), so it says
-        "2 open tasks" while 4 unassigned household chores are open.
-      - The household budget never appears, even when fully set up.
-      - Tonight's meal and items expiring soon are missing, though the
-        subtitle says "What needs your attention right now".
-      Acceptance: at 412×839 with data, the first screen shows a "Today"
-      block with:
-      - your tasks plus unassigned ones, each with a working checkbox;
-      - tonight's planned meal;
-      - the household's safe to spend, once the budget has categories;
-      - a count of expiring items.
 
 - [ ] **UX-71. Overview stat cards: honest colours, real links, no dead
       ends** (impact: med, effort: S) — breaks Colour (status pairs with
