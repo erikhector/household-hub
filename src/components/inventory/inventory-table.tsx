@@ -49,6 +49,8 @@ import { SwipeRow } from "@/components/shared/swipe-row";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { getStockStatus } from "@/lib/stock-status";
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
+import { quantityStep } from "@/lib/inventory/quantity-step";
+import { QuantitySheet } from "@/components/inventory/quantity-sheet";
 import { formatQuantity } from "@/lib/format-quantity";
 import {
   groupItems,
@@ -715,6 +717,9 @@ function SwipeableItemCard({
 // (nextQuantityAfterDelta), so the number it shows is the one that saves; a
 // failed save snaps back to the server's value with a toast. The stock badge
 // beside it follows once the save revalidates the page.
+// UX-119: a tap moves by a step that suits the unit (50 g, not 1 g), and
+// tapping the number opens the "I used some / I bought more" sheet for an
+// exact amount.
 function QuantityStepper({
   item,
   layout,
@@ -729,7 +734,9 @@ function QuantityStepper({
   const unitLabel = useUnitLabel();
   const [, startTransition] = useTransition();
   const [quantity, addOptimisticDelta] = useOptimistic(item.quantity, nextQuantityAfterDelta);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const label = `${formatQuantity(quantity)} ${unitLabel(item.unit)}`;
+  const step = quantityStep(item.unit);
 
   function adjust(delta: number) {
     startTransition(async () => {
@@ -742,7 +749,7 @@ function QuantityStepper({
   const isTable = layout === "table";
   const buttonClass = isTable ? "size-7" : "shrink-0";
   return (
-    <div className={isTable ? "flex items-center gap-2" : "flex min-w-0 shrink items-center gap-1.5"}>
+    <div className={isTable ? "flex items-center gap-2" : "flex min-w-0 shrink items-center gap-2"}>
       <Button
         variant="ghost"
         size="icon"
@@ -750,23 +757,39 @@ function QuantityStepper({
         disabled={disabled}
         aria-label={format(dict.decreaseQuantityAriaLabel, { name: item.name })}
         title={format(dict.decreaseQuantityAriaLabel, { name: item.name })}
-        onClick={() => adjust(-1)}
+        onClick={() => adjust(-step)}
       >
         <Minus className="size-3.5" />
       </Button>
       {/* Fixed width in the table, capped (not flex-1) on a card, so the
           control stays a tight cluster and a long/custom unit string
           truncates instead of forcing the row wider. */}
-      <span
+      <Button
+        variant="ghost"
+        size="sm"
         className={
           isTable
-            ? "block w-14 shrink-0 truncate text-center tabular-nums"
-            : "max-w-24 truncate text-center text-sm tabular-nums"
+            ? "block w-14 shrink-0 truncate px-0 text-center font-normal tabular-nums"
+            : "max-w-24 truncate px-1 text-center font-normal tabular-nums"
         }
+        disabled={disabled}
+        aria-label={format(dict.quantitySheet.openAriaLabel, { name: item.name, amount: label })}
         title={label}
+        onClick={() => setSheetOpen(true)}
       >
         {label}
-      </span>
+      </Button>
+      <QuantitySheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        itemId={item.id}
+        itemName={item.name}
+        quantity={quantity}
+        unitText={unitLabel(item.unit)}
+        unit={item.unit}
+        onApply={adjust}
+        dict={dict.quantitySheet}
+      />
       <Button
         variant="ghost"
         size="icon"
@@ -774,7 +797,7 @@ function QuantityStepper({
         disabled={disabled}
         aria-label={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         title={format(dict.increaseQuantityAriaLabel, { name: item.name })}
-        onClick={() => adjust(1)}
+        onClick={() => adjust(step)}
       >
         <Plus className="size-3.5" />
       </Button>

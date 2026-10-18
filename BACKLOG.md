@@ -1065,19 +1065,6 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Inventory
 
-- [ ] **UX-119. "I used some" and "I bought more" for gram, kilo and
-      litre items** (impact: high, effort: M) — breaks Usability and M4.
-      - The stepper always moves by 1 unit
-        (`inventory-table.tsx:697,722`): Smör 500 g → 499 g, and Gul lök
-        1.5 kg → 0.5 kg → 0 kg.
-      - Swipe right is "+1" too.
-      - Tapping the quantity does nothing, so "used 200 g" means the Edit
-        dialog and mental arithmetic.
-      Acceptance: tapping the quantity opens a small sheet with a decimal
-      keypad and "Used / Bought" with quick chips (½, all, the last
-      amount). Step sizes suit the unit (g by 50 or 100). A gram item
-      drops by 200 g in at most two taps.
-
 - [ ] **UX-121. What's low, out and expiring, at the top of the
       inventory** (impact: high, effort: M) — breaks Hierarchy and M6.
       With 4 out, 1 low and 4 expiring or expired, the header says nothing
