@@ -87,7 +87,7 @@ test("a step with a duration starts a countdown timer and stops it", async ({ pa
 
 // UX-94: closing with progress asks first; a back gesture, Escape and the
 // Close button all go through the same check.
-test("closing cook mode with a ticked step asks before throwing progress away", async ({ page }) => {
+test("closing cook mode with a ticked step (Close, then back) asks before throwing progress away", async ({ page }) => {
   await page.goto("/dashboard/meal-planning?tab=recipes");
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Pancakes");
   await (await openRowSheet(page, "Pancakes")).getByRole("button", { name: "Cook", exact: true }).click();
@@ -107,8 +107,8 @@ test("closing cook mode with a ticked step asks before throwing progress away", 
   // before the next close so it can't be mistaken for a back gesture.
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 
-  // Escape is guarded too; this time stop.
-  await page.keyboard.press("Escape");
+  // The back gesture is guarded too; this time stop.
+  await page.goBack();
   await expect(page.getByRole("dialog", { name: "Stop cooking?" })).toBeVisible();
   await page.getByRole("dialog", { name: "Stop cooking?" }).getByRole("button", { name: "Stop cooking" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
