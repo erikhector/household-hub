@@ -341,7 +341,13 @@ export function InventoryTable({
   return (
     <div ref={containerRef} className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2">
+        // UX-123: on phones `order-last` puts the bar after the list, and
+        // `sticky` only holds an element to the bottom edge while it sits
+        // below that edge in the flow. Before the list it scrolled off the
+        // top as soon as a row further down was ticked. The offset is the
+        // bottom bar plus the Add-item button above it (the same room
+        // <main> reserves in layout.tsx), so the bar clears both.
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:order-last max-sm:z-10 max-sm:bg-background max-sm:px-4 max-sm:py-2 max-sm:shadow-md">
           <span className="text-sm font-medium">
             {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
           </span>
@@ -418,6 +424,11 @@ export function InventoryTable({
           >
             {dict.addToList.bulk}
           </Button>
+          {!allSelected && (
+            <Button variant="outline" size="sm" className="h-8" disabled={isPending} onClick={toggleSelectAll}>
+              {dict.bulkActions.selectAll}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
