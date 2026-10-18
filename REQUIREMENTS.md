@@ -511,6 +511,22 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     updated {date} by {name}" under the stock line instead (name dropped
     when the updater left or isn't recorded). `e2e/inventory-compact-rows.spec.ts`
     counts the rows in one screen and checks the stepper and item page.
+  - **"I used some / I bought more" (UX-119)**: the −/+ stepper moves by a
+    step that suits the unit (`quantityStep`, `src/lib/inventory/quantity-step.ts`):
+    50 for g and ml, 0.25 for kg and l, 1 for everything else (counts and
+    custom units), so Smör 500 g goes to 450 g and Gul lök 1.5 kg to
+    1.25 kg. Tapping the quantity (a ghost button named "Adjust
+    {name} ({amount})") opens `QuantitySheet`, a dialog/bottom sheet with a
+    Used / Bought toggle (Used first), one-tap chips that apply at once and
+    close it (unit-sized presets: 100, 200, 500 g; 0.25, 0.5, 1 kg; 1, 2, 5
+    otherwise; ½ of the stock; All, for Used; and Last {amount}, the previous
+    amount for that item kept in memory only), and a decimal-keypad field
+    (`inputMode="decimal"`, comma accepted) with a "Use amount" / "Add
+    amount" button. A gram item drops by 200 g in two taps. The sheet calls
+    the same `adjustQuantityAction` with a signed delta through the
+    stepper's optimistic transition, so rounding, the zero floor and the
+    low-stock auto-add are unchanged. Swipe right was already removed by
+    UX-35. `e2e/inventory-quantity-sheet.spec.ts`.
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge
