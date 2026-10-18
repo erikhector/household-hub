@@ -217,7 +217,7 @@ export default async function DashboardOverviewPage() {
         <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
       )}
 
-      <div className="list-bleed">
+      <div>
         {personalBudgetCategoryCount > 0 ? (
           <SafeToSpend
             amount={personalPosition.safeToSpend}

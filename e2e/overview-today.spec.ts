@@ -49,7 +49,7 @@ test("the Today block lists my and unassigned tasks, tonight, safe to spend and 
     await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Today household')`, [householdId]);
     await client.query(
       `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role)
-       VALUES ($1, $2, $3, 'OWNER'), ($4, $2, $5, 'MEMBER')`,
+       VALUES ($1, $2, $3, 'OWNER'), ($4, $2, $5, 'CONTRIBUTOR')`,
       [memberId, householdId, userId, otherMemberId, otherUserId],
     );
     await client.query(
