@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.75.0",
+    "date": "2026-10-18",
+    "pr": 333,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Notifications on phones now appear at the top of the screen, so they no longer cover buttons like \"Complete list\" or the shopping list's \"Next up\" items.\n\nAdding a transaction is faster: it opens on the amount, shows your categories as tappable chips with expenses first and your recent ones on top, picks the category you used last (or the one you're filtering by), and confirms with \"Added … · Undo\".",
+      "sv": "Aviseringar på mobilen visas nu högst upp på skärmen, så de döljer inte längre knappar som \"Slutför lista\" eller raderna under \"Nästa på tur\" i inköpslistan.\n\nDet går snabbare att lägga till en transaktion: bladet öppnas på beloppet, kategorierna visas som knappar med utgifter först och dina senaste överst, den kategori du använde sist (eller filtrerar på) är förvald, och du får en bekräftelse med \"Ångra\"."
+    }
+  },
+  {
     "version": "0.74.1",
     "date": "2026-10-18",
     "pr": 326,
