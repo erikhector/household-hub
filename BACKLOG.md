@@ -1682,6 +1682,56 @@ out to be a product-scope question rather than a scoped task should move to
       custom meal two weeks ahead, searches it and follows the link to the
       right week, on desktop and mobile (field has a visible label, 44 px).
 
+### 2026-10-18 scan
+
+- [ ] **GAP-60. "Skip this time" on a recurring task** (impact: low-med, effort: S) `[schema]` —
+      Grocy's chores page lets you skip an execution ("we're away, nobody
+      watered the plants") so the schedule moves on without logging it as
+      done. Squirrel's only ways past a recurring task are to tick it
+      (which records a completion and credits a member in "Last done
+      by") or delete it (which loses the schedule and history).
+      `HouseholdTask` stores no due date: `getNextDueDate`/`isTaskOpen`
+      in `src/app/dashboard/tasks/recurrence.ts` derive it as
+      `completedAt + recurrenceIntervalDays`, and the tick
+      (`toggleTaskCompletedAction`) overwrites `completedAt`, which feeds
+      the weekly recap and "Last done by", so a skip must not write it.
+      Add `HouseholdTask.skippedUntil DateTime?`. A "Skip this time" row
+      action, shown only on recurring tasks that are currently open (no
+      wait on UX-133's overdue concept), sets it to now +
+      `recurrenceIntervalDays` and leaves `completedAt` and
+      `completedByMemberId` untouched, with an Undo toast that restores
+      the previous value. `isTaskOpen` treats the task as closed while
+      `now < skippedUntil`, `getNextDueDate` returns the later of the two
+      dates, and a tick clears `skippedUntil`. The tick's un-complete
+      branch also clears `skippedUntil`, and leaves `completedAt` alone
+      when only the skip closed the task, so clicking a skipped task
+      reopens it without wiping the real last completion. Does not decide
+      UX-137's anchoring question: if that changes the rule, it updates
+      this too.
+      Acceptance: `recurrence.test.ts` pins `isTaskOpen`/`getNextDueDate`
+      with `skippedUntil` before, at and after now (with and without a
+      `completedAt`); an action test covers household scoping, rejection
+      on a non-recurring task, and that `completedAt`/
+      `completedByMemberId` are not written, and that un-completing a
+      skipped task clears `skippedUntil` and keeps `completedAt`; an e2e
+      step skips a uniquely named daily task and sees it leave the open
+      list with "Last done by" unchanged, then undoes it, on desktop and
+      mobile (button name unique per row, 44 px).
+
+- [ ] **GAP-61. Pin a note to the top of the notes board** (impact: low, effort: S) `[schema]` —
+      Cozi's journal and AnyList's meal-plan "pinned entries" both let a
+      lasting fact (the wifi code, the door code, "allergic to nuts")
+      outlive the chronological feed. Squirrel's notes board
+      (`## Household notes board`, GAP-16) is newest-first only, so a
+      standing note sinks under daily chatter. Add `HouseholdNote.pinnedAt
+      DateTime?`; any member may pin or unpin (same permission as delete);
+      pinned notes sort first, newest-pinned first, with a visible
+      "Pinned" label and an accessible Pin/Unpin button, capped at 5
+      pinned so the pins don't become the feed.
+      Acceptance: an action test covers household scoping, the cap and
+      unpin; an e2e step pins a uniquely named note, reloads and sees it
+      above a newer one, then unpins it, on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
