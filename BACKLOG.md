@@ -227,6 +227,33 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
+- [ ] **MAINT-24. Flaky: toast buttons measure 43.999996 px in `expectToastButtonsTappable`** (low, S) —
+      `e2e/plan-leftovers.spec.ts:113` and `:146`, `mobile` project. Both
+      failed and then passed on the retry in the GitHub `End-to-end
+      (Playwright)` job on release PR #360 (head `5e9ebba`, 2026-10-18), and
+      passed on a local re-run. The failing assertion is the helper
+      `expectToastButtonsTappable` (line ~90): a toast button's height is
+      43.999996, below a strict `>= 44` (M3). That is sub-pixel rounding of
+      a transformed toast, not a short button. Fix it in the app by making
+      the toast button's minimum height truly 44 px (a `min-h-11` that
+      survives the toast's scale), or, if the app is right, by giving the
+      helper a tolerance of under 0.01 px and a comment saying it is
+      sub-pixel rounding; never a looser bound than that, a skip or a
+      retry. Related: `:146` is also named by MAINT-30, which saw it fail
+      in the full gate; fold the two. Acceptance:
+      `npx playwright test e2e/plan-leftovers.spec.ts --project=mobile
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-25. Flaky: `toBeChecked` in `overview-today.spec.ts:134`** (low, S) —
+      `e2e/overview-today.spec.ts:134`, `desktop` project. Failed once in the
+      local gate on release PR #360 (head `5e9ebba`, 2026-10-18), then
+      passed on a re-run of the same commit; added by #352 (UX-70). The
+      failing assertion is `toBeChecked` (`:134`) on the checkbox "Mark Water
+      the plants as not done", right after `mine.check()` (`:133`) ticks it
+      from the Overview's Today card. Fix the app's or the test's waiting (the tick
+      is optimistic and the page may re-render with server data before
+      the checked state settles), never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test e2e/overview-today.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-26. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
       `e2e/copy-shopping-list-text.spec.ts:15` ("Copy as text puts the open
       items on the clipboard and leaves ticked ones out"), `mobile` project.
