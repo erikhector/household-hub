@@ -97,6 +97,10 @@ test("a gram item drops by 200 g in two taps, and a bought amount adds", async (
   await quantityButton(page, flour).click();
   const sheet = page.getByRole("dialog", { name: flour });
   await expect(sheet).toBeVisible();
+  // For the UX scout's screenshot run (see AGENTS.md, "Screenshots").
+  if (process.env.E2E_SCREENSHOT_DIR) {
+    await page.screenshot({ path: `${process.env.E2E_SCREENSHOT_DIR}/${test.info().project.name}-inventory-quantity-sheet.png` });
+  }
   // Tap 2: the chip applies and closes the sheet.
   await waitForSave(page, () => sheet.getByRole("button", { name: "200 g", exact: true }).click());
   await expect(sheet).toBeHidden();
