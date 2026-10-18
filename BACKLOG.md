@@ -691,7 +691,9 @@ UX-89, UX-90, UX-102, UX-113.
       - The scan reads the line's quantity (`ScannedReceiptLine.quantity`,
         `lib/actions/receipt-scan.ts:65`), but the review step drops it
         when building matches (`receipt-scan-dialog.tsx:306`), and
-        `ReceiptScanMatch` has no quantity (`actions.ts:1328`).
+        `ReceiptScanMatch` has no quantity
+        (`src/app/dashboard/shopping-list/actions.ts:1328`, the `actions.ts`
+        cited below).
       - `applyReceiptScanAction` then writes PriceHistory with the list
         row's quantity (`actions.ts:1475-1480`, and via `applyStockArrival`),
         so the unit price is 45, not 15. GAP-9's price-spike check
@@ -720,7 +722,8 @@ UX-89, UX-90, UX-102, UX-113.
         Register receipt dead-ends the same way.
       - The per-row "Add price" on the list exists, but on a row already
         ticked as bought it only changes the row's estimate
-        (`updateShoppingListItemPriceAction`, `actions.ts:459`): it never
+        (`updateShoppingListItemPriceAction`,
+        `src/app/dashboard/shopping-list/actions.ts:459`): it never
         becomes `lastKnownPrice` or a PriceHistory row, so a typed price
         counts for less than a scanned one.
       Acceptance: the scan's error state offers "Enter prices by hand"
