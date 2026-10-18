@@ -1275,7 +1275,7 @@ export const en = {
     decreaseQuantityAriaLabel: "Decrease {name}",
     increaseQuantityAriaLabel: "Increase {name}",
     quantitySheet: {
-      openAriaLabel: "Change quantity of {name} ({amount})",
+      openAriaLabel: "Adjust {name} ({amount})",
       description: "In stock: {amount}",
       modeLabel: "What happened",
       used: "Used",

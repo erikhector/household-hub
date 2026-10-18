@@ -64,7 +64,7 @@ async function showItems(page: Page) {
 
 // The visible quantity button of one item (the table on desktop, the card on a phone).
 function quantityButton(page: Page, name: string) {
-  return page.getByRole("button", { name: new RegExp(`^Change quantity of ${name} `) }).filter({ visible: true });
+  return page.getByRole("button", { name: new RegExp(`^Adjust ${name} `) }).filter({ visible: true });
 }
 
 async function waitForSave(page: Page, act: () => Promise<void>) {
