@@ -1744,23 +1744,34 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-10-18 scan
 
-- [ ] **GAP-60. "Skip this time" on a recurring task** (impact: low-med, effort: S) —
+- [ ] **GAP-60. "Skip this time" on a recurring task** (impact: low-med, effort: S) `[schema]` —
       Grocy's chores page lets you skip an execution ("we're away, nobody
       watered the plants") so the schedule moves on without logging it as
       done. Squirrel's only ways past a recurring task are to tick it
       (which records a completion and credits a member in "Last done
-      by") or delete it (which loses the schedule and history). Add a
-      "Skip this time" row action, shown only on recurring tasks that are
-      due or overdue, that advances `dueAt` to the next occurrence using
-      the same calculation the tick uses (`recurrence.ts`), without
-      setting a completer or a completion time, with an Undo toast. Does
-      not decide UX-137's anchoring question: it reuses whichever rule
-      that settles on. No schema change.
-      Acceptance: an action test covers household scoping, rejection on a
-      non-recurring task, and that no completer is recorded; an e2e step
-      skips a uniquely named daily task and sees it leave the due list
-      with "Last done by" unchanged, then undoes it, on desktop and mobile
-      (button name unique per row, 44 px).
+      by") or delete it (which loses the schedule and history).
+      `HouseholdTask` stores no due date: `getNextDueDate`/`isTaskOpen`
+      in `src/app/dashboard/tasks/recurrence.ts` derive it as
+      `completedAt + recurrenceIntervalDays`, and the tick
+      (`toggleTaskCompletedAction`) overwrites `completedAt`, which feeds
+      the weekly recap and "Last done by", so a skip must not write it.
+      Add `HouseholdTask.skippedUntil DateTime?`. A "Skip this time" row
+      action, shown only on recurring tasks that are currently open (no
+      wait on UX-133's overdue concept), sets it to now +
+      `recurrenceIntervalDays` and leaves `completedAt` and
+      `completedByMemberId` untouched, with an Undo toast that restores
+      the previous value. `isTaskOpen` treats the task as closed while
+      `now < skippedUntil`, `getNextDueDate` returns the later of the two
+      dates, and a tick clears `skippedUntil`. Does not decide UX-137's
+      anchoring question: if that changes the rule, it updates this too.
+      Acceptance: `recurrence.test.ts` pins `isTaskOpen`/`getNextDueDate`
+      with `skippedUntil` before, at and after now (with and without a
+      `completedAt`); an action test covers household scoping, rejection
+      on a non-recurring task, and that `completedAt`/
+      `completedByMemberId` are not written; an e2e step skips a uniquely
+      named daily task and sees it leave the open list with "Last done
+      by" unchanged, then undoes it, on desktop and mobile (button name
+      unique per row, 44 px).
 
 - [ ] **GAP-61. Pin a note to the top of the notes board** (impact: low, effort: S) `[schema]` —
       Cozi's journal and AnyList's meal-plan "pinned entries" both let a
