@@ -7373,8 +7373,13 @@ under human control. Five roles, each a skill in `.claude/skills/`:
 
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
-  weekly), `ux` (`UX-`, from screenshots of every route on phone and
-  desktop in both languages, reviewed against DESIGN.md's UX and design
+  weekly), `ux` (`UX-`, a daily design audit: screenshots of every
+  route on desktop, phone, landscape, tablet, a 320 px phone, light theme
+  and 200% text, plus every dialog opened and closed
+  (`npm run test:e2e:audit`, `playwright.audit.config.ts`). On top of
+  that, a deep dive into one area's actions, rotating by weekday, and one
+  state-of-the-art idea per run benchmarked against the best competing
+  apps. All of it is reviewed against DESIGN.md's UX and design
   principles and its hard Mobile UX rules), `production` (`BUG-`, from Sentry, only when
   a Sentry connector is available) and `deps` (`DEPS-`). They add at most a
   few scoped items with acceptance criteria to BACKLOG.md, via a
