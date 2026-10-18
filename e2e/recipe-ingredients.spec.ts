@@ -77,10 +77,16 @@ test("an uncertain ingredient is reviewed, linked to the suggestion, and never b
   await dialog.getByRole("button", { name: "Create recipe" }).click();
 
   // Step 2: the Swedish "Tomater" isn't a confident match for "Tomatoes",
-  // so it's pre-selected but left open for a look.
+  // so it's only offered (UX-90): the row starts on "Create new", names
+  // the closest item, and needs a tap on "Use existing" to link it.
   const review = page.getByRole("dialog", { name: "Match ingredients" });
   await expect(review).toBeVisible();
   const row = review.getByRole("group", { name: "4 pcs Tomater" });
+  await expect(row.getByText("Closest match: Tomatoes.")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Create new" })).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByRole("button", { name: "Use existing" })).toHaveAttribute("aria-pressed", "false");
+  await expect(row.getByRole("combobox", { name: "Pantry item for Tomater" })).toHaveCount(0);
+  await row.getByRole("button", { name: "Use existing" }).click();
   await expect(row.getByRole("combobox", { name: "Pantry item for Tomater" })).toHaveValue("Tomatoes · Produce");
   await expect(row.getByRole("button", { name: "Use existing" })).toHaveAttribute("aria-pressed", "true");
 
@@ -212,9 +218,11 @@ test("linking \"eggs\" to Egg once makes it a confident match on the next recipe
   await fillIngredient(page, "eggs", "3", "pcs");
   await dialog.getByRole("button", { name: "Create recipe" }).click();
 
-  // A plural is only a suggestion the first time.
+  // A plural is only a suggestion the first time: offered, not preselected.
   const review = page.getByRole("dialog", { name: "Match ingredients" });
   const row = review.getByRole("group", { name: "3 pcs eggs" });
+  await expect(row.getByRole("button", { name: "Create new" })).toHaveAttribute("aria-pressed", "true");
+  await row.getByRole("button", { name: "Use existing" }).click();
   await expect(row.getByRole("combobox", { name: "Pantry item for eggs" })).toHaveValue("Egg · Dairy & eggs");
   await review.getByRole("button", { name: "Create recipe" }).click();
   await expect(page.getByText("Saved · 1 ingredient linked to your pantry")).toBeVisible();

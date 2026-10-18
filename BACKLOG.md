@@ -368,7 +368,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-46, UX-47,
-UX-89, UX-90, UX-102, UX-113.
+UX-89, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -873,22 +873,6 @@ UX-89, UX-90, UX-102, UX-113.
       inventory item it created removes that item too.
 
 #### Meals and recipes
-
-- [ ] **UX-90. Don't preselect weak pantry matches** (impact: high,
-      effort: M) — breaks "New technology: let the user correct a
-      suggestion before it changes data". The "Match ingredients" step
-      (`ingredient-review-step.tsx`) preselects "Use existing" for loose
-      fuzzy matches, and one tap on "Create recipe" saves them. Seen:
-      - Rice → Ricotta;
-      - Cream → Breadcrumbs;
-      - Tomatoes (pcs) → Crushed tomatoes (g).
-      Afterwards "Review ingredient matches" calls them all matched. The
-      missing list then asks for "Ricotta 4 dl", and Mark as cooked offers
-      to deduct breadcrumbs from a tikka masala.
-      Acceptance: a match below the confident threshold defaults to "Create
-      new" and needs a tap to accept. Saving a recipe with Rice and Cream
-      on the defaults never links Ricotta or Breadcrumbs (unit test on the
-      default choice).
 
 - [ ] **UX-95. One word for portions, and keep meal and recipe apart**
       (impact: med, effort: S) — breaks Consistency. In English the same
