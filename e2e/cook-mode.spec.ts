@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
+import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet } from "./ui";
 
 // GAP-42: the full-screen "Cook" view on a recipe with instructions. The
@@ -102,6 +103,9 @@ test("closing cook mode with a ticked step asks before throwing progress away", 
   await confirm.getByRole("button", { name: "Keep cooking" }).click();
   await expect(confirm).toBeHidden();
   await expect(cook.getByRole("button", { name: "Whisk the batter" })).toHaveAttribute("aria-pressed", "true");
+  // The confirm's own history entry comes off asynchronously; let it land
+  // before the next close so it can't be mistaken for a back gesture.
+  await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 
   // Escape is guarded too; this time stop.
   await page.keyboard.press("Escape");
