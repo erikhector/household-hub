@@ -263,16 +263,17 @@ then MAINT-7 per feature, to avoid churn.
       survives the toast's scale), or, if the app is right, by giving the
       helper a tolerance of under 0.01 px and a comment saying it is
       sub-pixel rounding; never a looser bound than that, a skip or a
-      retry. Related: `:146` is also named by MAINT-23 (open PR #341), which
+      retry. Related: `:146` is also named by MAINT-30 (open PR #341), which
       saw it fail in the full gate; fold the two when #341 lands. Acceptance:
       `npx playwright test e2e/plan-leftovers.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
-- [ ] **MAINT-25. Flaky: `toBeChecked` in `overview-today.spec.ts:22`** (low, S) —
-      `e2e/overview-today.spec.ts:22`, `desktop` project. Failed once in the
+- [ ] **MAINT-25. Flaky: `toBeChecked` in `overview-today.spec.ts:134`** (low, S) —
+      `e2e/overview-today.spec.ts:134`, `desktop` project. Failed once in the
       local gate on release PR #360 (head `5e9ebba`, 2026-10-18), then
       passed on a re-run of the same commit; added by #352 (UX-70). The
-      failing assertion is `toBeChecked` on the checkbox ticked from the
-      Overview's Today card. Fix the app's or the test's waiting (the tick
+      failing assertion is `toBeChecked` (`:134`) on the checkbox "Mark Water
+      the plants as not done", right after `mine.check()` (`:133`) ticks it
+      from the Overview's Today card. Fix the app's or the test's waiting (the tick
       is optimistic and the page may re-render with server data before
       the checked state settles), never a loosened assertion, a skip or a
       retry. Acceptance: `npx playwright test e2e/overview-today.spec.ts
