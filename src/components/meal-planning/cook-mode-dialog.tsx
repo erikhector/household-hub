@@ -442,12 +442,12 @@ function CookModeContent({
               it ticks the current step and moves on; after the last step,
               from a planned meal, it records the meal. */}
           {current != null && (
-            <Button type="button" size="lg" className="min-h-14 w-full text-lg" onClick={nextStep}>
+            <Button type="button" size="lg" className="h-auto min-h-14 w-full py-3 text-lg whitespace-normal" onClick={nextStep}>
               {dict.cookNextStep}
             </Button>
           )}
           {current == null && steps.length > 0 && onDone && (
-            <Button type="button" size="lg" className="min-h-14 w-full text-lg" onClick={onDone}>
+            <Button type="button" size="lg" className="h-auto min-h-14 w-full py-3 text-lg whitespace-normal" onClick={onDone}>
               <Check aria-hidden />
               {dict.cookDone}
             </Button>
