@@ -1371,7 +1371,7 @@
     "breaking": false,
     "notes": {
       "en": "Scanned and registered receipts can now record which store you bought something at, in an optional \"Store\" field. Once an item has prices from two or more stores, the Cost analyzer will show you which one was cheapest last time.",
-      "sv": "Skannade och registrerade kvitton kan nu spara vilken butik du köpte något i, i ett valfritt \"Butik\"-fält. När en vara har priser från två eller fler butiker visar Kostnadsanalysen vilken som var billigast senast."
+      "sv": "Skannade och registrerade kvitton kan nu spara vilken butik du handlade i, med ett valfritt \"Butik\"-fält. När en vara har priser från två eller fler butiker visar Kostnadsanalysen vilken som var billigast senast."
     }
   },
   {
