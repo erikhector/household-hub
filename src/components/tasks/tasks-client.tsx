@@ -249,7 +249,12 @@ function TaskItemRow({
             otherwise the recurrence/assignee badges and the edit/delete
             buttons (all shrink-0) crowd the flex-1 title span down to just a
             few visible characters. */}
-        <label className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
+        {/* UX-101: only the tick completes a task (or the right swipe). The
+            title is its own button that opens the edit dialog by clicking
+            the row's edit button (the same hidden-button hand-off the swipe
+            and the ⋯ menu use), so a stray tap while scrolling can't
+            complete the task silently (M5, forgiving). */}
+        <div className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
           <Checkbox
             data-swipe-primary
             checked={completed}
@@ -258,13 +263,17 @@ function TaskItemRow({
             })}
             onChange={handleToggleCompleted}
           />
-          <span
-            className={`min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1 ${completed ? "text-muted-foreground line-through" : ""}`}
+          <button
+            type="button"
+            className={`min-w-0 flex-1 cursor-pointer rounded-sm text-left line-clamp-2 break-words focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:line-clamp-1 max-sm:min-h-11 pointer-coarse:min-h-11 ${completed ? "text-muted-foreground line-through" : ""}`}
             title={task.title}
+            onClick={(e) =>
+              e.currentTarget.closest("[data-swipe-row]")?.querySelector<HTMLElement>("[data-swipe-edit]")?.click()
+            }
           >
             {task.title}
-          </span>
-        </label>
+          </button>
+        </div>
         {/* w-full below sm gives this group its own full-width row to wrap
             badges/buttons within — shrink-0 alone left it sized to its
             unwrapped content width, which could overflow the card on narrow

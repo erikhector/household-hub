@@ -5298,6 +5298,12 @@ co-managers, not kids earning rewards.
   week renders nothing (`TasksWeeklyRecap`, dismissible, mirrors
   `MealVarietyRecap`'s shape exactly), same non-goal as the meal-planning
   variety recap.
+- **Title opens, tick completes (UX-101)**: tapping a task's title opens
+  its edit dialog (the title is a button that clicks the row's hidden
+  `data-swipe-edit` button, the same hand-off the swipe tray and the ⋯ menu
+  use). Only the checkbox or a right swipe completes or reopens a task, so a
+  stray tap while scrolling can't complete one silently
+  (`e2e/task-title-opens.spec.ts`).
 - **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
   same toggle back, 5 s), since the row leaves for "Completed" below the
   fold. The weekly recap is frozen at the list as the page opened, so the
