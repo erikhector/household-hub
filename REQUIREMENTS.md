@@ -1187,12 +1187,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     the setting below); plain "Mark as empty" behaves like any other
     decrease and auto-adds (with Undo) when the item was in stock.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
-    bar is rendered last in the list's flex column (`order-last`) and is
-    `sticky` with a bottom offset that clears the bottom bar and the
-    Add-item button, so ticking a row at any scroll position shows it
-    there; `sticky bottom` does nothing for an element that sits before the
-    list. From `sm` it stays above the table. It has a "Select all" button
-    (hidden once everything is ticked) beside "Clear selection". There is
+    bar is a full-width toolbar `fixed` to the top of the bottom bar, two
+    rows high: the count, "Select all" (hidden once everything is ticked),
+    an icon-only cart for "Add to shopping list" and an ✕ for "Clear
+    selection" (both keep their labels as accessible names), then the
+    field select, the value and Apply. While it's up the Add-item button
+    is hidden and `<main>` reserves the bar's height instead
+    (`globals.css`, `[data-bulk-bar]`), so the last row scrolls out from
+    under it. It replaced a `sticky` card that wrapped to three rows and
+    floated mid-list above the Add-item button. From `sm` it's one
+    wrapping row above the table with "Clear selection" last. There is
     still no bulk delete.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
