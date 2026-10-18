@@ -31,13 +31,19 @@ export async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> 
 
 export async function insertHouseholdCategory(
   client: Client,
-  { id, name, type = "EXPENSE" }: { id: string; name: string; type?: "INCOME" | "EXPENSE" | "SAVINGS" },
+  {
+    id,
+    name,
+    type = "EXPENSE",
+    monthlyLimit = null,
+  }: { id: string; name: string; type?: "INCOME" | "EXPENSE" | "SAVINGS"; monthlyLimit?: number | null },
 ) {
-  await client.query(`INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, $3, $4)`, [
+  await client.query(`INSERT INTO "BudgetCategory" (id, "householdId", name, type, "monthlyLimit") VALUES ($1, $2, $3, $4, $5)`, [
     id,
     E2E_HOUSEHOLD.id,
     name,
     type,
+    monthlyLimit,
   ]);
 }
 

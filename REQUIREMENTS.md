@@ -2299,6 +2299,20 @@ Component page function can't itself be unit-tested.
   regular bills" (the Manage tab), keeping the month and household in the
   URL. Once there is data the totals carry a one-line legend for the "+",
   "–" and "→" in front of them.
+- **Categories near or over their limit (UX-108)**: on the budget
+  Overview (household and personal), a "Near or over their limit" card sits
+  right under Safe to spend and lists every capped expense category at 90%
+  or more of its limit (`categoriesNearLimit` in
+  `src/lib/budget-category-limit.ts`, `NEAR_LIMIT_PERCENT`). Each row has a
+  warning icon, the name, "spent / limit" and either "N over" (red, past
+  the limit) or "N% used"; over ones come first, then by how far in. The
+  limit is the envelope Insights uses (monthly limit plus any rollover
+  carried in), and the list reads the same rows as Insights' "Expenses by
+  category", so the two tabs agree. A row links to Transactions filtered to
+  that category. With no such category the card isn't rendered. When the
+  number's status is healthy but the list isn't empty, the status line
+  reads "N categories are at or near their limit." instead of "You're in
+  good shape…"; a tight or over status keeps its own line.
 - **The headline number** ("Remaining after expenses and savings"): the
   selected month's income so far, minus that month's expenses and savings
   so far (the same totals `PeriodSummary` computes from the page's
@@ -2936,7 +2950,7 @@ each budget page shows one short purpose line under its title instead
 it."). The two first-run cards differ in the same way: the household card
 names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
-categories) is not built; it is part of the Today block (UX-70).
+categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
 
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
@@ -5788,7 +5802,7 @@ components directly.
   Back-links (`← All shopping lists`, the item catalog's) are
   `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
 - **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
-  leads with today (your tasks, your budget), so the "Get set up" card
+  leads with today (the Today block, UX-70, then your budget), so the "Get set up" card
   (`src/components/dashboard/getting-started.tsx`) stays short: it lists only
   the steps still open and counts the finished (or skipped) ones in one
   "3 of 5 done" line, and disappears on its own once every step is done.
@@ -5802,6 +5816,35 @@ components directly.
   `mt-auto` so cards side by side line them up, and their labels wrap rather
   than push the chevron outside the card on narrow (tablet) columns.
   Covered by `e2e/overview.spec.ts`.
+- **Overview "Today" block (UX-70)**: the first thing on the overview,
+  above the setup card, answers "what needs me now?"
+  (`src/components/dashboard/today-block.tsx`, fed by
+  `src/app/dashboard/page.tsx`). It replaces the old "Your tasks" card
+  (which counted only tasks assigned to you and showed plain text). It
+  holds:
+  - **Tasks**: the open tasks assigned to you plus the unassigned ones
+    (another member's are left out), yours first, oldest first within each
+    group, up to 5, then a "N more tasks" link to `/dashboard/tasks`.
+    Unassigned ones carry an "Unassigned" hint. Each has a checkbox
+    (44 px target on phones) that calls `toggleTaskCompletedAction`
+    optimistically: it shows ticked at once and stays in place, struck
+    through, so nothing moves under the thumb; a failed save puts it back
+    with a toast, and the "Done" toast offers Undo. A recurring task counts
+    as open again once its interval has passed (`isTaskOpen`).
+  - **Tonight's dinner**: the household's `DINNER` plan entries for today's
+    UTC date (planner dates are UTC midnights), by recipe or free-text
+    name; "nothing planned" otherwise. Links to the meal planner.
+  - **Household safe to spend**: shown once the household budget has
+    categories, as the same number as the budget page's Safe to spend
+    (`loadHouseholdSafeToSpend`, `src/lib/household-safe-to-spend.ts`,
+    feeding the same `computeSafeToSpend`), in the household's display
+    currency and coloured by status. Links to `/dashboard/budget`.
+  - **Expiring items**: the count of in-stock items past or within
+    `EXPIRY_WARNING_DAYS` of their expiry date (`getExpiryStatus`); the
+    row is hidden at 0. Links to `/dashboard/inventory`.
+  Covered by `e2e/overview-today.spec.ts` (desktop and mobile; mobile at
+  412 x 839 asserts every row is on the first screen) and
+  `src/lib/household-safe-to-spend.test.ts`.
 - **Public pages (UX-28)**: the token-link pages (join, shared shopping
   list, reset password, verify email, unsubscribe) show every invalid or
   finished state in one `StatusCard` (`src/components/auth/status-card.tsx`):
@@ -6013,6 +6056,9 @@ version or the notes by hand.
   "Release note" section with `### English` and `### Svenska` headings. An
   empty English note falls back to the title's description. An empty
   Swedish note is stored as `null` and the app shows the English one.
+  Each note runs to the next heading or `---` rule, so the attribution
+  footer after a PR body's closing `---` never ships as part of the
+  Swedish note (BUG-4).
 - **Before merge**: `.github/workflows/release-preview.yml` fails the check
   on an invalid title and keeps one PR comment up to date with the exact
   note users will see: on a PR into `next`, the bump it adds to the next
@@ -6055,7 +6101,9 @@ always match the deployed code with no DB table or GitHub API call.
 the locale fallback.
 
 - `/dashboard/whats-new` lists every release, newest first, with version,
-  date and the note in the user's locale.
+  date and the note in the user's locale. A note wraps at any width
+  (`break-words`), so a URL or long Swedish compound in it can't push the
+  page sideways on a phone (BUG-4).
 - The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
@@ -7359,8 +7407,13 @@ under human control. Five roles, each a skill in `.claude/skills/`:
 
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
-  weekly), `ux` (`UX-`, from screenshots of every route on phone and
-  desktop in both languages, reviewed against DESIGN.md's UX and design
+  weekly), `ux` (`UX-`, a daily design audit: screenshots of every
+  route on desktop, phone, landscape, tablet, a 320 px phone, light theme
+  and 200% text, plus every dialog opened and closed
+  (`npm run test:e2e:audit`, `playwright.audit.config.ts`). On top of
+  that, a deep dive into one area's actions, rotating by weekday, and one
+  state-of-the-art idea per run benchmarked against the best competing
+  apps. All of it is reviewed against DESIGN.md's UX and design
   principles and its hard Mobile UX rules), `production` (`BUG-`, from Sentry, only when
   a Sentry connector is available) and `deps` (`DEPS-`). They add at most a
   few scoped items with acceptance criteria to BACKLOG.md, via a
