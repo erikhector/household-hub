@@ -6056,6 +6056,9 @@ version or the notes by hand.
   "Release note" section with `### English` and `### Svenska` headings. An
   empty English note falls back to the title's description. An empty
   Swedish note is stored as `null` and the app shows the English one.
+  Each note runs to the next heading or `---` rule, so the attribution
+  footer after a PR body's closing `---` never ships as part of the
+  Swedish note (BUG-4).
 - **Before merge**: `.github/workflows/release-preview.yml` fails the check
   on an invalid title and keeps one PR comment up to date with the exact
   note users will see: on a PR into `next`, the bump it adds to the next
@@ -6098,7 +6101,9 @@ always match the deployed code with no DB table or GitHub API call.
 the locale fallback.
 
 - `/dashboard/whats-new` lists every release, newest first, with version,
-  date and the note in the user's locale.
+  date and the note in the user's locale. A note wraps at any width
+  (`break-words`), so a URL or long Swedish compound in it can't push the
+  page sideways on a phone (BUG-4).
 - The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`

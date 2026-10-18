@@ -84,6 +84,13 @@ describe("extractReleaseNotes", () => {
     const crlf = TEMPLATE_BODY.replace(/\n/g, "\r\n");
     expect(extractReleaseNotes(crlf, "x").en).toBe("You can now scan barcodes from the shopping list.");
   });
+
+  it("stops at the --- rule before an attribution footer (BUG-4)", () => {
+    // The v0.76.0 Swedish note shipped a PR's "Generated with" footer and
+    // session URL, because the last section ran to the end of the body.
+    const withFooter = `${TEMPLATE_BODY}\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_x\n`;
+    expect(extractReleaseNotes(withFooter, "x").sv).toBe("Du kan nu skanna streckkoder från inköpslistan.");
+  });
 });
 
 describe("planRelease", () => {
