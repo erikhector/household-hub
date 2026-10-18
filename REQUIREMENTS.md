@@ -5869,7 +5869,9 @@ components directly.
     Unassigned ones carry an "Unassigned" hint. Each has a checkbox
     (44 px target on phones) that calls `toggleTaskCompletedAction`
     optimistically: it shows ticked at once and stays in place, struck
-    through, so nothing moves under the thumb; a failed save puts it back
+    through, so nothing moves under the thumb (also after the save
+    revalidates the page and the server list drops it: the block keeps
+    ticked rows locally, at their old place); a failed save puts it back
     with a toast, and the "Done" toast offers Undo. A recurring task counts
     as open again once its interval has passed (`isTaskOpen`).
   - **Tonight's dinner**: the household's `DINNER` plan entries for today's
