@@ -88,7 +88,8 @@ export type BudgetDict = {
   // Household-only: TransactionDialog's/TransactionList's expense-split UI.
   split?: {
     amountAriaLabel: string;
-    mismatchWarning: string;
+    sharesLeftHint: string;
+    sharesOverWarning: string;
     paidByBadge: string;
     sharesLabel: string;
     splitBadge: string;
@@ -165,7 +166,8 @@ export type BudgetDict = {
     // above.
     split?: {
       amountAriaLabel: string;
-      mismatchWarning: string;
+      sharesLeftHint: string;
+      sharesOverWarning: string;
       sharesLabel: string;
       splitBadge: string;
       splitEvenlyButton: string;
