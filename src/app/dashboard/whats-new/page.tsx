@@ -42,7 +42,7 @@ export default async function WhatsNewPage() {
       ) : (
         <ol className="list-bleed flex max-w-2xl flex-col gap-3">
           {RELEASES.map((release, index) => (
-            <li key={release.version} className="flex flex-col gap-2 rounded-md border p-4">
+            <li key={release.version} className="flex min-w-0 flex-col gap-2 rounded-md border p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-heading text-base font-semibold tabular-nums">
                   {format(t.version, { version: release.version })}
@@ -53,7 +53,10 @@ export default async function WhatsNewPage() {
                   {dateFormat.format(new Date(`${release.date}T00:00:00Z`))}
                 </time>
               </div>
-              <p className="text-sm whitespace-pre-line">{releaseNoteFor(release, locale)}</p>
+              {/* break-words: a note is free text from a PR description and can
+                  carry an unbreakable run (a URL, a long Swedish compound) that
+                  would otherwise push `main` wider than a phone (BUG-4). */}
+              <p className="text-sm break-words whitespace-pre-line">{releaseNoteFor(release, locale)}</p>
             </li>
           ))}
         </ol>

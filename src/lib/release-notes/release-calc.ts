@@ -80,15 +80,17 @@ export function compareVersions(a: string, b: string): number {
 }
 
 // Pulls the text under a `### <heading>` line of the PR body, up to the next
-// Markdown heading. HTML comments (the template's instructions) are removed
-// first so an untouched template reads as "no note written".
+// Markdown heading or `---` rule. HTML comments (the template's instructions)
+// are removed first so an untouched template reads as "no note written". The
+// rule matters for the last section: PR bodies end with an attribution footer
+// after a `---`, which otherwise shipped to users as part of the note (BUG-4).
 function section(body: string, heading: string): string | null {
   const cleaned = body.replace(/<!--[\s\S]*?-->/g, "").replace(/\r\n/g, "\n");
   const lines = cleaned.split("\n");
   const start = lines.findIndex((line) => line.trim().toLowerCase() === `### ${heading.toLowerCase()}`);
   if (start === -1) return null;
   const rest = lines.slice(start + 1);
-  const end = rest.findIndex((line) => /^#{1,6}\s/.test(line.trim()));
+  const end = rest.findIndex((line) => /^#{1,6}\s/.test(line.trim()) || /^(-{3,}|\*{3,}|_{3,})$/.test(line.trim()));
   const text = (end === -1 ? rest : rest.slice(0, end)).join("\n").trim();
   return text.length > 0 ? text : null;
 }
