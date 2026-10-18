@@ -5805,13 +5805,14 @@ components directly.
   isn't hidden behind the fixed bar.
 - On mobile the sidebar is hidden entirely; the `HouseholdSwitcher` instead
   appears in a slim header above the page content (`sm:hidden`), since it
-  isn't part of the bottom bar. The switcher row spans its container, so
-  its "Create household" `+` sits at the right edge of the header (and of
-  the expanded sidebar) rather than just after the household name (UX-26).
+  isn't part of the bottom bar. There is no standalone "+" in the header
+  or sidebar: "Create household" is the last item of the switcher's
+  dropdown, below a separator, on phone and desktop (UX-46; it used to be
+  a bare "+" that read as "add an item" on every page).
   A long household name (the field allows 60 characters) is clamped (two
   lines on a phone, one on desktop) with the full name in its `title` and in
   the dropdown: the trigger `Button` overrides its base `shrink-0
-  whitespace-nowrap`, so the chevron and "+" stay on screen at 412 and 1280
+  whitespace-nowrap`, so the chevron stays on screen at 412 and 1280
   px (UX-47, `e2e/ux-47.spec.ts`).
 - **Where you are (UX-27)**: the current page is marked in both layouts
   (`aria-current="page"` plus the active fill). On a phone, What's new and

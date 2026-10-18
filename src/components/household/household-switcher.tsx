@@ -11,12 +11,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createHouseholdAction, switchHouseholdAction } from "@/lib/actions/household";
@@ -28,8 +28,17 @@ type HouseholdOption = { id: string; name: string; role: string };
 
 const initialState: ActionState = {};
 
-function CreateHouseholdDialog({ dict }: { dict: Dictionary["household"]["switcher"] }) {
-  const [open, setOpen] = useState(false);
+// Controlled by the switcher: the dropdown item opens it, and it lives outside
+// the menu's content because that unmounts as soon as the menu closes.
+function CreateHouseholdDialog({
+  dict,
+  open,
+  setOpen,
+}: {
+  dict: Dictionary["household"]["switcher"];
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -41,13 +50,6 @@ function CreateHouseholdDialog({ dict }: { dict: Dictionary["household"]["switch
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={dict.createAriaLabel}>
-            <Plus className="size-4" />
-          </Button>
-        }
-      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.createNew}</DialogTitle>
@@ -79,13 +81,13 @@ export function HouseholdSwitcher({
   dict: Dictionary["household"]["switcher"];
 }) {
   const [isPending, startTransition] = useTransition();
+  const [createOpen, setCreateOpen] = useState(false);
   const switcherDict = dict;
 
   return (
-    // w-full + the "+" button's ml-auto (UX-26): the row spans its
-    // container, so "+" sits at the right edge of the phone header (and of
-    // the expanded sidebar) instead of floating wherever the household name
-    // happens to end.
+    // UX-46: no standalone "+" any more. On a phone it sat in the header of
+    // every page and read as "add an item here" but created a household, so
+    // "Create household" is the last item of the dropdown instead.
     <div className="flex w-full min-w-0 items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -127,9 +129,14 @@ export function HouseholdSwitcher({
               )}
             </DropdownMenuItem>
           ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            {switcherDict.createMenuItem}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <CreateHouseholdDialog dict={switcherDict} />
+      <CreateHouseholdDialog dict={switcherDict} open={createOpen} setOpen={setCreateOpen} />
     </div>
   );
 }

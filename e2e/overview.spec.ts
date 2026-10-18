@@ -122,17 +122,21 @@ test("the overview's card buttons line up and keep their chevron inside", async 
   await expectNoHorizontalOverflow(page);
 });
 
-test("the household switcher's + sits at the right edge of its row", async ({ page }, testInfo) => {
+test("Create household is the last item of the switcher dropdown, not a header +", async ({ page }, testInfo) => {
+  // UX-46. On phones the switcher is in the top header; on desktop, the
+  // expanded sidebar. Neither shows a standalone "+" any more.
   await page.goto("/dashboard");
-  // On phones it's in the top header; on desktop, the expanded sidebar.
   const row = testInfo.project.name === "mobile" ? page.getByRole("banner") : page.getByRole("complementary");
-  const plus = row.getByRole("button", { name: "Create household" });
-  await expect(plus).toBeVisible();
-  const [outer, button] = [await box(row), await box(plus)];
-  // Flush with the row's right padding (px-4 header, px-2 sidebar), not
-  // wherever the household name ends.
-  expect(outer.x + outer.width - (button.x + button.width)).toBeLessThanOrEqual(17);
-  // The household's own button still starts at the left.
-  const trigger = row.getByRole("button", { name: /E2E Household/ });
-  expect((await box(trigger)).x).toBeLessThan(outer.x + 24);
+  await expect(row.getByRole("button", { name: "Create household" })).toHaveCount(0);
+
+  await row.getByRole("button", { name: /E2E Household/ }).click();
+  const items = page.getByRole("menu").getByRole("menuitem");
+  await expect(items.last()).toHaveText("Create household");
+
+  await items.last().click();
+  const dialog = page.getByRole("dialog", { name: "Create a new household" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Household name")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });
