@@ -963,18 +963,6 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Budgets
 
-- [ ] **UX-108. The budget Overview shows categories near or over their
-      limit** (impact: high, effort: M) — breaks Hierarchy and honest
-      status. ⚠️ Touches budget code (money, human-only area). With two
-      categories over their limit ("Restaurang & café 1,355 of 800"), the
-      only place that says so is the fourth tab, halfway down. The Overview
-      (`budget-tabs.tsx:312-354`) still says in green "You're in good shape
-      for the rest of the month."
-      Acceptance: with any category at 90% or more of its limit, the
-      Overview lists those categories (name, spent / limit, "over" with an
-      icon) right under safe to spend. The status line mentions them
-      instead of "good shape".
-
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
       effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
       (human-only area).

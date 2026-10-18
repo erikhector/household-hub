@@ -2139,6 +2139,14 @@ export const sv = {
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
+      summaryLimits: {
+        one: "{count} kategori ligger vid eller nära sin gräns.",
+        other: "{count} kategorier ligger vid eller nära sin gräns.",
+      },
+      limitsTitle: "Nära eller över sin gräns",
+      limitSpentOfLimit: "{spent} / {limit}",
+      limitOver: "{amount} över",
+      limitUsed: "{percent} % använt",
       caveat:
         "Det som är förfallet kommer från dina återkommande poster. Kategorier utan en sådan uppskattas utifrån transaktioner som markerats som återkommande.",
       notYetLoggedTitle: "Förfaller fortfarande denna månad",
@@ -2580,6 +2588,14 @@ export const sv = {
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
+      summaryLimits: {
+        one: "{count} kategori ligger vid eller nära sin gräns.",
+        other: "{count} kategorier ligger vid eller nära sin gräns.",
+      },
+      limitsTitle: "Nära eller över sin gräns",
+      limitSpentOfLimit: "{spent} / {limit}",
+      limitOver: "{amount} över",
+      limitUsed: "{percent} % använt",
       caveat:
         "Din andel av en delad räkning räknas som spenderad den månad den registreras, oavsett vem som betalade. Det du fortfarande var skyldig när månaden började räknas igen tills det är reglerat.",
       notYetLoggedTitle: "Förfaller fortfarande denna månad",

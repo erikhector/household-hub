@@ -63,6 +63,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
+import { LimitAlerts, type LimitAlertRow } from "@/components/budget/limit-alerts";
 import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import { DueRecurringWidget, type SharedDueRow } from "@/components/budget/due-recurring-widget";
 import { MonthNavigator } from "@/components/budget/month-navigator";
@@ -126,6 +127,7 @@ export function BudgetTabs({
   safeToSpendBreakdown,
   safeToSpendExpectedRecurring,
   safeToSpendProjection = null,
+  limitAlerts = [],
   householdDebts = [],
   dueTemplates,
   hasRecurringTemplates,
@@ -177,6 +179,8 @@ export function BudgetTabs({
   safeToSpendStatus: SafeToSpendStatus;
   safeToSpendBreakdown: SafeToSpendBreakdown;
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
+  /** UX-108: categories at 90% or more of their limit, worst first. */
+  limitAlerts?: LimitAlertRow[];
   /** UX-39 — see SafeToSpend's `projection` prop. */
   safeToSpendProjection?: MonthProjection | null;
   /** Personal budget only — see SafeToSpend's identical prop. */
@@ -342,10 +346,14 @@ export function BudgetTabs({
                 projection={safeToSpendProjection}
                 variant="compact"
                 setupHrefs={{ income: tabHref("transactions"), bills: tabHref("manage") }}
+                limitAlertCount={limitAlerts.length}
                 dict={dict.safeToSpend}
                 locale={locale}
                 currencyCode={currencyCode}
               />
+              {/* UX-108: right under the number, so a category past its
+                  limit isn't only found on Insights. */}
+              <LimitAlerts alerts={limitAlerts} numberFormat={numberFormat} dict={dict.safeToSpend} />
               <DueRecurringWidget
                 templates={dueTemplates}
                 hasTemplates={hasRecurringTemplates}
