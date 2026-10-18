@@ -202,6 +202,9 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
     select: {
       id: true,
       completedAt: true,
+      completedByMemberId: true,
+      previousCompletedAt: true,
+      previousCompletedByMemberId: true,
       recurrenceIntervalDays: true,
       assignedToMemberId: true,
       rotationMemberIds: true,
@@ -252,42 +255,60 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       }
       await prisma.householdTask.updateMany({
         where: unchangedSinceRead,
-        data: { completedAt: now, completedByMemberId: member?.id ?? null, ...rotationData },
-      });
-    } else if (rotating) {
-      // Un-completing a rotating task is an undo: hand the turn back to
-      // whoever had it before the completion advanced it, rather than
-      // advancing again ("Undo over confirm" only works if undo really puts
-      // things back). The stored id has no FK, so only restore it if that
-      // person is still in the household — otherwise leave it unassigned,
-      // same as onDelete: SetNull would have for the assignee itself.
-      let previous: string | null = null;
-      if (task.rotationPreviousAssigneeId) {
-        const member = await prisma.householdMember.findFirst({
-          where: { id: task.rotationPreviousAssigneeId, householdId: household.id },
-          select: { id: true },
-        });
-        previous = member?.id ?? null;
-      }
-      await prisma.householdTask.updateMany({
-        where: unchangedSinceRead,
-        data: { completedAt: null, assignedToMemberId: previous },
+        data: {
+          completedAt: now,
+          completedByMemberId: member?.id ?? null,
+          // UX-102: park the completion this tick overwrites (null for a
+          // never-done task) so un-ticking can put it back.
+          previousCompletedAt: task.completedAt,
+          previousCompletedByMemberId: task.completedByMemberId,
+          ...rotationData,
+        },
       });
     } else {
-      // Un-completing: only clear completedAt so isTaskOpen (which is what
-      // "completed" is derived from) sees it as open again.
-      // completedByMemberId is deliberately left as-is rather than nulled
-      // out — it's still accurate "last done by" history until the task is
-      // completed again, and the UI now shows it even while the task is
-      // open (see TaskItemRow's lastCompletedByLabel). There's no separate
-      // history field to move it to without a schema change — HouseholdTask
-      // only has the one completedAt/completedByMemberId pair, which does
-      // double duty as both "is this currently open" state and "last
-      // completion" history.
-      await prisma.householdTask.update({
-        where: { id: task.id },
-        data: { completedAt: null },
-      });
+      // Un-completing is an undo, so it puts back exactly what the tick
+      // overwrote (UX-102): the earlier completedAt and its completer, or
+      // null for both when the task had never been done. Otherwise an
+      // accidental tick-untick leaves a permanent "Last done by" on a
+      // never-done task, and unticking a recurring task credits the wrong
+      // person and loses its real last completion. The stored completer
+      // has no FK, so restore it only if that person is still in the
+      // household; otherwise it reads as no one, as onDelete: SetNull
+      // would have for completedByMemberId itself.
+      let restoredBy: string | null = null;
+      if (task.previousCompletedByMemberId) {
+        const previousCompleter = await prisma.householdMember.findFirst({
+          where: { id: task.previousCompletedByMemberId, householdId: household.id },
+          select: { id: true },
+        });
+        restoredBy = previousCompleter?.id ?? null;
+      }
+      const restoreData = {
+        completedAt: task.previousCompletedAt,
+        completedByMemberId: restoredBy,
+        previousCompletedAt: null,
+        previousCompletedByMemberId: null,
+      };
+      if (rotating) {
+        // Also hand the turn back to whoever had it before the completion
+        // advanced it, rather than advancing again ("Undo over confirm"
+        // only works if undo really puts things back). Same membership
+        // check as above, for the same no-FK reason.
+        let previous: string | null = null;
+        if (task.rotationPreviousAssigneeId) {
+          const member = await prisma.householdMember.findFirst({
+            where: { id: task.rotationPreviousAssigneeId, householdId: household.id },
+            select: { id: true },
+          });
+          previous = member?.id ?? null;
+        }
+        await prisma.householdTask.updateMany({
+          where: unchangedSinceRead,
+          data: { ...restoreData, assignedToMemberId: previous },
+        });
+      } else {
+        await prisma.householdTask.updateMany({ where: unchangedSinceRead, data: restoreData });
+      }
     }
   } catch (error) {
     return toFriendlyError(error);

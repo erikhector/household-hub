@@ -5310,7 +5310,12 @@ co-managers, not kids earning rewards.
   between `null` and `new Date()` — or, for a recurring task past its
   interval, completes it again — always attributing completion to the
   *caller's own* household-member id, never a client-supplied one; on
-  un-complete, `completedByMemberId` is kept as "Last done by" history),
+  un-complete (UX-102), `completedAt` and `completedByMemberId` are put back
+  exactly from `previousCompletedAt` / `previousCompletedByMemberId`, which
+  the tick filled with the completion it overwrote — so a tick-untick on a
+  never-done task shows no "Last done by", and a recurring task keeps its
+  real earlier completion; a previous completer who has left the household
+  restores as no one),
   `deleteTaskAction`.
 - **UI**: one shared `TaskFormDialog` for create and edit (title on
   create, assignee, repeat; once a task repeats and the household has two
