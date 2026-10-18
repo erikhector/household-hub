@@ -1304,6 +1304,21 @@ export const en = {
         other: "Updated {field} for {count} items",
       },
     },
+    // UX-122: adding to the shopping list without touching stock.
+    addToList: {
+      menu: "Add to shopping list",
+      ariaLabel: "Add {name} to shopping list",
+      bulk: "Add to shopping list",
+      onList: "On list",
+      addedToast: {
+        one: 'Added {count} item to "{list}"',
+        other: 'Added {count} items to "{list}"',
+      },
+      alreadyToast: {
+        one: 'Already on "{list}"',
+        other: 'All {count} items are already on "{list}"',
+      },
+    },
     // MATCH-6: the item form's pointer to the item page, and its refusal to
     // change the unit of an item whose amounts depend on it.
     unitsAndDetailsLink: "Units, recipes and details",
@@ -2062,6 +2077,9 @@ export const en = {
   budget: {
     title: "Household budget",
     subtitle: "Track household income and expenses, one-time or recurring.",
+    // UX-110: the phone line (the subtitle above is hidden there) saying what
+    // this budget is for, so it's clear where shared money goes versus "mine".
+    purpose: "Shared money for {household}: rent, food, bills.",
     readOnlyHousehold: {
       message:
         "You're viewing {household}'s budget. It's read-only here because {active} is your active household.",
@@ -2242,7 +2260,7 @@ export const en = {
     },
     onboarding: {
       title: "Let's set up your budget",
-      body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
+      body: "Shared money for {household}: rent, food, bills. Add a category to start logging income, expenses, and savings — you can always add more later.",
     },
     starterCategories: {
       heading: "Or add a starter set",
@@ -2510,6 +2528,8 @@ export const en = {
   personalBudget: {
     title: "Personal budget",
     subtitle: "Your own income and expenses — separate from any household you're part of.",
+    // UX-110: the phone line (the subtitle above is hidden there).
+    purpose: "Only yours — no one else in the household sees it.",
     previousMonth: "Previous month",
     nextMonth: "Next month",
     thisMonth: "This month",
@@ -2684,7 +2704,7 @@ export const en = {
     },
     onboarding: {
       title: "Let's set up your budget",
-      body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
+      body: "Money that's only yours — no one else in the household sees it. Add a category to start logging your income, expenses, and savings; you can always add more later.",
     },
     shared: {
       // Merged inline into the normal due list and transaction list (see

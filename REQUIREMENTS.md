@@ -1170,6 +1170,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
     decrease and auto-adds (with Undo) when the item was in stock.
+  - **Add to shopping list keeps the stock (UX-122).** The inventory row
+    (a cart button on desktop, a menu entry on phones) and the bulk bar
+    offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):
+    the same explicit, person-added row on the default list as above,
+    deduped against a row already pending there, with the stock untouched.
+    The toast says how many were added, or that they were already on the
+    list. A row with an unpurchased line on any active list shows an "On
+    list" tag. With auto-add on, the row menu drops "Mark as empty & add to
+    shopping list" (plain "Mark as empty" already does it); with it off,
+    both entries show.
   - **Household setting.** `Household.autoAddLowStockToList` (default on)
     is a checkbox under "Shopping" on the Household page
     (`AutoAddSetting`, `setAutoAddLowStockToListAction` in
@@ -2891,6 +2901,15 @@ BUDGET-2 → BUDGET-3 → BUDGET-4 sequence from
 product decision; each page builds its own onboarding element and passes it
 in as the `onboarding` `ReactNode`, so `BudgetTabs` doesn't care which one
 it gets.
+
+**What each budget is for (UX-110).** On phones the subtitle is hidden, so
+each budget page shows one short purpose line under its title instead
+(`budget.purpose`: "Shared money for {household}: rent, food, bills.";
+`personalBudget.purpose`: "Only yours — no one else in the household sees
+it."). The two first-run cards differ in the same way: the household card
+names the viewed household, the personal card says no one else in the
+household sees it. The household budget card on Home (shown once it has
+categories) is not built; it is part of the Today block (UX-70).
 
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
@@ -4950,6 +4969,21 @@ any member's star is everyone's star.
 - **Not in scope**: no favorites-only filter or separate page, and the
   Recipes list itself stays alphabetical. The star is visible there, and
   search already narrows the list.
+
+### Recipe sheet: Add to plan and instructions (UX-92)
+
+A recipe's sheet on the Recipes tab (`RecipeRow` in `recipe-manager.tsx`)
+answers "what's for dinner?" without opening Cook or Edit.
+
+- **Instructions**: when the recipe has any, the steps appear as a numbered
+  list under the ingredients (`splitSteps`, the same one-step-per-line split
+  Cook mode uses). A recipe without instructions shows no section.
+- **Add to plan**: the first button in the sheet's action list. It closes the
+  sheet and opens the same `AddToPlanDialog` the Cook now tab uses (date,
+  meal type, portions defaulting to the recipe's servings), controlled by the
+  row. The Planner tab's week is passed in as `plannerWeekStartKey`, so a
+  date in another week gets the "View that week" toast. Covered by
+  `e2e/recipe-sheet-plan.spec.ts`.
 
 ### Cook mode (GAP-42)
 

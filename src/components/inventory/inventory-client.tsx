@@ -56,6 +56,7 @@ export function InventoryClient({
   initialStatus,
   initialViewPrefs,
   aiCategoryFallbackEnabled = false,
+  autoAddEnabled = false,
 }: {
   items: InventoryItemRow[];
   categories: string[];
@@ -70,6 +71,8 @@ export function InventoryClient({
   /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
    * own doc comment in add-item-dialog.tsx. */
   aiCategoryFallbackEnabled?: boolean;
+  /** UX-122: the household's low-stock auto-add setting — see ItemActions. */
+  autoAddEnabled?: boolean;
 }) {
   const [name, setName] = useState("");
   // A saved category/location is only honored if it's still one the
@@ -391,6 +394,7 @@ export function InventoryClient({
         emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
         isHouseholdEmpty={items.length === 0}
         aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
+        autoAddEnabled={autoAddEnabled}
         view={JSON.stringify([name, category, location, status, updatedFilter, groupBy])}
       />
     </div>

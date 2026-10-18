@@ -298,7 +298,7 @@ UX-89, UX-90, UX-102, UX-113.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
+- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
   UX-105, UX-106.
@@ -813,16 +813,6 @@ UX-89, UX-90, UX-102, UX-113.
       on the defaults never links Ricotta or Breadcrumbs (unit test on the
       default choice).
 
-- [ ] **UX-92. "Add to plan" and the instructions in the recipe sheet**
-      (impact: high, effort: S) — User-centricity (shortest path from
-      "what's for dinner?").
-      - The recipe sheet (`recipe-manager.tsx:458-503`) offers Review
-        matches, Copy, Delete, Edit and Cook, but no way to plan it,
-        though `AddToPlanDialog` exists.
-      - The instructions only show in cook mode or the edit form.
-      Acceptance: the sheet has "Add to plan", which opens the date and
-      slot picker, and lists the instruction steps under the ingredients.
-
 - [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
       as cooked"** (impact: high, effort: M) — breaks Context (kitchen),
       User control and M7.
@@ -1000,22 +990,6 @@ UX-89, UX-90, UX-102, UX-113.
       recent ones on top. The filtered or last-used category is
       preselected. Saving shows "Added 129 kr to Restaurang & café · Undo".
 
-- [ ] **UX-110. Say what the household and personal budgets are for,
-      where people look** (impact: high, effort: S) — breaks
-      User-centricity and Context.
-      - On phones both pages hide their subtitle (`max-sm:hidden` at
-        `budget/page.tsx:1064` and `personal-budget/page.tsx:483`).
-      - Both show the same "Let's set up your budget" copy under the same
-        household switcher, so nothing says whether "my salary" goes here
-        or there.
-      - Home shows only the personal budget card.
-      - The one good explanation lives in the getting-started checklist.
-      Acceptance: each budget page shows a one-line purpose on phones. The
-      onboarding cards differ ("Shared money for {household}: rent, food,
-      bills" vs "Money that's only yours — no one else in the household
-      sees it"). Home shows the household budget once it has categories
-      (with UX-70).
-
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
       effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
       (human-only area).
@@ -1128,20 +1102,6 @@ UX-89, UX-90, UX-102, UX-113.
       Acceptance: the header shows tappable counts ("4 out · 1 low · 4
       expiring") that filter the list. Status filters include Expiring and
       Expired.
-
-- [ ] **UX-122. Add an item to the shopping list without zeroing its
-      stock** (impact: high, effort: S) — breaks User-centricity and User
-      control.
-      - The row menu's only list action is "Mark as empty & add to
-        shopping list" (`item-actions.tsx:192-195`), so buying more
-        spaghetti while one is left means wiping the stock.
-      - Rows don't show that an item is already on a list.
-      - Bulk selection can't add to a list.
-      - With auto-add on, the two mark-empty menu entries do the same
-        thing.
-      Acceptance: the row menu and bulk bar offer "Add to shopping list",
-      which leaves stock unchanged. Rows on a list show an "On list" tag.
-      Only one mark-empty entry shows when auto-add is on.
 
 - [ ] **UX-123. Keep the bulk-edit bar on screen on phones** (impact:
       med, effort: S) — bug, breaks M2 and M5. The bar is `max-sm:sticky
