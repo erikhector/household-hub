@@ -47,6 +47,7 @@ async function seedList(t: string, items: { name: string; purchased: boolean }[]
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL! });
 });
 
 test.afterAll(async () => {
