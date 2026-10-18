@@ -267,8 +267,9 @@ export async function createPersonalTransactionAction(
     if (dup) return dup;
   }
 
+  let created;
   try {
-    await prisma.personalTransaction.create({
+    created = await prisma.personalTransaction.create({
       data: {
         userId,
         categoryId: category.id,
@@ -282,13 +283,14 @@ export async function createPersonalTransactionAction(
         recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
         recurringTemplateId: recurringTemplate.id ?? null,
       },
+      select: { id: true },
     });
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath("/dashboard/personal-budget");
-  return {};
+  return { createdId: created.id };
 }
 
 const updateTransactionSchema = transactionSchema.extend({

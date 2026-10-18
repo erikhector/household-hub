@@ -1690,9 +1690,27 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   tokens the summary and amounts use, so the income/expense meaning stays
   visually consistent everywhere on the page), description, and a signed,
   colored amount, with edit/delete per row. Add/edit share one
-  `TransactionDialog` component (category select, amount, date,
+  `TransactionDialog` component (amount, category chips, date,
   description, and a recurring toggle) — editing reuses the same dialog
   with the row's data as `defaultValue`s rather than a second form.
+  - **Log an expense in three taps (UX-109, DESIGN.md M4/M5)**: a new
+    transaction opens on **Amount**, focused with the decimal keypad even
+    on a touch open (`DialogContent focusOnTouch`, the one opt-out from
+    UX-34's keyboard-down rule: the sheet exists to type that number).
+    **Category** is a radio group of chips (`min-h-11` targets, native
+    `required`), not a combobox: grouped Expenses, then Savings, then
+    Income (`groupCategoriesForLogging` in `src/lib/recent-categories.ts`),
+    with the categories most recently logged (by `createdAt`, not by
+    transaction date; the latest 30 rows, at most 5 categories) on top of
+    their group. A new transaction starts on the Transactions tab's
+    `?category=` filter when that tab is open, else on the last-used
+    category (`defaultLoggingCategoryId`); a stale or foreign id is
+    ignored. Saving shows "Added 129 kr to Restaurang & café" with
+    **Undo**, which deletes exactly the created row: the create actions
+    return `{ createdId }` and `BudgetTabs` injects the delete action. A
+    log from a recurring template or planned bill keeps its own toast.
+    Same on the household and personal budgets. Covered by
+    `e2e/log-expense-fast.spec.ts` and `recent-categories.test.ts`.
 - **Recurring transactions**: `isRecurring` + `recurrenceFrequency`
   (`WEEKLY`/`MONTHLY`/`YEARLY`) on `Transaction` itself are metadata and
   display only — checking "this repeats" on a transaction marks it and

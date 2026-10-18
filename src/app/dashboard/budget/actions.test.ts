@@ -666,6 +666,15 @@ describe("createTransactionAction", () => {
     );
   });
 
+  it("returns the new row's id so the saved toast can undo exactly it (UX-109)", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+
+    const result = await createTransactionAction({}, formData(base));
+
+    expect(result).toEqual({ createdId: "new-tx" });
+  });
+
   it("rejects a recurringTemplateId that doesn't belong to the caller's household", async () => {
     categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
     recurringTemplateFindFirstMock.mockResolvedValue(null);
@@ -904,6 +913,7 @@ describe("createTransactionAction", () => {
             ],
           },
         }),
+        select: { id: true },
       });
     });
 
@@ -924,6 +934,7 @@ describe("createTransactionAction", () => {
             ],
           },
         }),
+        select: { id: true },
       });
     });
 
@@ -945,6 +956,7 @@ describe("createTransactionAction", () => {
         data: expect.objectContaining({
           splits: { create: [{ householdMemberId: "member-1", amountOwed: 50, amountPaid: 50 }] },
         }),
+        select: { id: true },
       });
     });
   });

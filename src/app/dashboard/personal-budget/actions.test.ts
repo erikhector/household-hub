@@ -338,7 +338,17 @@ describe("createPersonalTransactionAction", () => {
 
     expect(transactionCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId, type: "INCOME" }),
+      select: { id: true },
     });
+  });
+
+  it("returns the new row's id so the saved toast can undo exactly it (UX-109)", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+
+    const result = await createPersonalTransactionAction({}, formData(base));
+
+    expect(result).toEqual({ createdId: "new-tx" });
   });
 });
 

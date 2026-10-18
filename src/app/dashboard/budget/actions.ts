@@ -475,8 +475,9 @@ export async function createTransactionAction(
   const planned = await resolvePlannedExpenseId(household.id, parsed.data.plannedExpenseId);
   if ("error" in planned) return { error: planned.error };
 
+  let created;
   try {
-    await prisma.transaction.create({
+    created = await prisma.transaction.create({
       data: {
         householdId: household.id,
         categoryId: category.id,
@@ -493,6 +494,7 @@ export async function createTransactionAction(
         plannedExpenseId: planned.id ?? null,
         splits: split ? { create: split.splits } : undefined,
       },
+      select: { id: true },
     });
   } catch (error) {
     // Two members paying the same bill at once both pass the pre-check; the
@@ -504,7 +506,7 @@ export async function createTransactionAction(
   }
 
   revalidateBudgetPages();
-  return {};
+  return { createdId: created.id };
 }
 
 /**
