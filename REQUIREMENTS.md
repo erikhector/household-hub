@@ -515,7 +515,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     step that suits the unit (`quantityStep`, `src/lib/inventory/quantity-step.ts`):
     50 for g and ml, 0.25 for kg and l, 1 for everything else (counts and
     custom units), so Smör 500 g goes to 450 g and Gul lök 1.5 kg to
-    1.25 kg. Tapping the quantity (a ghost button named "Change quantity of
+    1.25 kg. Tapping the quantity (a ghost button named "Adjust
     {name} ({amount})") opens `QuantitySheet`, a dialog/bottom sheet with a
     Used / Bought toggle (Used first), one-tap chips that apply at once and
     close it (unit-sized presets: 100, 200, 500 g; 0.25, 0.5, 1 kg; 1, 2, 5
