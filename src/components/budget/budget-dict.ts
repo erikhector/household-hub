@@ -29,6 +29,10 @@ export type BudgetDict = {
   categoryNoResults: string;
   categoryPlaceholder: string;
   categoryToggleLabel: string;
+  // UX-109: the Add transaction sheet's category chips and its saved toast.
+  categoryGroups: { expense: string; savings: string; income: string };
+  addedToast: string;
+  undoFailedToast: string;
   columnAmount: string;
   columnCategory: string;
   columnDate: string;

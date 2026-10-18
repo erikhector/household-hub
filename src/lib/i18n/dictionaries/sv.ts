@@ -2000,6 +2000,11 @@ export const sv = {
     categoryPlaceholder: "Välj en kategori",
     categoryNoResults: "Inga matchande kategorier",
     categoryToggleLabel: "Kategori",
+    // UX-109: kategorichipsen i bladet Lägg till transaktion, grupperade.
+    categoryGroups: { expense: "Utgifter", savings: "Sparande", income: "Inkomster" },
+    // "129 kr lades till i Mat" + Ångra (swipe.undo), efter att man sparat.
+    addedToast: "{amount} lades till i {category}",
+    undoFailedToast: "Det gick inte att ångra. Ta bort den under Transaktioner i stället.",
     descriptionLabel: "Beskrivning",
     descriptionPlaceholder: "Valfri anteckning",
     dateLabel: "Datum",
@@ -2437,6 +2442,11 @@ export const sv = {
     categoryPlaceholder: "Välj en kategori",
     categoryNoResults: "Inga matchande kategorier",
     categoryToggleLabel: "Kategori",
+    // UX-109: kategorichipsen i bladet Lägg till transaktion, grupperade.
+    categoryGroups: { expense: "Utgifter", savings: "Sparande", income: "Inkomster" },
+    // "129 kr lades till i Mat" + Ångra (swipe.undo), efter att man sparat.
+    addedToast: "{amount} lades till i {category}",
+    undoFailedToast: "Det gick inte att ångra. Ta bort den under Transaktioner i stället.",
     descriptionLabel: "Beskrivning",
     descriptionPlaceholder: "Valfri anteckning",
     dateLabel: "Datum",

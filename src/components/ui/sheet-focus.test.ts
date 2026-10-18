@@ -32,4 +32,10 @@ describe("resolveSheetInitialFocus (UX-34)", () => {
     expect(resolveSheetInitialFocus({ interactionType: "mouse", coarsePointer: false, popup, initialFocus })).toBe(field);
     expect(initialFocus).toHaveBeenCalledWith("mouse");
   });
+
+  it("applies initialFocus on a touch open only when the sheet opts in (UX-109)", () => {
+    const initialFocus = { current: field };
+    expect(resolveSheetInitialFocus({ interactionType: "touch", coarsePointer: true, popup, initialFocus, focusOnTouch: true })).toBe(field);
+    expect(resolveSheetInitialFocus({ interactionType: "touch", coarsePointer: true, popup, initialFocus: undefined, focusOnTouch: true })).toBe(popup);
+  });
 });

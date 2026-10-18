@@ -299,7 +299,7 @@ UX-89, UX-90, UX-102, UX-113.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
-- `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
+- `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
   UX-105, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
@@ -942,23 +942,6 @@ UX-89, UX-90, UX-102, UX-113.
       Overview lists those categories (name, spent / limit, "over" with an
       icon) right under safe to spend. The status line mentions them
       instead of "good shape".
-
-- [ ] **UX-109. Log an expense on a phone in three taps** (impact: high,
-      effort: M) — breaks M4, Usability (remembered choices) and M5.
-      ⚠️ money.
-      - Focus lands on the Category combobox, a text input, so the letter
-        keyboard opens first.
-      - Its popup mixes income, expense and savings with no group headers,
-        income first, and covers the sheet title.
-      - Amount comes second.
-      - Neither the last-used category nor the Transactions tab's filtered
-        category is preselected.
-      - Saving shows no toast (`transaction-dialog.tsx`, only recurring
-        logs toast, `:255-263`).
-      Acceptance: Amount is first and focused with the decimal keypad.
-      Categories are chips or a grouped list with expenses first and
-      recent ones on top. The filtered or last-used category is
-      preselected. Saving shows "Added 129 kr to Restaurang & café · Undo".
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
       effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split

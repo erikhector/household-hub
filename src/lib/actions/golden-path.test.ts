@@ -461,7 +461,7 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
         date: "2026-01-01",
       }),
     );
-    expect(transactionResult).toEqual({});
+    expect(transactionResult).toEqual({ createdId: "transaction-1" });
     expect(store.transactions).toHaveLength(1);
     const transaction = store.transactions[0];
     expect(transaction.householdId).toBe(household.id);
