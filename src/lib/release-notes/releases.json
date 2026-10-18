@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.79.0",
+    "date": "2026-10-18",
+    "pr": 376,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Ingredient matches that are only a guess are no longer picked for you: they start on \"Create new\", and you tap \"Use existing\" if the suggestion is right.\n\nUnticking a task now puts back exactly what was there before. A task you ticked by mistake no longer says \"Last done by\" you, and a recurring task keeps its real last completion.\n\nOn phones, the bar that appears when you select items in Inventory is now a compact toolbar above the bottom menu instead of a large box over the list.\n\nThe inventory now shows how many items are out, low, expiring or expired at the top. Tap a count to see just those items. The Status filter also has Expiring soon and Expired.",
+      "sv": "Ingrediensträffar som bara är en gissning väljs inte längre åt dig: de börjar på \"Skapa ny\", och du trycker på \"Använd befintlig\" om förslaget stämmer.\n\nAtt ta bort en bock från en uppgift återställer nu exakt det som fanns innan. En uppgift du bockade av av misstag står inte längre som \"Senast gjord av\" dig, och en återkommande uppgift behåller sin riktiga senaste utförande.\n\nPå mobilen är fältet som visas när du markerar varor i Lager nu ett kompakt verktygsfält ovanför bottenmenyn i stället för en stor ruta över listan.\n\nLagret visar nu högst upp hur många varor som är slut, lågt i lager, går snart ut eller har gått ut. Tryck på en siffra för att se just de varorna. Statusfiltret har också Går snart ut och Utgången."
+    }
+  },
+  {
     "version": "0.78.0",
     "date": "2026-10-18",
     "pr": 366,
