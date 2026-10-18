@@ -26,30 +26,9 @@ export function evenSplitAmounts(totalAmount: number, memberCount: number): numb
 // mismatch.
 const TOLERANCE = 0.01;
 
-/**
- * What's left of the bill to split once the shares typed so far are taken
- * out, so the dialogs can say "176 of 476 left to split" as the user types
- * instead of only that the shares don't add up. Positive while there's
- * still some to assign, negative when the shares add up to more than the
- * bill. Summed in whole cents, like evenSplitAmounts, so 0.1 + 0.2 of a
- * 0.3 bill leaves exactly 0 rather than floating-point dust. That makes
- * it exact, so the dialogs treat any non-zero remainder as a mismatch: a
- * cent stricter than the server's 0.01 float tolerance, so a split the
- * dialog lets through is never one the server turns down, and a stray
- * cent is shown rather than hidden. Unparseable inputs count as 0, like
- * the rest of the form's live totals.
- */
-export function shareRemainder(amount: string, shares: Record<string, string>): number {
-  const toCents = (v: string) => Math.round((Number(v) || 0) * 100);
-  const shareCents = Object.values(shares).reduce((sum, v) => sum + toCents(v), 0);
-  return (toCents(amount) - shareCents) / 100;
-}
-
 export type SplitFormCheck = {
   shareTotal: number;
   paidTotal: number;
-  /** See shareRemainder: what's still to split (negative: over-split). */
-  shareRemainder: number;
   /** The shares don't add up to the bill. */
   shareMismatch: boolean;
   /** More has been paid than the bill is for. */
@@ -73,12 +52,10 @@ export function checkSplitForm(
   const total = Number(amount) || 0;
   const shareTotal = Object.values(shares).reduce((sum, v) => sum + (Number(v) || 0), 0);
   const paidTotal = Object.values(paid).reduce((sum, v) => sum + (Number(v) || 0), 0);
-  const remainder = shareRemainder(amount, shares);
   return {
     shareTotal,
     paidTotal,
-    shareRemainder: remainder,
-    shareMismatch: remainder !== 0,
+    shareMismatch: Math.abs(shareTotal - total) > TOLERANCE,
     overpaid: paidTotal - total > TOLERANCE,
     leftDue: total - paidTotal > TOLERANCE ? total - paidTotal : 0,
   };

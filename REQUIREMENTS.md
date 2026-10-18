@@ -2482,15 +2482,9 @@ default to an even split of the transaction's amount
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
 total instead of drifting from naive floating-point division) via a "Split
-evenly" reset button, individually adjustable afterward. As shares are
-typed, the dialog shows what's still left to split ("176.00 of 476.00 left
-to split." for a 476 bill with a 300 share, muted since it's the normal
-state mid-typing) or, in red, how far the shares are over the total
-(`shareRemainder`, summed in whole cents so the shares must match to the
-cent, and `ShareRemainderNote` in
-`split-editor.tsx`, which the recurring-item and planned-bill dialogs'
-share grids use too). Submit stays disabled while the shares don't (yet)
-sum to the transaction total or the payments add up to more than it
+evenly" reset button, individually adjustable afterward. The dialog shows
+a live warning and disables submit whenever the shares don't (yet) sum to
+the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
 `updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
 re-validate the same invariants server-side (`parseSplitFormData`, ±0.01
