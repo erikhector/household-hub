@@ -341,7 +341,13 @@ export function InventoryTable({
   return (
     <div ref={containerRef} className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2">
+        // UX-123: on phones `order-last` puts the bar after the list, and
+        // `sticky` only holds an element to the bottom edge while it sits
+        // below that edge in the flow. Before the list it scrolled off the
+        // top as soon as a row further down was ticked. The offset is the
+        // bottom bar plus the Add-item button above it (the same room
+        // <main> reserves in layout.tsx), so the bar clears both.
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:order-last max-sm:z-10 max-sm:bg-background max-sm:px-4 max-sm:py-2 max-sm:shadow-md">
           <span className="text-sm font-medium">
             {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
           </span>
@@ -352,7 +358,7 @@ export function InventoryTable({
               setBulkValue("");
             }}
           >
-            <SelectTrigger className="w-36" aria-label={dict.bulkActions.fieldAriaLabel}>
+            <SelectTrigger className="w-36 max-sm:h-11" aria-label={dict.bulkActions.fieldAriaLabel}>
               <SelectValue>{(v: string) => fieldLabels[v as BulkEditableField]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -371,7 +377,7 @@ export function InventoryTable({
               step="any"
               value={bulkValue}
               onChange={(e) => setBulkValue(e.target.value)}
-              className="h-8 w-28"
+              className="h-8 w-28 max-sm:h-11"
               aria-label={dict.bulkActions.valueAriaLabel}
             />
           ) : bulkField === "unit" ? (
@@ -379,7 +385,7 @@ export function InventoryTable({
               value={bulkValue}
               onChange={(e) => setBulkValue(e.target.value)}
               maxLength={20}
-              className="h-8 w-28"
+              className="h-8 w-28 max-sm:h-11"
               aria-label={dict.bulkActions.valueAriaLabel}
             />
           ) : (
@@ -391,7 +397,7 @@ export function InventoryTable({
                 maxLength={bulkField === "category" ? 60 : 120}
                 list={`bulk-${bulkField}-options`}
                 autoComplete="off"
-                className="h-8 w-48"
+                className="h-8 w-48 max-sm:h-11"
                 aria-label={dict.bulkActions.valueAriaLabel}
               />
               <datalist id={`bulk-${bulkField}-options`}>
@@ -403,7 +409,7 @@ export function InventoryTable({
           )}
           <Button
             size="sm"
-            className="h-8"
+            className="h-8 max-sm:h-11"
             disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
             onClick={handleBulkApply}
           >
@@ -412,16 +418,21 @@ export function InventoryTable({
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 max-sm:h-11"
             disabled={isPending}
             onClick={() => addToShoppingList([...selected], true)}
           >
             {dict.addToList.bulk}
           </Button>
+          {!allSelected && (
+            <Button variant="outline" size="sm" className="h-8 max-sm:h-11" disabled={isPending} onClick={toggleSelectAll}>
+              {dict.bulkActions.selectAll}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-muted-foreground"
+            className="h-8 text-muted-foreground max-sm:h-11"
             disabled={isPending}
             onClick={() => setSelected(new Set())}
           >

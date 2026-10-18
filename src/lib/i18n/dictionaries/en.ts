@@ -1298,6 +1298,7 @@ export const en = {
       valueAriaLabel: "New value",
       apply: "Apply",
       applying: "Applying…",
+      selectAll: "Select all",
       clearSelection: "Clear selection",
       updatedToast: {
         one: "Updated {field} for {count} item",

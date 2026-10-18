@@ -1053,14 +1053,6 @@ UX-89, UX-90, UX-102, UX-113.
       expiring") that filter the list. Status filters include Expiring and
       Expired.
 
-- [ ] **UX-123. Keep the bulk-edit bar on screen on phones** (impact:
-      med, effort: S) — bug, breaks M2 and M5. The bar is `max-sm:sticky
-      max-sm:bottom-0` but is rendered before the list
-      (`inventory-table.tsx:314-315`). Ticking a row further down puts it
-      574 px above the screen. It also has no select-all or delete.
-      Acceptance: ticking a row at any scroll position shows the bar at
-      the bottom, above the bottom nav and FAB. It has select-all.
-
 - [ ] **UX-124. The item page has the controls people expect** (impact:
       med, effort: M) — breaks Consistency and User control. The item
       page (`items/[id]/page.tsx:138`) has no Edit, Delete, stepper,

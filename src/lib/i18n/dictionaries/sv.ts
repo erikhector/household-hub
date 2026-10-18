@@ -1229,6 +1229,7 @@ export const sv = {
       valueAriaLabel: "Nytt värde",
       apply: "Tillämpa",
       applying: "Tillämpar…",
+      selectAll: "Markera alla",
       clearSelection: "Avmarkera alla",
       updatedToast: {
         one: "Uppdaterade {field} för {count} vara",

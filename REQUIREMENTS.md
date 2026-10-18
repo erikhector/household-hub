@@ -1170,6 +1170,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
     decrease and auto-adds (with Undo) when the item was in stock.
+  - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
+    bar is rendered last in the list's flex column (`order-last`) and is
+    `sticky` with a bottom offset that clears the bottom bar and the
+    Add-item button, so ticking a row at any scroll position shows it
+    there; `sticky bottom` does nothing for an element that sits before the
+    list. From `sm` it stays above the table. It has a "Select all" button
+    (hidden once everything is ticked) beside "Clear selection". There is
+    still no bulk delete.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
     offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):
