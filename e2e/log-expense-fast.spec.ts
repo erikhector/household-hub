@@ -86,7 +86,8 @@ test("saving says what was added, and Undo takes it back", async ({ page }) => {
 
   const toast = page.getByText(new RegExp(`Added .*129.* to ${s.names.restaurant}`));
   await expect(toast).toBeVisible();
-  await expect(page.getByText(`Lunch ${s.tag}`).first()).toBeVisible();
+  // The table (desktop) and the cards (phone) both render the row; one is hidden.
+  await expect(page.getByText(`Lunch ${s.tag}`).locator("visible=true").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText(`Lunch ${s.tag}`)).toHaveCount(0);
