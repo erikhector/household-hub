@@ -1141,14 +1141,6 @@ UX-89, UX-113.
       (en and sv). An e2e `getByRole("button", { name: /clear/i })` finds
       them.
 
-- [ ] **UX-130. Keep Delete visible in the desktop table at 1280 px**
-      (impact: med, effort: S) — bug, breaks M1. On rows with an expiry
-      date, Freeze adds a fourth icon (`item-actions.tsx:90`), and the
-      1054 px table in a 992 px column pushes "Delete item" to x=1295,
-      off screen.
-      Acceptance: at 1280×800 every row's actions are fully visible with no
-      horizontal scroll.
-
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.
       - "All" shows ~130 px cards, three per screen, with no search, no

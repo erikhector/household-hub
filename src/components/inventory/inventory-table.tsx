@@ -502,18 +502,24 @@ export function InventoryTable({
                     aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
                   />
                 </TableCell>
+                {/* UX-130: the text caps (11rem name, 7rem category and
+                    location) keep the table, with all of a row's icons
+                    (up to seven), inside the ~990 px column a 1280 px
+                    screen leaves next to the sidebar. Wider caps pushed
+                    the last icon, Delete, off screen. The full text is in
+                    the cell's title. */}
                 <TableCell className="font-medium">
-                  <span className="block max-w-[16rem] truncate" title={item.name}>
+                  <span className="block max-w-[11rem] truncate" title={item.name}>
                     {item.name}
                   </span>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  <span className="block max-w-[10rem] truncate" title={item.category}>
+                  <span className="block max-w-[7rem] truncate" title={item.category}>
                     {item.category}
                   </span>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  <span className="block max-w-[10rem] truncate" title={item.location ?? undefined}>
+                  <span className="block max-w-[7rem] truncate" title={item.location ?? undefined}>
                     {item.location ?? "—"}
                   </span>
                 </TableCell>

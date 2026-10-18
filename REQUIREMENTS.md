@@ -522,6 +522,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     updated {date} by {name}" under the stock line instead (name dropped
     when the updater left or isn't recorded). `e2e/inventory-compact-rows.spec.ts`
     counts the rows in one screen and checks the stepper and item page.
+  - **Row actions stay on screen in the desktop table (UX-130)**: the
+    name cell is capped at 11rem and the category and location cells at
+    7rem (full text in the `title`), so a row with all seven icons (Mark
+    opened, Freeze, Add to list, Details, Mark empty, Edit, Delete) fits the
+    ~990 px column at 1280 px with no horizontal scroll.
+    `e2e/ux-130.desktop.spec.ts` asserts it.
   - **"I used some / I bought more" (UX-119)**: the −/+ stepper moves by a
     step that suits the unit (`quantityStep`, `src/lib/inventory/quantity-step.ts`):
     50 for g and ml, 0.25 for kg and l, 1 for everything else (counts and
