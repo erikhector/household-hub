@@ -251,6 +251,32 @@ then MAINT-7 per feature, to avoid churn.
       (what the reloaded page renders and when), never a loosened assertion,
       a skip or a retry. Acceptance: `npx playwright test e2e/ux-38.spec.ts
       --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-24. Flaky: toast buttons measure 43.999996 px in `expectToastButtonsTappable`** (low, S) —
+      `e2e/plan-leftovers.spec.ts:113` and `:146`, `mobile` project. Both
+      failed and then passed on the retry in the GitHub `End-to-end
+      (Playwright)` job on release PR #360 (head `5e9ebba`, 2026-10-18), and
+      passed on a local re-run. The failing assertion is the helper
+      `expectToastButtonsTappable` (line ~90): a toast button's height is
+      43.999996, below a strict `>= 44` (M3). That is sub-pixel rounding of
+      a transformed toast, not a short button. Fix it in the app by making
+      the toast button's minimum height truly 44 px (a `min-h-11` that
+      survives the toast's scale), or, if the app is right, by giving the
+      helper a tolerance of under 0.01 px and a comment saying it is
+      sub-pixel rounding; never a looser bound than that, a skip or a
+      retry. Related: `:146` is also named by MAINT-23 (open PR #341), which
+      saw it fail in the full gate; fold the two when #341 lands. Acceptance:
+      `npx playwright test e2e/plan-leftovers.spec.ts --project=mobile
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-25. Flaky: `toBeChecked` in `overview-today.spec.ts:22`** (low, S) —
+      `e2e/overview-today.spec.ts:22`, `desktop` project. Failed once in the
+      local gate on release PR #360 (head `5e9ebba`, 2026-10-18), then
+      passed on a re-run of the same commit; added by #352 (UX-70). The
+      failing assertion is `toBeChecked` on the checkbox ticked from the
+      Overview's Today card. Fix the app's or the test's waiting (the tick
+      is optimistic and the page may re-render with server data before
+      the checked state settles), never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test e2e/overview-today.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
