@@ -1,6 +1,6 @@
 {
   "name": "squirrel",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -16,6 +16,7 @@
     "test:e2e:mobile": "playwright test --project=mobile",
     "test:e2e:quick": "playwright test --project=desktop --project=mobile",
     "test:e2e:screenshots": "E2E_SCREENSHOT_DIR=${E2E_SCREENSHOT_DIR:-test-results/screenshots} playwright test smoke public",
+    "test:e2e:audit": "E2E_AUDIT_DIR=${E2E_AUDIT_DIR:-test-results/audit} playwright test -c playwright.audit.config.ts",
     "ci:local": "npm run check && npm run build && npm run test:e2e",
     "postinstall": "prisma generate"
   },

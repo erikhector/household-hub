@@ -227,18 +227,7 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-18. Flaky: "All done" missing after reload in the ux-38 celebration test** (low, S) —
-      `e2e/ux-38.spec.ts:55` ("ticking the last item celebrates once, and
-      only on the tick"), `desktop` project. Failed once in the local
-      `ci:local` gate on release `7171136` (2026-10-18) under heavy parallel
-      load, then passed on a re-run of the spec on the same commit; the
-      GitHub run on that commit was green. The failing assertion is
-      `main.getByText("All done", { exact: true })` not found within 5 s
-      after `page.reload()` (line 83). Fix the app's or the test's waiting
-      (what the reloaded page renders and when), never a loosened assertion,
-      a skip or a retry. Acceptance: `npx playwright test e2e/ux-38.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-19. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
+- [ ] **MAINT-26. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
       `e2e/copy-shopping-list-text.spec.ts:15` ("Copy as text puts the open
       items on the clipboard and leaves ticked ones out"), `mobile` project.
       Failed once and passed on the retry in the GitHub `End-to-end
@@ -250,7 +239,7 @@ then MAINT-7 per feature, to avoid churn.
       a skip or a retry. Acceptance: `npx playwright test
       e2e/copy-shopping-list-text.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
-- [ ] **MAINT-20. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
+- [ ] **MAINT-27. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
       `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
       amount in the pantry's unit instead"), `mobile` project. Failed once
       and passed on the retry in the GitHub `End-to-end (Playwright)` job on
@@ -261,19 +250,23 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry. Acceptance: `npx
       playwright test e2e/recipe-ingredients.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
-- [ ] **BUG-2. Red next: `split-remainder.spec.ts` fails on clean `next`** (medium, S) —
-      `e2e/split-remainder.spec.ts:31` and `:57` (`mobile`; also `desktop` on
-      a feature branch), added by #336. Failed in the local `ci:local` gate on
-      a clean `origin/next` `0444ce1` (2026-10-18, 780 passed, 3 failed) and in
-      3 of 3 full runs on the UX-82 branch (#343), yet passes alone
-      (`--repeat-each=3`, 14/14), so it depends on something earlier specs
-      leave in the worker's household. Find what state it relies on and make
-      the spec set up what it needs (AGENTS.md "Parallel workers"), or fix
-      the app if the remainder is wrong after other rows exist, never a
-      skip or looser assertion. Acceptance: the full `npm run test:e2e`
-      passes with this spec included, and `npx playwright test
+- [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
+      #336 (`feat: show what's left to split as shares are typed`) turned
+      `next` red and was reverted by #340, which also deleted
+      `e2e/split-remainder.spec.ts`. Its spec failed at `:31` and `:57`
+      (`mobile`, a `locator.fill` timeout; also `desktop` on a feature
+      branch) in the local `ci:local` gate on a clean `0444ce1` (2026-10-18,
+      780 passed, 3 failed) and in 3 of 3 full runs on the UX-82 branch
+      (#343), yet passed alone (`--repeat-each=3`, 14/14), so it depended on
+      something earlier specs leave in the worker's household or on a field
+      it didn't wait for. Re-apply #336 (revert #340), find why the share
+      field can't be filled in the full run and fix the spec's setup
+      (AGENTS.md "Parallel workers") or the app, never a skip or looser
+      assertion, and restore #336's REQUIREMENTS.md text. Acceptance: the
+      full `npm run test:e2e` passes with the re-landed
+      `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-21. Flaky: personal-budget Undo in `log-expense-fast.spec.ts`** (low, S) —
+- [ ] **MAINT-28. Flaky: personal-budget Undo in `log-expense-fast.spec.ts`** (low, S) —
       `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same sheet,
       last-used category and Undo"), `mobile` project. Failed in the local
       gate on clean `origin/next` `0444ce1` and on UX-82 (`79de34e`) and
@@ -283,24 +276,14 @@ then MAINT-7 per feature, to avoid churn.
       passes 30/30. Also failed on `desktop` (`d3cfbdb`) and `mobile`
       (`2bc2121`) in the #354 gates, 2026-10-18: `toHaveCount(0)` received
       2 after 5 s.
-- [ ] **BUG-4. Red next: `text-size.mobile.spec.ts:38` fails on `/dashboard/whats-new` (sv)** (medium, S) —
-      `e2e/text-size.mobile.spec.ts:38` ("dashboard at 200% text (sv) ›
-      /dashboard/whats-new has no sideways scroll"), `mobile` project. Fails
-      every time on a clean `origin/next` (`d2bc162` and `7817f23`,
-      2026-10-18: 51 passed, 1 failed) and in the `ci:local` gate of
-      #349, #352, #354 and #356, none of which touch the page. The Swedish
-      What's new page is wider than the viewport at 200% text. Fix the
-      page's layout (long words or a fixed-width element), never a skip or
-      a looser assertion. Acceptance: `npx playwright test
-      e2e/text-size.mobile.spec.ts --project=mobile` passes.
-- [ ] **MAINT-22. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
+- [ ] **MAINT-29. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
       `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
       `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
       other agents' gates. Fix the app's or the test's waiting, never a
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-38.spec.ts --project=desktop --repeat-each=30` passes
       30/30.
-- [ ] **MAINT-23. Flaky: `plan-leftovers.spec.ts:146` fails in the full gate, passes alone** (low, S) —
+- [ ] **MAINT-30. Flaky: `plan-leftovers.spec.ts:146` fails in the full gate, passes alone** (low, S) —
       `e2e/plan-leftovers.spec.ts:146`, `mobile` project. Failed in the
       `ci:local` gates of #349 (`90bb208`) and #356 (`acffde8`,
       2026-10-18) and passed on focused re-runs (22/22 with
@@ -380,7 +363,7 @@ UX-89, UX-90, UX-102, UX-113.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
+- `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
   UX-106.
@@ -683,23 +666,6 @@ UX-89, UX-90, UX-102, UX-113.
       overview shows one call to action per feature. "Plan this week's
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
-
-- [ ] **UX-70. A "Today" block that answers "what needs me now?"**
-      (impact: high, effort: M) — breaks Hierarchy ("key status first")
-      and M6. On a phone the first screen is a greeting, the getting-started
-      box and two cards.
-      - The tasks card lists titles as plain text you can't tick or open.
-      - It counts only tasks assigned to you (`page.tsx:65`), so it says
-        "2 open tasks" while 4 unassigned household chores are open.
-      - The household budget never appears, even when fully set up.
-      - Tonight's meal and items expiring soon are missing, though the
-        subtitle says "What needs your attention right now".
-      Acceptance: at 412×839 with data, the first screen shows a "Today"
-      block with:
-      - your tasks plus unassigned ones, each with a working checkbox;
-      - tonight's planned meal;
-      - the household's safe to spend, once the budget has categories;
-      - a count of expiring items.
 
 - [ ] **UX-71. Overview stat cards: honest colours, real links, no dead
       ends** (impact: med, effort: S) — breaks Colour (status pairs with
@@ -1123,19 +1089,6 @@ UX-89, UX-90, UX-102, UX-113.
       listed twice.
 
 #### Inventory
-
-- [ ] **UX-119. "I used some" and "I bought more" for gram, kilo and
-      litre items** (impact: high, effort: M) — breaks Usability and M4.
-      - The stepper always moves by 1 unit
-        (`inventory-table.tsx:697,722`): Smör 500 g → 499 g, and Gul lök
-        1.5 kg → 0.5 kg → 0 kg.
-      - Swipe right is "+1" too.
-      - Tapping the quantity does nothing, so "used 200 g" means the Edit
-        dialog and mental arithmetic.
-      Acceptance: tapping the quantity opens a small sheet with a decimal
-      keypad and "Used / Bought" with quick chips (½, all, the last
-      amount). Step sizes suit the unit (g by 50 or 100). A gram item
-      drops by 200 g in at most two taps.
 
 - [ ] **UX-121. What's low, out and expiring, at the top of the
       inventory** (impact: high, effort: M) — breaks Hierarchy and M6.
