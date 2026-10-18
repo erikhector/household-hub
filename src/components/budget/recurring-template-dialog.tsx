@@ -29,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { evenSplitAmounts, shareRemainder } from "@/components/budget/split-amounts";
+import { ShareRemainderNote } from "@/components/budget/split-editor";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
@@ -150,8 +151,8 @@ export function RecurringTemplateDialog({
     setSplitAmounts(buildInitialSplitAmounts(template, memberOptions));
   }
 
-  const splitTotal = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
-  const splitMismatch = splitEnabled && Math.abs(splitTotal - (Number(amount) || 0)) > 0.01;
+  const splitRemainder = shareRemainder(amount, splitAmounts);
+  const splitMismatch = splitEnabled && splitRemainder !== 0;
 
   return (
     <Dialog
@@ -292,14 +293,13 @@ export function RecurringTemplateDialog({
                       </div>
                     ))}
                   </div>
-                  {splitMismatch && (
-                    <p className="text-xs text-destructive">
-                      {format(dict.recurring.split?.mismatchWarning ?? "", {
-                        total: numberFormat.format(splitTotal),
-                        amount: numberFormat.format(Number(amount) || 0),
-                      })}
-                    </p>
-                  )}
+                  <ShareRemainderNote
+                    amount={amount}
+                    remainder={splitRemainder}
+                    numberFormat={numberFormat}
+                    leftHint={dict.recurring.split?.sharesLeftHint ?? ""}
+                    overWarning={dict.recurring.split?.sharesOverWarning ?? ""}
+                  />
                 </div>
               )}
             </div>

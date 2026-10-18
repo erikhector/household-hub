@@ -2475,9 +2475,15 @@ default to an even split of the transaction's amount
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
 total instead of drifting from naive floating-point division) via a "Split
-evenly" reset button, individually adjustable afterward. The dialog shows
-a live warning and disables submit whenever the shares don't (yet) sum to
-the transaction total or the payments add up to more than it
+evenly" reset button, individually adjustable afterward. As shares are
+typed, the dialog shows what's still left to split ("176.00 of 476.00 left
+to split." for a 476 bill with a 300 share, muted since it's the normal
+state mid-typing) or, in red, how far the shares are over the total
+(`shareRemainder`, summed in whole cents so the shares must match to the
+cent, and `ShareRemainderNote` in
+`split-editor.tsx`, which the recurring-item and planned-bill dialogs'
+share grids use too). Submit stays disabled while the shares don't (yet)
+sum to the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
 `updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
 re-validate the same invariants server-side (`parseSplitFormData`, ±0.01
@@ -5051,11 +5057,29 @@ is a full-screen read view for cooking from a phone.
   denied it silently does nothing.
 - **Closing**: a full-width "Close" button at the bottom of the scroller
   (thumb zone) and Escape; the round close icon is dropped in favour of it.
+- **Progress, Next step and Done (UX-94)**: closing (the Close button,
+  Escape, the back gesture or a swipe down) with a timer running or a step
+  ticked asks "Stop cooking?" first ("Your timer will stop and your ticked
+  steps will be cleared." / "Your ticked steps will be cleared."), with
+  "Keep cooking" and "Stop cooking"; a fresh view, or one with only
+  ingredients ticked, closes at once (`hasCookProgress`). The first
+  unticked step is outlined and labelled "Current step"
+  (`aria-current="step"`, `currentStepIndex`). The bottom bar's primary
+  "Next step" (56 px) ticks it and scrolls the next into view (instant under
+  reduced motion). Once every step is ticked, a view opened from a planned,
+  not yet cooked meal swaps it for a primary "Done — mark as cooked" that
+  closes cook mode without the prompt and opens that meal's mark-as-cooked
+  review; opened from the recipe list there is no meal, so only Close
+  remains. Ingredients are tickable rows (44 px, `aria-pressed`, check and
+  strike-through) for gathering during prep. All still component state.
 - **Tests**: `cook-mode-calc.test.ts` (splitting, scaling, formatting,
   duration parsing); `e2e/cook-mode.spec.ts` opens the view, ticks and
   un-ticks a step and closes back to the list, and starts and stops a step
   timer, on desktop and mobile. The seeded "Pancakes" recipe has two steps
   for the first; "Porridge" has a "10-12 minutes" step for the timer.
+  UX-94 adds the close prompt (ticked step and running timer), Next step
+  with ingredient ticking, and Done from a planned meal opening the
+  mark-as-cooked review.
 
 ### Copy a recipe as text (GAP-43)
 

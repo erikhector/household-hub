@@ -227,6 +227,17 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
+- [ ] **MAINT-18. Flaky: "All done" missing after reload in the ux-38 celebration test** (low, S) —
+      `e2e/ux-38.spec.ts:55` ("ticking the last item celebrates once, and
+      only on the tick"), `desktop` project. Failed once in the local
+      `ci:local` gate on release `7171136` (2026-10-18) under heavy parallel
+      load, then passed on a re-run of the spec on the same commit; the
+      GitHub run on that commit was green. The failing assertion is
+      `main.getByText("All done", { exact: true })` not found within 5 s
+      after `page.reload()` (line 83). Fix the app's or the test's waiting
+      (what the reloaded page renders and when), never a loosened assertion,
+      a skip or a retry. Acceptance: `npx playwright test e2e/ux-38.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -774,20 +785,6 @@ UX-89, UX-90, UX-102, UX-113.
       new" and needs a tap to accept. Saving a recipe with Rice and Cream
       on the defaults never links Ricotta or Breadcrumbs (unit test on the
       default choice).
-
-- [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
-      as cooked"** (impact: high, effort: M) — breaks Context (kitchen),
-      User control and M7.
-      - With a timer running and a step ticked, one back gesture, swipe
-        down, Escape or the thumb-zone "Close" ends cook mode and the meal
-        sheet without a prompt (`cook-mode-dialog.tsx:55`).
-      - It ends with only "Close", so recording the meal means reopening
-        it and tapping "Mark as cooked".
-      Acceptance: with a timer running or a step ticked, closing asks "Stop
-      cooking? Your timer will stop". After the last step a primary "Done —
-      mark as cooked" opens the mark-as-cooked review. A big "Next step"
-      button highlights and scrolls to the next step, and ingredients can
-      be ticked during prep (the Paprika/Mealime feel).
 
 - [ ] **UX-95. One word for portions, and keep meal and recipe apart**
       (impact: med, effort: S) — breaks Consistency. In English the same
