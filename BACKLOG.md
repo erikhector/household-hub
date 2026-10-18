@@ -716,14 +716,6 @@ UX-89, UX-90, UX-102, UX-113.
       away" badges while the list is active. After completing, the page
       offers "Back to lists" and "Start next list".
 
-- [ ] **UX-82. An opaque sticky add bar** (impact: med, effort: S) —
-      bug, breaks M9. When the list scrolls under the add bar,
-      `max-sm:bg-background/85 backdrop-blur-sm` plus the input's
-      `bg-transparent` (`smart-add-bar.tsx:212-213`) let row text show
-      inside the field, over the placeholder.
-      Acceptance: with a row scrolled under it, no row text or icons show
-      through the field or the bar.
-
 - [ ] **UX-83. Aisle headers in the viewer's language** (impact: med,
       effort: S) — breaks Consistency and Context. Group labels are the
       first item's stored category text

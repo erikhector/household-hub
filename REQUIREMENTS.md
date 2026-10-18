@@ -1368,7 +1368,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the
   items, sticky to the top of the scroll area on phones (same treatment as
-  the inventory search bar). Typing `2 l mjölk, bröd, 6 ägg` and pressing
+  the inventory search bar, except that it is fully opaque, field included,
+  so rows scrolled under it never show through, UX-82). Typing `2 l mjölk, bröd, 6 ägg` and pressing
   Enter adds three rows; the text goes through the shared
   `parsePastedList` (via `parseSmartAddInput`), and a row with no typed
   unit takes its inventory item's usual unit rather than "pcs". The input
