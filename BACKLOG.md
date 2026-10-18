@@ -813,16 +813,6 @@ UX-89, UX-90, UX-102, UX-113.
       on the defaults never links Ricotta or Breadcrumbs (unit test on the
       default choice).
 
-- [ ] **UX-92. "Add to plan" and the instructions in the recipe sheet**
-      (impact: high, effort: S) — User-centricity (shortest path from
-      "what's for dinner?").
-      - The recipe sheet (`recipe-manager.tsx:458-503`) offers Review
-        matches, Copy, Delete, Edit and Cook, but no way to plan it,
-        though `AddToPlanDialog` exists.
-      - The instructions only show in cook mode or the edit form.
-      Acceptance: the sheet has "Add to plan", which opens the date and
-      slot picker, and lists the instruction steps under the ingredients.
-
 - [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
       as cooked"** (impact: high, effort: M) — breaks Context (kitchen),
       User control and M7.
