@@ -1742,6 +1742,40 @@ out to be a product-scope question rather than a scoped task should move to
       custom meal two weeks ahead, searches it and follows the link to the
       right week, on desktop and mobile (field has a visible label, 44 px).
 
+### 2026-10-18 scan
+
+- [ ] **GAP-60. "Skip this time" on a recurring task** (impact: low-med, effort: S) —
+      Grocy's chores page lets you skip an execution ("we're away, nobody
+      watered the plants") so the schedule moves on without logging it as
+      done. Squirrel's only ways past a recurring task are to tick it
+      (which records a completion and credits a member in "Last done
+      by") or delete it (which loses the schedule and history). Add a
+      "Skip this time" row action, shown only on recurring tasks that are
+      due or overdue, that advances `dueAt` to the next occurrence using
+      the same calculation the tick uses (`recurrence.ts`), without
+      setting a completer or a completion time, with an Undo toast. Does
+      not decide UX-137's anchoring question: it reuses whichever rule
+      that settles on. No schema change.
+      Acceptance: an action test covers household scoping, rejection on a
+      non-recurring task, and that no completer is recorded; an e2e step
+      skips a uniquely named daily task and sees it leave the due list
+      with "Last done by" unchanged, then undoes it, on desktop and mobile
+      (button name unique per row, 44 px).
+
+- [ ] **GAP-61. Pin a note to the top of the notes board** (impact: low, effort: S) `[schema]` —
+      Cozi's journal and AnyList's meal-plan "pinned entries" both let a
+      lasting fact (the wifi code, the door code, "allergic to nuts")
+      outlive the chronological feed. Squirrel's notes board
+      (`## Household notes board`, GAP-16) is newest-first only, so a
+      standing note sinks under daily chatter. Add `HouseholdNote.pinnedAt
+      DateTime?`; any member may pin or unpin (same permission as delete);
+      pinned notes sort first, newest-pinned first, with a visible
+      "Pinned" label and an accessible Pin/Unpin button, capped at 5
+      pinned so the pins don't become the feed.
+      Acceptance: an action test covers household scoping, the cap and
+      unpin; an e2e step pins a uniquely named note, reloads and sees it
+      above a newer one, then unpins it, on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
