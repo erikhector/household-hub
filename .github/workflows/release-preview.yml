@@ -8,8 +8,10 @@ name: Release preview
 # `release/*` branch cut from `next`, into `master`) instead lists every PR it ships with the version and the
 # combined note, and its own title isn't checked (it doesn't decide the
 # bump; the included PRs' titles do).
-# Make the "Release preview" check required in the branch ruleset (see
-# DEPLOYMENT.md) so a PR with an invalid title can't be merged.
+# A releasing PR (feat/fix/perf) also fails until its Release note is
+# written in both English and Svenska, so English never ships to Swedish
+# users. Make the "Release preview" check required in the branch ruleset
+# (see DEPLOYMENT.md) so such a PR can't be merged.
 #
 # Nothing is written to the branch here. The bump happens after merge
 # (release.yml), because bumping inside each PR would make every two open
@@ -91,8 +93,8 @@ jobs:
             gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@"$RUNNER_TEMP/preview.md" > /dev/null
           fi
 
-      - name: Fail on invalid PR title
+      - name: Fail on invalid PR title or missing release note
         if: steps.plan.outputs.exit_code != '0'
         run: |
-          echo "::error::PR title must be a Conventional Commit, e.g. 'feat(shopping): barcode scan'. See the preview comment."
+          echo "::error::PR title must be a Conventional Commit, e.g. 'feat(shopping): barcode scan', and a feat/fix/perf PR needs its release note in English and Svenska. See the preview comment."
           exit 1

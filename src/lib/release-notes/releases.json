@@ -18,7 +18,7 @@
     "breaking": false,
     "notes": {
       "en": "List budget categories near or over their limit on Overview (UX-108)\n\nThe overview now starts with a Today block: your tasks and the household's unassigned ones (tick them right there), tonight's dinner, how much the household can safely spend, and what is about to expire.\n\nLong release notes on the What's new page now wrap instead of making the page scroll sideways on phones.",
-      "sv": "List budget categories near or over their limit on Overview (UX-108)\n\nÖversikten börjar nu med ett Idag-block: dina uppgifter och hushållets otilldelade (bocka av direkt), kvällens middag, hur mycket hushållet säkert kan spendera och vad som snart går ut.\n\nLånga versionsanteckningar på sidan Nyheter radbryts nu i stället för att få sidan att scrolla i sidled på mobilen."
+      "sv": "Översikten visar budgetkategorier som närmar sig eller har passerat sin gräns.\n\nÖversikten börjar nu med ett Idag-block: dina uppgifter och hushållets otilldelade (bocka av direkt), kvällens middag, hur mycket hushållet säkert kan spendera och vad som snart går ut.\n\nLånga versionsanteckningar på sidan Nyheter radbryts nu i stället för att få sidan att scrolla i sidled på mobilen."
     }
   },
   {

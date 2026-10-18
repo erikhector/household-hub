@@ -6050,7 +6050,8 @@ version or the notes by hand.
   each squash commit's subject, and asks GitHub by SHA for any commit
   without one, failing the run if it can't), takes the biggest bump among their titles
   and joins their release notes, oldest first, into one entry. A PR with
-  no Swedish note contributes its English one to the Swedish text. Then it
+  no Swedish note would contribute its English one to the Swedish text,
+  which is why the preview check now requires both (below). Then it
   merges `master` back into `next`. A hotfix PR straight into `master`
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
@@ -6072,6 +6073,12 @@ version or the notes by hand.
   "Release note" section with `### English` and `### Svenska` headings. An
   empty English note falls back to the title's description. An empty
   Swedish note is stored as `null` and the app shows the English one.
+  Neither should happen any more: a releasing (`feat`/`fix`/`perf`) PR
+  fails the Release preview check until both sections are written
+  (`missingReleaseNotes`), because v0.77.0 shipped an English paragraph
+  in its Swedish note from a PR that wrote neither. That paragraph was
+  translated in `releases.json` afterwards, the one hand edit to the
+  notes.
   Each note runs to the next heading or `---` rule, so the attribution
   footer after a PR body's closing `---` never ships as part of the
   Swedish note (BUG-4).
