@@ -227,17 +227,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-18. Flaky: "All done" missing after reload in the ux-38 celebration test** (low, S) —
-      `e2e/ux-38.spec.ts:55` ("ticking the last item celebrates once, and
-      only on the tick"), `desktop` project. Failed once in the local
-      `ci:local` gate on release `7171136` (2026-10-18) under heavy parallel
-      load, then passed on a re-run of the spec on the same commit; the
-      GitHub run on that commit was green. The failing assertion is
-      `main.getByText("All done", { exact: true })` not found within 5 s
-      after `page.reload()` (line 83). Fix the app's or the test's waiting
-      (what the reloaded page renders and when), never a loosened assertion,
-      a skip or a retry. Acceptance: `npx playwright test e2e/ux-38.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
