@@ -300,8 +300,8 @@ UX-89, UX-90, UX-102, UX-113.
   UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
-  UX-105, UX-106.
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
+  UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
@@ -863,15 +863,6 @@ UX-89, UX-90, UX-102, UX-113.
       scrolling.
 
 #### Tasks
-
-- [ ] **UX-101. Tapping a task's title opens it instead of completing
-      it** (impact: med, effort: S) — breaks Usability (forgiving) and M5.
-      The `<label>` wraps both checkbox and title
-      (`src/components/tasks/tasks-client.tsx:211`), so a stray tap while
-      scrolling completes the task, with no toast and no undo. In Things
-      and Todoist only the circle completes a task.
-      Acceptance: tapping the title opens the edit sheet. Only the
-      checkbox or a right swipe completes the task.
 
 - [ ] **UX-102. Unticking restores the previous "Last done by"**
       (impact: med, effort: S) — bug, breaks User control and Context
