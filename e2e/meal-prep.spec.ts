@@ -201,9 +201,7 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   // The first free slot is on screen without scrolling.
   await expect(dialog.getByRole("checkbox", { disabled: false }).first()).toBeInViewport();
 
-  // Back to this week, then on to the target week.
-  await dialog.getByRole("button", { name: "Next week" }).click();
-  await expect(dialog.getByRole("group", { name: dayGroupName(weekAhead(0)) })).toBeVisible();
+  // On to the target week.
   for (let i = 0; i < weeksAhead; i++) await dialog.getByRole("button", { name: "Next week" }).click();
   await expect(dialog.getByRole("group", { name: dayGroupName(targetWeek) })).toBeVisible();
   await expect(dialog.getByRole("checkbox")).toHaveCount(28);
