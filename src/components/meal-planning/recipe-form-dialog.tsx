@@ -44,6 +44,7 @@ import { rowUnitChoice } from "@/lib/recipes/unit-choice";
 import { newUid } from "@/lib/uid";
 import {
   defaultNewItemUnit,
+  defaultReviewChoice,
   ingredientBaseName,
   ingredientNeedsReview,
 } from "@/lib/recipes/ingredient-match";
@@ -156,8 +157,7 @@ function buildReview(
       status: match.status,
       needsReview: ingredientNeedsReview(match),
       defaultUntracked: match.untracked,
-      mode: match.untracked ? "untracked" : match.itemId ? "existing" : "new",
-      selectedId: match.itemId ?? "",
+      ...defaultReviewChoice(match),
       candidateIds: match.candidateIds,
       newName,
       newCategory: preview.guessedCategories[index] ?? "",

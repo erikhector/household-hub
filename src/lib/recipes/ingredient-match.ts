@@ -225,6 +225,29 @@ export function ingredientNeedsReview(match: IngredientMatch): boolean {
 }
 
 /**
+ * What the "Match ingredients" step starts a row on (UX-90). A suggestion
+ * is a guess, and one tap on "Create recipe" must never save a guess as a
+ * link: a loose fuzzy hit (Rice → Ricotta, Cream → Breadcrumbs) or a
+ * plural fold that only looks like one (cream → creamer) would otherwise
+ * feed the missing list and "Mark as cooked" with the wrong item. So only
+ * a confident match, or a name that exactly equals more than one item
+ * (which of the twins is the open question), starts on "Use existing"; a
+ * weaker suggestion starts on "Create new" and needs a tap to accept.
+ * `selectedId` still carries the suggestion, so that tap lands on the
+ * item the matcher guessed instead of an empty picker.
+ */
+export function defaultReviewChoice(match: IngredientMatch): {
+  mode: "existing" | "new" | "untracked";
+  selectedId: string;
+} {
+  const selectedId = match.itemId ?? "";
+  if (match.untracked) return { mode: "untracked", selectedId };
+  if (!match.itemId) return { mode: "new", selectedId };
+  const trusted = match.status === "confident" || match.source === "exact";
+  return { mode: trusted ? "existing" : "new", selectedId };
+}
+
+/**
  * The unit a new inventory item starts with when it's created from a
  * recipe row (design §3.3). Pantries count things differently from how
  * recipes measure them: a count unit stays as it is (canonicalized), any

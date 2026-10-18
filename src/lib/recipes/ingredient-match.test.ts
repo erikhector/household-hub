@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultNewItemUnit,
+  defaultReviewChoice,
   ingredientBaseName,
   ingredientNeedsReview,
   matchIngredientRows,
@@ -207,5 +208,45 @@ describe("defaultNewItemUnit", () => {
     expect(defaultNewItemUnit("krm")).toBe("pcs");
     expect(defaultNewItemUnit("nypa")).toBe("pcs");
     expect(defaultNewItemUnit("handful")).toBe("pcs");
+  });
+});
+
+describe("defaultReviewChoice (UX-90)", () => {
+  const items: IngredientMatchItem[] = [
+    { id: "ricotta", name: "Ricotta", unit: "g" },
+    { id: "breadcrumbs", name: "Breadcrumbs", unit: "g" },
+    { id: "crushed", name: "Crushed tomatoes", unit: "g" },
+    { id: "egg", name: "Egg", unit: "pcs" },
+    { id: "milk-a", name: "Milk", unit: "l" },
+    { id: "milk-b", name: "milk.", unit: "l" },
+  ];
+  const choose = (name: string, unit = "pcs") =>
+    defaultReviewChoice(matchIngredientRows([{ name, unit }], items)[0]);
+
+  it("starts a loose fuzzy suggestion on Create new, with the guess ready to accept", () => {
+    // Saving Rice and Cream on the defaults must never link Ricotta or
+    // Breadcrumbs; the third is a unit-mismatched near-name.
+    expect(choose("Rice", "dl")).toEqual({ mode: "new", selectedId: "ricotta" });
+    expect(choose("Cream", "dl")).toEqual({ mode: "new", selectedId: "breadcrumbs" });
+    expect(choose("Tomatoes")).toEqual({ mode: "new", selectedId: "crushed" });
+  });
+
+  it("starts a plural fold that only looks like a plural on Create new", () => {
+    const match = matchIngredientRows([{ name: "Cream", unit: "l" }], [{ id: "creamer", name: "Creamer", unit: "l" }])[0];
+    expect(match.source).toBe("plural");
+    expect(defaultReviewChoice(match)).toEqual({ mode: "new", selectedId: "creamer" });
+  });
+
+  it("starts a confident match on Use existing", () => {
+    expect(choose("Egg")).toEqual({ mode: "existing", selectedId: "egg" });
+  });
+
+  it("keeps an exact twin on Use existing, since the name matches", () => {
+    expect(choose("Milk", "l")).toMatchObject({ mode: "existing" });
+  });
+
+  it("starts a row with no match on Create new and a staple on Don't track", () => {
+    expect(choose("Saffron")).toEqual({ mode: "new", selectedId: "" });
+    expect(choose("Water")).toMatchObject({ mode: "untracked" });
   });
 });

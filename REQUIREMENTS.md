@@ -3752,12 +3752,12 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     normalized name: Don't track pre-selected, but the row stays open), a
     plural/singular fold of the last word
     (English -s/-es, Swedish -ar/-or/-er/-na, both sides; only ever a
-    pre-selected suggestion, since "creamer" also folds to "cream"), then
+    suggestion, since "creamer" also folds to "cream"), then
     `findInventoryMatches`
     with the AUTO-11 thresholds (`MATCH_*` constants in
     `src/lib/item-matching.ts`, shared with the receipt matcher):
     confident at ≥ 0.9 with a ≥ 0.15 lead, a pre-selected suggestion at
-    ≥ 0.35, otherwise none. A trailing parenthesized part of the name
+    ≥ 0.35 (offered, not pre-selected: see "Dialog"), otherwise none. A trailing parenthesized part of the name
     ("gul lök (finhackad)") is ignored for matching and for the default
     "Create new" name. Each match also carries a unit class from
     `classifyUnits` (`src/lib/units.ts`): `same` after `canonicalUnit`
@@ -3784,11 +3784,16 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     a nested dialog): confident rows are collapsed in an
     `AutoMatchedSection`, the rest listed under "Needs a look" with
     "Use existing" (an `ItemCombobox`, best candidates first) or "Create
-    new" (name, category, unit). The new item's unit defaults per kind:
+    new" (name, category, unit). Only a confident match (or a name that
+    exactly equals several items) starts on "Use existing"; a weaker
+    suggestion (a loose fuzzy hit or a plural fold) starts on "Create new"
+    and needs a tap to accept, so one tap on "Create recipe" never links
+    Rice to Ricotta (`defaultReviewChoice`, UX-90). The suggestion is
+    already chosen in the picker, so that tap lands on the guessed item. The new item's unit defaults per kind:
     count units stay (canonicalized), other volumes → `l`, weights → `g`,
     spoon measures, pinches and unknown units → `pcs`. Each open row says
-    why it's open ("Closest match: X. Check it's right." or "Nothing
-    close…") and whether the pantry unit reconciles; one that doesn't gets
+    why it's open ("Closest match: X. Tap Use existing if it's right." or
+    "Nothing close…") and whether the pantry unit reconciles; one that doesn't gets
     the three unit choices (see "Unit conversions" below). An untouched
     default unit gets a neutral note, not the mismatch warning. Saving with an incomplete row shows a count at the top
     (`role="alert"`), marks the field `aria-invalid` with its error in
