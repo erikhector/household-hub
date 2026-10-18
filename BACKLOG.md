@@ -280,6 +280,34 @@ then MAINT-7 per feature, to avoid churn.
       passes alone. Fix the app's or the test's waiting, never a loosened
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/log-expense-fast.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30. Also failed on `desktop` (`d3cfbdb`) and `mobile`
+      (`2bc2121`) in the #354 gates, 2026-10-18: `toHaveCount(0)` received
+      2 after 5 s.
+- [ ] **BUG-4. Red next: `text-size.mobile.spec.ts:38` fails on `/dashboard/whats-new` (sv)** (medium, S) —
+      `e2e/text-size.mobile.spec.ts:38` ("dashboard at 200% text (sv) ›
+      /dashboard/whats-new has no sideways scroll"), `mobile` project. Fails
+      every time on a clean `origin/next` (`d2bc162` and `7817f23`,
+      2026-10-18: 51 passed, 1 failed) and in the `ci:local` gate of
+      #349, #352, #354 and #356, none of which touch the page. The Swedish
+      What's new page is wider than the viewport at 200% text. Fix the
+      page's layout (long words or a fixed-width element), never a skip or
+      a looser assertion. Acceptance: `npx playwright test
+      e2e/text-size.mobile.spec.ts --project=mobile` passes.
+- [ ] **MAINT-22. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
+      `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
+      `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
+      other agents' gates. Fix the app's or the test's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-38.spec.ts --project=desktop --repeat-each=30` passes
+      30/30.
+- [ ] **MAINT-23. Flaky: `plan-leftovers.spec.ts:146` fails in the full gate, passes alone** (low, S) —
+      `e2e/plan-leftovers.spec.ts:146`, `mobile` project. Failed in the
+      `ci:local` gates of #349 (`90bb208`) and #356 (`acffde8`,
+      2026-10-18) and passed on focused re-runs (22/22 with
+      `--repeat-each=2`). Find what earlier specs leave in the worker's
+      household that it relies on, or what it doesn't wait for. Never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/plan-leftovers.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
 
 ### UX (2026-09-26 scout)
