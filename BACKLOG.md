@@ -1762,16 +1762,21 @@ out to be a product-scope question rather than a scoped task should move to
       `completedByMemberId` untouched, with an Undo toast that restores
       the previous value. `isTaskOpen` treats the task as closed while
       `now < skippedUntil`, `getNextDueDate` returns the later of the two
-      dates, and a tick clears `skippedUntil`. Does not decide UX-137's
-      anchoring question: if that changes the rule, it updates this too.
+      dates, and a tick clears `skippedUntil`. The tick's un-complete
+      branch also clears `skippedUntil`, and leaves `completedAt` alone
+      when only the skip closed the task, so clicking a skipped task
+      reopens it without wiping the real last completion. Does not decide
+      UX-137's anchoring question: if that changes the rule, it updates
+      this too.
       Acceptance: `recurrence.test.ts` pins `isTaskOpen`/`getNextDueDate`
       with `skippedUntil` before, at and after now (with and without a
       `completedAt`); an action test covers household scoping, rejection
       on a non-recurring task, and that `completedAt`/
-      `completedByMemberId` are not written; an e2e step skips a uniquely
-      named daily task and sees it leave the open list with "Last done
-      by" unchanged, then undoes it, on desktop and mobile (button name
-      unique per row, 44 px).
+      `completedByMemberId` are not written, and that un-completing a
+      skipped task clears `skippedUntil` and keeps `completedAt`; an e2e
+      step skips a uniquely named daily task and sees it leave the open
+      list with "Last done by" unchanged, then undoes it, on desktop and
+      mobile (button name unique per row, 44 px).
 
 - [ ] **GAP-61. Pin a note to the top of the notes board** (impact: low, effort: S) `[schema]` —
       Cozi's journal and AnyList's meal-plan "pinned entries" both let a
