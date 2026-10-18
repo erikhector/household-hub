@@ -438,7 +438,7 @@ UX-89, UX-90, UX-102, UX-113.
       row move. No animation runs under reduced motion; the haptic still
       fires.
 
-
+#### Logged out, signup and invites
 
 - [ ] **UX-58. A landing page that shows the product and claims only
       what's true** (impact: high, effort: M) — breaks User-centricity

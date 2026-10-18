@@ -11,7 +11,7 @@
 // (same pattern as the sidebar cookie in DashboardLayout), so a returning
 // visitor never sees a flash of the notice before hydration.
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -30,21 +30,36 @@ export function CookieNotice({
   const pathname = usePathname();
   const ref = useRef<HTMLDivElement>(null);
 
+  // On phone-width dashboard pages the fixed BottomNav (z-40, 3.75rem tall
+  // plus the home-indicator inset, as in the dashboard layout) occupies the
+  // bottom edge, so sit above it rather than covering the primary navigation.
+  const aboveBottomNav = pathname.startsWith("/dashboard");
+
   // The notice is fixed, so the page can't see it: publish its size as CSS
   // variables and let the layouts reserve that room (UX-57), so it never
   // covers a submit button, the footer's language toggle or the floating
   // primary action. `--cookie-notice-space` is for public pages (body
   // padding, measured from the viewport bottom so the sm+ card's offset
-  // counts); `--cookie-notice-h` is for the dashboard, whose scrolling
-  // column already clears the BottomNav and only needs the strip's own
-  // height on a phone. Both are removed once it is dismissed.
-  useEffect(() => {
+  // counts); it is not published over /dashboard, where the shell is h-dvh
+  // with its own scrolling column, so body padding would count the room
+  // twice and make the shell itself scroll. `--cookie-notice-h` is for the
+  // dashboard, whose scrolling column already clears the BottomNav and only
+  // needs the strip's own height on a phone. Both are removed once it is
+  // dismissed.
+  //
+  // A layout effect, not a passive one: `aboveBottomNav` is derived from the
+  // pathname during render, so the strip's position class is already in the
+  // DOM when this runs, and measuring before paint means no frame shows the
+  // wrong amount of room. The ResizeObserver covers later size changes
+  // (text wrapping, font load, rotation).
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const root = document.documentElement;
     const publish = () => {
       const rect = el.getBoundingClientRect();
-      root.style.setProperty("--cookie-notice-space", `${Math.ceil(window.innerHeight - rect.top)}px`);
+      if (aboveBottomNav) root.style.removeProperty("--cookie-notice-space");
+      else root.style.setProperty("--cookie-notice-space", `${Math.ceil(window.innerHeight - rect.top)}px`);
       root.style.setProperty("--cookie-notice-h", `${Math.ceil(rect.height)}px`);
     };
     publish();
@@ -57,14 +72,9 @@ export function CookieNotice({
       root.style.removeProperty("--cookie-notice-space");
       root.style.removeProperty("--cookie-notice-h");
     };
-  }, [dismissed, pathname]);
+  }, [dismissed, aboveBottomNav]);
 
   if (dismissed) return null;
-
-  // On phone-width dashboard pages the fixed BottomNav (z-40, 3.75rem tall
-  // plus the home-indicator inset, as in the dashboard layout) occupies the
-  // bottom edge, so sit above it rather than covering the primary navigation.
-  const aboveBottomNav = pathname.startsWith("/dashboard");
 
   function acknowledge() {
     const secure = window.location.protocol === "https:" ? "; Secure" : "";

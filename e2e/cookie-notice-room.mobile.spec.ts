@@ -57,4 +57,9 @@ test("the dashboard's floating primary action clears the notice", async ({ page,
   const add = page.getByRole("button", { name: "Add task" });
   await expectClearOfNotice(page, add);
   await expect(add).toBeInViewport({ ratio: 1 });
+  // The shell is h-dvh with a scrolling column: room for the notice is made
+  // inside it, so the document itself must not grow (it did when body
+  // padding was applied here too).
+  const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+  expect(overflow).toBeLessThanOrEqual(0);
 });
