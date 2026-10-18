@@ -261,6 +261,26 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry. Acceptance: `npx
       playwright test e2e/recipe-ingredients.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
+- [ ] **BUG-2. Red next: `split-remainder.spec.ts` fails on clean `next`** (medium, S) —
+      `e2e/split-remainder.spec.ts:31` and `:57` (`mobile`; also `desktop` on
+      a feature branch), added by #336. Failed in the local `ci:local` gate on
+      a clean `origin/next` `0444ce1` (2026-10-18, 780 passed, 3 failed) and in
+      3 of 3 full runs on the UX-82 branch (#343), yet passes alone
+      (`--repeat-each=3`, 14/14), so it depends on something earlier specs
+      leave in the worker's household. Find what state it relies on and make
+      the spec set up what it needs (AGENTS.md "Parallel workers"), or fix
+      the app if the remainder is wrong after other rows exist, never a
+      skip or looser assertion. Acceptance: the full `npm run test:e2e`
+      passes with this spec included, and `npx playwright test
+      e2e/split-remainder.spec.ts --repeat-each=10` passes.
+- [ ] **MAINT-21. Flaky: personal-budget Undo in `log-expense-fast.spec.ts`** (low, S) —
+      `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same sheet,
+      last-used category and Undo"), `mobile` project. Failed in the local
+      gate on clean `origin/next` `0444ce1` and on UX-82 (`79de34e`) and
+      passes alone. Fix the app's or the test's waiting, never a loosened
+      assertion, a skip or a retry. Acceptance: `npx playwright test
+      e2e/log-expense-fast.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
