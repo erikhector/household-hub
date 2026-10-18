@@ -227,24 +227,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-24. Flaky: toast buttons measure 43.999996 px in `expectToastButtonsTappable`** (low, S) —
-      `e2e/plan-leftovers.spec.ts:113` and `:146`, `mobile` project. Both
-      failed and then passed on the retry in the GitHub `End-to-end
-      (Playwright)` job on release PR #360 (head `5e9ebba`, 2026-10-18), and
-      passed on a local re-run. The failing assertion is the helper
-      `expectToastButtonsTappable` (line ~90): a toast button's height is
-      43.999996, below a strict `>= 44` (M3). That is sub-pixel rounding of
-      a transformed toast, not a short button. Fix it in the app by making
-      the toast button's minimum height truly 44 px (a `min-h-11` that
-      survives the toast's scale), or, if the app is right, by giving the
-      helper a tolerance of under 0.01 px and a comment saying it is
-      sub-pixel rounding; never a looser bound than that, a skip or a
-      retry. Related: `:146` is also named by MAINT-30, which saw it fail
-      in the full gate; fold the two. Also failed once at `:113`
-      (43.999996 px) in the local gate on release PR #366 (`c6c7e36`,
-      2026-10-18), passing on a re-run. Acceptance:
-      `npx playwright test e2e/plan-leftovers.spec.ts --project=mobile
-      --repeat-each=30` passes 30/30.
 - [ ] **MAINT-25. Flaky: `toBeChecked` in `overview-today.spec.ts:134`** (low, S) —
       `e2e/overview-today.spec.ts:134`, `desktop` project. Failed once in the
       local gate on release PR #360 (head `5e9ebba`, 2026-10-18), then
@@ -312,15 +294,6 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-38.spec.ts --project=desktop --repeat-each=30` passes
       30/30.
-- [ ] **MAINT-30. Flaky: `plan-leftovers.spec.ts:146` fails in the full gate, passes alone** (low, S) —
-      `e2e/plan-leftovers.spec.ts:146`, `mobile` project. Failed in the
-      `ci:local` gates of #349 (`90bb208`) and #356 (`acffde8`,
-      2026-10-18) and passed on focused re-runs (22/22 with
-      `--repeat-each=2`). Find what earlier specs leave in the worker's
-      household that it relies on, or what it doesn't wait for. Never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/plan-leftovers.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-31. Flaky: `/dashboard/household` shifts 0.0647 while loading on mobile** (low, S) —
       `e2e/cls.spec.ts:66` ("/dashboard/household does not shift while
       loading", the hard-load CLS loop over `DASHBOARD_ROUTES`), `mobile`
@@ -343,7 +316,6 @@ and Swedish (which needed the seeded user's `locale` set in the DB — the
 `locale` cookie is only a fallback for signed-out pages, per
 `get-dictionary.ts`'s comment). No console errors, no untranslated strings,
 no broken empty states — the issues below are all clipped/illegible text.
-
 
 ### UX (2026-09-30 scout)
 
@@ -396,7 +368,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-46, UX-47,
-UX-89, UX-90, UX-113.
+UX-89, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -902,22 +874,6 @@ UX-89, UX-90, UX-113.
 
 #### Meals and recipes
 
-- [ ] **UX-90. Don't preselect weak pantry matches** (impact: high,
-      effort: M) — breaks "New technology: let the user correct a
-      suggestion before it changes data". The "Match ingredients" step
-      (`ingredient-review-step.tsx`) preselects "Use existing" for loose
-      fuzzy matches, and one tap on "Create recipe" saves them. Seen:
-      - Rice → Ricotta;
-      - Cream → Breadcrumbs;
-      - Tomatoes (pcs) → Crushed tomatoes (g).
-      Afterwards "Review ingredient matches" calls them all matched. The
-      missing list then asks for "Ricotta 4 dl", and Mark as cooked offers
-      to deduct breadcrumbs from a tikka masala.
-      Acceptance: a match below the confident threshold defaults to "Create
-      new" and needs a tap to accept. Saving a recipe with Rice and Cream
-      on the defaults never links Ricotta or Breadcrumbs (unit test on the
-      default choice).
-
 - [ ] **UX-95. One word for portions, and keep meal and recipe apart**
       (impact: med, effort: S) — breaks Consistency. In English the same
       recipe is "4 servings" in the list and "4 portions" in the planner.
@@ -1365,8 +1321,6 @@ polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) needs an owner decision and sits under
 "Needs a decision before building".
-
-
 
 - [ ] **UX-41a. Command palette: go-to and quick actions** (M) — Split
       from UX-41 (too big for one PR). ⌘K / Ctrl-K opens a Base UI dialog

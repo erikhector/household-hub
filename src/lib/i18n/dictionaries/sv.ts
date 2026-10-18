@@ -1640,7 +1640,7 @@ export const sv = {
       unitFactorError: "Ange ett tal större än 0 för omräkningen.",
       overrideQuantityError: "Ange en mängd större än 0.",
       newUnitDefault: "Skafferiet kommer att räkna den i {unit}. Ändra om du köper den på annat sätt.",
-      reasonSuggested: "Närmaste träff: {name}. Kontrollera att den stämmer.",
+      reasonSuggested: "Närmaste träff: {name}. Välj Använd befintlig om den stämmer.",
       reasonNone: "Inget liknande i skafferiet, så den blir en ny vara.",
       reasonStaple: "Brukar inte finnas i skafferiet.",
       errorSummary: {

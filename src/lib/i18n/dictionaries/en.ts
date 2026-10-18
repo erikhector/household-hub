@@ -1725,7 +1725,7 @@ export const en = {
       unitFactorError: "Enter a number greater than 0 for the conversion.",
       overrideQuantityError: "Enter an amount greater than 0.",
       newUnitDefault: "The pantry will count it in {unit}. Change it if you buy it differently.",
-      reasonSuggested: "Closest match: {name}. Check it's right.",
+      reasonSuggested: "Closest match: {name}. Tap Use existing if it's right.",
       reasonNone: "Nothing close in your pantry, so this becomes a new item.",
       reasonStaple: "Usually not kept in the pantry.",
       errorSummary: {
