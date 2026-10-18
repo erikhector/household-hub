@@ -429,6 +429,7 @@ async function RecipesTabSection({
       useItUpSuggestions={useItUpSuggestions}
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
+      plannerWeekStartKey={weekStartKey}
     />
   );
 }

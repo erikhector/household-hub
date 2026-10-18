@@ -481,6 +481,8 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
             month bar and tabs already filled ~40% of the first screen
             before any number showed. */}
         <p className="text-sm text-muted-foreground max-sm:hidden">{dict.personalBudget.subtitle}</p>
+        {/* UX-110: phones get one line saying what this budget is for. */}
+        <p className="text-sm text-muted-foreground sm:hidden">{dict.personalBudget.purpose}</p>
       </div>
 
       <Suspense fallback={<PersonalBudgetTabsSkeleton label={dict.common.loading} />}>

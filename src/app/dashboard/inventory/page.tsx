@@ -43,7 +43,7 @@ const LINKABLE_STATUSES: StockStatus[] = ["low", "out"];
 // `cache()` so the three Suspense-bound consumers below (well-stocked note,
 // action buttons, table) share a single Prisma query instead of one each.
 const getInventoryData = cache(async (householdId: string) => {
-  const [rawItems, householdMembers, incoming] = await Promise.all([
+  const [rawItems, householdMembers, incoming, onListRows, householdSettings] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId },
       orderBy: { name: "asc" },
@@ -57,8 +57,27 @@ const getInventoryData = cache(async (householdId: string) => {
     // Put-away flow: what's ticked off a shopping list but not home yet, for
     // each row's "+N on the way" hint (src/lib/incoming-stock.ts).
     loadIncomingByItem(prisma, householdId, new Date()),
+    // UX-122: items with a row still to buy on an active list, for the
+    // row's "On list" tag. Any active list counts, not just the default.
+    prisma.shoppingListItem.findMany({
+      where: {
+        purchased: false,
+        inventoryItemId: { not: null },
+        shoppingList: { householdId, status: "ACTIVE" },
+      },
+      select: { inventoryItemId: true },
+    }),
+    // UX-122: with auto-add on, the menu's two mark-empty entries do the
+    // same thing, so it shows just one.
+    prisma.household.findUnique({ where: { id: householdId }, select: { autoAddLowStockToList: true } }),
   ]);
-  const items = rawItems.map((item) => ({ ...item, incoming: incoming.get(item.id) ?? 0 }));
+  const onList = new Set(onListRows.map((row) => row.inventoryItemId));
+  const items = rawItems.map((item) => ({
+    ...item,
+    incoming: incoming.get(item.id) ?? 0,
+    onList: onList.has(item.id),
+  }));
+  const autoAddEnabled = householdSettings?.autoAddLowStockToList ?? false;
 
   const members = householdMembers.map((m) => ({ userId: m.userId, displayName: m.user.displayName }));
   const categories = [...new Set(items.map((item) => item.category))].sort();
@@ -72,7 +91,7 @@ const getInventoryData = cache(async (householdId: string) => {
   const isWellStocked =
     items.length > 0 && items.every((item) => getStockStatus(item.quantity, item.lowStockThreshold) === "in");
 
-  return { items, members, categories, locations, units, isWellStocked };
+  return { items, members, categories, locations, units, isWellStocked, autoAddEnabled };
 });
 
 async function InventoryWellStockedNote({ householdId, dict }: { householdId: string; dict: Dictionary["inventory"] }) {
@@ -194,7 +213,7 @@ async function InventoryTable({
   initialStatus?: StockStatus;
   initialViewPrefs: ReturnType<typeof parseInventoryViewPrefs>;
 }) {
-  const { items, members, categories, locations, units } = await getInventoryData(householdId);
+  const { items, members, categories, locations, units, autoAddEnabled } = await getInventoryData(householdId);
 
   return (
     <InventoryClient
@@ -209,6 +228,7 @@ async function InventoryTable({
       initialStatus={initialStatus}
       initialViewPrefs={initialViewPrefs}
       aiCategoryFallbackEnabled={isAiCategoryFallbackConfigured()}
+      autoAddEnabled={autoAddEnabled}
     />
   );
 }
