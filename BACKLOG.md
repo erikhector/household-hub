@@ -112,6 +112,19 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       and delete this item then. `next-auth` is still `5.0.0-beta.32`; track
       its advisories. Pairs with MAINT-12's Dependabot config.
 
+- [ ] **BUG-4. Red next: `/dashboard/whats-new` scrolls sideways in Swedish
+      on a phone** (impact: high, effort: S) — blocks the release train.
+      Failing on clean `next` (7817f23) every time, locally and in CI's
+      `End-to-end (Playwright)`: `[mobile] e2e/text-size.mobile.spec.ts:38`
+      (`/dashboard/whats-new has no sideways scroll`, sv, `main` 804px >
+      412px) and `[iphone] e2e/smoke.spec.ts:24` (`dashboard (sv) ›
+      /dashboard/whats-new renders cleanly`). It passed on the release PR
+      #347's run, so the likely cause is the v0.76.0 entry that
+      `release.yml` added to `src/lib/release-notes/releases.json` after
+      it (a long Swedish note or unbreakable string); fix the What's new
+      layout so any note wraps (`min-w-0`, `break-words`), not the note.
+      Acceptance: both specs pass on desktop and mobile.
+
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:
