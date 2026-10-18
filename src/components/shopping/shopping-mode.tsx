@@ -169,7 +169,7 @@ export function NextUpDock<T extends DockItem>({
           // has got. Sticky would ride up with a short list. From sm (a
           // sidebar layout, not one-handed) it's sticky at the bottom of the
           // column instead.
-          "max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+0.5rem)] max-sm:left-[max(1rem,env(safe-area-inset-left))]",
+          "max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+0.5rem+var(--cookie-notice-h,0px))] max-sm:left-[max(1rem,env(safe-area-inset-left))]",
           "sm:sticky sm:bottom-4",
         )}
       >

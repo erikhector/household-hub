@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.74.1",
+    "date": "2026-10-18",
+    "pr": 326,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Make the cookie notice a quiet strip the page makes room for (UX-57)",
+      "sv": null
+    }
+  },
+  {
     "version": "0.74.0",
     "date": "2026-10-18",
     "pr": 323,

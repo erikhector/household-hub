@@ -111,7 +111,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       // unit used elsewhere in the app for the same purpose.
       className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-dvh antialiased`}
     >
-      <body className="min-h-dvh flex flex-col">
+      <body className="min-h-dvh flex flex-col pb-[var(--cookie-notice-space,0px)]">
         <PwaSplashScreen />
         <ServiceWorkerRegistration />
         <BrowserFloorNotice dict={dict.browserFloor} />
