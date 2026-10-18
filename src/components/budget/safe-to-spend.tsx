@@ -21,7 +21,7 @@ import { Banknote, ChevronDown, PiggyBank, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type {
   ExpectedRecurringExpense,
@@ -56,6 +56,7 @@ export function SafeToSpend({
   projection = null,
   variant = "full",
   setupHrefs,
+  limitAlertCount = 0,
   dict,
   locale,
   currencyCode,
@@ -84,6 +85,9 @@ export function SafeToSpend({
   /** UX-116: where the setup state's two actions go (add income, add
    * regular bills). */
   setupHrefs: { income: string; bills: string };
+  /** UX-108: how many categories are at 90% or more of their limit (the
+   * Overview lists them under this card). Only changes the "healthy" line. */
+  limitAlertCount?: number;
   dict: Dictionary["budget"]["safeToSpend"];
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
@@ -91,8 +95,14 @@ export function SafeToSpend({
 }) {
   const numberFormat = createMoneyFormat(locale, currencyCode);
   const setup = needsSafeToSpendSetup(breakdown, expectedRecurring);
+  // UX-108: "good shape" would contradict a category already at or over its
+  // limit, so a healthy number with such categories points at them instead.
+  // A tight or over status keeps its own, stronger line.
   const summary = {
-    healthy: dict.summaryHealthy,
+    healthy:
+      limitAlertCount > 0
+        ? format(plural(limitAlertCount, dict.summaryLimits), { count: limitAlertCount })
+        : dict.summaryHealthy,
     tight: dict.summaryTight,
     over: dict.summaryOver,
   }[status];

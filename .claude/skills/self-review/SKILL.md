@@ -36,6 +36,10 @@ Stop at the first real problem in a hunk, note it, move on.
 - [ ] User-visible change ⇒ an `e2e/` spec asserts it, passing on both the
       `desktop` and `mobile` projects. New page ⇒ listed in `e2e/routes.ts`
       (seeded row in `e2e/seed.ts` if it has a dynamic segment).
+- [ ] Layout/CSS change ⇒ ran the full `npm run test:e2e` (or at least the
+      specs near the area, e.g. `form-control-sizes`) once, not only
+      `test:e2e:quick`: the landscape and tablet reruns have broken the
+      release PR (#269, #336) after fast CI was green, and e2e runs only there.
 - [ ] e2e text locators are scoped (`page.getByRole("main").getByText(...)`,
       or the `dialog`) because a phone/desktop layout can render the same
       text twice and a bare `getByText` then fails strict mode (blocked

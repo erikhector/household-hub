@@ -115,3 +115,47 @@ export function withCategoryLimits(
   }
   return rows;
 }
+
+/** UX-108: a category counts as "near its limit" from this share of it. */
+export const NEAR_LIMIT_PERCENT = 90;
+
+export type LimitAlert = {
+  id: string;
+  name: string;
+  spent: number;
+  /** The envelope the bar is drawn against: the monthly limit plus any
+   * rollover carried in (GAP-21), the same figure Insights shows. */
+  available: number;
+  over: boolean;
+  /** spent / available as a percentage, unclamped. */
+  percent: number;
+};
+
+/**
+ * UX-108: the capped categories at {@link NEAR_LIMIT_PERCENT} or more of
+ * their limit, for the budget Overview. Takes the same rows Insights'
+ * "Expenses by category" is drawn from, so both tabs agree on what is over.
+ * Over ones come first, then by how far in each is, so the worst is on top.
+ * Rows with no usable limit (and the personal budget's `shared:` mirror
+ * rows) never qualify.
+ */
+export function categoriesNearLimit(
+  rows: { id: string; name: string; total: number; limit?: number | null; carried?: number | null }[],
+): LimitAlert[] {
+  const alerts: LimitAlert[] = [];
+  for (const row of rows) {
+    if (row.limit == null) continue;
+    const available = row.limit + (row.carried ?? 0);
+    const progress = limitProgress(row.total, available);
+    if (!progress || progress.percent < NEAR_LIMIT_PERCENT) continue;
+    alerts.push({
+      id: row.id,
+      name: row.name,
+      spent: row.total,
+      available,
+      over: progress.over,
+      percent: progress.percent,
+    });
+  }
+  return alerts.sort((a, b) => Number(b.over) - Number(a.over) || b.percent - a.percent);
+}

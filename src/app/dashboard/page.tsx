@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ChevronRight, ListChecks, PiggyBank, Users } from "lucide-react";
+import { ChevronRight, PiggyBank, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
+import { TodayBlock, type TodayTask } from "@/components/dashboard/today-block";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
@@ -13,10 +14,17 @@ import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { getStockStatus } from "@/lib/stock-status";
+import { getExpiryStatus } from "@/lib/inventory/expiry";
+import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
+import { createMoneyFormat } from "@/lib/currency";
+import { parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { Greeting } from "@/components/dashboard/greeting";
 import { firstName } from "@/lib/greeting";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
+
+// UX-70: how many tasks the Today block lists before "N more".
+const TODAY_TASK_LIMIT = 5;
 
 // The "View …" link at the foot of each overview card (UX-26). `mt-auto`
 // pins it to the card's bottom, so side-by-side cards with different amounts
@@ -41,30 +49,45 @@ export default async function DashboardOverviewPage() {
 
   const [
     user,
-    myTasks,
+    todayTasks,
     items,
     activeLists,
     memberCount,
     shoppingListCount,
-    budgetCategoryCount,
+    householdBudget,
     personalBudgetCategoryCount,
     personalPosition,
+    tonightEntries,
     householdStepSkipped,
     gettingStartedDismissed,
     prepBatches,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
-    // Filtered by the assignee's user rather than a membership id looked up
-    // first, so it runs in parallel with everything else instead of after it.
+    // UX-70: the tasks that need *you*: yours and the unassigned ones
+    // (nobody's, so anybody's). Filtered by the assignee's user rather than a
+    // membership id looked up first, so it runs in parallel with everything
+    // else instead of after it. A completed task can only reopen if it
+    // recurs, so the rest of the done ones are left in the database.
     prisma.householdTask.findMany({
-      where: { householdId: household.id, assignedToMember: { userId } },
+      where: {
+        householdId: household.id,
+        OR: [{ assignedToMemberId: null }, { assignedToMember: { userId } }],
+        AND: [{ OR: [{ completedAt: null }, { recurrenceIntervalDays: { not: null } }] }],
+      },
+      select: {
+        id: true,
+        title: true,
+        assignedToMemberId: true,
+        completedAt: true,
+        recurrenceIntervalDays: true,
+      },
       orderBy: { createdAt: "asc" },
     }),
-    // Only the two columns the low-stock filter reads (the card also counts
-    // the rows) — not every inventory column for every item.
+    // Only the columns the low-stock and expiring filters read (the card also
+    // counts the rows) — not every inventory column for every item.
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { quantity: true, lowStockThreshold: true },
+      select: { quantity: true, lowStockThreshold: true, expiresAt: true },
     }),
     prisma.shoppingList.findMany({
       where: { householdId: household.id, status: "ACTIVE" },
@@ -74,7 +97,12 @@ export default async function DashboardOverviewPage() {
       where: { householdId: household.id, userId: { not: userId } },
     }),
     prisma.shoppingList.count({ where: { householdId: household.id } }),
-    prisma.budgetCategory.count({ where: { householdId: household.id } }),
+    // The household's safe to spend only exists once the budget has
+    // categories, so the count gates it, inside this one parallel slot.
+    prisma.budgetCategory.count({ where: { householdId: household.id } }).then(async (count) => ({
+      count,
+      safeToSpend: count > 0 ? await loadHouseholdSafeToSpend(household.id, now) : null,
+    })),
     prisma.personalBudgetCategory.count({ where: { userId } }),
     // The exact same number Personal Budget shows for this month — shared
     // bills, what's owed to household members, due payments and savings
@@ -86,12 +114,41 @@ export default async function DashboardOverviewPage() {
       monthEnd,
       sharedLabel: dict.personalBudget.shared.sharedBadge,
     }),
+    // Tonight's dinner. Planner dates are UTC midnights (date-utils.ts), so
+    // today is the UTC date key, like the planner's own "today".
+    prisma.mealPlanEntry.findMany({
+      where: {
+        mealPlan: { householdId: household.id },
+        date: parseDateKey(toDateKey(now)),
+        mealType: "DINNER",
+      },
+      select: { freeformName: true, recipe: { select: { name: true } } },
+    }),
     isHouseholdStepSkipped(household.id),
     isGettingStartedDismissed(household.id),
     getActiveBatches(household.id),
   ]);
+  const budgetCategoryCount = householdBudget.count;
 
-  const myOpenTasks = myTasks.filter((t) => isTaskOpen(t, now));
+  // Open tasks first, yours before the household's unassigned ones (stable,
+  // so each group keeps its oldest-first order).
+  const openTasks = todayTasks
+    .filter((t) => isTaskOpen(t, now))
+    .map((t) => ({ id: t.id, title: t.title, unassigned: t.assignedToMemberId === null }))
+    .sort((a, b) => Number(a.unassigned) - Number(b.unassigned));
+  const shownTasks: TodayTask[] = openTasks.slice(0, TODAY_TASK_LIMIT);
+  const tonight = tonightEntries
+    .map((entry) => entry.recipe?.name ?? entry.freeformName)
+    .filter((name): name is string => !!name);
+  const expiringCount = items.filter(
+    (item) => item.quantity > 0 && getExpiryStatus(item.expiresAt, now.getTime()) !== null,
+  ).length;
+  const safeToSpend = householdBudget.safeToSpend
+    ? {
+        formatted: createMoneyFormat(locale, household.currencyCode).format(householdBudget.safeToSpend.amount),
+        status: householdBudget.safeToSpend.status,
+      }
+    : null;
 
   const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);
 
@@ -140,51 +197,27 @@ export default async function DashboardOverviewPage() {
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>
 
+      <TodayBlock
+        tasks={shownTasks}
+        moreTaskCount={openTasks.length - shownTasks.length}
+        tonight={tonight}
+        safeToSpend={safeToSpend}
+        expiringCount={expiringCount}
+        dict={dict.dashboard.today}
+        taskDict={{
+          toggleCompleteAriaLabel: dict.tasks.toggleCompleteAriaLabel,
+          toggleIncompleteAriaLabel: dict.tasks.toggleIncompleteAriaLabel,
+          doneToast: dict.tasks.doneToast,
+          undo: dict.tasks.swipe.undo,
+          saveFailedToast: dict.tasks.saveFailedToast,
+        }}
+      />
+
       {!gettingStartedDismissed && (
         <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
       )}
 
-      <div className="list-bleed grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-success/15 text-success">
-                <ListChecks className="size-4 shrink-0" />
-              </span>
-              {dict.dashboard.yourTasksTitle}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-3">
-            {myOpenTasks.length > 0 ? (
-              <>
-                <p className="text-sm text-foreground">
-                  {format(plural(myOpenTasks.length, dict.dashboard.openTasksAssignedToYou), {
-                    count: myOpenTasks.length,
-                  })}
-                </p>
-                <ul className="flex flex-col gap-1">
-                  {myOpenTasks.slice(0, 3).map((task) => (
-                    <li key={task.id} className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground">
-                      {task.title}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">{dict.dashboard.noTasksAssignedToYou}</p>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className={CARD_LINK_BUTTON}
-              render={<Link href="/dashboard/tasks" />}
-            >
-              {dict.dashboard.viewTasks}
-              <ChevronRight className="size-4" />
-            </Button>
-          </CardContent>
-        </Card>
-
+      <div>
         {personalBudgetCategoryCount > 0 ? (
           <SafeToSpend
             amount={personalPosition.safeToSpend}

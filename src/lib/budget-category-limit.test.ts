@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  categoriesNearLimit,
   limitForType,
   limitProgress,
   monthlyLimitField,
@@ -122,5 +123,36 @@ describe("withCategoryLimits", () => {
   it("passes rows that aren't categories through with no limit", () => {
     const rows = withCategoryLimits([{ id: "shared:Rent", name: "Rent (Shared)", total: 5000 }], []);
     expect(rows).toEqual([{ id: "shared:Rent", name: "Rent (Shared)", total: 5000, limit: null }]);
+  });
+});
+
+describe("categoriesNearLimit", () => {
+  it("lists categories from 90% of their limit, over ones first", () => {
+    const alerts = categoriesNearLimit([
+      { id: "a", name: "Groceries", total: 450, limit: 500 },
+      { id: "b", name: "Restaurants", total: 1355, limit: 800 },
+      { id: "c", name: "Fun", total: 100, limit: 500 },
+      { id: "d", name: "Fuel", total: 600, limit: 600 },
+    ]);
+    expect(alerts.map((a) => a.id)).toEqual(["b", "d", "a"]);
+    expect(alerts[0]).toMatchObject({ spent: 1355, available: 800, over: true });
+    expect(alerts[1].over).toBe(false);
+  });
+
+  it("skips just under 90%, uncapped rows and rows without a usable limit", () => {
+    expect(
+      categoriesNearLimit([
+        { id: "a", name: "A", total: 89, limit: 100 },
+        { id: "b", name: "B", total: 999, limit: null },
+        { id: "c", name: "C", total: 50 },
+        { id: "d", name: "D", total: 5, limit: 0 },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("measures against the limit plus rollover carried in", () => {
+    expect(categoriesNearLimit([{ id: "a", name: "A", total: 120, limit: 100, carried: 100 }])).toEqual([]);
+    const [alert] = categoriesNearLimit([{ id: "a", name: "A", total: 190, limit: 100, carried: 100 }]);
+    expect(alert).toMatchObject({ available: 200, over: false });
   });
 });
