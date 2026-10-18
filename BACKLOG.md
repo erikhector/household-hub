@@ -368,7 +368,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-46, UX-47,
-UX-89, UX-102, UX-113.
+UX-89, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -940,19 +940,6 @@ UX-89, UX-102, UX-113.
       scrolling.
 
 #### Tasks
-
-- [ ] **UX-102. Unticking restores the previous "Last done by"**
-      (impact: med, effort: S) — bug, breaks User control and Context
-      (never surprise a member).
-      - An accidental tick and untick leaves a permanent "Last done by
-        Erik" on never-done one-offs.
-      - Unticking a recurring task wipes the real earlier completion and
-        credits the wrong person (`tasks/actions.ts:274-289`).
-      - In a shared household the other person reads this as "already
-        handled".
-      Acceptance: tick then untick restores `completedAt` and
-      `completedBy` exactly, with an action unit test. A never-done one-off
-      shows no "Last done by".
 
 - [ ] **UX-103. "Take turns" with one person isn't silently dropped**
       (impact: med, effort: S) — bug, breaks User control.

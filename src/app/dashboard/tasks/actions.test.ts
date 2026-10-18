@@ -57,6 +57,15 @@ function formData(fields: Record<string, string>) {
 // The rotation fields toggleTaskCompletedAction selects, for a task that
 // doesn't take turns.
 const notRotating = { assignedToMemberId: null, rotationMemberIds: [], rotationPreviousAssigneeId: null };
+// The completion fields (UX-102) of a task nobody has ever completed.
+const noHistory = { completedByMemberId: null, previousCompletedAt: null, previousCompletedByMemberId: null };
+// What un-completing writes for a task that had never been done.
+const restoredNothing = {
+  completedAt: null,
+  completedByMemberId: null,
+  previousCompletedAt: null,
+  previousCompletedByMemberId: null,
+};
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -306,6 +315,9 @@ describe("toggleTaskCompletedAction", () => {
       select: {
         id: true,
         completedAt: true,
+        completedByMemberId: true,
+        previousCompletedAt: true,
+        previousCompletedByMemberId: true,
         recurrenceIntervalDays: true,
         assignedToMemberId: true,
         rotationMemberIds: true,
@@ -318,7 +330,7 @@ describe("toggleTaskCompletedAction", () => {
 
   it("completes an open task, attributing it to the caller's own member id", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
-    householdTaskFindFirstMock.mockResolvedValue({ ...notRotating, id: "task-1", completedAt: null, recurrenceIntervalDays: null });
+    householdTaskFindFirstMock.mockResolvedValue({ ...notRotating, ...noHistory, id: "task-1", completedAt: null, recurrenceIntervalDays: null });
     householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
 
     const result = await toggleTaskCompletedAction("task-1");
@@ -330,16 +342,25 @@ describe("toggleTaskCompletedAction", () => {
     });
     expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
       where: { id: "task-1", householdId: "household-1", completedAt: null },
-      data: { completedAt: expect.any(Date), completedByMemberId: "member-1" },
+      data: {
+        completedAt: expect.any(Date),
+        completedByMemberId: "member-1",
+        previousCompletedAt: null,
+        previousCompletedByMemberId: null,
+      },
     });
   });
 
-  it("re-opens a completed, non-recurring task, preserving completedByMemberId as 'last done by' history", async () => {
+  it("un-ticking a never-done one-off leaves no 'Last done by' behind", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    const tickedAt = new Date();
+    // The state right after an accidental tick of a never-done task.
     householdTaskFindFirstMock.mockResolvedValue({
       ...notRotating,
+      ...noHistory,
       id: "task-1",
-      completedAt: new Date(),
+      completedAt: tickedAt,
+      completedByMemberId: "member-1",
       recurrenceIntervalDays: null,
     });
 
@@ -347,39 +368,109 @@ describe("toggleTaskCompletedAction", () => {
 
     expect(result.error).toBeUndefined();
     expect(householdMemberFindFirstMock).not.toHaveBeenCalled();
-    // Only completedAt is cleared — completedByMemberId is intentionally
-    // left out of the update so the previous completer's id survives the
-    // toggle (there's no separate history field to move it to).
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
-      data: { completedAt: null },
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: tickedAt },
+      data: restoredNothing,
     });
   });
 
-  it("re-opens a recurring task still within its interval, same as a non-recurring one", async () => {
+  it("un-ticking a recurring task restores its earlier completion and completer exactly", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    const earlier = new Date("2020-01-01T00:00:00.000Z");
+    const tickedAt = new Date();
     householdTaskFindFirstMock.mockResolvedValue({
       ...notRotating,
       id: "task-1",
-      completedAt: new Date(),
+      completedAt: tickedAt,
+      completedByMemberId: "member-2",
+      previousCompletedAt: earlier,
+      previousCompletedByMemberId: "member-1",
       recurrenceIntervalDays: 3,
     });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
 
     const result = await toggleTaskCompletedAction("task-1");
 
     expect(result.error).toBeUndefined();
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
-      data: { completedAt: null },
+    expect(householdMemberFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "member-1", householdId: "household-1" },
+      select: { id: true },
+    });
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: tickedAt },
+      data: {
+        completedAt: earlier,
+        completedByMemberId: "member-1",
+        previousCompletedAt: null,
+        previousCompletedByMemberId: null,
+      },
     });
   });
 
-  it("treats a recurring task whose interval has elapsed as open, completing it again", async () => {
+  it("tick then untick round-trips completedAt and completedBy", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-2" });
+    const earlier = new Date("2020-01-01T00:00:00.000Z");
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-2" });
+    householdTaskFindFirstMock.mockResolvedValueOnce({
+      ...notRotating,
+      id: "task-1",
+      completedAt: earlier,
+      completedByMemberId: "member-1",
+      previousCompletedAt: null,
+      previousCompletedByMemberId: null,
+      recurrenceIntervalDays: 3,
+    });
+
+    await toggleTaskCompletedAction("task-1");
+    const tick = householdTaskUpdateManyMock.mock.calls[0][0].data;
+    expect(tick).toMatchObject({
+      completedByMemberId: "member-2",
+      previousCompletedAt: earlier,
+      previousCompletedByMemberId: "member-1",
+    });
+
+    // Feed the written row back in, then untick it.
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdTaskFindFirstMock.mockResolvedValueOnce({ ...notRotating, id: "task-1", recurrenceIntervalDays: 3, ...tick });
+    await toggleTaskCompletedAction("task-1");
+
+    expect(householdTaskUpdateManyMock.mock.calls[1][0].data).toMatchObject({
+      completedAt: earlier,
+      completedByMemberId: "member-1",
+    });
+  });
+
+  it("un-ticking drops a previous completer who has since left the household", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    const earlier = new Date("2020-01-01T00:00:00.000Z");
     householdTaskFindFirstMock.mockResolvedValue({
       ...notRotating,
       id: "task-1",
-      completedAt: new Date("2020-01-01T00:00:00.000Z"),
+      completedAt: new Date(),
+      completedByMemberId: "member-2",
+      previousCompletedAt: earlier,
+      previousCompletedByMemberId: "member-gone",
+      recurrenceIntervalDays: 3,
+    });
+    householdMemberFindFirstMock.mockResolvedValue(null);
+
+    await toggleTaskCompletedAction("task-1");
+
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: expect.anything(),
+      data: expect.objectContaining({ completedAt: earlier, completedByMemberId: null }),
+    });
+  });
+
+  it("treats a recurring task whose interval has elapsed as open, completing it again and remembering the old completion", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    const earlier = new Date("2020-01-01T00:00:00.000Z");
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...notRotating,
+      ...noHistory,
+      id: "task-1",
+      completedAt: earlier,
+      completedByMemberId: "member-2",
       recurrenceIntervalDays: 3,
     });
     householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
@@ -388,8 +479,13 @@ describe("toggleTaskCompletedAction", () => {
 
     expect(result.error).toBeUndefined();
     expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
-      where: { id: "task-1", householdId: "household-1", completedAt: new Date("2020-01-01T00:00:00.000Z") },
-      data: { completedAt: expect.any(Date), completedByMemberId: "member-1" },
+      where: { id: "task-1", householdId: "household-1", completedAt: earlier },
+      data: {
+        completedAt: expect.any(Date),
+        completedByMemberId: "member-1",
+        previousCompletedAt: earlier,
+        previousCompletedByMemberId: "member-2",
+      },
     });
   });
 });
@@ -523,6 +619,7 @@ describe("task rotation (GAP-38)", () => {
   it("completing a rotating task passes it to the next person and remembers who had it", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     householdTaskFindFirstMock.mockResolvedValue({
+      ...noHistory,
       id: "task-1",
       completedAt: null,
       recurrenceIntervalDays: 7,
@@ -547,6 +644,8 @@ describe("task rotation (GAP-38)", () => {
       data: {
         completedAt: expect.any(Date),
         completedByMemberId: "member-1",
+        previousCompletedAt: null,
+        previousCompletedByMemberId: null,
         assignedToMemberId: "member-1",
         rotationPreviousAssigneeId: "member-3",
       },
@@ -556,6 +655,7 @@ describe("task rotation (GAP-38)", () => {
   it("skips a member who has left when passing the task on", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     householdTaskFindFirstMock.mockResolvedValue({
+      ...noHistory,
       id: "task-1",
       completedAt: new Date("2020-01-01T00:00:00.000Z"),
       recurrenceIntervalDays: 7,
@@ -577,6 +677,7 @@ describe("task rotation (GAP-38)", () => {
   it("un-completing a rotating task hands the turn back instead of advancing again", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     householdTaskFindFirstMock.mockResolvedValue({
+      ...noHistory,
       id: "task-1",
       completedAt: new Date(),
       recurrenceIntervalDays: 7,
@@ -596,13 +697,14 @@ describe("task rotation (GAP-38)", () => {
     expect(householdMemberFindManyMock).not.toHaveBeenCalled();
     expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
       where: { id: "task-1", householdId: "household-1", completedAt: expect.any(Date) },
-      data: { completedAt: null, assignedToMemberId: "member-1" },
+      data: { ...restoredNothing, assignedToMemberId: "member-1" },
     });
   });
 
   it("un-completing leaves the task unassigned if the previous person has left", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     householdTaskFindFirstMock.mockResolvedValue({
+      ...noHistory,
       id: "task-1",
       completedAt: new Date(),
       recurrenceIntervalDays: 7,
@@ -616,7 +718,7 @@ describe("task rotation (GAP-38)", () => {
 
     expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
       where: { id: "task-1", householdId: "household-1", completedAt: expect.any(Date) },
-      data: { completedAt: null, assignedToMemberId: null },
+      data: { ...restoredNothing, assignedToMemberId: null },
     });
   });
 
@@ -624,6 +726,7 @@ describe("task rotation (GAP-38)", () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     // Both requests read the task while it was still open on member-1's turn...
     householdTaskFindFirstMock.mockResolvedValue({
+      ...noHistory,
       id: "task-1",
       completedAt: null,
       recurrenceIntervalDays: 7,
@@ -654,6 +757,7 @@ describe("task rotation (GAP-38)", () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     const completedAt = new Date();
     householdTaskFindFirstMock.mockResolvedValue({
+      ...noHistory,
       id: "task-1",
       completedAt,
       recurrenceIntervalDays: 7,
@@ -669,7 +773,7 @@ describe("task rotation (GAP-38)", () => {
     expect(result.error).toBeUndefined();
     expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
       where: { id: "task-1", householdId: "household-1", completedAt },
-      data: { completedAt: null, assignedToMemberId: "member-1" },
+      data: { ...restoredNothing, assignedToMemberId: "member-1" },
     });
     expect(householdTaskUpdateMock).not.toHaveBeenCalled();
   });

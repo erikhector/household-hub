@@ -1445,6 +1445,11 @@ model PersonalRecurringTemplateAck {
 // back instead of advancing again. Also a plain id without an FK: undo
 // checks it's still a member before restoring it. An explicit edit resets it
 // to whoever the edit assigned, so undo never reverts a human's choice.
+// UX-102: `previousCompletedAt` / `previousCompletedByMemberId` hold the
+// completion a tick overwrote, so un-completing puts both back exactly
+// (an accidental tick-untick leaves no phantom "Last done by", and a
+// recurring task keeps its real earlier completion). Same no-FK shape as
+// `rotationPreviousAssigneeId`: undo checks the member is still around.
 model HouseholdTask {
   id                     String    @id @default(cuid())
   householdId            String
@@ -1452,6 +1457,8 @@ model HouseholdTask {
   assignedToMemberId     String?
   completedAt            DateTime?
   completedByMemberId    String?
+  previousCompletedAt    DateTime?
+  previousCompletedByMemberId String?
   recurrenceIntervalDays Int?
   rotationMemberIds          String[]  @default([])
   rotationPreviousAssigneeId String?

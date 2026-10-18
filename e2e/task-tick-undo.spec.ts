@@ -33,6 +33,27 @@ test("a tick toasts Done with Undo, and Undo reopens the task", async ({ page, c
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).not.toBeChecked();
 });
 
+// UX-102: an accidental tick and untick must not leave a "Last done by" on a
+// task nobody has ever done, even after the page reloads from the database.
+test("ticking then unticking a never-done task leaves no 'Last done by'", async ({ page, context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+  const title = unique("Wipe the shelves");
+  await page.goto("/dashboard/tasks");
+  await addTask(page, title);
+  // Other seeded tasks may carry a "Last done by"; ours must not add one.
+  const lastDone = page.getByText(/Last done by/);
+  const before = await lastDone.count();
+
+  await page.getByRole("checkbox", { name: `Mark ${title} as done` }).click();
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
+  await page.getByRole("checkbox", { name: `Mark ${title} as not done` }).click();
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).not.toBeChecked();
+
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).not.toBeChecked();
+  await expect(lastDone).toHaveCount(before);
+});
+
 test("ticking the last open task shows the all-caught-up moment", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   const title = unique("Fold the laundry");
