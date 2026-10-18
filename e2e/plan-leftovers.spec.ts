@@ -77,6 +77,12 @@ async function planCookAndDinnerNextDay(recipeName: string, base: number) {
 async function expectToastButtonsTappable(page: Page, planLeftovers: Locator) {
   if (!(page.viewportSize() && page.viewportSize()!.width < 640)) return;
   const undo = page.getByRole("button", { name: "Undo" });
+  // Polled until the toast has finished sliding in: mid-animation its scale
+  // makes the buttons a hair under 44 px (seen once the toast moved to the
+  // top on phones, UX-48).
+  await expect
+    .poll(async () => (await planLeftovers.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(44);
   const [a, b] = [await planLeftovers.boundingBox(), await undo.boundingBox()];
   expect(a && b).toBeTruthy();
   for (const box of [a!, b!]) {

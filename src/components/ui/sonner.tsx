@@ -1,23 +1,36 @@
 "use client"
 
 import { useTheme } from "next-themes"
-import { usePathname } from "next/navigation"
+import { useSyncExternalStore } from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
+import { PHONE_QUERY, TOAST_TOP, toastPlacement } from "./toast-placement"
+
+// The BottomNav shows below Tailwind's `sm` (640 px) but Sonner's own phone
+// layout switches at 600 px, so the Toaster decides "phone" itself.
+function subscribePhone(onChange: () => void) {
+  const mq = window.matchMedia(PHONE_QUERY)
+  mq.addEventListener("change", onChange)
+  return () => mq.removeEventListener("change", onChange)
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
-  // On phones the dashboard's fixed BottomNav (4rem plus the home-indicator
-  // inset, the same 4.75rem the cookie notice clears) owns the bottom edge,
-  // so a toast at Sonner's 16 px default covered the navigation and, on iOS,
-  // reached into the home-indicator strip where its swipe-to-dismiss fights
-  // the home gesture. Elsewhere there's no bar, but the inset still applies.
-  // `mobileOffset` only takes effect at Sonner's phone breakpoint, so
-  // desktop is untouched.
-  const onDashboard = usePathname().startsWith("/dashboard")
-  const mobileBottom = onDashboard
-    ? "calc(4.75rem + env(safe-area-inset-bottom))"
-    : "max(1rem, env(safe-area-inset-bottom))"
+  // UX-48: on phones the bottom edge belongs to controls. The fixed BottomNav,
+  // a bottom sheet's sticky footer ("Complete list", "Copy") and the shopping
+  // "Next up" dock all sit in the band a bottom toast used to occupy, so
+  // after "Put away & finish" two toasts hid "Complete list" and an Undo toast
+  // covered a dock row. No bottom offset can clear all of them (their heights
+  // vary), so phone toasts go to the top, where nothing but the toast is
+  // tappable. The top inset keeps them out of the notch / status bar.
+  // Desktop keeps Sonner's bottom-right corner, where no sheet footer exists.
+  // The server snapshot is `false`: a toast never renders during SSR.
+  const phone = useSyncExternalStore(
+    subscribePhone,
+    () => window.matchMedia(PHONE_QUERY).matches,
+    () => false,
+  )
 
   return (
     <Sonner
@@ -51,7 +64,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // oklab, not oklch: an oklch mix interpolates hue too, so green over
       // the violet popover came out blue and amber came out pink.
       richColors
-      mobileOffset={{ bottom: mobileBottom, left: 16, right: 16, top: 16 }}
+      {...toastPlacement(phone)}
+      mobileOffset={{ left: 16, right: 16, top: TOAST_TOP }}
       style={
         {
           "--normal-bg": "var(--popover)",

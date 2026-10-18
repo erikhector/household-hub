@@ -34,9 +34,10 @@ test("a success toast is tinted with the success colour", async ({ page }) => {
   expect(background).not.toBe(expected.popover);
 });
 
-// UX-18: on a phone the dashboard's fixed bottom bar owns the bottom edge,
-// so a toast must sit above it instead of covering the navigation.
-test("a toast clears the bottom navigation bar on phones", async ({ page }) => {
+// UX-48 (was UX-18): below 640 px the bottom edge belongs to the BottomNav,
+// sheet footers and the shopping dock, so a toast sits at the top instead and
+// covers none of them. From 640 px up it keeps the bottom-right corner.
+test("a toast sits at the top on phones and clears the bottom navigation bar", async ({ page }) => {
   const t = en.profile.swishForm;
   await page.goto("/dashboard/profile");
   const form = page.locator("form").filter({ has: page.getByRole("heading", { name: t.title }) });
@@ -44,17 +45,23 @@ test("a toast clears the bottom navigation bar on phones", async ({ page }) => {
   const toast = page.getByRole("listitem").filter({ hasText: t.saved });
   await expect(toast).toBeVisible();
 
-  // Phone layout: the bar is shown (it's absent from the desktop layout),
-  // and the toast ends above its top edge. Polled because the toast slides
-  // in from below the screen over ~400 ms.
   const bar = page.locator("nav.fixed.bottom-0");
+  const viewport = page.viewportSize()!;
   if (await bar.isVisible()) {
+    // Polled because the toast slides in over ~400 ms.
     await expect
       .poll(async () => {
-        const [barBox, toastBox] = await Promise.all([bar.boundingBox(), toast.boundingBox()]);
-        return barBox && toastBox ? barBox.y - (toastBox.y + toastBox.height) : -1;
+        const toastBox = await toast.boundingBox();
+        return toastBox ? toastBox.y + toastBox.height : Infinity;
       })
-      .toBeGreaterThanOrEqual(0);
+      .toBeLessThan(viewport.height / 2);
+  } else {
+    await expect
+      .poll(async () => {
+        const toastBox = await toast.boundingBox();
+        return toastBox ? toastBox.y : 0;
+      })
+      .toBeGreaterThan(viewport.height / 2);
   }
 });
 
@@ -77,25 +84,4 @@ test("a failed clipboard write shows an error toast, not a success", async ({ pa
   await dialog.getByRole("button", { name: t.copy, exact: true }).click();
   await expect(page.getByRole("listitem").filter({ hasText: t.copyFailedToast })).toBeVisible();
   await expect(page.getByText(t.copiedToast)).toHaveCount(0);
-});
-
-// UX-18: Sonner switches to its phone offsets at 600 px but the bottom bar
-// shows until 640 px, so a 601-639 px viewport (a large phone in landscape,
-// a small tablet) needs the CSS override in globals.css to clear the bar.
-test("a toast clears the bottom bar between Sonner's 600 px and the bar's 640 px", async ({ page }) => {
-  await page.setViewportSize({ width: 620, height: 900 });
-  const t = en.profile.swishForm;
-  await page.goto("/dashboard/profile");
-  const form = page.locator("form").filter({ has: page.getByRole("heading", { name: t.title }) });
-  await form.getByRole("button", { name: t.save, exact: true }).click();
-  const toast = page.getByRole("listitem").filter({ hasText: t.saved });
-  await expect(toast).toBeVisible();
-  const bar = page.locator("nav.fixed.bottom-0");
-  await expect(bar).toBeVisible();
-  await expect
-    .poll(async () => {
-      const [barBox, toastBox] = await Promise.all([bar.boundingBox(), toast.boundingBox()]);
-      return barBox && toastBox ? barBox.y - (toastBox.y + toastBox.height) : -1;
-    })
-    .toBeGreaterThanOrEqual(0);
 });
