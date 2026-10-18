@@ -80,3 +80,50 @@ test("Insights holds the month's stat cards, two by two on a phone", async ({ pa
   }
   await expectNoHorizontalOverflow(page);
 });
+
+// UX-108: a category at 90% or more of its limit is on Overview, right
+// under Safe to spend, and the status line no longer says "good shape".
+test("Overview lists categories near or over their limit", async ({ page }) => {
+  const tag = budgetTag();
+  const over = `Restaurants ${tag}`;
+  const near = `Groceries ${tag}`;
+  const fine = `Hobbies ${tag}`;
+  await withDb(async (client) => {
+    for (const [key, name, limit, spent] of [
+      ["over", over, 800, 1355],
+      ["near", near, 500, 450],
+      ["fine", fine, 500, 100],
+    ] as const) {
+      await insertHouseholdCategory(client, { id: `e2e-lim-cat-${key}-${tag}`, name, monthlyLimit: limit });
+      await insertHouseholdTransaction(client, {
+        id: `e2e-lim-tx-${key}-${tag}`,
+        categoryId: `e2e-lim-cat-${key}-${tag}`,
+        amount: spent,
+      });
+    }
+  });
+  await page.goto("/dashboard/budget");
+  const main = page.getByRole("main");
+
+  await expect(main.getByText("Near or over their limit", { exact: true }).first()).toBeVisible();
+  const overRow = main.getByRole("link", { name: new RegExp(over) });
+  const nearRow = main.getByRole("link", { name: new RegExp(near) });
+  await expect(overRow).toBeVisible();
+  await expect(overRow).toContainText(/1[,\s.]?355.*\/.*800/);
+  await expect(overRow).toContainText(/over/i);
+  await expect(nearRow).toContainText("90% used");
+  await expect(main.getByRole("link", { name: new RegExp(fine) })).toHaveCount(0);
+
+  // Below Safe to spend, not further down the page.
+  const safe = await main.getByText("Safe to spend", { exact: true }).first().boundingBox();
+  const row = await overRow.boundingBox();
+  expect(row!.y).toBeGreaterThan(safe!.y);
+
+  // The status line no longer claims all is well.
+  await expect(main.getByText("You're in good shape for the rest of the month.")).toBeHidden();
+
+  // The row leads to that category's transactions.
+  await overRow.click();
+  await expect(page).toHaveURL(/tab=transactions/);
+  await expectNoHorizontalOverflow(page);
+});

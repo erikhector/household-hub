@@ -354,8 +354,8 @@ UX-89, UX-90, UX-102, UX-113.
   UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-101,
-  UX-105, UX-106.
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
+  UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
@@ -727,6 +727,58 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Shopping
 
+- [ ] **BUG-3. A scanned receipt price isn't divided by its quantity**
+      (impact: high, effort: M) — reported by the owner, 2026-10-18.
+      A receipt line "3 x Mjölk 45,00" matched to a list row "Mjölk ×1"
+      is saved as if one carton cost 45:
+      - The scan reads the line's quantity (`ScannedReceiptLine.quantity`,
+        `lib/actions/receipt-scan.ts:65`), but the review step drops it
+        when building matches (`receipt-scan-dialog.tsx:306`), and
+        `ReceiptScanMatch` has no quantity
+        (`src/app/dashboard/shopping-list/actions.ts:1328`, the `actions.ts`
+        cited below).
+      - `applyReceiptScanAction` then writes PriceHistory with the list
+        row's quantity (`actions.ts:1475-1480`, and via `applyStockArrival`),
+        so the unit price is 45, not 15. GAP-9's price-spike check
+        compares that inflated unit price.
+      - `lastKnownPrice` becomes the line total (45), and every create
+        path copies it into a new row's `estimatedPrice` without regard to
+        quantity (`actions.ts:197,282,721,845`), so next week's "Mjölk ×1"
+        is estimated at 45. `registerReceiptAction` has the same
+        line-total problem (`actions.ts:1740-1760`).
+      Acceptance: scanning "3 x Mjölk 45,00" against "Mjölk ×1" prices
+      that row at 45 (what was paid) and records PriceHistory at 45 for 3
+      (unit 15). The item's next estimate is 15 for ×1 and 30 for ×2, and
+      no price-spike notification fires. Register receipt behaves the same.
+      The review row shows the quantity and unit price ("3 × 15,00") so a
+      misread can be caught. Stock still counts the list row's quantity,
+      as today. A unit test on `applyReceiptScanAction` (and one on
+      `registerReceiptAction`) fails without the fix, and the receipt e2e
+      spec covers a ×3 line.
+
+- [ ] **UX-140. Type prices in by hand when the receipt scan fails**
+      (impact: medium, effort: M) — reported by the owner, 2026-10-18.
+      Breaks User control and Error recovery.
+      - When the photo can't be read (`noLinesFound`, `ocrError`, a
+        provider error), `ReceiptScanDialog`'s only way forward is "Try
+        again" with another photo (`receipt-scan-dialog.tsx:578-590`).
+        Register receipt dead-ends the same way.
+      - The per-row "Add price" on the list exists, but on a row already
+        ticked as bought it only changes the row's estimate
+        (`updateShoppingListItemPriceAction`,
+        `src/app/dashboard/shopping-list/actions.ts:459`): it never
+        becomes `lastKnownPrice` or a PriceHistory row, so a typed price
+        counts for less than a scanned one.
+      Acceptance: the scan's error state offers "Enter prices by hand"
+      next to "Try again". It opens the same review step with one row per
+      receipt-matchable list item (name, quantity, an empty price), and
+      Apply records them exactly like scanned lines (PriceHistory,
+      `lastKnownPrice`, `priceRecordedAt`, divided by quantity per BUG-3).
+      Register receipt gets an "Add line" so a receipt can be typed in
+      without a photo. New strings in `en.ts` and `sv.ts`; an e2e flow
+      (AI mocked to fail) types a price and checks it after a reload, on
+      desktop and mobile.
+
 - [ ] **UX-80. Finish a shop in one step and carry unbought items over**
       (impact: high, effort: M) — breaks User control and Usability.
       - Marking an item "Didn't get it" in the put-away sheet and tapping
@@ -758,14 +810,6 @@ UX-89, UX-90, UX-102, UX-113.
       accepts the defaults, with per-item details collapsed. No "Not put
       away" badges while the list is active. After completing, the page
       offers "Back to lists" and "Start next list".
-
-- [ ] **UX-82. An opaque sticky add bar** (impact: med, effort: S) —
-      bug, breaks M9. When the list scrolls under the add bar,
-      `max-sm:bg-background/85 backdrop-blur-sm` plus the input's
-      `bg-transparent` (`smart-add-bar.tsx:212-213`) let row text show
-      inside the field, over the placeholder.
-      Acceptance: with a row scrolled under it, no row text or icons show
-      through the field or the bar.
 
 - [ ] **UX-83. Aisle headers in the viewer's language** (impact: med,
       effort: S) — breaks Consistency and Context. Group labels are the
@@ -904,15 +948,6 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Tasks
 
-- [ ] **UX-101. Tapping a task's title opens it instead of completing
-      it** (impact: med, effort: S) — breaks Usability (forgiving) and M5.
-      The `<label>` wraps both checkbox and title
-      (`src/components/tasks/tasks-client.tsx:211`), so a stray tap while
-      scrolling completes the task, with no toast and no undo. In Things
-      and Todoist only the circle completes a task.
-      Acceptance: tapping the title opens the edit sheet. Only the
-      checkbox or a right swipe completes the task.
-
 - [ ] **UX-102. Unticking restores the previous "Last done by"**
       (impact: med, effort: S) — bug, breaks User control and Context
       (never surprise a member).
@@ -970,18 +1005,6 @@ UX-89, UX-90, UX-102, UX-113.
       it.
 
 #### Budgets
-
-- [ ] **UX-108. The budget Overview shows categories near or over their
-      limit** (impact: high, effort: M) — breaks Hierarchy and honest
-      status. ⚠️ Touches budget code (money, human-only area). With two
-      categories over their limit ("Restaurang & café 1,355 of 800"), the
-      only place that says so is the fourth tab, halfway down. The Overview
-      (`budget-tabs.tsx:312-354`) still says in green "You're in good shape
-      for the rest of the month."
-      Acceptance: with any category at 90% or more of its limit, the
-      Overview lists those categories (name, spent / limit, "over" with an
-      icon) right under safe to spend. The status line mentions them
-      instead of "good shape".
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
       effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
@@ -1095,14 +1118,6 @@ UX-89, UX-90, UX-102, UX-113.
       Acceptance: the header shows tappable counts ("4 out · 1 low · 4
       expiring") that filter the list. Status filters include Expiring and
       Expired.
-
-- [ ] **UX-123. Keep the bulk-edit bar on screen on phones** (impact:
-      med, effort: S) — bug, breaks M2 and M5. The bar is `max-sm:sticky
-      max-sm:bottom-0` but is rendered before the list
-      (`inventory-table.tsx:314-315`). Ticking a row further down puts it
-      574 px above the screen. It also has no select-all or delete.
-      Acceptance: ticking a row at any scroll position shows the bar at
-      the bottom, above the bottom nav and FAB. It has select-all.
 
 - [ ] **UX-124. The item page has the controls people expect** (impact:
       med, effort: M) — breaks Consistency and User control. The item

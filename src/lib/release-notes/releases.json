@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.76.0",
+    "date": "2026-10-18",
+    "pr": 347,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Cook mode now asks before you leave with a timer running or steps ticked, has a big \"Next step\" button that follows you down the recipe, lets you tick off ingredients, and ends with \"Done — mark as cooked\".\n\nWhen you split an expense, Squirrel now shows how much is left to split as you type each person's share, or how far over the total the shares are.\n\nThe bulk-edit bar in Inventory now stays at the bottom of the screen on phones however far down you tick an item, and has a Select all button.\n\nNo user-facing change.\n\nTapping a task's name now opens it for editing instead of marking it done. Tick the circle, or swipe right, to complete a task.\n\nThe add bar on the shopping list is now solid, so items scrolling underneath no longer show through the text field.",
+      "sv": "Tillagningsläget frågar nu innan du lämnar det med en timer igång eller avprickade steg, har en stor \"Nästa steg\"-knapp som följer dig genom receptet, låter dig pricka av ingredienser och avslutar med \"Klart – markera som lagad\".\n\nNär du delar en utgift visar Squirrel nu hur mycket som återstår att fördela medan du skriver in varje persons andel, eller hur mycket andelarna överstiger totalen.\n\nMassredigeringsfältet i Förråd ligger nu kvar längst ned på skärmen på mobilen, hur långt ned du än markerar en vara, och har en Markera alla-knapp.\n\nIngen ändring för användare.\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01KHV6c7yxD8fdeKyxvapda4\n\nAtt trycka på en uppgifts namn öppnar nu uppgiften för redigering i stället för att markera den som klar. Kryssa i rutan eller svep åt höger för att slutföra en uppgift.\n\nFältet för att lägga till varor på inköpslistan är nu heltäckande, så varor som scrollar under det syns inte längre genom textfältet."
+    }
+  },
+  {
     "version": "0.75.0",
     "date": "2026-10-18",
     "pr": 333,

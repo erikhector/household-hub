@@ -27,7 +27,7 @@ import {
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
-import { withCategoryLimits } from "@/lib/budget-category-limit";
+import { categoriesNearLimit, withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import {
   RecurringTemplatesPanel,
@@ -867,6 +867,27 @@ async function BudgetTabsSection({
     </div>
   );
 
+  // UX-108: the rows Insights draws "Expenses by category" from, also what
+  // the Overview's near-or-over-limit list reads, so both agree. GAP-12
+  // limits, GAP-21 rollover (read from the lookback window rather than
+  // monthTransactions), UX-39 sparkline history.
+  const expenseRows = withSpendHistory(
+    withCategoryRollover(
+      withCategoryLimits(expenseByCategory, categories),
+      categories,
+      recurringLookbackTransactions,
+      monthStart,
+    ),
+    recurringLookbackTransactions,
+    monthStart,
+  );
+  const limitAlerts = categoriesNearLimit(expenseRows).map((alert) => ({
+    ...alert,
+    href: resolveCategoryFilter(alert.id, categoryRows)
+      ? budgetHref("/dashboard/budget", { month: monthKey, household: householdParam, tab: "transactions", category: alert.id })
+      : null,
+  }));
+
   // Selected month's income/expense/savings breakdown, on Insights. It used
   // to sit on Overview too, where it repeated Safe to spend's totals as four
   // more stat cards (phone pass, Oct 2026).
@@ -884,16 +905,7 @@ async function BudgetTabsSection({
       // carried balance from earlier months, read from the lookback window
       // (see RECURRING_LOOKBACK_MONTHS) rather than monthTransactions.
       // UX-39: each row's sparkline comes from the same window.
-      expenseByCategory={withSpendHistory(
-        withCategoryRollover(
-          withCategoryLimits(expenseByCategory, categories),
-          categories,
-          recurringLookbackTransactions,
-          monthStart,
-        ),
-        recurringLookbackTransactions,
-        monthStart,
-      )}
+      expenseByCategory={expenseRows}
       monthStart={monthStart}
       savingsByCategory={savingsByCategory}
       // P3: each of the viewer's own categories drills into Transactions,
@@ -983,6 +995,7 @@ async function BudgetTabsSection({
       safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
       safeToSpendProjection={safeToSpendProjection}
+      limitAlerts={limitAlerts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
       plannedDue={plannedExpenseRows.filter((r) => isPlannedExpenseOutstanding(r.status))}

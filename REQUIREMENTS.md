@@ -1170,6 +1170,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
     decrease and auto-adds (with Undo) when the item was in stock.
+  - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
+    bar is rendered last in the list's flex column (`order-last`) and is
+    `sticky` with a bottom offset that clears the bottom bar and the
+    Add-item button, so ticking a row at any scroll position shows it
+    there; `sticky bottom` does nothing for an element that sits before the
+    list. From `sm` it stays above the table. It has a "Select all" button
+    (hidden once everything is ticked) beside "Clear selection". There is
+    still no bulk delete.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
     offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):
@@ -1360,7 +1368,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the
   items, sticky to the top of the scroll area on phones (same treatment as
-  the inventory search bar). Typing `2 l mjölk, bröd, 6 ägg` and pressing
+  the inventory search bar, except that it is fully opaque, field included,
+  so rows scrolled under it never show through, UX-82). Typing `2 l mjölk, bröd, 6 ägg` and pressing
   Enter adds three rows; the text goes through the shared
   `parsePastedList` (via `parseSmartAddInput`), and a row with no typed
   unit takes its inventory item's usual unit rather than "pcs". The input
@@ -2290,6 +2299,20 @@ Component page function can't itself be unit-tested.
   regular bills" (the Manage tab), keeping the month and household in the
   URL. Once there is data the totals carry a one-line legend for the "+",
   "–" and "→" in front of them.
+- **Categories near or over their limit (UX-108)**: on the budget
+  Overview (household and personal), a "Near or over their limit" card sits
+  right under Safe to spend and lists every capped expense category at 90%
+  or more of its limit (`categoriesNearLimit` in
+  `src/lib/budget-category-limit.ts`, `NEAR_LIMIT_PERCENT`). Each row has a
+  warning icon, the name, "spent / limit" and either "N over" (red, past
+  the limit) or "N% used"; over ones come first, then by how far in. The
+  limit is the envelope Insights uses (monthly limit plus any rollover
+  carried in), and the list reads the same rows as Insights' "Expenses by
+  category", so the two tabs agree. A row links to Transactions filtered to
+  that category. With no such category the card isn't rendered. When the
+  number's status is healthy but the list isn't empty, the status line
+  reads "N categories are at or near their limit." instead of "You're in
+  good shape…"; a tight or over status keeps its own line.
 - **The headline number** ("Remaining after expenses and savings"): the
   selected month's income so far, minus that month's expenses and savings
   so far (the same totals `PeriodSummary` computes from the page's
@@ -2474,15 +2497,9 @@ default to an even split of the transaction's amount
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
 total instead of drifting from naive floating-point division) via a "Split
-evenly" reset button, individually adjustable afterward. As shares are
-typed, the dialog shows what's still left to split ("176.00 of 476.00 left
-to split." for a 476 bill with a 300 share, muted since it's the normal
-state mid-typing) or, in red, how far the shares are over the total
-(`shareRemainder`, summed in whole cents so the shares must match to the
-cent, and `ShareRemainderNote` in
-`split-editor.tsx`, which the recurring-item and planned-bill dialogs'
-share grids use too). Submit stays disabled while the shares don't (yet)
-sum to the transaction total or the payments add up to more than it
+evenly" reset button, individually adjustable afterward. The dialog shows
+a live warning and disables submit whenever the shares don't (yet) sum to
+the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
 `updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
 re-validate the same invariants server-side (`parseSplitFormData`, ±0.01
@@ -5296,6 +5313,12 @@ co-managers, not kids earning rewards.
   week renders nothing (`TasksWeeklyRecap`, dismissible, mirrors
   `MealVarietyRecap`'s shape exactly), same non-goal as the meal-planning
   variety recap.
+- **Title opens, tick completes (UX-101)**: tapping a task's title opens
+  its edit dialog (the title is a button that clicks the row's hidden
+  `data-swipe-edit` button, the same hand-off the swipe tray and the ⋯ menu
+  use). Only the checkbox or a right swipe completes or reopens a task, so a
+  stray tap while scrolling can't complete one silently
+  (`e2e/task-title-opens.spec.ts`).
 - **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
   same toggle back, 5 s), since the row leaves for "Completed" below the
   fold. The weekly recap is frozen at the list as the page opened, so the

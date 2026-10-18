@@ -20,7 +20,7 @@ import type { ShareableHousehold } from "@/components/personal-budget/log-shared
 import { PeriodSummary } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
-import { withCategoryLimits } from "@/lib/budget-category-limit";
+import { categoriesNearLimit, withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import { withSpendHistory } from "@/lib/chart-calc";
 import {
@@ -332,6 +332,25 @@ async function PersonalBudgetTabsSection({
 
   // Selected month's income/expense/savings breakdown, on Insights only —
   // see the household page's identical comment.
+  // UX-108: the rows Insights draws "Expenses by category" from, also what
+  // the Overview's near-or-over-limit list reads, so both agree.
+  const expenseRows = withSpendHistory(
+    withCategoryRollover(
+      withCategoryLimits(expenseByCategory, categories),
+      categories,
+      transactions,
+      monthStart,
+    ),
+    transactions,
+    monthStart,
+  );
+  const limitAlerts = categoriesNearLimit(expenseRows).map((alert) => ({
+    ...alert,
+    href: resolveCategoryFilter(alert.id, categoryRows)
+      ? budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions", category: alert.id })
+      : null,
+  }));
+
   const periodSummary = (
     <PeriodSummary
       income={income}
@@ -346,16 +365,7 @@ async function PersonalBudgetTabsSection({
       // the carried balance (at most back to January — see
       // src/lib/budget-rollover-calc.ts) needs no extra query either.
       // UX-39: each row's sparkline, from the same whole history.
-      expenseByCategory={withSpendHistory(
-        withCategoryRollover(
-          withCategoryLimits(expenseByCategory, categories),
-          categories,
-          transactions,
-          monthStart,
-        ),
-        transactions,
-        monthStart,
-      )}
+      expenseByCategory={expenseRows}
       monthStart={monthStart}
       savingsByCategory={savingsByCategory}
       // P3: each of the viewer's own categories drills into Transactions,
@@ -419,6 +429,7 @@ async function PersonalBudgetTabsSection({
       safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
       safeToSpendProjection={safeToSpendProjection}
+      limitAlerts={limitAlerts}
       householdDebts={householdDebts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
