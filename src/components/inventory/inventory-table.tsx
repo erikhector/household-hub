@@ -358,7 +358,7 @@ export function InventoryTable({
               setBulkValue("");
             }}
           >
-            <SelectTrigger className="w-36" aria-label={dict.bulkActions.fieldAriaLabel}>
+            <SelectTrigger className="w-36 max-sm:h-11" aria-label={dict.bulkActions.fieldAriaLabel}>
               <SelectValue>{(v: string) => fieldLabels[v as BulkEditableField]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -377,7 +377,7 @@ export function InventoryTable({
               step="any"
               value={bulkValue}
               onChange={(e) => setBulkValue(e.target.value)}
-              className="h-8 w-28"
+              className="h-8 w-28 max-sm:h-11"
               aria-label={dict.bulkActions.valueAriaLabel}
             />
           ) : bulkField === "unit" ? (
@@ -385,7 +385,7 @@ export function InventoryTable({
               value={bulkValue}
               onChange={(e) => setBulkValue(e.target.value)}
               maxLength={20}
-              className="h-8 w-28"
+              className="h-8 w-28 max-sm:h-11"
               aria-label={dict.bulkActions.valueAriaLabel}
             />
           ) : (
@@ -397,7 +397,7 @@ export function InventoryTable({
                 maxLength={bulkField === "category" ? 60 : 120}
                 list={`bulk-${bulkField}-options`}
                 autoComplete="off"
-                className="h-8 w-48"
+                className="h-8 w-48 max-sm:h-11"
                 aria-label={dict.bulkActions.valueAriaLabel}
               />
               <datalist id={`bulk-${bulkField}-options`}>
@@ -409,7 +409,7 @@ export function InventoryTable({
           )}
           <Button
             size="sm"
-            className="h-8"
+            className="h-8 max-sm:h-11"
             disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
             onClick={handleBulkApply}
           >
@@ -418,21 +418,21 @@ export function InventoryTable({
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 max-sm:h-11"
             disabled={isPending}
             onClick={() => addToShoppingList([...selected], true)}
           >
             {dict.addToList.bulk}
           </Button>
           {!allSelected && (
-            <Button variant="outline" size="sm" className="h-8" disabled={isPending} onClick={toggleSelectAll}>
+            <Button variant="outline" size="sm" className="h-8 max-sm:h-11" disabled={isPending} onClick={toggleSelectAll}>
               {dict.bulkActions.selectAll}
             </Button>
           )}
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-muted-foreground"
+            className="h-8 text-muted-foreground max-sm:h-11"
             disabled={isPending}
             onClick={() => setSelected(new Set())}
           >
