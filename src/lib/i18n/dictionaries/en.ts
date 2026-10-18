@@ -2010,13 +2010,14 @@ export const en = {
     prepRecordUndoneToast: "Undone — inventory restored",
     // The Plan portions dialog: spreading a batch's portions over the week.
     prepPlanDialogTitle: "Plan portions of {recipe}",
-    prepPlanDialogHint: "Tick the meals that eat from this batch. Past days and slots with something else planned are greyed out.",
+    prepPlanDialogHint: "Tick the meals that eat from this batch. Slots with something else planned are marked Taken.",
     prepSlotPortions: "Portions for {meal}, {day}",
     prepLeftAfter: "{left} of {remaining} left after this",
     prepTooManyPortions: {
       one: "{count} portion too many — only {remaining} left",
       other: "{count} portions too many — only {remaining} left",
     },
+    prepSlotTakenBadge: "Taken",
     prepLoadingWeek: "Loading the week…",
     prepRetry: "Try again",
     prepConnectionError: "Couldn't reach the server. Check your connection and try again.",

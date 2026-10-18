@@ -190,13 +190,16 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await toast.getByRole("button", { name: "Plan portions" }).click();
   const dialog = page.getByRole("dialog", { name: `Plan portions of ${recipeName}` });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("group", { name: dayGroupName(mondayOf(utcDay(0))) })).toBeVisible();
-
-  // Last week is all in the past: every slot is shown, none can be picked.
-  await dialog.getByRole("button", { name: "Previous week" }).click();
-  await expect(dialog.getByRole("group", { name: dayGroupName(weekAhead(-1)) })).toBeVisible();
-  await expect(dialog.getByRole("checkbox")).toHaveCount(28);
-  await expect(dialog.getByRole("checkbox", { disabled: false })).toHaveCount(0);
+  // UX-100: the dialog starts today. Earlier days of the week are hidden,
+  // not greyed out, and Previous week has nowhere pickable to go.
+  await expect(dialog.getByRole("group", { name: dayGroupName(utcDay(0)) })).toBeVisible();
+  const monday = mondayOf(utcDay(0));
+  for (let i = 0; monday.getTime() + i * DAY_MS < utcDay(0).getTime(); i++) {
+    await expect(dialog.getByRole("group", { name: dayGroupName(new Date(monday.getTime() + i * DAY_MS)) })).toHaveCount(0);
+  }
+  await expect(dialog.getByRole("button", { name: "Previous week" })).toBeDisabled();
+  // The first free slot is on screen without scrolling.
+  await expect(dialog.getByRole("checkbox", { disabled: false }).first()).toBeInViewport();
 
   // Back to this week, then on to the target week.
   await dialog.getByRole("button", { name: "Next week" }).click();
@@ -210,6 +213,10 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
     .getByRole("group", { name: dayGroupName(takenDinnerDay) })
     .getByRole("checkbox", { name: `Dinner ${takeaway}` });
   await expect(takenDinner).toBeDisabled();
+  // ...and a visible "Taken" label, not only the greying (UX-100).
+  await expect(
+    dialog.getByRole("group", { name: dayGroupName(takenDinnerDay) }).getByText("Taken", { exact: true }),
+  ).toBeVisible();
 
   // Two lunches, one of them stepped up to 3: the batch's 4 are all used.
   const freeLunches = dialog.getByRole("checkbox", { name: "Lunch", exact: true, disabled: false });

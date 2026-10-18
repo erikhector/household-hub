@@ -931,14 +931,6 @@ UX-89, UX-113.
       `aria-current="date"`. Buttons are named "Add meal, Mon 12" and
       "Favorite Greek salad".
 
-- [ ] **UX-100. "Plan portions" starts at today** (impact: low, effort:
-      S) — M6. Leftovers cooked on Thursday open on all 28 slots from
-      Monday. Past and filled slots look almost the same as free ones
-      (`plan-portions-dialog.tsx`).
-      Acceptance: the dialog starts today, hides past days, shows filled
-      slots clearly as taken, and the first free slot is visible without
-      scrolling.
-
 #### Tasks
 
 - [ ] **UX-103. "Take turns" with one person isn't silently dropped**

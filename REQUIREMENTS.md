@@ -4832,9 +4832,12 @@ landed earlier (PR #179, see the data model above). No browser storage.
   lists its four meal slots, grouped by day on phones. A slot is
   selectable when it's empty or only plans this dish fresh (the same rule
   `assignInTx` re-checks on save); a slot with something else shows that
-  dish's name, disabled. **Days before today are shown but disabled**:
-  prepped food can't be eaten in the past (the server would still accept
-  such a slot, harmlessly). A selected slot gets a portions stepper
+  dish's name, disabled, with a "Taken" label (never greying alone).
+  **Days before today are hidden** (UX-100): prepped food can't be
+  eaten in the past, so the first week lists today onward, Previous week
+  is disabled there, and the first pickable slot is scrolled into view
+  when a week loads (the server would still accept a past slot,
+  harmlessly). A selected slot gets a portions stepper
   (default 1), and a live "3 of 5 left after this" counter turns into
   "2 portions too many — only 5 left" and disables save when over. Each
   save is capped at 28 selected slots in total, however many weeks they
@@ -4918,8 +4921,8 @@ landed earlier (PR #179, see the data model above). No browser storage.
   entry eaten without deduction, leftovers creating a batch, copy week
   without links). `e2e/meal-prep.spec.ts` runs on desktop and mobile. The
   first test records a batch (ingredients off inventory), opens Plan
-  portions from the toast, checks a past week is all disabled and a slot
-  with another dish is greyed with its name, steps portions to the cap,
+  portions from the toast, checks past days are hidden (Previous week disabled) and a slot
+  with another dish is greyed with its name and a "Taken" label, steps portions to the cap,
   sees the overdraw message, saves, reloads for the count and the Prepped
   badges, deletes one slot to get its portion back, marks the other eaten
   with inventory unchanged, and discards. The second checks the dashboard

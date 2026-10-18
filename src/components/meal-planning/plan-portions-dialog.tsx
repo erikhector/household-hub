@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -197,6 +197,25 @@ export function PlanPortionsDialog({
   const todayKey = toDateKey(new Date());
   const entries = weeks[weekStartKey];
   const weekError = loadError?.week === weekStartKey ? loadError.message : null;
+  // Days before today are left out (prepped food can't be eaten in the
+  // past), so the list opens on today's meals instead of a screenful of
+  // dead rows. The earliest week with anything pickable is today's, so
+  // Previous stops there.
+  const isFirstWeek = toDateKey(addDays(weekStart, 6)) >= todayKey;
+  const days = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i))).filter((date) => date >= todayKey);
+  // The first slot that can be ticked in the shown week. When today's early
+  // meals are taken it can sit below the fold, so it is scrolled into view
+  // once the week has loaded.
+  const firstFreeKey = entries
+    ? days
+        .flatMap((date) => MEAL_TYPES.map((mealType) => slotKey(date, mealType)))
+        .find((key) => isSelectable(entriesInSlot(entries, key), batch.recipeId))
+    : undefined;
+  const firstFreeRef = useRef<HTMLLIElement | null>(null);
+  const weekLoaded = entries !== undefined;
+  useEffect(() => {
+    firstFreeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [weekStartKey, weekLoaded]);
 
   return (
     <Dialog open={controlled.open} onOpenChange={controlled.onOpenChange}>
@@ -212,6 +231,7 @@ export function PlanPortionsDialog({
             variant="outline"
             size="icon-sm"
             aria-label={dict.previousWeek}
+            disabled={isFirstWeek}
             onClick={() => goToWeek(-1)}
           >
             <ChevronLeft />
@@ -241,8 +261,7 @@ export function PlanPortionsDialog({
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {Array.from({ length: 7 }, (_, i) => {
-              const date = toDateKey(addDays(weekStart, i));
+            {days.map((date) => {
               const day = dayFormat.format(parseDateKey(date));
               const headingId = `plan-portions-${date}`;
               return (
@@ -258,15 +277,17 @@ export function PlanPortionsDialog({
                     {MEAL_TYPES.map((mealType) => {
                       const key = slotKey(date, mealType);
                       const inSlot = entriesInSlot(entries, key);
-                      // Prepped food can't be eaten in the past, so days
-                      // before today are shown but can't be picked.
-                      const selectable = date >= todayKey && isSelectable(inSlot, batch.recipeId);
+                      const selectable = isSelectable(inSlot, batch.recipeId);
                       const portions = selected[key];
                       const isSelected = portions !== undefined;
                       const mealLabel = dict[mealTypeDictKey[mealType]];
                       const dishes = inSlot.map((entry) => entry.label).filter(Boolean).join(", ");
                       return (
-                        <li key={mealType} className="flex min-h-11 items-center gap-3">
+                        <li
+                          key={mealType}
+                          ref={key === firstFreeKey ? firstFreeRef : undefined}
+                          className="flex min-h-11 items-center gap-3"
+                        >
                           {/* M3: the whole label is the 44px tap target. */}
                           <label
                             className={
@@ -289,6 +310,13 @@ export function PlanPortionsDialog({
                               )}
                             </span>
                           </label>
+                          {/* Taken is said in words, not only by greying
+                              (DESIGN.md: never colour alone). */}
+                          {!selectable && (
+                            <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              {dict.prepSlotTakenBadge}
+                            </span>
+                          )}
                           {isSelected && (
                             <PortionStepper
                               value={portions}
