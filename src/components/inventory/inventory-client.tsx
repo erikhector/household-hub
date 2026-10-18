@@ -23,9 +23,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { InventoryTable } from "@/components/inventory/inventory-table";
-import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import {
+  countProblemStatuses,
+  matchesStatusFilter,
   matchesUpdatedFilter,
+  type InventoryStatusFilter,
   type HouseholdMemberOption,
   type InventoryGroupBy,
   type InventoryItemRow,
@@ -34,6 +36,7 @@ import {
 } from "@/components/inventory/inventory-table-utils";
 import { setInventoryViewPrefsAction } from "@/lib/actions/preferences";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { format } from "@/lib/i18n/format";
 
 const ALL = "__all__";
 const UNASSIGNED = "__unassigned__";
@@ -66,7 +69,7 @@ export function InventoryClient({
   locale: Locale;
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
-  initialStatus?: StockStatus;
+  initialStatus?: InventoryStatusFilter;
   initialViewPrefs: Partial<InventoryViewPrefs>;
   /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
    * own doc comment in add-item-dialog.tsx. */
@@ -108,10 +111,12 @@ export function InventoryClient({
     void setInventoryViewPrefsAction({ groupBy, category, location, status, updatedFilter });
   }, [groupBy, category, location, status, updatedFilter]);
 
-  const statusLabels: Record<StockStatus, string> = {
+  const statusLabels: Record<InventoryStatusFilter, string> = {
     in: dict.statusIn,
     low: dict.statusLow,
     out: dict.statusOut,
+    expiring: dict.expiringSoon,
+    expired: dict.expired,
   };
 
   const updatedFilterLabels: Record<UpdatedFilter, string> = {
@@ -136,7 +141,7 @@ export function InventoryClient({
       if (category !== ALL && item.category !== category) return false;
       if (location === UNASSIGNED && item.location) return false;
       if (location !== ALL && location !== UNASSIGNED && (item.location ?? "") !== location) return false;
-      if (status !== ALL && getStockStatus(item.quantity, item.lowStockThreshold) !== status) {
+      if (status !== ALL && !matchesStatusFilter(item, status as InventoryStatusFilter, now)) {
         return false;
       }
       if (!matchesUpdatedFilter(item, updatedFilter, now)) return false;
@@ -168,8 +173,37 @@ export function InventoryClient({
     setUpdatedFilter("all");
   }
 
+  // UX-121: what needs attention, as tappable counts that set the Status
+  // filter (tap the active one again to clear it). Counted over every item,
+  // not the filtered list, so the numbers don't shrink as you filter.
+  const problemCounts = useMemo(() => countProblemStatuses(items, now), [items, now]);
+  const summaryChips = (
+    [
+      ["out", dict.summaryOut],
+      ["low", dict.summaryLow],
+      ["expiring", dict.summaryExpiring],
+      ["expired", dict.summaryExpired],
+    ] as const
+  ).filter(([key]) => problemCounts[key] > 0);
+
   return (
     <div className="flex flex-col gap-4 sm:min-h-0 sm:flex-1">
+      {summaryChips.length > 0 && (
+        <div role="group" aria-label={dict.summaryLabel} className="flex flex-wrap gap-2 sm:shrink-0">
+          {summaryChips.map(([key, template]) => (
+            <Button
+              key={key}
+              variant={status === key ? "default" : "outline"}
+              size="sm"
+              aria-pressed={status === key}
+              onClick={() => setStatus(status === key ? ALL : key)}
+              className="tabular-nums"
+            >
+              {format(template, { count: problemCounts[key] })}
+            </Button>
+          ))}
+        </div>
+      )}
       {/* Sticks to the top of the scrollable area on phones (flush under the
           always-visible header — see dashboard/layout.tsx) once the page
           title scrolls past it, so search stays reachable without
@@ -251,12 +285,12 @@ export function InventoryClient({
                   <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
                     <SelectTrigger aria-labelledby="mobile-status-label" className="w-full">
                       <SelectValue>
-                        {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as StockStatus])}
+                        {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as InventoryStatusFilter])}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL}>{dict.allStatuses}</SelectItem>
-                      {(Object.keys(statusLabels) as StockStatus[]).map((s) => (
+                      {(Object.keys(statusLabels) as InventoryStatusFilter[]).map((s) => (
                         <SelectItem key={s} value={s}>
                           {statusLabels[s]}
                         </SelectItem>
@@ -341,12 +375,12 @@ export function InventoryClient({
           <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
             <SelectTrigger className="w-40 shrink-0">
               <SelectValue>
-                {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as StockStatus])}
+                {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as InventoryStatusFilter])}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>{dict.allStatuses}</SelectItem>
-              {(Object.keys(statusLabels) as StockStatus[]).map((s) => (
+              {(Object.keys(statusLabels) as InventoryStatusFilter[]).map((s) => (
                 <SelectItem key={s} value={s}>
                   {statusLabels[s]}
                 </SelectItem>

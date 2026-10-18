@@ -10,7 +10,9 @@ import { InventoryClient } from "@/components/inventory/inventory-client";
 import InventoryHeaderActionsClient from "@/components/inventory/inventory-header-actions";
 import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
 import { ExportButton } from "@/components/export/export-button";
-import { getStockStatus, type StockStatus } from "@/lib/stock-status";
+import { getStockStatus } from "@/lib/stock-status";
+import { getExpiryStatus } from "@/lib/inventory/expiry";
+import type { InventoryStatusFilter } from "@/components/inventory/inventory-table-utils";
 import { getUserPreferences } from "@/lib/preferences";
 import { isAiCategoryFallbackConfigured } from "@/lib/inventory/ai-category-fallback";
 import { loadIncomingByItem } from "@/lib/incoming-stock";
@@ -33,7 +35,7 @@ export const maxDuration = 60;
 // Status values the notification bell's low-stock alerts link to (e.g.
 // `/dashboard/inventory?status=low`) — see src/lib/notifications.ts and
 // src/components/notifications/notification-bell.tsx.
-const LINKABLE_STATUSES: StockStatus[] = ["low", "out"];
+const LINKABLE_STATUSES: InventoryStatusFilter[] = ["low", "out", "expiring", "expired"];
 
 // The item table (and everything derived from it — categories/locations/
 // units for the filter dropdowns and the create/scan dialogs, the "well
@@ -88,8 +90,14 @@ const getInventoryData = cache(async (householdId: string) => {
   // common case right after a restock — nothing low or out — otherwise gets
   // no acknowledgment at all. Deliberately quiet (small, muted text, no
   // badge/icon) so it doesn't compete with the item table below it.
+  // UX-121: an expiring or expired item rules the note out too, since the
+  // header's counts now say otherwise.
+  const now = Date.now();
   const isWellStocked =
-    items.length > 0 && items.every((item) => getStockStatus(item.quantity, item.lowStockThreshold) === "in");
+    items.length > 0 &&
+    items.every(
+      (item) => getStockStatus(item.quantity, item.lowStockThreshold) === "in" && !getExpiryStatus(item.expiresAt, now),
+    );
 
   return { items, members, categories, locations, units, isWellStocked, autoAddEnabled };
 });
@@ -210,7 +218,7 @@ async function InventoryTable({
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   locale: Awaited<ReturnType<typeof getLocale>>;
-  initialStatus?: StockStatus;
+  initialStatus?: InventoryStatusFilter;
   initialViewPrefs: ReturnType<typeof parseInventoryViewPrefs>;
 }) {
   const { items, members, categories, locations, units, autoAddEnabled } = await getInventoryData(householdId);

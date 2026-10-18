@@ -1133,16 +1133,6 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Inventory
 
-- [ ] **UX-121. What's low, out and expiring, at the top of the
-      inventory** (impact: high, effort: M) — breaks Hierarchy and M6.
-      With 4 out, 1 low and 4 expiring or expired, the header says nothing
-      (only a "well stocked" note exists,
-      `inventory/page.tsx:72-82`). The A–Z list hides them among 24
-      rows, and the Status filter has no expiring or expired.
-      Acceptance: the header shows tappable counts ("4 out · 1 low · 4
-      expiring") that filter the list. Status filters include Expiring and
-      Expired.
-
 - [ ] **UX-124. The item page has the controls people expect** (impact:
       med, effort: M) — breaks Consistency and User control. The item
       page (`items/[id]/page.tsx:138`) has no Edit, Delete, stepper,
