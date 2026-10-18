@@ -103,3 +103,20 @@ export function formatCountdown(seconds: number): string {
   const s = String(total % 60).padStart(2, "0");
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
+
+// UX-94 — the step the cook is on: the first one not yet ticked off, or null
+// once every step is done (or there are none). "Next step" ticks this one and
+// the view then moves on to the one this returns next.
+export function currentStepIndex(total: number, done: ReadonlySet<number>): number | null {
+  for (let index = 0; index < total; index++) {
+    if (!done.has(index)) return index;
+  }
+  return null;
+}
+
+// UX-94 — whether closing the view would throw something away worth a
+// confirmation: a running timer or a step already ticked off. Ticked
+// ingredients are prep a cook redoes in seconds, so they don't count.
+export function hasCookProgress(doneSteps: number, runningTimers: number): boolean {
+  return doneSteps > 0 || runningTimers > 0;
+}

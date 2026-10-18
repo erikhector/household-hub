@@ -1646,6 +1646,18 @@ export const sv = {
     cookTimerRemaining: "{time} kvar",
     cookTimerDone: "Timern för steg {step} är klar",
     cookTimerDismiss: "Förstått",
+    // UX-94: Next step / Done buttons and the confirm before closing with progress.
+    cookNextStep: "Nästa steg",
+    cookDone: "Klart – markera som lagad",
+    cookCurrentStep: "Aktuellt steg",
+    cookStopConfirm: {
+      title: "Sluta laga mat?",
+      descriptionTimer: "Din timer stoppas och dina avprickade steg rensas.",
+      descriptionSteps: "Dina avprickade steg rensas.",
+      cancel: "Fortsätt laga",
+      confirm: "Sluta laga",
+      confirming: "Slutar…",
+    },
     // GAP-43: copies the recipe as plain text to the clipboard.
     copyRecipeText: "Kopiera som text",
     copyRecipeTextToast: "Receptet kopierades som text",

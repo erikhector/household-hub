@@ -813,20 +813,6 @@ UX-89, UX-90, UX-102, UX-113.
       on the defaults never links Ricotta or Breadcrumbs (unit test on the
       default choice).
 
-- [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
-      as cooked"** (impact: high, effort: M) — breaks Context (kitchen),
-      User control and M7.
-      - With a timer running and a step ticked, one back gesture, swipe
-        down, Escape or the thumb-zone "Close" ends cook mode and the meal
-        sheet without a prompt (`cook-mode-dialog.tsx:55`).
-      - It ends with only "Close", so recording the meal means reopening
-        it and tapping "Mark as cooked".
-      Acceptance: with a timer running or a step ticked, closing asks "Stop
-      cooking? Your timer will stop". After the last step a primary "Done —
-      mark as cooked" opens the mark-as-cooked review. A big "Next step"
-      button highlights and scrolls to the next step, and ingredients can
-      be ticked during prep (the Paprika/Mealime feel).
-
 - [ ] **UX-95. One word for portions, and keep meal and recipe apart**
       (impact: med, effort: S) — breaks Consistency. In English the same
       recipe is "4 servings" in the list and "4 portions" in the planner.
