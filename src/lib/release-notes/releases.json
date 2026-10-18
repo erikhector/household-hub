@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.74.0",
+    "date": "2026-10-18",
+    "pr": 323,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Open a recipe and add it to your meal plan straight away. The recipe's instructions are now shown there too, under the ingredients.\n\nEach budget now says what it is for: the household budget is shared money for your home, and your personal budget is only yours. Phones show this under the page title.\n\nYou can now add an item to your shopping list from Inventory without marking it empty, one at a time or for several selected items. Items already on a list are tagged \"On list\".",
+      "sv": "Öppna ett recept och lägg det direkt i veckomenyn. Receptets instruktioner visas nu också där, under ingredienserna.\n\nVarje budget säger nu vad den är till för: hushållsbudgeten är gemensamma pengar för hemmet och din personliga budget är bara din. På mobilen visas det under sidans rubrik.\n\nDu kan nu lägga till en vara i inköpslistan från Lager utan att markera den som slut, en i taget eller flera markerade varor. Varor som redan finns på en lista får taggen \"På listan\"."
+    }
+  },
+  {
     "version": "0.73.1",
     "date": "2026-10-17",
     "pr": 315,
