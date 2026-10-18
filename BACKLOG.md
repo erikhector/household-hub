@@ -227,17 +227,98 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-18. Flaky: "All done" missing after reload in the ux-38 celebration test** (low, S) —
-      `e2e/ux-38.spec.ts:55` ("ticking the last item celebrates once, and
-      only on the tick"), `desktop` project. Failed once in the local
-      `ci:local` gate on release `7171136` (2026-10-18) under heavy parallel
-      load, then passed on a re-run of the spec on the same commit; the
-      GitHub run on that commit was green. The failing assertion is
-      `main.getByText("All done", { exact: true })` not found within 5 s
-      after `page.reload()` (line 83). Fix the app's or the test's waiting
-      (what the reloaded page renders and when), never a loosened assertion,
-      a skip or a retry. Acceptance: `npx playwright test e2e/ux-38.spec.ts
+- [ ] **MAINT-24. Flaky: toast buttons measure 43.999996 px in `expectToastButtonsTappable`** (low, S) —
+      `e2e/plan-leftovers.spec.ts:113` and `:146`, `mobile` project. Both
+      failed and then passed on the retry in the GitHub `End-to-end
+      (Playwright)` job on release PR #360 (head `5e9ebba`, 2026-10-18), and
+      passed on a local re-run. The failing assertion is the helper
+      `expectToastButtonsTappable` (line ~90): a toast button's height is
+      43.999996, below a strict `>= 44` (M3). That is sub-pixel rounding of
+      a transformed toast, not a short button. Fix it in the app by making
+      the toast button's minimum height truly 44 px (a `min-h-11` that
+      survives the toast's scale), or, if the app is right, by giving the
+      helper a tolerance of under 0.01 px and a comment saying it is
+      sub-pixel rounding; never a looser bound than that, a skip or a
+      retry. Related: `:146` is also named by MAINT-30, which saw it fail
+      in the full gate; fold the two. Acceptance:
+      `npx playwright test e2e/plan-leftovers.spec.ts --project=mobile
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-25. Flaky: `toBeChecked` in `overview-today.spec.ts:134`** (low, S) —
+      `e2e/overview-today.spec.ts:134`, `desktop` project. Failed once in the
+      local gate on release PR #360 (head `5e9ebba`, 2026-10-18), then
+      passed on a re-run of the same commit; added by #352 (UX-70). The
+      failing assertion is `toBeChecked` (`:134`) on the checkbox "Mark Water
+      the plants as not done", right after `mine.check()` (`:133`) ticks it
+      from the Overview's Today card. Fix the app's or the test's waiting (the tick
+      is optimistic and the page may re-render with server data before
+      the checked state settles), never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test e2e/overview-today.spec.ts
       --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-26. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
+      `e2e/copy-shopping-list-text.spec.ts:15` ("Copy as text puts the open
+      items on the clipboard and leaves ticked ones out"), `mobile` project.
+      Failed once and passed on the retry in the GitHub `End-to-end
+      (Playwright)` job on release `0444ce1` (2026-10-18); it also passed on
+      a local re-run. The failing assertion is
+      `getByRole("checkbox", { name: /^Oat drink <suffix>\b/i })` not
+      visible within 5 s (line 31). Fix the app's or the test's waiting
+      (when the added row renders in the list), never a loosened assertion,
+      a skip or a retry. Acceptance: `npx playwright test
+      e2e/copy-shopping-list-text.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
+- [ ] **MAINT-27. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
+      amount in the pantry's unit instead"), `mobile` project. Failed once
+      and passed on the retry in the GitHub `End-to-end (Playwright)` job on
+      release `0444ce1` (2026-10-18); it also passed on a local re-run. The
+      failing action is `getByRole("button", { name: "New recipe" }).click()`
+      timing out at 30 s, via `openNewRecipe` (line 45). Fix the app's or
+      the test's waiting (what the page renders before the button exists),
+      never a loosened assertion, a skip or a retry. Acceptance: `npx
+      playwright test e2e/recipe-ingredients.spec.ts --project=mobile
+      --repeat-each=30` passes 30/30.
+- [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
+      #336 (`feat: show what's left to split as shares are typed`) turned
+      `next` red and was reverted by #340, which also deleted
+      `e2e/split-remainder.spec.ts`. Its spec failed at `:31` and `:57`
+      (`mobile`, a `locator.fill` timeout; also `desktop` on a feature
+      branch) in the local `ci:local` gate on a clean `0444ce1` (2026-10-18,
+      780 passed, 3 failed) and in 3 of 3 full runs on the UX-82 branch
+      (#343), yet passed alone (`--repeat-each=3`, 14/14), so it depended on
+      something earlier specs leave in the worker's household or on a field
+      it didn't wait for. Re-apply #336 (revert #340), find why the share
+      field can't be filled in the full run and fix the spec's setup
+      (AGENTS.md "Parallel workers") or the app, never a skip or looser
+      assertion, and restore #336's REQUIREMENTS.md text. Acceptance: the
+      full `npm run test:e2e` passes with the re-landed
+      `e2e/split-remainder.spec.ts`, and `npx playwright test
+      e2e/split-remainder.spec.ts --repeat-each=10` passes.
+- [ ] **MAINT-28. Flaky: personal-budget Undo in `log-expense-fast.spec.ts`** (low, S) —
+      `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same sheet,
+      last-used category and Undo"), `mobile` project. Failed in the local
+      gate on clean `origin/next` `0444ce1` and on UX-82 (`79de34e`) and
+      passes alone. Fix the app's or the test's waiting, never a loosened
+      assertion, a skip or a retry. Acceptance: `npx playwright test
+      e2e/log-expense-fast.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30. Also failed on `desktop` (`d3cfbdb`) and `mobile`
+      (`2bc2121`) in the #354 gates, 2026-10-18: `toHaveCount(0)` received
+      2 after 5 s.
+- [ ] **MAINT-29. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
+      `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
+      `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
+      other agents' gates. Fix the app's or the test's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-38.spec.ts --project=desktop --repeat-each=30` passes
+      30/30.
+- [ ] **MAINT-30. Flaky: `plan-leftovers.spec.ts:146` fails in the full gate, passes alone** (low, S) —
+      `e2e/plan-leftovers.spec.ts:146`, `mobile` project. Failed in the
+      `ci:local` gates of #349 (`90bb208`) and #356 (`acffde8`,
+      2026-10-18) and passed on focused re-runs (22/22 with
+      `--repeat-each=2`). Find what earlier specs leave in the worker's
+      household that it relies on, or what it doesn't wait for. Never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/plan-leftovers.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -1036,19 +1117,6 @@ UX-89, UX-90, UX-102, UX-113.
 
 #### Inventory
 
-- [ ] **UX-119. "I used some" and "I bought more" for gram, kilo and
-      litre items** (impact: high, effort: M) — breaks Usability and M4.
-      - The stepper always moves by 1 unit
-        (`inventory-table.tsx:697,722`): Smör 500 g → 499 g, and Gul lök
-        1.5 kg → 0.5 kg → 0 kg.
-      - Swipe right is "+1" too.
-      - Tapping the quantity does nothing, so "used 200 g" means the Edit
-        dialog and mental arithmetic.
-      Acceptance: tapping the quantity opens a small sheet with a decimal
-      keypad and "Used / Bought" with quick chips (½, all, the last
-      amount). Step sizes suit the unit (g by 50 or 100). A gram item
-      drops by 200 g in at most two taps.
-
 - [ ] **UX-121. What's low, out and expiring, at the top of the
       inventory** (impact: high, effort: M) — breaks Hierarchy and M6.
       With 4 out, 1 low and 4 expiring or expired, the header says nothing
@@ -1705,6 +1773,56 @@ out to be a product-scope question rather than a scoped task should move to
       the 20 cap and freeform names; an e2e step plans a uniquely named
       custom meal two weeks ahead, searches it and follows the link to the
       right week, on desktop and mobile (field has a visible label, 44 px).
+
+### 2026-10-18 scan
+
+- [ ] **GAP-60. "Skip this time" on a recurring task** (impact: low-med, effort: S) `[schema]` —
+      Grocy's chores page lets you skip an execution ("we're away, nobody
+      watered the plants") so the schedule moves on without logging it as
+      done. Squirrel's only ways past a recurring task are to tick it
+      (which records a completion and credits a member in "Last done
+      by") or delete it (which loses the schedule and history).
+      `HouseholdTask` stores no due date: `getNextDueDate`/`isTaskOpen`
+      in `src/app/dashboard/tasks/recurrence.ts` derive it as
+      `completedAt + recurrenceIntervalDays`, and the tick
+      (`toggleTaskCompletedAction`) overwrites `completedAt`, which feeds
+      the weekly recap and "Last done by", so a skip must not write it.
+      Add `HouseholdTask.skippedUntil DateTime?`. A "Skip this time" row
+      action, shown only on recurring tasks that are currently open (no
+      wait on UX-133's overdue concept), sets it to now +
+      `recurrenceIntervalDays` and leaves `completedAt` and
+      `completedByMemberId` untouched, with an Undo toast that restores
+      the previous value. `isTaskOpen` treats the task as closed while
+      `now < skippedUntil`, `getNextDueDate` returns the later of the two
+      dates, and a tick clears `skippedUntil`. The tick's un-complete
+      branch also clears `skippedUntil`, and leaves `completedAt` alone
+      when only the skip closed the task, so clicking a skipped task
+      reopens it without wiping the real last completion. Does not decide
+      UX-137's anchoring question: if that changes the rule, it updates
+      this too.
+      Acceptance: `recurrence.test.ts` pins `isTaskOpen`/`getNextDueDate`
+      with `skippedUntil` before, at and after now (with and without a
+      `completedAt`); an action test covers household scoping, rejection
+      on a non-recurring task, and that `completedAt`/
+      `completedByMemberId` are not written, and that un-completing a
+      skipped task clears `skippedUntil` and keeps `completedAt`; an e2e
+      step skips a uniquely named daily task and sees it leave the open
+      list with "Last done by" unchanged, then undoes it, on desktop and
+      mobile (button name unique per row, 44 px).
+
+- [ ] **GAP-61. Pin a note to the top of the notes board** (impact: low, effort: S) `[schema]` —
+      Cozi's journal and AnyList's meal-plan "pinned entries" both let a
+      lasting fact (the wifi code, the door code, "allergic to nuts")
+      outlive the chronological feed. Squirrel's notes board
+      (`## Household notes board`, GAP-16) is newest-first only, so a
+      standing note sinks under daily chatter. Add `HouseholdNote.pinnedAt
+      DateTime?`; any member may pin or unpin (same permission as delete);
+      pinned notes sort first, newest-pinned first, with a visible
+      "Pinned" label and an accessible Pin/Unpin button, capped at 5
+      pinned so the pins don't become the feed.
+      Acceptance: an action test covers household scoping, the cap and
+      unpin; an e2e step pins a uniquely named note, reloads and sees it
+      above a newer one, then unpins it, on desktop and mobile.
 
 ## Needs a decision before building
 

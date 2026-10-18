@@ -62,15 +62,23 @@ test("ticking the last item celebrates once, and only on the tick", async ({ pag
   const dock = page.getByRole("region", { name: "Next up" });
   const progress = dock.getByRole("progressbar", { name: "Shopping progress" });
 
+  // A tick is saved by a server action; Next queues those, so the second
+  // tick's POST goes out only after the first has answered. Waiting for each
+  // one's own response keeps the reload below from racing a write still in
+  // flight (an earlier version registered its wait after the first click and
+  // so could match the first tick's response instead of the last one's).
+  const isSave = (response: import("@playwright/test").Response) =>
+    response.request().method() === "POST" && "next-action" in response.request().headers();
+
   // Not yet: one item still to get.
+  const firstSaved = page.waitForResponse(isSave);
   await dock.getByRole("button", { name: /, into the cart$/ }).first().click();
   await expect(progress).toHaveAttribute("aria-valuetext", "1 of 2");
   await expect(mascot).toHaveCount(0);
+  await firstSaved;
 
   // The last tick: the full ring with the squirrel in it, exactly once.
-  const saved = page.waitForResponse(
-    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
-  );
+  const saved = page.waitForResponse(isSave);
   await dock.getByRole("button", { name: /, into the cart$/ }).first().click();
   await expect(main.getByText("All done", { exact: true })).toBeVisible();
   await expect(mascot).toHaveCount(1);
