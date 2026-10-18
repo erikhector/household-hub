@@ -3097,7 +3097,7 @@ export const sv = {
   cookieNotice: {
     title: "Information om cookies",
     message:
-      "Squirrel använder bara cookies som håller dig inloggad och kommer ihåg dina inställningar (som språk och tema). Ingen reklam eller spårning.",
+      "Bara nödvändiga cookies. Ingen reklam eller spårning.",
     learnMore: "Läs mer",
     dismiss: "Uppfattat",
   },
