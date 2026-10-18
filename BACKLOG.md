@@ -112,6 +112,19 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       and delete this item then. `next-auth` is still `5.0.0-beta.32`; track
       its advisories. Pairs with MAINT-12's Dependabot config.
 
+- [ ] **BUG-4. Red next: `/dashboard/whats-new` scrolls sideways in Swedish
+      on a phone** (impact: high, effort: S) — blocks the release train.
+      Failing on clean `next` (7817f23) every time, locally and in CI's
+      `End-to-end (Playwright)`: `[mobile] e2e/text-size.mobile.spec.ts:38`
+      (`/dashboard/whats-new has no sideways scroll`, sv, `main` 804px >
+      412px) and `[iphone] e2e/smoke.spec.ts:24` (`dashboard (sv) ›
+      /dashboard/whats-new renders cleanly`). It passed on the release PR
+      #347's run, so the likely cause is the v0.76.0 entry that
+      `release.yml` added to `src/lib/release-notes/releases.json` after
+      it (a long Swedish note or unbreakable string); fix the What's new
+      layout so any note wraps (`min-w-0`, `break-words`), not the note.
+      Acceptance: both specs pass on desktop and mobile.
+
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:
@@ -298,7 +311,7 @@ UX-89, UX-90, UX-102, UX-113.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-84, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71.
+- `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
   UX-106.
@@ -601,23 +614,6 @@ UX-89, UX-90, UX-102, UX-113.
       overview shows one call to action per feature. "Plan this week's
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
-
-- [ ] **UX-70. A "Today" block that answers "what needs me now?"**
-      (impact: high, effort: M) — breaks Hierarchy ("key status first")
-      and M6. On a phone the first screen is a greeting, the getting-started
-      box and two cards.
-      - The tasks card lists titles as plain text you can't tick or open.
-      - It counts only tasks assigned to you (`page.tsx:65`), so it says
-        "2 open tasks" while 4 unassigned household chores are open.
-      - The household budget never appears, even when fully set up.
-      - Tonight's meal and items expiring soon are missing, though the
-        subtitle says "What needs your attention right now".
-      Acceptance: at 412×839 with data, the first screen shows a "Today"
-      block with:
-      - your tasks plus unassigned ones, each with a working checkbox;
-      - tonight's planned meal;
-      - the household's safe to spend, once the budget has categories;
-      - a count of expiring items.
 
 - [ ] **UX-71. Overview stat cards: honest colours, real links, no dead
       ends** (impact: med, effort: S) — breaks Colour (status pairs with

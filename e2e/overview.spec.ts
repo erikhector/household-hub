@@ -81,14 +81,14 @@ test.describe("the setup card", () => {
       await expect(card.getByText("Add what's in the pantry")).toHaveCount(0);
       await expect(card.getByText("Start a shopping list")).toHaveCount(0);
       await expect(card.getByText("Set up your household budget")).toHaveCount(0);
-      // Today starts on the first screen, below the card.
-      await expect(main.getByText("Your tasks", { exact: true })).toBeInViewport();
+      // Today now sits above the card (UX-70) and is on the first screen.
+      await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeInViewport();
       await expectNoHorizontalOverflow(page);
 
       await card.getByRole("button", { name: "Hide the setup card" }).click();
       await expect(main.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
       await page.reload();
-      await expect(main.getByText("Your tasks", { exact: true })).toBeVisible();
+      await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
       await expect(main.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
     } finally {
       // Household first: its members, items, lists and categories cascade.
