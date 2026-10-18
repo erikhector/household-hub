@@ -2950,7 +2950,7 @@ each budget page shows one short purpose line under its title instead
 it."). The two first-run cards differ in the same way: the household card
 names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
-categories) is not built; it is part of the Today block (UX-70).
+categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
 
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
@@ -5802,7 +5802,7 @@ components directly.
   Back-links (`← All shopping lists`, the item catalog's) are
   `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
 - **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
-  leads with today (your tasks, your budget), so the "Get set up" card
+  leads with today (the Today block, UX-70, then your budget), so the "Get set up" card
   (`src/components/dashboard/getting-started.tsx`) stays short: it lists only
   the steps still open and counts the finished (or skipped) ones in one
   "3 of 5 done" line, and disappears on its own once every step is done.
@@ -5816,6 +5816,35 @@ components directly.
   `mt-auto` so cards side by side line them up, and their labels wrap rather
   than push the chevron outside the card on narrow (tablet) columns.
   Covered by `e2e/overview.spec.ts`.
+- **Overview "Today" block (UX-70)**: the first thing on the overview,
+  above the setup card, answers "what needs me now?"
+  (`src/components/dashboard/today-block.tsx`, fed by
+  `src/app/dashboard/page.tsx`). It replaces the old "Your tasks" card
+  (which counted only tasks assigned to you and showed plain text). It
+  holds:
+  - **Tasks**: the open tasks assigned to you plus the unassigned ones
+    (another member's are left out), yours first, oldest first within each
+    group, up to 5, then a "N more tasks" link to `/dashboard/tasks`.
+    Unassigned ones carry an "Unassigned" hint. Each has a checkbox
+    (44 px target on phones) that calls `toggleTaskCompletedAction`
+    optimistically: it shows ticked at once and stays in place, struck
+    through, so nothing moves under the thumb; a failed save puts it back
+    with a toast, and the "Done" toast offers Undo. A recurring task counts
+    as open again once its interval has passed (`isTaskOpen`).
+  - **Tonight's dinner**: the household's `DINNER` plan entries for today's
+    UTC date (planner dates are UTC midnights), by recipe or free-text
+    name; "nothing planned" otherwise. Links to the meal planner.
+  - **Household safe to spend**: shown once the household budget has
+    categories, as the same number as the budget page's Safe to spend
+    (`loadHouseholdSafeToSpend`, `src/lib/household-safe-to-spend.ts`,
+    feeding the same `computeSafeToSpend`), in the household's display
+    currency and coloured by status. Links to `/dashboard/budget`.
+  - **Expiring items**: the count of in-stock items past or within
+    `EXPIRY_WARNING_DAYS` of their expiry date (`getExpiryStatus`); the
+    row is hidden at 0. Links to `/dashboard/inventory`.
+  Covered by `e2e/overview-today.spec.ts` (desktop and mobile; mobile at
+  412 x 839 asserts every row is on the first screen) and
+  `src/lib/household-safe-to-spend.test.ts`.
 - **Public pages (UX-28)**: the token-link pages (join, shared shopping
   list, reset password, verify email, unsubscribe) show every invalid or
   finished state in one `StatusCard` (`src/components/auth/status-card.tsx`):
