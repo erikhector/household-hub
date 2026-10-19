@@ -400,7 +400,7 @@ UX-89, UX-113.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
-- `src/components/meal-planning/week-planner.tsx`: UX-49, UX-99.
+- `src/components/meal-planning/week-planner.tsx`: UX-49.
 
 #### Shell and cross-cutting
 
@@ -906,15 +906,6 @@ UX-89, UX-113.
       least 44 px with 14 px text. Quantity and unit have accessible
       names. The sub-recipe hint is plain language. Plurals render
       correctly.
-
-- [ ] **UX-99. "Today" in words, and unique button names in the planner**
-      (impact: low, effort: S) — breaks Accessibility (never colour
-      alone). Today's card is marked only by a purple ring, with no
-      `aria-current` (`week-planner.tsx:302`). All seven day buttons are
-      named "Add meal" and all stars "Favorite recipe".
-      Acceptance: today's card shows a "Today" badge and
-      `aria-current="date"`. Buttons are named "Add meal, Mon 12" and
-      "Favorite Greek salad".
 
 #### Tasks
 

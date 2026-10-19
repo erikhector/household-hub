@@ -305,12 +305,18 @@ export function WeekPlanner({
             <Card
               key={day.dateKey}
               id={day.isToday ? TODAY_CARD_ID : undefined}
+              aria-current={day.isToday ? "date" : undefined}
               className={day.isToday ? "scroll-mt-2 ring-2 ring-primary/50 max-sm:scroll-mt-18" : undefined}
             >
               <CardHeader>
                 <CardTitle className="flex items-baseline justify-between">
                   <span>{day.weekdayLabel}</span>
-                  <span className="text-sm font-normal text-muted-foreground">{day.dayOfMonth}</span>
+                  <span className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
+                    {/* UX-99: today is said in words, not only by the ring
+                        (DESIGN.md Accessibility: never colour alone). */}
+                    {day.isToday && <Badge>{dict.todayBadge}</Badge>}
+                    {day.dayOfMonth}
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
@@ -331,6 +337,7 @@ export function WeekPlanner({
                   dict={dict}
                   weekStartKey={weekStartKey}
                   dateKey={day.dateKey}
+                  dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
                   mealType={openSlot}
                   recipes={recipes}
                   batches={batches}
