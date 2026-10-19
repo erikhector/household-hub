@@ -367,7 +367,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47,
+build them first: UX-47,
 UX-89, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -388,18 +388,6 @@ UX-89, UX-113.
 - `src/components/meal-planning/week-planner.tsx`: UX-49, UX-99.
 
 #### Shell and cross-cutting
-
-- [ ] **UX-46. Move "Create household" out of the phone header** (impact:
-      high, effort: S) — breaks Consistency and M2. On every phone page
-      the most prominent header icon is a bare "+". On Inventory or
-      Shopping a user expects it to add an item or a list. It opens
-      "Create a new household" instead
-      (`src/components/household/household-switcher.tsx:46`), so new
-      users make stray households. The same screen also has a second
-      "+" (the page's FAB) that does something unrelated.
-      Acceptance: the phone header has no standalone "+". "Create
-      household" is a menu item at the bottom of the household switcher
-      dropdown, on desktop too.
 
 - [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
       (impact: med, effort: M) — breaks Consistency and User control

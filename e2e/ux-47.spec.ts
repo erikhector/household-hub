@@ -4,9 +4,9 @@ import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-47: the name field accepts 60 characters, and a name that long used to
-// push the switcher's chevron and "+" off a 412 px phone and spill the
+// push the switcher's chevron off a 412 px phone and spill the
 // sidebar over the page heading on desktop. The switcher now truncates the
-// name, keeps the chevron and "+" on screen, and the full name stays
+// name, keeps the chevron on screen, and the full name stays
 // reachable (title on the name, the whole name in the dropdown). The name is
 // restored afterwards so no other spec sees it.
 const LONG_NAME = "Familjen Öberg-Håkansson på Södermalm med de tre katterna 60";
@@ -39,18 +39,15 @@ test("a 60-character household name is truncated and the switcher stays on scree
   const nameEl = page.getByTitle(LONG_NAME, { exact: true }).filter({ visible: true });
   await expect(nameEl).toBeVisible();
   const trigger = page.getByRole("button", { name: LONG_NAME }).filter({ visible: true });
-  const plus = page.getByRole("button", { name: "Create household" }).filter({ visible: true });
 
   const viewport = page.viewportSize()!;
   const triggerBox = (await trigger.boundingBox())!;
-  const plusBox = (await plus.boundingBox())!;
   const chevronBox = (await trigger.locator("svg").boundingBox())!;
 
-  // The chevron sits inside the trigger and the trigger leaves room for "+",
-  // all inside the screen.
+  // The chevron sits inside the trigger and the trigger stays inside the
+  // screen.
   expect(chevronBox.x + chevronBox.width).toBeLessThanOrEqual(triggerBox.x + triggerBox.width + 1);
-  expect(triggerBox.x + triggerBox.width).toBeLessThanOrEqual(plusBox.x + 1);
-  expect(plusBox.x + plusBox.width).toBeLessThanOrEqual(viewport.width);
+  expect(triggerBox.x + triggerBox.width).toBeLessThanOrEqual(viewport.width);
 
   // The name wraps or clamps inside the trigger instead of spilling past it,
   // and never grows beyond two lines (it is 60 characters long).
