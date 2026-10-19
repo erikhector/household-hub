@@ -145,7 +145,7 @@ test("adding a meal starts on the picker, not on typing a name", async ({ page }
   const recipeId = await seed(recipeName);
   try {
     await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
-    await page.getByRole("button", { name: "Add meal", exact: true }).filter({ visible: true }).first().click();
+    await page.getByRole("button", { name: /^Add meal, / }).filter({ visible: true }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add a meal" });
     const picker = dialog.getByRole("combobox", { name: "Recipe" });
     // Nothing chosen and no name field: there's something to pick (M4).

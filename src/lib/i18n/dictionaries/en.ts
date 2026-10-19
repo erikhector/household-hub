@@ -1599,7 +1599,11 @@ export const en = {
     mealTypeLunch: "Lunch",
     mealTypeDinner: "Dinner",
     mealTypeSnack: "Snack",
+    // UX-99: each day's button names its day ("Add meal, Mon 12"), so seven
+    // identical "Add meal" buttons are tellable apart by a screen reader.
     addMeal: "Add meal",
+    addMealAriaLabel: "Add meal, {day}",
+    todayBadge: "Today",
     addMealDialogTitle: "Add a meal",
     editMealAriaLabel: "Edit meal",
     editMealDialogTitle: "Edit meal",
@@ -1789,7 +1793,7 @@ export const en = {
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
-    favoriteAriaLabel: "Favorite recipe",
+    favoriteAriaLabel: "Favorite {name}",
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",
@@ -2087,6 +2091,8 @@ export const en = {
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
     caughtUpTitle: "You're all caught up!",
+    showOlder: "Show {count} older",
+    hideOlder: "Hide older",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
     recurrenceLabel: "Repeat",

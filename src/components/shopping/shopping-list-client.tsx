@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -345,6 +345,17 @@ export function ShoppingListClient({
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
+  // UX-84: rows currently hidden by a swipe-delete's Undo window.
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
+  const trackHidden = useCallback((id: string, hidden: boolean) => {
+    setHiddenIds((prev) => {
+      if (prev.has(id) === hidden) return prev;
+      const next = new Set(prev);
+      if (hidden) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
   const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder);
   // GAP-53: the open items as plain text, on the clipboard or (a phone, via
   // the system share sheet) sent on. Nothing is stored or shared through the
@@ -889,9 +900,14 @@ export function ShoppingListClient({
                 a single flat "Purchased" section, unchanged. */}
             {shownPendingGroups.map((group) => (
               <Fragment key={group.key ?? ""}>
-                <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
-                  {group.label}
-                </p>
+                {/* UX-84: an aisle whose rows are all swipe-deleted (Undo
+                    window) hides its header too; the rows stay mounted so
+                    Undo can bring them back. */}
+                {group.items.some((item) => !hiddenIds.has(item.id)) && (
+                  <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
+                    {group.label}
+                  </p>
+                )}
                 {group.items.map((item) => (
                   <ShoppingRow
                     key={item.id}
@@ -902,6 +918,7 @@ export function ShoppingListClient({
                     highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
                     groupedByCategory
+                    onHiddenChange={trackHidden}
                     isPending={isPending}
                     startTransition={startTransition}
                     inventoryItems={inventoryItems}
@@ -1131,6 +1148,7 @@ function ShoppingRow({
   numberFormat,
   awaitingPutAway = false,
   groupedByCategory = false,
+  onHiddenChange,
 }: {
   /** `purchased` is already the optimistic value (see ShoppingListClient). */
   item: ShoppingListItemRow;
@@ -1146,6 +1164,9 @@ function ShoppingRow({
   /** The row sits under its category's group header (the pending section),
    * so its own category chip would only repeat that header (UX-22). */
   groupedByCategory?: boolean;
+  /** UX-84: told when a swipe-delete hides (or Undo restores) this row, so
+   * its aisle can hide its header too instead of leaving it alone. */
+  onHiddenChange?: (itemId: string, hidden: boolean) => void;
   editable: boolean;
   isPending: boolean;
   startTransition: (fn: () => void) => void;
@@ -1194,6 +1215,10 @@ function ShoppingRow({
     message: format(dict.swipe.deletedToast, { name: item.name }),
     undoLabel: dict.swipe.undo,
   });
+
+  useEffect(() => {
+    onHiddenChange?.(item.id, hidden);
+  }, [hidden, item.id, onHiddenChange]);
 
   if (hidden) return null;
 

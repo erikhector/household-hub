@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
+import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
@@ -74,9 +75,8 @@ export function TasksClient({
   const tasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed) =>
     withLocalCompletion(task, completed, currentMemberId, new Date()),
   );
-  // UX-104: set when a tick in this visit leaves no open task; it shows the
-  // "all caught up" card, and clears when a task is open again.
-  const [caughtUp, setCaughtUp] = useState(false);
+  // UX-105: older completed one-offs stay behind "Show N older" until asked.
+  const [showOlder, setShowOlder] = useState(false);
   const toggleCompleted = (task: TaskRow) => {
     const completing = !task.completed;
     const settle = local.markDone(task.id, completing);
@@ -88,9 +88,6 @@ export function TasksClient({
         duration: 5000,
         action: { label: dict.swipe.undo, onClick: () => toggleCompleted({ ...task, completed: true }) },
       });
-      if (tasks.every((t) => t.completed || t.id === task.id)) setCaughtUp(true);
-    } else {
-      setCaughtUp(false);
     }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
@@ -104,7 +101,10 @@ export function TasksClient({
   const containerRef = useFlipList<HTMLDivElement>();
 
   const openTasks = tasks.filter((t) => !t.completed);
+  // UX-105: a one-off ticked over a week ago collapses behind "Show N older".
   const completedTasks = tasks.filter((t) => t.completed);
+  const olderTasks = completedTasks.filter((t) => isOlderCompletedOneOff(t, now));
+  const shownCompletedTasks = showOlder ? completedTasks : completedTasks.filter((t) => !olderTasks.includes(t));
   // UX-104: worked out once, from the list as the page opened. Following
   // the list live mounted the recap (about 115 px) above the rows on the
   // first tick of the week, so the rows jumped under the thumb (M5). A
@@ -145,8 +145,11 @@ export function TasksClient({
                 locale={locale}
               />
             ))}
-            {caughtUp && openTasks.length === 0 && (
-              // UX-104: the shopping list's "All done" moment, for chores.
+            {openTasks.length === 0 && (
+              // UX-104/UX-105: the shopping list's "All done" moment, for
+              // chores. It shows whenever nothing is open (after a tick and
+              // on a fresh visit), so the page never opens straight on
+              // "Completed".
               // The squirrel rises in once and holds still; motion-safe
               // keeps it a static image under prefers-reduced-motion. No
               // count or streak (see "Household tasks": no tallies).
@@ -166,7 +169,7 @@ export function TasksClient({
                 {dict.completedSectionLabel}
               </p>
             )}
-            {completedTasks.map((task) => (
+            {shownCompletedTasks.map((task) => (
               <TaskItemRow
                 key={task.id}
                 task={task}
@@ -178,6 +181,17 @@ export function TasksClient({
                 locale={locale}
               />
             ))}
+            {olderTasks.length > 0 && (
+              <Button
+                variant="ghost"
+                data-flip-key="older-toggle"
+                className="self-start text-muted-foreground max-sm:min-h-11 pointer-coarse:min-h-11"
+                aria-expanded={showOlder}
+                onClick={() => setShowOlder((v) => !v)}
+              >
+                {showOlder ? dict.hideOlder : format(dict.showOlder, { count: olderTasks.length })}
+              </Button>
+            )}
           </>
         )}
       </div>
