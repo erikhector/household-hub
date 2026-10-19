@@ -258,18 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-28. Flaky: personal-budget Undo in `log-expense-fast.spec.ts`** (low, S) —
-      `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same sheet,
-      last-used category and Undo"), `mobile` project. Failed in the local
-      gate on clean `origin/next` `0444ce1` and on UX-82 (`79de34e`) and
-      passes alone. Fix the app's or the test's waiting, never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/log-expense-fast.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30. Also failed on `desktop` (`d3cfbdb`) and `mobile`
-      (`2bc2121`) in the #354 gates, 2026-10-18: `toHaveCount(0)` received
-      2 after 5 s.
-      Another sighting, 2026-10-19: failed once and passed on re-run in the
-      UX-84 gate (`d771c72`'s first run, `mobile`).
 - [ ] **MAINT-29. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
       `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
       `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
