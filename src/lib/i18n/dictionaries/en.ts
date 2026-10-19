@@ -2050,6 +2050,7 @@ export const en = {
     addTaskDialogTitle: "Add a task",
     addTaskPlaceholder: "e.g. Take out the bins",
     addTaskAriaLabel: "Task title",
+    titleCounter: "{count} of {max} characters",
     assigneeLabel: "Assign to",
     unassignedOption: "Unassigned",
     add: "Add",

@@ -982,14 +982,6 @@ UX-89, UX-113.
       Why: the item's own recommended option, no schema, easy to revisit.
       See PRODUCT.md.
 
-- [ ] **UX-107. Say when a task title is too long, and label the field**
-      (impact: low, effort: S) — Usability (prevent errors).
-      `maxLength={120}` (`task-form-dialog.tsx:169`) silently stops input
-      mid-word, and the field has only a placeholder for a label.
-      Acceptance: the title has a visible label and a counter from 100
-      characters, so a saved title is never cut without the user seeing
-      it.
-
 #### Budgets
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,

@@ -1951,6 +1951,7 @@ export const sv = {
     addTaskDialogTitle: "Lägg till en uppgift",
     addTaskPlaceholder: "t.ex. Ta ut soporna",
     addTaskAriaLabel: "Uppgiftens titel",
+    titleCounter: "{count} av {max} tecken",
     assigneeLabel: "Tilldela",
     unassignedOption: "Ingen tilldelad",
     add: "Lägg till",

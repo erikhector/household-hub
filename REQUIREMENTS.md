@@ -5419,6 +5419,11 @@ co-managers, not kids earning rewards.
   use). Only the checkbox or a right swipe completes or reopens a task, so a
   stray tap while scrolling can't complete one silently
   (`e2e/task-title-opens.spec.ts`).
+- **Labelled title with a length counter (UX-107)**: the task dialog's title
+  field has a visible "Task title" label (not just a placeholder). From 100
+  characters a status line under it reads "{n} of 120 characters" and turns
+  destructive at the 120 cap (`maxLength` and the server schema), so input
+  never stops without a word (`e2e/task-title-counter.spec.ts`).
 - **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
   same toggle back, 5 s), since the row leaves for "Completed" below the
   fold. The weekly recap is frozen at the list as the page opened, so the
