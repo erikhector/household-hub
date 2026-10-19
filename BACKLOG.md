@@ -294,10 +294,14 @@ then MAINT-7 per feature, to avoid churn.
       sheet, name themselves and delete from the sheet"), `mobile` project.
       Failed once in the local `ci:local` gate on release PR #381 (head
       `ce28040`, 2026-10-19), then passed on a re-run of the same commit;
-      GitHub's `End-to-end (Playwright)` job on that head passed. The
-      failing assertion is the poll at line 87: the gap between the Delete
-      and Save buttons was -9.14, expected at least 8, so the sticky sheet
-      footer's buttons overlapped. Fix it in the app (the footer's layout
+      GitHub's `End-to-end (Playwright)` job on that head passed. Seen
+      again in a full local `ci:local` gate on release PR #411 (head
+      `b58108c`, 2026-10-19): the same poll at line 87 got -26.86 after
+      5000 ms, then passed on a same-commit re-run, and GitHub's e2e job
+      was green again. The failing assertion is the poll at line 87: the
+      gap between the Delete and Save buttons was -9.14 (#381) and -26.86
+      (#411), expected at least 8, so the sticky sheet footer's buttons
+      overlapped. Fix it in the app (the footer's layout
       while the sheet settles) or in the test's waiting, never a loosened
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/budget-transaction-rows.spec.ts --project=mobile
