@@ -17,6 +17,7 @@ const {
   templateAckFindManyMock,
   templateFindManyMock,
   plannedSplitFindManyMock,
+  personalPlannedFindManyMock,
 } = vi.hoisted(() => ({
   personalTransactionFindManyMock: vi.fn(),
   personalTemplateFindManyMock: vi.fn(),
@@ -28,6 +29,7 @@ const {
   templateAckFindManyMock: vi.fn(),
   templateFindManyMock: vi.fn(),
   plannedSplitFindManyMock: vi.fn(),
+  personalPlannedFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -42,6 +44,7 @@ vi.mock("@/lib/prisma", () => ({
     recurringTemplateAck: { findMany: templateAckFindManyMock },
     recurringTemplate: { findMany: templateFindManyMock },
     plannedExpenseSplit: { findMany: plannedSplitFindManyMock },
+    personalPlannedExpense: { findMany: personalPlannedFindManyMock },
   },
 }));
 
@@ -95,6 +98,7 @@ function split(memberId: string, name: string, amountOwed: number, amountPaid: n
 
 beforeEach(() => {
   plannedSplitFindManyMock.mockResolvedValue([]);
+  personalPlannedFindManyMock.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -493,6 +497,80 @@ describe("loadPersonalBudgetPosition", () => {
       const position = await load();
       expect(position.sharedDueRows).toEqual([]);
       expect(position.safeToSpendBreakdown.duePayments).toBe(0);
+    });
+  });
+
+  describe("personal planned bills", () => {
+    function setup(bills: unknown[]) {
+      personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 30000, 5)]);
+      personalTemplateFindManyMock.mockResolvedValue([]);
+      personalAckFindManyMock.mockResolvedValue([]);
+      householdMemberFindManyMock.mockResolvedValue([]);
+      templateSplitFindManyMock.mockResolvedValue([]);
+      personalPlannedFindManyMock.mockResolvedValue(bills);
+    }
+    const bill = (id: string, dueDate: Date, transaction: { date: Date } | null = null) => ({
+      id,
+      name: id,
+      amount: 1200,
+      categoryId: "cat-health",
+      category: { name: "Health" },
+      dueDate,
+      transaction,
+    });
+    const load = () =>
+      loadPersonalBudgetPosition({ userId: "user-1", monthStart, monthEnd, sharedLabel: "Shared" });
+
+    it("subtracts due and overdue bills at their full amount, not upcoming ones", async () => {
+      setup([
+        bill("Dentist", new Date(2026, 8, 20, 12)),
+        bill("Glasses", new Date(2026, 7, 10, 12)),
+        bill("Course", new Date(2026, 9, 5, 12)),
+      ]);
+
+      const position = await load();
+
+      expect(position.plannedExpenses.map((p) => [p.id, p.status])).toEqual([
+        ["Dentist", "due"],
+        ["Glasses", "overdue"],
+        ["Course", "upcoming"],
+      ]);
+      expect(position.safeToSpendBreakdown.duePayments).toBe(2400);
+      expect(position.safeToSpend).toBe(30000 - 2400);
+      expect(position.expectedRecurring).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ categoryId: "Dentist", amount: 1200, source: "personal" }),
+        ]),
+      );
+    });
+
+    it("counts a paid bill only through its transaction", async () => {
+      setup([bill("Dentist", new Date(2026, 8, 20, 12), { date: new Date(2026, 8, 21) })]);
+
+      const position = await load();
+
+      expect(position.plannedExpenses[0]).toEqual(
+        expect.objectContaining({ status: "paid", paidAt: new Date(2026, 8, 21) }),
+      );
+      expect(position.safeToSpendBreakdown.duePayments).toBe(0);
+    });
+
+    it("only reads the user's own bills that aren't settled history", async () => {
+      setup([]);
+
+      await load();
+
+      expect(personalPlannedFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId: "user-1",
+            OR: [
+              { transaction: { is: null } },
+              { transaction: { is: { date: { gte: monthStart } } } },
+            ],
+          },
+        }),
+      );
     });
   });
 });

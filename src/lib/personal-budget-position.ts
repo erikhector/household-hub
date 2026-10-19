@@ -63,7 +63,7 @@ export async function loadPersonalBudgetPosition({
    * shared "Rent" don't merge into one row. */
   sharedLabel: string;
 }) {
-  const [transactions, recurringTemplates, recurringTemplateAcks, memberships] = await Promise.all([
+  const [transactions, recurringTemplates, recurringTemplateAcks, memberships, ownPlannedExpenses] = await Promise.all([
     prisma.personalTransaction.findMany({
       where: { userId },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -83,7 +83,35 @@ export async function loadPersonalBudgetPosition({
       where: { userId },
       select: { id: true, household: { select: { id: true, name: true } } },
     }),
+    // The user's own planned bills (PersonalPlannedExpense): every unpaid
+    // one, plus those paid on or after the viewed month's start — the same
+    // filter as the household Budget page's, so it doesn't grow with every
+    // bill ever paid. Upcoming ones are included because the Manage tab
+    // lists them; only due and overdue ones count below.
+    prisma.personalPlannedExpense.findMany({
+      where: {
+        userId,
+        OR: [{ transaction: { is: null } }, { transaction: { is: { date: { gte: monthStart } } } }],
+      },
+      include: { category: { select: { name: true } }, transaction: { select: { date: true } } },
+      orderBy: { dueDate: "asc" },
+    }),
   ]);
+
+  // Status per viewed month — see src/lib/planned-expense-calc.ts.
+  const plannedExpenses = ownPlannedExpenses.map((p) => {
+    const paidAt = p.transaction?.date ?? null;
+    return {
+      id: p.id,
+      name: p.name,
+      amount: p.amount,
+      dueDate: p.dueDate,
+      categoryId: p.categoryId,
+      categoryName: p.category.name,
+      status: getPlannedExpenseStatus({ dueDate: p.dueDate, paidAt }, monthStart, monthEnd),
+      paidAt,
+    };
+  });
 
   // --- Shared with your household -------------------------------------------
   // See docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md: a read-only mirror of
@@ -509,6 +537,9 @@ export async function loadPersonalBudgetPosition({
       amount: row.template.amount,
       status: row.status,
     })),
+    // The user's own due and overdue planned bills, at their full amount
+    // (there's no one to share them with).
+    plannedExpenses,
   });
 
   // Fold the user's due share of any *shared* household RecurringTemplate
@@ -559,6 +590,7 @@ export async function loadPersonalBudgetPosition({
     monthTransactions,
     recurringTemplates,
     templateStatusRows,
+    plannedExpenses,
     memberships,
     showHouseholdName,
     sharedPostedRows,

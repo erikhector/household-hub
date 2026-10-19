@@ -73,6 +73,7 @@ model User {
   personalBudgetCategories   PersonalBudgetCategory[]
   personalTransactions       PersonalTransaction[]
   personalRecurringTemplates PersonalRecurringTemplate[]
+  personalPlannedExpenses    PersonalPlannedExpense[]
   passwordResetTokens        PasswordResetToken[]
   emailVerificationTokens    EmailVerificationToken[]
   pushSubscriptions          PushSubscription[]
@@ -1346,6 +1347,7 @@ model PersonalBudgetCategory {
   user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions       PersonalTransaction[]
   recurringTemplates PersonalRecurringTemplate[]
+  plannedExpenses    PersonalPlannedExpense[]
 
   @@index([userId])
 }
@@ -1364,10 +1366,14 @@ model PersonalTransaction {
   // Mirrors Transaction.recurringTemplateId — see RecurringTemplate's
   // doc comment above.
   recurringTemplateId String?
+  // Mirrors Transaction.plannedExpenseId — see the comment on its relation
+  // there for why it's `@unique` and `SetNull`.
+  plannedExpenseId    String?              @unique
 
   user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   category          PersonalBudgetCategory     @relation(fields: [categoryId], references: [id])
   recurringTemplate PersonalRecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
+  plannedExpense    PersonalPlannedExpense?    @relation(fields: [plannedExpenseId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([categoryId])
@@ -1409,6 +1415,31 @@ model PersonalRecurringTemplateAck {
 
   @@unique([personalRecurringTemplateId, periodKey])
   @@index([personalRecurringTemplateId])
+}
+
+// Personal-budget mirror of PlannedExpense (see its doc comment): a one-off
+// bill with a due date that only the user it belongs to sees, counted in
+// their own Remaining until a PersonalTransaction is logged against it.
+// Straight duplicate rather than a nullable householdId on PlannedExpense,
+// same convention as the other Personal* tables, and with no split table:
+// there's only ever one person on a personal budget.
+model PersonalPlannedExpense {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+  name       String
+  amount     Float
+  // Date only, stored at UTC noon — see PlannedExpense.dueDate.
+  dueDate    DateTime
+  createdAt  DateTime @default(now())
+
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    PersonalBudgetCategory @relation(fields: [categoryId], references: [id])
+  // At most one: the transaction that paid this bill.
+  transaction PersonalTransaction?
+
+  @@index([userId, dueDate])
+  @@index([categoryId])
 }
 
 // --- Household tasks ---------------------------------------------------------

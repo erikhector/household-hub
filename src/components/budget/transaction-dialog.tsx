@@ -288,12 +288,10 @@ export function TransactionDialog({
       }
       if (!isEdit && prefillFromTemplate) {
         // A planned bill is paid once, not "for this period" like a
-        // recurring item. dict.planned only exists on the household side,
-        // which is the only side that links a planned bill.
-        const toastText =
-          prefillFromTemplate.plannedExpenseId && dict.planned
-            ? dict.planned.loggedToast
-            : dict.recurring.loggedToast;
+        // recurring item.
+        const toastText = prefillFromTemplate.plannedExpenseId
+          ? dict.planned.loggedToast
+          : dict.recurring.loggedToast;
         toast.success(format(toastText, { name: prefillFromTemplate.description ?? "" }));
       }
     }

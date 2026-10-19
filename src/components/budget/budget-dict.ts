@@ -18,10 +18,20 @@
 // it's missing" case.
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
+type HouseholdPlannedDict = Dictionary["budget"]["planned"];
+type PlannedSplitKey = "splitWays" | "splitLabel" | "sharesLabel" | "splitEvenly" | "shareAriaLabel" | "splitMismatch";
+
+/** Planned bills' texts on either budget (budget.planned or
+ * personalBudget.planned). The split texts are household-only, the same
+ * optional-group convention as above: they're only read when a bill has
+ * splits or the household has more than one member, never on the personal
+ * budget. */
+export type PlannedDict = Omit<HouseholdPlannedDict, PlannedSplitKey> &
+  Partial<Pick<HouseholdPlannedDict, PlannedSplitKey>>;
+
 export type BudgetDict = {
-  // Household-only: planned bills (BUDGET-8) in the due strip. Only read when
-  // plannedDue is non-empty, which never happens on the personal budget page.
-  planned?: Dictionary["budget"]["planned"];
+  // Planned bills in the due strip and on the Manage tab, on both budgets.
+  planned: PlannedDict;
   add: string;
   addTransactionDialogTitle: string;
   amountLabel: string;
