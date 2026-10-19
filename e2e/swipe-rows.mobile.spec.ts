@@ -295,7 +295,8 @@ test("swipe-deleting an aisle's last row hides its header until Undo", async ({ 
     `e2e-ux35-inv-${t}`,
   ]);
   await page.goto(listId);
-  const header = main.getByText("Frozen", { exact: true });
+  // The <p> aisle header, not the print copy (h2) or the dock label.
+  const header = main.getByRole("paragraph").filter({ hasText: /^Frozen$/ });
   const row = main.getByTitle(new RegExp(`^${name}\\b`));
   await expect(header).toBeVisible();
 
