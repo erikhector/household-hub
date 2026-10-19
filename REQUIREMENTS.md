@@ -6096,7 +6096,12 @@ components directly.
   to dashboard". Copy is in the `notFound` dictionary section. The failed
   states of `/verify-email/<token>` and `/unsubscribe/<token>` are titled
   by outcome ("Link expired" and "Link not valid") instead of the page's
-  label. Covered by `e2e/public-pages.spec.ts` and
+  label. On `/verify-email/<token>` the title follows the cause (UX-142):
+  `verifyEmailAction` returns a `code` (`invalid`, `rateLimited`,
+  `generic`) next to `error`, and the client takes the title and message
+  from the `auth.verifyEmail` dictionary by code, so a rate-limited
+  visitor sees "Too many attempts" with a "try again later" message, not
+  "Link expired". Covered by `e2e/public-pages.spec.ts` and
   `e2e/item-catalog.spec.ts` (signed-in 404).
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
