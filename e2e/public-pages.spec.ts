@@ -91,7 +91,7 @@ test("a logged-out 404 uses the status card and leads to the landing page", asyn
   expect(response?.status()).toBe(404);
   await expect(page.getByText("Page not found")).toBeVisible();
   await expect(page.getByRole("link", { name: "Squirrel" }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to dashboard" })).toHaveCount(0);
+  await expect(page.getByText("Back to dashboard")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
   await page.getByRole("link", { name: "Go to Squirrel" }).click();
   await expect(page).toHaveURL(/\/$/);
