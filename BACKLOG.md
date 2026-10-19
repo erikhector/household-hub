@@ -969,15 +969,6 @@ UX-89, UX-113.
 
 #### Inventory
 
-- [ ] **UX-124. The item page has the controls people expect** (impact:
-      med, effort: M) — breaks Consistency and User control. The item
-      page (`items/[id]/page.tsx:138`) has no Edit, Delete, stepper,
-      expiry, opened or frozen state, or stock badge. It says "In stock: 0
-      pcs" for an empty item. Its "Also on" list link doesn't look like a
-      link.
-      Acceptance: the item page shows the status badge, expiry, Edit,
-      Delete and a stepper. List links look like links.
-
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
       med, effort: S) `[!]` — bug. Needs a schema change and a decision:
       nothing records that an item was ever stocked (no stock log; only the

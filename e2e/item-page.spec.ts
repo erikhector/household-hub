@@ -82,7 +82,7 @@ test("an item's details open from the inventory list and show its recipes and le
 
   await expect(page.getByRole("heading", { name: flour.name, level: 1 })).toBeVisible();
   // Scoped to main, like after the reload in the next test: the page streams in.
-  await expect(page.getByRole("main").getByText("In stock: 1 pcs")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("button", { name: /^Adjust .* \(1 pcs\)$/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Used in 2 recipes" })).toBeVisible();
   // 750 g through the saved "1 pcs = 2000 g": converts.
   const buns = recipeRow(page, flour.recipes.buns);
@@ -195,7 +195,7 @@ test("changing the unit converts the stock and keeps the old unit as a conversio
   await page.reload();
   // Scoped to main: see the reload in "adding a conversion from a ⚠ recipe row".
   const main = page.getByRole("main");
-  await expect(main.getByText("In stock: 2000 g")).toBeVisible();
+  await expect(main.getByRole("button", { name: /^Adjust .* \(2000 g\)$/ })).toBeVisible();
   await expect(main.getByText("Counted in g")).toBeVisible();
   await expect(main.getByText("1 pcs = 2000 g")).toBeVisible();
   await expect(recipeRow(page, flour.recipes.buns)).toContainText("= 750 g");

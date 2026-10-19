@@ -234,6 +234,7 @@ export async function updateInventoryItemAction(
   }
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
   revalidateAutoAdded([autoAdded]);
   return autoAdded ? { autoAdded: [autoAdded] } : {};
@@ -584,6 +585,7 @@ export async function adjustQuantityAction(
   }
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
   revalidateAutoAdded([autoAdded]);
   return autoAdded ? { autoAdded: [autoAdded] } : {};
@@ -630,6 +632,7 @@ export async function markItemEmptyAction(
   }
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
 
   if (!addToShoppingList) {
@@ -738,6 +741,7 @@ export async function markItemOpenedAction(itemId: string): Promise<{
   }
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
   return {
     openedAt: patch.openedAt,
@@ -786,6 +790,7 @@ export async function undoMarkItemOpenedAction(
   }
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
   return {};
 }
@@ -837,6 +842,7 @@ export async function freezeItemAction(itemId: string): Promise<{
   }
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
   return {
     frozenAt: patch.frozenAt,
@@ -880,6 +886,7 @@ export async function undoFreezeItemAction(
   }
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
   return {};
 }

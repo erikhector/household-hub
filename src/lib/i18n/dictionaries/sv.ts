@@ -1308,7 +1308,7 @@ export const sv = {
       back: "Lager",
       backToCatalog: "Hantera varor",
       backToRecipes: "Recept",
-      inStock: "I lager: {amount}",
+      bestBefore: "Bäst före {date}",
       lowStockAt: "lågt lager under {amount}",
       changeUnit: "Byt enhet…",
       unitsTitle: "Enheter",

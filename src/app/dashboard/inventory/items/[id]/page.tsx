@@ -12,6 +12,7 @@ import { getRecentPrices } from "@/lib/inventory/recent-prices";
 import { ItemRecentPrices } from "@/components/inventory/item-page/item-recent-prices";
 import { ItemUnitsAndUsage } from "@/components/inventory/item-page/item-units-and-usage";
 import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-dialog";
+import { ItemPageControls } from "@/components/inventory/item-page/item-page-controls";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
 import { MergeIntoDialog } from "@/components/inventory/catalog/merge-into-dialog";
 import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page-origin";
@@ -23,12 +24,14 @@ import { PageTitle } from "@/components/dashboard/page-title";
 const short = (value: number) => String(Number(value.toPrecision(3)));
 
 // MATCH-6 (design §6.1): one inventory item, where it's used and its units.
-// Everything comes from seven household-scoped queries run together, never
+// Everything comes from eight household-scoped queries run together, never
 // one per recipe or list. The fifth lists the other items, for "Merge into
 // another item…" (MATCH-7). The sixth names the household's members, so
 // "Last updated … by …" can say who; phones don't show that on the
 // inventory list (UX-45), so this page is where they find it. The seventh is
-// the last purchases for "Recent prices" (GAP-47).
+// the last purchases for "Recent prices" (GAP-47). The eighth is the
+// household's low-stock auto-add setting, for the Mark-as-empty menu
+// (UX-124, same as the list's).
 export default async function InventoryItemPage(props: PageProps<"/dashboard/inventory/items/[id]">) {
   const [{ household }, fullDict, locale, { id }, searchParams] = await Promise.all([
     requireHousehold(),
@@ -43,7 +46,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
   const origin = parseItemPageOrigin(searchParams.from);
   const backLabel = { inventory: dict.back, catalog: dict.backToCatalog, recipes: dict.backToRecipes }[origin.kind];
 
-  const [item, ingredients, listRows, templateRows, otherItems, members, recentPrices] = await Promise.all([
+  const [item, ingredients, listRows, templateRows, otherItems, members, recentPrices, householdSettings] = await Promise.all([
     prisma.inventoryItem.findFirst({
       where: { id, householdId: household.id },
       select: {
@@ -54,6 +57,13 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
         quantity: true,
         unit: true,
         lowStockThreshold: true,
+        expiresAt: true,
+        expiresAtEstimated: true,
+        shelfLifeDays: true,
+        openedAt: true,
+        useWithinDaysOpened: true,
+        frozenAt: true,
+        useWithinDaysFrozen: true,
         updatedAt: true,
         updatedByUserId: true,
         unitConversions: { select: { id: true, fromUnit: true, factor: true }, orderBy: { createdAt: "asc" } },
@@ -81,7 +91,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
     }),
     prisma.inventoryItem.findMany({
       where: { householdId: household.id, id: { not: id } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, category: true, location: true, unit: true },
       orderBy: { name: "asc" },
     }),
     prisma.householdMember.findMany({
@@ -89,6 +99,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
       select: { userId: true, user: { select: { displayName: true } } },
     }),
     getRecentPrices(id),
+    prisma.household.findUnique({ where: { id: household.id }, select: { autoAddLowStockToList: true } }),
   ]);
   if (!item) notFound();
 
@@ -109,6 +120,16 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
   const units = [
     ...new Set([item.unit, ...conversions.map((conversion) => conversion.fromUnit), ...rows.map((row) => canonicalUnit(row.unit))]),
   ];
+  // The edit form's suggestions, the way the list builds them.
+  const everyItem = [item, ...otherItems];
+  const categories = [...new Set(everyItem.map((row) => row.category))].sort();
+  const locations = [...new Set(everyItem.flatMap((row) => (row.location ? [row.location] : [])))].sort();
+  const allUnits = [...new Set(everyItem.map((row) => row.unit))].sort();
+  const bestBefore = item.expiresAt
+    ? format(dict.bestBefore, {
+        date: `${item.expiresAtEstimated ? "≈ " : ""}${new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(item.expiresAt)}`,
+      })
+    : null;
   const subtitle = [item.category, item.location].filter(Boolean).join(" · ");
   // Same sentence and date style as the desktop table's "Last updated" cell
   // (last-updated-cell.tsx). The name is left out when the updater has left
@@ -133,14 +154,22 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           <PageTitle morph={{ kind: "inventory-item", id: item.id }}>{item.name}</PageTitle>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <p>
-            {format(dict.inStock, { amount: `${item.quantity} ${unitLabel(item.unit, fullDict.units)}` })}
-            <span className="text-sm text-muted-foreground">
-              {" · "}
-              {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${unitLabel(item.unit, fullDict.units)}` })}
-            </span>
-          </p>
+        <ItemPageControls
+          item={item}
+          categories={categories}
+          locations={locations}
+          units={allUnits}
+          members={members.map((member) => ({ userId: member.userId, displayName: member.user.displayName }))}
+          locale={locale}
+          dict={fullDict.inventory}
+          barcodeDict={fullDict.barcodeScanner}
+          autoAddEnabled={householdSettings?.autoAddLowStockToList ?? false}
+          backHref={itemPageBackHref(origin)}
+          bestBeforeLabel={bestBefore}
+        >
+          <span className="text-sm text-muted-foreground">
+            {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${unitLabel(item.unit, fullDict.units)}` })}
+          </span>
           <ChangeUnitDialog
             item={{
               id: item.id,
@@ -153,7 +182,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
             dict={dict}
             comboDict={fullDict.inventory}
           />
-        </div>
+        </ItemPageControls>
         <p className="text-sm text-muted-foreground">{lastUpdated}</p>
       </div>
 
@@ -176,7 +205,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
             {listRows.map((row) => (
               <li key={row.id}>
-                <Link href={`/dashboard/shopping-list/${row.shoppingList.id}`} className="touch-target underline-offset-4 hover:underline">
+                <Link href={`/dashboard/shopping-list/${row.shoppingList.id}`} className="touch-target text-primary underline underline-offset-4 hover:no-underline">
                   {row.shoppingList.name}
                 </Link>{" "}
                 <span className="text-muted-foreground">
@@ -186,7 +215,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
             ))}
             {templateRows.map((row) => (
               <li key={row.id}>
-                <Link href="/dashboard/shopping-list" className="touch-target underline-offset-4 hover:underline">
+                <Link href="/dashboard/shopping-list" className="touch-target text-primary underline underline-offset-4 hover:no-underline">
                   {format(dict.template, { name: row.template.name })}
                 </Link>
               </li>
