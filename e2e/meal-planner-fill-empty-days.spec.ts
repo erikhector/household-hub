@@ -134,5 +134,6 @@ test("with only two favorites, the other empty days are filled from non-favorite
   await dialog.getByRole("button", { name: "Add dinners" }).click();
   await expect(page.getByText("Planned 7 dinners")).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(0);
+  await page.getByRole("button", { name: "More planner actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Fill empty days" })).toHaveCount(0);
 });
