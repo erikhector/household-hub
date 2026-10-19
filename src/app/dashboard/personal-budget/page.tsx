@@ -12,6 +12,10 @@ import {
   type PausedRecurringTemplateRow,
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
+import {
+  PlannedExpensesPanel,
+  type PlannedExpenseRow,
+} from "@/components/budget/planned-expenses-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
 import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
@@ -35,6 +39,12 @@ import {
   updatePersonalRecurringTemplateAction,
   updatePersonalTransactionAction,
 } from "@/app/dashboard/personal-budget/actions";
+import {
+  createPersonalPlannedExpenseAction,
+  deletePersonalPlannedExpenseAction,
+  updatePersonalPlannedExpenseAction,
+} from "@/app/dashboard/personal-budget/planned-expense-actions";
+import { isPlannedExpenseOutstanding } from "@/lib/planned-expense-calc";
 import { computePersonalFixedInsights } from "@/lib/personal-fixed-insights";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import {
@@ -131,6 +141,7 @@ async function PersonalBudgetTabsSection({
     monthTransactions,
     recurringTemplates,
     templateStatusRows,
+    plannedExpenses,
     memberships,
     showHouseholdName,
     sharedPostedRows,
@@ -244,6 +255,11 @@ async function PersonalBudgetTabsSection({
       splits: [],
     }));
 
+  // --- Planned bills ---------------------------------------------------------
+  // The user's own, with statuses from the loader. splits: [] for the same
+  // reason as the recurring rows above: nothing to split on a personal budget.
+  const plannedExpenseRows: PlannedExpenseRow[] = plannedExpenses.map((p) => ({ ...p, splits: [] }));
+
   // --- Fixed income & costs summary -----------------------------------------
   // Mirrors the household budget's (src/app/dashboard/budget/page.tsx), plus
   // the user's share of shared household recurring bills (BUDGET-7) — see
@@ -269,7 +285,7 @@ async function PersonalBudgetTabsSection({
     sharedLabel: dict.personalBudget.shared.sharedBadge,
   });
 
-  // --- Manage tab: recurring items + categories -----------------------------
+  // --- Manage tab: recurring items, planned bills + categories --------------
   // Grouped together — see budget-tabs.tsx's doc comment (this mirrors the
   // household budget's own Manage tab).
   const manage = (
@@ -287,6 +303,20 @@ async function PersonalBudgetTabsSection({
         onUnacknowledge={unacknowledgePersonalTemplatePeriodAction}
         createTemplateAction={createPersonalRecurringTemplateAction}
         updateTemplateAction={updatePersonalRecurringTemplateAction}
+        createTransactionAction={createPersonalTransactionAction}
+        updateTransactionAction={updatePersonalTransactionAction}
+      />
+      <PlannedExpensesPanel
+        rows={plannedExpenseRows}
+        categories={categoryRows}
+        members={[]}
+        currentMemberId=""
+        monthKey={monthKey}
+        dict={dict.personalBudget}
+        locale={locale}
+        createAction={createPersonalPlannedExpenseAction}
+        updateAction={updatePersonalPlannedExpenseAction}
+        onDelete={deletePersonalPlannedExpenseAction}
         createTransactionAction={createPersonalTransactionAction}
         updateTransactionAction={updatePersonalTransactionAction}
       />
@@ -433,6 +463,7 @@ async function PersonalBudgetTabsSection({
       householdDebts={householdDebts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
+      plannedDue={plannedExpenseRows.filter((r) => isPlannedExpenseOutstanding(r.status))}
       sharedDueRows={sharedDueRows}
       showHouseholdName={showHouseholdName}
       sharedExpenseHouseholds={sharedExpenseHouseholds}

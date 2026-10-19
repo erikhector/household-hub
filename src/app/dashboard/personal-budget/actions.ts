@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError } from "@/lib/actions/errors";
+import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
 import {
   limitForType,
   monthlyLimitField,
@@ -150,6 +151,8 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
       // See budget/actions.ts's deleteCategoryAction for why this is
       // checked explicitly rather than just letting the FK restrict fail.
       recurringTemplates: { select: { name: true }, orderBy: { active: "desc" }, take: 1 },
+      // Same for planned bills (PersonalPlannedExpense's category is Restrict).
+      plannedExpenses: { select: { name: true }, take: 1 },
     },
   });
   if (!category) return { error: "Category not found" };
@@ -162,6 +165,8 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
       error: `This category is used by the recurring item "${blockingTemplate.name}" — remove or reassign it first`,
     };
   }
+  const blockingPlanned = category.plannedExpenses[0];
+  if (blockingPlanned) return fail("categoryUsedByPlannedBill", { name: blockingPlanned.name });
 
   try {
     await prisma.personalBudgetCategory.delete({ where: { id: category.id } });
@@ -185,6 +190,9 @@ const transactionSchema = z.object({
   // Mirrors the household budget's recurringTemplateId — see
   // src/app/dashboard/budget/actions.ts's transactionSchema doc comment.
   recurringTemplateId: z.string().optional(),
+  // Set when logging a payment against a personal planned bill. Only read
+  // on create, like the household's (src/app/dashboard/budget/actions.ts).
+  plannedExpenseId: z.string().optional(),
 });
 
 function parseTransactionFormData(formData: FormData) {
@@ -196,7 +204,25 @@ function parseTransactionFormData(formData: FormData) {
     isRecurring: formData.get("isRecurring") === "on",
     recurrenceFrequency: formData.get("recurrenceFrequency") || undefined,
     recurringTemplateId: formData.get("recurringTemplateId") || undefined,
+    plannedExpenseId: formData.get("plannedExpenseId") || undefined,
   });
+}
+
+/** Validates an optional client-supplied plannedExpenseId belongs to the
+ * caller and isn't already paid (a planned bill has at most one payment) —
+ * the personal mirror of budget/actions.ts's resolvePlannedExpenseId. */
+async function resolvePersonalPlannedExpenseId(
+  userId: string,
+  plannedExpenseId: string | undefined,
+): Promise<{ error: string } | { id: string | undefined }> {
+  if (!plannedExpenseId) return { id: undefined };
+  const planned = await prisma.personalPlannedExpense.findFirst({
+    where: { id: plannedExpenseId, userId },
+    select: { id: true, transaction: { select: { id: true } } },
+  });
+  if (!planned) return fail("plannedBillNotFound");
+  if (planned.transaction) return fail("plannedBillAlreadyPaid");
+  return { id: planned.id };
 }
 
 async function resolvePersonalRecurringTemplateId(
@@ -267,6 +293,14 @@ export async function createPersonalTransactionAction(
     if (dup) return dup;
   }
 
+  // A planned bill is an expense by definition (its own category must be
+  // one), so its payment must be too, or it would stop counting as spent.
+  if (parsed.data.plannedExpenseId && category.type !== "EXPENSE") {
+    return fail("plannedBillNeedsExpenseCategory");
+  }
+  const planned = await resolvePersonalPlannedExpenseId(userId, parsed.data.plannedExpenseId);
+  if ("error" in planned) return { error: planned.error };
+
   let created;
   try {
     created = await prisma.personalTransaction.create({
@@ -282,10 +316,16 @@ export async function createPersonalTransactionAction(
         isRecurring: parsed.data.isRecurring,
         recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
         recurringTemplateId: recurringTemplate.id ?? null,
+        plannedExpenseId: planned.id ?? null,
       },
       select: { id: true },
     });
   } catch (error) {
+    // Two payments for the same bill racing past the check above: the
+    // unique index on plannedExpenseId rejects the loser.
+    if (isUniqueViolation(error) && isPlannedExpenseTarget(error)) {
+      return fail("plannedBillAlreadyPaid");
+    }
     return toFriendlyError(error);
   }
 
@@ -326,9 +366,13 @@ export async function updatePersonalTransactionAction(
 
   const existing = await prisma.personalTransaction.findFirst({
     where: { id: parsed.data.id, userId },
-    select: { id: true },
+    select: { id: true, plannedExpenseId: true },
   });
   if (!existing) return { error: "Transaction not found" };
+  // Same rule as on create: a planned bill's payment stays an expense.
+  if (existing.plannedExpenseId && category.type !== "EXPENSE") {
+    return fail("plannedBillNeedsExpenseCategory");
+  }
 
   try {
     await prisma.personalTransaction.update({

@@ -104,8 +104,8 @@ export function DueRecurringWidget({
   hasTemplates: boolean;
   /** Outstanding (overdue or due) planned bills, BUDGET-8 — already filtered
    * with isPlannedExpenseOutstanding. Listed after the templates; any entry
-   * counts as content, so the "nothing set up" state doesn't show. Always
-   * `[]` on the personal budget page. */
+   * counts as content, so the "nothing set up" state doesn't show. On the
+   * personal budget page these are the user's own planned bills. */
   plannedDue?: PlannedExpenseRow[];
   /** The user's own share of due-but-not-yet-posted shared household
    * RecurringTemplates (see SharedDueRow's doc comment) — merged straight
@@ -276,7 +276,7 @@ export function DueRecurringWidget({
             {/* Same one-line shape as the recurring items above: name and
                 category, then amount and due date in caption size, with the
                 one action at the end. */}
-            {planned && plannedDue.map((bill) => (
+            {plannedDue.map((bill) => (
               <div key={bill.id} className="flex items-center gap-2 rounded-md border py-1.5 pr-1.5 pl-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex min-w-0 items-baseline gap-1.5">

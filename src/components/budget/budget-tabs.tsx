@@ -188,8 +188,8 @@ export function BudgetTabs({
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
-  /** Outstanding planned bills (BUDGET-8), for the due strip. Omitted
-   * (defaults to `[]`) on the personal budget page. */
+  /** Outstanding planned bills (BUDGET-8), for the due strip: the
+   * household's, or on the personal budget page the user's own. */
   plannedDue?: PlannedExpenseRow[];
   /** Every member of the active household — see TransactionDialog's
    * identical prop. Omitted (defaults to `[]`) on the personal budget page,

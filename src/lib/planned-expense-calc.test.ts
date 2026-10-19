@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPlannedExpenseStatus,
   isPlannedExpenseOutstanding,
+  parseDueDate,
 } from "@/lib/planned-expense-calc";
 
 const oct = new Date(2026, 9, 1);
@@ -70,5 +71,16 @@ describe("isPlannedExpenseOutstanding", () => {
     expect(isPlannedExpenseOutstanding("overdue")).toBe(true);
     expect(isPlannedExpenseOutstanding("paid")).toBe(false);
     expect(isPlannedExpenseOutstanding("upcoming")).toBe(false);
+  });
+});
+
+describe("parseDueDate", () => {
+  it("stores a calendar day at UTC noon", () => {
+    expect(parseDueDate("2026-11-20")).toEqual(new Date("2026-11-20T12:00:00Z"));
+  });
+
+  it("rejects an impossible date", () => {
+    expect(parseDueDate("2026-02-31")).toBeNull();
+    expect(parseDueDate("not-a-date")).toBeNull();
   });
 });

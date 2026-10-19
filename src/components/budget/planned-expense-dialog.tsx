@@ -27,14 +27,17 @@ import { evenSplitAmounts } from "@/components/budget/split-amounts";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { MemberOption } from "@/components/budget/transaction-dialog";
 import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import { PendingLabel } from "@/components/ui/pending-label";
 
 // createPlannedExpenseAction / updatePlannedExpenseAction
-// (src/app/dashboard/budget/planned-expense-actions.ts).
+// (src/app/dashboard/budget/planned-expense-actions.ts), or the personal
+// budget's createPersonalPlannedExpenseAction /
+// updatePersonalPlannedExpenseAction
+// (src/app/dashboard/personal-budget/planned-expense-actions.ts).
 export type PlannedExpenseFormAction = (
   prevState: ActionState,
   formData: FormData,
@@ -72,7 +75,8 @@ function buildInitialSplitAmounts(
 // Add or edit a planned bill (BUDGET-8). Modelled on RecurringTemplateDialog,
 // including its share-only split section: nothing is paid yet, so there's no
 // "Paid" column (SplitEditor's) to fill in. Who paid is recorded later, on
-// the transaction "Log payment" creates.
+// the transaction "Log payment" creates. Serves the personal budget too,
+// where `members` is empty, so the split section never shows.
 export function PlannedExpenseDialog({
   dict,
   categories,
@@ -83,7 +87,8 @@ export function PlannedExpenseDialog({
   updateAction,
   numberFormat,
 }: {
-  dict: Dictionary["budget"];
+  /** dict.budget or dict.personalBudget. */
+  dict: BudgetDict;
   /** Expense categories only — the actions reject any other type. */
   categories: CategoryRow[];
   /** Every member of the household; the split section only shows with more
@@ -282,12 +287,12 @@ export function PlannedExpenseDialog({
                             setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }));
                             setSharesTouched(true);
                           }}
-                          aria-label={format(t.shareAriaLabel, { name: m.displayName })}
+                          aria-label={t.shareAriaLabel && format(t.shareAriaLabel, { name: m.displayName })}
                         />
                       </div>
                     ))}
                   </div>
-                  {splitMismatch && (
+                  {splitMismatch && t.splitMismatch && (
                     <p className="text-xs text-destructive">
                       {format(t.splitMismatch, {
                         total: numberFormat.format(splitTotal),
