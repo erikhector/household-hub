@@ -69,16 +69,36 @@ export function TodayBlock({
     saveFailedToast: string;
   };
 }) {
-  // What this visit has ticked, by task id. The server list only changes on
-  // the next visit, so a ticked row stays (struck through) until then.
-  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  // What this visit has ticked, by task id, with the row's place in the
+  // list. Completing a task revalidates the page, so the server soon sends
+  // a list without it (MAINT-25: the row used to vanish a moment after the
+  // tick, which also made the e2e check flaky). The ticked row has to stay,
+  // struck through, so nothing jumps under the thumb (M5): it is kept here
+  // and put back where it was whenever the server list no longer holds it.
+  // Unticking (or Undo) keeps the entry with done: false, because by then
+  // the server list has usually dropped the task and the un-complete save
+  // hasn't revalidated yet: deleting the entry would make the row vanish at
+  // once (M5). It is only dropped once the server list holds the task again.
+  const [ticked, setTicked] = useState<ReadonlyMap<string, { task: TodayTask; index: number; done: boolean }>>(
+    () => new Map(),
+  );
 
-  const toggle = (task: TodayTask, completing: boolean) => {
+  // Dropping happens while rendering (React's "adjust state on a prop
+  // change" pattern), so the row never flashes between the two lists.
+  const serverIds = new Set(tasks.map((t) => t.id));
+  if ([...ticked].some(([id, entry]) => !entry.done && serverIds.has(id))) {
+    setTicked((current) => {
+      const next = new Map(current);
+      for (const [id, entry] of current) if (!entry.done && serverIds.has(id)) next.delete(id);
+      return next;
+    });
+  }
+
+  const toggle = (task: TodayTask, completing: boolean, index: number) => {
     const set = (done: boolean) =>
       setTicked((current) => {
-        const next = new Set(current);
-        if (done) next.add(task.id);
-        else next.delete(task.id);
+        const next = new Map(current);
+        next.set(task.id, { task, index, done });
         return next;
       });
     set(completing);
@@ -86,7 +106,7 @@ export function TodayBlock({
       // Undo is the same toggle, from the state this tick left behind.
       toast(format(taskDict.doneToast, { title: task.title }), {
         duration: 5000,
-        action: { label: taskDict.undo, onClick: () => toggle(task, false) },
+        action: { label: taskDict.undo, onClick: () => toggle(task, false, index) },
       });
     }
     void (async () => {
@@ -94,6 +114,11 @@ export function TodayBlock({
       if (result === null) set(!completing);
     })();
   };
+
+  const shownTasks = [...tasks];
+  for (const { task, index } of [...ticked.values()].sort((a, b) => a.index - b.index)) {
+    if (!shownTasks.some((t) => t.id === task.id)) shownTasks.splice(Math.min(index, shownTasks.length), 0, task);
+  }
 
   const tonightText = tonight.length > 0 ? tonight.join(", ") : null;
 
@@ -105,10 +130,10 @@ export function TodayBlock({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {tasks.length > 0 ? (
+        {shownTasks.length > 0 ? (
           <ul className="flex flex-col gap-1" aria-label={dict.tasksAriaLabel}>
-            {tasks.map((task) => {
-              const done = ticked.has(task.id);
+            {shownTasks.map((task, index) => {
+              const done = ticked.get(task.id)?.done ?? false;
               return (
                 <li key={task.id} className="flex items-center gap-3 px-1 max-sm:min-h-11">
                   <Checkbox
@@ -117,7 +142,7 @@ export function TodayBlock({
                       done ? taskDict.toggleIncompleteAriaLabel : taskDict.toggleCompleteAriaLabel,
                       { title: task.title },
                     )}
-                    onChange={() => toggle(task, !done)}
+                    onChange={() => toggle(task, !done, index)}
                   />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span
