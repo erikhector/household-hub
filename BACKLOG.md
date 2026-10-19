@@ -811,16 +811,6 @@ UX-89, UX-113.
       away" badges while the list is active. After completing, the page
       offers "Back to lists" and "Start next list".
 
-- [ ] **UX-83. Aisle headers in the viewer's language** (impact: med,
-      effort: S) — breaks Consistency and Context. Group labels are the
-      first item's stored category text
-      (`src/lib/shopping/shopping-mode-grouping.ts:100-102`). A Swedish
-      session shows "PRODUCE", "CLEANING SUPPLIES" next to "ÖVRIGT", and
-      "Näst på tur · Cleaning supplies".
-      Acceptance: known category keys take their label from the current
-      locale's `categoryLabels` in headers and the dock ("Frukt & grönt",
-      "Städartiklar").
-
 - [ ] **UX-85. Rename a list, and start a new list from a template or a
       past list** (impact: med, effort: M) — breaks User control and M4.
       - Lists can't be renamed anywhere: there's no action in
