@@ -342,8 +342,8 @@ test.describe("aisle names follow the viewer's language", () => {
       ]);
       await page.goto(path);
 
-      await expect(page.getByText("Frukt & grönt", { exact: true }).first()).toBeVisible();
-      await expect(page.getByText("Städartiklar", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("Frukt & grönt", { exact: true }).locator("visible=true").first()).toBeVisible();
+      await expect(page.getByText("Städartiklar", { exact: true }).locator("visible=true").first()).toBeVisible();
       await expect(page.getByText("Produce", { exact: true })).toHaveCount(0);
       await expect(page.getByText("Cleaning supplies", { exact: true })).toHaveCount(0);
       const dock = page.getByRole("region", { name: "Näst på tur" });
@@ -355,7 +355,7 @@ test.describe("aisle names follow the viewer's language", () => {
     const t = tag();
     const path = await seedList(t, [{ name: `Mjölk ${t}`, category: "Mejeri & ägg" }]);
     await page.goto(path);
-    await expect(page.getByText("Dairy & eggs", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Dairy & eggs", { exact: true }).locator("visible=true").first()).toBeVisible();
     await expect(page.getByText("Mejeri & ägg", { exact: true })).toHaveCount(0);
   });
 });
