@@ -75,15 +75,30 @@ export function TodayBlock({
   // tick, which also made the e2e check flaky). The ticked row has to stay,
   // struck through, so nothing jumps under the thumb (M5): it is kept here
   // and put back where it was whenever the server list no longer holds it.
-  // Undo drops it again.
-  const [ticked, setTicked] = useState<ReadonlyMap<string, { task: TodayTask; index: number }>>(() => new Map());
+  // Unticking (or Undo) keeps the entry with done: false, because by then
+  // the server list has usually dropped the task and the un-complete save
+  // hasn't revalidated yet: deleting the entry would make the row vanish at
+  // once (M5). It is only dropped once the server list holds the task again.
+  const [ticked, setTicked] = useState<ReadonlyMap<string, { task: TodayTask; index: number; done: boolean }>>(
+    () => new Map(),
+  );
+
+  // Dropping happens while rendering (React's "adjust state on a prop
+  // change" pattern), so the row never flashes between the two lists.
+  const serverIds = new Set(tasks.map((t) => t.id));
+  if ([...ticked].some(([id, entry]) => !entry.done && serverIds.has(id))) {
+    setTicked((current) => {
+      const next = new Map(current);
+      for (const [id, entry] of current) if (!entry.done && serverIds.has(id)) next.delete(id);
+      return next;
+    });
+  }
 
   const toggle = (task: TodayTask, completing: boolean, index: number) => {
     const set = (done: boolean) =>
       setTicked((current) => {
         const next = new Map(current);
-        if (done) next.set(task.id, { task, index });
-        else next.delete(task.id);
+        next.set(task.id, { task, index, done });
         return next;
       });
     set(completing);
@@ -118,7 +133,7 @@ export function TodayBlock({
         {shownTasks.length > 0 ? (
           <ul className="flex flex-col gap-1" aria-label={dict.tasksAriaLabel}>
             {shownTasks.map((task, index) => {
-              const done = ticked.has(task.id);
+              const done = ticked.get(task.id)?.done ?? false;
               return (
                 <li key={task.id} className="flex items-center gap-3 px-1 max-sm:min-h-11">
                   <Checkbox
