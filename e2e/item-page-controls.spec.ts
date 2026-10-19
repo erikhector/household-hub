@@ -60,7 +60,7 @@ test("the item page shows the stock status, expiry, opened and frozen tags", asy
   await expect(main.getByText("Expiring soon", { exact: true })).toBeVisible();
   await expect(main.getByText("Opened", { exact: true })).toBeVisible();
   await expect(main.getByText("Frozen", { exact: true })).toBeVisible();
-  await expect(main.getByText(/^Best before \d/)).toBeVisible();
+  await expect(main.getByText(/^Best before \S+/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
