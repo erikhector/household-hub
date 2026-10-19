@@ -276,6 +276,39 @@ test("swipe-delete hides the row with an Undo, and deletes once the toast is gon
     .toBe(0);
 });
 
+// UX-84: the aisle header goes with its last row for the Undo window, and
+// comes back with it.
+test("swipe-deleting an aisle's last row hides its header until Undo", async ({ page }) => {
+  const main = page.getByRole("main");
+  const t = tag();
+  const name = `Peas ${t}`;
+  const listId = await seedList(t, []);
+  await sql(
+    `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
+     VALUES ($1, $2, $3, 'Frozen', 1, 'pcs', now())`,
+    [`e2e-ux35-inv-${t}`, E2E_HOUSEHOLD.id, name],
+  );
+  await sql(`INSERT INTO "ShoppingListItem" (id, "shoppingListId", name, "inventoryItemId") VALUES ($1, $2, $3, $4)`, [
+    `e2e-ux35-item-${t}-frozen`,
+    listId.split("/").pop(),
+    name,
+    `e2e-ux35-inv-${t}`,
+  ]);
+  await page.goto(listId);
+  // The <p> aisle header, not the print copy (h2) or the dock label.
+  const header = main.getByRole("paragraph").filter({ hasText: /^Frozen$/ });
+  const row = main.getByTitle(new RegExp(`^${name}\\b`));
+  await expect(header).toBeVisible();
+
+  await swipe(page, row, -160);
+  await main.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(row).toBeHidden();
+  await expect(header).toBeHidden();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(row).toBeVisible();
+  await expect(header).toBeVisible();
+});
+
 // Phone pass (Oct 2026): budget transaction rows swipe left too. The row
 // itself is the edit button (which Edit clicks); Delete hides it with Undo.
 test("a budget transaction swipes left to Edit, and to Delete with Undo", async ({ page }) => {

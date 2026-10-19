@@ -242,17 +242,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-27. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
-      amount in the pantry's unit instead"), `mobile` project. Failed once
-      and passed on the retry in the GitHub `End-to-end (Playwright)` job on
-      release `0444ce1` (2026-10-18); it also passed on a local re-run. The
-      failing action is `getByRole("button", { name: "New recipe" }).click()`
-      timing out at 30 s, via `openNewRecipe` (line 45). Fix the app's or
-      the test's waiting (what the page renders before the button exists),
-      never a loosened assertion, a skip or a retry. Acceptance: `npx
-      playwright test e2e/recipe-ingredients.spec.ts --project=mobile
-      --repeat-each=30` passes 30/30.
 - [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
       #336 (`feat: show what's left to split as shares are typed`) turned
       `next` red and was reverted by #340, which also deleted
@@ -295,10 +284,14 @@ then MAINT-7 per feature, to avoid churn.
       sheet, name themselves and delete from the sheet"), `mobile` project.
       Failed once in the local `ci:local` gate on release PR #381 (head
       `ce28040`, 2026-10-19), then passed on a re-run of the same commit;
-      GitHub's `End-to-end (Playwright)` job on that head passed. The
-      failing assertion is the poll at line 87: the gap between the Delete
-      and Save buttons was -9.14, expected at least 8, so the sticky sheet
-      footer's buttons overlapped. Fix it in the app (the footer's layout
+      GitHub's `End-to-end (Playwright)` job on that head passed. Seen
+      again in a full local `ci:local` gate on release PR #411 (head
+      `b58108c`, 2026-10-19): the same poll at line 87 got -26.86 after
+      5000 ms, then passed on a same-commit re-run, and GitHub's e2e job
+      was green again. The failing assertion is the poll at line 87: the
+      gap between the Delete and Save buttons was -9.14 (#381) and -26.86
+      (#411), expected at least 8, so the sticky sheet footer's buttons
+      overlapped. Fix it in the app (the footer's layout
       while the sheet settles) or in the test's waiting, never a loosened
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/budget-transaction-rows.spec.ts --project=mobile
@@ -315,6 +308,21 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/task-tick-undo.spec.ts --project=desktop
       --repeat-each=30` passes 30/30.
+      Another sighting, 2026-10-19: failed on the `mobile` project in the
+      UX-107 gate (`c4fca69`), at the same checkbox lookup after a reload,
+      then passed on re-run.
+
+- [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
+      `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
+      once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
+      the "Copy last week" menuitem was not visible after clicking More. It
+      passed 42/42 alone (`--repeat-each=10`) and in the next full gate on
+      the same commit, so it depends on load, probably a click before
+      hydration like MAINT-27. Fix it in the app (when the More menu is
+      interactive) or in the test's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -384,7 +392,7 @@ UX-89, UX-113.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
-  UX-80, UX-81, UX-84, UX-85.
+  UX-80, UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
@@ -813,13 +821,6 @@ UX-89, UX-113.
       Acceptance: known category keys take their label from the current
       locale's `categoryLabels` in headers and the dock ("Frukt & grönt",
       "Städartiklar").
-
-- [ ] **UX-84. Hide an aisle header whose last row was deleted**
-      (impact: low, effort: S) — bug, M6. `if (hidden) return null`
-      (`shopping-list-client.tsx:1164`) hides the row but not its group,
-      so "FROZEN" sits alone for the whole undo window.
-      Acceptance: deleting a section's last row hides its header until
-      Undo restores the row.
 
 - [ ] **UX-85. Rename a list, and start a new list from a template or a
       past list** (impact: med, effort: M) — breaks User control and M4.
