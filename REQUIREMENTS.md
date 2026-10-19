@@ -6755,7 +6755,10 @@ Todoist-style. Built as one shared wrapper,
     row unmounts. Undo just shows the row again, so no restore action
     exists (`src/components/shared/deferred-delete.ts`,
     `use-undoable-delete.ts`). If the browser is killed inside the
-    window, nothing was sent and the row is still there.
+    window, nothing was sent and the row is still there. On the shopping
+    list, deleting an aisle's last pending row hides that aisle's header
+    too until Undo restores the row (UX-84): the rows report their hidden
+    state up through `onHiddenChange`.
 - **Every swipe duplicates a tap path** (DESIGN.md M7), and the swipe
   works by clicking the row's own button: the elements marked
   `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same

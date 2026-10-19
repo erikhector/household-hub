@@ -382,7 +382,7 @@ UX-89, UX-113.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
-  UX-80, UX-81, UX-84, UX-85.
+  UX-80, UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
@@ -822,13 +822,6 @@ UX-89, UX-113.
       Acceptance: known category keys take their label from the current
       locale's `categoryLabels` in headers and the dock ("Frukt & grönt",
       "Städartiklar").
-
-- [ ] **UX-84. Hide an aisle header whose last row was deleted**
-      (impact: low, effort: S) — bug, M6. `if (hidden) return null`
-      (`shopping-list-client.tsx:1164`) hides the row but not its group,
-      so "FROZEN" sits alone for the whole undo window.
-      Acceptance: deleting a section's last row hides its header until
-      Undo restores the row.
 
 - [ ] **UX-85. Rename a list, and start a new list from a template or a
       past list** (impact: med, effort: M) — breaks User control and M4.
