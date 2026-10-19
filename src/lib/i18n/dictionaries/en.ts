@@ -196,7 +196,7 @@ export const en = {
       label: "Household",
       current: "Current",
       createNew: "Create a new household",
-      createAriaLabel: "Create household",
+      createMenuItem: "Create household",
       nameLabel: "Household name",
       creating: "Creating…",
       create: "Create household",

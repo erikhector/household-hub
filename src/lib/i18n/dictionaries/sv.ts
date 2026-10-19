@@ -177,7 +177,7 @@ export const sv = {
       label: "Hushåll",
       current: "Aktuellt",
       createNew: "Skapa ett nytt hushåll",
-      createAriaLabel: "Skapa hushåll",
+      createMenuItem: "Skapa hushåll",
       nameLabel: "Hushållets namn",
       creating: "Skapar…",
       create: "Skapa hushåll",
