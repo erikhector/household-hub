@@ -13,16 +13,20 @@ test("take turns starts from the assignee and blocks a one-person rotation", asy
 
   // Assign to the first member, then make the task repeat.
   await dialog.getByRole("combobox", { name: "Assign to" }).click();
-  await page.getByRole("option").first().click();
+  // (The first option is "Unassigned".)
+  await page.getByRole("option").nth(1).click();
+  const assignee = (await dialog.getByRole("combobox", { name: "Assign to" }).innerText()).split("\n")[0].trim();
   await dialog.getByRole("combobox", { name: "Repeat" }).click();
   await page.getByRole("option").nth(1).click();
 
   // Picking one more person gives a two-person rotation with the assignee first.
   await dialog.getByRole("combobox", { name: "Take turns" }).click();
-  await page.getByRole("option").first().click();
+  // The list still offers the assignee (first), so pick the other person.
+  await page.getByRole("option").nth(1).click();
   const rows = dialog.getByRole("listitem");
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText("1.");
+  await expect(rows.first()).toContainText(assignee);
   await expect(dialog.getByRole("button", { name: "Add", exact: true })).toBeEnabled();
 
   // Removing one leaves a lone person: the hint shows as an error, Add is off.
