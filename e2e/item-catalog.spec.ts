@@ -95,6 +95,8 @@ test("a duplicate pair found from the inventory page merges into the item with s
   await expect(page.getByRole("button", { name: `Stop mapping “${merged.name}” here` })).toBeVisible();
   await page.goto(`/dashboard/inventory/items/${merged.id}`);
   await expect(page.getByText("Page not found")).toBeVisible();
+  // UX-65: signed in, the 404 still leads back to the dashboard.
+  await expect(page.getByRole("button", { name: "Back to dashboard" })).toBeVisible();
 });
 
 test("“Not duplicates” hides a group for good", async ({ page }) => {

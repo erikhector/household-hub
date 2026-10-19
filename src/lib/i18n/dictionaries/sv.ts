@@ -1951,6 +1951,7 @@ export const sv = {
     addTaskDialogTitle: "Lägg till en uppgift",
     addTaskPlaceholder: "t.ex. Ta ut soporna",
     addTaskAriaLabel: "Uppgiftens titel",
+    titleCounter: "{count} av {max} tecken",
     assigneeLabel: "Tilldela",
     unassignedOption: "Ingen tilldelad",
     add: "Lägg till",
@@ -2145,6 +2146,7 @@ export const sv = {
       noSavings: "Inget sparande registrerat denna månad.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
+      almostAtLimit: "Nära gränsen",
       carriedOver: "varav {amount} överfört",
       // UX-39: a category sparkline's accessible name.
       historyLabel: "Senaste {count} månaderna: {values}",
@@ -2594,6 +2596,7 @@ export const sv = {
       noSavings: "Inget sparande registrerat denna månad.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
+      almostAtLimit: "Nära gränsen",
       carriedOver: "varav {amount} överfört",
       // UX-39: a category sparkline's accessible name.
       historyLabel: "Senaste {count} månaderna: {values}",
@@ -3053,6 +3056,7 @@ export const sv = {
     },
     verifyEmail: {
       pageTitle: "Verifiera din e-post",
+      invalidTitle: "Länken har gått ut",
       verifying: "Verifierar din e-postadress…",
       submit: "Verifiera e-post",
       verifiedDescription: "Din e-postadress har verifierats.",
@@ -3221,8 +3225,15 @@ export const sv = {
     privacyLink: "integritetspolicy",
     consentSuffix: ".",
   },
+  notFound: {
+    title: "Sidan hittades inte",
+    body: "Sidan du letar efter finns inte, eller har flyttats.",
+    backToDashboard: "Till översikten",
+    goToSquirrel: "Gå till Squirrel",
+  },
   digestUnsubscribe: {
     pageTitle: "Veckosammanfattning",
+    invalidTitle: "Länken är inte giltig",
     working: "Avslutar din prenumeration på veckosammanfattningen…",
     submit: "Avsluta prenumeration",
     done: "Du får inte veckosammanfattningen längre. Du kan slå på den igen från din profil när du vill.",

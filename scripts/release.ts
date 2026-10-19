@@ -35,6 +35,7 @@ import {
   ALLOWED_TYPES,
   planRelease,
   planTrainRelease,
+  missingReleaseNotes,
   parseTrainLog,
   type ReleaseEntry,
   type TrainPr,
@@ -150,6 +151,7 @@ if (mode === "preview") {
     process.exit(0);
   }
   if (!plan) throw new Error("unreachable");
+  const missing = plan.status === "release" ? missingReleaseNotes(process.env.PR_BODY) : [];
   if (plan.status === "invalid-title") {
     lines.push(
       "❌ **The PR title must follow [Conventional Commits](https://www.conventionalcommits.org/):** `type(optional scope): description`",
@@ -166,6 +168,12 @@ if (mode === "preview") {
     );
   } else {
     const { entry, type } = plan;
+    if (missing.length > 0) {
+      lines.push(
+        `❌ **Write the release note in ${missing.join(" and ")}.** A releasing PR needs both, or Swedish users get English text under What's new.`,
+        "",
+      );
+    }
     lines.push(
       intoNext
         ? `Merging queues this for the next release (at least a **${type}** bump). It ships with the next release PR into \`master\`.`
@@ -179,7 +187,7 @@ if (mode === "preview") {
     );
   }
   console.log(lines.join("\n"));
-  process.exit(plan.status === "invalid-title" ? 1 : 0);
+  process.exit(plan.status === "invalid-title" || missing.length > 0 ? 1 : 0);
 }
 
 if (mode === "apply") {

@@ -3,6 +3,7 @@ import {
   bumpVersion,
   compareVersions,
   extractReleaseNotes,
+  missingReleaseNotes,
   parsePrTitle,
   planRelease,
   planTrainRelease,
@@ -90,6 +91,21 @@ describe("extractReleaseNotes", () => {
     // session URL, because the last section ran to the end of the body.
     const withFooter = `${TEMPLATE_BODY}\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_x\n`;
     expect(extractReleaseNotes(withFooter, "x").sv).toBe("Du kan nu skanna streckkoder från inköpslistan.");
+  });
+});
+
+describe("missingReleaseNotes", () => {
+  it("is empty when both languages are written", () => {
+    expect(missingReleaseNotes(TEMPLATE_BODY)).toEqual([]);
+  });
+
+  it("names the language left empty", () => {
+    // v0.77.0 shipped an English paragraph in its Swedish note from a PR
+    // that wrote neither.
+    const noSv = TEMPLATE_BODY.replace("Du kan nu skanna streckkoder från inköpslistan.", "<!-- här -->");
+    expect(missingReleaseNotes(noSv)).toEqual(["Svenska"]);
+    expect(missingReleaseNotes("### English\n\n<!-- write here -->\n\n### Svenska\n\nHej.\n")).toEqual(["English"]);
+    expect(missingReleaseNotes(null)).toEqual(["English", "Svenska"]);
   });
 });
 

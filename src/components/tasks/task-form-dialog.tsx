@@ -57,6 +57,10 @@ type TasksDict = Dictionary["tasks"];
 const initialState: ActionState = {};
 // Base UI's Select doesn't accept an empty-string item value, so "no
 // assignee"/"no repeat" need their own sentinels rather than "".
+// Same cap as the server schema (tasks/actions.ts). The counter appears 20
+// characters before it so the limit is never a surprise (UX-107).
+const TITLE_MAX_LENGTH = 120;
+const TITLE_COUNTER_FROM = 100;
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_REPEAT_VALUE = "__no_repeat__";
 const RECURRENCE_OPTION_DAYS = [1, 2, 3, 7] as const;
@@ -77,6 +81,7 @@ export function TaskFormDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(mode === "edit" ? (task?.title ?? "") : "");
+  const showTitleCounter = title.length >= TITLE_COUNTER_FROM;
   const [assignedToMemberId, setAssignedToMemberId] = useState(
     mode === "edit" ? (task?.assignedToMemberId ?? UNASSIGNED_VALUE) : UNASSIGNED_VALUE,
   );
@@ -158,16 +163,32 @@ export function TaskFormDialog({
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           {mode === "edit" && task && <input type="hidden" name="taskId" value={task.id} />}
-          <Input
-            enterKeyHint="done"
-            autoComplete="off"
-            name="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={dict.addTaskPlaceholder}
-            aria-label={dict.addTaskAriaLabel}
-            maxLength={120}
-          />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="task-title">{dict.addTaskAriaLabel}</Label>
+            <Input
+              id="task-title"
+              enterKeyHint="done"
+              autoComplete="off"
+              name="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={dict.addTaskPlaceholder}
+              maxLength={TITLE_MAX_LENGTH}
+              aria-describedby={showTitleCounter ? "task-title-counter" : undefined}
+            />
+            {/* UX-107: maxLength stops input without a word, so say how close
+                the title is to the limit from TITLE_COUNTER_FROM on. role=status
+                announces it politely; at the limit it turns destructive. */}
+            {showTitleCounter && (
+              <p
+                id="task-title-counter"
+                role="status"
+                className={`text-xs ${title.length >= TITLE_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"}`}
+              >
+                {format(dict.titleCounter, { count: title.length, max: TITLE_MAX_LENGTH })}
+              </p>
+            )}
+          </div>
           {(mode === "edit" || members.length > 0) && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-assignee">

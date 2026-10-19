@@ -1623,7 +1623,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   "Expenses by category" card a capped row draws its bar against its own
   limit (`limitProgress`: fill %, clamped at 100) and reads "spent / limit";
   past 100% the bar and figure turn `text-destructive`/`bg-destructive` with
-  an "X over" note. Capped categories with nothing spent yet this month are
+  an "X over" note. UX-115: bars are never coloured per category (chart
+  colours are for marks, not status): every bar is neutral
+  (`bg-muted-foreground`), `warning` with "Almost at limit" from 90% of the
+  limit (`LimitProgress.near`) and `destructive` over it; only the row's
+  sparkline keeps its category hue. Capped categories with nothing spent yet this month are
   still listed at 0 (`withCategoryLimits`, applied by each page). Uncapped
   rows keep the old proportional bar. Purely visual, in keeping with the
   app's "suggest, don't gate" stance on money: nothing blocks a transaction
@@ -5419,6 +5423,11 @@ co-managers, not kids earning rewards.
   use). Only the checkbox or a right swipe completes or reopens a task, so a
   stray tap while scrolling can't complete one silently
   (`e2e/task-title-opens.spec.ts`).
+- **Labelled title with a length counter (UX-107)**: the task dialog's title
+  field has a visible "Task title" label (not just a placeholder). From 100
+  characters a status line under it reads "{n} of 120 characters" and turns
+  destructive at the 120 cap (`maxLength` and the server schema), so input
+  never stops without a word (`e2e/task-title-counter.spec.ts`).
 - **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
   same toggle back, 5 s), since the row leaves for "Completed" below the
   fold. The weekly recap is frozen at the list as the page opened, so the
@@ -5963,6 +5972,15 @@ components directly.
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
+- **404 and invalid-link titles (UX-65)**: `src/app/not-found.tsx` is a
+  Server Component that checks the session. A logged-out visitor gets the
+  `StatusCard` (brand mark, compass icon, "Page not found") with a "Go to
+  Squirrel" link to `/`; a signed-in user keeps the in-app card with "Back
+  to dashboard". Copy is in the `notFound` dictionary section. The failed
+  states of `/verify-email/<token>` and `/unsubscribe/<token>` are titled
+  by outcome ("Link expired" and "Link not valid") instead of the page's
+  label. Covered by `e2e/public-pages.spec.ts` and
+  `e2e/item-catalog.spec.ts` (signed-in 404).
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -6137,7 +6155,8 @@ version or the notes by hand.
   each squash commit's subject, and asks GitHub by SHA for any commit
   without one, failing the run if it can't), takes the biggest bump among their titles
   and joins their release notes, oldest first, into one entry. A PR with
-  no Swedish note contributes its English one to the Swedish text. Then it
+  no Swedish note would contribute its English one to the Swedish text,
+  which is why the preview check now requires both (below). Then it
   merges `master` back into `next`. A hotfix PR straight into `master`
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
@@ -6159,6 +6178,12 @@ version or the notes by hand.
   "Release note" section with `### English` and `### Svenska` headings. An
   empty English note falls back to the title's description. An empty
   Swedish note is stored as `null` and the app shows the English one.
+  Neither should happen any more: a releasing (`feat`/`fix`/`perf`) PR
+  fails the Release preview check until both sections are written
+  (`missingReleaseNotes`), because v0.77.0 shipped an English paragraph
+  in its Swedish note from a PR that wrote neither. That paragraph was
+  translated in `releases.json` afterwards, the one hand edit to the
+  notes.
   Each note runs to the next heading or `---` rule, so the attribution
   footer after a PR body's closing `---` never ships as part of the
   Swedish note (BUG-4).

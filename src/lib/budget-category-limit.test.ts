@@ -76,19 +76,26 @@ describe("limitProgress", () => {
   });
 
   it("reports the share of the limit spent", () => {
-    expect(limitProgress(250, 1000)).toEqual({ percent: 25, fillPercent: 25, over: false });
+    expect(limitProgress(250, 1000)).toEqual({ percent: 25, fillPercent: 25, over: false, near: false });
   });
 
   it("counts exactly the limit as on budget, not over", () => {
-    expect(limitProgress(1000, 1000)).toEqual({ percent: 100, fillPercent: 100, over: false });
+    expect(limitProgress(1000, 1000)).toEqual({ percent: 100, fillPercent: 100, over: false, near: true });
   });
 
   it("flags spending past the limit and clamps the bar fill", () => {
-    expect(limitProgress(1500, 1000)).toEqual({ percent: 150, fillPercent: 100, over: true });
+    expect(limitProgress(1500, 1000)).toEqual({ percent: 150, fillPercent: 100, over: true, near: false });
+  });
+
+  it("flags the near state from 90% up to and including the limit (UX-115)", () => {
+    expect(limitProgress(899, 1000)?.near).toBe(false);
+    expect(limitProgress(900, 1000)?.near).toBe(true);
+    expect(limitProgress(1000, 1000)?.near).toBe(true);
+    expect(limitProgress(1001, 1000)?.near).toBe(false);
   });
 
   it("never draws a negative bar", () => {
-    expect(limitProgress(-20, 100)).toEqual({ percent: 0, fillPercent: 0, over: false });
+    expect(limitProgress(-20, 100)).toEqual({ percent: 0, fillPercent: 0, over: false, near: false });
   });
 });
 

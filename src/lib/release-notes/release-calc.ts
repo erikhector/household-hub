@@ -102,6 +102,16 @@ export function extractReleaseNotes(body: string | null | undefined, fallback: s
   return { en, sv };
 }
 
+// The Release note headings a releasing PR left empty. Both are required:
+// with no English note the title stands in for it, and with no Swedish one
+// the release train copies the English note into the Swedish text, so
+// either gap ships English to Swedish users (v0.77.0 did, from a PR with
+// no note at all). The preview check fails until both are written.
+export function missingReleaseNotes(body: string | null | undefined): ("English" | "Svenska")[] {
+  const text = body ?? "";
+  return (["English", "Svenska"] as const).filter((heading) => section(text, heading) === null);
+}
+
 // Capitalized description from the PR title — the fallback note when the
 // author left the Release note section empty.
 export function titleFallback(parsed: ParsedTitle): string {

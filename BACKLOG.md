@@ -313,6 +313,18 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/budget-transaction-rows.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
+- [ ] **MAINT-33. Flaky: "Mark <task> as done" checkbox not found after reload in task-tick-undo** (low, S) —
+      `e2e/task-tick-undo.spec.ts:38` ("ticking then unticking a never-done
+      task leaves no 'Last done by'"), `desktop` project. Failed once in the
+      local `ci:local` gate on release PR #405 (head `8e05b4d`, 2026-10-19),
+      then passed on a re-run of the same spec on the same commit; GitHub's
+      `End-to-end (Playwright)` job on that head passed. The failing
+      assertion is `not.toBeChecked()` at line 53: after `page.reload()` the
+      checkbox named "Mark <title> as done" was not found within 5 s. Fix it
+      in the app (when the task row renders after a reload) or in the test's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/task-tick-undo.spec.ts --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -611,17 +623,6 @@ UX-89, UX-113.
       Squirrel") and exactly one `<h1>`. `/`, `/join/[token]` and
       `/share/shopping-list/[token]` emit `og:title`, `og:description` and
       `og:image`, with join and share naming the household or list.
-
-- [ ] **UX-65. A logged-out 404, and token pages titled by outcome**
-      (impact: low, effort: S) — breaks Consistency and User control.
-      `src/app/not-found.tsx:41` has no brand badge, and its only action,
-      "Back to dashboard", sends a stranger to the login form. Two token
-      pages are titled with labels instead of outcomes: "Verify your
-      email" for a dead link, and "Weekly digest" for a bad unsubscribe
-      link.
-      Acceptance: a logged-out 404 uses the token pages' StatusCard
-      layout with "Go to Squirrel". Invalid-token titles state the outcome
-      ("Link expired", "Link not valid").
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
@@ -982,14 +983,6 @@ UX-89, UX-113.
       Why: the item's own recommended option, no schema, easy to revisit.
       See PRODUCT.md.
 
-- [ ] **UX-107. Say when a task title is too long, and label the field**
-      (impact: low, effort: S) — Usability (prevent errors).
-      `maxLength={120}` (`task-form-dialog.tsx:169`) silently stops input
-      mid-word, and the field has only a placeholder for a label.
-      Acceptance: the title has a visible label and a counter from 100
-      characters, so a saved title is never cut without the user seeing
-      it.
-
 #### Budgets
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
@@ -1043,15 +1036,6 @@ UX-89, UX-113.
       Acceptance: balances appear in the first screenful when a debt
       exists. Empty cost-analyzer cards collapse into one line ("Price
       insights appear once you scan receipts").
-
-- [ ] **UX-115. Category bars coloured by status, not by category**
-      (impact: med, effort: S) — breaks Colour ("chart colours are for
-      marks"; status uses success/warning/destructive with a word). In
-      "Expenses by category" the bars take a chart colour per category: a
-      category at 96% used is green and one at 36% is pink.
-      Acceptance: bars are one neutral colour, `warning` from 90% with
-      "Almost at limit", and `destructive` when over. Sparklines may keep
-      category hues.
 
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
@@ -1182,6 +1166,19 @@ UX-89, UX-113.
       layout is used below `lg`, or the table drops secondary columns
       (Category, Location, Last updated) at that width. No horizontal
       scroll in the table.
+
+- [ ] **UX-142. The verify-email title follows the cause of the error**
+      (impact: low, effort: S) — breaks Consistency. UX-65 titles every
+      failed `/verify-email/<token>` state "Link expired", but
+      `verifyEmailAction` also returns the rate-limit message ("Too many
+      attempts…") and zod input errors, as one English string the client
+      can't tell apart, so a rate-limited visitor sees "Link expired".
+      Acceptance: `verifyEmailAction` returns an error code next to the
+      message (`invalid`, `rateLimited`, …), the localised message and the
+      title come from the dictionary by code, and the rate-limited state is
+      titled for what happened ("Too many attempts") with a "try again
+      later" message. Unit test per code in `auth.test.ts`; the e2e spec
+      keeps the bad-token case on "Link expired".
 
 ### Dependencies
 
