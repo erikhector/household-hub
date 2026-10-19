@@ -502,24 +502,26 @@ export function InventoryTable({
                     aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
                   />
                 </TableCell>
-                {/* UX-130: the text caps (11rem name, 7rem category and
-                    location) keep the table, with all of a row's icons
-                    (up to seven), inside the ~990 px column a 1280 px
-                    screen leaves next to the sidebar. Wider caps pushed
-                    the last icon, Delete, off screen. The full text is in
-                    the cell's title. */}
-                <TableCell className="font-medium">
-                  <span className="block max-w-[11rem] truncate" title={item.name}>
+                {/* UX-130: the three text columns take a share of the table
+                    (w-[%]) and have max-w-0, so their min-content width is
+                    zero and the text truncates to the share. Fixed caps
+                    (16rem name, 10rem the others) made the table 1054 px
+                    wide in the ~990 px column a 1280 px screen leaves next
+                    to the sidebar, and a row with seven icons pushed the
+                    last one, Delete, off screen. The full text is in the
+                    cell's title. */}
+                <TableCell className="w-[16%] max-w-0 font-medium">
+                  <span className="block truncate" title={item.name}>
                     {item.name}
                   </span>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  <span className="block max-w-[7rem] truncate" title={item.category}>
+                <TableCell className="w-[10%] max-w-0 text-muted-foreground">
+                  <span className="block truncate" title={item.category}>
                     {item.category}
                   </span>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  <span className="block max-w-[7rem] truncate" title={item.location ?? undefined}>
+                <TableCell className="w-[10%] max-w-0 text-muted-foreground">
+                  <span className="block truncate" title={item.location ?? undefined}>
                     {item.location ?? "—"}
                   </span>
                 </TableCell>

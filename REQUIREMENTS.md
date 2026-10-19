@@ -523,8 +523,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     when the updater left or isn't recorded). `e2e/inventory-compact-rows.spec.ts`
     counts the rows in one screen and checks the stepper and item page.
   - **Row actions stay on screen in the desktop table (UX-130)**: the
-    name cell is capped at 11rem and the category and location cells at
-    7rem (full text in the `title`), so a row with all seven icons (Mark
+    name, category and location cells take 16 / 10 / 10 % of the table
+    with `max-w-0` and truncate (full text in the `title`), so a row with all seven icons (Mark
     opened, Freeze, Add to list, Details, Mark empty, Edit, Delete) fits the
     ~990 px column at 1280 px with no horizontal scroll.
     `e2e/ux-130.desktop.spec.ts` asserts it.
