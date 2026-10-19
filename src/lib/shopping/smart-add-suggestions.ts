@@ -6,7 +6,7 @@
 // unit-tested without a DOM — and so voice input (AUTO-12) feeds
 // its transcript through exactly the same parse → rows path.
 
-import { parsePastedList, type ParsedItem } from "@/lib/inventory/parse-pasted-list";
+import { parsePastedList, topLevelCommaIndexes, type ParsedItem } from "@/lib/inventory/parse-pasted-list";
 import { createAliasLookup, type ItemAliasLike } from "@/lib/item-alias";
 import { findInventoryMatches, normalizeItemName, type InventoryMatchCandidate } from "@/lib/item-matching";
 import type { StockStatus } from "@/lib/stock-status";
@@ -111,7 +111,9 @@ export function parseSmartAddInput(input: string): SmartAddRow[] {
  * "mj" and picking a suggestion keeps the "2 l".
  */
 export function splitSmartAddInput(input: string): { head: string; current: ParsedItem | null } {
-  const cut = Math.max(input.lastIndexOf(","), input.lastIndexOf("\n"));
+  const lastNewline = input.lastIndexOf("\n");
+  const lastComma = topLevelCommaIndexes(input.slice(lastNewline + 1)).pop();
+  const cut = lastComma === undefined ? lastNewline : lastNewline + 1 + lastComma;
   const head = cut === -1 ? "" : input.slice(0, cut);
   const current = parsePastedList(input.slice(cut + 1))[0] ?? null;
   return { head, current };

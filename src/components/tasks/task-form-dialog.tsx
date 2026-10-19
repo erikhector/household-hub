@@ -120,6 +120,22 @@ export function TaskFormDialog({
     rotating && !rotation.includes(assignedToMemberId) ? rotation[0] : assignedToMemberId;
   const assigneeOptions = rotating ? members.filter((m) => rotation.includes(m.id)) : members;
   const membersNotInRotation = members.filter((m) => !rotation.includes(m.id));
+  // UX-103: one person isn't a rotation. Saving it used to drop the list
+  // silently, so block the submit and show the hint as the error instead.
+  const lonelyRotation = canRotate && rotation.length === 1;
+
+  // The first person added to an empty list starts from the current assignee,
+  // as #1, so choosing "Take turns" on an assigned task needs one more pick
+  // rather than re-entering the person already chosen.
+  const addToRotation = (id: string) =>
+    setRotation((current) => {
+      if (current.includes(id)) return current;
+      const seed =
+        current.length === 0 && effectiveAssignee !== UNASSIGNED_VALUE && effectiveAssignee !== id
+          ? [effectiveAssignee]
+          : [];
+      return [...current, ...seed, id];
+    });
 
   const moveRotationMember = (index: number, delta: -1 | 1) =>
     setRotation((current) => {
@@ -265,11 +281,8 @@ export function TaskFormDialog({
                   {rotation.map((id, index) => (
                     <li key={id} className="flex items-center gap-2 rounded-md border px-3 py-1.5">
                       {/* Only submitted while it's a real rotation (repeats,
-                          2+ people). A lone leftover person — e.g. after the
-                          other one left the household — then saves as "no
-                          rotation" instead of blocking every save with the
-                          server's "at least two" error; the rotationNeedsTwo
-                          hint below says why. */}
+                          2+ people). A lone person blocks the submit (see
+                          lonelyRotation) rather than saving as "no rotation". */}
                       {rotating && <input type="hidden" name="rotationMemberIds" value={id} />}
                       <span className="w-5 shrink-0 text-xs text-muted-foreground">{index + 1}.</span>
                       <span className="flex-1 line-clamp-2 break-words sm:line-clamp-1 text-sm">{memberName(id)}</span>
@@ -313,7 +326,7 @@ export function TaskFormDialog({
                 <Select
                   value={null}
                   onValueChange={(v) => {
-                    if (v) setRotation((current) => [...current, String(v)]);
+                    if (v) addToRotation(String(v));
                   }}
                 >
                   <SelectTrigger id="task-rotation-add">
@@ -328,8 +341,10 @@ export function TaskFormDialog({
                   </SelectContent>
                 </Select>
               )}
-              {rotation.length === 1 && (
-                <p className="text-xs text-muted-foreground">{dict.rotationNeedsTwo}</p>
+              {lonelyRotation && (
+                <p role="alert" className="text-sm text-destructive">
+                  {dict.rotationNeedsTwo}
+                </p>
               )}
             </div>
           )}
@@ -359,7 +374,7 @@ export function TaskFormDialog({
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={pending}>
               {dict.editTask.cancel}
             </Button>
-            <Button type="submit" disabled={pending || title.trim().length === 0}>
+            <Button type="submit" disabled={pending || title.trim().length === 0 || lonelyRotation}>
               {pending
                 ? mode === "create"
                   ? dict.adding

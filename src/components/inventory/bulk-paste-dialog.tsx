@@ -239,6 +239,7 @@ export function BulkPasteDialog({
                   onValueChange={setCategory}
                   placeholder={dict.categoryPlaceholder}
                   maxLength={60}
+                  label={t.sharedCategoryLabel}
                   dict={dict}
                 />
               </div>
@@ -252,6 +253,7 @@ export function BulkPasteDialog({
                   onValueChange={setLocation}
                   placeholder={dict.locationPlaceholder}
                   maxLength={120}
+                  label={t.sharedLocationLabel}
                   dict={dict}
                 />
               </div>

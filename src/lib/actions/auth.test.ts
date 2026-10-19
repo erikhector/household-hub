@@ -747,7 +747,30 @@ describe("verifyEmailAction", () => {
     expect(result.error).toBe(
       "This verification link is invalid or has expired. Request a new one.",
     );
+    expect(result.code).toBe("invalid");
     expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the invalid code for empty input", async () => {
+    const result = await verifyEmailAction({}, formData({ token: "" }));
+
+    expect(result.code).toBe("invalid");
+  });
+
+  it("returns the generic code when redeeming throws unexpectedly", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue({
+      id: "verify-token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: { emailVerifiedAt: null },
+    });
+    transactionMock.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await verifyEmailAction({}, formData(validVerify));
+
+    expect(result.code).toBe("generic");
+    expect(result.error).toBeDefined();
   });
 
   it("rejects an expired token for a still-unverified account", async () => {
@@ -867,6 +890,7 @@ describe("verifyEmailAction rate limiting", () => {
     const result = await verifyEmailAction({}, formData(verify));
 
     expect(result.error).toBe("Too many attempts. Please wait a few minutes and try again.");
+    expect(result.code).toBe("rateLimited");
     expect(emailVerificationTokenFindUniqueMock).not.toHaveBeenCalled();
   });
 });

@@ -124,6 +124,7 @@ export function QuickAddBar({
             value={unit}
             onValueChange={setUnit}
             maxLength={20}
+            label={dict.unitLabel}
             dict={dict}
           />
         </div>
@@ -139,6 +140,7 @@ export function QuickAddBar({
             onValueChange={setCategory}
             placeholder={dict.categoryPlaceholder}
             maxLength={60}
+            label={dict.categoryLabel}
             dict={dict}
           />
         </div>

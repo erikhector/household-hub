@@ -258,13 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-29. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
-      `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
-      `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
-      other agents' gates. Fix the app's or the test's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-38.spec.ts --project=desktop --repeat-each=30` passes
-      30/30.
 - [ ] **MAINT-31. Flaky: `/dashboard/household` shifts 0.0647 while loading on mobile** (low, S) —
       `e2e/cls.spec.ts:66` ("/dashboard/household does not shift while
       loading", the hard-load CLS loop over `DASHBOARD_ROUTES`), `mobile`
@@ -322,6 +315,17 @@ then MAINT-7 per feature, to avoid churn.
       interactive) or in the test's waiting, never a loosened assertion, a
       skip or a retry. Acceptance: `npx playwright test
       e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
+- [ ] **MAINT-35. Flaky: `planner-add-missing` hits a duplicate `MealPlan` week key on mobile** (low, S) —
+      `e2e/planner-add-missing.spec.ts:76` and `:82`, `mobile` project.
+      Failed in one local `ci:local` gate on the UX-129 branch (`cd0514d`,
+      2026-10-19) with a unique-constraint error on
+      `MealPlan_householdId_weekStartDate`; the next full gate on the same
+      commit passed. The spec creates the week's plan with a plain insert
+      while the app can create it first. Fix it in the spec's setup (upsert
+      or reuse the existing row) or in the waiting, never a loosened
+      assertion, a skip or a retry. Acceptance: `npx playwright test
+      e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
 
 ### UX (2026-09-26 scout)
@@ -397,7 +401,7 @@ UX-89, UX-113.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
+  `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
 
 #### Shell and cross-cutting
@@ -804,14 +808,6 @@ UX-89, UX-113.
       The New list sheet offers "Start from: blank / a template / a
       recent list (unbought or all items)". Template rows say "Use".
 
-- [ ] **UX-88. Smart add: don't split on commas inside brackets**
-      (impact: low, effort: S) — Usability. "dishwasher tablets
-      (lemon-free, 120 st), paper towels" became "…(lemon-free × 1 pcs"
-      plus a junk "st) × 120 pcs" row, which also became a pantry item
-      (`smart-add-suggestions.ts:103-118`, `parsePastedList`).
-      Acceptance: that input adds two rows with the brackets intact, with
-      a unit test.
-
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) — breaks User-centricity
       ("automation suggests, the user decides"). Free-text list items
@@ -850,14 +846,6 @@ UX-89, UX-113.
       filters as you type, lists favourites and recently cooked first, and
       shows at least 5 rows at 412 px.
 
-- [ ] **UX-97. Fill empty days uses all recipes once favourites run out**
-      (impact: med, effort: S) — Usability (sensible defaults). With six
-      recipes and no favourites the dialog says "No favorites to pick from
-      yet". With three favourites it fills three days and leaves four empty
-      (`fill-empty-days-dialog.tsx:54`).
-      Acceptance: every empty future day gets a proposal, favourites first
-      and then other recipes, whenever the household has enough recipes.
-
 - [ ] **UX-98. A recipe form in recipe order, in plain words, with 44 px
       chips** (impact: med, effort: S) — breaks M3, M9 and Accessibility
       (labelled controls).
@@ -877,17 +865,6 @@ UX-89, UX-113.
 
 #### Tasks
 
-- [ ] **UX-103. "Take turns" with one person isn't silently dropped**
-      (impact: med, effort: S) — bug, breaks User control.
-      - With an assignee set and one person under "Take turns", the
-        dialog says "Add at least one more person" but keeps Add
-        enabled.
-      - The task saves with an empty rotation and no message
-        (`task-form-dialog.tsx:105,247`).
-      - The assignee isn't pre-filled into the turn order.
-      Acceptance: choosing rotation with an assignee pre-fills the
-      assignee as #1. A one-person rotation can't be submitted, and the
-      hint shows as the error.
 
 - [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
       (impact: med, effort: M) — bug, breaks Usability. Today the next due
@@ -1049,15 +1026,6 @@ UX-89, UX-113.
       an inline "Change unit…" link, and any refusal shows beside it in
       view.
 
-- [ ] **UX-129. Name the clear and suggestion buttons on combo fields**
-      (impact: med, effort: S) — breaks Accessibility and M10. Every
-      ComboField (category, location, unit) has an unnamed × and chevron
-      (`src/components/ui/autocomplete.tsx:56-92`), so screen readers
-      announce just "button".
-      Acceptance: they are announced "Clear unit" and "Show suggestions"
-      (en and sv). An e2e `getByRole("button", { name: /clear/i })` finds
-      them.
-
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.
       - "All" shows ~130 px cards, three per screen, with no search, no
@@ -1093,19 +1061,6 @@ UX-89, UX-113.
       layout is used below `lg`, or the table drops secondary columns
       (Category, Location, Last updated) at that width. No horizontal
       scroll in the table.
-
-- [ ] **UX-142. The verify-email title follows the cause of the error**
-      (impact: low, effort: S) — breaks Consistency. UX-65 titles every
-      failed `/verify-email/<token>` state "Link expired", but
-      `verifyEmailAction` also returns the rate-limit message ("Too many
-      attempts…") and zod input errors, as one English string the client
-      can't tell apart, so a rate-limited visitor sees "Link expired".
-      Acceptance: `verifyEmailAction` returns an error code next to the
-      message (`invalid`, `rateLimited`, …), the localised message and the
-      title come from the dictionary by code, and the rate-limited state is
-      titled for what happened ("Too many attempts") with a "try again
-      later" message. Unit test per code in `auth.test.ts`; the e2e spec
-      keeps the bad-token case on "Link expired".
 
 ### Dependencies
 
@@ -1629,8 +1584,7 @@ out to be a product-scope question rather than a scoped task should move to
       the missing-ingredients check. Add an optional multi-line
       "Ingredients" field to the custom-meal form (nullable
       `MealPlanEntry.freeformIngredients String?`, Phase 2), one per line,
-      read with the same line parser as smart add (UX-88 fixes its comma
-      handling first). The bridge preview lists those lines as
+      read with the same line parser as smart add. The bridge preview lists those lines as
       "From custom meals", matched to inventory by the existing
       case-insensitive name rule and scaled by nothing (a custom meal has
       no portions). Marking it cooked still decrements nothing.

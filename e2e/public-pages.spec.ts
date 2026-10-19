@@ -84,6 +84,24 @@ test.describe("invalid-link pages share one status card", () => {
   }
 });
 
+// UX-142: a rate-limited verify-email visit is titled for what happened, not
+// "Link expired". The limit is 10 attempts per token, so the 11th load trips
+// it; a fresh random token keeps desktop and mobile runs from sharing a count.
+test("verify-email rate limiting is titled 'Too many attempts', not 'Link expired'", async ({
+  page,
+}) => {
+  const token = `e2e-rate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  for (let i = 0; i < 10; i++) {
+    await page.goto(`/verify-email/${token}`);
+    await expect(page.getByText("Link expired")).toBeVisible();
+  }
+  await page.goto(`/verify-email/${token}`);
+  await expect(page.getByText("Too many attempts", { exact: true })).toBeVisible();
+  await expect(page.getByText(/try again later/i)).toBeVisible();
+  await expect(page.getByText("Link expired")).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
 // UX-65: a stranger on a dead URL gets the token pages' status card and a
 // way to the landing page, not a "Back to dashboard" that ends at the login.
 test("a logged-out 404 uses the status card and leads to the landing page", async ({ page }) => {
