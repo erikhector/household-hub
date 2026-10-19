@@ -104,7 +104,8 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ["setup"],
-      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile)\.spec\.ts$/,
+      // ux-141: the inventory is the card list at this width, not the table.
+      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile|ux-141)\.spec\.ts$/,
     },
     // UX-32: iOS Safari renders and zooms differently from Chromium
     // (16 px field zoom, 100vh, number inputs, safe areas), so the Pixel 7

@@ -1045,22 +1045,6 @@ UX-89, UX-113.
       Acceptance: Enter only submits from the last field. Earlier fields
       move focus to the next one.
 
-- [ ] **UX-141. The inventory table on a tablet shows names, not "Crè…"**
-      (impact: med, effort: S) — breaks Recognition over recall and the
-      "full text only in `title`" rule. At 810 px wide (sidebar open) the
-      desktop table (`inventory-table.tsx:464`, `hidden sm:block`) leaves
-      the name column about three characters ("Crè…", "Oliv…", "Wh…"),
-      and Last updated runs off the right edge
-      (`tablet-en-dashboard-inventory.png`, `tablet-sv-…`). A title
-      tooltip doesn't exist on touch. The card list that phones get
-      already reads well. Related: UX-131 (catalog on phones), UX-130
-      (the share-based column widths that cause this).
-      Acceptance: in the `tablet` project, no item name in the inventory
-      list is truncated to fewer than ~10 characters. Either the card
-      layout is used below `lg`, or the table drops secondary columns
-      (Category, Location, Last updated) at that width. No horizontal
-      scroll in the table.
-
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
