@@ -18,7 +18,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 test("an empty week shows one add button per day and no repeated placeholder", async ({ page }, testInfo) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
 
-  const addButtons = page.getByRole("button", { name: "Add meal", exact: true });
+  const addButtons = page.getByRole("button", { name: /^Add meal, / });
   // One affordance per empty day, no per-slot rows.
   await expect(addButtons).toHaveCount(7);
   await expect(page.getByRole("button", { name: /^(Breakfast|Lunch|Dinner|Snack) Add meal$/ })).toHaveCount(0);
@@ -38,7 +38,7 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
   const name = `Pancakes ${Date.now().toString(36)}`;
   await page.goto(`/dashboard/meal-planning?week=${addWeek(testInfo.project.name)}`);
 
-  await page.getByRole("button", { name: "Add meal", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Add meal, / }).first().click();
   const dialog = page.getByRole("dialog", { name: "Add a meal" });
   await dialog.getByRole("combobox", { name: "Meal" }).click();
   await page.getByRole("option", { name: "Lunch" }).click();
@@ -50,7 +50,7 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
   await expect(page.getByText(name)).toBeVisible();
   // The day lists its one meal and keeps a single "Add meal": no per-slot
   // rows for the three empty slots, and the six other days stay as they were.
-  await expect(page.getByRole("button", { name: "Add meal", exact: true })).toHaveCount(7);
+  await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(7);
   await expect(page.getByRole("button", { name: /^(Breakfast|Lunch|Dinner|Snack) Add meal$/ })).toHaveCount(0);
   const meal = page.getByRole("button", { name: new RegExp(`^Lunch ${name}`) });
   await expect(meal).toBeVisible();
@@ -63,7 +63,7 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
       .poll(() => page.locator('[data-slot="sheet-indent"]').evaluate((el) => getComputedStyle(el).transform))
       .toBe("none");
     const row = await meal.boundingBox();
-    const add = await page.getByRole("button", { name: "Add meal", exact: true }).first().boundingBox();
+    const add = await page.getByRole("button", { name: /^Add meal, / }).first().boundingBox();
     expect(row!.height).toBeGreaterThanOrEqual(44);
     expect(add!.height).toBeGreaterThanOrEqual(44);
     expect(add!.y - (row!.y + row!.height)).toBeGreaterThanOrEqual(8);

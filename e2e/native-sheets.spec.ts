@@ -40,7 +40,7 @@ async function grabberPoint(dialog: Locator) {
 // opens on an empty plan.
 async function openAddMeal(page: Page, open: "tap" | "click" = "click") {
   await page.goto("/dashboard/meal-planning?week=2031-03-03");
-  const trigger = page.getByRole("button", { name: "Add meal", exact: true }).first();
+  const trigger = page.getByRole("button", { name: /^Add meal, / }).first();
   if (open === "tap") await trigger.tap();
   else await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Add a meal" });

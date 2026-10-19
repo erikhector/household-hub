@@ -4025,7 +4025,11 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   frosted add-bar style), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
   row, when it isn't already fully visible (the old "Jump to today" button
-  is gone). The two recaps (variety and nutrition) sit under the week,
+  is gone). Today's card says so in words (UX-99): a "Today" badge
+  beside the day number and `aria-current="date"`, besides the ring (never
+  colour alone). Each day's button is named by its day ("Add meal, Mon 12"),
+  and a recipe's star by the recipe ("Favorite Greek salad"), so a screen
+  reader's button list isn't seven identical "Add meal"s. The two recaps (variety and nutrition) sit under the week,
   inside the Planner tab's Suspense boundary, so they appear together with
   the planner and an empty or dismissed one never collapses a slot after
   the first paint (that kept /meal-planning over the UX-42 CLS budget).

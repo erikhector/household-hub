@@ -1516,6 +1516,8 @@ export const sv = {
     mealTypeDinner: "Middag",
     mealTypeSnack: "Mellanmål",
     addMeal: "Lägg till måltid",
+    addMealAriaLabel: "Lägg till måltid, {day}",
+    todayBadge: "Idag",
     addMealDialogTitle: "Lägg till en måltid",
     editMealAriaLabel: "Redigera måltid",
     editMealDialogTitle: "Redigera måltid",
@@ -1700,7 +1702,7 @@ export const sv = {
     duplicateRecipeUndoneToast: "Kopian togs bort",
     duplicateRecipeFailedToast: "Det gick inte att duplicera receptet",
     deleteAriaLabel: "Ta bort recept",
-    favoriteAriaLabel: "Favoritrecept",
+    favoriteAriaLabel: "Favorit {name}",
     confirmDelete: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",
