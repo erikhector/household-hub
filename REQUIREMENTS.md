@@ -5435,6 +5435,15 @@ co-managers, not kids earning rewards.
   shows a mascot "You're all caught up!" card in place of the open section
   (squirrel rises in once; static under reduced motion; no count or
   streak). It clears when a task is open again (Undo, a new task).
+- **All caught up, and old one-offs that leave (UX-105)**: with no open
+  task (and at least one completed) the mascot "You're all caught up!" card
+  shows above Completed on every visit, not only right after a tick, so the
+  page never opens straight on the Completed list. One-offs ticked more than
+  7 days before the server's `now` (`isOlderCompletedOneOff`,
+  `src/app/dashboard/tasks/older-completed.ts`) collapse behind a "Show N
+  older" button under the Completed rows (toggles to "Hide older"); nothing
+  is deleted. Repeating tasks never collapse. The open/closed state is
+  per-visit, not stored (`e2e/task-caught-up.spec.ts`).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
