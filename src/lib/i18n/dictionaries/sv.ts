@@ -94,6 +94,7 @@ export const sv = {
     plannedIncomeNeedsIncomeCategory: "En planerad inkomst kan bara registreras i en inkomstkategori",
     plannedIncomeAlreadyReceived: "Den planerade inkomsten är redan mottagen",
     plannedIncomeNoSplit: "En planerad inkomst kan inte delas",
+    plannedItemCategoryLocked: "En betald räkning eller mottagen inkomst kan inte flyttas mellan utgifts- och inkomstkategorier",
     categoryUsedByPlannedBill: 'Kategorin används av den planerade räkningen "{name}" – ta bort den eller byt kategori först',
     categoryUsedByPlannedIncome: 'Kategorin används av den planerade inkomsten "{name}" – ta bort den eller byt kategori först',
     categoryNotFound: "Kategorin hittades inte",

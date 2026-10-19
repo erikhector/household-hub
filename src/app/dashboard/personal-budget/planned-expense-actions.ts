@@ -29,12 +29,19 @@ function revalidatePersonalBudgetPages() {
   revalidatePath("/dashboard");
 }
 
-/** The validated fields, or a localised `{ error }`. The category must be
- * one of the user's own expense or income categories. */
+/** The validated fields and the category's type, or a localised
+ * `{ error }`. The category must be one of the user's own expense or income
+ * categories. */
 async function parsePlannedExpense(
   userId: string,
   formData: FormData,
-): Promise<{ error: string } | { name: string; amount: number; categoryId: string; dueDate: Date }> {
+): Promise<
+  | { error: string }
+  | {
+      fields: { name: string; amount: number; categoryId: string; dueDate: Date };
+      categoryType: "EXPENSE" | "INCOME" | "SAVINGS";
+    }
+> {
   const parsed = plannedExpenseSchema.safeParse({
     name: formData.get("name"),
     amount: formData.get("amount"),
@@ -47,11 +54,14 @@ async function parsePlannedExpense(
 
   const category = await prisma.personalBudgetCategory.findFirst({
     where: { id: parsed.data.categoryId, userId, type: { in: ["EXPENSE", "INCOME"] } },
-    select: { id: true },
+    select: { id: true, type: true },
   });
   if (!category) return fail("categoryNotFound");
 
-  return { name: parsed.data.name, amount: parsed.data.amount, categoryId: category.id, dueDate };
+  return {
+    fields: { name: parsed.data.name, amount: parsed.data.amount, categoryId: category.id, dueDate },
+    categoryType: category.type,
+  };
 }
 
 export async function createPersonalPlannedExpenseAction(
@@ -60,11 +70,11 @@ export async function createPersonalPlannedExpenseAction(
 ): Promise<ActionState> {
   const userId = await requireUserId();
 
-  const fields = await parsePlannedExpense(userId, formData);
-  if ("error" in fields) return fields;
+  const parsed = await parsePlannedExpense(userId, formData);
+  if ("error" in parsed) return parsed;
 
   try {
-    await prisma.personalPlannedExpense.create({ data: { userId, ...fields } });
+    await prisma.personalPlannedExpense.create({ data: { userId, ...parsed.fields } });
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -82,15 +92,26 @@ export async function updatePersonalPlannedExpenseAction(
   const id = z.string().min(1).safeParse(formData.get("id"));
   if (!id.success) return fail("plannedBillNotFound");
 
-  const fields = await parsePlannedExpense(userId, formData);
-  if ("error" in fields) return fields;
+  const parsed = await parsePlannedExpense(userId, formData);
+  if ("error" in parsed) return parsed;
+
+  // A paid bill or received income stays on its transaction's side of the
+  // budget, same guard as the household's updatePlannedExpenseAction.
+  const existing = await prisma.personalPlannedExpense.findFirst({
+    where: { id: id.data, userId },
+    select: { category: { select: { type: true } }, transaction: { select: { id: true } } },
+  });
+  if (!existing) return fail("plannedBillNotFound");
+  if (existing.transaction && existing.category.type !== parsed.categoryType) {
+    return fail("plannedItemCategoryLocked");
+  }
 
   try {
     // updateMany so the user scope sits in the same query as the write: a
     // bill id of another user's matches nothing.
     const { count } = await prisma.personalPlannedExpense.updateMany({
       where: { id: id.data, userId },
-      data: fields,
+      data: parsed.fields,
     });
     if (count === 0) return fail("plannedBillNotFound");
   } catch (error) {

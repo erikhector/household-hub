@@ -137,8 +137,16 @@ export async function updatePlannedExpenseAction(
 
   const existing = await prisma.plannedExpense.findFirst({
     where: { id: id.data, householdId: household.id },
+    include: { category: { select: { type: true } }, transaction: { select: { id: true } } },
   });
   if (!existing) return fail("plannedBillNotFound");
+  // A paid bill or received income stays on its transaction's side of the
+  // budget: moving it between an expense and an income category would leave
+  // it contradicting the transaction that settled it, and the transaction
+  // update guard would then force that transaction to the wrong side.
+  if (existing.transaction && existing.category.type !== category.type) {
+    return fail("plannedItemCategoryLocked");
+  }
 
   const split = await parseShareSplitFormData(
     formData,

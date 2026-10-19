@@ -8,6 +8,7 @@ const {
   requireUserIdMock,
   categoryFindFirstMock,
   plannedCreateMock,
+  plannedFindFirstMock,
   plannedUpdateManyMock,
   plannedDeleteManyMock,
   revalidatePathMock,
@@ -15,6 +16,7 @@ const {
   requireUserIdMock: vi.fn(),
   categoryFindFirstMock: vi.fn(),
   plannedCreateMock: vi.fn(),
+  plannedFindFirstMock: vi.fn(),
   plannedUpdateManyMock: vi.fn(),
   plannedDeleteManyMock: vi.fn(),
   revalidatePathMock: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
     personalBudgetCategory: { findFirst: categoryFindFirstMock },
     personalPlannedExpense: {
       create: plannedCreateMock,
+      findFirst: plannedFindFirstMock,
       updateMany: plannedUpdateManyMock,
       deleteMany: plannedDeleteManyMock,
     },
@@ -53,8 +56,9 @@ const valid = { name: "Dentist", amount: "1200", categoryId: "c1", dueDate: "202
 beforeEach(() => {
   vi.clearAllMocks();
   requireUserIdMock.mockResolvedValue(userId);
-  categoryFindFirstMock.mockResolvedValue({ id: "c1" });
+  categoryFindFirstMock.mockResolvedValue({ id: "c1", type: "EXPENSE" });
   plannedCreateMock.mockResolvedValue({ id: "p1" });
+  plannedFindFirstMock.mockResolvedValue({ category: { type: "EXPENSE" }, transaction: null });
   plannedUpdateManyMock.mockResolvedValue({ count: 1 });
   plannedDeleteManyMock.mockResolvedValue({ count: 1 });
 });
@@ -131,6 +135,50 @@ describe("updatePersonalPlannedExpenseAction", () => {
 
     expect(result).toEqual({ error: "Planned bill not found" });
     expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when the lookup is scoped away from another user's bill", async () => {
+    plannedFindFirstMock.mockResolvedValue(null);
+
+    const result = await updatePersonalPlannedExpenseAction({}, form({ ...valid, id: "someone-elses" }));
+
+    expect(result).toEqual({ error: "Planned bill not found" });
+    expect(plannedFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "someone-elses", userId } }),
+    );
+    expect(plannedUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to move a paid bill to an income category", async () => {
+    plannedFindFirstMock.mockResolvedValue({ category: { type: "EXPENSE" }, transaction: { id: "t1" } });
+    categoryFindFirstMock.mockResolvedValue({ id: "c2", type: "INCOME" });
+
+    const result = await updatePersonalPlannedExpenseAction({}, form({ ...valid, id: "p1", categoryId: "c2" }));
+
+    expect(result).toEqual({
+      error: "A paid bill or received income can't move between expense and income categories",
+    });
+    expect(plannedUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to move received income to an expense category", async () => {
+    plannedFindFirstMock.mockResolvedValue({ category: { type: "INCOME" }, transaction: { id: "t1" } });
+
+    const result = await updatePersonalPlannedExpenseAction({}, form({ ...valid, id: "p1" }));
+
+    expect(result).toEqual({
+      error: "A paid bill or received income can't move between expense and income categories",
+    });
+    expect(plannedUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("still edits a paid bill within its own type, and moves an unpaid one across", async () => {
+    plannedFindFirstMock.mockResolvedValue({ category: { type: "EXPENSE" }, transaction: { id: "t1" } });
+    expect(await updatePersonalPlannedExpenseAction({}, form({ ...valid, id: "p1" }))).toEqual({});
+
+    plannedFindFirstMock.mockResolvedValue({ category: { type: "EXPENSE" }, transaction: null });
+    categoryFindFirstMock.mockResolvedValue({ id: "c2", type: "INCOME" });
+    expect(await updatePersonalPlannedExpenseAction({}, form({ ...valid, id: "p1", categoryId: "c2" }))).toEqual({});
   });
 
   it("returns not found without an id", async () => {

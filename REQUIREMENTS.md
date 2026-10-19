@@ -2956,9 +2956,12 @@ ordinary `INCOME` transaction.
   income can only be logged in an income category"; a bill keeps its "can
   only be paid from an expense category"), and refuse income already received
   ("This planned income is already received"). The update actions keep a
-  linked transaction on its planned item's side of the budget the same way.
-  Deleting a category still used by planned income names it ("used by the
-  planned income …").
+  linked transaction on its planned item's side of the budget the same way,
+  and editing a paid bill or received income can't move it between an
+  expense and an income category ("A paid bill or received income can't move
+  between expense and income categories"); an unsettled one can. Deleting
+  a category still used by planned income names it ("used by the planned
+  income …").
 
 Covered by `planned-expense-calc.test.ts`, `safe-to-spend-calc.test.ts`,
 `household-safe-to-spend.test.ts`, `personal-budget-position.test.ts`, both

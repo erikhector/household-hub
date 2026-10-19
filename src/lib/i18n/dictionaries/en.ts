@@ -99,6 +99,7 @@ export const en = {
     plannedIncomeNeedsIncomeCategory: "Planned income can only be logged in an income category",
     plannedIncomeAlreadyReceived: "This planned income is already received",
     plannedIncomeNoSplit: "Planned income can't be split",
+    plannedItemCategoryLocked: "A paid bill or received income can't move between expense and income categories",
     categoryUsedByPlannedBill: 'This category is used by the planned bill "{name}" — remove or reassign it first',
     categoryUsedByPlannedIncome: 'This category is used by the planned income "{name}" — remove or reassign it first',
     categoryNotFound: "Category not found",
