@@ -3352,8 +3352,36 @@ export const en = {
     getStarted: "Get started free",
     freeNote: "Free for the whole household — invite everyone, no extra seats",
     ctaTitle: "Ready to get your household in order?",
-    ctaDescription: "Setting up takes less than a minute — no credit card, no chores.",
+    // UX-58: no "less than a minute" — signup waits on an emailed
+    // verification link (UX-135), so promise only what's always true.
+    ctaDescription: "Free to set up — no credit card, no chores.",
     ctaButton: "Create your household",
+    // UX-58: the phone-framed shopping list in the hero (PhonePreview).
+    // Example rows, not a real household's, so they read naturally in each
+    // language rather than as translations of one list.
+    preview: {
+      label: "A shared shopping list in Squirrel on a phone, with low-stock items added automatically",
+      listName: "Weekly shop",
+      fillsItself: "Fills itself",
+      lowStock: "Low stock",
+      purchased: "Purchased",
+      sections: {
+        dairy: "Dairy",
+        produce: "Fruit & veg",
+        pantry: "Pantry",
+      },
+      items: {
+        oatMilk: { name: "Oat milk", qty: "2 l" },
+        yogurt: { name: "Greek yogurt", qty: "1" },
+        bananas: { name: "Bananas", qty: "6" },
+        spinach: { name: "Spinach", qty: "1 bag" },
+        pasta: { name: "Pasta", qty: "500 g" },
+        coffee: { name: "Coffee", qty: "1" },
+      },
+    },
+    // UX-58: six cards so the three-column grid has no empty cell, and
+    // between them every part of the app: budgets share one card so tasks,
+    // recipes and scanning get theirs.
     features: {
       pantry: {
         title: "Pantry that watches itself",
@@ -3362,24 +3390,32 @@ export const en = {
       },
       shoppingLists: {
         title: "Shopping lists that build themselves",
-        description: "Low-stock items hop onto the list automatically, so nobody forgets the milk again.",
+        description:
+          "Low-stock items hop onto the list automatically, and a share link lets anyone tick things off — no account needed.",
       },
       meals: {
         title: "Meals, planned not panicked",
-        description: "Line up the week's meals against what's already in the pantry.",
+        description:
+          "Save recipes or import them from a link, plan the week against the pantry, and follow along in cook mode.",
+      },
+      tasks: {
+        title: "Chores that come back round",
+        description:
+          "Household tasks that repeat and take turns between people, plus a calendar feed of meals and bill due dates.",
+      },
+      scanning: {
+        title: "Scan instead of typing",
+        description: "Scan a barcode or a receipt to add things in seconds, or snap a whole shelf at once.",
       },
       budget: {
-        title: "Budget without the spreadsheet",
-        description: "Track household spending and see where the grocery money actually goes.",
-      },
-      personalBudget: {
-        title: "Your own budget too",
-        description: "Keep a personal budget alongside the household one — same tools, kept just for you.",
+        title: "Budgets without the spreadsheet",
+        description:
+          "Track household spending, split shared costs fairly, and keep a personal budget that's just for you.",
       },
     },
     howItWorks: {
       title: "How it works",
-      subtitle: "Up and running in a few minutes, with example data to poke around.",
+      subtitle: "Start with an empty household and fill it as you go — starter kits and scanning make it quick.",
       steps: {
         setup: {
           title: "Create your household",
