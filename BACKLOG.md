@@ -249,7 +249,9 @@ then MAINT-7 per feature, to avoid churn.
       (when the added row renders in the list), never a loosened assertion,
       a skip or a retry. Acceptance: `npx playwright test
       e2e/copy-shopping-list-text.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30.
+      passes 30/30. Seen again on the `desktop` project (2026-10-19): the
+      GitHub `End-to-end (Playwright)` job on release PR #381 (head
+      `ce28040`) failed it once at line 31 and passed on the retry.
 - [ ] **MAINT-27. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
       `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
       amount in the pantry's unit instead"), `mobile` project. Failed once
@@ -308,6 +310,19 @@ then MAINT-7 per feature, to avoid churn.
       shifts) or in the test's waiting, never a raised budget, a skip or a
       retry. Acceptance: `npx playwright test e2e/cls.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-32. Flaky: Delete and Save buttons overlap in the phone edit sheet** (low, S) —
+      `e2e/budget-transaction-rows.spec.ts:51` ("phone rows open the edit
+      sheet, name themselves and delete from the sheet"), `mobile` project.
+      Failed once in the local `ci:local` gate on release PR #381 (head
+      `ce28040`, 2026-10-19), then passed on a re-run of the same commit;
+      GitHub's `End-to-end (Playwright)` job on that head passed. The
+      failing assertion is the poll at line 87: the gap between the Delete
+      and Save buttons was -9.14, expected at least 8, so the sticky sheet
+      footer's buttons overlapped. Fix it in the app (the footer's layout
+      while the sheet settles) or in the test's waiting, never a loosened
+      assertion, a skip or a retry. Acceptance: `npx playwright test
+      e2e/budget-transaction-rows.spec.ts --project=mobile
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
