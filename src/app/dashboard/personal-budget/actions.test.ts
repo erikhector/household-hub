@@ -484,6 +484,22 @@ describe("updatePersonalTransactionAction", () => {
     expect(result).toEqual({ error: "A planned bill can only be paid from an expense category" });
     expect(transactionUpdateMock).not.toHaveBeenCalled();
   });
+
+  it("still lets a planned bill's payment be edited within an expense category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    transactionFindFirstMock.mockResolvedValue({ id: "t1", plannedExpenseId: "p1" });
+    transactionUpdateMock.mockResolvedValue({});
+
+    const result = await updatePersonalTransactionAction(
+      {},
+      formData({ id: "t1", categoryId: "cat-1", amount: "1100", date: "2026-01-01", isRecurring: "" }),
+    );
+
+    expect(result).toEqual({});
+    expect(transactionUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "t1" }, data: expect.objectContaining({ amount: 1100 }) }),
+    );
+  });
 });
 
 describe("deletePersonalTransactionAction", () => {

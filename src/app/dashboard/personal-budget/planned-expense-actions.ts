@@ -103,9 +103,14 @@ export async function updatePersonalPlannedExpenseAction(
 export async function deletePersonalPlannedExpenseAction(id: string): Promise<ActionState> {
   const userId = await requireUserId();
 
+  // A Server Action's argument comes from the client: an undefined id would
+  // drop out of the filter and delete every one of the user's bills.
+  const parsed = z.string().min(1).safeParse(id);
+  if (!parsed.success) return fail("plannedBillNotFound");
+
   try {
     const { count } = await prisma.personalPlannedExpense.deleteMany({
-      where: { id, userId },
+      where: { id: parsed.data, userId },
     });
     if (count === 0) return fail("plannedBillNotFound");
   } catch (error) {

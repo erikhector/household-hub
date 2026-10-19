@@ -165,4 +165,11 @@ describe("deletePersonalPlannedExpenseAction", () => {
 
     expect(result).toEqual({ error: "Planned bill not found" });
   });
+
+  it("refuses a missing id instead of deleting every bill of the user's", async () => {
+    const result = await deletePersonalPlannedExpenseAction(undefined as unknown as string);
+
+    expect(result).toEqual({ error: "Planned bill not found" });
+    expect(plannedDeleteManyMock).not.toHaveBeenCalled();
+  });
 });
