@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.84.0",
+    "date": "2026-10-19",
+    "pr": 429,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The front page now shows Squirrel itself, with a shopping list on a phone, and covers everything the app does: tasks, recipes and cook mode, scanning, shared list links and the calendar feed. Anyone can now read what's changed in each version under \"What's new\" at the bottom of the front page.",
+      "sv": "Startsidan visar nu Squirrel som det ser ut, med en inköpslista på en mobil, och tar upp allt appen gör: uppgifter, recept och matlagningsläge, skanning, delade listlänkar och kalenderflödet. Vem som helst kan nu läsa vad som har ändrats i varje version under \"Nyheter\" längst ner på startsidan."
+    }
+  },
+  {
     "version": "0.83.0",
     "date": "2026-10-19",
     "pr": 426,
