@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format } from "@/lib/i18n/format";
 import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
 import { PublicLanguageToggle } from "@/components/language/public-language-toggle";
+import { CURRENT_VERSION } from "@/lib/release-notes";
 
 /**
  * Small Terms/Privacy links + copyright line for the app's public-facing
@@ -12,13 +13,15 @@ import { PublicLanguageToggle } from "@/components/language/public-language-togg
  * since a logged-out visitor has no dashboard sidebar to switch from. Not used inside the authenticated
  * dashboard shell (`src/app/dashboard/layout.tsx`), since that already has
  * its own persistent nav and doesn't need a repeated legal footer on every
- * page.
+ * page. The What's new link carries the current version, the same
+ * "What's new · vX.Y.Z" the dashboard sidebar shows, so a visitor can see
+ * which Squirrel they're looking at and what changed lately.
  */
 export async function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
   const [locale, { language }] = await Promise.all([getLocale(), getDictionary()]);
   return (
     <footer className="flex flex-col items-center gap-1 py-4 text-xs text-muted-foreground">
-      <nav className="flex items-center gap-2">
+      <nav className="flex flex-wrap items-center justify-center gap-2">
         <Link href="/terms" className="touch-target hover:text-foreground hover:underline">
           {dict.termsNavLabel}
         </Link>
@@ -27,6 +30,11 @@ export async function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
         </Link>
         <Link href="/privacy#cookies" className="touch-target hover:text-foreground hover:underline">
           {dict.cookiesNavLabel}
+        </Link>
+        <Link href="/whats-new" className="touch-target hover:text-foreground hover:underline">
+          {/* One string: the link is a flex box (touch-target), which would
+              trim the space before a separate version <span>. */}
+          {`${dict.whatsNewNavLabel} · v${CURRENT_VERSION}`}
         </Link>
       </nav>
       <PublicLanguageToggle locale={locale} dict={language} />

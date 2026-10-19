@@ -508,26 +508,6 @@ UX-89, UX-113.
 
 #### Logged out, signup and invites
 
-- [ ] **UX-58. A landing page that shows the product and claims only
-      what's true** (impact: high, effort: M) — breaks User-centricity
-      and the Squirrel voice.
-      - There is no screenshot, phone frame or illustration of the app,
-        and the mascot appears only as a 40 px header badge. The page
-        reads like a generic SaaS template, while Bring! and AnyList lead
-        with the product on a phone.
-      - "Up and running in a few minutes, with example data to poke
-        around" (`en.ts:3104`) isn't true: a new household starts empty.
-      - The five feature cards (`src/app/page.tsx:28-48`) give budgets
-        two slots but omit tasks, recipes and cook mode, receipt,
-        barcode and shelf scanning, shareable list links and the calendar
-        feed.
-      - At 1280 and 1920 px the grid leaves an empty sixth cell.
-      Acceptance: above the fold on a phone there is at least one real
-      product visual (for example a shopping list in a phone frame with
-      the mascot). The example-data line is removed (or made true by
-      UX-136). Tasks, recipes and scanning are represented. No empty
-      grid cell at 1280 px.
-
 - [ ] **UX-59. Signup and login errors next to the field, keeping what
       was typed** (impact: med, effort: M) — breaks Usability ("inline,
       actionable errors next to the field") and Context.
@@ -1836,8 +1816,8 @@ out to be a product-scope question rather than a scoped task should move to
       signup deliberately doesn't sign in (`src/lib/actions/auth.ts:228-232`).
       So a new user fills in five fields, then has to switch to their mail
       app (often an in-app browser), tap the link, tap "Go to dashboard"
-      and type their email and password again. That contradicts the
-      landing page's "Setting up takes less than a minute".
+      and type their email and password again. (The landing page's old
+      "Setting up takes less than a minute" went with UX-58.)
       Options:
       - **Recommended:** a valid, unused verification token signs the
         user in (single use, short-lived, the same trust as a reset
@@ -1850,8 +1830,8 @@ out to be a product-scope question rather than a scoped task should move to
 - [ ] **UX-136. Sample data for a new household?** `[!]` — from the
       2026-10-15 UI review. A new household starts completely empty: the
       first overview is three "0" cards, and seven sections show empty
-      states. The landing page promises "example data to poke around"
-      (UX-58 removes that line unless this is built).
+      states. The landing page used to promise "example data to poke
+      around"; UX-58 removed that line, so add it back if this is built.
       Options:
       - **Recommended:** an opt-in "Try with sample data" on the first
         overview that seeds a small pantry, one list, a planned week,
