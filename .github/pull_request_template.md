@@ -21,8 +21,9 @@ anything checked by hand. The CI checks on this PR are the gate. -->
 <!--
 Shown to users under "What's new" in the app once merged. Write for
 someone using Squirrel, not a developer: one or two plain sentences.
-Leave English empty to use the PR title. Leave Svenska empty to show the
-English note to Swedish users too. Ignored for non-releasing PR types.
+A feat/fix/perf PR needs both English and Svenska: the Release preview
+check fails while either is empty, so English never reaches Swedish users.
+Ignored for non-releasing PR types.
 -->
 
 ### English
