@@ -96,6 +96,22 @@ describe("parseSmartAddInput", () => {
   });
 });
 
+describe("brackets (UX-88)", () => {
+  it("adds two rows with the brackets intact", () => {
+    expect(parseSmartAddInput("dishwasher tablets (lemon-free, 120 st), paper towels")).toEqual([
+      { name: "dishwasher tablets (lemon-free, 120 st)", quantity: 1 },
+      { name: "paper towels", quantity: 1 },
+    ]);
+  });
+
+  it("doesn't cut the autocomplete segment at a comma inside brackets", () => {
+    expect(splitSmartAddInput("bröd, tablets (lemon-free, 120 st)")).toEqual({
+      head: "bröd",
+      current: { name: "tablets (lemon-free, 120 st)", quantity: 1, unit: "pcs" },
+    });
+  });
+});
+
 describe("splitSmartAddInput", () => {
   it("autocompletes only the segment after the last comma, with its count/unit parsed off", () => {
     expect(splitSmartAddInput("bröd, 2 l mj")).toEqual({

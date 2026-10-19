@@ -123,10 +123,40 @@ function parseLine(raw: string): ParsedItem | null {
   return { name: line, quantity: 1, unit: "pcs" };
 }
 
+/**
+ * Index of every comma in `line` that separates items, i.e. one outside a
+ * bracket pair: "tablets (lemon-free, 120 st), towels" has one, not two. A
+ * bracket that is never closed doesn't count as open, so a stray "(" can't
+ * swallow the rest of the line.
+ */
+export function topLevelCommaIndexes(line: string): number[] {
+  const closes: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
+  const indexes: number[] = [];
+  const open: string[] = [];
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (closes[ch] && line.indexOf(closes[ch], i + 1) !== -1) open.push(closes[ch]);
+    else if (open.length > 0 && ch === open[open.length - 1]) open.pop();
+    else if (ch === "," && open.length === 0) indexes.push(i);
+  }
+  return indexes;
+}
+
+function splitOnTopLevelCommas(line: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  for (const i of topLevelCommaIndexes(line)) {
+    parts.push(line.slice(start, i));
+    start = i + 1;
+  }
+  parts.push(line.slice(start));
+  return parts;
+}
+
 export function parsePastedList(input: string): ParsedItem[] {
   const items: ParsedItem[] = [];
   for (const line of input.split(/\n+/)) {
-    for (const segment of line.split(",")) {
+    for (const segment of splitOnTopLevelCommas(line)) {
       const parsed = parseLine(segment);
       if (parsed) items.push(parsed);
     }

@@ -805,14 +805,6 @@ UX-89, UX-113.
       The New list sheet offers "Start from: blank / a template / a
       recent list (unbought or all items)". Template rows say "Use".
 
-- [ ] **UX-88. Smart add: don't split on commas inside brackets**
-      (impact: low, effort: S) — Usability. "dishwasher tablets
-      (lemon-free, 120 st), paper towels" became "…(lemon-free × 1 pcs"
-      plus a junk "st) × 120 pcs" row, which also became a pantry item
-      (`smart-add-suggestions.ts:103-118`, `parsePastedList`).
-      Acceptance: that input adds two rows with the brackets intact, with
-      a unit test.
-
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) — breaks User-centricity
       ("automation suggests, the user decides"). Free-text list items
@@ -1642,8 +1634,7 @@ out to be a product-scope question rather than a scoped task should move to
       the missing-ingredients check. Add an optional multi-line
       "Ingredients" field to the custom-meal form (nullable
       `MealPlanEntry.freeformIngredients String?`, Phase 2), one per line,
-      read with the same line parser as smart add (UX-88 fixes its comma
-      handling first). The bridge preview lists those lines as
+      read with the same line parser as smart add. The bridge preview lists those lines as
       "From custom meals", matched to inventory by the existing
       case-insensitive name rule and scaled by nothing (a custom meal has
       no portions). Marking it cooked still decrements nothing.

@@ -1412,7 +1412,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   so rows scrolled under it never show through, UX-82). Typing `2 l mjölk, bröd, 6 ägg` and pressing
   Enter adds three rows; the text goes through the shared
   `parsePastedList` (via `parseSmartAddInput`), and a row with no typed
-  unit takes its inventory item's usual unit rather than "pcs". The input
+  unit takes its inventory item's usual unit rather than "pcs". A comma
+  inside brackets doesn't split (UX-88): `dishwasher tablets (lemon-free,
+  120 st), paper towels` is two rows with the brackets intact (an unclosed
+  bracket doesn't count, so a stray `(` can't swallow the line). The input
   clears as soon as it's submitted and keeps focus, so the next item can be
   typed straight away (it's put back if the add fails). Each added row
   highlights for ~2 s and scrolls into view if it was off-screen (the
