@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.81.0",
+    "date": "2026-10-19",
+    "pr": 411,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Swedish release notes under What's new no longer contain English text.\n\nA page that doesn't exist now looks like the rest of Squirrel when you're logged out, with a link to the start page. Dead email links say \"Link expired\" or \"Link not valid\" instead of a generic title.\n\nCategory bars on the budget no longer change colour from category to category. They are one calm colour, turn amber with \"Almost at limit\" when you reach 90% of a category's limit, and red when you go over.\n\nThe task title now has a visible label, and a character counter appears as you near the 120-character limit.",
+      "sv": "Versionsanteckningarna under Nyheter innehåller inte längre engelsk text.\n\nEn sida som inte finns ser nu ut som resten av Squirrel när du är utloggad, med en länk till startsidan. Döda länkar i mejl säger \"Länken har gått ut\" eller \"Länken är inte giltig\" i stället för en allmän rubrik.\n\nStapplarna per kategori i budgeten byter inte längre färg från kategori till kategori. De har en lugn färg, blir gula med texten \"Nära gränsen\" när du nått 90 % av en kategoris gräns, och röda när du gått över.\n\nUppgiftens titel har nu en synlig etikett, och en teckenräknare visas när du närmar dig gränsen på 120 tecken."
+    }
+  },
+  {
     "version": "0.80.0",
     "date": "2026-10-19",
     "pr": 405,
