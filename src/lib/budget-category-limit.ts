@@ -70,6 +70,9 @@ export type LimitProgress = {
   fillPercent: number;
   /** Strictly past the limit. Spending exactly the limit is "on budget". */
   over: boolean;
+  /** UX-115: at {@link NEAR_LIMIT_PERCENT} or more of the limit but not
+   * past it, the "Almost at limit" state. Never true together with `over`. */
+  near: boolean;
 };
 
 /**
@@ -84,6 +87,7 @@ export function limitProgress(spent: number, limit: number | null | undefined): 
     percent,
     fillPercent: Math.min(percent, 100),
     over: percent > 100,
+    near: percent >= NEAR_LIMIT_PERCENT && percent <= 100,
   };
 }
 

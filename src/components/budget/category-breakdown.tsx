@@ -3,17 +3,22 @@
 // (recurring template totals by item) so both "how is this split up" views
 // look and behave identically.
 //
-// UX-39: colours come from the shared chart kit (src/components/charts/),
-// chart-1 … chart-5 in row order, and a row with a `history` gets a
-// spending sparkline beside its bar: the last few months of that category,
+// UX-39: a row with a `history` gets a spending sparkline beside its bar,
+// coloured from the shared chart kit (src/components/charts/), chart-1 …
+// chart-5 in row order: the last few months of that category,
 // this month last, so "is this normal for us?" is one glance away.
+//
+// UX-115: the bars themselves carry status, not category. DESIGN.md keeps
+// chart colours for marks and status for success/warning/destructive paired
+// with a word, so a bar is one neutral colour, `warning` (with "Almost at
+// limit") from 90% of its limit and `destructive` ("X over") past it.
+// Otherwise a category at 96% could read green and one at 36% pink.
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import { limitProgress } from "@/lib/budget-category-limit";
-import { chartFill } from "@/components/charts/chart-colors";
 import { Sparkline } from "@/components/charts/sparkline";
 
 export type CategoryTotal = {
@@ -49,6 +54,7 @@ export type CategoryHistoryLabels = {
 export type CategoryLimitDict = {
   spentOfLimit: string;
   overLimitBy: string;
+  almostAtLimit: string;
   carriedOver: string;
 };
 
@@ -105,7 +111,9 @@ export function CategoryBreakdown({
                   : 0;
               const barColor = progress?.over
                 ? "bg-destructive"
-                : chartFill(index);
+                : progress?.near
+                  ? "bg-warning"
+                  : "bg-muted-foreground";
               const sparkline =
                 history && item.history && item.history.length === history.months.length
                   ? item.history
@@ -119,7 +127,11 @@ export function CategoryBreakdown({
                       <span
                         className={
                           "shrink-0 tabular-nums " +
-                          (progress.over ? "text-destructive" : "text-muted-foreground")
+                          (progress.over
+                            ? "text-destructive"
+                            : progress.near
+                              ? "text-warning"
+                              : "text-muted-foreground")
                         }
                       >
                         {format(limitDict.spentOfLimit, {
@@ -132,6 +144,12 @@ export function CategoryBreakdown({
                             {format(limitDict.overLimitBy, {
                               amount: numberFormat.format(item.total - available),
                             })}
+                          </>
+                        )}
+                        {progress.near && (
+                          <>
+                            {" · "}
+                            {limitDict.almostAtLimit}
                           </>
                         )}
                       </span>

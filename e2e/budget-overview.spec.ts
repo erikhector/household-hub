@@ -127,3 +127,45 @@ test("Overview lists categories near or over their limit", async ({ page }) => {
   await expect(page).toHaveURL(/tab=transactions/);
   await expectNoHorizontalOverflow(page);
 });
+
+// UX-115: "Expenses by category" bars carry status, not category: one
+// neutral colour, warning with "Almost at limit" from 90%, destructive over.
+test("Expenses by category bars are neutral, warning near the limit, destructive over", async ({ page }) => {
+  const tag = budgetTag();
+  const rows = [
+    ["over", `Restaurants ${tag}`, 800, 1355],
+    ["near", `Groceries ${tag}`, 500, 480],
+    ["fine-a", `Hobbies ${tag}`, 500, 100],
+    ["fine-b", `Clothes ${tag}`, 500, 180],
+  ] as const;
+  await withDb(async (client) => {
+    for (const [key, name, limit, spent] of rows) {
+      await insertHouseholdCategory(client, { id: `e2e-bar-cat-${key}-${tag}`, name, monthlyLimit: limit });
+      await insertHouseholdTransaction(client, {
+        id: `e2e-bar-tx-${key}-${tag}`,
+        categoryId: `e2e-bar-cat-${key}-${tag}`,
+        amount: spent,
+      });
+    }
+  });
+  await page.goto("/dashboard/budget?tab=insights");
+  const main = page.getByRole("main");
+  const row = (name: string) => main.getByRole("link", { name: new RegExp(`^${name} ${tag}`) });
+  const barColour = (name: string) =>
+    row(name).locator("div.h-full.rounded-full").evaluate((el) => getComputedStyle(el).backgroundColor);
+
+  await expect(row("Groceries")).toContainText("Almost at limit");
+  await expect(row("Restaurants")).toContainText(/over/i);
+  await expect(row("Restaurants")).not.toContainText("Almost at limit");
+  await expect(row("Hobbies")).not.toContainText("Almost at limit");
+
+  const [hobbies, clothes, groceries, restaurants] = await Promise.all([
+    barColour("Hobbies"),
+    barColour("Clothes"),
+    barColour("Groceries"),
+    barColour("Restaurants"),
+  ]);
+  // Same neutral colour whatever the row's position, and status rows differ.
+  expect(hobbies).toBe(clothes);
+  expect(new Set([hobbies, groceries, restaurants]).size).toBe(3);
+});

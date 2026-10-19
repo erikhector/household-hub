@@ -2249,6 +2249,7 @@ export const en = {
       noSavings: "No savings recorded this month.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
+      almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
       historyLabel: "Last {count} months: {values}",
@@ -2708,6 +2709,7 @@ export const en = {
       noSavings: "No savings recorded this month.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
+      almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
       historyLabel: "Last {count} months: {values}",
