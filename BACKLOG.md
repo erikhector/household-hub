@@ -268,6 +268,8 @@ then MAINT-7 per feature, to avoid churn.
       passes 30/30. Also failed on `desktop` (`d3cfbdb`) and `mobile`
       (`2bc2121`) in the #354 gates, 2026-10-18: `toHaveCount(0)` received
       2 after 5 s.
+      Another sighting, 2026-10-19: failed once and passed on re-run in the
+      UX-84 gate (`d771c72`'s first run, `mobile`).
 - [ ] **MAINT-29. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
       `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
       `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
@@ -318,6 +320,21 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/task-tick-undo.spec.ts --project=desktop
       --repeat-each=30` passes 30/30.
+      Another sighting, 2026-10-19: failed on the `mobile` project in the
+      UX-107 gate (`c4fca69`), at the same checkbox lookup after a reload,
+      then passed on re-run.
+
+- [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
+      `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
+      once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
+      the "Copy last week" menuitem was not visible after clicking More. It
+      passed 42/42 alone (`--repeat-each=10`) and in the next full gate on
+      the same commit, so it depends on load, probably a click before
+      hydration like MAINT-27. Fix it in the app (when the More menu is
+      interactive) or in the test's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
