@@ -12,7 +12,8 @@ import { parseDueDate } from "@/lib/planned-expense-calc";
 // (src/app/dashboard/budget/planned-expense-actions.ts), scoped by the
 // signed-in user instead of a household and with no split, since only the
 // user ever sees or pays one. Editing a bill never touches the transaction
-// that paid it, same as the household's.
+// that paid it, same as the household's. Planned income is the same row in
+// an income category (see REQUIREMENTS.md, "Planned income").
 
 const plannedExpenseSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(100, v("billNameTooLong")),
@@ -29,7 +30,7 @@ function revalidatePersonalBudgetPages() {
 }
 
 /** The validated fields, or a localised `{ error }`. The category must be
- * one of the user's own expense categories. */
+ * one of the user's own expense or income categories. */
 async function parsePlannedExpense(
   userId: string,
   formData: FormData,
@@ -45,7 +46,7 @@ async function parsePlannedExpense(
   if (!dueDate) return fail("invalidDueDate");
 
   const category = await prisma.personalBudgetCategory.findFirst({
-    where: { id: parsed.data.categoryId, userId, type: "EXPENSE" },
+    where: { id: parsed.data.categoryId, userId, type: { in: ["EXPENSE", "INCOME"] } },
     select: { id: true },
   });
   if (!category) return fail("categoryNotFound");

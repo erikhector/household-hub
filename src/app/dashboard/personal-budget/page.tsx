@@ -44,7 +44,7 @@ import {
   deletePersonalPlannedExpenseAction,
   updatePersonalPlannedExpenseAction,
 } from "@/app/dashboard/personal-budget/planned-expense-actions";
-import { isPlannedExpenseOutstanding } from "@/lib/planned-expense-calc";
+import { isPlannedItemCounted } from "@/lib/planned-expense-calc";
 import { computePersonalFixedInsights } from "@/lib/personal-fixed-insights";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import {
@@ -285,7 +285,7 @@ async function PersonalBudgetTabsSection({
     sharedLabel: dict.personalBudget.shared.sharedBadge,
   });
 
-  // --- Manage tab: recurring items, planned bills + categories --------------
+  // --- Manage tab: recurring items, planned bills and income + categories ---
   // Grouped together — see budget-tabs.tsx's doc comment (this mirrors the
   // household budget's own Manage tab).
   const manage = (
@@ -306,20 +306,24 @@ async function PersonalBudgetTabsSection({
         createTransactionAction={createPersonalTransactionAction}
         updateTransactionAction={updatePersonalTransactionAction}
       />
-      <PlannedExpensesPanel
-        rows={plannedExpenseRows}
-        categories={categoryRows}
-        members={[]}
-        currentMemberId=""
-        monthKey={monthKey}
-        dict={dict.personalBudget}
-        locale={locale}
-        createAction={createPersonalPlannedExpenseAction}
-        updateAction={updatePersonalPlannedExpenseAction}
-        onDelete={deletePersonalPlannedExpenseAction}
-        createTransactionAction={createPersonalTransactionAction}
-        updateTransactionAction={updatePersonalTransactionAction}
-      />
+      {(["EXPENSE", "INCOME"] as const).map((kind) => (
+        <PlannedExpensesPanel
+          key={kind}
+          kind={kind}
+          rows={plannedExpenseRows.filter((r) => r.type === kind)}
+          categories={categoryRows}
+          members={[]}
+          currentMemberId=""
+          monthKey={monthKey}
+          dict={dict.personalBudget}
+          locale={locale}
+          createAction={createPersonalPlannedExpenseAction}
+          updateAction={updatePersonalPlannedExpenseAction}
+          onDelete={deletePersonalPlannedExpenseAction}
+          createTransactionAction={createPersonalTransactionAction}
+          updateTransactionAction={updatePersonalTransactionAction}
+        />
+      ))}
       <CategoryManager
         categories={categoryRows}
         dict={dict.personalBudget}
@@ -463,7 +467,7 @@ async function PersonalBudgetTabsSection({
       householdDebts={householdDebts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
-      plannedDue={plannedExpenseRows.filter((r) => isPlannedExpenseOutstanding(r.status))}
+      plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
       sharedDueRows={sharedDueRows}
       showHouseholdName={showHouseholdName}
       sharedExpenseHouseholds={sharedExpenseHouseholds}

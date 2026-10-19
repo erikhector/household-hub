@@ -9,7 +9,7 @@ import { defaultLocale, isLocale } from "@/lib/i18n/locales";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
-import { getPlannedExpenseStatus } from "@/lib/planned-expense-calc";
+import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
 import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { createDigestUnsubscribeToken } from "@/lib/digest-unsubscribe-token";
@@ -148,7 +148,14 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
           { transaction: { is: { date: { gte: monthStart } } } },
         ],
       },
-      select: { id: true, name: true, amount: true, dueDate: true, transaction: { select: { date: true } } },
+      select: {
+        id: true,
+        name: true,
+        amount: true,
+        dueDate: true,
+        category: { select: { type: true } },
+        transaction: { select: { date: true } },
+      },
     }),
   ]);
 
@@ -196,6 +203,7 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
       id: p.id,
       name: p.name,
       amount: p.amount,
+      type: plannedItemType(p.category.type),
       status: getPlannedExpenseStatus(
         { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },
         monthStart,

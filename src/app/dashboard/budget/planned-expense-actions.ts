@@ -12,6 +12,9 @@ import { parseDueDate } from "@/lib/planned-expense-calc";
 // Planned bills (BUDGET-8): one-off bills with a due date. Kept out of
 // actions.ts, which is already 1 000+ lines. Editing a bill never touches the
 // transaction that paid it — fixing a typo on a paid bill is allowed.
+// Planned income (a bonus, a tax refund) is the same row in an INCOME
+// category, so these actions take either type; a savings category is
+// refused like a foreign one. See REQUIREMENTS.md, "Planned income".
 
 const plannedExpenseSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(100, v("billNameTooLong")),
@@ -41,6 +44,17 @@ const SPLIT_ERROR_KEYS: Record<string, ErrorKey> = {
   [BILL_SPLIT_SUM_MISMATCH]: "billSplitSumMismatch",
 };
 
+// The household's own expense or income category, or null. A share of
+// expected income would have to be added to each member's personal budget
+// as income, which nothing reads (personal-budget-position.ts only counts
+// planned shares as costs), so planned income is never split: the dialog
+// hides the split section and the actions refuse one.
+function findPlannedCategory(householdId: string, categoryId: string) {
+  return prisma.budgetCategory.findFirst({
+    where: { id: categoryId, householdId, type: { in: ["EXPENSE", "INCOME"] } },
+  });
+}
+
 function parsePlannedExpenseFields(formData: FormData) {
   return plannedExpenseSchema.safeParse({
     name: formData.get("name"),
@@ -63,9 +77,7 @@ export async function createPlannedExpenseAction(
   const dueDate = parseDueDate(parsed.data.dueDate);
   if (!dueDate) return fail("invalidDueDate");
 
-  const category = await prisma.budgetCategory.findFirst({
-    where: { id: parsed.data.categoryId, householdId: household.id, type: "EXPENSE" },
-  });
+  const category = await findPlannedCategory(household.id, parsed.data.categoryId);
   if (!category) return fail("categoryNotFound");
 
   const split = await parseShareSplitFormData(
@@ -75,6 +87,7 @@ export async function createPlannedExpenseAction(
     BILL_SPLIT_SUM_MISMATCH,
   );
   if (split && "error" in split) return fail(SPLIT_ERROR_KEYS[split.error] ?? "invalidInput");
+  if (split && category.type === "INCOME") return fail("plannedIncomeNoSplit");
 
   try {
     await prisma.plannedExpense.create({
@@ -119,9 +132,7 @@ export async function updatePlannedExpenseAction(
   const dueDate = parseDueDate(parsed.data.dueDate);
   if (!dueDate) return fail("invalidDueDate");
 
-  const category = await prisma.budgetCategory.findFirst({
-    where: { id: parsed.data.categoryId, householdId: household.id, type: "EXPENSE" },
-  });
+  const category = await findPlannedCategory(household.id, parsed.data.categoryId);
   if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.plannedExpense.findFirst({
@@ -136,6 +147,7 @@ export async function updatePlannedExpenseAction(
     BILL_SPLIT_SUM_MISMATCH,
   );
   if (split && "error" in split) return fail(SPLIT_ERROR_KEYS[split.error] ?? "invalidInput");
+  if (split && category.type === "INCOME") return fail("plannedIncomeNoSplit");
 
   // Splits are replaced wholesale (delete-all then recreate) rather than
   // diffed, same convention updateRecurringTemplateAction uses.

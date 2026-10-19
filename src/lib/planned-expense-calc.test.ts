@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPlannedExpenseStatus,
   isPlannedExpenseOutstanding,
+  isPlannedItemCounted,
   parseDueDate,
 } from "@/lib/planned-expense-calc";
 
@@ -71,6 +72,22 @@ describe("isPlannedExpenseOutstanding", () => {
     expect(isPlannedExpenseOutstanding("overdue")).toBe(true);
     expect(isPlannedExpenseOutstanding("paid")).toBe(false);
     expect(isPlannedExpenseOutstanding("upcoming")).toBe(false);
+  });
+});
+
+describe("isPlannedItemCounted", () => {
+  it("counts a bill while due or overdue", () => {
+    expect(isPlannedItemCounted("due", "EXPENSE")).toBe(true);
+    expect(isPlannedItemCounted("overdue", "EXPENSE")).toBe(true);
+    expect(isPlannedItemCounted("paid", "EXPENSE")).toBe(false);
+    expect(isPlannedItemCounted("upcoming", "EXPENSE")).toBe(false);
+  });
+
+  it("counts expected income only in the month it's due", () => {
+    expect(isPlannedItemCounted("due", "INCOME")).toBe(true);
+    expect(isPlannedItemCounted("overdue", "INCOME")).toBe(false);
+    expect(isPlannedItemCounted("paid", "INCOME")).toBe(false);
+    expect(isPlannedItemCounted("upcoming", "INCOME")).toBe(false);
   });
 });
 

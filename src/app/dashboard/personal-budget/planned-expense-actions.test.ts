@@ -60,12 +60,12 @@ beforeEach(() => {
 });
 
 describe("createPersonalPlannedExpenseAction", () => {
-  it("scopes the category to the caller's own expense categories", async () => {
+  it("scopes the category to the caller's own expense and income categories", async () => {
     await createPersonalPlannedExpenseAction({}, form(valid));
 
     expect(requireUserIdMock).toHaveBeenCalled();
     expect(categoryFindFirstMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "c1", userId, type: "EXPENSE" } }),
+      expect.objectContaining({ where: { id: "c1", userId, type: { in: ["EXPENSE", "INCOME"] } } }),
     );
   });
 
@@ -86,7 +86,7 @@ describe("createPersonalPlannedExpenseAction", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard");
   });
 
-  it("rejects another user's (or a non-expense) category", async () => {
+  it("rejects another user's (or a savings) category", async () => {
     categoryFindFirstMock.mockResolvedValue(null);
 
     const result = await createPersonalPlannedExpenseAction({}, form(valid));

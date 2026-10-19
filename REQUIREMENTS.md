@@ -2386,7 +2386,9 @@ Component page function can't itself be unit-tested.
   payment under its own name (see "Planned bills" below). They are
   deliberately not merged into `templates`: that input also decides which
   categories skip the fallback estimate below, and a one-off bill must not
-  switch off a category's "this repeats" estimate.
+  switch off a category's "this repeats" estimate. Planned income comes in
+  the same list with `type: "INCOME"` and is added as expected income, but
+  only while `due` (see "Planned income" below).
 - **Fallback estimate for categories without a recurring item**: for every
   `EXPENSE` category with at least one `isRecurring` transaction dated
   before the selected month and *no* active recurring item, check whether
@@ -2731,7 +2733,8 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
 A known, non-recurring bill with a due date (a car repair or dentist invoice
 due 20 Nov, split 50/50) that should count as due in the household budget,
 and in each participant's personal budget, until it's paid (BUDGET-8).
-Expenses only. Planned income, savings and purchases without a date,
+Expected one-off income uses the same tables (see "Planned income" below).
+Planned savings and purchases without a date,
 several partial payments against one bill, and reminders and push
 notifications are out of scope. A bill that only concerns one person goes
 on their personal budget instead (see "Personal planned bills" below).
@@ -2900,6 +2903,68 @@ Covered by the personal `planned-expense-actions.test.ts` and
 `actions.test.ts`, `personal-budget-position.test.ts`,
 `planned-expense-calc.test.ts`, the export route's test, and
 `e2e/personal-planned-expenses.spec.ts` (desktop and mobile).
+
+#### Planned income
+
+A one-off income expected on a date: a bonus, a tax refund, a win. It
+works on both budgets (household and personal) and counts in Safe to
+spend in its month before it arrives, the same way a planned bill does.
+Logging income that has already arrived needs nothing new: it's an
+ordinary `INCOME` transaction.
+
+- **No new table.** A planned item's type is its category's: a
+  `PlannedExpense` or `PersonalPlannedExpense` in an `INCOME` category is
+  planned income. The planned-item actions (both
+  `planned-expense-actions.ts`) accept an `EXPENSE` or `INCOME` category of
+  the caller's own and refuse a savings one as "Category not found".
+  `plannedItemType` (`src/lib/planned-expense-calc.ts`) maps a category type
+  to `"EXPENSE" | "INCOME"` for the rows and the calculator.
+- **Never split.** A member's share of expected income would have to be
+  added to their personal budget as income, which nothing reads
+  (`loadPersonalBudgetPosition` only counts planned shares as costs). The
+  dialog shows no split section for income, and the household actions refuse
+  a split on an income category ("Planned income can't be split").
+- **Status** is `getPlannedExpenseStatus`, unchanged; received is derived
+  from the linked transaction, as paid is for a bill.
+- **Where it counts.** `isPlannedItemCounted(status, type)` decides: a bill
+  counts while `due` or `overdue`, income only while `due`, in the month it's
+  expected. Income that didn't arrive may never come, and carrying it forward
+  would keep promising money that isn't there, so once its month is over it
+  stops counting and isn't listed in the due strip. It stays on the Manage
+  tab under "Not received" (orange `attention` text and an icon, not
+  destructive: it's something to look into, not money owed) with Log income,
+  until it's logged or deleted. `computeSafeToSpend` adds counted income as
+  expected income (`dueIncome`) under its own name. The household Budget page,
+  the dashboard's household card (`loadHouseholdSafeToSpend`), the weekly
+  digest and `loadPersonalBudgetPosition` all pass each item's type.
+- **UI.** A second `PlannedExpensesPanel` with `kind="INCOME"` sits under
+  Planned bills on each budget's Manage tab, listing only income rows and
+  offering only income categories. Its texts are `dict.budget.plannedIncome`
+  and `dict.personalBudget.plannedIncome` (`plannedTexts` in `budget-dict.ts`
+  picks bills' or income's): groups Not received, Expected this month,
+  Upcoming and Received, "Expected {date}", "Received {date}", the action
+  "Log income" and the toast "{name} marked as received." (through
+  `TransactionTemplatePrefill.plannedType`). Each panel is a region named by
+  its title, so the two "Upcoming" groups can be told apart. Income due this
+  month also shows in the Overview's due strip with Log income. With no
+  category of the panel's kind its Add button is disabled, so either panel's
+  empty state then says to add one under Categories first (`needsCategory`)
+  instead of inviting a click that can't happen.
+- **Logging it.** Log income opens the prefilled `TransactionDialog`, like
+  Log payment. `createTransactionAction` and `createPersonalTransactionAction`
+  require the transaction's category to have the planned item's type ("Planned
+  income can only be logged in an income category"; a bill keeps its "can
+  only be paid from an expense category"), and refuse income already received
+  ("This planned income is already received"). The update actions keep a
+  linked transaction on its planned item's side of the budget the same way.
+  Deleting a category still used by planned income names it ("used by the
+  planned income …").
+
+Covered by `planned-expense-calc.test.ts`, `safe-to-spend-calc.test.ts`,
+`household-safe-to-spend.test.ts`, `personal-budget-position.test.ts`, both
+`planned-expense-actions.test.ts` and `actions.test.ts`, and
+`e2e/planned-income.spec.ts` (desktop and mobile). Touches `AUTOPILOT.md`'s
+human-only money areas, so the owner reviews and merges.
 
 ### Budget component unification
 
