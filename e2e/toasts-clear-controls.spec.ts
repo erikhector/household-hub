@@ -76,36 +76,6 @@ async function expectToastsClear(page: Page, target: Locator) {
     .toBe("clear");
 }
 
-test("finishing a list with a Didn't get it row leaves Complete list visible and tappable", async ({ page }) => {
-  const t = tag();
-  const path = await seedList(t, [
-    { name: `Rice ${t}`, purchased: true },
-    { name: `Beans ${t}`, purchased: true },
-  ]);
-  await page.goto(path);
-
-  await page.getByRole("button", { name: "Put things away" }).click();
-  const putAway = page.getByRole("dialog", { name: "Put away before you finish?" });
-  await putAway
-    .getByRole("radiogroup", { name: `What to do with Beans ${t}` })
-    .getByRole("radio", { name: en.shoppingList.putAway.options.notBought })
-    .click();
-  await putAway.getByRole("button", { name: "Put away & finish" }).click();
-
-  const confirm = page.getByRole("dialog", { name: en.shoppingList.confirmCompleteList.title });
-  const complete = confirm.getByRole("button", { name: en.shoppingList.confirmCompleteList.confirm, exact: true });
-  await expect(complete).toBeVisible();
-  // Both the "put away" and the "didn't get it" toasts are showing.
-  await expect(page.locator("[data-sonner-toast]")).toHaveCount(2);
-  await expectToastsClear(page, complete);
-  await expectToastsClear(page, confirm.getByRole("button", { name: en.shoppingList.confirmCompleteList.cancel }));
-
-  // Tappable: a real click lands on the button (a toast over it would
-  // intercept the pointer and Playwright would time out waiting).
-  await complete.click();
-  await expect(confirm).toHaveCount(0);
-});
-
 test("a toast does not cover the Next up dock rows", async ({ page }) => {
   const t = tag();
   const path = await seedList(t, [

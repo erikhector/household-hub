@@ -494,11 +494,24 @@ export const sv = {
     completeList: "Markera som klar",
     confirmCompleteList: {
       title: "Markera listan som klar?",
-      description:
-        "Det här markerar listan som klar och, om varorna har priser, loggar totalsumman i din budget. Klarmarkerade av misstag? Ångra genom att arkivera listan och sedan återställa den.",
+      description: {
+        one: "{count} vara är inte avbockad än. När listan markeras som klar loggas summan av det du köpt i din budget, om varorna har priser. Du kan ångra direkt efteråt.",
+        other: "{count} varor är inte avbockade än. När listan markeras som klar loggas summan av det du köpt i din budget, om varorna har priser. Du kan ångra direkt efteråt.",
+      },
       cancel: "Avbryt",
       confirm: "Markera som klar",
       confirming: "Markerar…",
+    },
+    // UX-80: de ej köpta varorna följer med när en lista markeras som klar.
+    carryOver: {
+      label: {
+        one: "Flytta {count} ej köpt vara till {list}",
+        other: "Flytta {count} ej köpta varor till {list}",
+      },
+      toast: {
+        one: "{count} vara flyttades till {list}",
+        other: "{count} varor flyttades till {list}",
+      },
     },
     // UX-87: steget före klarmarkering när bara en del av de köpta varorna
     // har pris.

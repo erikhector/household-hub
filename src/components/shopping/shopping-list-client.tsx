@@ -176,6 +176,7 @@ export function ShoppingListClient({
   repurchaseSuggestions,
   defersToPutAway = false,
   locations = [],
+  carryOverListName = "",
   aliases = [],
 }: {
   list: ShoppingListData;
@@ -203,6 +204,8 @@ export function ShoppingListClient({
   defersToPutAway?: boolean;
   /** The household's inventory locations, for the put-away dialog. */
   locations?: string[];
+  /** UX-80: the list the unbought rows move to on completion. */
+  carryOverListName?: string;
   /** MATCH-5: the household's learned item names, so a receipt line or an
    * unlinked row's suggestion links the way the household taught it. */
   aliases?: ItemAliasLike[];
@@ -477,19 +480,26 @@ export function ShoppingListClient({
   // completion logged, if any.
   const runComplete = (amount?: number | null) =>
     startTransition(async () => {
-      const result = await completeShoppingListAction(list.id, amount);
+      const result = await completeShoppingListAction(list.id, amount, carryOverRef.current);
       if (result.error) {
         toast.error(result.error);
         return;
       }
       const transactionId = result.transactionId;
+      const carried = result.carriedOver;
+      const movedMessage = carried
+        ? format(plural(carried.itemIds.length, dict.carryOver.toast), {
+            count: carried.itemIds.length,
+            list: carried.listName,
+          })
+        : undefined;
       toast.success(dict.completedToast, {
-        description: result.expenseLoggedMessage,
+        description: [result.expenseLoggedMessage, movedMessage].filter(Boolean).join(" "),
         action: {
           label: dict.undo,
           onClick: () =>
             startTransition(async () => {
-              const undo = await uncompleteShoppingListAction(list.id, transactionId);
+              const undo = await uncompleteShoppingListAction(list.id, transactionId, carried?.itemIds);
               if (undo.error) toast.error(undo.error);
             }),
         },
@@ -501,9 +511,24 @@ export function ShoppingListClient({
   // closes; otherwise complete as before.
   const completeList = () => (hasPartialPrices ? dialogs.partialPrice.open(null) : runComplete());
 
+  // UX-80: whether completing moves the unbought rows to the next list. A
+  // ref beside the state because the put-away sheet sets it and completes in
+  // the same tick, before a re-render would hand runComplete the new value.
+  const carryOverRef = useRef(true);
+  const [carryOver, setCarryOverState] = useState(true);
+  const setCarryOver = (value: boolean) => {
+    carryOverRef.current = value;
+    setCarryOverState(value);
+  };
+
   const finishTrip = (confirmFirst: boolean) => {
     if (awaitingPutAway.length > 0) setPutAwayMode("finish");
-    else if (confirmFirst) dialogs.completeList.open(null);
+    // The confirm exists because something is still unticked; with nothing
+    // pending there's nothing to confirm (the toast's Undo covers a slip).
+    else if (confirmFirst && pendingItems.length > 0) {
+      setCarryOver(true);
+      dialogs.completeList.open(null);
+    }
     else completeList();
   };
 
@@ -774,12 +799,15 @@ export function ShoppingListClient({
             location: item.location,
           }))}
           finishing={putAwayMode === "finish" && isActive}
-          // Finishing from the dialog still respects the "complete with items
-          // pending" confirmation whenever unticked rows remain — including
-          // ones the dialog itself just sent back as "didn't get it".
-          onFinish={(newlyPending) =>
-            pendingItems.length + newlyPending > 0 ? dialogs.completeList.open(null) : completeList()
-          }
+          // UX-80: "Put away & finish" completes right here. The sheet has
+          // already said what happens to unbought rows (its carry-over
+          // checkbox), so a second "Complete this list?" would only repeat it.
+          pendingCount={pendingItems.length}
+          carryOverListName={carryOverListName}
+          onFinish={(carry) => {
+            setCarryOver(carry);
+            completeList();
+          }}
           numberFormat={numberFormat}
           locations={locations}
           dict={dict}
@@ -823,13 +851,23 @@ export function ShoppingListClient({
           <ConfirmDialog
             handle={dialogs.completeList}
             title={dict.confirmCompleteList.title}
-            description={dict.confirmCompleteList.description}
+            description={format(plural(pendingItems.length, dict.confirmCompleteList.description), {
+              count: pendingItems.length,
+            })}
             cancelLabel={dict.confirmCompleteList.cancel}
             confirmLabel={dict.confirmCompleteList.confirm}
             pendingLabel={dict.confirmCompleteList.confirming}
             variant="default"
             onConfirm={completeList}
-          />
+          >
+            <label className="flex items-center gap-3 text-sm">
+              <Checkbox checked={carryOver} onChange={(e) => setCarryOver(e.target.checked)} />
+              {format(plural(pendingItems.length, dict.carryOver.label), {
+                count: pendingItems.length,
+                list: carryOverListName,
+              })}
+            </label>
+          </ConfirmDialog>
           <PartialPriceDialog
             handle={dialogs.partialPrice}
             suggested={boughtPricedTotal}

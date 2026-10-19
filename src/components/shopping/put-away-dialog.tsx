@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +72,8 @@ export function PutAwayDialog({
   listId,
   items,
   finishing,
+  pendingCount,
+  carryOverListName,
   onFinish,
   numberFormat,
   locations,
@@ -83,11 +86,14 @@ export function PutAwayDialog({
   items: PutAwayItem[];
   /** Opened from "Done shopping": offer finishing the list as well. */
   finishing: boolean;
-  /** Completes the list — the page decides whether that needs its "items
-   * still pending" confirmation first. `newlyPending` is how many rows this
-   * dialog just sent back to the list as "didn't get it", which the page's
-   * own props don't know about yet. */
-  onFinish: (newlyPending: number) => void;
+  /** Unticked rows on the list already, before this dialog sends any back. */
+  pendingCount: number;
+  /** The list the unbought rows can move to (UX-80). */
+  carryOverListName: string;
+  /** Completes the list in one step (UX-80). `carryOver` is the state of the
+   * "Move … to …" checkbox: whether rows still unbought, including the ones
+   * this dialog just sent back as "didn't get it", move to the next list. */
+  onFinish: (carryOver: boolean) => void;
   numberFormat: Intl.NumberFormat;
   locations: string[];
   dict: Dictionary["shoppingList"];
@@ -97,6 +103,7 @@ export function PutAwayDialog({
   const t = dict.putAway;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [carryOver, setCarryOver] = useState(true);
   const [rows, setRows] = useState(() => initialRows(items));
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -104,6 +111,7 @@ export function PutAwayDialog({
     if (open) {
       setRows(initialRows(items));
       setError(null);
+      setCarryOver(true);
     }
   }
 
@@ -117,6 +125,10 @@ export function PutAwayDialog({
 
   const putAwayCount = items.filter((item) => rowFor(item).choice === "putAway").length;
   const allPutAway = items.length > 0 && putAwayCount === items.length;
+  // What the carry-over checkbox would move: the rows already pending plus
+  // the ones marked "didn't get it" here.
+  const notBoughtCount = items.filter((item) => rowFor(item).choice === "notBought").length;
+  const movingCount = pendingCount + notBoughtCount;
 
   function submit(thenFinish: boolean) {
     const entries: PutAwayEntry[] = [];
@@ -142,7 +154,6 @@ export function PutAwayDialog({
 
     setError(null);
     startTransition(async () => {
-      let newlyPending = 0;
       if (entries.length > 0) {
         const result = await putAwayItemsAction(listId, entries);
         if (result.error) {
@@ -151,13 +162,12 @@ export function PutAwayDialog({
         }
         const putAway = result.putAway ?? 0;
         const notBought = result.notBought ?? 0;
-        newlyPending = notBought;
         if (putAway > 0) toast.success(format(plural(putAway, t.doneToast), { count: putAway }));
         if (notBought > 0) toast.info(format(plural(notBought, t.notBoughtToast), { count: notBought }));
         showAutoAddedToast(result.autoAdded, autoAddDict);
       }
       onOpenChange(false);
-      if (thenFinish) onFinish(newlyPending);
+      if (thenFinish) onFinish(carryOver && movingCount > 0);
     });
   }
 
@@ -259,6 +269,12 @@ export function PutAwayDialog({
             );
           })}
         </div>
+        {finishing && movingCount > 0 && (
+          <label className="flex items-center gap-3 text-sm">
+            <Checkbox checked={carryOver} disabled={pending} onChange={(e) => setCarryOver(e.target.checked)} />
+            {format(plural(movingCount, dict.carryOver.label), { count: movingCount, list: carryOverListName })}
+          </label>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           {finishing ? (
@@ -272,7 +288,9 @@ export function PutAwayDialog({
               disabled={pending}
               onClick={() => {
                 onOpenChange(false);
-                onFinish(0);
+                // "Didn't get it" choices aren't applied on this path, so
+                // only the rows already pending can move.
+                onFinish(carryOver && pendingCount > 0);
               }}
             >
               {t.finishLater}

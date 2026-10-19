@@ -396,7 +396,7 @@ UX-89, UX-113.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
-  UX-80, UX-81, UX-85.
+  UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
 - `src/app/dashboard/profile/`: UX-51.
@@ -761,23 +761,6 @@ UX-89, UX-113.
       without a photo. New strings in `en.ts` and `sv.ts`; an e2e flow
       (AI mocked to fail) types a price and checks it after a reload, on
       desktop and mobile.
-
-- [ ] **UX-80. Finish a shop in one step and carry unbought items over**
-      (impact: high, effort: M) — breaks User control and Usability.
-      - Marking an item "Didn't get it" in the put-away sheet and tapping
-        "Put away & finish" opens a second "Complete this list?" sheet.
-      - That sheet's copy is stale ("Completed by accident? Undo it with
-        Archive, then Unarchive", `en.ts:499`), though completing now
-        has a real Undo.
-      - It doesn't say the pending item is the reason it appeared.
-      - The unbought item stays stranded on the completed list
-        (`completeShoppingListAction`, `actions.ts:2044`), forgotten by
-        next week.
-      Acceptance: "Put away & finish" completes in one step. Pending items
-      are offered "Move N to {next active list / a new list}" (on by
-      default) and show as pending there afterwards. The confirm (from the
-      ⋯ menu) names the pending count and drops the Archive/Unarchive
-      advice in both languages.
 
 - [ ] **UX-81. A short, rewarding end to a shop** (impact: med, effort:
       M) — Delight, M4 and Hierarchy.
