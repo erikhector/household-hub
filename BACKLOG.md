@@ -258,13 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-29. Flaky: "empty notification history shows the squirrel mark" in ux-38** (low, S) —
-      `e2e/ux-38.spec.ts:108`, `desktop` project. Failed 1 of 60 runs in two
-      `--repeat-each=30` runs on a #354 branch (2026-10-18), alongside
-      other agents' gates. Fix the app's or the test's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-38.spec.ts --project=desktop --repeat-each=30` passes
-      30/30.
 - [ ] **MAINT-31. Flaky: `/dashboard/household` shifts 0.0647 while loading on mobile** (low, S) —
       `e2e/cls.spec.ts:66` ("/dashboard/household does not shift while
       loading", the hard-load CLS loop over `DASHBOARD_ROUTES`), `mobile`
