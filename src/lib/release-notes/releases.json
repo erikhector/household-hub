@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.83.0",
+    "date": "2026-10-19",
+    "pr": 426,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now plan one-off income, like a bonus, a tax refund or a win, on both the household and your personal budget. It counts in Safe to spend in the month you expect it, and you mark it received with Log income.",
+      "sv": "Nu kan du planera engångsinkomster, som en bonus, en skatteåterbäring eller en vinst, både i hushållets och i din egen budget. De räknas i Säkert att spendera den månad du väntar dem, och du markerar dem som mottagna med Logga inkomst."
+    }
+  },
+  {
     "version": "0.82.0",
     "date": "2026-10-19",
     "pr": 423,
