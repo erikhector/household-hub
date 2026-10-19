@@ -865,7 +865,6 @@ UX-89, UX-113.
 
 #### Tasks
 
-
 - [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
       (impact: med, effort: M) — bug, breaks Usability. Today the next due
       time is the exact moment of the last tick plus the interval
