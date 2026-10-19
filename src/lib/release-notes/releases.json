@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.79.3",
+    "date": "2026-10-19",
+    "pr": 392,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking a task in the overview's Today card now keeps it in place, struck through, instead of making it disappear a moment later.",
+      "sv": "När du bockar av en uppgift i Idag-kortet på översikten ligger den kvar, överstruken, i stället för att försvinna strax efteråt."
+    }
+  },
+  {
     "version": "0.79.2",
     "date": "2026-10-19",
     "pr": 386,

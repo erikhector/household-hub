@@ -6,7 +6,8 @@
 // *another user* is rejected the same way an other-household resource is
 // rejected in the household budget's tests. All I/O (Prisma, requireUserId,
 // next/cache) is mocked — no database is touched.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 
 const {
   requireUserIdMock,
@@ -26,6 +27,7 @@ const {
   recurringTemplateDeleteManyMock,
   recurringTemplateAckUpsertMock,
   recurringTemplateAckDeleteManyMock,
+  plannedExpenseFindFirstMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireUserIdMock: vi.fn(),
@@ -45,6 +47,7 @@ const {
   recurringTemplateDeleteManyMock: vi.fn(),
   recurringTemplateAckUpsertMock: vi.fn(),
   recurringTemplateAckDeleteManyMock: vi.fn(),
+  plannedExpenseFindFirstMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
 
@@ -74,10 +77,14 @@ vi.mock("@/lib/prisma", () => ({
       upsert: recurringTemplateAckUpsertMock,
       deleteMany: recurringTemplateAckDeleteManyMock,
     },
+    personalPlannedExpense: { findFirst: plannedExpenseFindFirstMock },
   },
 }));
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+// fail() (src/lib/actions/errors.ts) reads the request's dictionary. With no
+// request here, `{}` makes it fall back to English (see budget/actions.test.ts).
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: vi.fn(async () => ({})), getLocale: vi.fn(async () => "en") }));
 
 const {
   createPersonalCategoryAction,
@@ -295,6 +302,20 @@ describe("deletePersonalCategoryAction", () => {
 
     expect(result.error).toBe("This category has transactions and can't be deleted");
   });
+
+  it("names the planned bill that still uses the category", async () => {
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      _count: { transactions: 0 },
+      recurringTemplates: [],
+      plannedExpenses: [{ name: "Dentist" }],
+    });
+
+    const result = await deletePersonalCategoryAction("cat-1");
+
+    expect(result.error).toBe('This category is used by the planned bill "Dentist" — remove or reassign it first');
+    expect(categoryDeleteMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("createPersonalTransactionAction", () => {
@@ -350,6 +371,85 @@ describe("createPersonalTransactionAction", () => {
 
     expect(result).toEqual({ createdId: "new-tx" });
   });
+
+  describe("planned bill link", () => {
+    beforeEach(() => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+    });
+
+    it("links the transaction to the caller's own planned bill", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+
+      const result = await createPersonalTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ createdId: "new-tx" });
+      expect(plannedExpenseFindFirstMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "p1", userId } }),
+      );
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plannedExpenseId: "p1" }) }),
+      );
+    });
+
+    it("rejects another user's planned bill (IDOR guard)", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue(null);
+
+      const result = await createPersonalTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "Planned bill not found" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects an already paid planned bill", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: { id: "t9" } });
+
+      const result = await createPersonalTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("maps a unique-constraint race to the already-paid error", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      transactionCreateMock.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: {
+            driverAdapterError: {
+              cause: {
+                kind: "UniqueConstraintViolation",
+                constraint: { index: "PersonalTransaction_plannedExpenseId_key" },
+              },
+            },
+          },
+        }),
+      );
+
+      const result = await createPersonalTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("rejects paying a planned bill from a non-expense category", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "SAVINGS" });
+
+      const result = await createPersonalTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "A planned bill can only be paid from an expense category" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("without plannedExpenseId never looks up a bill", async () => {
+      await createPersonalTransactionAction({}, formData(base));
+
+      expect(plannedExpenseFindFirstMock).not.toHaveBeenCalled();
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plannedExpenseId: null }) }),
+      );
+    });
+  });
 });
 
 describe("updatePersonalTransactionAction", () => {
@@ -370,6 +470,35 @@ describe("updatePersonalTransactionAction", () => {
 
     expect(result.error).toBe("Transaction not found");
     expect(transactionUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a planned bill's payment in an expense category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-2", type: "INCOME" });
+    transactionFindFirstMock.mockResolvedValue({ id: "t1", plannedExpenseId: "p1" });
+
+    const result = await updatePersonalTransactionAction(
+      {},
+      formData({ id: "t1", categoryId: "cat-2", amount: "10", date: "2026-01-01", isRecurring: "" }),
+    );
+
+    expect(result).toEqual({ error: "A planned bill can only be paid from an expense category" });
+    expect(transactionUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("still lets a planned bill's payment be edited within an expense category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    transactionFindFirstMock.mockResolvedValue({ id: "t1", plannedExpenseId: "p1" });
+    transactionUpdateMock.mockResolvedValue({});
+
+    const result = await updatePersonalTransactionAction(
+      {},
+      formData({ id: "t1", categoryId: "cat-1", amount: "1100", date: "2026-01-01", isRecurring: "" }),
+    );
+
+    expect(result).toEqual({});
+    expect(transactionUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "t1" }, data: expect.objectContaining({ amount: 1100 }) }),
+    );
   });
 });
 

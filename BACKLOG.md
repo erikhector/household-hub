@@ -124,6 +124,21 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
+- [ ] **PERF-18. Batch "Add to shopping list" from inventory** (low, S) —
+      `addToShoppingListAction` (`src/app/dashboard/inventory/actions.ts:671-683`)
+      accepts up to 200 ids (`addToListSchema`, line 652) and loops
+      `addItemToDefaultList` (`src/lib/shopping/default-list.ts:90-122`),
+      which does `getOrCreateDefaultShoppingList` + `findFirst` + `create`
+      per item: up to ~600 sequential round trips for a select-all bulk add,
+      against a remote Postgres. PERF-15 already built the fixed-query
+      pattern in `addToDefaultListOnLowStockBatch` (`default-list.ts:198`).
+      Resolve the list once, read the already-pending `inventoryItemId`s in
+      one query, `createMany` the rest, keep the same
+      `{ listName, added, alreadyOnList }` result and the single-item path.
+      Acceptance: a unit test asserts the query count is constant for 1 vs
+      200 items, plus the existing dedupe (item already pending is counted
+      in `alreadyOnList`); the existing inventory bulk-add e2e still passes.
+
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
@@ -227,17 +242,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-25. Flaky: `toBeChecked` in `overview-today.spec.ts:134`** (low, S) —
-      `e2e/overview-today.spec.ts:134`, `desktop` project. Failed once in the
-      local gate on release PR #360 (head `5e9ebba`, 2026-10-18), then
-      passed on a re-run of the same commit; added by #352 (UX-70). The
-      failing assertion is `toBeChecked` (`:134`) on the checkbox "Mark Water
-      the plants as not done", right after `mine.check()` (`:133`) ticks it
-      from the Overview's Today card. Fix the app's or the test's waiting (the tick
-      is optimistic and the page may re-render with server data before
-      the checked state settles), never a loosened assertion, a skip or a
-      retry. Acceptance: `npx playwright test e2e/overview-today.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-26. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
       `e2e/copy-shopping-list-text.spec.ts:15` ("Copy as text puts the open
       items on the clipboard and leaves ticked ones out"), `mobile` project.
@@ -1153,6 +1157,22 @@ UX-89, UX-113.
       Acceptance: Enter only submits from the last field. Earlier fields
       move focus to the next one.
 
+- [ ] **UX-141. The inventory table on a tablet shows names, not "Crè…"**
+      (impact: med, effort: S) — breaks Recognition over recall and the
+      "full text only in `title`" rule. At 810 px wide (sidebar open) the
+      desktop table (`inventory-table.tsx:464`, `hidden sm:block`) leaves
+      the name column about three characters ("Crè…", "Oliv…", "Wh…"),
+      and Last updated runs off the right edge
+      (`tablet-en-dashboard-inventory.png`, `tablet-sv-…`). A title
+      tooltip doesn't exist on touch. The card list that phones get
+      already reads well. Related: UX-131 (catalog on phones), UX-130
+      (the share-based column widths that cause this).
+      Acceptance: in the `tablet` project, no item name in the inventory
+      list is truncated to fewer than ~10 characters. Either the card
+      layout is used below `lg`, or the table drops secondary columns
+      (Category, Location, Last updated) at that width. No horizontal
+      scroll in the table.
+
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
@@ -1754,6 +1774,29 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance: an action test covers household scoping, the cap and
       unpin; an e2e step pins a uniquely named note, reloads and sees it
       above a newer one, then unpins it, on desktop and mobile.
+### 2026-10-19 scan
+
+- [ ] **GAP-62. Carry a recipe ingredient's note onto the shopping list row** (impact: low-med, effort: S) —
+      Grocy 3.1.0 made an ingredient's note ride along when missing
+      products are added from a recipe. Squirrel stores the note
+      (`RecipeIngredient.note`, "ripe", "unsalted", the prep note an
+      import keeps) and shows it in the recipe sheet, but
+      `addMissingIngredientsToShoppingListAction`
+      (`src/app/dashboard/meal-planning/cooking-actions.ts:206`) builds its
+      `itemsToCreate` without it, so the shopper at the shelf no longer
+      sees "unsalted" even though `ShoppingListItem.note` (GAP-5) already
+      renders as the muted second line there and on the share page. No
+      schema change: copy the ingredient's note (trimmed, cut to the 200
+      characters GAP-5 allows) into `note`. When two recipes add the same
+      item the existing dedupe keeps the first row, so keep its note and
+      skip the second's rather than merging text. Check the plan-portions
+      path (`src/lib/shopping/default-list.ts`) and do the same if it
+      builds rows from recipe ingredients.
+      Acceptance: an action test shows a note on the ingredient reaches
+      the created row's `note` (capped at 200) and a null note stays null;
+      an e2e step adds a missing ingredient that has a note from a
+      uniquely named recipe and sees the note under the row on the
+      shopping list, on desktop and mobile.
 
 ## Needs a decision before building
 

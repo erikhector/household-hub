@@ -7,7 +7,7 @@ import { requireHousehold, requireUserId } from "@/lib/session";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError } from "@/lib/actions/errors";
-import { isUniqueViolation } from "@/lib/prisma-errors";
+import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
 import { parseShareSplitFormData, SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import {
   limitForType,
@@ -507,29 +507,6 @@ export async function createTransactionAction(
 
   revalidateBudgetPages();
   return { createdId: created.id };
-}
-
-/**
- * Whether a P2002 came from the unique index on plannedExpenseId. With the pg
- * driver adapter (Prisma 7) there is no `meta.target`: the violated
- * constraint sits at `meta.driverAdapterError.cause.constraint`, as `fields`
- * or, since Postgres always names its constraint, as `index`
- * ("Transaction_plannedExpenseId_key"). `meta.target` is kept as a fallback.
- */
-function isPlannedExpenseTarget(error: unknown): boolean {
-  const meta = (error as {
-    meta?: {
-      target?: unknown;
-      driverAdapterError?: { cause?: { constraint?: { fields?: unknown; index?: unknown } } };
-    };
-  }).meta;
-  const constraint = meta?.driverAdapterError?.cause?.constraint;
-  const candidates: unknown[] = [
-    ...(Array.isArray(constraint?.fields) ? constraint.fields : []),
-    constraint?.index,
-    ...(Array.isArray(meta?.target) ? meta.target : [meta?.target]),
-  ];
-  return candidates.some((c) => typeof c === "string" && c.includes("plannedExpenseId"));
 }
 
 /**

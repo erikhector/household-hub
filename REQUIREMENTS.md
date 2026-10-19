@@ -2728,8 +2728,9 @@ A known, non-recurring bill with a due date (a car repair or dentist invoice
 due 20 Nov, split 50/50) that should count as due in the household budget,
 and in each participant's personal budget, until it's paid (BUDGET-8).
 Expenses only. Planned income, savings and purchases without a date,
-several partial payments against one bill, reminders and push
-notifications, and bills in a personal-only budget are out of scope.
+several partial payments against one bill, and reminders and push
+notifications are out of scope. A bill that only concerns one person goes
+on their personal budget instead (see "Personal planned bills" below).
 
 It's its own pair of tables rather than a `Transaction.status` or a `ONCE`
 `RecurringTemplate` frequency. A status column would need a filter in every
@@ -2847,6 +2848,54 @@ the `safe-to-spend-calc` and `personal-budget-position` tests, and
 `weekly-digest.test.ts`, the budget `actions.test.ts`, the export route's
 test, and `e2e/planned-expenses.spec.ts` (desktop and mobile). Touches
 `AUTOPILOT.md`'s human-only money areas, so the owner reviews and merges.
+
+#### Personal planned bills
+
+The same one-off bill with a due date on Personal Budget, for a cost that
+only concerns the signed-in user (a dentist visit, a course fee). Nobody
+else sees it, and it never touches a household's numbers.
+
+- **Schema** (migration
+  `prisma/migrations/20261019120000_personal_planned_expenses/`):
+  `PersonalPlannedExpense` (`userId`, `categoryId` of an `EXPENSE`
+  `PersonalBudgetCategory`, `name`, `amount`, `dueDate` at UTC noon) and
+  `PersonalTransaction.plannedExpenseId`, nullable, `@unique` and `SetNull`,
+  mirroring `PlannedExpense` and `Transaction.plannedExpenseId`. A straight
+  duplicate rather than a nullable `householdId` on `PlannedExpense`, the
+  convention every `Personal*` table follows. No split table: one person.
+- **Status** is `getPlannedExpenseStatus`, unchanged, and paid is derived
+  from the linked transaction as on the household side.
+- **Where it counts.** `loadPersonalBudgetPosition` loads the user's bills
+  (unpaid, or paid on or after the viewed month's start, so the query
+  doesn't grow with history) and passes them to `computeSafeToSpend` as
+  `plannedExpenses`: `due` and `overdue` ones are subtracted at their full
+  amount as the user's own due payments, on Personal Budget and on the
+  dashboard's "Your budget" card, which share the loader. It also returns
+  them (`plannedExpenses`) for the page.
+- **UI.** The same `PlannedExpensesPanel` and `PlannedExpenseDialog` on
+  Personal Budget's Manage tab, under the recurring items, with
+  `members={[]}` (so no split section) and `dict.personalBudget`, whose
+  `planned` texts drop the split ones (`PlannedDict` in `budget-dict.ts`
+  makes those optional). Outstanding bills also show in the Overview's due
+  strip with Log payment. Log payment opens `TransactionDialog` prefilled,
+  and the toast reads "{name} marked as paid." on both budgets.
+- **Actions** (`src/app/dashboard/personal-budget/planned-expense-actions.ts`):
+  create, update and delete, scoped by `requireUserId()`, validated like the
+  household's (`parseDueDate` now lives in `planned-expense-calc.ts` for
+  both). `createPersonalTransactionAction` links a payment on creation only,
+  and rejects another user's bill, one already paid, or a non-`EXPENSE`
+  category; the unique-index race maps to "already paid" through
+  `isPlannedExpenseTarget` (`src/lib/prisma-errors.ts`, shared with the
+  household action). `updatePersonalTransactionAction` keeps a linked
+  payment in an `EXPENSE` category. `deletePersonalCategoryAction` names a
+  bill that still uses the category.
+- **Export.** `personalPlannedExpenses` and
+  `personalTransactions[].plannedExpenseId` are in the account data export.
+
+Covered by the personal `planned-expense-actions.test.ts` and
+`actions.test.ts`, `personal-budget-position.test.ts`,
+`planned-expense-calc.test.ts`, the export route's test, and
+`e2e/personal-planned-expenses.spec.ts` (desktop and mobile).
 
 ### Budget component unification
 
@@ -3198,8 +3247,9 @@ shape is deliberate:
   get emailed and synced, and they're random browser-minted values rather
   than information about the user.
 - `personalBudgetCategories` (with `id`), `personalTransactions`,
-  `personalRecurringTemplates` (with `id` and acknowledgements). The ids are
-  there so `categoryId` and `recurringTemplateId` references resolve.
+  `personalRecurringTemplates` (with `id` and acknowledgements),
+  `personalPlannedExpenses` (with `id`). The ids are there so `categoryId`,
+  `recurringTemplateId` and `plannedExpenseId` references resolve.
 - The user's own part of shared features, each with the household name and
   just enough of the parent row to be readable: `householdNotes` they
   wrote; `householdTasks` assigned to or last completed by them
@@ -5876,7 +5926,9 @@ components directly.
     Unassigned ones carry an "Unassigned" hint. Each has a checkbox
     (44 px target on phones) that calls `toggleTaskCompletedAction`
     optimistically: it shows ticked at once and stays in place, struck
-    through, so nothing moves under the thumb; a failed save puts it back
+    through, so nothing moves under the thumb (also after the save
+    revalidates the page and the server list drops it: the block keeps
+    ticked rows locally, at their old place); a failed save puts it back
     with a toast, and the "Done" toast offers Undo. A recurring task counts
     as open again once its interval has passed (`isTaskOpen`).
   - **Tonight's dinner**: the household's `DINNER` plan entries for today's
