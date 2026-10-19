@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.79.1",
+    "date": "2026-10-19",
+    "pr": 381,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "\"Create household\" has moved into the household switcher menu, so the \"+\" at the top of every page no longer gets mistaken for adding an item.",
+      "sv": "\"Skapa hushåll\" finns nu i hushållsväljarens meny, så plustecknet högst upp på varje sida förväxlas inte längre med att lägga till något."
+    }
+  },
+  {
     "version": "0.79.0",
     "date": "2026-10-18",
     "pr": 376,
