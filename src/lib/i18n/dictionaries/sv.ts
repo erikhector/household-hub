@@ -3141,6 +3141,12 @@ export const sv = {
     verifyEmail: {
       pageTitle: "Verifiera din e-post",
       invalidTitle: "Länken har gått ut",
+      invalidDescription: "Verifieringslänken är ogiltig eller har gått ut. Begär en ny.",
+      rateLimitedTitle: "För många försök",
+      rateLimitedDescription:
+        "För många försök med den här länken. Vänta några minuter och försök igen senare.",
+      genericTitle: "Något gick fel",
+      genericDescription: "Vi kunde inte verifiera din e-post just nu. Försök igen.",
       verifying: "Verifierar din e-postadress…",
       submit: "Verifiera e-post",
       verifiedDescription: "Din e-postadress har verifierats.",

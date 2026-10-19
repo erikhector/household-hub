@@ -1107,19 +1107,6 @@ UX-89, UX-113.
       (Category, Location, Last updated) at that width. No horizontal
       scroll in the table.
 
-- [ ] **UX-142. The verify-email title follows the cause of the error**
-      (impact: low, effort: S) — breaks Consistency. UX-65 titles every
-      failed `/verify-email/<token>` state "Link expired", but
-      `verifyEmailAction` also returns the rate-limit message ("Too many
-      attempts…") and zod input errors, as one English string the client
-      can't tell apart, so a rate-limited visitor sees "Link expired".
-      Acceptance: `verifyEmailAction` returns an error code next to the
-      message (`invalid`, `rateLimited`, …), the localised message and the
-      title come from the dictionary by code, and the rate-limited state is
-      titled for what happened ("Too many attempts") with a "try again
-      later" message. Unit test per code in `auth.test.ts`; the e2e spec
-      keeps the bad-token case on "Link expired".
-
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —

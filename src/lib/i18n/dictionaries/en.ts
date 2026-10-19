@@ -3272,6 +3272,12 @@ export const en = {
     verifyEmail: {
       pageTitle: "Verify your email",
       invalidTitle: "Link expired",
+      invalidDescription: "This verification link is invalid or has expired. Request a new one.",
+      rateLimitedTitle: "Too many attempts",
+      rateLimitedDescription:
+        "Too many attempts on this link. Please wait a few minutes and try again later.",
+      genericTitle: "Something went wrong",
+      genericDescription: "We couldn't verify your email just now. Please try again.",
       verifying: "Verifying your email…",
       submit: "Verify email",
       verifiedDescription: "Your email address has been verified.",
