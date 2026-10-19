@@ -1911,13 +1911,14 @@ export const sv = {
     prepRecordUndoneToast: "Ångrat — lagret återställt",
     // Dialogen Planera portioner: fördela en matlådas portioner över veckan.
     prepPlanDialogTitle: "Planera portioner av {recipe}",
-    prepPlanDialogHint: "Bocka för måltiderna som ska ätas från matlådan. Dagar som har passerat och måltider där något annat redan är planerat är gråade.",
+    prepPlanDialogHint: "Bocka för måltiderna som ska ätas från matlådan. Måltider där något annat redan är planerat är markerade Upptagen.",
     prepSlotPortions: "Portioner till {meal}, {day}",
     prepLeftAfter: "{left} av {remaining} kvar efter detta",
     prepTooManyPortions: {
       one: "{count} portion för mycket — bara {remaining} kvar",
       other: "{count} portioner för mycket — bara {remaining} kvar",
     },
+    prepSlotTakenBadge: "Upptagen",
     prepLoadingWeek: "Laddar veckan…",
     prepRetry: "Försök igen",
     prepConnectionError: "Kunde inte nå servern. Kontrollera anslutningen och försök igen.",
