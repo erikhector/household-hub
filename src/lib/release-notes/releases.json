@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.79.2",
+    "date": "2026-10-19",
+    "pr": 386,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The inventory table on desktop now keeps every row action, including Delete, in view on a 1280 px screen.",
+      "sv": "Lagertabellen på datorn visar nu alla radens knappar, även Ta bort, på en skärm som är 1280 px bred."
+    }
+  },
+  {
     "version": "0.79.1",
     "date": "2026-10-19",
     "pr": 381,
