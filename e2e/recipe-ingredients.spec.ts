@@ -146,7 +146,7 @@ test("the review step creates a new item, blocks an incomplete row, and folds aw
   // The confident "Olive oil" row is folded into the summary.
   const oliveOil = review.getByRole("group", { name: "1 dl Olive oil" });
   await expect(oliveOil).toHaveCount(0);
-  await review.getByRole("button", { name: "Show" }).click();
+  await review.getByRole("button", { name: "Show", exact: true }).click();
   await expect(oliveOil).toBeVisible();
   await review.getByRole("button", { name: "Hide" }).click();
   await expect(oliveOil).toHaveCount(0);

@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ComboField } from "@/components/inventory/combo-field";
+import { ComboField, type ComboFieldDict } from "@/components/inventory/combo-field";
 import { deleteUnitConversionAction, saveUnitConversionAction } from "@/app/dashboard/inventory/items/actions";
 import { conversionSentence, factorFromSentence, roundAmount, type UsedInRow } from "@/lib/inventory/item-units";
 import { unitConversionHint } from "@/lib/recipes/unit-hints";
@@ -27,7 +27,7 @@ import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
 
 type ItemPageDict = Dictionary["inventory"]["itemPage"];
-type ComboDict = Pick<Dictionary["inventory"], "comboboxNoMatches" | "comboboxAddNew">;
+type ComboDict = ComboFieldDict;
 
 type Conversion = { id: string; fromUnit: string; factor: number };
 
@@ -243,6 +243,7 @@ function TryIt({
           onValueChange={setUnit}
           maxLength={20}
           ariaLabel={dict.tryItUnitLabel}
+          label={dict.tryItUnitLabel}
           dict={comboDict}
         />
       </div>
@@ -317,6 +318,7 @@ function ConversionDialog({
               onValueChange={handleUnitChange}
               placeholder={copy.unitPlaceholder}
               maxLength={20}
+              label={copy.unitLabel}
               dict={comboDict}
             />
           </div>

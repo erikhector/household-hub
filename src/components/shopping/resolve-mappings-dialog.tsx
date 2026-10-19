@@ -225,6 +225,7 @@ export function ResolveMappingsDialog({
                         onValueChange={(v) => updateRow(row.itemId, { newCategory: v })}
                         placeholder={dict.newItemCategoryPlaceholder}
                         maxLength={60}
+                        label={dict.newItemCategoryLabel}
                         dict={dict}
                       />
                     </>

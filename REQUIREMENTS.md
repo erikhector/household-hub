@@ -3921,6 +3921,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     it). The popup's `Use "X"` row is a real button: tapping it keeps the
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
+  - **Combo button names (UX-129)**: every `ComboField` (category,
+    location, unit, name) names its × "Clear {field}" (the field's own
+    label, lower-cased, via the required `label` prop) and its chevron
+    "Show suggestions", in English and Swedish (`comboboxClear`,
+    `comboboxShowSuggestions` beside the other combobox strings), so a
+    screen reader no longer announces two bare "button"s per field.
+    `e2e/combo-button-names.spec.ts` finds them by role and name.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves

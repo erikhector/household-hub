@@ -15,6 +15,11 @@ import {
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
+export type ComboFieldDict = Pick<
+  Dictionary["inventory"],
+  "comboboxNoMatches" | "comboboxAddNew" | "comboboxClear" | "comboboxShowSuggestions"
+>;
+
 /**
  * A free-text field with autocomplete suggestions drawn from existing values
  * (category/location/unit) — shared by the single-item add/edit dialog and
@@ -41,6 +46,7 @@ export function ComboField({
   placeholder,
   maxLength,
   ariaLabel,
+  label,
   dict,
   onEnter,
 }: {
@@ -56,7 +62,11 @@ export function ComboField({
   /** For a field with no visible <Label htmlFor={id}> (the item page's
    * "Try it" sentence), so it still has a name for screen readers. */
   ariaLabel?: string;
-  dict: Pick<Dictionary["inventory"], "comboboxNoMatches" | "comboboxAddNew">;
+  /** The field's visible name ("Unit", "Category"), lower-cased into the
+   * clear button's name the clear button "Clear unit" so a screen reader doesn't
+   * announce two bare "button"s per field (UX-129). */
+  label: string;
+  dict: ComboFieldDict;
   /** Called when Enter is pressed with no suggestion highlighted, and after
    * the `Use "X"` row is tapped. Also stops that Enter from submitting the
    * surrounding form. */
@@ -94,8 +104,10 @@ export function ComboField({
               : undefined
           }
         />
-        <AutocompleteClear />
-        <AutocompleteTrigger />
+        <AutocompleteClear
+          aria-label={format(dict.comboboxClear, { field: label.toLocaleLowerCase() })}
+        />
+        <AutocompleteTrigger aria-label={dict.comboboxShowSuggestions} />
       </AutocompleteInputGroup>
       <AutocompleteContent>
         <AutocompleteEmpty>

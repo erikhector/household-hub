@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ComboField } from "@/components/inventory/combo-field";
+import { ComboField, type ComboFieldDict } from "@/components/inventory/combo-field";
 import { changeItemUnitAction } from "@/app/dashboard/inventory/items/actions";
 import { planUnitChange, suggestedUnitChangeFactor, type UnitChangeItem } from "@/lib/inventory/item-units";
 import type { ActionState } from "@/lib/actions/auth";
@@ -37,7 +37,7 @@ export function ChangeUnitDialog({
   item: UnitChangeItem & { id: string };
   units: string[];
   dict: ItemPageDict;
-  comboDict: Pick<Dictionary["inventory"], "comboboxNoMatches" | "comboboxAddNew">;
+  comboDict: ComboFieldDict;
 }) {
   const unitLabel = useUnitLabel();
   const copy = dict.changeUnitDialog;
@@ -100,6 +100,7 @@ export function ChangeUnitDialog({
               value={unit}
               onValueChange={handleUnitChange}
               maxLength={20}
+              label={copy.newUnitLabel}
               dict={comboDict}
             />
           </div>
