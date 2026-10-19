@@ -24,12 +24,12 @@ type MealPlanningDict = Dictionary["mealPlanning"];
 
 export type EmptyDay = { dateKey: string; label: string };
 
-// GAP-45: proposes a dinner from the household's favorites for each day with
-// nothing planned, as a preview. The proposal is computed here from data the
-// page already loaded and lives only in this component's state, so nothing is
-// written until "Add dinners". Swapping a row walks to the next unused
-// favorite (nextSwap), so the no-repeat rule holds without a free-form
-// picker; Cancel (or closing) discards the lot. Accepting calls
+// GAP-45: proposes a dinner for each day with nothing planned, as a preview,
+// from the household's favorites first and then its other recipes (UX-97). The
+// proposal is computed here from data the page already loaded and lives only
+// in this component's state, so nothing is written until "Add dinners".
+// Swapping a row walks to the next unused recipe (nextSwap), so the no-repeat
+// rule holds without a free-form picker; Cancel (or closing) discards the lot. Accepting calls
 // fillEmptyDaysAction, which re-validates everything, and offers the same
 // by-id Undo that "Copy last week" has. Opened from the planner's ⋯ menu so
 // the control row stays one row on a phone (UX-21).
@@ -51,7 +51,6 @@ export function FillEmptyDaysDialog({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const favorites = recipes.filter((r) => r.isFavorite);
   const recipeName = new Map(recipes.map((r) => [r.id, r.name]));
   const planned = new Set(plannedRecipeIds);
 
@@ -59,7 +58,7 @@ export function FillEmptyDaysDialog({
   // proposal is made fresh from the week as it is now on every open and a
   // cancelled preview never lingers.
   const [proposal, setProposal] = useState<DinnerProposal[]>(() =>
-    proposeDinners({ emptyDays: emptyDays.map((d) => d.dateKey), favorites, plannedRecipeIds: planned }),
+    proposeDinners({ emptyDays: emptyDays.map((d) => d.dateKey), recipes, plannedRecipeIds: planned }),
   );
 
   function swap(dateKey: string) {
@@ -67,7 +66,7 @@ export function FillEmptyDaysDialog({
       const used = new Set([...planned, ...rows.map((r) => r.recipeId)]);
       return rows.map((row) => {
         if (row.dateKey !== dateKey) return row;
-        const replacement = nextSwap({ currentId: row.recipeId, favorites, usedRecipeIds: used });
+        const replacement = nextSwap({ currentId: row.recipeId, recipes, usedRecipeIds: used });
         return replacement ? { ...row, recipeId: replacement } : row;
       });
     });
@@ -108,8 +107,8 @@ export function FillEmptyDaysDialog({
   }
 
   const dayLabel = new Map(emptyDays.map((d) => [d.dateKey, d.label]));
-  const noFavorites = favorites.length === 0;
-  const noneLeft = !noFavorites && proposal.length === 0;
+  const noRecipes = recipes.length === 0;
+  const noneLeft = !noRecipes && proposal.length === 0;
 
   return (
     <Dialog
@@ -124,7 +123,7 @@ export function FillEmptyDaysDialog({
           <DialogDescription>{dict.fillEmptyDaysDescription}</DialogDescription>
         </DialogHeader>
 
-        {noFavorites && <p className="text-sm text-muted-foreground">{dict.fillEmptyDaysNoFavorites}</p>}
+        {noRecipes && <p className="text-sm text-muted-foreground">{dict.fillEmptyDaysNoRecipes}</p>}
         {noneLeft && <p className="text-sm text-muted-foreground">{dict.fillEmptyDaysNoneLeft}</p>}
 
         {proposal.length > 0 && (
@@ -132,7 +131,7 @@ export function FillEmptyDaysDialog({
             {proposal.map((row) => {
               const label = dayLabel.get(row.dateKey) ?? row.dateKey;
               const used = new Set([...planned, ...proposal.map((r) => r.recipeId)]);
-              const canSwap = nextSwap({ currentId: row.recipeId, favorites, usedRecipeIds: used }) !== null;
+              const canSwap = nextSwap({ currentId: row.recipeId, recipes, usedRecipeIds: used }) !== null;
               return (
                 <li key={row.dateKey} className="flex items-center gap-2">
                   <span className="w-24 shrink-0 text-sm text-muted-foreground">{label}</span>

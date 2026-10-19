@@ -855,14 +855,6 @@ UX-89, UX-113.
       filters as you type, lists favourites and recently cooked first, and
       shows at least 5 rows at 412 px.
 
-- [ ] **UX-97. Fill empty days uses all recipes once favourites run out**
-      (impact: med, effort: S) — Usability (sensible defaults). With six
-      recipes and no favourites the dialog says "No favorites to pick from
-      yet". With three favourites it fills three days and leaves four empty
-      (`fill-empty-days-dialog.tsx:54`).
-      Acceptance: every empty future day gets a proposal, favourites first
-      and then other recipes, whenever the household has enough recipes.
-
 - [ ] **UX-98. A recipe form in recipe order, in plain words, with 44 px
       chips** (impact: med, effort: S) — breaks M3, M9 and Accessibility
       (labelled controls).
