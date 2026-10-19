@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.80.0",
+    "date": "2026-10-19",
+    "pr": 405,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now add planned bills to your personal budget. They're one-off costs with a due date that only you see, counted in your Safe to spend until you log the payment.\n\nPlan portions now starts at today, hides days that have passed, and labels meal slots that are already taken.",
+      "sv": "Nu kan du lägga till planerade räkningar i din privata budget: enstaka kostnader med ett förfallodatum som bara du ser. De räknas i Säkert att spendera tills du loggar betalningen.\n\nPlanera portioner börjar nu på dagens datum, döljer dagar som har passerat och märker måltider som redan är upptagna."
+    }
+  },
+  {
     "version": "0.79.3",
     "date": "2026-10-19",
     "pr": 392,
