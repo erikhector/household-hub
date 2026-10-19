@@ -200,8 +200,11 @@ export function PlanPortionsDialog({
   // Days before today are left out (prepped food can't be eaten in the
   // past), so the list opens on today's meals instead of a screenful of
   // dead rows. The earliest week with anything pickable is today's, so
-  // Previous stops there.
-  const isFirstWeek = toDateKey(addDays(weekStart, 6)) >= todayKey;
+  // Previous stops there. Compare the week's start, not its end: the end is
+  // on or after today for every later week too, which would lock Previous
+  // week as soon as Next week was clicked. The dialog never opens before
+  // today's week (prep-tab starts at the later of now and the cook date).
+  const isFirstWeek = toDateKey(weekStart) <= todayKey;
   const days = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i))).filter((date) => date >= todayKey);
   // The first slot that can be ticked in the shown week. When today's early
   // meals are taken it can sit below the fold, so it is scrolled into view
