@@ -742,6 +742,7 @@ export function RecipeFormDialog({
                         onValueChange={(value) => updateRow(row.uid, "name", value)}
                         placeholder={dict.ingredientNamePlaceholder}
                         maxLength={120}
+                        label={dict.ingredientNamePlaceholder}
                         dict={dict}
                         // Enter moves on to this row's quantity instead of
                         // submitting the recipe half-filled (UX-93).

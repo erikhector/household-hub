@@ -209,6 +209,7 @@ export function ItemFormDialog({
                 onValueChange={setCategory}
                 placeholder={dict.categoryPlaceholder}
                 maxLength={60}
+                label={dict.categoryLabel}
                 dict={dict}
               />
               {mode === "create" && (
@@ -227,6 +228,7 @@ export function ItemFormDialog({
                 onValueChange={setLocation}
                 placeholder={dict.locationPlaceholder}
                 maxLength={120}
+                label={dict.locationLabel}
                 dict={dict}
               />
             </div>
@@ -258,6 +260,7 @@ export function ItemFormDialog({
                 onValueChange={setUnit}
                 placeholder={dict.unitPlaceholder}
                 maxLength={20}
+                label={dict.unitLabel}
                 dict={dict}
               />
             </div>

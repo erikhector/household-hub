@@ -401,7 +401,7 @@ UX-89, UX-113.
   UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
+  `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49, UX-99.
 
 #### Shell and cross-cutting
@@ -1121,15 +1121,6 @@ UX-89, UX-113.
       Acceptance: for an item with stock, the unit field is read-only with
       an inline "Change unit…" link, and any refusal shows beside it in
       view.
-
-- [ ] **UX-129. Name the clear and suggestion buttons on combo fields**
-      (impact: med, effort: S) — breaks Accessibility and M10. Every
-      ComboField (category, location, unit) has an unnamed × and chevron
-      (`src/components/ui/autocomplete.tsx:56-92`), so screen readers
-      announce just "button".
-      Acceptance: they are announced "Clear unit" and "Show suggestions"
-      (en and sv). An e2e `getByRole("button", { name: /clear/i })` finds
-      them.
 
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.

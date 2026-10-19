@@ -346,6 +346,7 @@ export function RegisterReceiptDialog({
                 value={row.name}
                 onValueChange={(v) => updateRow(row.key, { name: v })}
                 maxLength={120}
+                label={dict.nameLabel}
                 dict={dict}
               />
             </div>
@@ -387,6 +388,7 @@ export function RegisterReceiptDialog({
               value={row.unit}
               onValueChange={(v) => updateRow(row.key, { unit: v })}
               maxLength={20}
+              label={dict.unitLabel}
               dict={dict}
             />
           </div>
@@ -460,6 +462,7 @@ export function RegisterReceiptDialog({
                 onValueChange={(v) => updateRow(row.key, { category: v })}
                 placeholder={dict.newItemCategoryPlaceholder}
                 maxLength={60}
+                label={dict.newItemCategoryLabel}
                 dict={dict}
               />
             </>
