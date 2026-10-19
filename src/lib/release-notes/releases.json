@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.82.0",
+    "date": "2026-10-19",
+    "pr": 423,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Deleting the last item in a store section no longer leaves the section title hanging on its own while you can still Undo.\n\nToday's card in the meal planner now says \"Today\", and screen readers hear which day each \"Add meal\" button belongs to and which recipe each favorite star is for.\n\nThe Tasks page now says \"You're all caught up!\" whenever nothing is left to do, and completed one-off tasks older than a week tuck away behind \"Show N older\".",
+      "sv": "När du tar bort sista varan i en avdelning blir inte avdelningens rubrik kvar ensam medan du kan ångra.\n\nDagens kort i måltidsplaneraren säger nu \"Idag\", och skärmläsare hör vilken dag varje knapp \"Lägg till måltid\" hör till och vilket recept varje favoritstjärna gäller.\n\nSidan Uppgifter visar nu \"Nu är allt klart!\" när inget är kvar att göra, och avklarade engångsuppgifter som är äldre än en vecka gömmer sig bakom \"Visa N äldre\"."
+    }
+  },
+  {
     "version": "0.81.0",
     "date": "2026-10-19",
     "pr": 411,
