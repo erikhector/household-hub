@@ -17,6 +17,7 @@
 // chaining this forces is a type-checking formality, not a real "what if
 // it's missing" case.
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { PlannedItemType } from "@/lib/planned-expense-calc";
 
 type HouseholdPlannedDict = Dictionary["budget"]["planned"];
 type PlannedSplitKey = "splitWays" | "splitLabel" | "sharesLabel" | "splitEvenly" | "shareAriaLabel" | "splitMismatch";
@@ -32,6 +33,10 @@ export type PlannedDict = Omit<HouseholdPlannedDict, PlannedSplitKey> &
 export type BudgetDict = {
   // Planned bills in the due strip and on the Manage tab, on both budgets.
   planned: PlannedDict;
+  // Planned income: the same rows in an income category, with their own
+  // words ("Expected", "Received"). Never split, so the split texts are
+  // unused there.
+  plannedIncome: PlannedDict;
   add: string;
   addTransactionDialogTitle: string;
   amountLabel: string;
@@ -188,3 +193,8 @@ export type BudgetDict = {
     undoToast: string;
   };
 };
+
+/** The texts for a planned item of this type: a bill's or planned income's. */
+export function plannedTexts(dict: BudgetDict, type: PlannedItemType): PlannedDict {
+  return type === "INCOME" ? dict.plannedIncome : dict.planned;
+}

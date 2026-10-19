@@ -27,10 +27,11 @@ import { evenSplitAmounts } from "@/components/budget/split-amounts";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
-import type { BudgetDict } from "@/components/budget/budget-dict";
+import { plannedTexts, type BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { MemberOption } from "@/components/budget/transaction-dialog";
 import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
+import type { PlannedItemType } from "@/lib/planned-expense-calc";
 import { PendingLabel } from "@/components/ui/pending-label";
 
 // createPlannedExpenseAction / updatePlannedExpenseAction
@@ -76,9 +77,11 @@ function buildInitialSplitAmounts(
 // including its share-only split section: nothing is paid yet, so there's no
 // "Paid" column (SplitEditor's) to fill in. Who paid is recorded later, on
 // the transaction "Log payment" creates. Serves the personal budget too,
-// where `members` is empty, so the split section never shows.
+// where `members` is empty, so the split section never shows, and planned
+// income (`kind`), which is never split either.
 export function PlannedExpenseDialog({
   dict,
+  kind,
   categories,
   members,
   trigger,
@@ -89,7 +92,10 @@ export function PlannedExpenseDialog({
 }: {
   /** dict.budget or dict.personalBudget. */
   dict: BudgetDict;
-  /** Expense categories only — the actions reject any other type. */
+  /** A bill or planned income: picks the texts. */
+  kind: PlannedItemType;
+  /** Categories of `kind` only — the actions reject savings, and the
+   * category is what makes an item a bill or income. */
   categories: CategoryRow[];
   /** Every member of the household; the split section only shows with more
    * than one, like RecurringTemplateDialog's. */
@@ -101,7 +107,7 @@ export function PlannedExpenseDialog({
   /** createMoneyFormat(locale, currencyCode), for the split mismatch line. */
   numberFormat: Intl.NumberFormat;
 }) {
-  const t = dict.planned;
+  const t = plannedTexts(dict, kind);
   const isEdit = !!bill;
   const canSplit = members.length > 1;
   const [open, setOpen] = useState(false);

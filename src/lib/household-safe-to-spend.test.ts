@@ -73,9 +73,40 @@ describe("loadHouseholdSafeToSpend", () => {
   it("subtracts a planned bill that is due and unpaid", async () => {
     mocks.transactions.mockResolvedValue([tx("INCOME", 1000, new Date(2026, 9, 2), "salary")]);
     mocks.planned.mockResolvedValue([
-      { id: "p1", name: "Dentist", amount: 250, dueDate: new Date(2026, 9, 25), transaction: null },
+      {
+        id: "p1",
+        name: "Dentist",
+        amount: 250,
+        dueDate: new Date(2026, 9, 25),
+        category: { type: "EXPENSE" },
+        transaction: null,
+      },
     ]);
     const result = await loadHouseholdSafeToSpend("h1", NOW);
     expect(result.amount).toBe(750);
+  });
+
+  it("adds planned income expected this month, but not income that's late", async () => {
+    mocks.transactions.mockResolvedValue([tx("INCOME", 1000, new Date(2026, 9, 2), "salary")]);
+    mocks.planned.mockResolvedValue([
+      {
+        id: "p1",
+        name: "Tax refund",
+        amount: 400,
+        dueDate: new Date(2026, 9, 25),
+        category: { type: "INCOME" },
+        transaction: null,
+      },
+      {
+        id: "p2",
+        name: "Bonus",
+        amount: 5000,
+        dueDate: new Date(2026, 8, 25),
+        category: { type: "INCOME" },
+        transaction: null,
+      },
+    ]);
+    const result = await loadHouseholdSafeToSpend("h1", NOW);
+    expect(result.amount).toBe(1400);
   });
 });

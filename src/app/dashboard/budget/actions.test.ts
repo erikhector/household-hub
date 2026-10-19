@@ -593,6 +593,21 @@ describe("deleteCategoryAction", () => {
     expect(categoryDeleteMock).not.toHaveBeenCalled();
   });
 
+  it("names planned income that still uses an income category", async () => {
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      type: "INCOME",
+      _count: { transactions: 0 },
+      recurringTemplates: [],
+      plannedExpenses: [{ name: "Tax refund" }],
+    });
+
+    const result = await deleteCategoryAction("cat-1");
+
+    expect(result.error).toBe('This category is used by the planned income "Tax refund" — remove or reassign it first');
+    expect(categoryDeleteMock).not.toHaveBeenCalled();
+  });
+
   it("names the planned bill in the user's language", async () => {
     getDictionaryMock.mockResolvedValueOnce(sv);
     categoryFindFirstMock.mockResolvedValue({
@@ -695,7 +710,7 @@ describe("createTransactionAction", () => {
     });
 
     it("links the transaction to a planned bill", async () => {
-      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: null });
 
       const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
 
@@ -718,7 +733,7 @@ describe("createTransactionAction", () => {
     });
 
     it("rejects an already paid planned bill", async () => {
-      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: { id: "t9" } });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: { id: "t9" } });
 
       const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
 
@@ -727,7 +742,7 @@ describe("createTransactionAction", () => {
     });
 
     it("maps a unique-constraint race to the already-paid error (pg adapter, constraint index)", async () => {
-      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: null });
       transactionCreateMock.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
           code: "P2002",
@@ -742,7 +757,7 @@ describe("createTransactionAction", () => {
     });
 
     it("maps the race when the adapter reports constraint fields", async () => {
-      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: null });
       transactionCreateMock.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
           code: "P2002",
@@ -757,7 +772,7 @@ describe("createTransactionAction", () => {
     });
 
     it("maps the race from the meta.target fallback", async () => {
-      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: null });
       transactionCreateMock.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
           code: "P2002",
@@ -773,7 +788,7 @@ describe("createTransactionAction", () => {
 
     it("rejects paying a planned bill from a non-expense category", async () => {
       categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "INCOME" });
-      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: null });
 
       const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
 
@@ -781,8 +796,39 @@ describe("createTransactionAction", () => {
       expect(transactionCreateMock).not.toHaveBeenCalled();
     });
 
+    it("links received income to planned income", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "INCOME" });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "INCOME" }, transaction: null });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result.error).toBeUndefined();
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plannedExpenseId: "p1", type: "INCOME" }) }),
+      );
+    });
+
+    it("rejects logging planned income in an expense category", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "INCOME" }, transaction: null });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "Planned income can only be logged in an income category" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects planned income that's already received", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "INCOME" });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "INCOME" }, transaction: { id: "t9" } });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned income is already received" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
     it("returns the planned bill errors in the user's language", async () => {
-      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: { id: "t9" } });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: { id: "t9" } });
       getDictionaryMock.mockResolvedValueOnce(sv);
       const paid = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
       expect(paid).toEqual({ error: sv.errors.plannedBillAlreadyPaid });
@@ -1125,7 +1171,7 @@ describe("updateTransactionAction", () => {
 
   it("rejects moving a planned bill's payment to an income category", async () => {
     categoryFindFirstMock.mockResolvedValue({ id: "cat-salary", type: "INCOME" });
-    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpenseId: "p1" });
+    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpense: { category: { type: "EXPENSE" } } });
 
     const result = await updateTransactionAction(
       {},
@@ -1136,9 +1182,22 @@ describe("updateTransactionAction", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
+  it("keeps received planned income in an income category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-food", type: "EXPENSE" });
+    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpense: { category: { type: "INCOME" } } });
+
+    const result = await updateTransactionAction(
+      {},
+      formData({ id: "tx-1", categoryId: "cat-food", amount: "3000", date: "2026-10-20", isRecurring: "" }),
+    );
+
+    expect(result.error).toBe("Planned income can only be logged in an income category");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
   it("still lets an ordinary transaction move to an income category", async () => {
     categoryFindFirstMock.mockResolvedValue({ id: "cat-salary", type: "INCOME" });
-    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpenseId: null });
+    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpense: null });
 
     const result = await updateTransactionAction(
       {},

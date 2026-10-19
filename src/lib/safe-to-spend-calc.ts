@@ -6,8 +6,9 @@
 // src/lib/personal-budget-position.ts.
 
 import {
-  isPlannedExpenseOutstanding,
+  isPlannedItemCounted,
   type PlannedExpenseStatus,
+  type PlannedItemType,
 } from "@/lib/planned-expense-calc";
 
 export type SafeToSpendTransaction = {
@@ -209,13 +210,16 @@ export type SafeToSpendTemplate = {
   status: "posted" | "acknowledged" | "due";
 };
 
-/** A planned bill (PlannedExpense) with its status for the month being
- * viewed — see getPlannedExpenseStatus in src/lib/planned-expense-calc.ts. */
+/** A planned bill or planned income (PlannedExpense) with its status for
+ * the month being viewed — see getPlannedExpenseStatus in
+ * src/lib/planned-expense-calc.ts. */
 export type SafeToSpendPlannedExpense = {
   id: string;
   name: string;
   amount: number;
   status: PlannedExpenseStatus;
+  /** Its category's type. Unset means "EXPENSE", a bill. */
+  type?: PlannedItemType;
 };
 
 /**
@@ -239,7 +243,10 @@ export type SafeToSpendPlannedExpense = {
  * estimate for their category, and a one-off bill must never do that. Every
  * one that's "due" or "overdue" is subtracted at its full amount under its
  * own name; a "paid" one already counts through its transaction in
- * `expenseSoFar`, and an "upcoming" one belongs to a later month.
+ * `expenseSoFar`, and an "upcoming" one belongs to a later month. Planned
+ * income (a bonus, a tax refund) comes in the same list with `type:
+ * "INCOME"` and is added as expected income, but only while "due": see
+ * isPlannedItemCounted for why late income stops counting.
  *
  * Categories without a recurring item fall back to the older estimate below,
  * so households that only ever ticked "this repeats" on a transaction keep
@@ -326,12 +333,13 @@ export function computeSafeToSpend({
   }
 
   for (const p of plannedExpenses) {
-    if (!isPlannedExpenseOutstanding(p.status)) continue;
+    const type = p.type ?? "EXPENSE";
+    if (!isPlannedItemCounted(p.status, type)) continue;
     expectedRecurring.push({
       categoryId: p.id,
       categoryName: p.name,
       amount: p.amount,
-      type: "EXPENSE",
+      type,
     });
   }
 

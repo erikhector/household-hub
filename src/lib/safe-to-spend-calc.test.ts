@@ -554,6 +554,60 @@ describe("computeSafeToSpend with planned bills", () => {
   });
 });
 
+describe("computeSafeToSpend with planned income", () => {
+  const base = {
+    monthStart,
+    monthEnd,
+    incomeSoFar: 20000,
+    expenseSoFar: 0,
+    savingsSoFar: 0,
+    transactions: [],
+  };
+
+  it("adds income expected this month as expected income", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      plannedExpenses: [{ id: "p1", name: "Tax refund", amount: 4000, status: "due", type: "INCOME" }],
+    });
+    expect(result.breakdown.dueIncome).toBe(4000);
+    expect(result.breakdown.duePayments).toBe(0);
+    expect(result.safeToSpend).toBe(24000);
+    expect(result.expectedRecurring).toContainEqual({
+      categoryId: "p1",
+      categoryName: "Tax refund",
+      amount: 4000,
+      type: "INCOME",
+    });
+  });
+
+  it("stops counting income that didn't arrive in its month", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      plannedExpenses: [
+        { id: "p1", name: "Bonus", amount: 10000, status: "overdue", type: "INCOME" },
+        { id: "p2", name: "Lottery win", amount: 500, status: "upcoming", type: "INCOME" },
+        { id: "p3", name: "Tax refund", amount: 4000, status: "paid", type: "INCOME" },
+      ],
+    });
+    expect(result.breakdown.dueIncome).toBe(0);
+    expect(result.safeToSpend).toBe(20000);
+    expect(result.expectedRecurring).toEqual([]);
+  });
+
+  it("still subtracts an overdue bill next to expected income", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      plannedExpenses: [
+        { id: "p1", name: "Bonus", amount: 10000, status: "due", type: "INCOME" },
+        { id: "p2", name: "Dentist", amount: 800, status: "overdue", type: "EXPENSE" },
+      ],
+    });
+    expect(result.breakdown.dueIncome).toBe(10000);
+    expect(result.breakdown.duePayments).toBe(800);
+    expect(result.safeToSpend).toBe(29200);
+  });
+});
+
 describe("needsSafeToSpendSetup", () => {
   const empty = { income: 0, dueIncome: 0, expense: 0, savings: 0, owedFromEarlier: 0, duePayments: 0, dueSavings: 0 };
 

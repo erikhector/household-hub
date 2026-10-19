@@ -18,10 +18,11 @@ import {
 import { format, plural } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Locale } from "@/lib/i18n/get-dictionary";
-import type { BudgetDict, PlannedDict } from "@/components/budget/budget-dict";
+import { plannedTexts, type BudgetDict, type PlannedDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
-import type { PlannedExpenseStatus } from "@/lib/planned-expense-calc";
+import type { PlannedExpenseStatus, PlannedItemType } from "@/lib/planned-expense-calc";
 import { createMoneyFormat } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 export type PlannedExpenseRow = {
   id: string;
@@ -30,6 +31,8 @@ export type PlannedExpenseRow = {
   dueDate: Date;
   categoryId: string;
   categoryName: string;
+  /** Its category's type: a bill, or planned income (a bonus, a refund). */
+  type: PlannedItemType;
   status: PlannedExpenseStatus;
   /** Date of the linked payment, or null while none is linked. Set even
    * when that payment falls after the viewed month, where `status` is still
@@ -52,8 +55,11 @@ const GROUPS = [
 
 // Planned bills (BUDGET-8) on the Manage tab, under RecurringTemplatesPanel
 // and laid out like it. Serves both budgets: the personal one passes no
-// members (so no split) and its own actions.
+// members (so no split) and its own actions. Rendered twice per budget:
+// once for bills and once for planned income (`kind`), each with only its
+// own rows and categories. Income is never split, so it gets no members.
 export function PlannedExpensesPanel({
+  kind,
   rows,
   categories,
   members,
@@ -68,9 +74,12 @@ export function PlannedExpensesPanel({
   createTransactionAction,
   updateTransactionAction,
 }: {
+  /** Which planned items this panel lists and adds. */
+  kind: PlannedItemType;
+  /** Already filtered to `kind`. */
   rows: PlannedExpenseRow[];
   /** Every budget category: "Log payment" offers them all, like any
-   * transaction; the bill's own dialog narrows to expense categories. */
+   * transaction; the item's own dialog narrows to categories of `kind`. */
   categories: CategoryRow[];
   /** Every household member; `[]` on the personal budget. */
   members: MemberOption[];
@@ -88,7 +97,7 @@ export function PlannedExpensesPanel({
   createTransactionAction: TransactionFormAction;
   updateTransactionAction: TransactionFormAction;
 }) {
-  const t = dict.planned;
+  const t = plannedTexts(dict, kind);
   const numberFormat = createMoneyFormat(locale, currencyCode);
   // Due dates are calendar days stored at UTC noon, so they're shown in UTC:
   // the viewer's own time zone could otherwise move the day.
@@ -98,7 +107,8 @@ export function PlannedExpensesPanel({
     year: "numeric",
     timeZone: "UTC",
   });
-  const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
+  const kindCategories = categories.filter((c) => c.type === kind);
+  const splitMembers = kind === "INCOME" ? [] : members;
   const idPrefix = useId();
 
   const rowProps = {
@@ -106,8 +116,9 @@ export function PlannedExpensesPanel({
     numberFormat,
     dateFormat,
     categories,
-    expenseCategories,
+    kindCategories,
     members,
+    splitMembers,
     currentMemberId,
     monthKey,
     createAction,
@@ -117,22 +128,31 @@ export function PlannedExpensesPanel({
     updateTransactionAction,
   };
 
+  // A named region: the bills and the income panel sit on the same tab with
+  // the same group names ("Upcoming"), so a screen reader (and a test) can
+  // tell which one it's in.
   return (
-    <div className="list-bleed flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+    <section
+      aria-labelledby={`${idPrefix}-title`}
+      className="list-bleed flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+    >
       <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-heading text-base font-semibold">{t.title}</h2>
+          <h2 id={`${idPrefix}-title`} className="font-heading text-base font-semibold">
+            {t.title}
+          </h2>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <PlannedExpenseDialog
           dict={dict}
-          categories={expenseCategories}
-          members={members}
+          kind={kind}
+          categories={kindCategories}
+          members={splitMembers}
           createAction={createAction}
           updateAction={updateAction}
           numberFormat={numberFormat}
           trigger={
-            <Button variant="outline" size="sm" disabled={expenseCategories.length === 0}>
+            <Button variant="outline" size="sm" disabled={kindCategories.length === 0}>
               {t.add}
             </Button>
           }
@@ -140,7 +160,11 @@ export function PlannedExpensesPanel({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t.empty}</p>
+        // With no category of this kind the Add button is disabled, so say
+        // what unlocks it rather than inviting a click that can't happen.
+        <p className="text-sm text-muted-foreground">
+          {kindCategories.length === 0 ? t.needsCategory : t.empty}
+        </p>
       ) : (
         <div className="flex flex-col gap-4">
           {GROUPS.map(({ status, label }) => {
@@ -162,7 +186,7 @@ export function PlannedExpensesPanel({
           })}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -172,8 +196,9 @@ function PlannedExpenseItem({
   numberFormat,
   dateFormat,
   categories,
-  expenseCategories,
+  kindCategories,
   members,
+  splitMembers,
   currentMemberId,
   monthKey,
   createAction,
@@ -187,8 +212,9 @@ function PlannedExpenseItem({
   numberFormat: Intl.NumberFormat;
   dateFormat: Intl.DateTimeFormat;
   categories: CategoryRow[];
-  expenseCategories: CategoryRow[];
+  kindCategories: CategoryRow[];
   members: MemberOption[];
+  splitMembers: MemberOption[];
   currentMemberId: string;
   monthKey: string;
   createAction: PlannedExpenseFormAction;
@@ -197,7 +223,7 @@ function PlannedExpenseItem({
   createTransactionAction: TransactionFormAction;
   updateTransactionAction: TransactionFormAction;
 }) {
-  const t = dict.planned;
+  const t = plannedTexts(dict, bill.type);
   const linked = bill.paidAt !== null;
 
   return (
@@ -242,8 +268,9 @@ function PlannedExpenseItem({
         )}
         <PlannedExpenseDialog
           dict={dict}
-          categories={expenseCategories}
-          members={members}
+          kind={bill.type}
+          categories={kindCategories}
+          members={splitMembers}
           bill={bill}
           createAction={createAction}
           updateAction={updateAction}
@@ -311,7 +338,14 @@ export function PlannedBillAmountLine({
       {" · "}
       {bill.status === "overdue" ? (
         // DESIGN.md: status is tinted text plus an icon, never colour alone.
-        <span className="inline-flex items-center gap-1 font-medium text-destructive">
+        // Late income is something to look into, not money owed: attention
+        // (orange) rather than destructive.
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 font-medium",
+            bill.type === "INCOME" ? "text-attention" : "text-destructive",
+          )}
+        >
           <AlertCircle className="size-3.5" aria-hidden />
           {t.overdueBadge}
           {" · "}
@@ -369,6 +403,7 @@ export function PlannedBillLogPayment({
       monthKey={monthKey}
       prefillFromTemplate={{
         plannedExpenseId: bill.id,
+        plannedType: bill.type,
         categoryId: bill.categoryId,
         amount: bill.amount,
         description: bill.name,

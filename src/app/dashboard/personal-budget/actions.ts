@@ -8,6 +8,7 @@ import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/rec
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
+import { plannedItemType } from "@/lib/planned-expense-calc";
 import {
   limitForType,
   monthlyLimitField,
@@ -166,7 +167,11 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
     };
   }
   const blockingPlanned = category.plannedExpenses[0];
-  if (blockingPlanned) return fail("categoryUsedByPlannedBill", { name: blockingPlanned.name });
+  if (blockingPlanned) {
+    return fail(category.type === "INCOME" ? "categoryUsedByPlannedIncome" : "categoryUsedByPlannedBill", {
+      name: blockingPlanned.name,
+    });
+  }
 
   try {
     await prisma.personalBudgetCategory.delete({ where: { id: category.id } });
@@ -209,19 +214,25 @@ function parseTransactionFormData(formData: FormData) {
 }
 
 /** Validates an optional client-supplied plannedExpenseId belongs to the
- * caller and isn't already paid (a planned bill has at most one payment) —
- * the personal mirror of budget/actions.ts's resolvePlannedExpenseId. */
+ * caller, isn't already paid (a planned bill has at most one payment) and
+ * is logged in a category of its own type — the personal mirror of
+ * budget/actions.ts's resolvePlannedExpenseId, which says why. */
 async function resolvePersonalPlannedExpenseId(
   userId: string,
   plannedExpenseId: string | undefined,
+  categoryType: string,
 ): Promise<{ error: string } | { id: string | undefined }> {
   if (!plannedExpenseId) return { id: undefined };
   const planned = await prisma.personalPlannedExpense.findFirst({
     where: { id: plannedExpenseId, userId },
-    select: { id: true, transaction: { select: { id: true } } },
+    select: { id: true, category: { select: { type: true } }, transaction: { select: { id: true } } },
   });
   if (!planned) return fail("plannedBillNotFound");
-  if (planned.transaction) return fail("plannedBillAlreadyPaid");
+  const income = plannedItemType(planned.category.type) === "INCOME";
+  if (planned.transaction) return fail(income ? "plannedIncomeAlreadyReceived" : "plannedBillAlreadyPaid");
+  if (categoryType !== planned.category.type) {
+    return fail(income ? "plannedIncomeNeedsIncomeCategory" : "plannedBillNeedsExpenseCategory");
+  }
   return { id: planned.id };
 }
 
@@ -293,12 +304,7 @@ export async function createPersonalTransactionAction(
     if (dup) return dup;
   }
 
-  // A planned bill is an expense by definition (its own category must be
-  // one), so its payment must be too, or it would stop counting as spent.
-  if (parsed.data.plannedExpenseId && category.type !== "EXPENSE") {
-    return fail("plannedBillNeedsExpenseCategory");
-  }
-  const planned = await resolvePersonalPlannedExpenseId(userId, parsed.data.plannedExpenseId);
+  const planned = await resolvePersonalPlannedExpenseId(userId, parsed.data.plannedExpenseId, category.type);
   if ("error" in planned) return { error: planned.error };
 
   let created;
@@ -366,12 +372,16 @@ export async function updatePersonalTransactionAction(
 
   const existing = await prisma.personalTransaction.findFirst({
     where: { id: parsed.data.id, userId },
-    select: { id: true, plannedExpenseId: true },
+    select: { id: true, plannedExpense: { select: { category: { select: { type: true } } } } },
   });
   if (!existing) return { error: "Transaction not found" };
-  // Same rule as on create: a planned bill's payment stays an expense.
-  if (existing.plannedExpenseId && category.type !== "EXPENSE") {
-    return fail("plannedBillNeedsExpenseCategory");
+  // Same rule as on create: a planned bill's payment stays an expense,
+  // received planned income stays income.
+  const plannedType = existing.plannedExpense?.category.type;
+  if (plannedType && category.type !== plannedType) {
+    return fail(
+      plannedItemType(plannedType) === "INCOME" ? "plannedIncomeNeedsIncomeCategory" : "plannedBillNeedsExpenseCategory",
+    );
   }
 
   try {
