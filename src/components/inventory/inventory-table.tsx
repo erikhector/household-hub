@@ -461,7 +461,7 @@ export function InventoryTable({
           </div>
         </div>
       )}
-      <div className="hidden sm:block sm:min-h-0 sm:flex-1 roomy:overflow-y-auto">
+      <div className="hidden lg:block lg:min-h-0 lg:flex-1 roomy:overflow-y-auto">
       <Table>
       <TableHeader className="sticky top-0 z-10 bg-background">
         <TableRow>
@@ -587,7 +587,7 @@ export function InventoryTable({
           accent down its left edge as well as a tint: the rows share one
           border now, so there's no per-card border to colour, and a tint
           alone is hard to see in sunlight. */}
-      <div className="flex min-w-0 flex-col gap-2 sm:hidden">
+      <div className="flex min-w-0 flex-col gap-2 lg:hidden">
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
             {groupBy !== "none" && (

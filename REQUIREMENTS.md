@@ -528,6 +528,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     opened, Freeze, Add to list, Details, Mark empty, Edit, Delete) fits the
     ~990 px column at 1280 px with no horizontal scroll.
     `e2e/ux-130.desktop.spec.ts` asserts it.
+  - **Cards below `lg`, table from `lg` (UX-141)**: the inventory table
+    only shows from 1024 px (`lg`). Between `sm` and `lg`, a tablet with
+    the sidebar open (810 px), the name column was about three characters
+    ("Crè…") and Last updated ran off the edge, so those widths get the same
+    card list phones do (names read in full, no horizontal scroll). The
+    bulk-edit bar and other `sm` rules are unchanged. `e2e/ux-141.spec.ts`
+    runs in the `tablet` project too and asserts it.
   - **"I used some / I bought more" (UX-119)**: the −/+ stepper moves by a
     step that suits the unit (`quantityStep`, `src/lib/inventory/quantity-step.ts`):
     50 for g and ml, 0.25 for kg and l, 1 for everything else (counts and
