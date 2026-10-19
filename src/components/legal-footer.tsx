@@ -21,7 +21,7 @@ export async function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
   const [locale, { language }] = await Promise.all([getLocale(), getDictionary()]);
   return (
     <footer className="flex flex-col items-center gap-1 py-4 text-xs text-muted-foreground">
-      <nav className="flex flex-wrap items-center justify-center gap-x-2">
+      <nav className="flex flex-wrap items-center justify-center gap-2">
         <Link href="/terms" className="touch-target hover:text-foreground hover:underline">
           {dict.termsNavLabel}
         </Link>

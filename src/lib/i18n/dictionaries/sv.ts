@@ -3280,7 +3280,7 @@ export const sv = {
     },
     howItWorks: {
       title: "Så fungerar det",
-      subtitle: "Börja med ett tomt hushåll och fyll på medan du går — startpaket och skanning gör det snabbt.",
+      subtitle: "Börja med ett tomt hushåll och fyll på allt eftersom — startpaket och skanning gör det snabbt.",
       steps: {
         setup: {
           title: "Skapa ditt hushåll",
