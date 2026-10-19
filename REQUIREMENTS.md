@@ -6053,6 +6053,27 @@ components directly.
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
+- **Landing page (UX-58)**: `src/app/page.tsx` leads with the product. The
+  hero pairs the pitch with `PhonePreview`
+  (`src/components/landing/phone-preview.tsx`): a shopping list in a phone
+  frame, headed by the BrandBadge, with grouped rows, "Low stock" badges,
+  the default list's "Fills itself" badge and a struck-through "Purchased"
+  row. It is drawn from tokens and the `landing.preview` strings rather
+  than a screenshot, so it follows the locale and theme and can't go
+  stale; it's one `role="img"` with a descriptive label and nothing inside
+  it is interactive. From `lg` it sits beside the pitch; on a phone it
+  follows the buttons, with the hero's top padding and gaps tightened so
+  its top half (mascot, list name, first rows) is in the first screen.
+  Six feature cards cover pantry, shopping lists (with share links),
+  meals (recipes, import, cook mode), tasks (repeating and rotating, plus
+  the calendar feed), scanning (barcode, receipt, shelf) and budgets
+  (household, splitting, personal), so the grid fills evenly at two and
+  three columns; their icon tiles use the `chart-*` tokens. The copy
+  claims only what's true: no "example data" (a new household starts
+  empty, see UX-136 in BACKLOG.md) and no "less than a minute" (signup
+  waits on email verification). Covered by `e2e/landing.spec.ts` (the
+  preview at least 40% on screen without scrolling, every feature named,
+  no empty grid cell at 1280 px, Swedish preview).
 - **404 and invalid-link titles (UX-65)**: `src/app/not-found.tsx` is a
   Server Component that checks the session. A logged-out visitor gets the
   `StatusCard` (brand mark, compass icon, "Page not found") with a "Go to
@@ -6319,6 +6340,15 @@ the locale fallback.
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
 - Profile has an "About Squirrel" disclosure with the version and a link to
   the page (see "Profile sections" below).
+- **Public**: `/whats-new` shows the same list (`ReleaseList`,
+  `src/components/whats-new/release-list.tsx`, shared with the dashboard
+  page) to anyone, logged in or not, like `/privacy`, under "The latest
+  version is X.Y.Z." It never writes `last_seen_release`: that cookie only
+  clears a member's unread dot. Every page with the public footer
+  (`LegalFooter`: landing, login, signup, join and the token pages) links
+  to it as "What's new · vX.Y.Z", so a visitor sees which version they're
+  looking at and that the app is being worked on. Covered by
+  `e2e/whats-new-public.spec.ts`.
 
 **Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
 `h2` region, instead of eleven loose cards: **Account** (display name,

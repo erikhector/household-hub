@@ -50,6 +50,7 @@ export const PUBLIC_ROUTES: UiRoute[] = [
   { pattern: "/forgot-password", path: "/forgot-password" },
   { pattern: "/privacy", path: "/privacy" },
   { pattern: "/terms", path: "/terms" },
+  { pattern: "/whats-new", path: "/whats-new" },
   { pattern: "/join/[token]", path: "/join/e2e-invalid-token" },
   { pattern: "/reset-password/[token]", path: "/reset-password/e2e-invalid-token" },
   { pattern: "/verify-email/[token]", path: "/verify-email/e2e-invalid-token" },

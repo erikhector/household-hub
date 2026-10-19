@@ -129,6 +129,7 @@ export const sv = {
     title: "Nyheter",
     subtitle: "Alla uppdateringar av Squirrel och vad de ändrade.",
     currentVersion: "Du använder version {version}.",
+    latestVersion: "Senaste versionen är {version}.",
     version: "Version {version}",
     latest: "Senaste",
     breaking: "Stor ändring",
@@ -3224,8 +3225,28 @@ export const sv = {
     getStarted: "Kom igång gratis",
     freeNote: "Gratis för hela hushållet — bjud in alla, inga extra platser",
     ctaTitle: "Redo att få ordning på hushållet?",
-    ctaDescription: "Det tar mindre än en minut att komma igång — inget kreditkort, inga sysslor.",
+    ctaDescription: "Gratis att komma igång — inget kreditkort, inga sysslor.",
     ctaButton: "Skapa ditt hushåll",
+    preview: {
+      label: "En delad inköpslista i Squirrel på en mobil, där varor med lågt lager läggs till automatiskt",
+      listName: "Veckohandling",
+      fillsItself: "Fylls på själv",
+      lowStock: "Lågt lager",
+      purchased: "Köpt",
+      sections: {
+        dairy: "Mejeri",
+        produce: "Frukt & grönt",
+        pantry: "Skafferi",
+      },
+      items: {
+        oatMilk: { name: "Havredryck", qty: "2 l" },
+        yogurt: { name: "Turkisk yoghurt", qty: "1" },
+        bananas: { name: "Bananer", qty: "6" },
+        spinach: { name: "Spenat", qty: "1 påse" },
+        pasta: { name: "Pasta", qty: "500 g" },
+        coffee: { name: "Kaffe", qty: "1" },
+      },
+    },
     features: {
       pantry: {
         title: "Lager som håller koll på sig själv",
@@ -3234,24 +3255,32 @@ export const sv = {
       },
       shoppingLists: {
         title: "Inköpslistor som byggs av sig själva",
-        description: "Varor med lågt lager hoppar på listan automatiskt, så ingen glömmer mjölken igen.",
+        description:
+          "Varor med lågt lager hoppar på listan automatiskt, och med en delningslänk kan vem som helst bocka av — inget konto behövs.",
       },
       meals: {
         title: "Måltider, planerade istället för panikartade",
-        description: "Ställ upp veckans måltider mot det som redan finns i lagret.",
+        description:
+          "Spara recept eller importera dem från en länk, planera veckan mot lagret och följ med i matlagningsläget.",
+      },
+      tasks: {
+        title: "Sysslor som kommer tillbaka",
+        description:
+          "Hushållsuppgifter som upprepas och turas om mellan personer, plus ett kalenderflöde med måltider och förfallodagar för räkningar.",
+      },
+      scanning: {
+        title: "Skanna istället för att skriva",
+        description: "Skanna en streckkod eller ett kvitto för att lägga till saker på några sekunder, eller fota en hel hylla på en gång.",
       },
       budget: {
-        title: "Budget utan kalkylark",
-        description: "Håll koll på hushållets utgifter och se vart matpengarna faktiskt tar vägen.",
-      },
-      personalBudget: {
-        title: "Din egen budget också",
-        description: "Håll en personlig budget vid sidan av hushållets — samma verktyg, bara för dig.",
+        title: "Budgetar utan kalkylark",
+        description:
+          "Håll koll på hushållets utgifter, dela gemensamma kostnader rättvist och ha en personlig budget som bara är din.",
       },
     },
     howItWorks: {
       title: "Så fungerar det",
-      subtitle: "Igång på några minuter, med exempel att utforska.",
+      subtitle: "Börja med ett tomt hushåll och fyll på allt eftersom — startpaket och skanning gör det snabbt.",
       steps: {
         setup: {
           title: "Skapa ditt hushåll",
@@ -3301,6 +3330,7 @@ export const sv = {
     termsNavLabel: "Villkor",
     privacyNavLabel: "Integritet",
     cookiesNavLabel: "Cookies",
+    whatsNewNavLabel: "Nyheter",
     footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "Genom att skapa ett konto godkänner du våra",
     termsLink: "användarvillkor",
