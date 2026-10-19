@@ -4086,15 +4086,17 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`FillEmptyDaysDialog`,
   `src/components/meal-planning/fill-empty-days-dialog.tsx`), shown while at
   least one day has no entries and hasn't passed yet. It opens a preview with
-  one proposed dinner per such day, taken from favorites
-  (`Recipe.isFavorite`) that aren't already on the week's plan and never the
-  same recipe twice (`proposeDinners` in `fill-empty-days.ts`, name order).
-  With fewer unplanned favorites than empty days the later days are simply
-  left out, and the dialog says so; with no favorites it says to star some.
+  one proposed dinner per such day, taken from favorites first
+  (`Recipe.isFavorite`) and then the household's other recipes once
+  favorites run out (UX-97), skipping recipes already on the week's plan and
+  never the same recipe twice (`proposeDinners` in `fill-empty-days.ts`,
+  each group in name order). With fewer unplanned recipes than empty days
+  the later days are simply left out, and the dialog says so; with no
+  recipes at all it says to add some.
   The proposal is computed on the client from data the page already has and
   **nothing is written** until "Add dinners"; Cancel or closing discards it,
   and reopening re-proposes. Each row has a swap button that moves to the
-  next unused favorite (`nextSwap`), so the no-repeat rule holds without a
+  next unused recipe (`nextSwap`, favorites first), so the no-repeat rule holds without a
   free picker. Accepting calls `fillEmptyDaysAction(weekStart, picks)` in
   `planner-actions.ts`: the week must be a Monday, picks are at most seven
   with unique in-week dates and unique recipes, the recipes are re-checked

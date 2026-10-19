@@ -105,3 +105,34 @@ test("Undo on the toast removes exactly the dinners that were added", async ({ p
   await page.reload();
   await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(7);
 });
+
+// UX-97: favorites come first, then other recipes fill the remaining days, so
+// a week is full whenever the household has enough recipes at all.
+test("with only two favorites, the other empty days are filled from non-favorite recipes", async ({ page }, testInfo) => {
+  const week = weekFor(testInfo.project.name);
+  await withClient(async (client) => {
+    await client.query(`UPDATE "Recipe" SET "isFavorite" = false WHERE "householdId" = $1 AND id LIKE $2 AND id NOT IN ($3, $4)`, [
+      E2E_HOUSEHOLD.id,
+      `e2e-fill-${E2E_WORKER}-${suffix}-%`,
+      recipeId(0),
+      recipeId(1),
+    ]);
+  });
+  await page.goto(`/dashboard/meal-planning?week=${week}`);
+
+  await openFill(page);
+  const dialog = page.getByRole("dialog", { name: "Fill empty days" });
+  const rows = dialog.getByRole("listitem");
+  await expect(rows).toHaveCount(7);
+  await expect(dialog.getByText(/fewer unplanned recipes than empty days/)).toBeHidden();
+  const names = await proposedNames(rows);
+  expect(new Set(names).size).toBe(7);
+  // Both favorites are proposed, ahead of the non-favorites that fill the rest.
+  expect(names).toContain(`Fav dinner ${suffix} 0`);
+  expect(names).toContain(`Fav dinner ${suffix} 1`);
+
+  await dialog.getByRole("button", { name: "Add dinners" }).click();
+  await expect(page.getByText("Planned 7 dinners")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(0);
+});

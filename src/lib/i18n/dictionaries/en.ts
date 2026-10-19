@@ -1574,10 +1574,10 @@ export const en = {
     // "Fill empty days" (BACKLOG GAP-45) — a preview of one favorite dinner
     // per empty day; nothing is saved until "Add dinners" (fillEmptyDaysAction).
     fillEmptyDays: "Fill empty days",
-    fillEmptyDaysDescription: "Dinners picked from your favorites for the days with nothing planned. Nothing is saved until you add them.",
-    fillEmptyDaysNoFavorites: "No favorites to pick from yet. Star a few recipes in the Recipes tab and they will show up here.",
-    fillEmptyDaysNoneLeft: "Every favorite is already planned this week, so there is nothing new to propose.",
-    fillEmptyDaysShort: "You have fewer unplanned favorites than empty days, so the other days stay empty.",
+    fillEmptyDaysDescription: "Dinners picked for the days with nothing planned, favorites first and then your other recipes. Nothing is saved until you add them.",
+    fillEmptyDaysNoRecipes: "No recipes to pick from yet. Add a few in the Recipes tab and they will show up here.",
+    fillEmptyDaysNoneLeft: "Every recipe is already planned this week, so there is nothing new to propose.",
+    fillEmptyDaysShort: "You have fewer unplanned recipes than empty days, so the other days stay empty.",
     fillEmptyDaysSwapAriaLabel: "Swap the dinner on {day}",
     fillEmptyDaysSubmit: "Add dinners",
     fillEmptyDaysCancel: "Cancel",
