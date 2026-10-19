@@ -19,6 +19,9 @@ test("combo field buttons are named", async ({ page }) => {
   await expect(dialog.getByRole("button", { name: "Show suggestions" }).first()).toBeVisible();
 
   await unit.fill("pcs");
+  // The open suggestion list hides the rest of the dialog from assistive
+  // tech, so close it (click a label elsewhere) before asking for the buttons.
+  await dialog.getByText("Category", { exact: true }).click();
   const clear = dialog.getByRole("button", { name: "Clear unit" });
   await expect(clear).toBeVisible();
   // The generic matcher the backlog item names finds the same button.
