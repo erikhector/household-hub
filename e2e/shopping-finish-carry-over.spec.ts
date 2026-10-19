@@ -48,9 +48,16 @@ const listOf = async (name: string) =>
   (await sql<{ shoppingListId: string }>(`SELECT "shoppingListId" FROM "ShoppingListItem" WHERE name = $1`, [name]))[0]
     ?.shoppingListId;
 
-async function openFinishSheet(page: Page, notBought: string) {
-  await page.getByRole("button", { name: "Put things away" }).click();
-  const sheet = page.getByRole("dialog", { name: en.shoppingList.putAway.finishTitle });
+// With a row still unticked there's no "All done" button, so the finish
+// sheet opens from the menu's "Complete list".
+async function openFinishSheet(page: Page) {
+  await page.getByRole("button", { name: en.shoppingList.moreActions }).click();
+  await page.getByRole("menuitem", { name: en.shoppingList.completeList }).click();
+  return page.getByRole("dialog", { name: en.shoppingList.putAway.finishTitle });
+}
+
+async function markNotBought(page: Page, notBought: string) {
+  const sheet = await openFinishSheet(page);
   await sheet
     .getByRole("radiogroup", { name: `What to do with ${notBought}` })
     .getByRole("radio", { name: en.shoppingList.putAway.options.notBought })
@@ -83,7 +90,7 @@ test("Put away & finish completes in one step and moves the unbought rows to the
   ]);
   await page.goto(path);
 
-  const sheet = await openFinishSheet(page, `Beans ${t}`);
+  const sheet = await markNotBought(page, `Beans ${t}`);
   // Beans (just marked "didn't get it") and Milk (still pending) can move.
   const carry = sheet.getByRole("checkbox", { name: /Move 2 unbought items to / });
   await expect(carry).toBeChecked();
@@ -101,8 +108,10 @@ test("Put away & finish completes in one step and moves the unbought rows to the
   expect(await listOf(`Beans ${t}`)).toBe(target);
   expect(await listOf(`Rice ${t}`)).toBe(listId);
   await page.goto(`/dashboard/shopping-list/${target}`);
-  await expect(page.getByText(`Milk ${t}`).first()).toBeVisible();
-  await expect(page.getByText(`Beans ${t}`).first()).toBeVisible();
+  // The print-only copy of the list renders the name too, hidden.
+  await expect(page.getByText(`Milk ${t}`).locator("visible=true").first()).toBeVisible();
+  // The print-only copy of the list renders the name too, hidden.
+  await expect(page.getByText(`Beans ${t}`).locator("visible=true").first()).toBeVisible();
 });
 
 test("unchecking the carry-over leaves the unbought row on the completed list", async ({ page }) => {
@@ -113,8 +122,7 @@ test("unchecking the carry-over leaves the unbought row on the completed list", 
   ]);
   await page.goto(path);
 
-  await page.getByRole("button", { name: "Put things away" }).click();
-  const sheet = page.getByRole("dialog", { name: en.shoppingList.putAway.finishTitle });
+  const sheet = await openFinishSheet(page);
   await sheet.getByRole("checkbox", { name: /Move 1 unbought item to / }).uncheck();
   await sheet.getByRole("button", { name: en.shoppingList.putAway.finishConfirm }).click();
 
