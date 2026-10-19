@@ -1765,6 +1765,29 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance: an action test covers household scoping, the cap and
       unpin; an e2e step pins a uniquely named note, reloads and sees it
       above a newer one, then unpins it, on desktop and mobile.
+### 2026-10-19 scan
+
+- [ ] **GAP-62. Carry a recipe ingredient's note onto the shopping list row** (impact: low-med, effort: S) —
+      Grocy 3.1.0 made an ingredient's note ride along when missing
+      products are added from a recipe. Squirrel stores the note
+      (`RecipeIngredient.note`, "ripe", "unsalted", the prep note an
+      import keeps) and shows it in the recipe sheet, but
+      `addMissingIngredientsToShoppingListAction`
+      (`src/app/dashboard/meal-planning/cooking-actions.ts:206`) builds its
+      `itemsToCreate` without it, so the shopper at the shelf no longer
+      sees "unsalted" even though `ShoppingListItem.note` (GAP-5) already
+      renders as the muted second line there and on the share page. No
+      schema change: copy the ingredient's note (trimmed, cut to the 200
+      characters GAP-5 allows) into `note`. When two recipes add the same
+      item the existing dedupe keeps the first row, so keep its note and
+      skip the second's rather than merging text. Check the plan-portions
+      path (`src/lib/shopping/default-list.ts`) and do the same if it
+      builds rows from recipe ingredients.
+      Acceptance: an action test shows a note on the ingredient reaches
+      the created row's `note` (capped at 200) and a null note stays null;
+      an e2e step adds a missing ingredient that has a note from a
+      uniquely named recipe and sees the note under the row on the
+      shopping list, on desktop and mobile.
 
 ## Needs a decision before building
 
