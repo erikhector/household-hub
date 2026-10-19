@@ -2,6 +2,24 @@ import { describe, expect, it } from "vitest";
 import { parsePastedList } from "@/lib/inventory/parse-pasted-list";
 
 describe("parsePastedList", () => {
+  it("doesn't split on commas inside brackets (UX-88)", () => {
+    expect(parsePastedList("dishwasher tablets (lemon-free, 120 st), paper towels")).toEqual([
+      { name: "dishwasher tablets (lemon-free, 120 st)", quantity: 1, unit: "pcs" },
+      { name: "paper towels", quantity: 1, unit: "pcs" },
+    ]);
+    expect(parsePastedList("2 l milk [oat, barista], bread")).toEqual([
+      { name: "milk [oat, barista]", quantity: 2, unit: "l" },
+      { name: "bread", quantity: 1, unit: "pcs" },
+    ]);
+  });
+
+  it("treats an unclosed bracket as plain text", () => {
+    expect(parsePastedList("milk (oat, bread")).toEqual([
+      { name: "milk (oat", quantity: 1, unit: "pcs" },
+      { name: "bread", quantity: 1, unit: "pcs" },
+    ]);
+  });
+
   it("splits on newlines and commas", () => {
     expect(parsePastedList("Milk, Bread\nEggs")).toEqual([
       { name: "Milk", quantity: 1, unit: "pcs" },

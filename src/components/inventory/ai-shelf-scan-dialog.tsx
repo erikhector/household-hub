@@ -384,6 +384,7 @@ export function AiShelfScanDialog({
                     onValueChange={setCategory}
                     placeholder={dict.categoryPlaceholder}
                     maxLength={60}
+                    label={dict.bulkScan.sharedCategoryLabel}
                     dict={dict}
                   />
                 </div>
@@ -397,6 +398,7 @@ export function AiShelfScanDialog({
                     onValueChange={setLocation}
                     placeholder={dict.locationPlaceholder}
                     maxLength={120}
+                    label={dict.bulkScan.sharedLocationLabel}
                     dict={dict}
                   />
                 </div>

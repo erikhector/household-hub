@@ -472,7 +472,18 @@ export async function resetPasswordAction(
   redirect("/login?reset=success");
 }
 
-export type VerifyEmailState = { status?: "verified" | "alreadyVerified"; error?: string };
+/**
+ * Why a verification failed (UX-142). The client picks the card's title and
+ * message from the dictionary by this code, because `error` is one English
+ * string it can't tell the causes apart by.
+ */
+export type VerifyEmailErrorCode = "invalid" | "rateLimited" | "generic";
+
+export type VerifyEmailState = {
+  status?: "verified" | "alreadyVerified";
+  error?: string;
+  code?: VerifyEmailErrorCode;
+};
 
 const verifyEmailSchema = z.object({
   token: z.string().min(1, "This verification link is invalid or has expired. Request a new one."),
@@ -495,7 +506,7 @@ export async function verifyEmailAction(
 ): Promise<VerifyEmailState> {
   const parsed = verifyEmailSchema.safeParse({ token: formData.get("token") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input", code: "invalid" };
   }
   const { token } = parsed.data;
 
@@ -506,7 +517,10 @@ export async function verifyEmailAction(
       VERIFY_EMAIL_RATE_LIMIT_WINDOW_MS,
     ))
   ) {
-    return { error: "Too many attempts. Please wait a few minutes and try again." };
+    return {
+      error: "Too many attempts. Please wait a few minutes and try again.",
+      code: "rateLimited",
+    };
   }
 
   const verificationToken = await prisma.emailVerificationToken.findUnique({
@@ -514,7 +528,7 @@ export async function verifyEmailAction(
     include: { user: true },
   });
   if (!verificationToken) {
-    return { error: INVALID_VERIFICATION_LINK_MESSAGE };
+    return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
   }
 
   if (verificationToken.user.emailVerifiedAt) {
@@ -522,7 +536,7 @@ export async function verifyEmailAction(
   }
 
   if (verificationToken.usedAt || verificationToken.expiresAt < new Date()) {
-    return { error: INVALID_VERIFICATION_LINK_MESSAGE };
+    return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
   }
 
   try {
@@ -549,9 +563,9 @@ export async function verifyEmailAction(
       });
       return true;
     });
-    if (!redeemed) return { error: INVALID_VERIFICATION_LINK_MESSAGE };
+    if (!redeemed) return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
   } catch (error) {
-    return toFriendlyError(error);
+    return { ...(await toFriendlyError(error)), code: "generic" };
   }
 
   return { status: "verified" };

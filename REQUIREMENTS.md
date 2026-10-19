@@ -1419,7 +1419,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   so rows scrolled under it never show through, UX-82). Typing `2 l mjölk, bröd, 6 ägg` and pressing
   Enter adds three rows; the text goes through the shared
   `parsePastedList` (via `parseSmartAddInput`), and a row with no typed
-  unit takes its inventory item's usual unit rather than "pcs". The input
+  unit takes its inventory item's usual unit rather than "pcs". A comma
+  inside brackets doesn't split (UX-88): `dishwasher tablets (lemon-free,
+  120 st), paper towels` is two rows with the brackets intact (an unclosed
+  bracket doesn't count, so a stray `(` can't swallow the line). The input
   clears as soon as it's submitted and keeps focus, so the next item can be
   typed straight away (it's put back if the add fails). Each added row
   highlights for ~2 s and scrolls into view if it was off-screen (the
@@ -3928,6 +3931,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     it). The popup's `Use "X"` row is a real button: tapping it keeps the
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
+  - **Combo button names (UX-129)**: every `ComboField` (category,
+    location, unit, name) names its × "Clear {field}" (the field's own
+    label, lower-cased, via the required `label` prop) and its chevron
+    "Show suggestions", in English and Swedish (`comboboxClear`,
+    `comboboxShowSuggestions` beside the other combobox strings), so a
+    screen reader no longer announces two bare "button"s per field.
+    `e2e/combo-button-names.spec.ts` finds them by role and name.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
@@ -4164,15 +4174,17 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`FillEmptyDaysDialog`,
   `src/components/meal-planning/fill-empty-days-dialog.tsx`), shown while at
   least one day has no entries and hasn't passed yet. It opens a preview with
-  one proposed dinner per such day, taken from favorites
-  (`Recipe.isFavorite`) that aren't already on the week's plan and never the
-  same recipe twice (`proposeDinners` in `fill-empty-days.ts`, name order).
-  With fewer unplanned favorites than empty days the later days are simply
-  left out, and the dialog says so; with no favorites it says to star some.
+  one proposed dinner per such day, taken from favorites first
+  (`Recipe.isFavorite`) and then the household's other recipes once
+  favorites run out (UX-97), skipping recipes already on the week's plan and
+  never the same recipe twice (`proposeDinners` in `fill-empty-days.ts`,
+  each group in name order). With fewer unplanned recipes than empty days
+  the later days are simply left out, and the dialog says so; with no
+  recipes at all it says to add some.
   The proposal is computed on the client from data the page already has and
   **nothing is written** until "Add dinners"; Cancel or closing discards it,
   and reopening re-proposes. Each row has a swap button that moves to the
-  next unused favorite (`nextSwap`), so the no-repeat rule holds without a
+  next unused recipe (`nextSwap`, favorites first), so the no-repeat rule holds without a
   free picker. Accepting calls `fillEmptyDaysAction(weekStart, picks)` in
   `planner-actions.ts`: the week must be a Monday, picks are at most seven
   with unique in-week dates and unique recipes, the recipes are re-checked
@@ -5484,7 +5496,10 @@ co-managers, not kids earning rewards.
   `deleteTaskAction`.
 - **UI**: one shared `TaskFormDialog` for create and edit (title on
   create, assignee, repeat; once a task repeats and the household has two
-  or more members, a "Take turns" list with add, remove and up/down) and a
+  or more members, a "Take turns" list with add, remove and up/down; the
+  first person added starts from the assignee as #1, and a one-person
+  list shows "Add at least one more person" as an error and disables
+  Add) and a
   flat list split into open/completed sections, matching
   `ShoppingListClient`'s shape. An unassigned task shows a neutral
   "Unassigned" badge; a completed task credits its completer by name, never
@@ -5526,6 +5541,24 @@ co-managers, not kids earning rewards.
   older" button under the Completed rows (toggles to "Hide older"); nothing
   is deleted. Repeating tasks never collapse. The open/closed state is
   per-visit, not stored (`e2e/task-caught-up.spec.ts`).
+- **Compact rows, and a Mine filter (UX-106)**: a task row is one line on a
+  phone, checkbox, title and assignee badge, at most 56 px (about eight tasks
+  a screen, up from four). Repeat, next due, whose turn and who did it wrap
+  in a small line under the title instead of pushing the actions onto a
+  second and third line, and a long assignee name is cut short (full name as
+  the tooltip). Below `sm` the row carries neither Edit and Delete icons nor
+  a ⋯: Edit and Delete are in the swipe tray, and the edit sheet (a tap on
+  the title) has a quiet **Delete** button that closes the sheet and hands
+  over to the row's own trash button, so the same confirm dialog opens
+  (M7: the sheet is the visible path). From `sm` up the icons stay.
+  Above the list, in a household of two or more, an **Everyone / Mine**
+  toggle (`aria-pressed` buttons) shows only the tasks assigned to you
+  (`filterTasks`, `src/app/dashboard/tasks/task-filter.ts`: open or
+  completed; unassigned tasks only show under Everyone). The weekly recap
+  stays household-wide. The choice is remembered per device in localStorage
+  under `tasks.filter` (`TASKS_FILTER_STORAGE_KEY`, listed on the privacy
+  page; `useLocalPreference`). Nothing stored means Everyone, so a first
+  visit never hides a task (`e2e/task-compact-rows.spec.ts`).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -6091,7 +6124,12 @@ components directly.
   to dashboard". Copy is in the `notFound` dictionary section. The failed
   states of `/verify-email/<token>` and `/unsubscribe/<token>` are titled
   by outcome ("Link expired" and "Link not valid") instead of the page's
-  label. Covered by `e2e/public-pages.spec.ts` and
+  label. On `/verify-email/<token>` the title follows the cause (UX-142):
+  `verifyEmailAction` returns a `code` (`invalid`, `rateLimited`,
+  `generic`) next to `error`, and the client takes the title and message
+  from the `auth.verifyEmail` dictionary by code, so a rate-limited
+  visitor sees "Too many attempts" with a "try again later" message, not
+  "Link expired". Covered by `e2e/public-pages.spec.ts` and
   `e2e/item-catalog.spec.ts` (signed-in 404).
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
@@ -6913,11 +6951,12 @@ Todoist-style. Built as one shared wrapper,
   the button the deliberate one.
 - **No action shows twice on a phone.** Below `sm`, a swipeable row
   doesn't also show Edit and Delete icons: they sit behind the row's ⋯
-  menu instead. Task and shopping rows get `RowActionsMenu`
+  menu instead. Shopping rows get `RowActionsMenu`
   (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
-  `sm` up the icons show as before.
+  `sm` up the icons show as before. Task rows have no ⋯ at all (UX-106):
+  the edit sheet has a Delete button instead.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
   swipe only takes over once the finger has moved 8 px more sideways than
