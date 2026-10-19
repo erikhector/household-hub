@@ -242,17 +242,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-27. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
-      amount in the pantry's unit instead"), `mobile` project. Failed once
-      and passed on the retry in the GitHub `End-to-end (Playwright)` job on
-      release `0444ce1` (2026-10-18); it also passed on a local re-run. The
-      failing action is `getByRole("button", { name: "New recipe" }).click()`
-      timing out at 30 s, via `openNewRecipe` (line 45). Fix the app's or
-      the test's waiting (what the page renders before the button exists),
-      never a loosened assertion, a skip or a retry. Acceptance: `npx
-      playwright test e2e/recipe-ingredients.spec.ts --project=mobile
-      --repeat-each=30` passes 30/30.
 - [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
       #336 (`feat: show what's left to split as shares are typed`) turned
       `next` red and was reverted by #340, which also deleted
