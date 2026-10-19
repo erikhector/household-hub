@@ -3180,6 +3180,7 @@ export const en = {
     },
     verifyEmail: {
       pageTitle: "Verify your email",
+      invalidTitle: "Link expired",
       verifying: "Verifying your email…",
       submit: "Verify email",
       verifiedDescription: "Your email address has been verified.",
@@ -3360,6 +3361,15 @@ export const en = {
     privacyLink: "Privacy policy",
     consentSuffix: ".",
   },
+  // UX-65: the 404 page. Logged-out visitors get the token pages' status
+  // card with a way to the landing page; signed-in users get the way back
+  // to their dashboard.
+  notFound: {
+    title: "Page not found",
+    body: "The page you're looking for doesn't exist or may have moved.",
+    backToDashboard: "Back to dashboard",
+    goToSquirrel: "Go to Squirrel",
+  },
   // The HTML emails built in src/lib/email.ts — rendered server-side into a
   // fixed-language email per send (see sendHouseholdInviteEmail /
   // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
@@ -3367,6 +3377,7 @@ export const en = {
   // reuse rather than for a live language switch.
   digestUnsubscribe: {
     pageTitle: "Weekly digest",
+    invalidTitle: "Link not valid",
     working: "Unsubscribing you from the weekly digest…",
     submit: "Unsubscribe",
     done: "You won't get the weekly digest any more. You can turn it back on from your profile at any time.",

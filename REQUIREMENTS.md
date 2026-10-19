@@ -5963,6 +5963,15 @@ components directly.
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
+- **404 and invalid-link titles (UX-65)**: `src/app/not-found.tsx` is a
+  Server Component that checks the session. A logged-out visitor gets the
+  `StatusCard` (brand mark, compass icon, "Page not found") with a "Go to
+  Squirrel" link to `/`; a signed-in user keeps the in-app card with "Back
+  to dashboard". Copy is in the `notFound` dictionary section. The failed
+  states of `/verify-email/<token>` and `/unsubscribe/<token>` are titled
+  by outcome ("Link expired" and "Link not valid") instead of the page's
+  label. Covered by `e2e/public-pages.spec.ts` and
+  `e2e/item-catalog.spec.ts` (signed-in 404).
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;

@@ -612,17 +612,6 @@ UX-89, UX-113.
       `/share/shopping-list/[token]` emit `og:title`, `og:description` and
       `og:image`, with join and share naming the household or list.
 
-- [ ] **UX-65. A logged-out 404, and token pages titled by outcome**
-      (impact: low, effort: S) — breaks Consistency and User control.
-      `src/app/not-found.tsx:41` has no brand badge, and its only action,
-      "Back to dashboard", sends a stranger to the login form. Two token
-      pages are titled with labels instead of outcomes: "Verify your
-      email" for a dead link, and "Weekly digest" for a bad unsubscribe
-      link.
-      Acceptance: a logged-out 404 uses the token pages' StatusCard
-      layout with "Go to Squirrel". Invalid-token titles state the outcome
-      ("Link expired", "Link not valid").
-
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).
@@ -1182,6 +1171,19 @@ UX-89, UX-113.
       layout is used below `lg`, or the table drops secondary columns
       (Category, Location, Last updated) at that width. No horizontal
       scroll in the table.
+
+- [ ] **UX-142. The verify-email title follows the cause of the error**
+      (impact: low, effort: S) — breaks Consistency. UX-65 titles every
+      failed `/verify-email/<token>` state "Link expired", but
+      `verifyEmailAction` also returns the rate-limit message ("Too many
+      attempts…") and zod input errors, as one English string the client
+      can't tell apart, so a rate-limited visitor sees "Link expired".
+      Acceptance: `verifyEmailAction` returns an error code next to the
+      message (`invalid`, `rateLimited`, …), the localised message and the
+      title come from the dictionary by code, and the rate-limited state is
+      titled for what happened ("Too many attempts") with a "try again
+      later" message. Unit test per code in `auth.test.ts`; the e2e spec
+      keeps the bad-token case on "Link expired".
 
 ### Dependencies
 

@@ -47,7 +47,7 @@ export function VerifyEmailClient({
 
   if (state.error) {
     return (
-      <StatusCard brand={brand} icon={XCircle} tone="error" title={dict.pageTitle}>
+      <StatusCard brand={brand} icon={XCircle} tone="error" title={dict.invalidTitle}>
         <p className="text-sm text-muted-foreground">{state.error}</p>
         <StatusCardLink href={isAuthenticated ? "/dashboard" : "/login"}>
           {isAuthenticated ? dict.dashboardResendLink : dict.loginToResendLink}
