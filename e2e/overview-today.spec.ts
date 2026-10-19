@@ -131,15 +131,29 @@ test("the Today block lists my and unassigned tasks, tonight, safe to spend and 
     // The tick works: it shows at once, and survives a reload because the
     // task was really completed.
     await mine.check();
-    await expect(main.getByRole("checkbox", { name: "Mark Water the plants as not done" })).toBeChecked();
-    await expect
-      .poll(async () => {
-        const { rows } = await client.query(`SELECT "completedAt" FROM "HouseholdTask" WHERE id = $1`, [
-          `e2e-td-t1-${tag}`,
-        ]);
-        return rows[0]?.completedAt !== null;
-      })
-      .toBe(true);
+    const ticked = main.getByRole("checkbox", { name: "Mark Water the plants as not done" });
+    await expect(ticked).toBeChecked();
+    const completed = async () => {
+      const { rows } = await client.query(`SELECT "completedAt" FROM "HouseholdTask" WHERE id = $1`, [
+        `e2e-td-t1-${tag}`,
+      ]);
+      return rows[0]?.completedAt !== null;
+    };
+    await expect.poll(completed).toBe(true);
+    // The save has revalidated the page, so the server list no longer holds
+    // the task: the row stays, struck through (M5).
+    await expect(ticked).toBeChecked();
+    await expect(main.getByText("Water the plants")).toHaveClass(/line-through/);
+    // Unticking keeps it too, unstruck, while the un-complete save runs and
+    // after the task is back in the server list.
+    await ticked.uncheck();
+    const unticked = main.getByRole("checkbox", { name: "Mark Water the plants as done" });
+    await expect(unticked).not.toBeChecked();
+    await expect(main.getByText("Water the plants")).not.toHaveClass(/line-through/);
+    await expect.poll(completed).toBe(false);
+    await expect(main.getByText("Water the plants")).toHaveCount(1);
+    await unticked.check();
+    await expect.poll(completed).toBe(true);
     await page.reload();
     await expect(main.getByText("Water the plants")).toHaveCount(0);
     await expect(main.getByText("Take out the recycling")).toBeVisible();
