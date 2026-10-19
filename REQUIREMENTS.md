@@ -6340,6 +6340,15 @@ the locale fallback.
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
 - Profile has an "About Squirrel" disclosure with the version and a link to
   the page (see "Profile sections" below).
+- **Public**: `/whats-new` shows the same list (`ReleaseList`,
+  `src/components/whats-new/release-list.tsx`, shared with the dashboard
+  page) to anyone, logged in or not, like `/privacy`, under "The latest
+  version is X.Y.Z." It never writes `last_seen_release`: that cookie only
+  clears a member's unread dot. Every page with the public footer
+  (`LegalFooter`: landing, login, signup, join and the token pages) links
+  to it as "What's new · vX.Y.Z", so a visitor sees which version they're
+  looking at and that the app is being worked on. Covered by
+  `e2e/whats-new-public.spec.ts`.
 
 **Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
 `h2` region, instead of eleven loose cards: **Account** (display name,

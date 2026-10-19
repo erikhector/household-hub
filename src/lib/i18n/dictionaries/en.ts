@@ -134,6 +134,9 @@ export const en = {
     title: "What's new",
     subtitle: "Every Squirrel update and what it changed.",
     currentVersion: "You're on version {version}.",
+    // The public /whats-new page, where "you're on" would be wrong for a
+    // visitor without an account.
+    latestVersion: "The latest version is {version}.",
     version: "Version {version}",
     latest: "Latest",
     breaking: "Big change",
@@ -3478,6 +3481,8 @@ export const en = {
     termsNavLabel: "Terms",
     privacyNavLabel: "Privacy",
     cookiesNavLabel: "Cookies",
+    // Followed by " · v{version}", like the sidebar's What's new link.
+    whatsNewNavLabel: "What's new",
     footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "By creating an account, you agree to the",
     termsLink: "Terms of service",
