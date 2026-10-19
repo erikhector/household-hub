@@ -392,7 +392,7 @@ UX-89, UX-113.
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135 to UX-138.
+- Needs a decision before building: UX-135, UX-136 and UX-138 (UX-137 decided).
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
@@ -983,6 +983,27 @@ UX-89, UX-113.
       sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
       filter is remembered.
 
+- [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
+      (impact: med, effort: M) — bug, breaks Usability. Today the next due
+      time is the exact moment of the last tick plus the interval
+      (`src/app/dashboard/tasks/recurrence.ts:22-41`), so a daily chore
+      ticked at 23:40 stays under Completed all the next day labelled
+      "Next due {today}", ticking late pushes the schedule back, and a
+      Saturday chore done on Thursday moves to Thursdays for good.
+      Chosen scope: day-based intervals count from the start of the local
+      day (daily reopens at 00:00); weekly or longer chores keep a fixed
+      anchor day unless edited. No per-task "N days after done" choice yet
+      (park as a later item if asked for). UX-133 builds on this.
+      Acceptance: a unit test on `recurrence.ts` covers a daily task ticked
+      at 23:40 (next due is the next local midnight), a late weekly tick
+      (anchor day unchanged) and an early tick; an e2e step ticks a daily
+      task and asserts it shows under Open again after the day rolls over
+      (clock set), and that no completed row reads "Next due" with today's
+      date.
+      Decided 2026-10-19 by autopilot-product: day-anchored rescheduling.
+      Why: the item's own recommended option, no schema, easy to revisit.
+      See PRODUCT.md.
+
 - [ ] **UX-107. Say when a task title is too long, and label the field**
       (impact: low, effort: S) — Usability (prevent errors).
       `maxLength={120}` (`task-form-dialog.tsx:169`) silently stops input
@@ -1280,6 +1301,22 @@ order below is a suggestion, not a dependency, unless noted.
       after `removeMemberAction`.
 
 ---
+
+- [ ] **GAP-57. "Tonight's dinner" nudge in the morning, opt-in**
+      (impact: low-med, effort: M) `[schema]` — Plan to Eat and
+      Cozi/Mealime-style planners remind you what is on the menu; Squirrel
+      only nudges after the fact (`syncMealNotLoggedNotifications`), so a
+      planned dinner needing thawing or a missing ingredient goes unnoticed
+      until evening. Chosen scope: a per-user toggle in the notification
+      settings, **default off**, and one bell/push entry per day listing
+      that day's planned meals; silent when nothing is planned or
+      everything is already cooked. No other per-kind settings.
+      Acceptance: a sync test covers the opt-out default, no entry on an
+      empty day and household scoping; an e2e step enables the toggle and
+      asserts the bell entry, on desktop and mobile.
+      Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
+      Why: the item's own recommendation; opt-in keeps the Guardrails on
+      noisy positive alerts. See PRODUCT.md.
 
 - [ ] **UX-133. Optional due dates on tasks, sorted by urgency** (impact:
       high, effort: L) — from the 2026-10-15 UI review. `HouseholdTask`
@@ -1680,25 +1717,6 @@ out to be a product-scope question rather than a scoped task should move to
       a day, asserts them on the new day after reload, and halves their
       portions, on desktop and mobile.
 
-- [ ] **GAP-57. "Tonight's dinner" nudge in the morning** `[!]` (impact: low-med, effort: M) —
-      Plan to Eat lists push notifications for upcoming meals on its 2026
-      roadmap, and Cozi/Mealime-style planners remind you what is on the
-      menu. Squirrel only nudges after the fact ("Meal not logged",
-      `syncMealNotLoggedNotifications`), so a planned dinner needing
-      thawing or a missing ingredient goes unnoticed until evening. Needs
-      a product call: REQUIREMENTS.md notes there are no per-kind
-      notification settings for any type, so a daily alert would be
-      unmutable, against the Guardrails on noisy positive alerts.
-      Recommendation: build only with an opt-in per-user toggle (default
-      off) in the notification settings, one bell/push entry per day
-      listing that day's planned meals, silent when nothing is planned
-      or everything is already cooked. Acceptance (if decided): a sync
-      test covers the opt-out default, no entry on an empty day and
-      household scoping; an e2e step enables the toggle and asserts the
-      bell entry, on desktop and mobile.
-
-### 2026-10-17 scan
-
 - [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
       AnyList's December 2025 meal-planning update lets a plain note on the
       calendar carry ingredients that go straight to the shopping list.
@@ -1896,25 +1914,6 @@ out to be a product-scope question rather than a scoped task should move to
         sample data" removes exactly them.
       - No sample data, and lean on starter kits plus UX-50's empty
         states.
-
-- [ ] **UX-137. How should recurring tasks reschedule?** `[!]` — from the
-      2026-10-15 UI review. Today the next due time is the exact moment of
-      the last tick plus the interval
-      (`src/app/dashboard/tasks/recurrence.ts:22-41`). Consequences:
-      - "Feed the cat" (daily), ticked at 23:40, stays under Completed
-        all the next day, labelled "Next due Oct 15", which is today's
-        date.
-      - Ticking late pushes the schedule back.
-      - Doing a Saturday chore on Thursday moves it to Thursdays for
-        good.
-      Options:
-      - **Recommended:** day-based intervals count from the start of the
-        local day (daily reopens at 00:00), and weekly or longer chores
-        keep a fixed anchor day unless edited.
-      - Offer a per-task choice: "on a schedule" or "N days after done"
-        (Todoist's "every" vs "every!").
-      Either way, "Next due {today}" never shows on a completed row.
-      UX-133 builds on the answer.
 
 - [ ] **UX-138. What should "Safe to spend" subtract?** `[!]` ⚠️ money
       (human-only area) — from the 2026-10-15 UI review.
