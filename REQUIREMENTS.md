@@ -1623,7 +1623,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   "Expenses by category" card a capped row draws its bar against its own
   limit (`limitProgress`: fill %, clamped at 100) and reads "spent / limit";
   past 100% the bar and figure turn `text-destructive`/`bg-destructive` with
-  an "X over" note. Capped categories with nothing spent yet this month are
+  an "X over" note. UX-115: bars are never coloured per category (chart
+  colours are for marks, not status): every bar is neutral
+  (`bg-muted-foreground`), `warning` with "Almost at limit" from 90% of the
+  limit (`LimitProgress.near`) and `destructive` over it; only the row's
+  sparkline keeps its category hue. Capped categories with nothing spent yet this month are
   still listed at 0 (`withCategoryLimits`, applied by each page). Uncapped
   rows keep the old proportional bar. Purely visual, in keeping with the
   app's "suggest, don't gate" stance on money: nothing blocks a transaction

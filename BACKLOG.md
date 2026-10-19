@@ -1045,15 +1045,6 @@ UX-89, UX-113.
       exists. Empty cost-analyzer cards collapse into one line ("Price
       insights appear once you scan receipts").
 
-- [ ] **UX-115. Category bars coloured by status, not by category**
-      (impact: med, effort: S) — breaks Colour ("chart colours are for
-      marks"; status uses success/warning/destructive with a word). In
-      "Expenses by category" the bars take a chart colour per category: a
-      category at 96% used is green and one at 36% is pink.
-      Acceptance: bars are one neutral colour, `warning` from 90% with
-      "Almost at limit", and `destructive` when over. Sparklines may keep
-      category hues.
-
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
       no mascot on money. The pace chart has only "Today" and "Month end"

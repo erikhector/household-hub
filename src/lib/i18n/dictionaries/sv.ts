@@ -2145,6 +2145,7 @@ export const sv = {
       noSavings: "Inget sparande registrerat denna månad.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
+      almostAtLimit: "Nära gränsen",
       carriedOver: "varav {amount} överfört",
       // UX-39: a category sparkline's accessible name.
       historyLabel: "Senaste {count} månaderna: {values}",
@@ -2594,6 +2595,7 @@ export const sv = {
       noSavings: "Inget sparande registrerat denna månad.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
+      almostAtLimit: "Nära gränsen",
       carriedOver: "varav {amount} överfört",
       // UX-39: a category sparkline's accessible name.
       historyLabel: "Senaste {count} månaderna: {values}",
