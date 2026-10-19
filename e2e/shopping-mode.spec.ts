@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
@@ -324,4 +324,38 @@ test("a row just added scrolls into view above the dock", async ({ page, isMobil
       { message: "the new row ends above the dock" },
     )
     .toBeGreaterThanOrEqual(0);
+});
+
+// UX-83: a known aisle takes its name from the viewer's language, not from
+// whichever language its first item was filed in. The category is stored in
+// English; the Swedish session sees "Frukt & grönt" and "Städartiklar" in the
+// headers and in the dock, and an English one still sees the English names.
+test.describe("aisle names follow the viewer's language", () => {
+  test.describe("sv", () => {
+    test.use({ storageState: STORAGE_STATE_SV });
+
+    test("an English-stored category is shown in Swedish in the header and the dock", async ({ page }) => {
+      const t = tag();
+      const path = await seedList(t, [
+        { name: `Äpplen ${t}`, category: "Produce" },
+        { name: `Disktrasa ${t}`, category: "Cleaning supplies" },
+      ]);
+      await page.goto(path);
+
+      await expect(page.getByText("Frukt & grönt", { exact: true }).locator("visible=true").first()).toBeVisible();
+      await expect(page.getByText("Städartiklar", { exact: true }).locator("visible=true").first()).toBeVisible();
+      await expect(page.getByText("Produce", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("Cleaning supplies", { exact: true })).toHaveCount(0);
+      const dock = page.getByRole("region", { name: "Näst på tur" });
+      await expect(dock).toContainText("Frukt & grönt");
+    });
+  });
+
+  test("an English session keeps English names, for a Swedish-stored category too", async ({ page }) => {
+    const t = tag();
+    const path = await seedList(t, [{ name: `Mjölk ${t}`, category: "Mejeri & ägg" }]);
+    await page.goto(path);
+    await expect(page.getByText("Dairy & eggs", { exact: true }).locator("visible=true").first()).toBeVisible();
+    await expect(page.getByText("Mejeri & ägg", { exact: true })).toHaveCount(0);
+  });
 });

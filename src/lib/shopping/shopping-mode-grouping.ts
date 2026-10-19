@@ -19,7 +19,7 @@
 // check-offs and lets it arrange the groups by hand, and this sorts by
 // whatever that says.
 
-import { AUTO_CATEGORY_KEYS } from "@/lib/inventory/auto-category";
+import { AUTO_CATEGORY_KEYS, type AutoCategoryKey } from "@/lib/inventory/auto-category";
 import { categoryLabels } from "@/lib/inventory/category-labels";
 import {
   compareCategoryKeys,
@@ -67,6 +67,14 @@ export function categoryKey(category: string | null): string | null {
   return KNOWN_CATEGORY_KEYS.get(normalized) ?? normalized;
 }
 
+function groupLabel(key: string, stored: string | null, locale?: keyof typeof categoryLabels): string {
+  if (locale && key.startsWith(KNOWN_CATEGORY_KEY_PREFIX)) {
+    const label = categoryLabels[locale].autoCategories[key.slice(KNOWN_CATEGORY_KEY_PREFIX.length) as AutoCategoryKey];
+    if (label) return label;
+  }
+  return (stored ?? "").trim();
+}
+
 /** `key` is the group's category key (see categoryKey); null for "Other". */
 export type ShoppingModeGroup<T> = { key: string | null; label: string; items: T[] };
 
@@ -83,12 +91,14 @@ export type ShoppingModeGroup<T> = { key: string | null; label: string; items: T
  * their incoming relative order within a group (list insertion order). Only
  * categories actually present produce a group — there's no empty "Frozen"
  * header just because the key exists. With no `order` (or an empty one)
- * this is exactly AUTO-3's fixed order.
+ * this is exactly AUTO-3's fixed order. A known category's label comes from
+ * `locale`'s category labels when given (UX-83).
  */
 export function groupPendingItemsByCategory<T extends { category: string | null }>(
   items: readonly T[],
   otherLabel: string,
   order: StoreOrder = EMPTY_STORE_ORDER,
+  locale?: keyof typeof categoryLabels,
 ): ShoppingModeGroup<T>[] {
   // Keyed by category key, with "Other" under "" — a real key is never
   // empty, so the two can't collide.
@@ -97,9 +107,12 @@ export function groupPendingItemsByCategory<T extends { category: string | null 
     const key = categoryKey(item.category);
     let group = groups.get(key ?? "");
     if (!group) {
-      // The first item's own text labels the group (for a known category,
-      // in whichever locale it happened to be stored), same as before.
-      group = { key, label: key === null ? otherLabel : (item.category ?? "").trim(), items: [] };
+      // UX-83: a known category is labelled in the viewer's `locale`, not in
+      // whichever locale the first item happened to be stored in (a Swedish
+      // session otherwise saw "PRODUCE" next to "ÖVRIGT"). A household's own
+      // category has no translation, so it keeps its stored text; so does
+      // everything when no `locale` is given.
+      group = { key, label: key === null ? otherLabel : groupLabel(key, item.category, locale), items: [] };
       groups.set(key ?? "", group);
     }
     group.items.push(item);

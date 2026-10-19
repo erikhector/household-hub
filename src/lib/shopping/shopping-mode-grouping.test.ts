@@ -113,6 +113,23 @@ describe("groupPendingItemsByCategory", () => {
   });
 });
 
+// UX-83: the header names a known category in the viewer's locale.
+describe("groupPendingItemsByCategory locale labels", () => {
+  const items = [item("1", "Produce"), item("2", "Cleaning supplies"), item("3", "Mejeri & ägg"), item("4", "Garage")];
+
+  it("labels known categories in the given locale, whichever locale they were stored in", () => {
+    const sv = groupPendingItemsByCategory(items, "Övrigt", undefined, "sv");
+    expect(sv.map((g) => g.label)).toEqual(["Frukt & grönt", "Mejeri & ägg", "Städartiklar", "Garage"]);
+    const en = groupPendingItemsByCategory(items, "Other", undefined, "en");
+    expect(en.map((g) => g.label)).toEqual(["Produce", "Dairy & eggs", "Cleaning supplies", "Garage"]);
+  });
+
+  it("keeps a household's own category as typed", () => {
+    const [group] = groupPendingItemsByCategory([item("1", "  Garage Shelf ")], "Övrigt", undefined, "sv");
+    expect(group.label).toBe("Garage Shelf");
+  });
+});
+
 describe("categoryKey", () => {
   it("maps a known label in either locale to the same auto: key", () => {
     expect(categoryKey("Dairy & eggs")).toBe("auto:dairy");

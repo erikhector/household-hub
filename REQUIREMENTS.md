@@ -902,7 +902,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   bathroom — `AUTO_CATEGORY_KEYS`' own order (auto-category.ts) — matching a
   category stored in either locale to the same group (a household that
   auto-filed some items in English and some in Swedish still gets one
-  "Dairy & eggs" group, not two). A household's own custom category text
+  "Dairy & eggs" group, not two), labelled in the viewer's language (UX-83:
+  `groupPendingItemsByCategory`'s `locale` argument, so a Swedish session
+  reads "Frukt & grönt" in the headers and the Next up dock even when the
+  category was stored in English). A household's own custom category text
   sorts after the known ones, alphabetically; items with no linked item, a
   blank category, or still sitting in the "Uncategorized" placeholder
   collect under "Other" at the end. Only categories actually present get a

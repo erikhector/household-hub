@@ -344,7 +344,7 @@ export function ShoppingListClient({
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = items.filter((item) => item.inventoryItemId === null);
-  const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
+  const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder, locale);
   // UX-84: rows currently hidden by a swipe-delete's Undo window.
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
   const trackHidden = useCallback((id: string, hidden: boolean) => {
@@ -356,7 +356,7 @@ export function ShoppingListClient({
       return next;
     });
   }, []);
-  const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder);
+  const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder, locale);
   // GAP-53: the open items as plain text, on the clipboard or (a phone, via
   // the system share sheet) sent on. Nothing is stored or shared through the
   // app. The success toast waits for the write (clipboard.writeText rejects
@@ -391,7 +391,7 @@ export function ShoppingListClient({
   // with everything ticked), in the order shopping mode walks them. "Other"
   // is left out — it has no aisle and always sorts last. Needs two to be
   // worth offering at all.
-  const reorderSections = groupPendingItemsByCategory(items, dict.otherCategory, storeOrder).flatMap(
+  const reorderSections = groupPendingItemsByCategory(items, dict.otherCategory, storeOrder, locale).flatMap(
     (group) => (group.key === null ? [] : [{ key: group.key, label: group.label }]),
   );
   const hasManualOrder = storeOrder.manual.length > 0;
