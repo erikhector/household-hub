@@ -2091,6 +2091,8 @@ export const en = {
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
     caughtUpTitle: "You're all caught up!",
+    showOlder: "Show {count} older",
+    hideOlder: "Hide older",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
     recurrenceLabel: "Repeat",

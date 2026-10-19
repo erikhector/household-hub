@@ -395,8 +395,7 @@ UX-89, UX-113.
   UX-80, UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-105,
-  UX-106.
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
@@ -920,17 +919,6 @@ UX-89, UX-113.
       Acceptance: choosing rotation with an assignee pre-fills the
       assignee as #1. A one-person rotation can't be submitted, and the
       hint shows as the error.
-
-- [ ] **UX-105. An "all caught up" state, and old one-offs that leave**
-      (impact: med, effort: S) — breaks Usability (every state designed)
-      and M6.
-      - With every task done, the page jumps straight to "COMPLETED".
-      - Completed one-offs stay struck through forever, in creation
-        order, and clearing them is one confirm per row.
-      Acceptance: with no open tasks an empty state ("You're all caught
-      up!") shows above Completed. Completed one-offs older than 7 days
-      collapse behind "Show N older", or "Clear completed" (with undo)
-      exists.
 
 - [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
       effort: M) — breaks M6 and Hierarchy.

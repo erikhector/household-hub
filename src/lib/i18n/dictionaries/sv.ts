@@ -1990,6 +1990,8 @@ export const sv = {
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     doneToast: "Klart: {title}",
     caughtUpTitle: "Nu är allt klart!",
+    showOlder: "Visa {count} äldre",
+    hideOlder: "Dölj äldre",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",
     weeklyRecapDismissAriaLabel: "Stäng",
     recurrenceLabel: "Upprepa",
