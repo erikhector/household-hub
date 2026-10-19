@@ -1781,6 +1781,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   a single `Transaction` row auto-generates a future one; the flag just
   documents that a logged transaction is one of an expected repeat (e.g.
   rent, a subscription) for the household's own reference.
+  UX-113: a *new* transaction no longer offers "This repeats" (household
+  and Personal Budget share `TransactionDialog`). The flag only fed the
+  fallback estimate below, so ticking it created no recurring item and
+  moved Safe to spend with nothing under Recurring items or "Due this
+  period" to explain it. A repeating bill is added as a recurring item
+  (Manage), which is listed, due and counted by name. The checkbox stays
+  only for a payment logged from a recurring item and for an existing
+  transaction already flagged, so it can be cleared. Covered by
+  `e2e/transaction-repeats.spec.ts`.
 - **Recurring budget templates** (a separate, later-added system — see
   `RecurringTemplate`/`RecurringTemplateAck` in `prisma/schema.prisma`,
   the pure `src/app/dashboard/budget/recurring-template-calc.ts`, and
