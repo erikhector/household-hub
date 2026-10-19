@@ -418,8 +418,8 @@ function RecipeRow({
         )}
         disabled={isFavoritePending}
         aria-pressed={optimisticFavorite}
-        aria-label={dict.favoriteAriaLabel}
-        title={dict.favoriteAriaLabel}
+        aria-label={format(dict.favoriteAriaLabel, { name: recipe.name })}
+        title={format(dict.favoriteAriaLabel, { name: recipe.name })}
         onClick={handleToggleFavorite}
       >
         <Star className={cn("size-3.5", optimisticFavorite && "fill-current")} />

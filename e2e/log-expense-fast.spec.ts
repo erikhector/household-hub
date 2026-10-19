@@ -135,7 +135,13 @@ test("personal budget: the same sheet, last-used category and Undo", async ({ pa
   await dialog.getByLabel("Description").fill(`Cinema ${tag}`);
   await dialog.getByRole("button", { name: "Add transaction" }).click();
   await expect(page.getByText(new RegExp(`Added .*77.* to ${fun.name}`))).toBeVisible();
+  // Undo is fire-and-forget (the toast closes at once and the delete runs in
+  // the background), so reloading right away can abort it mid-request and
+  // bring the row back. Wait for the row to leave the live page, which only
+  // happens once the delete finished and revalidated, then prove it saved.
+  await expect(page.getByText(`Cinema ${tag}`).locator("visible=true").first()).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText(`Cinema ${tag}`)).toHaveCount(0);
   await page.reload();
   await expect(page.getByText(`Cinema ${tag}`)).toHaveCount(0);
 });

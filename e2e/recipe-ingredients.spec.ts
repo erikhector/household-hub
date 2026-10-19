@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, openRowSheet } from "./ui";
+import { dismissCookieNotice, gotoRevealed, openRowSheet } from "./ui";
 
 // MATCH-1: saving a recipe no longer creates inventory items behind the
 // user's back. Rows the matcher is sure about save straight away; anything
@@ -40,8 +40,12 @@ async function searchInventory(page: Page, query: string) {
 }
 
 async function openNewRecipe(page: Page, name: string) {
-  await page.goto("/dashboard/meal-planning");
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  // Open the Recipes tab through `?tab=recipes`, not by clicking the tab:
+  // a click that lands before the page hydrates does nothing, leaving the
+  // tab's body `hidden` and "New recipe" absent (MAINT-27). The URL renders
+  // the tab open on the server, and gotoRevealed waits for its streamed
+  // Suspense boundary to land before the button is looked for.
+  await gotoRevealed(page, "/dashboard/meal-planning?tab=recipes");
   await page.getByRole("button", { name: "New recipe" }).click();
   const dialog = page.getByRole("dialog", { name: "New recipe" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);

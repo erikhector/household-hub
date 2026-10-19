@@ -53,6 +53,8 @@ type CreateProps = CommonProps & {
   mode?: "create";
   weekStartKey: string;
   dateKey: string;
+  // UX-99: "Mon 12", so the day's trigger is named "Add meal, Mon 12".
+  dayLabel: string;
   // UX-21: each day has one "+ Add meal" (not one per slot), so the dialog
   // asks which slot; this is the preselected one.
   mealType: MealType;
@@ -161,7 +163,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
       {!isEdit && (
         <DialogTrigger
           render={
-            <Button type="button" variant="ghost" className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11">
+            <Button type="button" variant="ghost" aria-label={format(dict.addMealAriaLabel, { day: props.dayLabel })} className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11">
               <Plus className="size-3.5" aria-hidden="true" />
               {dict.addMeal}
             </Button>

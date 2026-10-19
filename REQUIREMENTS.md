@@ -4032,7 +4032,11 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   frosted add-bar style), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
   row, when it isn't already fully visible (the old "Jump to today" button
-  is gone). The two recaps (variety and nutrition) sit under the week,
+  is gone). Today's card says so in words (UX-99): a "Today" badge
+  beside the day number and `aria-current="date"`, besides the ring (never
+  colour alone). Each day's button is named by its day ("Add meal, Mon 12"),
+  and a recipe's star by the recipe ("Favorite Greek salad"), so a screen
+  reader's button list isn't seven identical "Add meal"s. The two recaps (variety and nutrition) sit under the week,
   inside the Planner tab's Suspense boundary, so they appear together with
   the planner and an empty or dismissed one never collapses a slot after
   the first paint (that kept /meal-planning over the UX-42 CLS budget).
@@ -5442,6 +5446,15 @@ co-managers, not kids earning rewards.
   shows a mascot "You're all caught up!" card in place of the open section
   (squirrel rises in once; static under reduced motion; no count or
   streak). It clears when a task is open again (Undo, a new task).
+- **All caught up, and old one-offs that leave (UX-105)**: with no open
+  task (and at least one completed) the mascot "You're all caught up!" card
+  shows above Completed on every visit, not only right after a tick, so the
+  page never opens straight on the Completed list. One-offs ticked more than
+  7 days before the server's `now` (`isOlderCompletedOneOff`,
+  `src/app/dashboard/tasks/older-completed.ts`) collapse behind a "Show N
+  older" button under the Completed rows (toggles to "Hide older"); nothing
+  is deleted. Repeating tasks never collapse. The open/closed state is
+  per-visit, not stored (`e2e/task-caught-up.spec.ts`).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -6787,7 +6800,10 @@ Todoist-style. Built as one shared wrapper,
     row unmounts. Undo just shows the row again, so no restore action
     exists (`src/components/shared/deferred-delete.ts`,
     `use-undoable-delete.ts`). If the browser is killed inside the
-    window, nothing was sent and the row is still there.
+    window, nothing was sent and the row is still there. On the shopping
+    list, deleting an aisle's last pending row hides that aisle's header
+    too until Undo restores the row (UX-84): the rows report their hidden
+    state up through `onHiddenChange`.
 - **Every swipe duplicates a tap path** (DESIGN.md M7), and the swipe
   works by clicking the row's own button: the elements marked
   `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same
