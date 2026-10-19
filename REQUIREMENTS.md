@@ -5486,7 +5486,10 @@ co-managers, not kids earning rewards.
   `deleteTaskAction`.
 - **UI**: one shared `TaskFormDialog` for create and edit (title on
   create, assignee, repeat; once a task repeats and the household has two
-  or more members, a "Take turns" list with add, remove and up/down) and a
+  or more members, a "Take turns" list with add, remove and up/down; the
+  first person added starts from the assignee as #1, and a one-person
+  list shows "Add at least one more person" as an error and disables
+  Add) and a
   flat list split into open/completed sections, matching
   `ShoppingListClient`'s shape. An unassigned task shows a neutral
   "Unassigned" badge; a completed task credits its completer by name, never

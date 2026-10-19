@@ -874,18 +874,6 @@ UX-89, UX-113.
 
 #### Tasks
 
-- [ ] **UX-103. "Take turns" with one person isn't silently dropped**
-      (impact: med, effort: S) — bug, breaks User control.
-      - With an assignee set and one person under "Take turns", the
-        dialog says "Add at least one more person" but keeps Add
-        enabled.
-      - The task saves with an empty rotation and no message
-        (`task-form-dialog.tsx:105,247`).
-      - The assignee isn't pre-filled into the turn order.
-      Acceptance: choosing rotation with an assignee pre-fills the
-      assignee as #1. A one-person rotation can't be submitted, and the
-      hint shows as the error.
-
 - [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
       effort: M) — breaks M6 and Hierarchy.
       - Rows carry edit and trash icons as well as the swipe tray that
