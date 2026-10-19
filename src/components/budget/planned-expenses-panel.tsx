@@ -17,8 +17,8 @@ import {
 } from "@/components/budget/transaction-dialog";
 import { format, plural } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
-import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
-import type { BudgetDict } from "@/components/budget/budget-dict";
+import type { Locale } from "@/lib/i18n/get-dictionary";
+import type { BudgetDict, PlannedDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { PlannedExpenseStatus } from "@/lib/planned-expense-calc";
 import { createMoneyFormat } from "@/lib/currency";
@@ -40,8 +40,6 @@ export type PlannedExpenseRow = {
   splits: { householdMemberId: string; amountOwed: number }[];
 };
 
-type PlannedDict = Dictionary["budget"]["planned"];
-
 // Most urgent first: what's late, then what's due in the viewed month, then
 // what's coming, then what's settled (paid in the viewed month only — see
 // the page's query).
@@ -52,9 +50,9 @@ const GROUPS = [
   { status: "paid", label: "groupPaid" },
 ] as const satisfies readonly { status: PlannedExpenseStatus; label: keyof PlannedDict }[];
 
-// Planned bills (BUDGET-8) on the household budget's Manage tab, under
-// RecurringTemplatesPanel and laid out like it. Household-only, so it takes
-// the household dict itself rather than the shared BudgetDict.
+// Planned bills (BUDGET-8) on the Manage tab, under RecurringTemplatesPanel
+// and laid out like it. Serves both budgets: the personal one passes no
+// members (so no split) and its own actions.
 export function PlannedExpensesPanel({
   rows,
   categories,
@@ -74,16 +72,18 @@ export function PlannedExpensesPanel({
   /** Every budget category: "Log payment" offers them all, like any
    * transaction; the bill's own dialog narrows to expense categories. */
   categories: CategoryRow[];
+  /** Every household member; `[]` on the personal budget. */
   members: MemberOption[];
   currentMemberId: string;
   /** "YYYY-MM" being viewed, for the payment's default date (F11). */
   monthKey: string;
-  dict: Dictionary["budget"];
+  /** dict.budget or dict.personalBudget. */
+  dict: BudgetDict;
   locale: Locale;
   currencyCode?: string | null;
   createAction: PlannedExpenseFormAction;
   updateAction: PlannedExpenseFormAction;
-  /** deletePlannedExpenseAction. */
+  /** deletePlannedExpenseAction or deletePersonalPlannedExpenseAction. */
   onDelete: (id: string) => Promise<ActionState>;
   createTransactionAction: TransactionFormAction;
   updateTransactionAction: TransactionFormAction;
@@ -183,7 +183,7 @@ function PlannedExpenseItem({
   updateTransactionAction,
 }: {
   bill: PlannedExpenseRow;
-  dict: Dictionary["budget"];
+  dict: BudgetDict;
   numberFormat: Intl.NumberFormat;
   dateFormat: Intl.DateTimeFormat;
   categories: CategoryRow[];
@@ -212,7 +212,7 @@ function PlannedExpenseItem({
               {bill.categoryName}
             </span>
           </Badge>
-          {bill.splits.length > 0 && (
+          {bill.splits.length > 0 && t.splitWays && (
             <Badge variant="secondary">
               {format(plural(bill.splits.length, t.splitWays), { count: bill.splits.length })}
             </Badge>

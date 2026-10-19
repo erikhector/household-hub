@@ -7,6 +7,7 @@ import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail, type ErrorKey } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
+import { parseDueDate } from "@/lib/planned-expense-calc";
 
 // Planned bills (BUDGET-8): one-off bills with a due date. Kept out of
 // actions.ts, which is already 1 000+ lines. Editing a bill never touches the
@@ -26,14 +27,6 @@ function revalidateBudgetPages() {
   revalidatePath("/dashboard/budget");
   revalidatePath("/dashboard/personal-budget");
   revalidatePath("/dashboard");
-}
-
-// Due dates are calendar days, stored at UTC noon so no timezone shifts the
-// day. Returns null for an impossible date such as 2026-02-31.
-function parseDueDate(value: string): Date | null {
-  const date = new Date(`${value}T12:00:00Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
-  return date;
 }
 
 // parseShareSplitFormData is shared with the not-yet-converted actions.ts and

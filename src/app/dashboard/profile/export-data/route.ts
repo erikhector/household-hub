@@ -34,6 +34,7 @@ export async function GET() {
     personalBudgetCategories,
     personalTransactions,
     personalRecurringTemplates,
+    personalPlannedExpenses,
     notes,
     tasks,
     transactionSplits,
@@ -55,6 +56,7 @@ export async function GET() {
       include: { acknowledgements: true },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.personalPlannedExpense.findMany({ where: { userId }, orderBy: { dueDate: "asc" } }),
     prisma.householdNote.findMany({
       where: { authorMember: mine },
       include: { household: { select: { name: true } } },
@@ -180,6 +182,7 @@ export async function GET() {
       isRecurring: transaction.isRecurring,
       recurrenceFrequency: transaction.recurrenceFrequency,
       recurringTemplateId: transaction.recurringTemplateId,
+      plannedExpenseId: transaction.plannedExpenseId,
       createdAt: transaction.createdAt,
     })),
     personalRecurringTemplates: personalRecurringTemplates.map((template) => ({
@@ -196,6 +199,15 @@ export async function GET() {
         periodKey: ack.periodKey,
         createdAt: ack.createdAt,
       })),
+    })),
+    // `id` so personalTransactions[].plannedExpenseId resolves, as above.
+    personalPlannedExpenses: personalPlannedExpenses.map((bill) => ({
+      id: bill.id,
+      categoryId: bill.categoryId,
+      name: bill.name,
+      amount: bill.amount,
+      dueDate: bill.dueDate,
+      createdAt: bill.createdAt,
     })),
     // Notes on the household board this user wrote.
     householdNotes: notes.map((note) => ({
