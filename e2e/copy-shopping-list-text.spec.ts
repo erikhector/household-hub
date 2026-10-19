@@ -5,7 +5,13 @@ import { dismissCookieNotice } from "./ui";
 // GAP-53: "Copy as text" in the shopping list's ⋯ menu puts the open items on
 // the clipboard and confirms with a toast. The test makes its own list, so it
 // neither depends on nor changes the seeded one.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
+//
+// The names go through the smart add line, which reads a trailing "x<digits>"
+// as a quantity ("Oat drink x3" is 3 of "Oat drink"). A bare base-36 timestamp
+// ends in one now and then ("mves4x29"), so the row was added as "Oat drink
+// mves4" × 29 and the checkbox named after the full text never appeared. The
+// closing letter keeps a suffix from ever ending in digits.
+const unique = (label: string) => `${label} ${Date.now().toString(36)}z`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

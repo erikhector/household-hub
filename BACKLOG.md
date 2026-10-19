@@ -242,20 +242,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-26. Flaky: "Oat drink" checkbox not found in the copy-as-text test** (low, S) —
-      `e2e/copy-shopping-list-text.spec.ts:15` ("Copy as text puts the open
-      items on the clipboard and leaves ticked ones out"), `mobile` project.
-      Failed once and passed on the retry in the GitHub `End-to-end
-      (Playwright)` job on release `0444ce1` (2026-10-18); it also passed on
-      a local re-run. The failing assertion is
-      `getByRole("checkbox", { name: /^Oat drink <suffix>\b/i })` not
-      visible within 5 s (line 31). Fix the app's or the test's waiting
-      (when the added row renders in the list), never a loosened assertion,
-      a skip or a retry. Acceptance: `npx playwright test
-      e2e/copy-shopping-list-text.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30. Seen again on the `desktop` project (2026-10-19): the
-      GitHub `End-to-end (Playwright)` job on release PR #381 (head
-      `ce28040`) failed it once at line 31 and passed on the retry.
 - [ ] **MAINT-27. Flaky: "New recipe" button not found in the recipe-ingredients pantry-unit test** (low, S) —
       `e2e/recipe-ingredients.spec.ts:327` ("a single recipe can use its own
       amount in the pantry's unit instead"), `mobile` project. Failed once
