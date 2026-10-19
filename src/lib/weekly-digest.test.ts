@@ -333,11 +333,11 @@ describe("planned bills", () => {
       transactions: [salary],
       plannedExpenses: [
         // Due this month (September 2026), unpaid: counts in full.
-        { id: "p1", name: "Car insurance", amount: 300, dueDate: new Date("2026-09-30T00:00:00.000Z"), transaction: null },
+        { id: "p1", name: "Car insurance", amount: 300, dueDate: new Date("2026-09-30T00:00:00.000Z"), category: { type: "EXPENSE" }, transaction: null },
         // Overdue from August, unpaid: counts too.
-        { id: "p2", name: "Dentist", amount: 100, dueDate: new Date("2026-08-15T00:00:00.000Z"), transaction: null },
+        { id: "p2", name: "Dentist", amount: 100, dueDate: new Date("2026-08-15T00:00:00.000Z"), category: { type: "EXPENSE" }, transaction: null },
         // Due next month: not this month's money.
-        { id: "p3", name: "Tyres", amount: 500, dueDate: new Date("2026-10-10T00:00:00.000Z"), transaction: null },
+        { id: "p3", name: "Tyres", amount: 500, dueDate: new Date("2026-10-10T00:00:00.000Z"), category: { type: "EXPENSE" }, transaction: null },
       ],
     });
 

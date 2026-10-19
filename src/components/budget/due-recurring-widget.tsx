@@ -43,7 +43,7 @@ import {
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
-import type { BudgetDict } from "@/components/budget/budget-dict";
+import { plannedTexts, type BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
@@ -102,10 +102,11 @@ export function DueRecurringWidget({
    * all, due or not — distinguishes "nothing set up yet" from "all caught
    * up". */
   hasTemplates: boolean;
-  /** Outstanding (overdue or due) planned bills, BUDGET-8 — already filtered
-   * with isPlannedExpenseOutstanding. Listed after the templates; any entry
-   * counts as content, so the "nothing set up" state doesn't show. On the
-   * personal budget page these are the user's own planned bills. */
+  /** Outstanding (overdue or due) planned bills, BUDGET-8, and planned
+   * income expected this month — already filtered with
+   * isPlannedItemCounted. Listed after the templates; any entry counts as
+   * content, so the "nothing set up" state doesn't show. On the personal
+   * budget page these are the user's own planned items. */
   plannedDue?: PlannedExpenseRow[];
   /** The user's own share of due-but-not-yet-posted shared household
    * RecurringTemplates (see SharedDueRow's doc comment) — merged straight
@@ -151,7 +152,6 @@ export function DueRecurringWidget({
   updateTransactionAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
-  const planned = dict.planned;
   const numberFormat = createMoneyFormat(locale, currencyCode);
   // Due dates are UTC-noon calendar days, so they're shown in UTC (as in
   // PlannedExpensesPanel).
@@ -291,7 +291,7 @@ export function DueRecurringWidget({
                     bill={bill}
                     numberFormat={numberFormat}
                     dateFormat={dateFormat}
-                    t={planned}
+                    t={plannedTexts(dict, bill.type)}
                   />
                 </div>
                 {/* Already paid after this (past) month: nothing left to log. */}
@@ -300,7 +300,7 @@ export function DueRecurringWidget({
                     <PlannedBillLogPayment
                       bill={bill}
                       dict={dict}
-                      t={planned}
+                      t={plannedTexts(dict, bill.type)}
                       numberFormat={numberFormat}
                       categories={categories}
                       members={members}

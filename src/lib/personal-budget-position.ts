@@ -37,7 +37,11 @@ import {
   type SafeToSpendBreakdown,
   type SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
-import { getPlannedExpenseStatus, isPlannedExpenseOutstanding } from "@/lib/planned-expense-calc";
+import {
+  getPlannedExpenseStatus,
+  isPlannedExpenseOutstanding,
+  plannedItemType,
+} from "@/lib/planned-expense-calc";
 import { projectMonthEnd } from "@/lib/chart-calc";
 import {
   computeMemberPosition,
@@ -93,7 +97,7 @@ export async function loadPersonalBudgetPosition({
         userId,
         OR: [{ transaction: { is: null } }, { transaction: { is: { date: { gte: monthStart } } } }],
       },
-      include: { category: { select: { name: true } }, transaction: { select: { date: true } } },
+      include: { category: { select: { name: true, type: true } }, transaction: { select: { date: true } } },
       orderBy: { dueDate: "asc" },
     }),
   ]);
@@ -108,6 +112,7 @@ export async function loadPersonalBudgetPosition({
       dueDate: p.dueDate,
       categoryId: p.categoryId,
       categoryName: p.category.name,
+      type: plannedItemType(p.category.type),
       status: getPlannedExpenseStatus({ dueDate: p.dueDate, paidAt }, monthStart, monthEnd),
       paidAt,
     };
@@ -538,7 +543,8 @@ export async function loadPersonalBudgetPosition({
       status: row.status,
     })),
     // The user's own due and overdue planned bills, at their full amount
-    // (there's no one to share them with).
+    // (there's no one to share them with), and their planned income due
+    // this month as expected income.
     plannedExpenses,
   });
 

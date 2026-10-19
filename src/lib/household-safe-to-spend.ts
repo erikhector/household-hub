@@ -10,7 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
-import { getPlannedExpenseStatus } from "@/lib/planned-expense-calc";
+import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
 import { computeSafeToSpend, type SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 
 // Same window as RECURRING_LOOKBACK_MONTHS in the budget page: how far back
@@ -50,6 +50,7 @@ export async function loadHouseholdSafeToSpend(
         name: true,
         amount: true,
         dueDate: true,
+        category: { select: { type: true } },
         transaction: { select: { date: true } },
       },
     }),
@@ -94,6 +95,7 @@ export async function loadHouseholdSafeToSpend(
       id: p.id,
       name: p.name,
       amount: p.amount,
+      type: plannedItemType(p.category.type),
       status: getPlannedExpenseStatus(
         { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },
         monthStart,

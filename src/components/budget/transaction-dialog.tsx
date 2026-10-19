@@ -30,7 +30,8 @@ import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import { groupCategoriesForLogging, defaultLoggingCategoryId } from "@/lib/recent-categories";
 import type { ActionState } from "@/lib/actions/auth";
-import type { BudgetDict } from "@/components/budget/budget-dict";
+import { plannedTexts, type BudgetDict } from "@/components/budget/budget-dict";
+import type { PlannedItemType } from "@/lib/planned-expense-calc";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import { PendingLabel } from "@/components/ui/pending-label";
 
@@ -144,6 +145,9 @@ function defaultDateForMonth(monthKey: string | undefined): Date {
 export type TransactionTemplatePrefill = {
   templateId?: string;
   plannedExpenseId?: string;
+  /** With `plannedExpenseId`: a bill or planned income, for the saved toast
+   * ("marked as paid" or "marked as received"). */
+  plannedType?: PlannedItemType;
   categoryId: string;
   amount: number;
   description?: string;
@@ -288,9 +292,9 @@ export function TransactionDialog({
       }
       if (!isEdit && prefillFromTemplate) {
         // A planned bill is paid once, not "for this period" like a
-        // recurring item.
+        // recurring item; planned income is received rather than paid.
         const toastText = prefillFromTemplate.plannedExpenseId
-          ? dict.planned.loggedToast
+          ? plannedTexts(dict, prefillFromTemplate.plannedType ?? "EXPENSE").loggedToast
           : dict.recurring.loggedToast;
         toast.success(format(toastText, { name: prefillFromTemplate.description ?? "" }));
       }

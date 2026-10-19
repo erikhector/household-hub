@@ -544,6 +544,23 @@ describe("loadPersonalBudgetPosition", () => {
       );
     });
 
+    it("adds planned income as expected income only in the month it's due", async () => {
+      setup([
+        { ...bill("Tax refund", new Date(2026, 8, 20, 12)), category: { name: "Salary", type: "INCOME" } },
+        { ...bill("Bonus", new Date(2026, 7, 20, 12)), category: { name: "Salary", type: "INCOME" } },
+      ]);
+
+      const position = await load();
+
+      expect(position.plannedExpenses.map((p) => [p.id, p.type, p.status])).toEqual([
+        ["Tax refund", "INCOME", "due"],
+        ["Bonus", "INCOME", "overdue"],
+      ]);
+      expect(position.safeToSpendBreakdown.dueIncome).toBe(1200);
+      expect(position.safeToSpendBreakdown.duePayments).toBe(0);
+      expect(position.safeToSpend).toBe(30000 + 1200);
+    });
+
     it("counts a paid bill only through its transaction", async () => {
       setup([bill("Dentist", new Date(2026, 8, 20, 12), { date: new Date(2026, 8, 21) })]);
 

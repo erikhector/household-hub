@@ -8,6 +8,7 @@ import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/rec
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
+import { plannedItemType } from "@/lib/planned-expense-calc";
 import { parseShareSplitFormData, SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import {
   limitForType,
@@ -242,7 +243,11 @@ export async function deleteCategoryAction(categoryId: string): Promise<ActionSt
     };
   }
   const blockingPlanned = category.plannedExpenses[0];
-  if (blockingPlanned) return fail("categoryUsedByPlannedBill", { name: blockingPlanned.name });
+  if (blockingPlanned) {
+    return fail(category.type === "INCOME" ? "categoryUsedByPlannedIncome" : "categoryUsedByPlannedBill", {
+      name: blockingPlanned.name,
+    });
+  }
 
   try {
     await prisma.budgetCategory.delete({ where: { id: category.id } });
@@ -289,18 +294,28 @@ function parseTransactionFormData(formData: FormData) {
 
 /** Validates an optional client-supplied plannedExpenseId belongs to the
  * caller's household and isn't already paid (a planned bill has at most one
- * payment transaction). Returns `undefined` id when not provided. */
+ * payment transaction), and that the transaction's category has the planned
+ * item's type: a bill is paid from an expense category, planned income is
+ * received into an income one. Logging it on the other side of the budget
+ * would mark it settled (so it leaves Safe to spend's due rows) while the
+ * money counts the wrong way round — the number off by about twice the
+ * amount. Returns `undefined` id when not provided. */
 async function resolvePlannedExpenseId(
   householdId: string,
   plannedExpenseId: string | undefined,
+  categoryType: string,
 ): Promise<{ error: string } | { id: string | undefined }> {
   if (!plannedExpenseId) return { id: undefined };
   const planned = await prisma.plannedExpense.findFirst({
     where: { id: plannedExpenseId, householdId },
-    select: { id: true, transaction: { select: { id: true } } },
+    select: { id: true, category: { select: { type: true } }, transaction: { select: { id: true } } },
   });
   if (!planned) return fail("plannedBillNotFound");
-  if (planned.transaction) return fail("plannedBillAlreadyPaid");
+  const income = plannedItemType(planned.category.type) === "INCOME";
+  if (planned.transaction) return fail(income ? "plannedIncomeAlreadyReceived" : "plannedBillAlreadyPaid");
+  if (categoryType !== planned.category.type) {
+    return fail(income ? "plannedIncomeNeedsIncomeCategory" : "plannedBillNeedsExpenseCategory");
+  }
   return { id: planned.id };
 }
 
@@ -466,13 +481,7 @@ export async function createTransactionAction(
     if (dup) return dup;
   }
 
-  // A planned bill is an expense by definition (its own category must be
-  // one); paying it from an income or savings category would count it as
-  // paid while the money shows up on the wrong side of the budget.
-  if (parsed.data.plannedExpenseId && category.type !== "EXPENSE") {
-    return fail("plannedBillNeedsExpenseCategory");
-  }
-  const planned = await resolvePlannedExpenseId(household.id, parsed.data.plannedExpenseId);
+  const planned = await resolvePlannedExpenseId(household.id, parsed.data.plannedExpenseId, category.type);
   if ("error" in planned) return { error: planned.error };
 
   let created;
@@ -630,16 +639,19 @@ export async function updateTransactionAction(
 
   const existing = await prisma.transaction.findFirst({
     where: { id: parsed.data.id, householdId: household.id },
-    select: { id: true, plannedExpenseId: true },
+    select: { id: true, plannedExpense: { select: { category: { select: { type: true } } } } },
   });
   if (!existing) return { error: "Transaction not found" };
   // Same rule createTransactionAction enforces when the payment is logged:
-  // a planned bill's payment stays an expense. Moving it to an INCOME or
-  // SAVINGS category would keep the bill "paid" (so it leaves due payments)
-  // while the money lands on the other side of the budget — safe to spend
-  // wrong by about twice the bill.
-  if (existing.plannedExpenseId && category.type !== "EXPENSE") {
-    return fail("plannedBillNeedsExpenseCategory");
+  // a planned bill's payment stays an expense, received planned income stays
+  // income. Moving it to another type would keep the item settled (so it
+  // leaves Safe to spend's due rows) while the money lands on the other side
+  // of the budget — safe to spend wrong by about twice the amount.
+  const plannedType = existing.plannedExpense?.category.type;
+  if (plannedType && category.type !== plannedType) {
+    return fail(
+      plannedItemType(plannedType) === "INCOME" ? "plannedIncomeNeedsIncomeCategory" : "plannedBillNeedsExpenseCategory",
+    );
   }
 
   const split = await parseSplitFormData(formData, household.id, parsed.data.amount);

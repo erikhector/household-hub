@@ -64,7 +64,7 @@ const valid = { name: "Insurance", amount: "3000", categoryId: "c1", dueDate: "2
 beforeEach(() => {
   vi.clearAllMocks();
   requireHouseholdMock.mockResolvedValue({ household: { id: "h1" }, userId: "u1" });
-  categoryFindFirstMock.mockResolvedValue({ id: "c1" });
+  categoryFindFirstMock.mockResolvedValue({ id: "c1", type: "EXPENSE" });
   memberFindManyMock.mockResolvedValue([{ id: "m1" }, { id: "m2" }]);
   plannedCreateMock.mockResolvedValue({ id: "p1" });
   plannedFindFirstMock.mockResolvedValue({ id: "p1" });
@@ -74,12 +74,33 @@ beforeEach(() => {
 });
 
 describe("createPlannedExpenseAction", () => {
-  it("calls requireHousehold and scopes the category to the household's expense categories", async () => {
+  it("calls requireHousehold and scopes the category to the household's expense and income categories", async () => {
     await createPlannedExpenseAction({}, form(valid));
     expect(requireHouseholdMock).toHaveBeenCalled();
     expect(categoryFindFirstMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "c1", householdId: "h1", type: "EXPENSE" } }),
+      expect.objectContaining({
+        where: { id: "c1", householdId: "h1", type: { in: ["EXPENSE", "INCOME"] } },
+      }),
     );
+  });
+
+  it("creates planned income in an income category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "c1", type: "INCOME" });
+    const result = await createPlannedExpenseAction({}, form({ ...valid, name: "Tax refund" }));
+    expect(result).toEqual({});
+    expect(plannedCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ categoryId: "c1", name: "Tax refund", splits: undefined }),
+    });
+  });
+
+  it("refuses to split planned income", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "c1", type: "INCOME" });
+    const result = await createPlannedExpenseAction(
+      {},
+      form({ ...valid, splitEnabled: "on", splitMemberId: ["m1", "m2"], splitAmount: ["1500", "1500"] }),
+    );
+    expect(result).toEqual({ error: "Planned income can't be split" });
+    expect(plannedCreateMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -93,7 +114,7 @@ describe("createPlannedExpenseAction", () => {
     expect(plannedCreateMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a category from another household or a non-expense category", async () => {
+  it("rejects a category from another household or a savings category", async () => {
     categoryFindFirstMock.mockResolvedValue(null);
     const result = await createPlannedExpenseAction({}, form(valid));
     expect(result).toEqual({ error: "Category not found" });
@@ -168,6 +189,44 @@ describe("updatePlannedExpenseAction", () => {
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(transactionMock.mock.calls[0][0]).toHaveLength(2);
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/personal-budget");
+  });
+
+  it("refuses to split planned income", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "c1", type: "INCOME" });
+    const result = await updatePlannedExpenseAction(
+      {},
+      form({ ...valid, id: "p1", splitEnabled: "on", splitMemberId: ["m1", "m2"], splitAmount: ["1500", "1500"] }),
+    );
+    expect(result).toEqual({ error: "Planned income can't be split" });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to move a paid bill to an income category", async () => {
+    plannedFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: { id: "t1" } });
+    categoryFindFirstMock.mockResolvedValue({ id: "c2", type: "INCOME" });
+    const result = await updatePlannedExpenseAction({}, form({ ...valid, id: "p1", categoryId: "c2" }));
+    expect(result).toEqual({
+      error: "A paid bill or received income can't move between expense and income categories",
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to move received income to an expense category", async () => {
+    plannedFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "INCOME" }, transaction: { id: "t1" } });
+    const result = await updatePlannedExpenseAction({}, form({ ...valid, id: "p1" }));
+    expect(result).toEqual({
+      error: "A paid bill or received income can't move between expense and income categories",
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("still edits a paid bill within its own type, and moves an unpaid one across", async () => {
+    plannedFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: { id: "t1" } });
+    expect(await updatePlannedExpenseAction({}, form({ ...valid, id: "p1" }))).toEqual({});
+
+    plannedFindFirstMock.mockResolvedValue({ id: "p1", category: { type: "EXPENSE" }, transaction: null });
+    categoryFindFirstMock.mockResolvedValue({ id: "c2", type: "INCOME" });
+    expect(await updatePlannedExpenseAction({}, form({ ...valid, id: "p1", categoryId: "c2" }))).toEqual({});
   });
 
   it("rejects a bill from another household", async () => {

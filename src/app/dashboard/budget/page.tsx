@@ -47,7 +47,7 @@ import {
   deletePlannedExpenseAction,
   updatePlannedExpenseAction,
 } from "@/app/dashboard/budget/planned-expense-actions";
-import { getPlannedExpenseStatus, isPlannedExpenseOutstanding } from "@/lib/planned-expense-calc";
+import { getPlannedExpenseStatus, isPlannedItemCounted, plannedItemType } from "@/lib/planned-expense-calc";
 import {
   acknowledgeTemplatePeriodAction,
   createRecurringTemplateAction,
@@ -654,6 +654,7 @@ async function BudgetTabsSection({
     dueDate: p.dueDate,
     categoryId: p.categoryId,
     categoryName: p.category.name,
+    type: plannedItemType(p.category.type),
     status: getPlannedExpenseStatus(
       { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },
       monthStart,
@@ -701,7 +702,13 @@ async function BudgetTabsSection({
       amount: row.template.amount,
       status: row.status,
     })),
-    plannedExpenses: plannedExpenseRows.map(({ id, name, amount, status }) => ({ id, name, amount, status })),
+    plannedExpenses: plannedExpenseRows.map(({ id, name, amount, status, type }) => ({
+      id,
+      name,
+      amount,
+      status,
+      type,
+    })),
   });
   // UX-39: where that number lands at month end at this month's everyday
   // pace — null unless the viewed month is the current one.
@@ -813,21 +820,25 @@ async function BudgetTabsSection({
         createTransactionAction={createTransactionAction}
         updateTransactionAction={updateTransactionAction}
       />
-      <PlannedExpensesPanel
-        rows={plannedExpenseRows}
-        categories={categoryRows}
-        members={memberOptions}
-        currentMemberId={currentMemberId}
-        monthKey={monthKey}
-        dict={dict.budget}
-        locale={locale}
-        currencyCode={currencyCode}
-        createAction={createPlannedExpenseAction}
-        updateAction={updatePlannedExpenseAction}
-        onDelete={deletePlannedExpenseAction}
-        createTransactionAction={createTransactionAction}
-        updateTransactionAction={updateTransactionAction}
-      />
+      {(["EXPENSE", "INCOME"] as const).map((kind) => (
+        <PlannedExpensesPanel
+          key={kind}
+          kind={kind}
+          rows={plannedExpenseRows.filter((r) => r.type === kind)}
+          categories={categoryRows}
+          members={memberOptions}
+          currentMemberId={currentMemberId}
+          monthKey={monthKey}
+          dict={dict.budget}
+          locale={locale}
+          currencyCode={currencyCode}
+          createAction={createPlannedExpenseAction}
+          updateAction={updatePlannedExpenseAction}
+          onDelete={deletePlannedExpenseAction}
+          createTransactionAction={createTransactionAction}
+          updateTransactionAction={updateTransactionAction}
+        />
+      ))}
       <CategoryManager
         categories={categoryRows}
         dict={dict.budget}
@@ -998,7 +1009,7 @@ async function BudgetTabsSection({
       limitAlerts={limitAlerts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
-      plannedDue={plannedExpenseRows.filter((r) => isPlannedExpenseOutstanding(r.status))}
+      plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
       members={memberOptions}
       currentMemberId={currentMemberId}
       createTransactionAction={createTransactionAction}
