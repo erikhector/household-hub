@@ -313,6 +313,18 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/budget-transaction-rows.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
+- [ ] **MAINT-33. Flaky: "Mark <task> as done" checkbox not found after reload in task-tick-undo** (low, S) —
+      `e2e/task-tick-undo.spec.ts:38` ("ticking then unticking a never-done
+      task leaves no 'Last done by'"), `desktop` project. Failed once in the
+      local `ci:local` gate on release PR #405 (head `8e05b4d`, 2026-10-19),
+      then passed on a re-run of the same spec on the same commit; GitHub's
+      `End-to-end (Playwright)` job on that head passed. The failing
+      assertion is `not.toBeChecked()` at line 53: after `page.reload()` the
+      checkbox named "Mark <title> as done" was not found within 5 s. Fix it
+      in the app (when the task row renders after a reload) or in the test's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/task-tick-undo.spec.ts --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
