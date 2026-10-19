@@ -71,6 +71,7 @@ export function TaskFormDialog({
   members,
   dict,
   trigger,
+  onDelete,
 }: {
   mode: "create" | "edit";
   /** Only meaningful (and required in practice) in edit mode. */
@@ -78,6 +79,10 @@ export function TaskFormDialog({
   members: MemberOption[];
   dict: TasksDict;
   trigger: ReactElement;
+  /** Edit mode only (UX-106): adds a Delete button to the sheet. The row
+   *  hands it to its own trash button, so the confirm dialog is the same one
+   *  the desktop icon opens. */
+  onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(mode === "edit" ? (task?.title ?? "") : "");
@@ -330,6 +335,25 @@ export function TaskFormDialog({
           )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
+            {/* UX-106 (M7): a phone row has no trash icon, so the sheet is
+                the visible path to Delete (the swipe tray is the quick one).
+                Last in the stacked footer, away from Save, and quiet: Save
+                stays the one primary action. The sheet closes first so the
+                confirm dialog doesn't open on top of it. */}
+            {mode === "edit" && onDelete && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-destructive hover:text-destructive sm:mr-auto"
+                disabled={pending}
+                onClick={() => {
+                  handleOpenChange(false);
+                  requestAnimationFrame(onDelete);
+                }}
+              >
+                {dict.editTask.delete}
+              </Button>
+            )}
             {/* One footer for both modes (UX-24): Cancel beside the one
                 primary action. */}
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={pending}>
