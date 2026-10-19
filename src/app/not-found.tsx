@@ -1,45 +1,44 @@
-"use client";
-
 import Link from "next/link";
 import { Compass } from "lucide-react";
+import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getClientLocale } from "@/lib/i18n/client-locale";
+import { auth } from "@/lib/auth";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-const COPY = {
-  en: {
-    title: "Page not found",
-    body: "The page you're looking for doesn't exist or may have moved.",
-    backHome: "Back to dashboard",
-  },
-  sv: {
-    title: "Sidan hittades inte",
-    body: "Sidan du letar efter finns inte, eller har flyttats.",
-    backHome: "Till översikten",
-  },
-} as const;
+// UX-65: a Server Component so it can tell who is looking. "Back to
+// dashboard" sends a logged-out stranger to the login form, so they get the
+// token pages' StatusCard (brand mark, icon, title) with a way to the landing
+// page instead. A signed-in user keeps the in-app card and the way back to
+// their dashboard.
+export default async function NotFound() {
+  const [session, dict] = await Promise.all([auth(), getDictionary()]);
+  const copy = dict.notFound;
 
-export default function NotFound() {
-  // See error.tsx's comment: locale is read directly at render time rather
-  // than via setState-in-effect, so the one-render server/client text
-  // mismatch is expected and suppressed the same way.
-  const copy = COPY[getClientLocale()];
+  if (!session?.user) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+        <StatusCard brand={dict.auth.brand} icon={Compass} tone="neutral" title={copy.title}>
+          <p className="text-sm text-muted-foreground">{copy.body}</p>
+          <StatusCardLink href="/">{copy.goToSquirrel}</StatusCardLink>
+        </StatusCard>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl" suppressHydrationWarning>
+          <CardTitle className="flex items-center gap-2 text-xl">
             <Compass className="size-5 shrink-0 text-primary" />
             {copy.title}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground" suppressHydrationWarning>
-            {copy.body}
-          </p>
-          <Button type="button" render={<Link href="/dashboard" />} suppressHydrationWarning>
-            {copy.backHome}
+          <p className="text-sm text-muted-foreground">{copy.body}</p>
+          <Button type="button" render={<Link href="/dashboard" />}>
+            {copy.backToDashboard}
           </Button>
         </CardContent>
       </Card>

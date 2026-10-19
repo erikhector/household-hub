@@ -67,8 +67,8 @@ test.describe("invalid-link pages share one status card", () => {
     { path: "/join/e2e-bad-token", text: "Invalid invite" },
     { path: "/share/shopping-list/e2e-bad-token", text: "Link not found" },
     { path: "/reset-password/e2e-bad-token", text: "Link expired" },
-    { path: "/verify-email/e2e-bad-token", text: "Verify your email" },
-    { path: "/unsubscribe/e2e-bad-token", text: "Weekly digest" },
+    { path: "/verify-email/e2e-bad-token", text: "Link expired" },
+    { path: "/unsubscribe/e2e-bad-token", text: "Link not valid" },
   ];
   for (const { path, text } of pages) {
     test(path, async ({ page }) => {
@@ -82,6 +82,26 @@ test.describe("invalid-link pages share one status card", () => {
       await expectNoHorizontalOverflow(page);
     });
   }
+});
+
+// UX-65: a stranger on a dead URL gets the token pages' status card and a
+// way to the landing page, not a "Back to dashboard" that ends at the login.
+test("a logged-out 404 uses the status card and leads to the landing page", async ({ page }) => {
+  const response = await page.goto("/no-such-page");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByText("Page not found")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Squirrel" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to dashboard" })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+  await page.getByRole("link", { name: "Go to Squirrel" }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("a logged-out 404 is in Swedish with the Swedish cookie", async ({ page, context, baseURL }) => {
+  await setLocaleCookie(context, baseURL!, "sv");
+  await page.goto("/no-such-page");
+  await expect(page.getByText("Sidan hittades inte")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Gå till Squirrel" })).toBeVisible();
 });
 
 test("signup's button names the same thing as its title", async ({ page }) => {

@@ -37,7 +37,7 @@ export function DigestUnsubscribeClient({
         brand={brand}
         icon={done ? CheckCircle2 : XCircle}
         tone={done ? "success" : "error"}
-        title={dict.pageTitle}
+        title={done ? dict.pageTitle : dict.invalidTitle}
       >
         <p className="text-sm text-muted-foreground">{done ? dict.done : dict.invalid}</p>
         <StatusCardLink href="/dashboard/profile">{dict.profileLink}</StatusCardLink>

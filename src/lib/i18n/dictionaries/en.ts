@@ -3142,6 +3142,7 @@ export const en = {
     },
     verifyEmail: {
       pageTitle: "Verify your email",
+      invalidTitle: "Link expired",
       verifying: "Verifying your email…",
       submit: "Verify email",
       verifiedDescription: "Your email address has been verified.",
@@ -3327,8 +3328,18 @@ export const en = {
   // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
   // read client-side, so these strings live here purely for translation
   // reuse rather than for a live language switch.
+  // UX-65: the 404 page. Logged-out visitors get the token pages' status
+  // card with a way to the landing page; signed-in users get the way back
+  // to their dashboard.
+  notFound: {
+    title: "Page not found",
+    body: "The page you're looking for doesn't exist or may have moved.",
+    backToDashboard: "Back to dashboard",
+    goToSquirrel: "Go to Squirrel",
+  },
   digestUnsubscribe: {
     pageTitle: "Weekly digest",
+    invalidTitle: "Link not valid",
     working: "Unsubscribing you from the weekly digest…",
     submit: "Unsubscribe",
     done: "You won't get the weekly digest any more. You can turn it back on from your profile at any time.",

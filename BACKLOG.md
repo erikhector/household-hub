@@ -622,17 +622,6 @@ UX-89, UX-113.
       `/share/shopping-list/[token]` emit `og:title`, `og:description` and
       `og:image`, with join and share naming the household or list.
 
-- [ ] **UX-65. A logged-out 404, and token pages titled by outcome**
-      (impact: low, effort: S) — breaks Consistency and User control.
-      `src/app/not-found.tsx:41` has no brand badge, and its only action,
-      "Back to dashboard", sends a stranger to the login form. Two token
-      pages are titled with labels instead of outcomes: "Verify your
-      email" for a dead link, and "Weekly digest" for a bad unsubscribe
-      link.
-      Acceptance: a logged-out 404 uses the token pages' StatusCard
-      layout with "Go to Squirrel". Invalid-token titles state the outcome
-      ("Link expired", "Link not valid").
-
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).
