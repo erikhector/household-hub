@@ -39,7 +39,8 @@ test("unit suggestions are at least 44 px tall", async ({ page }) => {
       .poll(() => rows.nth(i).evaluate((el) => el.getBoundingClientRect().height), {
         message: `unit suggestion #${i} height`,
       })
-      .toBeGreaterThanOrEqual(44);
+      // 43.9999 is the animation's last sub-pixel step, not a 43 px row.
+      .toBeGreaterThanOrEqual(43.99);
   }
 });
 
