@@ -525,11 +525,25 @@ export const en = {
     completeList: "Complete list",
     confirmCompleteList: {
       title: "Complete this list?",
-      description:
-        "This marks the list as done and, if items have prices, logs the total to your budget. Completed by accident? Undo it with Archive, then Unarchive on this list.",
+      // UX-80: it appears because something is still unticked, so say so.
+      description: {
+        one: "{count} item isn't ticked off yet. Completing the list logs the total of what you bought to your budget, if items have prices. You can undo it right after.",
+        other: "{count} items aren't ticked off yet. Completing the list logs the total of what you bought to your budget, if items have prices. You can undo it right after.",
+      },
       cancel: "Cancel",
       confirm: "Complete list",
       confirming: "Completing…",
+    },
+    // UX-80: carrying the unbought rows over when a list is completed.
+    carryOver: {
+      label: {
+        one: "Move {count} unbought item to {list}",
+        other: "Move {count} unbought items to {list}",
+      },
+      toast: {
+        one: "{count} item moved to {list}",
+        other: "{count} items moved to {list}",
+      },
     },
     // UX-87: the step before completing when only some of the bought items
     // have a price.
