@@ -327,15 +327,16 @@ then MAINT-7 per feature, to avoid churn.
       on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
       The assertion at line 91, after `page.reload()`, expected
       `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
-      but received 1 for the whole 5 s. Find which task is still open after
-      the spec's own completions (a late write, or another row in the
-      worker's shared household). Also failed on the `mobile` project in
-      the `ci:local` gate on PR #464 (`fc00440`, 2026-10-20), where another
-      open task appeared in the worker's household mid-test; it passed on
-      re-runs of the same commit and fix it in the app or the spec's setup
-      and waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=desktop --repeat-each=30` passes 30/30.
+      but received 1 for the whole 5 s. Also failed on the `mobile`
+      project in the `ci:local` gate on PR #464 (`fc00440`, 2026-10-20),
+      where another open task appeared in the worker's household mid-test,
+      and passed on re-runs of the same commit. Find which task is still
+      open after the spec's own completions (a late write, or another row
+      in the worker's shared household) and fix it in the app or the
+      spec's setup and waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
+      both the `desktop` and `mobile` projects.
 - [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
       `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
       springs, then moves the row to the cart"), `desktop` project. Failed
