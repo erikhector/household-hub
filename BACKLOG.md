@@ -297,21 +297,6 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
-- [ ] **MAINT-36. Flaky: two `autocomplete="username"` inputs in the account password form** (low, S) —
-      `e2e/ux-31.spec.ts:110`, `desktop` project. Failed its first attempt
-      in the `End-to-end (Playwright)` job on release PR #440 (`f5fb3d4`,
-      2026-10-19, run 39329747316) and passed on the retry: a strict-mode
-      violation, `input[autocomplete="username"]` matched 2 identical
-      `sr-only` inputs, though the `toHaveCount(1)` just before it passed,
-      so a second one renders late. Passed in the local `ci:local` gate and
-      6 repeats. Find why the hidden username input renders twice (a
-      re-render or a duplicate mount) and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/ux-31.spec.ts --project=desktop
-      --repeat-each=30` passes 30/30.
-      Seen again on release PR #470 (`edc55ea`, 2026-10-20), `mobile`
-      project, `e2e/ux-31.spec.ts:110`: failed its first attempt in the
-      GitHub e2e job, passed on the retry.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
