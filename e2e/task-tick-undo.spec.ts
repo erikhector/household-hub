@@ -44,10 +44,25 @@ test("ticking then unticking a never-done task leaves no 'Last done by'", async 
   const lastDone = page.getByText(/Last done by/);
   const before = await lastDone.count();
 
+  // The tick is optimistic: the checkbox flips before the save lands, so
+  // the reload below must wait for both toggles' responses. Reloading with
+  // the untick still in flight aborts it, the task comes back done (under
+  // "Completed", named "as not done"), and the lookup times out.
+  const toggleSaved = () =>
+    page.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        "next-action" in r.request().headers() &&
+        new URL(r.url()).pathname === "/dashboard/tasks",
+    );
+  const tickSaved = toggleSaved();
   await page.getByRole("checkbox", { name: `Mark ${title} as done` }).click();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
+  await tickSaved;
+  const untickSaved = toggleSaved();
   await page.getByRole("checkbox", { name: `Mark ${title} as not done` }).click();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).not.toBeChecked();
+  await untickSaved;
 
   await page.reload();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).not.toBeChecked();
