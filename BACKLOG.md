@@ -415,7 +415,6 @@ UX-89.
 - `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
-- `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
@@ -465,29 +464,6 @@ UX-89.
       through `PrimaryAction`. An empty week shows one empty state
       ("Add your first dinner" / "Fill the week") instead of seven
       slots. Nothing sits under the FAB at 412 px.
-
-- [ ] **UX-51. Theme and language controls show the current setting;
-      first visits follow the system theme** (impact: med, effort: S) —
-      breaks Accessibility ("respect … system theme") and Consistency.
-      - With no stored theme the app is always dark (`defaultTheme`
-        falls back to `"dark"`, `src/app/layout.tsx:102`), even for a
-        light-mode visitor.
-      - Logged-out pages have no theme control, though REQUIREMENTS
-        "Theming" says new visitors can pick one.
-      - Android shows a near-white `theme-color` (`layout.tsx:84`) over
-        the dark page.
-      - The More menu and sidebar label the theme button with the next
-        theme but show the current theme's icon: a moon beside "System"
-        (`bottom-nav.tsx:70-75,189-194`, `sidebar.tsx:111-116`).
-      - The language button says "Swedish", meaning "switch to Swedish".
-      - The menu closes after each tap, so cycling through three themes
-        takes six taps.
-      - Profile has no language or theme setting at all.
-      Acceptance: a first visit with no stored theme renders the system
-      theme, and the browser chrome colour matches the page in both
-      schemes. Profile has, in its Preferences section (UX-76), "Language" and "Appearance (Light / Dark /
-      System)" segmented controls showing the current value. The
-      menu/sidebar shortcuts show the current state.
 
 - [ ] **UX-52. Bottom bar: one icon style, and keep the colour on the
       active tab** (impact: low, effort: S) — breaks Consistency.

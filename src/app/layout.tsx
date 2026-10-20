@@ -5,7 +5,8 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { getUserPreferences } from "@/lib/preferences";
-import { isThemeChoice } from "@/components/theme/theme-choice";
+import { isThemeChoice, THEME_COLORS } from "@/components/theme/theme-choice";
+import { ThemeColorSync } from "@/components/theme/theme-color-sync";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash-screen";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { BrowserFloorNotice } from "@/components/pwa/browser-floor-notice";
@@ -87,10 +88,11 @@ export const viewport: Viewport = {
   // page ground — globals.css's --gradient-end per scheme — instead of the
   // default white/black. manifest.ts's theme_color is the single-colour
   // fallback for contexts without media-query support; it carries the dark
-  // value, the app's default theme.
+  // value. UX-51: a first visit follows the system scheme, and ThemeColorSync
+  // sets the real colour when a visitor's own choice differs from it.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fefcff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0414" },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
   ],
 };
 
@@ -106,7 +108,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // wins there if present — this only matters for a browser with no stored
   // theme yet (first visit on a new device), where it lets a signed-in
   // user's account preference apply instead of the hardcoded "dark" default.
-  const defaultTheme = prefs && isThemeChoice(prefs.theme) ? prefs.theme : "dark";
+  const defaultTheme = prefs && isThemeChoice(prefs.theme) ? prefs.theme : "system";
 
   return (
     <html
@@ -124,6 +126,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <BrowserFloorNotice dict={dict.browserFloor} />
         <DialogHistoryListener />
         <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
+          <ThemeColorSync />
           {/* UX-34: scales the page down behind an open bottom sheet. */}
           <SheetIndent>{children}</SheetIndent>
           <Toaster />

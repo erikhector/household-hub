@@ -37,14 +37,17 @@ export function useThemeCycle() {
   const current: ThemeChoice =
     mounted && order.includes(theme as ThemeChoice) ? (theme as ThemeChoice) : "system";
 
-  function cycle() {
-    const next = order[(order.indexOf(current) + 1) % order.length];
-    setTheme(next);
+  function select(choice: ThemeChoice) {
+    setTheme(choice);
     // Fire-and-forget: persists to the account so other devices pick it up
     // next time they render, but the local next-themes state (and localStorage)
     // already drives this device's UI instantly regardless of the request.
-    void setThemeAction(next);
+    void setThemeAction(choice);
   }
 
-  return { current, Icon: icons[current], cycle };
+  function cycle() {
+    select(order[(order.indexOf(current) + 1) % order.length]);
+  }
+
+  return { current, Icon: icons[current], cycle, select };
 }
