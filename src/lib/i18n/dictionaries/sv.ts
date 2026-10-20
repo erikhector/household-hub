@@ -3176,6 +3176,8 @@ export const sv = {
       yourName: "Ditt namn",
       householdName: "Hushållets namn",
       householdNamePlaceholder: "t.ex. Familjen Andersson",
+      householdNameHint: "Alla du bjuder in ser det här namnet.",
+      joinHint: "Ska du gå med i någons hushåll? Öppna inbjudningslänken du har fått.",
       email: "E-post",
       password: "Lösenord",
       confirmPassword: "Bekräfta lösenord",

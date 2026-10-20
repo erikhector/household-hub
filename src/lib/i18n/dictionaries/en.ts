@@ -3307,6 +3307,8 @@ export const en = {
       yourName: "Your name",
       householdName: "Household name",
       householdNamePlaceholder: "e.g. The Andersson family",
+      householdNameHint: "Everyone you invite will see this name.",
+      joinHint: "Joining someone's household? Open the invite link they sent you.",
       email: "Email",
       password: "Password",
       confirmPassword: "Confirm password",

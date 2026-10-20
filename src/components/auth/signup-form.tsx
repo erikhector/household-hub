@@ -78,6 +78,7 @@ export function SignupForm({
 
   return (
     <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{dict.joinHint}</p>
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>
         <div className="relative">
@@ -104,10 +105,14 @@ export function SignupForm({
             required
             maxLength={60}
             placeholder={dict.householdNamePlaceholder}
+            aria-describedby="householdName-hint"
             defaultValue={kept.values.householdName}
             className="pl-8"
           />
         </div>
+        <p id="householdName-hint" className="text-xs text-muted-foreground">
+          {dict.householdNameHint}
+        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{dict.email}</Label>
