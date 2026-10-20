@@ -12,6 +12,11 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test("a new transaction has no 'This repeats' box", async ({ page }) => {
+  // Without a category the budget shows its set-up cards, not "Add
+  // transaction", so this test brings its own instead of relying on rows an
+  // earlier spec left in the worker's household.
+  const tag = budgetTag();
+  await withDb((client) => insertHouseholdCategory(client, { id: `e2e-rep-new-${tag}`, name: `Groceries ${tag}` }));
   await page.goto("/dashboard/budget");
   await page.getByRole("button", { name: "Add transaction" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Add transaction" });
