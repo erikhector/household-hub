@@ -180,7 +180,12 @@ test.describe("the finish moment (UX-69)", () => {
       expect(await card.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
       await expectNoHorizontalOverflow(page);
 
-      // Once: the next visit finds neither the moment nor the card.
+      // Once: the next visit finds neither the moment nor the card. The
+      // cookie is set by a server action fired on mount, so wait for it
+      // before reloading.
+      await expect
+        .poll(async () => (await page.context().cookies()).some((c) => c.name.startsWith("getting_started_done_")))
+        .toBe(true);
       await page.reload();
       await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
       await expect(heading).toHaveCount(0);
