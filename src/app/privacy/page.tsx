@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { STORAGE_INVENTORY } from "@/lib/cookie-inventory";
 
 // Long-form legal prose, authored directly here in English rather than
@@ -12,9 +13,12 @@ import { STORAGE_INVENTORY } from "@/lib/cookie-inventory";
 // that confirmed there are no analytics/tracking scripts anywhere in
 // src/ — don't add either without updating this page. The cookie list in
 // section 4 is generated from src/lib/cookie-inventory.ts.
-export const metadata: Metadata = {
-  title: "Privacy policy — Squirrel",
-};
+// UX-64: the title follows the visitor's language even though the body below
+// stays English (see the note above).
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.meta.privacyTitle);
+}
 
 const LAST_UPDATED = "September 25, 2026";
 

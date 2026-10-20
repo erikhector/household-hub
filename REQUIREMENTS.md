@@ -431,8 +431,20 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       chips and the meal-planning tabs also write `?filter=` / `?tab=`
       with `history.replaceState`, so the browser's back button lands on
       the same filter or tab.
-    - **Header**: name, category · location, "In stock: 1 pcs · running
-      low below 0.5 pcs" and "Change unit…".
+    - **Header**: name, category · location, then the controls the list
+      gives a row (UX-124, `ItemPageControls`, reusing `QuantityStepper`,
+      `StockBadge`, `ExpiryBadge` and `ItemActions`): the −/+ stepper (tap
+      the number for the exact-amount sheet), the stock badge ("In stock",
+      "Low stock", "Out of stock" — an empty item no longer reads "In
+      stock: 0 pcs"), the Expiring soon / Expired, Opened and Frozen tags,
+      "Best before {date}" (≈ when estimated), and the Edit, Delete, Mark
+      opened, Freeze, Add to shopping list and Mark as empty actions (the
+      list's own handlers, `useItemHandlers`, so toasts and Undo match;
+      no "Details" link, since this is it). Delete returns to where the
+      page was opened from. Then "running low below 0.5 pcs" and "Change
+      unit…". The stock actions also revalidate this page, so the badges
+      follow a change. The "Also on" list links are underlined in the link
+      colour.
     - **Units**: "Counted in {unit}" and each conversion, written the way
       people know the number (`conversionSentence`, the review's
       `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with
@@ -771,6 +783,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     "pcs" showed as a single letter. `e2e/quick-add-unit.spec.ts` guards it
     at 390px in `en` and `sv` (its own empty household, since the seeded
     one has items).
+  - **Quick-add Enter (UX-132)**: in that row Enter moves focus to the
+    next field (name, quantity, unit, category) and only Enter in the
+    category field adds the item, so a half-filled row is never submitted;
+    the "+" button adds from any field. `e2e/quick-add-unit.spec.ts`
+    covers it.
   - **Auto-categorization (AUTO-2)**: a new item created without a
     category is filed under a guessed one instead of `"Uncategorized"`, so
     things added from a list, receipt, paste or quick-add arrive already
@@ -959,7 +976,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       which wins even where it disagrees (another member unticked the
       row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
       flight. It stays in
-      its aisle for 350 ms animating down and out (that fading copy is
+      its aisle for 250 ms (UX-54 shortened it from 350 so the drop still ends inside the 500 ms CLS grace after the tick moment's 200 ms) animating down and out (that fading copy is
       `inert` and `aria-hidden`, so the item is exposed once, as the "In
       the cart" row the overlay already lists), then joins **"In the
       cart"**, a collapsed section (a disclosure button with a count that
@@ -1784,6 +1801,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   a single `Transaction` row auto-generates a future one; the flag just
   documents that a logged transaction is one of an expected repeat (e.g.
   rent, a subscription) for the household's own reference.
+  UX-113: a *new* transaction no longer offers "This repeats" (household
+  and Personal Budget share `TransactionDialog`). The flag only fed the
+  fallback estimate below, so ticking it created no recurring item and
+  moved Safe to spend with nothing under Recurring items or "Due this
+  period" to explain it. A repeating bill is added as a recurring item
+  (Manage), which is listed, due and counted by name. The checkbox stays
+  only for a payment logged from a recurring item and for an existing
+  transaction already flagged, so it can be cleared. Covered by
+  `e2e/transaction-repeats.spec.ts`.
 - **Recurring budget templates** (a separate, later-added system — see
   `RecurringTemplate`/`RecurringTemplateAck` in `prisma/schema.prisma`,
   the pure `src/app/dashboard/budget/recurring-template-calc.ts`, and
@@ -5559,24 +5585,6 @@ co-managers, not kids earning rewards.
   older" button under the Completed rows (toggles to "Hide older"); nothing
   is deleted. Repeating tasks never collapse. The open/closed state is
   per-visit, not stored (`e2e/task-caught-up.spec.ts`).
-- **Compact rows, and a Mine filter (UX-106)**: a task row is one line on a
-  phone, checkbox, title and assignee badge, at most 56 px (about eight tasks
-  a screen, up from four). Repeat, next due, whose turn and who did it wrap
-  in a small line under the title instead of pushing the actions onto a
-  second and third line, and a long assignee name is cut short (full name as
-  the tooltip). Below `sm` the row carries neither Edit and Delete icons nor
-  a ⋯: Edit and Delete are in the swipe tray, and the edit sheet (a tap on
-  the title) has a quiet **Delete** button that closes the sheet and hands
-  over to the row's own trash button, so the same confirm dialog opens
-  (M7: the sheet is the visible path). From `sm` up the icons stay.
-  Above the list, in a household of two or more, an **Everyone / Mine**
-  toggle (`aria-pressed` buttons) shows only the tasks assigned to you
-  (`filterTasks`, `src/app/dashboard/tasks/task-filter.ts`: open or
-  completed; unassigned tasks only show under Everyone). The weekly recap
-  stays household-wide. The choice is remembered per device in localStorage
-  under `tasks.filter` (`TASKS_FILTER_STORAGE_KEY`, listed on the privacy
-  page; `useLocalPreference`). Nothing stored means Everyone, so a first
-  visit never hides a task (`e2e/task-compact-rows.spec.ts`).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -5875,6 +5883,32 @@ stay that way rather than re-adding per-page redirect checks:
   `src/app/page.tsx` does **not** duplicate that check with its own
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
+
+### Public page titles and link previews (UX-64)
+
+- Every public route has a localised `<title>` and exactly one `<h1>`. The
+  root layout's title template appends " · Squirrel", so a page passes only
+  its own name: "Log in · Squirrel" / "Logga in · Squirrel". The landing page
+  uses an absolute title ("Squirrel: run your household like a dream team").
+  Dashboard pages set none and keep the plain "Squirrel".
+- Pages build their metadata through `src/lib/page-metadata.ts`
+  (`buildMetadata`, `titleOnlyMetadata`), which also emits the `og:` and
+  `twitter:` tags. A child's `openGraph` replaces the parent's, so every page
+  that wants a preview gets the full set from that helper.
+- `/`, `/join/[token]` and `/share/shopping-list/[token]` are the pages that
+  get passed around, so their previews are specific: an invite is titled
+  "Join {household}" with a description naming the household, and a shared
+  list is titled with the list's name. A dead token gets the generic
+  "Invalid invite" / "Link not found" title and no household or list name.
+  The share page's lookup is rate limited, so `generateMetadata` and the page
+  share one `cache()`d call.
+- The preview image is `/icon-512-maskable.png`, made absolute by the root
+  layout's `metadataBase` (from `APP_URL`). With `APP_URL` unset it points at
+  localhost, which only matters in local dev.
+- The page's `<h1>` is the card title: `CardTitle` takes `as="h1"`. The text
+  for the titles with no other home is in the dictionaries' `meta` section;
+  `/privacy` and `/terms` titles are localised while their bodies stay English.
+- Covered by `e2e/public-titles.spec.ts`.
 
 ### Session revocation on password change (SCALE-H)
 
@@ -6969,12 +7003,11 @@ Todoist-style. Built as one shared wrapper,
   the button the deliberate one.
 - **No action shows twice on a phone.** Below `sm`, a swipeable row
   doesn't also show Edit and Delete icons: they sit behind the row's ⋯
-  menu instead. Shopping rows get `RowActionsMenu`
+  menu instead. Task and shopping rows get `RowActionsMenu`
   (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
-  `sm` up the icons show as before. Task rows have no ⋯ at all (UX-106):
-  the edit sheet has a Delete button instead.
+  `sm` up the icons show as before.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
   swipe only takes over once the finger has moved 8 px more sideways than
@@ -7248,8 +7281,12 @@ any other keeps the previous page, and either is replaced by the real page.
 Every route measures under budget in both. What the spec cannot delay is the
 server's own Suspense streaming inside one response, and Lighthouse itself
 isn't in the toolchain, so a run against a deployed build stays the final
-check. The four `fallback={null}` slots above content (household
-`SharedWithNote`, inventory `InventoryWellStockedNote`, shopping list
+check. The household page (MAINT-31) has no Suspense boundaries at all:
+its note, member list and notes board used to stream in behind fallbacks of
+a different height (or none), which under load moved the settings cards
+below them past the budget (0.0647), so it now arrives in one piece behind
+`loading.tsx`. The three remaining `fallback={null}` slots above content
+(inventory `InventoryWellStockedNote`, shopping list
 `RepurchaseSuggestionsSection`, the layout's email-verification banner) stay
 empty on purpose: each renders nothing in the common case (a solo household,
 a stock with something low, no suggestion, an already verified email), so a
@@ -7367,7 +7404,19 @@ runs after every commit of a list:
   anywhere). More than 20 rows arriving or leaving at once is also treated
   as a different list.
 
-A shopping row leaving its aisle (UX-37's 350 ms drop towards "In the
+**The tick moment (UX-54).** Completing a shopping row, a Next up dock
+row or a task (the tasks page; the swipe has its own buzz) goes through
+`src/lib/tick-feedback.ts`: a 10 ms `navigator.vibrate` where the device
+has one, the checkbox (or the dock's filled circle) fills with a ~200 ms
+spring (`tick-pop` in `globals.css`, played while `data-ticking` is set
+on `Checkbox`), and only then (`TICK_MS`, 200 ms) does the optimistic tick
+move the row. Unticking is never delayed or buzzed. Under
+`prefers-reduced-motion` there is no wait and no spring, but the buzz
+still fires. The swipe row's commit buzz uses the same `vibrateTick`.
+The dock's UX-78 settle window is `TICK_MS` + 450 ms so the double-tap
+guard keeps its length. Covered by `e2e/tick-moment.spec.ts`.
+
+A shopping row leaving its aisle (UX-37's 250 ms drop towards "In the
 cart") carries no flip key meanwhile, so it has one animation, not two.
 It then arrives in "In the cart" as a new row and rises in there, and the
 aisle closes up with a glide. Since it animates the real element and not

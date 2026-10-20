@@ -1119,7 +1119,7 @@ export const en = {
     mascotAlt: "Squirrel mascot",
     quickAdd: {
       label: "Quick add",
-      placeholder: "Item name — press Enter to add",
+      placeholder: "Item name",
       add: "Add",
       adding: "Adding…",
       addedToast: "Added {name}",
@@ -1398,7 +1398,7 @@ export const en = {
       back: "Inventory",
       backToCatalog: "Manage items",
       backToRecipes: "Recipes",
-      inStock: "In stock: {amount}",
+      bestBefore: "Best before {date}",
       lowStockAt: "running low below {amount}",
       changeUnit: "Change unit…",
       unitsTitle: "Units",
@@ -2124,11 +2124,7 @@ export const en = {
       confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
-    // UX-106: the "Mine / Everyone" filter above the list.
-    filterLabel: "Show",
-    filterMine: "Mine",
-    filterEveryone: "Everyone",
-    mineEmpty: "Nothing is assigned to you.",
+    rowActionsAriaLabel: "More actions for {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
@@ -2165,8 +2161,6 @@ export const en = {
       cancel: "Cancel",
       save: "Save",
       saving: "Saving…",
-      // UX-106: on a phone the sheet is the visible path to Delete.
-      delete: "Delete",
     },
   },
   budget: {
@@ -3546,6 +3540,20 @@ export const en = {
   // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
   // read client-side, so these strings live here purely for translation
   // reuse rather than for a live language switch.
+  // UX-64: the text behind each public page's <title> and link preview
+  // (src/lib/page-metadata.ts). Titles that already exist as a heading
+  // elsewhere in the dictionary are reused at the call site; these are
+  // the ones with no other home. The root layout appends " · Squirrel".
+  meta: {
+    homeTitle: "Squirrel: run your household like a dream team",
+    homeDescription:
+      "Inventory, shopping lists, meal planning, tasks and budgets for your whole household, in one place.",
+    privacyTitle: "Privacy policy",
+    termsTitle: "Terms of service",
+    joinDescription: "You've been invited to {name} on Squirrel. Create an account to join the household.",
+    shareDescription: "A shopping list shared from a Squirrel household. Open it to see and tick off items.",
+    fallbackDescription: "Inventory, shopping, meal planning, and budgeting for your household.",
+  },
   digestUnsubscribe: {
     pageTitle: "Weekly digest",
     invalidTitle: "Link not valid",

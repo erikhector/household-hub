@@ -258,20 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-31. Flaky: `/dashboard/household` shifts 0.0647 while loading on mobile** (low, S) —
-      `e2e/cls.spec.ts:66` ("/dashboard/household does not shift while
-      loading", the hard-load CLS loop over `DASHBOARD_ROUTES`), `mobile`
-      project. Failed once in the local `ci:local` gate on release PR #366
-      (head `c6c7e36`, 2026-10-18), then passed on a re-run of the same
-      commit; GitHub's `End-to-end (Playwright)` job on that head passed.
-      The failing assertion is `toBeLessThan(CLS_BUDGET)` (`:82`, budget
-      0.05 from `:11`, UX-42): the summed `layout-shift` entries were
-      0.0647. Something on the household page (a streamed Suspense section
-      or a late-sizing element after `networkidle`) sometimes lands without
-      a reserved box. Fix it in the app (a skeleton or fixed size for what
-      shifts) or in the test's waiting, never a raised budget, a skip or a
-      retry. Acceptance: `npx playwright test e2e/cls.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-32. Flaky: Delete and Save buttons overlap in the phone edit sheet** (low, S) —
       `e2e/budget-transaction-rows.spec.ts:51` ("phone rows open the edit
       sheet, name themselves and delete from the sheet"), `mobile` project.
@@ -289,22 +275,6 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/budget-transaction-rows.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
-- [ ] **MAINT-33. Flaky: "Mark <task> as done" checkbox not found after reload in task-tick-undo** (low, S) —
-      `e2e/task-tick-undo.spec.ts:38` ("ticking then unticking a never-done
-      task leaves no 'Last done by'"), `desktop` project. Failed once in the
-      local `ci:local` gate on release PR #405 (head `8e05b4d`, 2026-10-19),
-      then passed on a re-run of the same spec on the same commit; GitHub's
-      `End-to-end (Playwright)` job on that head passed. The failing
-      assertion is `not.toBeChecked()` at line 53: after `page.reload()` the
-      checkbox named "Mark <title> as done" was not found within 5 s. Fix it
-      in the app (when the task row renders after a reload) or in the test's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/task-tick-undo.spec.ts --project=desktop
-      --repeat-each=30` passes 30/30.
-      Another sighting, 2026-10-19: failed on the `mobile` project in the
-      UX-107 gate (`c4fca69`), at the same checkbox lookup after a reload,
-      then passed on re-run.
-
 - [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
       `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
       once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
@@ -327,6 +297,45 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
+- [ ] **MAINT-36. Flaky: two `autocomplete="username"` inputs in the account password form** (low, S) —
+      `e2e/ux-31.spec.ts:110`, `desktop` project. Failed its first attempt
+      in the `End-to-end (Playwright)` job on release PR #440 (`f5fb3d4`,
+      2026-10-19, run 39329747316) and passed on the retry: a strict-mode
+      violation, `input[autocomplete="username"]` matched 2 identical
+      `sr-only` inputs, though the `toHaveCount(1)` just before it passed,
+      so a second one renders late. Passed in the local `ci:local` gate and
+      6 repeats. Find why the hidden username input renders twice (a
+      re-render or a duplicate mount) and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/ux-31.spec.ts --project=desktop
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
+      `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
+      `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
+      clicking the flour ingredient link in the recipe sheet (line 173),
+      `getByRole("heading", { name: "Flour …", level: 1 })` was not found
+      within 5 s. Passed on a re-run of the same spec on the same commit,
+      and the GitHub e2e job was green. Find why the item page can be slow
+      to show its heading after that navigation and fix it in the app or
+      the spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/item-page.spec.ts:139
+      --project=mobile --repeat-each=30` passes 30/30.
+      Investigated 2026-10-20, not fixed: it does not reproduce (30/30 and
+      40/40 on the production build, 3 workers, also with 2 busy CPU loops
+      beside it). The server is not the slow part: the item page's RSC
+      request answers in 10 to 200 ms. The wait is client-side (route
+      chunk, hydrating the item page's client tree): click to heading is
+      0.15 to 1.2 s normally, 1 to 2.9 s with Chromium's CPU throttled 8x
+      and 2.5 to 3.5 s at 25x, so a loaded `ci:local` gate (3 browsers, a
+      build and sibling worktrees on one box) can cross the 5 s default.
+      No dialog-history `back()` runs on this path (checked by logging
+      history calls), so it is not a history race. Needs a decision, since
+      every honest fix changes the budget or the page: (a) give post-
+      navigation heading waits in this spec a longer explicit timeout (a
+      loosened wait, which this item's rules forbid unless the Owner
+      allows it), or (b) restructure the item page so the heading and back
+      arrow render before the eight queries and the controls' client tree
+      (a Suspense split, larger than S).
 
 ### UX (2026-09-26 scout)
 
@@ -387,7 +396,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-47,
-UX-89, UX-113.
+UX-89.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -398,7 +407,8 @@ UX-89, UX-113.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
-- `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
+- `src/components/budget/transaction-dialog.tsx`: UX-111.
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
@@ -498,17 +508,6 @@ UX-89, UX-113.
       ("Previous month" / "Previous week"), plus a "This month" / "This
       week" jump when you're elsewhere.
 
-- [ ] **UX-54. A shared "tick" moment: check, haptic, then move**
-      (impact: med, effort: S) — Delight, M5. Ticking a shopping row, a
-      dock row or a task removes it at once and nothing fills in. Only
-      swipes vibrate (`navigator.vibrate` exists only in `swipe-row.tsx:145`).
-      Things and Todoist make every tick feel earned.
-      Acceptance: a shared tick feedback is used by shopping rows, the
-      dock and tasks. The checkbox fills with a short spring (about 200
-      ms), a 10 ms vibration fires where supported, and only then does the
-      row move. No animation runs under reduced motion; the haptic still
-      fires.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-59. Signup and login errors next to the field, keeping what
@@ -587,22 +586,6 @@ UX-89, UX-113.
       {household}", groups by aisle in the household's store order, shows
       "n of m" progress and an All done state, and has a neutral one-line
       banner. Long names can be read in full, and a footer links to `/`.
-
-- [ ] **UX-64. Real page titles, one `<h1>`, and link previews on public
-      pages** (impact: med, effort: S) — breaks Accessibility and Context.
-      - `document.title` is just "Squirrel" on `/`, `/login`, `/signup`,
-        `/forgot-password`, every token page and the 404.
-      - `/privacy` and `/terms` have their own titles but stay English
-        in sv.
-      - Login, signup, forgot-password and the token pages have no
-        `<h1>` (`CardTitle` is a div, for example
-        `src/app/signup/page.tsx:22`).
-      - There are no `og:`/`twitter:` tags, so an invite or share link in
-        WhatsApp or iMessage previews as a bare "Squirrel".
-      Acceptance: each public route has a localised `<title>` ("Log in ·
-      Squirrel") and exactly one `<h1>`. `/`, `/join/[token]` and
-      `/share/shopping-list/[token]` emit `og:title`, `og:description` and
-      `og:image`, with join and share naming the household or list.
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
@@ -848,6 +831,26 @@ UX-89, UX-113.
 
 #### Tasks
 
+- [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
+      effort: M) — breaks M6 and Hierarchy.
+      - Rows carry edit and trash icons as well as the swipe tray that
+        already offers both.
+      - With a long assignee name or Swedish recurrence text, the trash
+        wraps to a third line, so about 4 tasks fit on a phone screen.
+      - There's no way to see just your own tasks.
+      Acceptance: at 412 px a one-line task with an assignee badge is at
+      most 56 px, with edit and delete in the swipe tray and the edit
+      sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
+      filter is remembered.
+      Re-landing note: #437 was reverted (#441) because
+      `e2e/task-compact-rows.spec.ts:46` (`mobile`) failed on both attempts
+      in the GitHub `End-to-end (Playwright)` job on release PR #440 (run
+      39329747316): `row.getByText("E2E Tester", { exact: true })` not
+      found in the task row, though it passed locally. Several builder
+      gates failed it too, so it is not runner-specific. The new spec must
+      pass in the GitHub e2e job; do not loosen the 56 px or name
+      assertions.
+
 - [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
       (impact: med, effort: M) — bug, breaks Usability. Today the next due
       time is the exact moment of the last tick plus the interval
@@ -901,18 +904,6 @@ UX-89, UX-113.
       adding categories. The shared-expense action has one name and
       placement on both pages.
 
-- [ ] **UX-113. "This repeats" creates a visible recurring item, or goes
-      away** (impact: high, effort: M) — breaks Consistency and User
-      control. ⚠️ money.
-      - Ticking "This repeats, Monthly" on a 250 transaction creates no
-        recurring item, and nothing shows under Recurring items or "Due
-        this period".
-      - Next month's safe to spend still drops by 250 through a hidden
-        fallback estimate.
-      Acceptance: "This repeats" creates or links a recurring item shown
-      on Manage, or the checkbox is removed. No amount changes safe to
-      spend without appearing in "How we got this number".
-
 - [ ] **UX-114. Insights: who owes whom first, empty cost cards
       collapsed** (impact: med, effort: S) — breaks M6. On a phone,
       Insights is 3,858 px tall. "Anna → Erik 470.00 · Clear debt" is
@@ -951,15 +942,6 @@ UX-89, UX-113.
       listed twice.
 
 #### Inventory
-
-- [ ] **UX-124. The item page has the controls people expect** (impact:
-      med, effort: M) — breaks Consistency and User control. The item
-      page (`items/[id]/page.tsx:138`) has no Edit, Delete, stepper,
-      expiry, opened or frozen state, or stock badge. It says "In stock: 0
-      pcs" for an empty item. Its "Also on" list link doesn't look like a
-      link.
-      Acceptance: the item page shows the status badge, expiry, Edit,
-      Delete and a stepper. List links look like links.
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
       med, effort: S) `[!]` — bug. Needs a schema change and a decision:
@@ -1020,13 +1002,31 @@ UX-89, UX-113.
       inventory's style and order. Duplicate rows show "Keep" / "Merge"
       labels.
 
-- [ ] **UX-132. Enter in the empty inventory's quick add doesn't submit
-      half an item** (impact: low, effort: S) — Usability. In the
-      empty-state quick-add form, Enter in the category field submits at
-      once (seen during the review, alongside UX-50's empty-state
-      clean-up).
-      Acceptance: Enter only submits from the last field. Earlier fields
-      move focus to the next one.
+### UX (2026-10-20 scout)
+
+Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
+`tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
+route passes. The popup probe found two phone-only size gaps.
+
+- [ ] **UX-143. Unit and item suggestions are 44 px tall on phones**
+      (impact: med, effort: S) — M-rule break (44 × 44 targets). On the
+      `dialogs-mobile` audit the suggestion rows in the unit pickers
+      (`/dashboard/inventory/items/[id]` "Show suggestions": `pcs`, `g`,
+      `dl` at 168×32) are 32 px high, because `AutocompleteItem`
+      (`src/components/ui/autocomplete.tsx`, the `py-1.5 text-sm` row)
+      lacks the `max-sm:min-h-11 pointer-coarse:min-h-11` that
+      `ComboboxItem` (`src/components/ui/combobox.tsx:137`) already has.
+      The same audit flags the combobox toggle (`ComboboxTrigger`,
+      `combobox.tsx:56/71`) at 44×42 in "Merge into another item…", the
+      shopping list's "Match item" (Inventory item) and personal-budget
+      "Log a shared expense" (Category): `h-full` inside an `h-11` group
+      loses 2 px to the border. Neighbouring suggestion rows are
+      therefore easy to mis-tap in the shop, one-handed.
+      Acceptance: in the `mobile` project, open the unit picker and the
+      Match item dialog; every suggestion row and the combobox toggle
+      measure at least 44 px in both dimensions
+      (`getBoundingClientRect`), and `dialogs-mobile` reports no
+      `smallTargets` for these.
 
 ### Dependencies
 

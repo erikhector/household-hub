@@ -43,7 +43,7 @@ export function StatusCard({
               tone === "neutral" && "text-muted-foreground",
             )}
           />
-          <CardTitle className="text-xl break-words">{title}</CardTitle>
+          <CardTitle as="h1" className="text-xl break-words">{title}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 text-center">{children}</CardContent>
       </Card>

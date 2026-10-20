@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { XCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getShoppingListByShareToken } from "@/app/share/shopping-list/actions";
@@ -6,6 +8,25 @@ import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { LegalFooter } from "@/components/legal-footer";
 import { UnitsProvider } from "@/components/units-provider";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { buildMetadata } from "@/lib/page-metadata";
+
+// UX-64: the lookup is rate limited per token, so generateMetadata and the page
+// must share one call per request (cache()) or each load would count twice.
+const loadList = cache(getShoppingListByShareToken);
+
+export async function generateMetadata(
+  props: PageProps<"/share/shopping-list/[token]">,
+): Promise<Metadata> {
+  const { token } = await props.params;
+  const [list, dict] = await Promise.all([loadList(token), getDictionary()]);
+  if (!list) {
+    return buildMetadata({
+      title: dict.sharedShoppingList.notFoundTitle,
+      description: dict.meta.fallbackDescription,
+    });
+  }
+  return buildMetadata({ title: list.name, description: dict.meta.shareDescription });
+}
 
 // Top-level, NOT under /dashboard — reached only via a
 // ShoppingListShareLink token, no session required at all (see
@@ -19,7 +40,7 @@ export default async function SharedShoppingListPage(
   props: PageProps<"/share/shopping-list/[token]">,
 ) {
   const { token } = await props.params;
-  const [list, dict] = await Promise.all([getShoppingListByShareToken(token), getDictionary()]);
+  const [list, dict] = await Promise.all([loadList(token), getDictionary()]);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">

@@ -1046,7 +1046,7 @@ export const sv = {
     mascotAlt: "Squirrel-maskot",
     quickAdd: {
       label: "Snabbtillägg",
-      placeholder: "Varans namn — tryck Enter för att lägga till",
+      placeholder: "Varans namn",
       add: "Lägg till",
       adding: "Lägger till…",
       addedToast: "La till {name}",
@@ -1321,7 +1321,7 @@ export const sv = {
       back: "Lager",
       backToCatalog: "Hantera varor",
       backToRecipes: "Recept",
-      inStock: "I lager: {amount}",
+      bestBefore: "Bäst före {date}",
       lowStockAt: "lågt lager under {amount}",
       changeUnit: "Byt enhet…",
       unitsTitle: "Enheter",
@@ -2020,10 +2020,7 @@ export const sv = {
       confirming: "Tar bort…",
     },
     editTaskAriaLabel: "Redigera {title}",
-    filterLabel: "Visa",
-    filterMine: "Mina",
-    filterEveryone: "Alla",
-    mineEmpty: "Inget är tilldelat dig.",
+    rowActionsAriaLabel: "Fler åtgärder för {title}",
     toggleCompleteAriaLabel: "Markera {title} som klar",
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     doneToast: "Klart: {title}",
@@ -2060,7 +2057,6 @@ export const sv = {
       cancel: "Avbryt",
       save: "Spara",
       saving: "Sparar…",
-      delete: "Ta bort",
     },
   },
   budget: {
@@ -3382,6 +3378,18 @@ export const sv = {
     body: "Sidan du letar efter finns inte, eller har flyttats.",
     backToDashboard: "Till översikten",
     goToSquirrel: "Gå till Squirrel",
+  },
+  // UX-64: texten bakom varje publik sidas <title> och länkförhandsvisning
+  // (src/lib/page-metadata.ts). Rotlayouten lägger till " · Squirrel".
+  meta: {
+    homeTitle: "Squirrel: styr hushållet som ett drömlag",
+    homeDescription:
+      "Lager, inköpslistor, måltidsplanering, sysslor och budget för hela hushållet, på ett ställe.",
+    privacyTitle: "Integritetspolicy",
+    termsTitle: "Användarvillkor",
+    joinDescription: "Du har blivit inbjuden till {name} på Squirrel. Skapa ett konto för att gå med i hushållet.",
+    shareDescription: "En inköpslista som delats från ett Squirrel-hushåll. Öppna den för att se och bocka av varor.",
+    fallbackDescription: "Lager, inköp, måltidsplanering och budget för ditt hushåll.",
   },
   digestUnsubscribe: {
     pageTitle: "Veckosammanfattning",

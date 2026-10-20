@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.87.0",
+    "date": "2026-10-20",
+    "pr": 463,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Pages you open without logging in now have proper tab titles in your language, and invite and shared-list links show the household or list name when you paste them into a chat.",
+      "sv": "Sidor du öppnar utan att logga in har nu riktiga fliktitlar på ditt språk, och inbjudnings- och dellänkar visar hushållets eller listans namn när du klistrar in dem i en chatt."
+    }
+  },
+  {
+    "version": "0.86.1",
+    "date": "2026-10-20",
+    "pr": 458,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed the Household page jumping around slightly while it loads on phones.",
+      "sv": "Åtgärdade att hushållssidan hoppade till något medan den laddades på mobilen."
+    }
+  },
+  {
+    "version": "0.86.0",
+    "date": "2026-10-20",
+    "pr": 454,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking off a shopping item or a task now feels more satisfying: the checkbox fills in with a quick bounce and your phone gives a tiny buzz before the item moves. With reduced motion on, there is no animation, only the buzz.\n\nAdding items with the inventory quick add is safer now: pressing Enter moves to the next field, and only Enter in the last field (category) adds the item.",
+      "sv": "Att bocka av en inköpsvara eller en uppgift känns nu bättre: rutan fylls med en snabb studs och telefonen ger en liten vibration innan varan flyttas. Med minskad rörelse på visas ingen animation, bara vibrationen.\n\nSnabbtillägg i lagret är säkrare nu: Enter flyttar till nästa fält, och bara Enter i det sista fältet (kategori) lägger till varan."
+    }
+  },
+  {
+    "version": "0.85.0",
+    "date": "2026-10-20",
+    "pr": 448,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Shopping list aisle names, such as \"Produce\" or \"Cleaning supplies\", now always show in your own language, in the list and in the Next up bar.\n\nScreen readers now announce the clear and show-suggestions buttons on category, location and unit fields (\"Clear unit\", \"Show suggestions\").\n\nFill empty days now fills every empty day when you have enough recipes: your favorites first, then your other recipes.\n\nChoosing \"Take turns\" on a task with someone assigned now starts the turn order with that person. A turn order with only one person can no longer be saved by mistake: you're told to add one more.\n\nIf you open an email verification link too many times, the page now says \"Too many attempts\" and asks you to try again later, instead of wrongly saying the link has expired.\n\nSmart add no longer splits an item at a comma inside brackets, so \"dishwasher tablets (lemon-free, 120 st), paper towels\" adds two items instead of three.\n\nTask rows are now compact, so far more of your tasks fit on a phone screen. Delete a task from its edit sheet or by swiping. A new Everyone / Mine switch shows just the tasks assigned to you, and Squirrel remembers your choice.\n\nOn tablets, the inventory now shows items as cards, so item names are readable in full instead of cut off.\n\nCompact one-line task rows and a Mine filter (UX-106) (#437)\n\nAdding a transaction no longer shows a \"This repeats\" box that did nothing visible. To track a bill that comes back every month, add it under Manage, Recurring items. It then shows up when it is due and counts in Safe to spend by name.\n\nAn item's own page now has the same controls as the inventory list: change the amount with − and +, see whether it's in stock, running low or out, see its best-before date and whether it's opened or frozen, and edit or delete it. The shopping lists it's on now look like links.",
+      "sv": "Gångarnas namn i inköpslistan, till exempel \"Frukt & grönt\" eller \"Städartiklar\", visas nu alltid på ditt eget språk, både i listan och i fältet Näst på tur.\n\nSkärmläsare läser nu upp knapparna för att rensa och visa förslag i kategori-, plats- och enhetsfälten (\"Rensa enhet\", \"Visa förslag\").\n\nFyll tomma dagar fyller nu alla tomma dagar när du har tillräckligt med recept: först dina favoriter, sedan dina övriga recept.\n\nNär du väljer \"Turas om\" på en uppgift som redan har en ansvarig börjar turordningen med den personen. En turordning med bara en person kan inte längre sparas av misstag: du ombeds lägga till en person till.\n\nOm du öppnar en verifieringslänk för många gånger står det nu \"För många försök\" och att du ska försöka igen senare, i stället för att länken felaktigt har gått ut.\n\nSnabbtillägg delar inte längre upp en vara vid ett kommatecken inom parentes, så \"diskmaskinstabletter (citronfria, 120 st), hushållspapper\" blir två varor i stället för tre.\n\nUppgiftsraderna är nu kompakta, så många fler av dina uppgifter ryms på en mobilskärm. Ta bort en uppgift från redigeringsfönstret eller genom att svepa. Med nya omkopplaren Alla / Mina visas bara uppgifter som är tilldelade dig, och Squirrel kommer ihåg ditt val.\n\nPå surfplattor visas lagret nu som kort, så att varornas namn syns i sin helhet i stället för att klippas av.\n\nCompact one-line task rows and a Mine filter (UX-106) (#437)\n\nNär du lägger till en transaktion visas inte längre rutan \"Detta återkommer\" som inte gjorde något synligt. Vill du hålla koll på en räkning som kommer varje månad lägger du till den under Hantera, Återkommande poster. Då syns den när den förfaller och räknas med i Säkert att spendera.\n\nEn varas egen sida har nu samma knappar som lagerlistan: ändra mängden med − och +, se om den finns i lager, håller på att ta slut eller är slut, se bäst före-datum och om den är öppnad eller fryst, samt redigera eller ta bort den. De inköpslistor den står på ser nu ut som länkar."
+    }
+  },
+  {
     "version": "0.84.0",
     "date": "2026-10-19",
     "pr": 429,

@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { VerifyEmailClient } from "@/components/auth/verify-email-client";
 import { LegalFooter } from "@/components/legal-footer";
 import { auth } from "@/lib/auth";
@@ -18,6 +20,11 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 // `session` is only used to point an invalid/expired-link error state at
 // the right recovery link: an already-signed-in visitor gets sent to the
 // dashboard (where the resend banner lives), everyone else to /login first.
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.auth.verifyEmail.pageTitle);
+}
+
 export default async function VerifyEmailPage(props: PageProps<"/verify-email/[token]">) {
   const [{ token }, session, dict] = await Promise.all([props.params, auth(), getDictionary()]);
 
