@@ -112,12 +112,10 @@ test("invite email is a form, so Enter submits it", async ({ page, context, base
 
 test("password form carries a hidden username for password managers", async ({ page }) => {
   await page.goto("/dashboard/profile");
-  // The profile page streams in behind loading.tsx and React reveals each
-  // Suspense boundary through a view transition, so the form's markup can be
-  // in the document twice for a moment (the hidden streamed copy and the
-  // revealed one). Wait until the form is actually shown (its current-password
-  // field is visible, which the hidden copy never is) before counting, or the
-  // count and the value check below can land on different moments (MAINT-36).
+  // The profile page streams in behind loading.tsx. CI once counted a second
+  // username input a moment after the count passed (MAINT-36; not reproduced
+  // locally), so wait until the form is really shown before counting, which
+  // keeps the count and the value check on the same settled page.
   await expect(page.locator("#currentPasswordForPassword")).toBeVisible();
   const username = page.locator('input[autocomplete="username"]');
   await expect(username).toHaveCount(1);
