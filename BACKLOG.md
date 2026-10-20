@@ -289,22 +289,6 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/budget-transaction-rows.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
-- [ ] **MAINT-33. Flaky: "Mark <task> as done" checkbox not found after reload in task-tick-undo** (low, S) —
-      `e2e/task-tick-undo.spec.ts:38` ("ticking then unticking a never-done
-      task leaves no 'Last done by'"), `desktop` project. Failed once in the
-      local `ci:local` gate on release PR #405 (head `8e05b4d`, 2026-10-19),
-      then passed on a re-run of the same spec on the same commit; GitHub's
-      `End-to-end (Playwright)` job on that head passed. The failing
-      assertion is `not.toBeChecked()` at line 53: after `page.reload()` the
-      checkbox named "Mark <title> as done" was not found within 5 s. Fix it
-      in the app (when the task row renders after a reload) or in the test's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/task-tick-undo.spec.ts --project=desktop
-      --repeat-each=30` passes 30/30.
-      Another sighting, 2026-10-19: failed on the `mobile` project in the
-      UX-107 gate (`c4fca69`), at the same checkbox lookup after a reload,
-      then passed on re-run.
-
 - [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
       `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
       once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
@@ -411,7 +395,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-47,
-UX-89, UX-113.
+UX-89.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -422,7 +406,8 @@ UX-89, UX-113.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
-- `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
+- `src/components/budget/transaction-dialog.tsx`: UX-111.
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
@@ -889,6 +874,18 @@ UX-89, UX-113.
 
 #### Tasks
 
+- [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
+      effort: M) — breaks M6 and Hierarchy.
+      - Rows carry edit and trash icons as well as the swipe tray that
+        already offers both.
+      - With a long assignee name or Swedish recurrence text, the trash
+        wraps to a third line, so about 4 tasks fit on a phone screen.
+      - There's no way to see just your own tasks.
+      Acceptance: at 412 px a one-line task with an assignee badge is at
+      most 56 px, with edit and delete in the swipe tray and the edit
+      sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
+      filter is remembered.
+
 - [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
       (impact: med, effort: M) — bug, breaks Usability. Today the next due
       time is the exact moment of the last tick plus the interval
@@ -942,18 +939,6 @@ UX-89, UX-113.
       adding categories. The shared-expense action has one name and
       placement on both pages.
 
-- [ ] **UX-113. "This repeats" creates a visible recurring item, or goes
-      away** (impact: high, effort: M) — breaks Consistency and User
-      control. ⚠️ money.
-      - Ticking "This repeats, Monthly" on a 250 transaction creates no
-        recurring item, and nothing shows under Recurring items or "Due
-        this period".
-      - Next month's safe to spend still drops by 250 through a hidden
-        fallback estimate.
-      Acceptance: "This repeats" creates or links a recurring item shown
-      on Manage, or the checkbox is removed. No amount changes safe to
-      spend without appearing in "How we got this number".
-
 - [ ] **UX-114. Insights: who owes whom first, empty cost cards
       collapsed** (impact: med, effort: S) — breaks M6. On a phone,
       Insights is 3,858 px tall. "Anna → Erik 470.00 · Clear debt" is
@@ -992,15 +977,6 @@ UX-89, UX-113.
       listed twice.
 
 #### Inventory
-
-- [ ] **UX-124. The item page has the controls people expect** (impact:
-      med, effort: M) — breaks Consistency and User control. The item
-      page (`items/[id]/page.tsx:138`) has no Edit, Delete, stepper,
-      expiry, opened or frozen state, or stock badge. It says "In stock: 0
-      pcs" for an empty item. Its "Also on" list link doesn't look like a
-      link.
-      Acceptance: the item page shows the status badge, expiry, Edit,
-      Delete and a stepper. List links look like links.
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
       med, effort: S) `[!]` — bug. Needs a schema change and a decision:

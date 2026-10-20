@@ -1384,7 +1384,7 @@ export const en = {
       back: "Inventory",
       backToCatalog: "Manage items",
       backToRecipes: "Recipes",
-      inStock: "In stock: {amount}",
+      bestBefore: "Best before {date}",
       lowStockAt: "running low below {amount}",
       changeUnit: "Change unit…",
       unitsTitle: "Units",
@@ -2110,11 +2110,7 @@ export const en = {
       confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
-    // UX-106: the "Mine / Everyone" filter above the list.
-    filterLabel: "Show",
-    filterMine: "Mine",
-    filterEveryone: "Everyone",
-    mineEmpty: "Nothing is assigned to you.",
+    rowActionsAriaLabel: "More actions for {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
@@ -2151,8 +2147,6 @@ export const en = {
       cancel: "Cancel",
       save: "Save",
       saving: "Saving…",
-      // UX-106: on a phone the sheet is the visible path to Delete.
-      delete: "Delete",
     },
   },
   budget: {
