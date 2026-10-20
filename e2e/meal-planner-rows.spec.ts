@@ -149,7 +149,7 @@ test("adding a meal starts on the picker, not on typing a name", async ({ page }
     const dialog = page.getByRole("dialog", { name: "Add a meal" });
     const picker = dialog.getByRole("combobox", { name: "Recipe" });
     // Nothing chosen and no name field: there's something to pick (M4).
-    await expect(picker).toHaveText(/Choose a meal/);
+    await expect(picker).toHaveText(/Choose a recipe/);
     await expect(dialog.getByRole("textbox", { name: "Meal name" })).toHaveCount(0);
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.getByText("Choose a recipe or enter a meal name")).toBeVisible();
@@ -183,7 +183,7 @@ test("a recipe is one row whose sheet has its ingredients and actions, delete se
     await page.goto("/dashboard/meal-planning?tab=recipes");
     await page.getByRole("searchbox", { name: /Search recipes/ }).fill(recipeName);
     // Name, then one meta line: tags and servings.
-    const row = page.getByRole("button", { name: new RegExp(`^${recipeName} Vegan · 2 servings`) });
+    const row = page.getByRole("button", { name: new RegExp(`^${recipeName} Vegan · 2 portions`) });
     await expect(row).toBeVisible();
     await expect(page.getByRole("main").getByRole("button", { name: "Edit recipe" })).toHaveCount(0);
     if (testInfo.project.name === "mobile") {

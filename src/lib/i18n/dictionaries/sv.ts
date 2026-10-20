@@ -1579,7 +1579,7 @@ export const sv = {
     mealMovedDifferentWeekToast: "{meal} flyttad till en annan vecka än den du visar",
     recipeLabel: "Recept",
     customMealOption: "Egen måltid…",
-    chooseMealPlaceholder: "Välj en måltid",
+    chooseRecipePlaceholder: "Välj ett recept",
     customMealNameLabel: "Måltidens namn",
     customMealNamePlaceholder: "t.ex. Tacokväll",
     portionsLabel: "Portioner",

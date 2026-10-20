@@ -776,18 +776,6 @@ UX-89.
 
 #### Meals and recipes
 
-- [ ] **UX-95. One word for portions, and keep meal and recipe apart**
-      (impact: med, effort: S) — breaks Consistency. In English the same
-      recipe is "4 servings" in the list and "4 portions" in the planner.
-      The form explains "Servings" as "How many portions…", and Mark as
-      cooked asks "Servings left over" then toasts "saved 2 portions"
-      (`en.ts:1545,1548,1580-1581,1735-1741,1828-1833`). The add sheet
-      labels its field "Recipe" with the placeholder "Choose a meal", while
-      "Meal" names the slot picker. Swedish is already consistent.
-      Acceptance: English says "portions" in the recipe list, form,
-      planner, Mark as cooked and Meal prep. The add sheet reads "Recipe:
-      Choose a recipe" and "Meal: Dinner".
-
 - [ ] **UX-96. The add-meal sheet names the day and can search recipes**
       (impact: med, effort: M) — breaks M4 and Context.
       - "Add a meal" never says which day, and the page behind is
