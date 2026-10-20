@@ -82,8 +82,8 @@ test("a daily chore ticked now is due tomorrow, and reopens once the local day h
   // row: due tomorrow's midnight, never "today".
   await page.reload();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
-  await expect(page.getByText(`Next due ${tomorrow}`).first()).toBeVisible();
-  await expect(page.getByText(`Next due ${today}`)).toHaveCount(0);
+  await expect(page.getByRole("main").getByText(`Next due ${tomorrow}`).first()).toBeVisible();
+  await expect(page.getByRole("main").getByText(`Next due ${today}`)).toHaveCount(0);
 
   // The day rolls over: it was ticked at 23:40 yesterday, local time.
   await withClient((client) =>
@@ -97,5 +97,5 @@ test("a daily chore ticked now is due tomorrow, and reopens once the local day h
   await page.reload();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toHaveCount(0);
-  await expect(page.getByText(`Next due ${today}`)).toHaveCount(0);
+  await expect(page.getByRole("main").getByText(`Next due ${today}`)).toHaveCount(0);
 });

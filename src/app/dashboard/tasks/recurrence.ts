@@ -23,6 +23,8 @@
 //    created: there's no column for it (PRODUCT.md: no schema), so editing a
 //    task does not move it.
 
+import { isTimeZone } from "@/lib/time-zone";
+
 export type RecurrenceFields = {
   completedAt: Date | null;
   recurrenceIntervalDays: number | null;
@@ -36,14 +38,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const ANCHORED_FROM_DAYS = 7;
 
 /** `timeZone` when it's a zone Intl knows, else UTC (a bad cookie value). */
-function safeTimeZone(timeZone: string): string {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone });
-    return timeZone;
-  } catch {
-    return "UTC";
-  }
-}
+const safeTimeZone = (timeZone: string) => (isTimeZone(timeZone) ? timeZone : "UTC");
 
 /** The calendar day `instant` falls on in `timeZone`, as days since 1970-01-01. */
 function localDayNumber(instant: Date, timeZone: string): number {
