@@ -762,8 +762,22 @@ UX-89.
       recent list (unbought or all items)". Template rows say "Use".
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
-      items** (impact: high, effort: M) — breaks User-centricity
-      ("automation suggests, the user decides"). Free-text list items
+      items** (impact: high, effort: M) `[!]` — breaks User-centricity
+      ("automation suggests, the user decides"). Needs a schema change and
+      a decision: nothing records that an item was ever stocked or that a
+      list row created it (only the current `quantity`), so "never
+      stocked", "out" and "delete the item the row created" can't be told
+      apart from a real used-up item without a new marker. Proposed: the
+      `InventoryItem.everStocked` flag from UX-125 (build them together,
+      one migration), plus an `InventoryItem.createdFromList` boolean set
+      by the five list-side create paths; the overview, inventory
+      "out" filter and OUT_OF_STOCK notifications skip items that are not
+      `everStocked`, and `deleteShoppingListItemAction` removes a
+      `createdFromList`, never-stocked item nothing else references.
+      Decide: backfill `everStocked` for existing rows (see UX-125), and
+      whether never-stocked items stay hidden from the "out" count or
+      are not created at all until first stocked (bigger change: list rows
+      would stay unlinked, `needsMapping`). Original report: Free-text list items
       silently create inventory items at 0 stock (`addAdHocItemAction`,
       `smartAddShoppingListItemsAction`). A household that only ever made
       lists sees "14 out of stock" on the overview: napkins, charcoal,
