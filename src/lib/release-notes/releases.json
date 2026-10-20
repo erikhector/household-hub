@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.90.0",
+    "date": "2026-10-20",
+    "pr": 484,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On Budget → Insights, who owes whom now comes first when someone owes money, and empty price and pantry cards fold into a single line.",
+      "sv": "I Budget → Insikter visas nu vem som är skyldig vem överst när någon är skyldig pengar, och tomma pris- och skafferikort samlas i en enda rad."
+    }
+  },
+  {
     "version": "0.89.0",
     "date": "2026-10-20",
     "pr": 477,
