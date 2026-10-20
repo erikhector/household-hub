@@ -974,6 +974,33 @@ route passes. The popup probe found two phone-only size gaps.
       (`getBoundingClientRect`), and `dialogs-mobile` reports no
       `smallTargets` for these.
 
+- [ ] **UX-135. Sign in straight from the verification link**
+      (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
+      blocked until the email is verified (`src/lib/auth.ts`) and signup
+      deliberately doesn't sign in, so a new user taps the mail link and
+      then types email and password again. A valid, unused verification
+      token signs the user in (single use, short-lived, same trust as a
+      reset link) and lands on the dashboard with "Welcome to Squirrel,
+      {name}". An expired, used or unknown token keeps today's behaviour.
+      Both `en.ts` and `sv.ts`; no new cookie.
+      Acceptance: in an e2e spec, sign up, open the verification link
+      (read the token from the DB), and land on `/dashboard` signed in
+      with the welcome text; opening the same link again does not sign in.
+      Decided 2026-10-20 by owner: option 1. See #395.
+
+- [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
+      (impact: high, effort: M) — ⚠️ money (human-only area).
+      `src/lib/safe-to-spend-calc.ts` also subtracts the unspent
+      remainder of limited categories, shown as its own "Still budgeted"
+      breakdown line. The pace projection ("At this pace …") becomes a
+      qualifier under the headline, not a second equally weighted "left"
+      figure. Unit-test the calculator (day 1, partly spent, overspent
+      category counts as zero remainder).
+      Acceptance: with a seeded limited category and no spending, the
+      headline excludes its limit, the breakdown shows "Still budgeted",
+      and the projection reads as secondary text.
+      Decided 2026-10-20 by owner: option 1. See #397.
+
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
@@ -1021,6 +1048,17 @@ The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
 Server Components) stays separate by design — only the Client/presentational
 components merge. See the archived spike for the full file-pair inventory and
 the recommended "shared base + thin wrapper" shape.
+
+- [ ] **BUDGET-5. Personal starter categories, then merge `BudgetOnboarding`/`PersonalBudgetOnboarding`**
+      (impact: med, effort: M) — ⚠️ money surface. Give personal budget a
+      short personal-oriented starter set (not the household one) offered
+      through the same one-click `StarterCategoryPicker` as household
+      onboarding, then merge the two onboarding components. Both
+      languages. Keep the merge in the same PR only if it stays small;
+      otherwise ship the set first.
+      Acceptance: a fresh personal budget shows the starter picker; picking
+      two categories creates them and the picker disappears.
+      Decided 2026-10-20 by owner: option 1. See #398.
 
 ---
 
@@ -1113,6 +1151,18 @@ order below is a suggestion, not a dependency, unless noted.
       spend and recurring statuses use 25th–24th periods. Logging an
       item from a period's Due list counts it in that period and
       defaults its date to the due day. The calculator has unit tests.
+
+- [ ] **UX-136. Opt-in sample data for a new household** (impact: med,
+      effort: L) — one migration (a nullable `sample` tag/batch column on
+      the seeded models). "Try with sample data" on the first overview
+      seeds a small pantry, one list, a planned week, three recipes and a
+      few tasks, all tagged; "Clear sample data" removes exactly the
+      tagged rows and nothing else. Restore the landing page's "example
+      data" line only once this ships. Both languages.
+      Acceptance: an empty household taps "Try with sample data" and sees
+      rows on the overview; "Clear sample data" returns it to empty while
+      a row the user added meanwhile survives.
+      Decided 2026-10-20 by owner: option 1. See #396.
 
 ## Phase 3 — larger items, own PR each
 
@@ -1597,13 +1647,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ## Needs a decision before building
 
-- [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
-      household onboarding offers a one-click `StarterCategoryPicker`; personal onboarding
-      only has the manual `AddCategoryDialog`. Decide: give personal budget its own
-      (personal-oriented) starter set, reuse the household one, or document its absence as
-      intentional. Do the structural merge only after that's decided, so the merge doesn't
-      accidentally ship or hide a product decision as a side effect.
-
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
       decision — ICA, Hemköp and Willys already deliver digital receipts
       (via Kivra), which would remove the photo step entirely. Options:
@@ -1618,6 +1661,10 @@ out to be a product-scope question rather than a scoped task should move to
         anything.
       Either way, the output lands in the same review → apply flow
       (with AUTO-11's auto-accepted matches), never applied unseen.
+      Decided 2026-10-20 by owner: option 1 (inbound address, pending
+      review only). See #399. Stays `[!]` until the owner enables Resend
+      inbound and accepts temporary storage of receipt content; once they
+      say that's done, it becomes a buildable Phase 3 item.
 
 - [ ] **PRICE-1. Should manual purchase-checking ever collect a price?** `[!]`
       The cheap version has shipped (an honest empty-state hint in Cost
@@ -1652,53 +1699,6 @@ out to be a product-scope question rather than a scoped task should move to
       both regions in the dashboards; if they differ, set
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
-
-- [ ] **UX-135. Sign in straight from the verification link?** `[!]`
-      ⚠️ auth (human-only area) — from the 2026-10-15 UI review. Login is
-      blocked until the email is verified (`src/lib/auth.ts:80`), and
-      signup deliberately doesn't sign in (`src/lib/actions/auth.ts:228-232`).
-      So a new user fills in five fields, then has to switch to their mail
-      app (often an in-app browser), tap the link, tap "Go to dashboard"
-      and type their email and password again. (The landing page's old
-      "Setting up takes less than a minute" went with UX-58.)
-      Options:
-      - **Recommended:** a valid, unused verification token signs the
-        user in (single use, short-lived, the same trust as a reset
-        link) and lands on the dashboard with "Welcome to Squirrel,
-        {name}".
-      - Let unverified users in with the existing soft banner and gate
-        only email-sending features.
-      - Keep it as is and only polish the copy (UX-61).
-
-- [ ] **UX-136. Sample data for a new household?** `[!]` — from the
-      2026-10-15 UI review. A new household starts completely empty: the
-      first overview is three "0" cards, and seven sections show empty
-      states. The landing page used to promise "example data to poke
-      around"; UX-58 removed that line, so add it back if this is built.
-      Options:
-      - **Recommended:** an opt-in "Try with sample data" on the first
-        overview that seeds a small pantry, one list, a planned week,
-        three recipes and a few tasks, all tagged so one tap on "Clear
-        sample data" removes exactly them.
-      - No sample data, and lean on starter kits plus UX-50's empty
-        states.
-
-- [ ] **UX-138. What should "Safe to spend" subtract?** `[!]` ⚠️ money
-      (human-only area) — from the 2026-10-15 UI review.
-      `src/lib/safe-to-spend-calc.ts` subtracts only due recurring items
-      and planned bills, not what's still budgeted in categories with a
-      limit.
-      - On day 1 with no spending it showed +24,410 as "safe", which a
-        family reads as free money.
-      - Right under it, "At this pace … about 6,362 left at the end of
-        the month" is a second, equally weighted "left" figure. Nothing
-        says which number to trust.
-      Options:
-      - **Recommended:** subtract the unspent remainder of limited
-        categories as its own "Still budgeted" breakdown line, and show
-        the pace projection as a qualifier under the headline.
-      - Keep the calculation and relabel the headline ("Before
-        budgets"), and also demote the projection.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
