@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
@@ -44,6 +46,14 @@ async function seedList(t: string, items: { name: string; purchased: boolean }[]
   return { listId, path: `/dashboard/shopping-list/${listId}` };
 }
 
+// Off unless E2E_SCREENSHOT_DIR is set (same switch as ui.ts's saveScreenshot).
+async function shot(page: Page, project: string, name: string) {
+  const dir = process.env.E2E_SCREENSHOT_DIR;
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: join(dir, `${project}-en-${name}.png`) });
+}
+
 const listOf = async (name: string) =>
   (await sql<{ shoppingListId: string }>(`SELECT "shoppingListId" FROM "ShoppingListItem" WHERE name = $1`, [name]))[0]
     ?.shoppingListId;
@@ -81,7 +91,7 @@ test.afterAll(async () => {
   await sql(`DELETE FROM "InventoryItem" WHERE id LIKE 'e2e-ux80-%' AND "householdId" = $1`, [E2E_HOUSEHOLD.id]);
 });
 
-test("Put away & finish completes in one step and moves the unbought rows to the next list", async ({ page }) => {
+test("Put away & finish completes in one step and moves the unbought rows to the next list", async ({ page }, testInfo) => {
   const t = tag();
   const { listId, path } = await seedList(t, [
     { name: `Rice ${t}`, purchased: true },
@@ -94,6 +104,7 @@ test("Put away & finish completes in one step and moves the unbought rows to the
   // Beans (just marked "didn't get it") and Milk (still pending) can move.
   const carry = sheet.getByRole("checkbox", { name: /Move 2 unbought items to / });
   await expect(carry).toBeChecked();
+  await shot(page, testInfo.project.name, "put-away-finish-sheet");
   await sheet.getByRole("button", { name: en.shoppingList.putAway.finishConfirm }).click();
 
   // One step: no second "Complete this list?" sheet, the list is done.
@@ -131,7 +142,7 @@ test("unchecking the carry-over leaves the unbought row on the completed list", 
   expect(await listOf(`Milk ${t}`)).toBe(listId);
 });
 
-test("the Complete list confirm names the pending count and has no Archive advice", async ({ page }) => {
+test("the Complete list confirm names the pending count and has no Archive advice", async ({ page }, testInfo) => {
   const t = tag();
   const { listId, path } = await seedList(t, [
     { name: `Rice ${t}`, purchased: true },
@@ -147,6 +158,7 @@ test("the Complete list confirm names the pending count and has no Archive advic
   await expect(confirm).not.toContainText("Archive");
   await expect(confirm).not.toContainText("Unarchive");
   await expect(confirm.getByRole("checkbox", { name: /Move 1 unbought item to / })).toBeChecked();
+  await shot(page, testInfo.project.name, "complete-confirm");
 
   await confirm.getByRole("button", { name: en.shoppingList.confirmCompleteList.confirm, exact: true }).click();
   await expect(page.getByText(/1 item moved to /).first()).toBeVisible();

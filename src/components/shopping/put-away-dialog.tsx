@@ -270,7 +270,7 @@ export function PutAwayDialog({
           })}
         </div>
         {finishing && movingCount > 0 && (
-          <label className="flex items-center gap-3 text-sm">
+          <label className="flex min-h-11 items-center gap-3 text-sm">
             <Checkbox checked={carryOver} disabled={pending} onChange={(e) => setCarryOver(e.target.checked)} />
             {format(plural(movingCount, dict.carryOver.label), { count: movingCount, list: carryOverListName })}
           </label>

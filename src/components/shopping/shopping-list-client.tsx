@@ -860,7 +860,7 @@ export function ShoppingListClient({
             variant="default"
             onConfirm={completeList}
           >
-            <label className="flex items-center gap-3 text-sm">
+            <label className="flex min-h-11 items-center gap-3 text-sm">
               <Checkbox checked={carryOver} onChange={(e) => setCarryOver(e.target.checked)} />
               {format(plural(pendingItems.length, dict.carryOver.label), {
                 count: pendingItems.length,
