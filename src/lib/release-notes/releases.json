@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.86.0",
+    "date": "2026-10-20",
+    "pr": 454,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking off a shopping item or a task now feels more satisfying: the checkbox fills in with a quick bounce and your phone gives a tiny buzz before the item moves. With reduced motion on, there is no animation, only the buzz.\n\nAdding items with the inventory quick add is safer now: pressing Enter moves to the next field, and only Enter in the last field (category) adds the item.",
+      "sv": "Att bocka av en inköpsvara eller en uppgift känns nu bättre: rutan fylls med en snabb studs och telefonen ger en liten vibration innan varan flyttas. Med minskad rörelse på visas ingen animation, bara vibrationen.\n\nSnabbtillägg i lagret är säkrare nu: Enter flyttar till nästa fält, och bara Enter i det sista fältet (kategori) lägger till varan."
+    }
+  },
+  {
     "version": "0.85.0",
     "date": "2026-10-20",
     "pr": 448,
