@@ -1044,14 +1044,6 @@ UX-89.
       inventory's style and order. Duplicate rows show "Keep" / "Merge"
       labels.
 
-- [ ] **UX-132. Enter in the empty inventory's quick add doesn't submit
-      half an item** (impact: low, effort: S) — Usability. In the
-      empty-state quick-add form, Enter in the category field submits at
-      once (seen during the review, alongside UX-50's empty-state
-      clean-up).
-      Acceptance: Enter only submits from the last field. Earlier fields
-      move focus to the next one.
-
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —

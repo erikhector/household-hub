@@ -1105,7 +1105,7 @@ export const en = {
     mascotAlt: "Squirrel mascot",
     quickAdd: {
       label: "Quick add",
-      placeholder: "Item name — press Enter to add",
+      placeholder: "Item name",
       add: "Add",
       adding: "Adding…",
       addedToast: "Added {name}",

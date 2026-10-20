@@ -71,3 +71,70 @@ for (const [locale, unitLabel] of [
     }
   });
 }
+
+// UX-132: Enter in an early field used to add the row at once (half an item).
+// Now it walks name -> quantity -> unit -> category and only the last field
+// adds. English only: the behaviour doesn't depend on the language.
+test("quick-add's Enter moves to the next field and only the last one adds", async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  await dismissCookieNotice(context, baseURL!);
+  const tag = `${Date.now().toString(36)}-${testInfo.project.name}-enter`;
+  const userId = `e2e-qe-user-${tag}`;
+  const householdId = `e2e-qe-household-${tag}`;
+  const email = `e2e-qe-${tag}@squirrel.test`;
+  const itemName = `Enter walk ${tag}`;
+
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+       VALUES ($1, $2, $3, 'Quick Enter', now(), 'en')`,
+      [userId, email, await bcrypt.hash(PASSWORD, 10)],
+    );
+    await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Quick enter household')`, [householdId]);
+    await client.query(
+      `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+      [`e2e-qe-member-${tag}`, householdId, userId],
+    );
+
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await page.goto("/dashboard/inventory");
+
+    const name = page.getByLabel("Name", { exact: true });
+    const quantity = page.getByLabel("Quantity", { exact: true });
+    const unit = page.getByLabel("Unit", { exact: true });
+    const category = page.getByLabel("Category", { exact: true });
+    const count = async () =>
+      Number(
+        (await client.query(`SELECT count(*) FROM "InventoryItem" WHERE "householdId" = $1`, [householdId]))
+          .rows[0].count,
+      );
+
+    await name.fill(itemName);
+    await name.press("Enter");
+    await expect(quantity).toBeFocused();
+    await quantity.press("Enter");
+    await expect(unit).toBeFocused();
+    await unit.press("Enter");
+    await expect(category).toBeFocused();
+    expect(await count(), "an early Enter must not add the item").toBe(0);
+
+    await category.fill("Pantry");
+    await category.press("Enter");
+    await expect(name).toBeFocused();
+    await expect(name).toHaveValue("");
+    await expect.poll(count).toBe(1);
+  } finally {
+    await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+    await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
+    await client.end();
+  }
+});
