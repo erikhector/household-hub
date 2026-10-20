@@ -971,7 +971,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       which wins even where it disagrees (another member unticked the
       row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
       flight. It stays in
-      its aisle for 350 ms animating down and out (that fading copy is
+      its aisle for 250 ms (UX-54 shortened it from 350 so the drop still ends inside the 500 ms CLS grace after the tick moment's 200 ms) animating down and out (that fading copy is
       `inert` and `aria-hidden`, so the item is exposed once, as the "In
       the cart" row the overlay already lists), then joins **"In the
       cart"**, a collapsed section (a disclosure button with a count that
@@ -7363,7 +7363,7 @@ still fires. The swipe row's commit buzz uses the same `vibrateTick`.
 The dock's UX-78 settle window is `TICK_MS` + 450 ms so the double-tap
 guard keeps its length. Covered by `e2e/tick-moment.spec.ts`.
 
-A shopping row leaving its aisle (UX-37's 350 ms drop towards "In the
+A shopping row leaving its aisle (UX-37's 250 ms drop towards "In the
 cart") carries no flip key meanwhile, so it has one animation, not two.
 It then arrives in "In the cart" as a new row and rises in there, and the
 aisle closes up with a glide. Since it animates the real element and not

@@ -111,7 +111,10 @@ const ADDED_HIGHLIGHT_MS = 2000;
 
 // UX-37: how long a just-ticked row stays in its aisle, animating out,
 // before it moves into "In the cart". Matches the row's exit animation.
-const LEAVE_MS = 350;
+// UX-54: 250, not 350: the tick now lands TICK_MS (200) after the tap, and
+// the aisle closing up must still happen inside the 500 ms after input that
+// layout shift (CLS) forgives.
+const LEAVE_MS = 250;
 
 type ShoppingListItemRow = {
   id: string;
@@ -1259,7 +1262,7 @@ function ShoppingRow({
           // below for LEAVE_MS, then moves there. motion-safe only; under
           // reduced motion it isn't held back at all (see toggleItem).
           leaving &&
-            "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-4 motion-safe:fill-mode-forwards motion-safe:duration-350",
+            "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-4 motion-safe:fill-mode-forwards motion-safe:duration-250",
         )}
       >
         {/* Below sm the row stacks: the name gets the full width on its own
