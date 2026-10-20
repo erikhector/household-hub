@@ -325,7 +325,7 @@ function CookModeContent({
                         {ingredient.quantity > 0 && (
                           <span className="font-medium">
                             {formatCookQuantity(ingredient.quantity, scale, locale)}
-                            {ingredient.unit ? ` ${unitLabel(ingredient.unit)}` : ""}{" "}
+                            {ingredient.unit ? ` ${unitLabel(ingredient.unit, ingredient.quantity * scale)}` : ""}{" "}
                           </span>
                         )}
                         {ingredient.name}

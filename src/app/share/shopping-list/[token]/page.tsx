@@ -47,7 +47,7 @@ export default async function SharedShoppingListPage(
       {list ? (
         <Card className="w-full max-w-md">
           <CardContent>
-            <UnitsProvider labels={dict.units}>
+            <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>
               <SharedShoppingListClient token={token} list={list} dict={dict.sharedShoppingList} />
             </UnitsProvider>
           </CardContent>

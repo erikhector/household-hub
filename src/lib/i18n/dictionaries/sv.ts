@@ -11,6 +11,12 @@ export const sv = {
     pcs: "st", clove: "klyfta", can: "burk", pack: "förp", slice: "skiva",
     bunch: "knippe", jar: "burk", bag: "påse", bottle: "flaska", box: "ask", pinch: "nypa",
   },
+  // Plural forms of the units above that change with the quantity, so a recipe
+  // reads "3 klyftor" (UX-98). Units absent here are the same in the plural.
+  unitsPlural: {
+    cup: "koppar", pint: "pint", quart: "quart", gallon: "gallon", pack: "förp", clove: "klyftor", can: "burkar", slice: "skivor", bunch: "knippen", jar: "burkar",
+    bag: "påsar", bottle: "flaskor", box: "askar", pinch: "nypor",
+  },
   common: commonCopy.sv,
   // Messages that server actions return as `{ error }` (UX-16). Zod schema messages are these
   // keys, resolved through zodFail() in lib/actions/errors.ts, so each language is chosen per request.
@@ -1612,6 +1618,7 @@ export const sv = {
     servingsHint: "Hur många portioner mängderna nedan räcker till.",
     instructionsLabel: "Instruktioner",
     instructionsPlaceholder: "Så här gör du…",
+    instructionsHint: "Ett steg per rad — varje rad blir ett steg i matlagningsläget",
     addNutritionInfo: "Lägg till näringsinnehåll",
     nutritionSectionLabel: "Näringsinnehåll (valfritt)",
     caloriesPerServingLabel: "Kalorier / portion",
@@ -1640,13 +1647,16 @@ export const sv = {
     comboboxShowSuggestions: "Visa förslag",
     ingredientQuantityPlaceholder: "Antal",
     ingredientUnitPlaceholder: "Enhet",
+    ingredientQuantityLabel: "Mängd",
+    ingredientUnitLabel: "Enhet",
     addIngredient: "Lägg till ingrediens",
     removeIngredientAriaLabel: "Ta bort ingrediens",
     componentsLabel: "Delrecept",
     componentsHint:
-      "Ett delrecepts ingredienser räknas med i detta recepts eget lageravdrag och beräkning av saknade ingredienser, skalat efter hur många omgångar du lägger till här.",
+      "Använd ett annat recept som en del av detta. Dess ingredienser räknas med när du kollar vad som saknas och när du markerar det här som lagat, gånger antalet omgångar.",
     addComponent: "Lägg till delrecept",
     componentQuantityPlaceholder: "Antal",
+    componentQuantityLabel: "Antal omgångar",
     removeComponentAriaLabel: "Ta bort delrecept",
     noAvailableComponentRecipes: "Lägg till ett annat recept först för att kunna använda det som delrecept.",
     componentQuantityError: "Delreceptets mängd måste vara större än 0",
