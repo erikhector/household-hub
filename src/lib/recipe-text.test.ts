@@ -32,7 +32,7 @@ describe("formatRecipeText", () => {
     expect(text).toBe(
       [
         "Pancakes",
-        "4 servings",
+        "4 portions",
         "",
         en.mealPlanning.ingredientsLabel,
         "- 3 dl Wheat flour",
@@ -68,13 +68,13 @@ describe("formatRecipeText", () => {
       "en",
     );
     expect(text).not.toContain(en.mealPlanning.instructionsLabel);
-    expect(text).toBe(`Toast\n1 serving\n\n${en.mealPlanning.ingredientsLabel}\n- 2 Bread`);
+    expect(text).toBe(`Toast\n1 portion\n\n${en.mealPlanning.ingredientsLabel}\n- 2 Bread`);
   });
 
   it("leaves out the ingredients section when there are none", () => {
     const text = formatRecipeText({ name: "Tea", instructions: "Steep", ingredients: [] }, enLabels(2), "en");
     expect(text).not.toContain(en.mealPlanning.ingredientsLabel);
-    expect(text).toBe(`Tea\n2 servings\n\n${en.mealPlanning.instructionsLabel}\n1. Steep`);
+    expect(text).toBe(`Tea\n2 portions\n\n${en.mealPlanning.instructionsLabel}\n1. Steep`);
   });
 
   it("uses the Swedish labels, decimal comma and unit labels", () => {

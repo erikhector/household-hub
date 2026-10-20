@@ -1629,7 +1629,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 - `PreparedBatch` (GAP-49 meal prep, built — see "Meal prep (GAP-49)"
   under "Meal planning"): a household's batch-cooked recipe with
   `totalPortions`/`remainingPortions`, optional `cookedByMember` and
-  `expiryDate`. Recorded by a prep session or by a cook's "Servings left
+  `expiryDate`. Recorded by a prep session or by a cook's "Portions left
   over" (GAP-8). A `MealPlanEntry` can draw portions from one via
   `preparedBatchId` + `preparedPortionsUsed` (0 when it draws none).
   Deleting the recipe deletes its batches (unlinking their entries
@@ -3988,7 +3988,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
   - **Recipe form order and wording (UX-98)**: the form runs in the order
-    a recipe is written: Name and Servings, Ingredients, Sub-recipes,
+    a recipe is written: Name and Portions, Ingredients, Sub-recipes,
     Instructions, Tags, then optional nutrition. The Instructions field
     says "One step per line — each becomes a step in Cook mode" (linked
     with `aria-describedby`). Tag chips are 14 px text and 44 px tall on
@@ -4207,7 +4207,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
   chosen) to a date + `MealType` slot. When the household has a recipe or
   a meal-prep batch to pick, the add dialog opens on that picker with
-  nothing chosen ("Choose a meal", favourite recipes first) rather than on
+  nothing chosen ("Choose a recipe", favourite recipes first) rather than on
   "Custom meal…" and an empty name field (M4: pick, don't type); adding
   without a choice gets "Choose a recipe or enter a meal name". With
   nothing to pick it opens on the name field as before. There's no uniqueness constraint on
@@ -4389,7 +4389,7 @@ recipe can have calories set with the rest left blank).
 ### Recipe cost estimate (GAP-15)
 
 Each recipe on the Recipes tab shows a rough cost to make it, e.g.
-`"~45.00 total · ~11.25/serving"`, on its own line under the nutrition
+`"~45.00 total · ~11.25/portion"`, on its own line under the nutrition
 summary. No schema change: it joins data that already exists —
 `RecipeIngredient` → its linked `InventoryItem.lastKnownPrice` (kept current
 by AUTO-4, above) and the purchased shopping-list line that set it — through
@@ -4874,7 +4874,12 @@ actually used, once they've cooked it.
   it caused.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
-- **Leftovers (GAP-8)**: the dialog has an optional "Servings left over"
+- **One word for portions (UX-95)**: English says "portions" everywhere a
+  recipe's yield shows (recipe list and form, per-portion nutrition and
+  cost, planner, Mark as cooked, Meal prep); the Prisma column stays
+  `servings`. The add sheet's recipe picker reads "Recipe: Choose a
+  recipe", distinct from the "Meal" slot picker.
+- **Leftovers (GAP-8)**: the dialog has an optional "Portions left over"
   number input, blank by default. Blank or 0 means no leftovers, and
   nothing is ever inferred from `servings` vs `portions` (Guardrails:
   suggest, don't silently mutate). The value is validated by
