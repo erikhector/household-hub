@@ -39,12 +39,12 @@ model User {
   passwordChangedAt DateTime?
 
   // Account-level UI preferences, synced across every device the user signs
-  // into (src/lib/preferences.ts). "dark"/"en" mirror the app's pre-existing
-  // hardcoded defaults (src/app/layout.tsx's old defaultTheme, LOCALE_COOKIE's
-  // defaultLocale) so existing users see no change until they pick otherwise.
-  // Anonymous/pre-auth pages still fall back to the theme/locale cookies —
-  // see getLocale() and RootLayout.
-  theme              String @default("dark")
+  // into (src/lib/preferences.ts). Accounts made before UX-51 hold "dark"
+  // (the old hardcoded default); new ones start on "system" so the app follows
+  // the device until the user picks. "en" mirrors LOCALE_COOKIE's
+  // defaultLocale. Anonymous/pre-auth pages still fall back to the
+  // theme/locale cookies — see getLocale() and RootLayout.
+  theme              String @default("system")
   locale             String @default("en")
   // { groupBy, category, location, status, updatedFilter } from
   // src/components/inventory/inventory-client.tsx — validated on read via

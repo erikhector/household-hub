@@ -149,8 +149,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   list (the files MAINT-7 still has to convert; a file that becomes clean
   must be removed from the list), and by `e2e/localised-errors.spec.ts`.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
-  page) carries a `PublicLanguageToggle` button, named after the language
-  it switches to, that calls `setLocaleAction` like the dashboard toggle.
+  page) carries a `PublicLanguageToggle` button that names the language in
+  use ("Language: English", UX-51) and switches to the other, calling
+  `setLocaleAction` like the dashboard toggle (via `useLocaleToggle`, whose
+  async transition keeps the button disabled, dimmed and `aria-busy` until
+  the refreshed page arrives).
   The `locale` cookie is already in `cookie-inventory.ts` as a preference.
   Covered by `e2e/public.spec.ts`.
 - **Passing translations to Client Components**: the convention is to pass
@@ -5782,16 +5785,29 @@ URL and re-fetch on their own; nothing is ever written back.
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
-(`ThemeProvider attribute="class" defaultTheme="dark" enableSystem` in
+(`ThemeProvider attribute="class" defaultTheme={…} enableSystem` in
 `src/app/layout.tsx`), which toggles a `light`/`dark` class on `<html>` and
 handles the flash-of-wrong-theme problem itself (an inline script sets the
 class before first paint, reading its own `localStorage` key — this is the
 same technique, and it's the reason `<html>` has `suppressHydrationWarning`
-and no longer hardcodes a `dark` class). Existing users default to `dark`
-(the app's original look); new visitors can pick any of the three. The
-toggle is `useThemeCycle()` (`src/components/theme/use-theme-cycle.ts`),
-cycling light → dark → system, used in the sidebar (desktop) and bottom
-nav's "More" menu (mobile) — see "Navigation & responsive layout".
+and no longer hardcodes a `dark` class). **UX-51**: a browser with no stored theme follows the
+system's light/dark setting (`defaultTheme` is the signed-in account's saved
+theme, else `"system"`; the `User.theme` column now defaults to `system`, and
+accounts made before keep the `dark` they were given). The browser chrome
+colour follows the page: `layout.tsx`'s `themeColor` lists both schemes by
+media query (`THEME_COLORS` in `theme-choice.ts`) for first paint, and once
+hydrated `ThemeColorSync` writes the resolved theme's colour to every tag, so
+a chosen theme keeps matching chrome when the system scheme flips. The toggle is `useThemeCycle()`
+(`src/components/theme/use-theme-cycle.ts`), cycling light → dark → system,
+used in the sidebar (desktop), the bottom nav's "More" menu (mobile; the menu
+stays open on a theme tap) and, for logged-out visitors, `PublicThemeToggle`
+in the legal footer beside the language toggle. Each shortcut names the
+setting in use ("Theme: Dark" with the matching icon, "Language: English"),
+not the next one. The Profile's Preferences section has the full choice as
+segmented radio groups, Language (English / Svenska) and Appearance (Light /
+Dark / System), in `PreferencesControls`; a language tap checks its segment
+at once (`useOptimistic`) and dims the group until the server has answered
+(M5). `e2e/ux-51.spec.ts` covers it.
 
 Both themes share the same `body` background technique: a
 `radial-gradient(circle, var(--gradient-start), var(--gradient-end))` (set
@@ -6513,8 +6529,8 @@ the locale fallback.
 **Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
 `h2` region, instead of eleven loose cards: **Account** (display name,
 email and password as one card with a divider between the three forms, each
-keeping its own Save), **Preferences** (the Swish number; the Appearance and
-Language controls of UX-51 join it here), **Notifications** (push, weekly
+keeping its own Save), **Preferences** (the Language and
+Appearance controls of UX-51, then the Swish number), **Notifications** (push, weekly
 digest, install app) and **Data & privacy** (Export my data; the "About
 Squirrel" version and "Danger zone" account deletion behind native
 `<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
@@ -6977,7 +6993,9 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   feeds from `navigator`/`matchMedia("(display-mode: standalone)")` (plus
   legacy `navigator.standalone`) via `useSyncExternalStore`.
 - **Theme colour.** The root layout sets per-scheme `viewport.themeColor`
-  (light/dark page ground from `globals.css` `--gradient-end`);
+  (light/dark page ground from `globals.css` `--gradient-end`) for first
+  paint; once hydrated, `ThemeColorSync` sets both to the page's colour
+  (UX-51);
   `manifest.ts`'s single `theme_color` carries the dark value, the app's
   default theme, instead of the old fixed brand purple.
 - **Tap highlight and reduced motion.** `globals.css` sets

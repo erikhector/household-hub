@@ -313,7 +313,9 @@ then MAINT-7 per feature, to avoid churn.
       local `ci:local` gate on release PR #470 (`edc55ea`, 2026-10-20):
       CLS 0.0119 against an expected 0, on three shopping-item swipe rows.
       Passed on a re-run of `e2e/motion.spec.ts --project=desktop` on the
-      same commit (8/8), and the GitHub e2e job was green. Find what shifts
+      same commit (8/8), and the GitHub e2e job was green. Seen again in
+      the `ci:local` gate on PR #464 (`815c9ca`, 2026-10-20): CLS 0.012,
+      passed 14/14 on a re-run on the same commit. Find what shifts
       the swipe rows under load and fix it in the app or the spec's
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
@@ -325,12 +327,16 @@ then MAINT-7 per feature, to avoid churn.
       on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
       The assertion at line 91, after `page.reload()`, expected
       `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
-      but received 1 for the whole 5 s. Find which task is still open after
-      the spec's own completions (a late write, or another row in the
-      worker's shared household) and fix it in the app or the spec's setup
-      and waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=desktop --repeat-each=30` passes 30/30.
+      but received 1 for the whole 5 s. Also failed on the `mobile`
+      project in the `ci:local` gate on PR #464 (`fc00440`, 2026-10-20),
+      where another open task appeared in the worker's household mid-test,
+      and passed on re-runs of the same commit. Find which task is still
+      open after the spec's own completions (a late write, or another row
+      in the worker's shared household) and fix it in the app or the
+      spec's setup and waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
+      both the `desktop` and `mobile` projects.
 - [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
       `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
       springs, then moves the row to the cart"), `desktop` project. Failed
@@ -342,6 +348,19 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
       --repeat-each=30` passes 30/30.
+- [ ] **MAINT-42. Flaky: bottom-bar label check can't find "More" while it carries an unread badge** (low, S) —
+      `e2e/navigation.mobile.spec.ts:85` ("the bottom bar labels are at
+      least 12 px"), `mobile` project. Failed in the local `ci:local` gate
+      on PR #464 (`6c00cff`, 2026-10-20): the More button read "1 More"
+      (an unread-notification badge left by another spec in the worker's
+      shared household), so `nav.getByText("More", { exact: true })` found
+      nothing. Passed on a re-run of the whole spec on the same commit
+      (8/8). Make the spec independent of other specs' notifications (its
+      own household state, or a locator for the label element itself that
+      still asserts its exact text), never a loosened assertion, a skip or
+      a retry. Acceptance: `npx playwright test
+      e2e/navigation.mobile.spec.ts:85 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -415,7 +434,6 @@ UX-89.
 - `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
-- `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
@@ -465,29 +483,6 @@ UX-89.
       through `PrimaryAction`. An empty week shows one empty state
       ("Add your first dinner" / "Fill the week") instead of seven
       slots. Nothing sits under the FAB at 412 px.
-
-- [ ] **UX-51. Theme and language controls show the current setting;
-      first visits follow the system theme** (impact: med, effort: S) —
-      breaks Accessibility ("respect … system theme") and Consistency.
-      - With no stored theme the app is always dark (`defaultTheme`
-        falls back to `"dark"`, `src/app/layout.tsx:102`), even for a
-        light-mode visitor.
-      - Logged-out pages have no theme control, though REQUIREMENTS
-        "Theming" says new visitors can pick one.
-      - Android shows a near-white `theme-color` (`layout.tsx:84`) over
-        the dark page.
-      - The More menu and sidebar label the theme button with the next
-        theme but show the current theme's icon: a moon beside "System"
-        (`bottom-nav.tsx:70-75,189-194`, `sidebar.tsx:111-116`).
-      - The language button says "Swedish", meaning "switch to Swedish".
-      - The menu closes after each tap, so cycling through three themes
-        takes six taps.
-      - Profile has no language or theme setting at all.
-      Acceptance: a first visit with no stored theme renders the system
-      theme, and the browser chrome colour matches the page in both
-      schemes. Profile has, in its Preferences section (UX-76), "Language" and "Appearance (Light / Dark /
-      System)" segmented controls showing the current value. The
-      menu/sidebar shortcuts show the current state.
 
 - [ ] **UX-52. Bottom bar: one icon style, and keep the colour on the
       active tab** (impact: low, effort: S) — breaks Consistency.

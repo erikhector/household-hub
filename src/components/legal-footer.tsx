@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format } from "@/lib/i18n/format";
 import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
 import { PublicLanguageToggle } from "@/components/language/public-language-toggle";
+import { PublicThemeToggle } from "@/components/theme/public-theme-toggle";
 import { CURRENT_VERSION } from "@/lib/release-notes";
 
 /**
@@ -10,7 +11,8 @@ import { CURRENT_VERSION } from "@/lib/release-notes";
  * layout to hang this off of (each of those pages already composes its own
  * header independently — see AGENTS.md), so it's rendered directly by each
  * page rather than via a root layout. It also carries the language toggle,
- * since a logged-out visitor has no dashboard sidebar to switch from. Not used inside the authenticated
+ * and the theme toggle (UX-51), since a logged-out visitor has no dashboard
+ * sidebar to switch from. Not used inside the authenticated
  * dashboard shell (`src/app/dashboard/layout.tsx`), since that already has
  * its own persistent nav and doesn't need a repeated legal footer on every
  * page. The What's new link carries the current version, the same
@@ -18,7 +20,7 @@ import { CURRENT_VERSION } from "@/lib/release-notes";
  * which Squirrel they're looking at and what changed lately.
  */
 export async function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
-  const [locale, { language }] = await Promise.all([getLocale(), getDictionary()]);
+  const [locale, { language, theme }] = await Promise.all([getLocale(), getDictionary()]);
   return (
     <footer className="flex flex-col items-center gap-1 py-4 text-xs text-muted-foreground">
       <nav className="flex flex-wrap items-center justify-center gap-2">
@@ -37,7 +39,10 @@ export async function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
           {`${dict.whatsNewNavLabel} · v${CURRENT_VERSION}`}
         </Link>
       </nav>
-      <PublicLanguageToggle locale={locale} dict={language} />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <PublicLanguageToggle locale={locale} dict={language} />
+        <PublicThemeToggle dict={theme} />
+      </div>
       <p>{format(dict.footerCopyright, { year: new Date().getFullYear() })}</p>
     </footer>
   );

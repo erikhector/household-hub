@@ -36,8 +36,12 @@ function transitionSeconds(value: string): number[] {
     .filter((n) => !Number.isNaN(n));
 }
 
-test.describe("document polish", () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
+// The server markup: one tag per scheme, picked by media query, which is all
+// the browser has for first paint. Without JavaScript, because once hydrated
+// ThemeColorSync sets both tags to the page's own colour (UX-51, covered in
+// ux-51.spec.ts), so a chosen theme beats the system scheme.
+test.describe("server-rendered theme-color", () => {
+  test.use({ storageState: { cookies: [], origins: [] }, javaScriptEnabled: false });
 
   test("theme-color tracks the colour scheme", async ({ page }) => {
     const errors = collectErrors(page);
@@ -54,6 +58,10 @@ test.describe("document polish", () => {
     ]);
     expect(errors).toEqual([]);
   });
+});
+
+test.describe("document polish", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test("taps leave no platform highlight", async ({ page }) => {
     const errors = collectErrors(page);

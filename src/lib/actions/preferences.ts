@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/session";
 import { logger } from "@/lib/logger";
 import { isThemeChoice, type ThemeChoice } from "@/components/theme/theme-choice";
@@ -14,7 +15,13 @@ import type { InventoryViewPrefs } from "@/components/inventory/inventory-table-
 
 export async function setThemeAction(theme: ThemeChoice) {
   if (!isThemeChoice(theme)) return;
-  const userId = await requireUserId();
+  // UX-51: logged-out pages have a theme toggle too, and its choice lives in
+  // the browser alone. requireUserId() would redirect such a visitor to
+  // /login (away from /join, say), so an anonymous call is a no-op instead,
+  // like setLocaleAction's.
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return;
 
   try {
     await prisma.user.update({ where: { id: userId }, data: { theme } });
