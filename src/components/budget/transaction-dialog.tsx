@@ -238,6 +238,7 @@ export function TransactionDialog({
   const [isRecurring, setIsRecurring] = useState(
     transaction?.isRecurring ?? !!prefillFromTemplate?.templateId,
   );
+  const showRecurringBox = isEdit ? !!transaction?.isRecurring : !!prefillFromTemplate?.templateId;
   const [amount, setAmount] = useState(
     transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
   );
@@ -436,6 +437,15 @@ export function TransactionDialog({
               defaultValue={kept.values.description ?? transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />
           </div>
+          {/* UX-113: a new transaction can't be ticked "This repeats". The flag
+              only fed a hidden fallback estimate in Safe to spend: nothing
+              showed under Recurring items or "Due this period", so the
+              number moved with no item to point at. A repeating bill is
+              added under Manage > Recurring items, where it is listed, due
+              and counted by name. The box stays where it still means
+              something: a payment logged from a recurring item, and an
+              existing transaction already flagged (so it can be cleared). */}
+          {showRecurringBox && (
           <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
             <label className="flex items-center gap-2 text-sm font-medium">
               <Checkbox
@@ -474,6 +484,7 @@ export function TransactionDialog({
               </div>
             )}
           </div>
+          )}
           {canSplit && (
             <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
               <label className="flex items-center gap-2 text-sm font-medium">

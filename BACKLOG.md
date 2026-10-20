@@ -387,7 +387,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-47,
-UX-89, UX-113.
+UX-89.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -398,7 +398,7 @@ UX-89, UX-113.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
-- `src/components/budget/transaction-dialog.tsx`: UX-111, UX-113.
+- `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
@@ -930,18 +930,6 @@ UX-89, UX-113.
       they owe or are owed on the personal Overview and home before
       adding categories. The shared-expense action has one name and
       placement on both pages.
-
-- [ ] **UX-113. "This repeats" creates a visible recurring item, or goes
-      away** (impact: high, effort: M) — breaks Consistency and User
-      control. ⚠️ money.
-      - Ticking "This repeats, Monthly" on a 250 transaction creates no
-        recurring item, and nothing shows under Recurring items or "Due
-        this period".
-      - Next month's safe to spend still drops by 250 through a hidden
-        fallback estimate.
-      Acceptance: "This repeats" creates or links a recurring item shown
-      on Manage, or the checkbox is removed. No amount changes safe to
-      spend without appearing in "How we got this number".
 
 - [ ] **UX-114. Insights: who owes whom first, empty cost cards
       collapsed** (impact: med, effort: S) — breaks M6. On a phone,
