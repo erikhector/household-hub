@@ -323,18 +323,17 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/ux-31.spec.ts --project=desktop
       --repeat-each=30` passes 30/30.
-- [ ] **MAINT-37. Red release: `task-compact-rows` fails on the GitHub runner (blocks re-landing UX-106)** (med, S) —
-      `e2e/task-compact-rows.spec.ts:46`, `mobile` project. #437 (UX-106)
-      was reverted after the `End-to-end (Playwright)` job on release PR
-      #440 (run 39329747316) failed it on both attempts:
-      `row.getByText("E2E Tester", { exact: true })` was not found in the
-      task row (line 57). It passed in the local `ci:local` gate and with
-      `--repeat-each=3`, so something differs on the runner (the seeded
-      member's name, the assignee badge, or the compact row cutting the
-      badge). The run's `playwright-report` artifact has the screenshot and
-      trace. Acceptance: re-land UX-106 so the spec passes in the GitHub
-      e2e job, not only locally; do not loosen the 56 px or name
-      assertions.
+- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) —
+      `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
+      `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
+      clicking the flour ingredient link in the recipe sheet (line 173),
+      `getByRole("heading", { name: "Flour …", level: 1 })` was not found
+      within 5 s. Passed on a re-run of the same spec on the same commit,
+      and the GitHub e2e job was green. Find why the item page can be slow
+      to show its heading after that navigation and fix it in the app or
+      the spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/item-page.spec.ts:139
+      --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -885,6 +884,14 @@ UX-89.
       most 56 px, with edit and delete in the swipe tray and the edit
       sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
       filter is remembered.
+      Re-landing note: #437 was reverted (#441) because
+      `e2e/task-compact-rows.spec.ts:46` (`mobile`) failed on both attempts
+      in the GitHub `End-to-end (Playwright)` job on release PR #440 (run
+      39329747316): `row.getByText("E2E Tester", { exact: true })` not
+      found in the task row, though it passed locally. Several builder
+      gates failed it too, so it is not runner-specific. The new spec must
+      pass in the GitHub e2e job; do not loosen the 56 px or name
+      assertions.
 
 - [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
       (impact: med, effort: M) — bug, breaks Usability. Today the next due
