@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
@@ -11,6 +13,11 @@ import { isPasswordResetTokenUsable } from "@/lib/reset-token";
 // for a new link, not a form that only fails after a new password is typed.
 // resetPasswordAction still re-validates on submit, since the token can be
 // used or expire between this render and the submit.
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.auth.resetPassword.pageTitle);
+}
+
 export default async function ResetPasswordPage(props: PageProps<"/reset-password/[token]">) {
   const [{ token }, dict] = await Promise.all([props.params, getDictionary()]);
   const usable = await isPasswordResetTokenUsable(token);
@@ -20,7 +27,7 @@ export default async function ResetPasswordPage(props: PageProps<"/reset-passwor
       {usable ? (
         <Card className="w-full max-w-sm">
           <CardHeader>
-            <CardTitle className="text-xl">{dict.auth.resetPassword.pageTitle}</CardTitle>
+            <CardTitle as="h1" className="text-xl">{dict.auth.resetPassword.pageTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResetPasswordForm token={token} dict={dict.auth.resetPassword} />

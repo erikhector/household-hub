@@ -3366,6 +3366,18 @@ export const sv = {
     backToDashboard: "Till översikten",
     goToSquirrel: "Gå till Squirrel",
   },
+  // UX-64: texten bakom varje publik sidas <title> och länkförhandsvisning
+  // (src/lib/page-metadata.ts). Rotlayouten lägger till " · Squirrel".
+  meta: {
+    homeTitle: "Squirrel: styr hushållet som ett drömlag",
+    homeDescription:
+      "Lager, inköpslistor, måltidsplanering, sysslor och budget för hela hushållet, på ett ställe.",
+    privacyTitle: "Integritetspolicy",
+    termsTitle: "Användarvillkor",
+    joinDescription: "Du har blivit inbjuden till {name} på Squirrel. Skapa ett konto för att gå med i hushållet.",
+    shareDescription: "En inköpslista som delats från ett Squirrel-hushåll. Öppna den för att se och bocka av varor.",
+    fallbackDescription: "Lager, inköp, måltidsplanering och budget för ditt hushåll.",
+  },
   digestUnsubscribe: {
     pageTitle: "Veckosammanfattning",
     invalidTitle: "Länken är inte giltig",

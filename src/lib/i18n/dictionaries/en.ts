@@ -3526,6 +3526,20 @@ export const en = {
   // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
   // read client-side, so these strings live here purely for translation
   // reuse rather than for a live language switch.
+  // UX-64: the text behind each public page's <title> and link preview
+  // (src/lib/page-metadata.ts). Titles that already exist as a heading
+  // elsewhere in the dictionary are reused at the call site; these are
+  // the ones with no other home. The root layout appends " · Squirrel".
+  meta: {
+    homeTitle: "Squirrel: run your household like a dream team",
+    homeDescription:
+      "Inventory, shopping lists, meal planning, tasks and budgets for your whole household, in one place.",
+    privacyTitle: "Privacy policy",
+    termsTitle: "Terms of service",
+    joinDescription: "You've been invited to {name} on Squirrel. Create an account to join the household.",
+    shareDescription: "A shopping list shared from a Squirrel household. Open it to see and tick off items.",
+    fallbackDescription: "Inventory, shopping, meal planning, and budgeting for your household.",
+  },
   digestUnsubscribe: {
     pageTitle: "Weekly digest",
     invalidTitle: "Link not valid",

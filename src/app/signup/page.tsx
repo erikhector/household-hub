@@ -1,9 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignupForm } from "@/components/auth/signup-form";
 import { LegalFooter } from "@/components/legal-footer";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.auth.signup.pageTitle);
+}
 
 export default async function SignupPage() {
   const dict = await getDictionary();
@@ -19,7 +26,7 @@ export default async function SignupPage() {
       </Link>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">{dict.auth.signup.pageTitle}</CardTitle>
+          <CardTitle as="h1" className="text-xl">{dict.auth.signup.pageTitle}</CardTitle>
         </CardHeader>
         <CardContent>
           <SignupForm dict={dict.auth.signup} legalDict={dict.legal} />
