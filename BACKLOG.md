@@ -350,6 +350,30 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
       --repeat-each=30` passes 30/30.
+- [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
+      shows the all-caught-up card above Completed"), `desktop` project.
+      Failed its first attempt in the GitHub `End-to-end (Playwright)` job
+      on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
+      The assertion at line 91, after `page.reload()`, expected
+      `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
+      but received 1 for the whole 5 s. Find which task is still open after
+      the spec's own completions (a late write, or another row in the
+      worker's shared household) and fix it in the app or the spec's setup
+      and waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
+      `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
+      springs, then moves the row to the cart"), `desktop` project. Failed
+      in the local `ci:local` gate on release PR #477 (`d16c164`,
+      2026-10-20): `toBeChecked()` then "element(s) not found". Passed on a
+      re-run of the whole spec on the same commit (10/10), and the GitHub
+      e2e job was green. Find what makes the row disappear or re-render
+      before the assertion under load and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
