@@ -39,7 +39,8 @@ test.describe("public language toggle", () => {
     await expect(page.getByText("Ogiltig inbjudan")).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
 
-    await page.getByRole("button", { name: "Byt språk: Engelska" }).click();
+    // The footer names the language in use (UX-51); a tap switches to the other.
+    await page.getByRole("button", { name: "Byt språk: Svenska" }).click();
     await expect(page.getByText("Invalid invite")).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 

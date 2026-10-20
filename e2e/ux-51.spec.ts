@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { en } from "../src/lib/i18n/dictionaries/en";
 import { sv } from "../src/lib/i18n/dictionaries/sv";
 import { dismissCookieNotice, expectNoHorizontalOverflow, setLocaleCookie } from "./ui";
@@ -29,6 +30,10 @@ test.describe("logged out", () => {
       // The browser chrome colour matches the page: light.
       await expect.poll(() => themeColors(page)).toContain("#fefcff");
 
+      // Both footer buttons name the setting in use, not the one a tap picks.
+      await expect(page.getByRole("button", { name: new RegExp(en.language.toggleLabel) })).toHaveText(
+        "Language: English",
+      );
       const toggle = page.getByRole("button", { name: new RegExp(en.theme.toggleLabel) });
       await expect(toggle).toContainText("Theme: System");
       await toggle.click(); // system -> light
@@ -52,6 +57,22 @@ test.describe("logged out", () => {
       await page.goto("/login");
       await expect(page.locator("html")).toHaveClass(/dark/);
     });
+
+    test("a chosen theme keeps the browser chrome when the system scheme flips", async ({ page }) => {
+      await page.goto("/login");
+      const toggle = page.getByRole("button", { name: new RegExp(en.theme.toggleLabel) });
+      await toggle.click(); // system -> light
+      await toggle.click(); // light -> dark
+      await expect(toggle).toContainText("Theme: Dark");
+      await expect(page.locator("html")).toHaveClass(/dark/);
+
+      // The phone goes light (automatic switching at sunrise): the page stays
+      // dark, so the chrome must too, including the light-scheme tag the
+      // browser now applies.
+      await page.emulateMedia({ colorScheme: "light" });
+      await expect(page.locator("html")).toHaveClass(/dark/);
+      await expect.poll(() => themeColors(page)).toEqual(["#0a0414", "#0a0414"]);
+    });
   });
 
   test("the toggle is in the visitor's language", async ({ page, context, baseURL }) => {
@@ -60,13 +81,19 @@ test.describe("logged out", () => {
     await expect(page.getByRole("button", { name: new RegExp(sv.theme.toggleLabel) })).toContainText(
       "Tema: System",
     );
+    await expect(page.getByRole("button", { name: new RegExp(sv.language.toggleLabel) })).toHaveText(
+      "Språk: Svenska",
+    );
   });
 });
 
 test.describe("signed in", () => {
   test.use({ colorScheme: "light" });
 
-  test("the shortcut shows the current theme and language", async ({ page }, testInfo) => {
+  test("the shortcut shows the current theme and language", async ({ page, context, baseURL }, testInfo) => {
+    // Expanded, the sidebar's buttons are named by their visible text; collapsed
+    // they are icons named "Switch theme", which proves nothing here.
+    await context.addCookies([{ name: SIDEBAR_COOKIE, value: "1", url: baseURL! }]);
     await page.goto("/dashboard");
     if (testInfo.project.name.startsWith("mobile")) {
       await page.getByRole("navigation").getByRole("button", { name: en.nav.more }).click();
@@ -82,8 +109,8 @@ test.describe("signed in", () => {
       await page.getByRole("menuitem", { name: "Theme: Dark" }).click(); // back to system
     } else {
       const sidebar = page.getByRole("complementary");
-      await expect(sidebar.getByRole("button", { name: /Theme: System|Switch theme/ })).toBeVisible();
-      await expect(sidebar.getByRole("button", { name: /Language: English|Switch language/ })).toBeVisible();
+      await expect(sidebar.getByRole("button", { name: "Theme: System", exact: true })).toBeVisible();
+      await expect(sidebar.getByRole("button", { name: "Language: English", exact: true })).toBeVisible();
     }
   });
 
@@ -102,8 +129,20 @@ test.describe("signed in", () => {
     await appearance.getByText(en.theme.light, { exact: true }).click();
     await expect(page.locator("html")).not.toHaveClass(/dark/);
 
+    // Hold the language change on its way to the server: the tap must show
+    // before the answer comes back (M5), with the group busy until then.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/dashboard/profile", async (route) => {
+      if (route.request().method() === "POST" && route.request().headers()["next-action"]) await held;
+      await route.continue();
+    });
     await language.getByText(en.language.swedish, { exact: true }).click();
+    await expect(language.getByRole("radio", { name: en.language.swedish })).toBeChecked();
+    await expect(language.getByRole("radio", { name: en.language.english })).toBeDisabled();
+    release();
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
+    await page.unroute("**/dashboard/profile");
     const svPreferences = page.getByRole("region", { name: sv.profile.sections.preferences });
     await expect(
       svPreferences.getByRole("group", { name: sv.language.heading }).getByRole("radio", { name: sv.language.swedish }),

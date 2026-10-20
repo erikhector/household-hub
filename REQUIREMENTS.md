@@ -142,8 +142,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   list (the files MAINT-7 still has to convert; a file that becomes clean
   must be removed from the list), and by `e2e/localised-errors.spec.ts`.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
-  page) carries a `PublicLanguageToggle` button, named after the language
-  it switches to, that calls `setLocaleAction` like the dashboard toggle.
+  page) carries a `PublicLanguageToggle` button that names the language in
+  use ("Language: English", UX-51) and switches to the other, calling
+  `setLocaleAction` like the dashboard toggle.
   The `locale` cookie is already in `cookie-inventory.ts` as a preference.
   Covered by `e2e/public.spec.ts`.
 - **Passing translations to Client Components**: the convention is to pass
@@ -5714,9 +5715,9 @@ system's light/dark setting (`defaultTheme` is the signed-in account's saved
 theme, else `"system"`; the `User.theme` column now defaults to `system`, and
 accounts made before keep the `dark` they were given). The browser chrome
 colour follows the page: `layout.tsx`'s `themeColor` lists both schemes by
-media query (`THEME_COLORS` in `theme-choice.ts`) and `ThemeColorSync` sets
-the resolved theme's colour when a visitor's own choice differs from the
-system's. The toggle is `useThemeCycle()`
+media query (`THEME_COLORS` in `theme-choice.ts`) for first paint, and once
+hydrated `ThemeColorSync` writes the resolved theme's colour to every tag, so
+a chosen theme keeps matching chrome when the system scheme flips. The toggle is `useThemeCycle()`
 (`src/components/theme/use-theme-cycle.ts`), cycling light → dark → system,
 used in the sidebar (desktop), the bottom nav's "More" menu (mobile; the menu
 stays open on a theme tap) and, for logged-out visitors, `PublicThemeToggle`
@@ -5724,7 +5725,9 @@ in the legal footer beside the language toggle. Each shortcut names the
 setting in use ("Theme: Dark" with the matching icon, "Language: English"),
 not the next one. The Profile's Preferences section has the full choice as
 segmented radio groups, Language (English / Svenska) and Appearance (Light /
-Dark / System), in `PreferencesControls`. `e2e/ux-51.spec.ts` covers it.
+Dark / System), in `PreferencesControls`; a language tap checks its segment
+at once (`useOptimistic`) and dims the group until the server has answered
+(M5). `e2e/ux-51.spec.ts` covers it.
 
 Both themes share the same `body` background technique: a
 `radial-gradient(circle, var(--gradient-start), var(--gradient-end))` (set

@@ -19,7 +19,7 @@ function subscribe() {
 }
 
 export function useThemeCycle() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   // useSyncExternalStore (not useState+useEffect) is the React-recommended
   // way to get a value that's false during SSR/first client render and true
   // after: getServerSnapshot always returns false, so hydration matches the
@@ -49,5 +49,5 @@ export function useThemeCycle() {
     select(order[(order.indexOf(current) + 1) % order.length]);
   }
 
-  return { current, Icon: icons[current], cycle, select, resolved: resolvedTheme };
+  return { current, Icon: icons[current], cycle, select };
 }
