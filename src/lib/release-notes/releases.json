@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.89.0",
+    "date": "2026-10-20",
+    "pr": 477,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Signing up now tells you what the household name is for, and points anyone joining a partner's or family member's household to the invite link they were sent.\n\nRepeating chores now reopen at midnight in your time zone, so a daily chore you tick late in the evening is back on your list the next morning. Weekly chores stay on their day even if you tick them early or late.\n\nRecipes now say \"portions\" everywhere (recipe list, recipe form, planner, Mark as cooked and Meal prep), and the add-meal sheet asks you to \"Choose a recipe\".",
+      "sv": "När du skapar ett konto förklarar vi nu vad hushållets namn används till, och hänvisar den som ska gå med i någon annans hushåll till inbjudningslänken.\n\nÅterkommande sysslor öppnas nu vid midnatt i din tidszon, så en daglig syssla du bockar av sent på kvällen finns tillbaka på listan nästa morgon. Veckosysslor stannar kvar på sin dag, även om du bockar av dem tidigt eller sent.\n\nRecept säger nu \"portioner\" överallt på engelska, och i planeringen står det \"Välj ett recept\" när du lägger till en måltid."
+    }
+  },
+  {
     "version": "0.88.0",
     "date": "2026-10-20",
     "pr": 470,
