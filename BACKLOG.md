@@ -258,17 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
-      `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
-      once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
-      the "Copy last week" menuitem was not visible after clicking More. It
-      passed 42/42 alone (`--repeat-each=10`) and in the next full gate on
-      the same commit, so it depends on load, probably a click before
-      hydration like MAINT-27. Fix it in the app (when the More menu is
-      interactive) or in the test's waiting, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-35. Flaky: `planner-add-missing` hits a duplicate `MealPlan` week key on mobile** (low, S) —
       `e2e/planner-add-missing.spec.ts:76` and `:82`, `mobile` project.
       Failed in one local `ci:local` gate on the UX-129 branch (`cd0514d`,

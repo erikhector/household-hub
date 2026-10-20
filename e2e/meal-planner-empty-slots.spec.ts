@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
 // UX-5 / UX-21: a day with nothing planned in the weekly planner is one
 // "+ Add meal" button that asks for the slot, not four "<slot> + Add meal"
@@ -92,6 +92,9 @@ test("the planner has one control row with the rare actions in a menu", async ({
   await expect(page.getByRole("button", { name: "Copy last week" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add missing ingredients to shopping list" })).toHaveCount(0);
 
+  // The menu opens through React handlers, so a tap before hydration does
+  // nothing (MAINT-34, as MAINT-27).
+  await expectHydrated(more);
   await more.click();
   await expect(page.getByRole("menuitem", { name: "Copy last week" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Add missing ingredients to shopping list" }).click();
