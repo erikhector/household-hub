@@ -783,6 +783,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     "pcs" showed as a single letter. `e2e/quick-add-unit.spec.ts` guards it
     at 390px in `en` and `sv` (its own empty household, since the seeded
     one has items).
+  - **Quick-add Enter (UX-132)**: in that row Enter moves focus to the
+    next field (name, quantity, unit, category) and only Enter in the
+    category field adds the item, so a half-filled row is never submitted;
+    the "+" button adds from any field. `e2e/quick-add-unit.spec.ts`
+    covers it.
   - **Auto-categorization (AUTO-2)**: a new item created without a
     category is filed under a guessed one instead of `"Uncategorized"`, so
     things added from a list, receipt, paste or quick-add arrive already

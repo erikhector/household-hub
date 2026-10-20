@@ -1033,7 +1033,7 @@ export const sv = {
     mascotAlt: "Squirrel-maskot",
     quickAdd: {
       label: "Snabbtillägg",
-      placeholder: "Varans namn — tryck Enter för att lägga till",
+      placeholder: "Varans namn",
       add: "Lägg till",
       adding: "Lägger till…",
       addedToast: "La till {name}",
