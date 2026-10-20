@@ -15,6 +15,7 @@ const {
   householdMemberFindFirstMock,
   householdMemberFindManyMock,
   revalidatePathMock,
+  getTimeZoneMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   householdTaskCreateMock: vi.fn(),
@@ -25,6 +26,7 @@ const {
   householdMemberFindFirstMock: vi.fn(),
   householdMemberFindManyMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  getTimeZoneMock: vi.fn(async () => "UTC"),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -41,6 +43,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+vi.mock("@/lib/get-time-zone", () => ({ getTimeZone: getTimeZoneMock }));
 
 const { createTaskAction, updateTaskAction, toggleTaskCompletedAction, deleteTaskAction } = await import(
   "@/app/dashboard/tasks/actions"
@@ -319,6 +322,7 @@ describe("toggleTaskCompletedAction", () => {
         previousCompletedAt: true,
         previousCompletedByMemberId: true,
         recurrenceIntervalDays: true,
+        createdAt: true,
         assignedToMemberId: true,
         rotationMemberIds: true,
         rotationPreviousAssigneeId: true,
@@ -459,6 +463,35 @@ describe("toggleTaskCompletedAction", () => {
     expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
       where: expect.anything(),
       data: expect.objectContaining({ completedAt: earlier, completedByMemberId: null }),
+    });
+  });
+
+  it("reads a daily chore ticked at 23:40 local as open again once the local day has rolled over (UX-137)", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    // Ticked 23:40 Stockholm time on 14 Sept; it's now 00:30 on the 15th there
+    // (22:30Z), still the same UTC day, so only the user's zone says "open".
+    vi.useFakeTimers({ now: new Date("2026-09-14T22:30:00.000Z") });
+    getTimeZoneMock.mockResolvedValueOnce("Europe/Stockholm");
+    const tickedAt = new Date("2026-09-14T21:40:00.000Z");
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...notRotating,
+      ...noHistory,
+      id: "task-1",
+      completedAt: tickedAt,
+      recurrenceIntervalDays: 1,
+      createdAt: new Date("2026-08-01T09:00:00.000Z"),
+    });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    try {
+      await toggleTaskCompletedAction("task-1");
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Completing again (not un-ticking): the new completion is written.
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: tickedAt },
+      data: expect.objectContaining({ completedAt: new Date("2026-09-14T22:30:00.000Z"), previousCompletedAt: tickedAt }),
     });
   });
 
@@ -659,6 +692,7 @@ describe("task rotation (GAP-38)", () => {
       id: "task-1",
       completedAt: new Date("2020-01-01T00:00:00.000Z"),
       recurrenceIntervalDays: 7,
+      createdAt: new Date("2019-01-01T00:00:00.000Z"),
       assignedToMemberId: "member-1",
       rotationMemberIds: ["member-1", "member-gone", "member-3"],
       rotationPreviousAssigneeId: null,
