@@ -258,20 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-31. Flaky: `/dashboard/household` shifts 0.0647 while loading on mobile** (low, S) —
-      `e2e/cls.spec.ts:66` ("/dashboard/household does not shift while
-      loading", the hard-load CLS loop over `DASHBOARD_ROUTES`), `mobile`
-      project. Failed once in the local `ci:local` gate on release PR #366
-      (head `c6c7e36`, 2026-10-18), then passed on a re-run of the same
-      commit; GitHub's `End-to-end (Playwright)` job on that head passed.
-      The failing assertion is `toBeLessThan(CLS_BUDGET)` (`:82`, budget
-      0.05 from `:11`, UX-42): the summed `layout-shift` entries were
-      0.0647. Something on the household page (a streamed Suspense section
-      or a late-sizing element after `networkidle`) sometimes lands without
-      a reserved box. Fix it in the app (a skeleton or fixed size for what
-      shifts) or in the test's waiting, never a raised budget, a skip or a
-      retry. Acceptance: `npx playwright test e2e/cls.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-32. Flaky: Delete and Save buttons overlap in the phone edit sheet** (low, S) —
       `e2e/budget-transaction-rows.spec.ts:51` ("phone rows open the edit
       sheet, name themselves and delete from the sheet"), `mobile` project.
@@ -1032,6 +1018,32 @@ UX-89.
       Acceptance: the catalog has search and compact rows in the
       inventory's style and order. Duplicate rows show "Keep" / "Merge"
       labels.
+
+### UX (2026-10-20 scout)
+
+Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
+`tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
+route passes. The popup probe found two phone-only size gaps.
+
+- [ ] **UX-143. Unit and item suggestions are 44 px tall on phones**
+      (impact: med, effort: S) — M-rule break (44 × 44 targets). On the
+      `dialogs-mobile` audit the suggestion rows in the unit pickers
+      (`/dashboard/inventory/items/[id]` "Show suggestions": `pcs`, `g`,
+      `dl` at 168×32) are 32 px high, because `AutocompleteItem`
+      (`src/components/ui/autocomplete.tsx`, the `py-1.5 text-sm` row)
+      lacks the `max-sm:min-h-11 pointer-coarse:min-h-11` that
+      `ComboboxItem` (`src/components/ui/combobox.tsx:137`) already has.
+      The same audit flags the combobox toggle (`ComboboxTrigger`,
+      `combobox.tsx:56/71`) at 44×42 in "Merge into another item…", the
+      shopping list's "Match item" (Inventory item) and personal-budget
+      "Log a shared expense" (Category): `h-full` inside an `h-11` group
+      loses 2 px to the border. Neighbouring suggestion rows are
+      therefore easy to mis-tap in the shop, one-handed.
+      Acceptance: in the `mobile` project, open the unit picker and the
+      Match item dialog; every suggestion row and the combobox toggle
+      measure at least 44 px in both dimensions
+      (`getBoundingClientRect`), and `dialogs-mobile` reports no
+      `smallTargets` for these.
 
 ### Dependencies
 

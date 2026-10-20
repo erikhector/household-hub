@@ -1,4 +1,4 @@
-import { Suspense, cache } from "react";
+import { cache } from "react";
 import { Users } from "lucide-react";
 import { absoluteAppUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
@@ -21,8 +21,8 @@ import { PrimaryAction } from "@/components/dashboard/primary-action";
 
 
 // Wrapped in `cache()` so the "shared with" note and the member list below
-// (both Suspense-isolated, see HouseholdPage) share one query instead of one
-// each, the same convention as getInventoryData in the inventory page.
+// share one query instead of one each, the same convention as
+// getInventoryData in the inventory page.
 const getHouseholdMembers = cache(async (householdId: string) => {
   const members = await prisma.householdMember.findMany({
     where: { householdId },
@@ -55,16 +55,6 @@ async function SharedWithNote({
       <Users className="size-4 shrink-0" />
       {format(plural(otherMembers, dict.sharedWith), { count: otherMembers })}
     </p>
-  );
-}
-
-function MemberListSkeleton({ label }: { label: string }) {
-  return (
-    <div className="list-bleed flex animate-pulse flex-col gap-2 rounded-lg border p-4" role="status" aria-label={label}>
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-12 rounded-md bg-muted/40" />
-      ))}
-    </div>
   );
 }
 
@@ -147,22 +137,21 @@ export default async function HouseholdPage() {
           <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={household.name}>
             {household.name}
           </p>
-          <Suspense fallback={null}>
-            <SharedWithNote householdId={household.id} userId={userId} dict={dict.household} />
-          </Suspense>
+          {/* MAINT-31: no Suspense around the three async sections on this
+              page. Each used to stream in after the first paint behind a
+              fallback of a different height (nothing at all for this note),
+              so under load the settings cards below jumped by the difference
+              (CLS 0.0647 against the 0.05 budget). The queries are small and
+              route-level loading.tsx already covers the wait, so the page
+              now arrives complete and nothing moves. */}
+          <SharedWithNote householdId={household.id} userId={userId} dict={dict.household} />
         </div>
         <PrimaryAction>
           <InviteButton dict={dict.household.invite} />
         </PrimaryAction>
       </div>
-      <Suspense fallback={<MemberListSkeleton label={dict.common.loading} />}>
-        <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
-      </Suspense>
-      {/* Its own Suspense boundary so a slow notes query never holds up
-          the member list above (same reasoning as HouseholdMemberList). */}
-      <Suspense fallback={<MemberListSkeleton label={dict.common.loading} />}>
-        <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
-      </Suspense>
+      <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
+      <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
       {/* Owner-only (see renameHouseholdAction). */}
       {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}
       {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
