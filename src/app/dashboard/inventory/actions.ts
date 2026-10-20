@@ -186,7 +186,9 @@ export async function updateInventoryItemAction(
   if (canonicalUnit(parsed.data.unit) !== canonicalUnit(item.unit)) {
     const measuredInOldUnit =
       item.quantity > 0 || (await prisma.itemUnitConversion.count({ where: { inventoryItemId: item.id } })) > 0;
-    if (measuredInOldUnit) return { error: (await getDictionary()).inventory.unitChangeNeedsItemPage };
+    if (measuredInOldUnit) {
+      return { error: (await getDictionary()).inventory.unitChangeNeedsItemPage, errorField: "unit" };
+    }
   }
 
   const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;

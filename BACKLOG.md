@@ -922,15 +922,6 @@ UX-89.
       Acceptance: one tap shows common units (st/pcs, g, kg, dl, l, förp)
       plus used ones, as chips or a list.
 
-- [ ] **UX-128. Show a refused unit change next to the field** (impact:
-      med, effort: S) — breaks Usability ("errors next to the field") and
-      M5. Changing Smör from g to kg in Edit and tapping Save appears to do
-      nothing: the refusal ("This item has stock… use Change unit…") is
-      below the fold of the scrolling form, and the field stays editable.
-      Acceptance: for an item with stock, the unit field is read-only with
-      an inline "Change unit…" link, and any refusal shows beside it in
-      view.
-
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.
       - "All" shows ~130 px cards, three per screen, with no search, no

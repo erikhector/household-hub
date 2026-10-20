@@ -520,6 +520,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       nothing is measured in the old unit. `updateInventoryItemAction`
       refuses a unit change (other than a respelling like st → pcs) on an
       item with stock or saved conversions and points to "Change unit…".
+      UX-128: for an item with stock the form shows the unit read-only
+      (it still posts, unchanged) with an inline "Change unit…" link to the
+      item page. The one case the form can't see, saved conversions with no
+      stock, stays editable; its refusal comes back with `errorField:
+      "unit"` and shows under the unit field, in view, with the same link,
+      instead of at the foot of the scrolling form.
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's

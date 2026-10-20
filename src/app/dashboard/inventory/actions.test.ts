@@ -327,6 +327,7 @@ describe("updateInventoryItemAction", () => {
     const result = await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "g" }));
 
     expect(result.error).toBe(en.inventory.unitChangeNeedsItemPage);
+    expect(result.errorField).toBe("unit");
     expect(updateMock).not.toHaveBeenCalled();
   });
 

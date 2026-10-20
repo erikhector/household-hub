@@ -21,6 +21,10 @@ export type ActionState = {
   /** Set by the create-transaction actions (UX-109), so the "Added … · Undo"
    * toast can delete exactly the row it announced. */
   createdId?: string;
+  /** UX-128: the field `error` belongs to, when the form can show it next
+   * to that field (a refusal below the fold of a scrolling form looks like
+   * Save did nothing). Unset means a form-level error. */
+  errorField?: "unit";
 };
 
 // bcrypt silently truncates/ignores any bytes past 72 — without a matching
