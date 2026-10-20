@@ -431,8 +431,20 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       chips and the meal-planning tabs also write `?filter=` / `?tab=`
       with `history.replaceState`, so the browser's back button lands on
       the same filter or tab.
-    - **Header**: name, category · location, "In stock: 1 pcs · running
-      low below 0.5 pcs" and "Change unit…".
+    - **Header**: name, category · location, then the controls the list
+      gives a row (UX-124, `ItemPageControls`, reusing `QuantityStepper`,
+      `StockBadge`, `ExpiryBadge` and `ItemActions`): the −/+ stepper (tap
+      the number for the exact-amount sheet), the stock badge ("In stock",
+      "Low stock", "Out of stock" — an empty item no longer reads "In
+      stock: 0 pcs"), the Expiring soon / Expired, Opened and Frozen tags,
+      "Best before {date}" (≈ when estimated), and the Edit, Delete, Mark
+      opened, Freeze, Add to shopping list and Mark as empty actions (the
+      list's own handlers, `useItemHandlers`, so toasts and Undo match;
+      no "Details" link, since this is it). Delete returns to where the
+      page was opened from. Then "running low below 0.5 pcs" and "Change
+      unit…". The stock actions also revalidate this page, so the badges
+      follow a change. The "Also on" list links are underlined in the link
+      colour.
     - **Units**: "Counted in {unit}" and each conversion, written the way
       people know the number (`conversionSentence`, the review's
       `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with

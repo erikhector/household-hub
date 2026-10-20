@@ -37,6 +37,7 @@ export function ItemActions({
   onFreeze,
   onDelete,
   size = "size-7",
+  hideDetails = false,
 }: {
   item: InventoryItemRow;
   categories: string[];
@@ -58,6 +59,9 @@ export function ItemActions({
   onFreeze: (item: InventoryItemRow) => void;
   onDelete: (itemId: string) => Promise<{ error?: string }>;
   size?: string;
+  /** UX-124: the item page is the details page, so its own cluster leaves
+   * the "Details" link out rather than link to itself. */
+  hideDetails?: boolean;
 }) {
   // GAP-28: hidden (not disabled) unless there's an opened window to apply
   // and the pack isn't already open — a button that would only ever no-op
@@ -110,14 +114,16 @@ export function ItemActions({
       >
         <ShoppingCart className="size-3.5" />
       </Button>
-      <Link
-        href={`/dashboard/inventory/items/${item.id}`}
-        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
-        aria-label={format(dict.detailsAriaLabel, { name: item.name })}
-        title={dict.details}
-      >
-        <Info className="size-3.5" />
-      </Link>
+      {!hideDetails && (
+        <Link
+          href={`/dashboard/inventory/items/${item.id}`}
+          className={cn(buttonVariants({ variant: "ghost", size: "icon" }), size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
+          aria-label={format(dict.detailsAriaLabel, { name: item.name })}
+          title={dict.details}
+        >
+          <Info className="size-3.5" />
+        </Link>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -215,7 +221,9 @@ export function ItemActions({
           <DropdownMenuItem onClick={() => editRef.current?.click()}>{dict.edit}</DropdownMenuItem>
           {canMarkOpened && <DropdownMenuItem onClick={() => onMarkOpened(item)}>{dict.markOpened}</DropdownMenuItem>}
           {canFreeze && <DropdownMenuItem onClick={() => onFreeze(item)}>{dict.freeze}</DropdownMenuItem>}
-          <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
+          {!hideDetails && (
+            <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => onAddToList(item)}>{dict.addToList.menu}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
           {!autoAddEnabled && (

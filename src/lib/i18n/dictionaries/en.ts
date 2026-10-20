@@ -1384,7 +1384,7 @@ export const en = {
       back: "Inventory",
       backToCatalog: "Manage items",
       backToRecipes: "Recipes",
-      inStock: "In stock: {amount}",
+      bestBefore: "Best before {date}",
       lowStockAt: "running low below {amount}",
       changeUnit: "Change unit…",
       unitsTitle: "Units",

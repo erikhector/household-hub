@@ -167,6 +167,6 @@ test("“Merge into another item…” on the item page asks for a factor when t
   await page.reload();
   // Scoped to main: see the reload in item-page.spec.ts.
   const main = page.getByRole("main");
-  await expect(main.getByText("In stock: 2.5 pcs")).toBeVisible();
+  await expect(main.getByRole("button", { name: /^Adjust .* \(2.5 pcs\)$/ })).toBeVisible();
   await expect(main.getByText("1 pcs = 2 dl")).toBeVisible();
 });
