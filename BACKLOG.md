@@ -399,6 +399,7 @@ UX-89.
   UX-80, UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-71.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
@@ -864,6 +865,18 @@ UX-89.
       correctly.
 
 #### Tasks
+
+- [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
+      effort: M) — breaks M6 and Hierarchy.
+      - Rows carry edit and trash icons as well as the swipe tray that
+        already offers both.
+      - With a long assignee name or Swedish recurrence text, the trash
+        wraps to a third line, so about 4 tasks fit on a phone screen.
+      - There's no way to see just your own tasks.
+      Acceptance: at 412 px a one-line task with an assignee badge is at
+      most 56 px, with edit and delete in the swipe tray and the edit
+      sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
+      filter is remembered.
 
 - [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
       (impact: med, effort: M) — bug, breaks Usability. Today the next due

@@ -5550,24 +5550,6 @@ co-managers, not kids earning rewards.
   older" button under the Completed rows (toggles to "Hide older"); nothing
   is deleted. Repeating tasks never collapse. The open/closed state is
   per-visit, not stored (`e2e/task-caught-up.spec.ts`).
-- **Compact rows, and a Mine filter (UX-106)**: a task row is one line on a
-  phone, checkbox, title and assignee badge, at most 56 px (about eight tasks
-  a screen, up from four). Repeat, next due, whose turn and who did it wrap
-  in a small line under the title instead of pushing the actions onto a
-  second and third line, and a long assignee name is cut short (full name as
-  the tooltip). Below `sm` the row carries neither Edit and Delete icons nor
-  a ⋯: Edit and Delete are in the swipe tray, and the edit sheet (a tap on
-  the title) has a quiet **Delete** button that closes the sheet and hands
-  over to the row's own trash button, so the same confirm dialog opens
-  (M7: the sheet is the visible path). From `sm` up the icons stay.
-  Above the list, in a household of two or more, an **Everyone / Mine**
-  toggle (`aria-pressed` buttons) shows only the tasks assigned to you
-  (`filterTasks`, `src/app/dashboard/tasks/task-filter.ts`: open or
-  completed; unassigned tasks only show under Everyone). The weekly recap
-  stays household-wide. The choice is remembered per device in localStorage
-  under `tasks.filter` (`TASKS_FILTER_STORAGE_KEY`, listed on the privacy
-  page; `useLocalPreference`). Nothing stored means Everyone, so a first
-  visit never hides a task (`e2e/task-compact-rows.spec.ts`).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -6960,12 +6942,11 @@ Todoist-style. Built as one shared wrapper,
   the button the deliberate one.
 - **No action shows twice on a phone.** Below `sm`, a swipeable row
   doesn't also show Edit and Delete icons: they sit behind the row's ⋯
-  menu instead. Shopping rows get `RowActionsMenu`
+  menu instead. Task and shopping rows get `RowActionsMenu`
   (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
-  `sm` up the icons show as before. Task rows have no ⋯ at all (UX-106):
-  the edit sheet has a Delete button instead.
+  `sm` up the icons show as before.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
   swipe only takes over once the finger has moved 8 px more sideways than
