@@ -2314,22 +2314,17 @@ export const sv = {
       chartSpend: "Utgift",
       spendingSubtitle:
         "Total uppskattad utgift per månad, från varor på inköpslistan som markerats köpta med ett pris.",
-      noSpendingData:
-        "Inga prissatta matinköp än. Skanna ett kvitto eller en streckkod när du bockar av en vara på inköpslistan — det är just nu det enda sättet ett pris registreras på, så utgifter visas här automatiskt när du gör det.",
       trendsTitle: "Prisutveckling",
       trendsSubtitle: "Varor med tillräcklig inköpshistorik för att visa en meningsfull trend.",
-      noTrendData:
-        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — att skanna ett kvitto eller en streckkod vid köp är just nu det enda sättet att registrera ett pris.",
+      // UX-114: one line standing in for every card with nothing to show yet.
+      emptyCollapsed: "Pris- och skafferiinsikter dyker upp när du skannar kvitton och anger butik.",
       latestPrice: "Senaste",
       cheapestStoreTitle: "Billigast butik",
       cheapestStoreSubtitle: "Varor du köpt i mer än en butik, och vilken som var billigast senast.",
-      noCheapestStoreData:
-        "Inga jämförelser än. Ange en butik när du skannar eller registrerar ett kvitto — när en vara har priser från 2+ butiker visas den här.",
       cheapestStoreLabel: "Billigast hos {store}:",
       stockValueTitle: "Hemma just nu",
       stockValueSubtitle:
         "Ungefär vad allt du har hemma kostade, till priset du betalade senast du köpte varje vara.",
-      noStockData: "Det finns inget i lager just nu.",
       stockValueBasis: {
         one: "Baserat på {priced} av {count} vara med känt pris.",
         other: "Baserat på {priced} av {count} varor med känt pris.",
@@ -2341,8 +2336,6 @@ export const sv = {
       basketTitle: "Din lista, butik för butik",
       basketSubtitle:
         "Vad de oavbockade varorna på dina inköpslistor kostade senast i varje butik. Bara varor du köpt i 2+ butiker räknas.",
-      noBasketData:
-        "Inte tillräckligt att jämföra än. När minst 2 varor på dina inköpslistor har priser från 2+ butiker ser du här vad listan skulle kosta i varje butik.",
       basketCoverage: "{count} av {total} varor prissatta",
       basketAllPriced: "Alla {total} varor prissatta",
       basketCheapestBadge: "Billigast",

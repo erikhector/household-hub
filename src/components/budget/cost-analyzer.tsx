@@ -97,99 +97,121 @@ export function CostAnalyzer({
     signDisplay: "exceptZero",
   });
 
+  // UX-114: a card with nothing to show doesn't get a box of its own. On a
+  // household that hasn't scanned a receipt yet that was five or six cards of
+  // "No ... yet" pushing Balances off the bottom of a phone. They're left out
+  // and one quiet line below stands in for all of them; each card comes back
+  // by itself as soon as it has data. "On hand now" with stock but no known
+  // price still shows, since it says something true ("none has a price").
+  const hasSpending = monthlySpending.length > 0;
+  const hasTrends = itemTrends.length > 0;
+  const hasCheapestStore = storeComparisons.length > 0;
+  const hasStock = stockValue.inStockCount > 0;
+  const hasExpired = expiredThisMonth.items.length > 0 || expiredLastMonth.items.length > 0;
+  const anyEmpty = !(
+    hasSpending &&
+    hasTrends &&
+    hasCheapestStore &&
+    basketComparison &&
+    hasStock &&
+    hasExpired
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{dict.spendingTitle}</CardTitle>
-          <CardDescription>{dict.spendingSubtitle}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {monthlySpending.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{dict.noSpendingData}</p>
-          ) : (
-            <BarChart
-              caption={dict.spendingTitle}
-              groupHeader={dict.chartMonth}
-              series={[{ key: "spend", label: dict.chartSpend }]}
-              groups={monthlySpending.map((point) => ({
-                key: point.month,
-                label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
-                values: [point.total],
-              }))}
-              locale={locale}
-              currencyCode={currencyCode}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {hasSpending && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{dict.spendingTitle}</CardTitle>
+            <CardDescription>{dict.spendingSubtitle}</CardDescription>
+          </CardHeader>
+          <CardContent>
+              <BarChart
+                caption={dict.spendingTitle}
+                groupHeader={dict.chartMonth}
+                series={[{ key: "spend", label: dict.chartSpend }]}
+                groups={monthlySpending.map((point) => ({
+                  key: point.month,
+                  label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
+                  values: [point.total],
+                }))}
+                locale={locale}
+                currencyCode={currencyCode}
+              />
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{dict.trendsTitle}</CardTitle>
-          <CardDescription>{dict.trendsSubtitle}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {itemTrends.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{dict.noTrendData}</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {itemTrends.map((item) => (
-                <ItemTrendCard
-                  key={item.id}
-                  item={item}
-                  dict={dict}
-                  numberFormat={numberFormat}
-                  dateFormat={dateFormat}
-                  percentFormat={percentFormat}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {hasTrends && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{dict.trendsTitle}</CardTitle>
+            <CardDescription>{dict.trendsSubtitle}</CardDescription>
+          </CardHeader>
+          <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {itemTrends.map((item) => (
+                  <ItemTrendCard
+                    key={item.id}
+                    item={item}
+                    dict={dict}
+                    numberFormat={numberFormat}
+                    dateFormat={dateFormat}
+                    percentFormat={percentFormat}
+                  />
+                ))}
+              </div>
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{dict.cheapestStoreTitle}</CardTitle>
-          <CardDescription>{dict.cheapestStoreSubtitle}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {storeComparisons.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{dict.noCheapestStoreData}</p>
-          ) : (
-            <div className="flex flex-col divide-y divide-border">
-              {storeComparisons.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {format(dict.cheapestStoreLabel, { store: c.cheapestStore })}{" "}
-                    <span className="tabular-nums text-success">
-                      {numberFormat.format(c.cheapestPrice)}
+      {hasCheapestStore && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{dict.cheapestStoreTitle}</CardTitle>
+            <CardDescription>{dict.cheapestStoreSubtitle}</CardDescription>
+          </CardHeader>
+          <CardContent>
+              <div className="flex flex-col divide-y divide-border">
+                {storeComparisons.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {format(dict.cheapestStoreLabel, { store: c.cheapestStore })}{" "}
+                      <span className="tabular-nums text-success">
+                        {numberFormat.format(c.cheapestPrice)}
+                      </span>
                     </span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                ))}
+              </div>
+          </CardContent>
+        </Card>
+      )}
 
-      <BasketComparisonCard
-        comparison={basketComparison}
-        dict={dict}
-        numberFormat={numberFormat}
-      />
+      {basketComparison && (
+        <BasketComparisonCard
+          comparison={basketComparison}
+          dict={dict}
+          numberFormat={numberFormat}
+        />
+      )}
 
-      <StockValueCard stockValue={stockValue} dict={dict} numberFormat={numberFormat} />
+      {hasStock && (
+        <StockValueCard stockValue={stockValue} dict={dict} numberFormat={numberFormat} />
+      )}
 
-      <ExpiredWasteCard
-        thisMonth={expiredThisMonth}
-        lastMonth={expiredLastMonth}
-        dict={dict}
-        numberFormat={numberFormat}
-        dateFormat={dateFormat}
-      />
+      {hasExpired && (
+        <ExpiredWasteCard
+          thisMonth={expiredThisMonth}
+          lastMonth={expiredLastMonth}
+          dict={dict}
+          numberFormat={numberFormat}
+          dateFormat={dateFormat}
+        />
+      )}
+
+      {anyEmpty && <p className="text-sm text-muted-foreground">{dict.emptyCollapsed}</p>}
     </div>
   );
 }
@@ -212,9 +234,7 @@ function StockValueCard({
         <CardDescription>{dict.stockValueSubtitle}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
-        {inStockCount === 0 ? (
-          <p className="text-sm text-muted-foreground">{dict.noStockData}</p>
-        ) : pricedCount === 0 ? (
+        {pricedCount === 0 ? (
           // "≈ 0 kr" here would read as "your pantry is worth nothing"
           // rather than "we don't know yet".
           <p className="text-sm text-muted-foreground">
@@ -241,12 +261,11 @@ function BasketComparisonCard({
   dict,
   numberFormat,
 }: {
-  comparison: BasketComparison | null;
+  comparison: BasketComparison;
   dict: Dictionary["budget"]["costAnalyzer"];
   numberFormat: Intl.NumberFormat;
 }) {
-  const itemCount = comparison?.itemCount ?? 0;
-  const stores = comparison?.stores ?? [];
+  const { itemCount, stores } = comparison;
   const fullyPriced = stores.filter((s) => s.pricedCount === itemCount);
   // Stores are ranked coverage-first, so if anything is fully priced it's
   // at the top — and only then, against another fully priced store, is
@@ -261,43 +280,37 @@ function BasketComparisonCard({
         <CardDescription>{dict.basketSubtitle}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {!comparison ? (
-          <p className="text-sm text-muted-foreground">{dict.noBasketData}</p>
-        ) : (
-          <>
-            <div className="flex flex-col divide-y divide-border">
-              {stores.map((s, i) => {
-                const complete = s.pricedCount === itemCount;
-                return (
-                  <div key={s.store} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="flex min-w-0 flex-1 items-center gap-2">
-                      <span className="truncate font-medium">{s.store}</span>
-                      {showCheapestBadge && i === 0 && (
-                        <Badge variant="outline" className="shrink-0">
-                          {dict.basketCheapestBadge}
-                        </Badge>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {complete
-                        ? format(dict.basketAllPriced, { total: itemCount })
-                        : format(dict.basketCoverage, { count: s.pricedCount, total: itemCount })}
-                      {" · "}
-                      <span
-                        className={`tabular-nums ${
-                          showCheapestBadge && i === 0 ? "text-success" : "text-foreground"
-                        }`}
-                      >
-                        {numberFormat.format(s.total)}
-                      </span>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            {hasPartial && <p className="text-xs text-muted-foreground">{dict.basketPartialNote}</p>}
-          </>
-        )}
+        <div className="flex flex-col divide-y divide-border">
+          {stores.map((s, i) => {
+            const complete = s.pricedCount === itemCount;
+            return (
+              <div key={s.store} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate font-medium">{s.store}</span>
+                  {showCheapestBadge && i === 0 && (
+                    <Badge variant="outline" className="shrink-0">
+                      {dict.basketCheapestBadge}
+                    </Badge>
+                  )}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {complete
+                    ? format(dict.basketAllPriced, { total: itemCount })
+                    : format(dict.basketCoverage, { count: s.pricedCount, total: itemCount })}
+                  {" · "}
+                  <span
+                    className={`tabular-nums ${
+                      showCheapestBadge && i === 0 ? "text-success" : "text-foreground"
+                    }`}
+                  >
+                    {numberFormat.format(s.total)}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {hasPartial && <p className="text-xs text-muted-foreground">{dict.basketPartialNote}</p>}
       </CardContent>
     </Card>
   );
@@ -331,6 +344,9 @@ function ExpiredWasteCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {thisMonth.items.length === 0 ? (
+          // Only last month had items (the card is hidden when both are
+          // empty), so say this month is clear rather than leaving the
+          // "last month" line to read as the whole story.
           <p className="text-sm text-muted-foreground">{dict.noExpiredData}</p>
         ) : (
           <>

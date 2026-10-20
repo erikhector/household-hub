@@ -854,16 +854,6 @@ UX-89.
       adding categories. The shared-expense action has one name and
       placement on both pages.
 
-- [ ] **UX-114. Insights: who owes whom first, empty cost cards
-      collapsed** (impact: med, effort: S) — breaks M6. On a phone,
-      Insights is 3,858 px tall. "Anna → Erik 470.00 · Clear debt" is
-      the very last card, after a 12-month trend with 11 empty months and
-      4–5 empty pantry/price cards ("No comparisons yet…", "Nothing is in
-      stock right now").
-      Acceptance: balances appear in the first screenful when a debt
-      exists. Empty cost-analyzer cards collapse into one line ("Price
-      insights appear once you scan receipts").
-
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
       no mascot on money. The pace chart has only "Today" and "Month end"
