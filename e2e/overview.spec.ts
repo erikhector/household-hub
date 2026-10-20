@@ -174,7 +174,9 @@ test.describe("the finish moment (UX-69)", () => {
       await expect(heading).toBeVisible();
       await expect(main.getByRole("img", { name: "Squirrel mascot" })).toBeVisible();
       await expect(main.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
-      const card = main.locator('[data-slot="card"]').filter({ has: heading });
+      const card = main.locator('[data-slot="card"]').filter({
+        has: page.getByRole("heading", { name: "You're all set" }),
+      });
       expect(await card.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
       await expectNoHorizontalOverflow(page);
 
