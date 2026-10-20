@@ -2,6 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { absoluteAppUrl } from "@/lib/app-url";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -15,6 +16,11 @@ import { requireUserId } from "@/lib/session";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { logger } from "@/lib/logger";
 import { hashToken } from "@/lib/token-hash";
+import {
+  CURRENT_VERSION,
+  LAST_SEEN_RELEASE_COOKIE,
+  LAST_SEEN_RELEASE_COOKIE_MAX_AGE,
+} from "@/lib/release-notes";
 
 export type ActionState = {
   error?: string;
@@ -204,6 +210,14 @@ export async function signupAction(
   } catch (error) {
     return toFriendlyError(error);
   }
+
+  // UX-74: a brand-new account starts "caught up" on What's new, so its first
+  // minute doesn't show an unread dot for a changelog of things it never knew
+  // differently. The existing last_seen_release cookie, no new storage.
+  (await cookies()).set(LAST_SEEN_RELEASE_COOKIE, CURRENT_VERSION, {
+    maxAge: LAST_SEEN_RELEASE_COOKIE_MAX_AGE,
+    path: "/",
+  });
 
   // Additive, not a hard dependency — same posture as household invites
   // (see sendHouseholdInviteEmail): the account already exists regardless

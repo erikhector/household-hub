@@ -7,6 +7,7 @@
 // REQUIREMENTS.md's "Testing" section.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hashToken } from "@/lib/token-hash";
+import { CURRENT_VERSION } from "@/lib/release-notes";
 
 // The real "next-auth" package's index imports "next/server", which Vitest's
 // Node environment can't resolve outside a Next.js build — mock it with a
@@ -46,6 +47,7 @@ const {
   sendVerificationEmailMock,
   requireUserIdMock,
   headersMock,
+  cookieSetMock,
   redirectMock,
   getLocaleMock,
   pushSubscriptionDeleteManyMock,
@@ -83,6 +85,7 @@ const {
   })),
   sendVerificationEmailMock: vi.fn(async () => ({})),
   requireUserIdMock: vi.fn(async () => "user-1"),
+  cookieSetMock: vi.fn(),
   headersMock: vi.fn(async () => new Map([["host", "localhost:3000"]])),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -131,7 +134,10 @@ vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 // whole module rather than those transitively, same reasoning as the
 // @/lib/session mock above.
 vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
-vi.mock("next/headers", () => ({ headers: headersMock }));
+vi.mock("next/headers", () => ({
+  headers: headersMock,
+  cookies: vi.fn(async () => ({ set: cookieSetMock })),
+}));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
 // The emailed link carries the raw token; the DB row must hold only its hash.
@@ -237,6 +243,28 @@ describe("signupAction behavior", () => {
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(signInMock).not.toHaveBeenCalled();
     expect(result).toEqual({ status: "verification-sent", email: validSignup.email });
+  });
+
+  // UX-74: no unread "What's new" dot for an account that has only ever
+  // known the current release.
+  it("marks the latest release as seen so a new user gets no update dot", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    await signupAction({}, formData(validSignup));
+
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "last_seen_release",
+      CURRENT_VERSION,
+      expect.objectContaining({ path: "/" }),
+    );
+  });
+
+  it("does not touch the release cookie when signup is rejected", async () => {
+    findUniqueMock.mockResolvedValue({ id: "existing-user" });
+
+    await signupAction({}, formData(validSignup));
+
+    expect(cookieSetMock).not.toHaveBeenCalled();
   });
 
   // UX-56: the account locale outranks the cookie after sign-in, so signing
