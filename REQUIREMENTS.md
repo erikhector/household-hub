@@ -6420,8 +6420,8 @@ the locale fallback.
 **Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
 `h2` region, instead of eleven loose cards: **Account** (display name,
 email and password as one card with a divider between the three forms, each
-keeping its own Save), **Preferences** (the Swish number; the Language and Appearance
-Appearance controls of UX-51 sit above it), **Notifications** (push, weekly
+keeping its own Save), **Preferences** (the Language and
+Appearance controls of UX-51, then the Swish number), **Notifications** (push, weekly
 digest, install app) and **Data & privacy** (Export my data; the "About
 Squirrel" version and "Danger zone" account deletion behind native
 `<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
