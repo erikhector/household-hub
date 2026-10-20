@@ -309,6 +309,9 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/ux-31.spec.ts --project=desktop
       --repeat-each=30` passes 30/30.
+      Seen again on release PR #470 (`edc55ea`, 2026-10-20), `mobile`
+      project, `e2e/ux-31.spec.ts:110`: failed its first attempt in the
+      GitHub e2e job, passed on the retry.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -336,6 +339,17 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
+- [ ] **MAINT-39. Flaky: shopping-item glide shows a layout shift of 0.0119** (low, S) —
+      `e2e/motion.spec.ts:180` ("adding, ticking and removing shopping
+      items glide, with no layout shift"), `desktop` project. Failed in the
+      local `ci:local` gate on release PR #470 (`edc55ea`, 2026-10-20):
+      CLS 0.0119 against an expected 0, on three shopping-item swipe rows.
+      Passed on a re-run of `e2e/motion.spec.ts --project=desktop` on the
+      same commit (8/8), and the GitHub e2e job was green. Find what shifts
+      the swipe rows under load and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/motion.spec.ts:180 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
