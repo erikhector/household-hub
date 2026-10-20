@@ -1375,9 +1375,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     confirmed at the list's quantities is exactly what this feature exists
     to avoid. Instead "Done shopping" and the ⋯ menu's "Complete list" open
     the dialog in finishing mode whenever rows are waiting: "Put away &
-    finish" or "Finish, put away later". Either way, if unticked rows remain
-    (including ones just marked "Didn't get it"), finishing still goes
-    through the usual "Complete this list?" confirmation. Finishing later doesn't lose
+    finish" or "Finish, put away later". Both complete the list in one step
+    (UX-80): no second "Complete this list?" sheet follows, even with
+    unticked rows (including ones just marked "Didn't get it"). While any
+    would be left behind, the sheet carries a "Move N unbought items to
+    {list}" checkbox, on by default (see "Carrying unbought items over"
+    below). Finishing later doesn't lose
     anything: the rows stay ticked on the completed list, still count as
     incoming, and the button and reminder still find them there.
   - *Incoming stock* (`src/lib/incoming-stock.ts`, pure half unit-tested):
@@ -2301,9 +2304,24 @@ household-scoped (the expense delete is a `deleteMany` on id +
 `householdId`, so a stale or foreign id removes nothing) and idempotent (a
 list that's no longer `COMPLETED` is left alone). Inventory needs no
 reversal, because completing never touches it. The menu's "Complete list" is
-still confirm-gated, since it can complete a list with items still pending.
+still confirm-gated when items are still pending: the sheet says how many
+("1 item isn't ticked off yet. …") and carries the same "Move N unbought
+items to {list}" checkbox. With nothing pending it completes straight away.
 Its toast carries the same Undo. Like "Undo mark cooked", this is a
 fat-finger undo on the toast, not a permanent "reopen list" control.
+
+**Carrying unbought items over (UX-80).** `completeShoppingListAction(listId,
+amountOverride?, carryOver?)` with `carryOver` moves the list's unticked rows
+to the household's active default list (the fresh one when the completed list
+was the default, a new "Next shop" when none exists) inside the completing
+`$transaction`, so they show as pending there. A row whose inventory item is
+already pending on the target stays behind instead of doubling up. The action
+returns `carriedOver: { itemIds, listId, listName }`; the toast's description
+says "N items moved to {list}", and Undo passes the ids to
+`uncompleteShoppingListAction(listId, transactionId, carriedItemIds)`, which
+moves back only those still unticked in the household. The checkbox label
+names the target list (page query for the active default). Flow spec:
+`e2e/shopping-finish-carry-over.spec.ts`.
 
 #### Printing a list (GAP-24)
 

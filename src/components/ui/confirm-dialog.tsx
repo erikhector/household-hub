@@ -8,7 +8,7 @@
 // call site only needs to swap its existing instant-delete button for
 // `trigger` and move the actual delete call into `onConfirm`.
 
-import { useState, useTransition, type ReactElement } from "react";
+import { useState, useTransition, type ReactElement, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ export function ConfirmDialog({
   variant = "destructive",
   onConfirm,
   handle,
+  children,
 }: {
   /** The element that opens the dialog — usually the existing trash/remove
    * icon button, unchanged except its onClick moves into `onConfirm`.
@@ -46,6 +47,9 @@ export function ConfirmDialog({
   confirmLabel: string;
   pendingLabel: string;
   variant?: "destructive" | "default";
+  /** Extra controls between the description and the buttons (a checkbox
+   * that changes what confirming does). */
+  children?: ReactNode;
   /** May return an `{ error?: string }`-shaped result (this app's usual
    * server action return type) — a truthy `error` is toasted and the
    * dialog stays open so the user can retry; anything else closes it. */
@@ -73,6 +77,7 @@ export function ConfirmDialog({
           <DialogTitle className="break-words">{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button variant="outline" disabled={isPending} onClick={() => setOpen(false)}>
             {cancelLabel}
