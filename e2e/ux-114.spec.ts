@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV } from "./seed";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, saveScreenshot } from "./ui";
 
 // UX-114: on Insights, "Who owes whom" leads the tab once somebody owes
 // something (it's the only card there with an action on it), and the cost
@@ -38,13 +38,15 @@ async function seedOpenBill() {
   }
 }
 
-test("who owes whom is in the first screenful and empty cost cards collapse to one line", async ({ page }) => {
+test("who owes whom is in the first screenful and empty cost cards collapse to one line", async ({ page }, testInfo) => {
   await seedOpenBill();
   await page.goto("/dashboard/budget?tab=insights");
   const main = page.getByRole("main");
 
   const balances = main.getByText("Who owes whom", { exact: true });
   await expect(balances).toBeVisible();
+  // Only writes a file under E2E_SCREENSHOT_DIR, for the UX before/after look.
+  await saveScreenshot(page, testInfo, "en", { pattern: "/dashboard/budget-insights-debt", path: "" });
   const box = await balances.boundingBox();
   expect(box!.y + box!.height).toBeLessThan(page.viewportSize()!.height);
 
