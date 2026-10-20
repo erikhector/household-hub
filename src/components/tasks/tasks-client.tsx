@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Check, Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
@@ -219,7 +220,14 @@ function TaskItemRow({
   // UX-14 and UX-33: the tick shows, and the row moves to "Completed", at
   // tap time; TasksClient owns the save (toggleCompleted).
   const completed = task.completed;
-  const handleToggleCompleted = () => onToggleCompleted(task);
+  // UX-54: completing fills the box (with a haptic) before the row moves;
+  // reopening is instant.
+  const { ticking, tick } = useTickFeedback();
+  const handleToggleCompleted = () => {
+    const run = () => onToggleCompleted(task);
+    if (task.completed) run();
+    else tick(run);
+  };
   // UX-35: swipe left → Delete hides the row with an Undo toast.
   const { hidden, remove } = useUndoableDelete({
     run: async () => (await settleOptimisticAction(() => deleteTaskAction(task.id), dict.saveFailedToast)) !== null,
@@ -271,7 +279,8 @@ function TaskItemRow({
         <div className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
           <Checkbox
             data-swipe-primary
-            checked={completed}
+            data-ticking={ticking || undefined}
+            checked={completed || ticking}
             aria-label={format(completed ? dict.toggleIncompleteAriaLabel : dict.toggleCompleteAriaLabel, {
               title: task.title,
             })}

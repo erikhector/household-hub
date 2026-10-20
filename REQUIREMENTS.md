@@ -7351,6 +7351,18 @@ runs after every commit of a list:
   anywhere). More than 20 rows arriving or leaving at once is also treated
   as a different list.
 
+**The tick moment (UX-54).** Completing a shopping row, a Next up dock
+row or a task (the tasks page; the swipe has its own buzz) goes through
+`src/lib/tick-feedback.ts`: a 10 ms `navigator.vibrate` where the device
+has one, the checkbox (or the dock's filled circle) fills with a ~200 ms
+spring (`tick-pop` in `globals.css`, played while `data-ticking` is set
+on `Checkbox`), and only then (`TICK_MS`, 200 ms) does the optimistic tick
+move the row. Unticking is never delayed or buzzed. Under
+`prefers-reduced-motion` there is no wait and no spring, but the buzz
+still fires. The swipe row's commit buzz uses the same `vibrateTick`.
+The dock's UX-78 settle window is `TICK_MS` + 450 ms so the double-tap
+guard keeps its length. Covered by `e2e/tick-moment.spec.ts`.
+
 A shopping row leaving its aisle (UX-37's 350 ms drop towards "In the
 cart") carries no flip key meanwhile, so it has one animation, not two.
 It then arrives in "In the cart" as a new row and rises in there, and the

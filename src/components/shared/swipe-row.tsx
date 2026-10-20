@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { vibrateTick } from "@/lib/tick-feedback";
 import {
   crossedCommitThreshold,
   dragOffset,
@@ -171,8 +172,8 @@ export function SwipeRow({
     }
     const geo = geometry();
     const next = dragOffset(current.base + dx, geo);
-    if (geo.canSwipeRight && crossedCommitThreshold(current.offset, next, geo.rowWidth) && "vibrate" in navigator) {
-      navigator.vibrate(10);
+    if (geo.canSwipeRight && crossedCommitThreshold(current.offset, next, geo.rowWidth)) {
+      vibrateTick();
     }
     current.offset = next;
     setOffset(next);

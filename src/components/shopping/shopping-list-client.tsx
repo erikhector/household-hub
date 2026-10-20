@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTickFeedback } from "@/lib/tick-feedback";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -1179,6 +1180,8 @@ function ShoppingRow({
   const unitLabel = useUnitLabel();
   const needsMapping = item.inventoryItemId === null;
   const purchased = item.purchased;
+  // UX-54: the box fills (with a haptic) before the row moves.
+  const { ticking, tick } = useTickFeedback();
   // UX-37: an unticked row on an ACTIVE list is shopping mode proper — the
   // row you're reading at arm's length in the aisle — so it gets large
   // type. Ticked rows (In the cart) and read-only lists stay compact.
@@ -1289,13 +1292,14 @@ function ShoppingRow({
             )}
           >
             <Checkbox
-              checked={purchased}
+              checked={purchased || ticking}
+              data-ticking={ticking || undefined}
               disabled={isPending || !editable}
               // z-[1]: above the label's row-wide ::after (painted after it),
               // so a tap on the box itself lands on the box.
               className={cn(editable && "z-[1] size-5", large && "max-sm:size-6 pointer-coarse:size-6")}
               data-swipe-primary
-            onChange={onToggle}
+              onChange={() => (purchased ? onToggle() : tick(onToggle))}
             />
             <span
               className={cn(

@@ -506,17 +506,6 @@ UX-89.
       ("Previous month" / "Previous week"), plus a "This month" / "This
       week" jump when you're elsewhere.
 
-- [ ] **UX-54. A shared "tick" moment: check, haptic, then move**
-      (impact: med, effort: S) — Delight, M5. Ticking a shopping row, a
-      dock row or a task removes it at once and nothing fills in. Only
-      swipes vibrate (`navigator.vibrate` exists only in `swipe-row.tsx:145`).
-      Things and Todoist make every tick feel earned.
-      Acceptance: a shared tick feedback is used by shopping rows, the
-      dock and tasks. The checkbox fills with a short spring (about 200
-      ms), a 10 ms vibration fires where supported, and only then does the
-      row move. No animation runs under reduced motion; the haptic still
-      fires.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-59. Signup and login errors next to the field, keeping what
