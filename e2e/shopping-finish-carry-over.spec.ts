@@ -164,3 +164,47 @@ test("the Complete list confirm names the pending count and has no Archive advic
   await expect(page.getByText(/1 item moved to /).first()).toBeVisible();
   await expect.poll(() => listOf(`Milk ${t}`)).not.toBe(listId);
 });
+
+test("Done shopping after an earlier carry-over completion and Undo leaves a late pending row where it is", async ({ page }) => {
+  const t = tag();
+  const { listId, path } = await seedList(t, [
+    { name: `Rice ${t}`, purchased: true },
+    { name: `Milk ${t}`, purchased: false },
+  ]);
+  await sql(`UPDATE "ShoppingListItem" SET "putAwayAt" = now() WHERE "shoppingListId" = $1 AND purchased`, [listId]);
+  await page.goto(path);
+
+  // First completion keeps the carry-over checked (the default), then Undo.
+  await page.getByRole("button", { name: en.shoppingList.moreActions }).click();
+  await page.getByRole("menuitem", { name: en.shoppingList.completeList }).click();
+  const confirm = page.getByRole("dialog", { name: en.shoppingList.confirmCompleteList.title });
+  await expect(confirm.getByRole("checkbox", { name: /Move 1 unbought item to / })).toBeChecked();
+  await confirm.getByRole("button", { name: en.shoppingList.confirmCompleteList.confirm, exact: true }).click();
+  await expect(page.getByText(/1 item moved to /).first()).toBeVisible();
+  await page.getByRole("button", { name: en.shoppingList.undo, exact: true }).click();
+  await expect.poll(() => listOf(`Milk ${t}`)).toBe(listId);
+
+  // Tick the last row and put it away, so the cleared state offers "Done
+  // shopping" with nothing awaiting put-away.
+  await page.getByRole("checkbox", { name: new RegExp(`^Milk ${t}\\b`) }).click();
+  await page.getByRole("button", { name: /^Put away \(1\)/ }).click();
+  await page
+    .getByRole("dialog", { name: en.shoppingList.putAway.title })
+    .getByRole("button", { name: en.shoppingList.putAway.confirmAll })
+    .click();
+  const done = page.getByRole("button", { name: en.shoppingList.doneShopping, exact: true });
+  await expect(done).toBeVisible();
+
+  // A row shows up unticked from another device (this page doesn't know it).
+  const late = `Late ${t}`;
+  await sql(`INSERT INTO "ShoppingListItem" (id, "shoppingListId", name, unit, purchased) VALUES ($1, $2, $3, 'pcs', false)`, [
+    `e2e-ux80-late-${t}`,
+    listId,
+    late,
+  ]);
+  await done.click();
+
+  await expect(page.getByText(en.shoppingList.completedToast).first()).toBeVisible();
+  await expect(page.getByText(/moved to /)).toHaveCount(0);
+  expect(await listOf(late)).toBe(listId);
+});

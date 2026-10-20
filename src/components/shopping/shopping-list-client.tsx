@@ -528,8 +528,15 @@ export function ShoppingListClient({
     else if (confirmFirst && pendingItems.length > 0) {
       setCarryOver(true);
       dialogs.completeList.open(null);
+    } else {
+      // No checkbox is shown on this path, so the choice can't be the user's:
+      // set it explicitly rather than inherit whatever an earlier completion
+      // (or its Undo) left in the ref. A row that turns up unticked anyway
+      // (added on another device since this page loaded) stays put, as it did
+      // before carry-over existed.
+      setCarryOver(false);
+      completeList();
     }
-    else completeList();
   };
 
   // AUTO-9: back to the learned order, undoable rather than confirm-gated
