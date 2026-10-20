@@ -309,6 +309,9 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/ux-31.spec.ts --project=desktop
       --repeat-each=30` passes 30/30.
+      Seen again on release PR #470 (`edc55ea`, 2026-10-20), `mobile`
+      project, `e2e/ux-31.spec.ts:110`: failed its first attempt in the
+      GitHub e2e job, passed on the retry.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -336,6 +339,17 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
+- [ ] **MAINT-39. Flaky: shopping-item glide shows a layout shift of 0.0119** (low, S) —
+      `e2e/motion.spec.ts:180` ("adding, ticking and removing shopping
+      items glide, with no layout shift"), `desktop` project. Failed in the
+      local `ci:local` gate on release PR #470 (`edc55ea`, 2026-10-20):
+      CLS 0.0119 against an expected 0, on three shopping-item swipe rows.
+      Passed on a re-run of `e2e/motion.spec.ts --project=desktop` on the
+      same commit (8/8), and the GitHub e2e job was green. Find what shifts
+      the swipe rows under load and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/motion.spec.ts:180 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -401,7 +415,7 @@ UX-89.
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135, UX-136 and UX-138 (UX-137 decided).
+- Needs a decision before building: UX-135, UX-136 and UX-138.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
@@ -529,16 +543,6 @@ UX-89.
       password and shows the error under it with `aria-invalid`. The
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
-
-- [ ] **UX-60. Explain "Household name" at signup and point invitees to
-      their link** (impact: med, effort: S) — User-centricity. Signup
-      assumes you are starting a new household. Someone whose partner
-      already uses Squirrel creates a second, empty household, with no
-      route from there to the partner's. The only hint is a placeholder
-      that disappears on focus.
-      Acceptance: `/signup` shows "Joining someone's household? Open the
-      invite link they sent you." Household name has helper text saying
-      everyone you invite sees this name.
 
 - [ ] **UX-61. Clearer steps from signup to first login** (impact: med,
       effort: S) — breaks Usability (fewer steps).
@@ -772,18 +776,6 @@ UX-89.
 
 #### Meals and recipes
 
-- [ ] **UX-95. One word for portions, and keep meal and recipe apart**
-      (impact: med, effort: S) — breaks Consistency. In English the same
-      recipe is "4 servings" in the list and "4 portions" in the planner.
-      The form explains "Servings" as "How many portions…", and Mark as
-      cooked asks "Servings left over" then toasts "saved 2 portions"
-      (`en.ts:1545,1548,1580-1581,1735-1741,1828-1833`). The add sheet
-      labels its field "Recipe" with the placeholder "Choose a meal", while
-      "Meal" names the slot picker. Swedish is already consistent.
-      Acceptance: English says "portions" in the recipe list, form,
-      planner, Mark as cooked and Meal prep. The add sheet reads "Recipe:
-      Choose a recipe" and "Meal: Dinner".
-
 - [ ] **UX-96. The add-meal sheet names the day and can search recipes**
       (impact: med, effort: M) — breaks M4 and Context.
       - "Add a meal" never says which day, and the page behind is
@@ -817,26 +809,18 @@ UX-89.
       pass in the GitHub e2e job; do not loosen the 56 px or name
       assertions.
 
-- [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
-      (impact: med, effort: M) — bug, breaks Usability. Today the next due
-      time is the exact moment of the last tick plus the interval
-      (`src/app/dashboard/tasks/recurrence.ts:22-41`), so a daily chore
-      ticked at 23:40 stays under Completed all the next day labelled
-      "Next due {today}", ticking late pushes the schedule back, and a
-      Saturday chore done on Thursday moves to Thursdays for good.
-      Chosen scope: day-based intervals count from the start of the local
-      day (daily reopens at 00:00); weekly or longer chores keep a fixed
-      anchor day unless edited. No per-task "N days after done" choice yet
-      (park as a later item if asked for). UX-133 builds on this.
-      Acceptance: a unit test on `recurrence.ts` covers a daily task ticked
-      at 23:40 (next due is the next local midnight), a late weekly tick
-      (anchor day unchanged) and an early tick; an e2e step ticks a daily
-      task and asserts it shows under Open again after the day rolls over
-      (clock set), and that no completed row reads "Next due" with today's
-      date.
-      Decided 2026-10-19 by autopilot-product: day-anchored rescheduling.
-      Why: the item's own recommended option, no schema, easy to revisit.
-      See PRODUCT.md.
+- [ ] **UX-144. A repeating task's anchor day moves when it is edited**
+      (impact: low, effort: S) — follow-up to UX-137, which anchors a
+      weekly-or-longer chore on the day the task was created
+      (`recurrence.ts`) because it shipped without a schema change. Editing
+      the interval, or wanting "every Thursday" on a task made on a Monday,
+      cannot move that anchor. Add a nullable `recurrenceAnchorAt` on
+      `HouseholdTask` (one migration), set it when a task is created with
+      an interval and whenever its interval is edited, and have
+      `getNextDueDate` read it, falling back to `createdAt` when null.
+      Acceptance: a unit test shows a weekly task whose anchor was reset
+      keeps the new weekday after a late tick; an e2e step edits a weekly
+      task's interval and asserts its next due follows the new anchor.
 
 #### Budgets
 
@@ -1115,7 +1099,7 @@ order below is a suggestion, not a dependency, unless noted.
       one-off like "Book the car service" can't get a date, and the
       overview's "Today" block (UX-70) has nothing to say about lateness.
       One migration: a nullable `dueDate`. Recurring tasks derive it from
-      the rule UX-137 settles.
+      the rule UX-137 settled (REQUIREMENTS.md, Recurrence).
       Acceptance: a task can carry an optional due date. Open tasks sort
       overdue, then today, then later. An overdue row shows a
       `warning`-tinted "Overdue · 5 days" with an icon on the tasks page

@@ -89,6 +89,13 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     duration: "1 year",
   },
   {
+    name: "time_zone",
+    kind: "cookie",
+    category: "necessary",
+    purpose: "Remembers your time zone so a repeating task reopens at your midnight, not the server's.",
+    duration: "1 year",
+  },
+  {
     name: "sidebar_expanded",
     kind: "cookie",
     category: "preference",
