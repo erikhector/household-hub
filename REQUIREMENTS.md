@@ -7237,8 +7237,12 @@ any other keeps the previous page, and either is replaced by the real page.
 Every route measures under budget in both. What the spec cannot delay is the
 server's own Suspense streaming inside one response, and Lighthouse itself
 isn't in the toolchain, so a run against a deployed build stays the final
-check. The four `fallback={null}` slots above content (household
-`SharedWithNote`, inventory `InventoryWellStockedNote`, shopping list
+check. The household page (MAINT-31) has no Suspense boundaries at all:
+its note, member list and notes board used to stream in behind fallbacks of
+a different height (or none), which under load moved the settings cards
+below them past the budget (0.0647), so it now arrives in one piece behind
+`loading.tsx`. The three remaining `fallback={null}` slots above content
+(inventory `InventoryWellStockedNote`, shopping list
 `RepurchaseSuggestionsSection`, the layout's email-verification banner) stay
 empty on purpose: each renders nothing in the common case (a solo household,
 a stock with something low, no suggestion, an already verified email), so a

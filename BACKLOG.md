@@ -258,20 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-31. Flaky: `/dashboard/household` shifts 0.0647 while loading on mobile** (low, S) —
-      `e2e/cls.spec.ts:66` ("/dashboard/household does not shift while
-      loading", the hard-load CLS loop over `DASHBOARD_ROUTES`), `mobile`
-      project. Failed once in the local `ci:local` gate on release PR #366
-      (head `c6c7e36`, 2026-10-18), then passed on a re-run of the same
-      commit; GitHub's `End-to-end (Playwright)` job on that head passed.
-      The failing assertion is `toBeLessThan(CLS_BUDGET)` (`:82`, budget
-      0.05 from `:11`, UX-42): the summed `layout-shift` entries were
-      0.0647. Something on the household page (a streamed Suspense section
-      or a late-sizing element after `networkidle`) sometimes lands without
-      a reserved box. Fix it in the app (a skeleton or fixed size for what
-      shifts) or in the test's waiting, never a raised budget, a skip or a
-      retry. Acceptance: `npx playwright test e2e/cls.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-32. Flaky: Delete and Save buttons overlap in the phone edit sheet** (low, S) —
       `e2e/budget-transaction-rows.spec.ts:51` ("phone rows open the edit
       sheet, name themselves and delete from the sheet"), `mobile` project.
