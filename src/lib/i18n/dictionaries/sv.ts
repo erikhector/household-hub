@@ -140,6 +140,8 @@ export const sv = {
     dark: "Mörkt",
     system: "System",
     toggleLabel: "Byt tema",
+    current: "Tema: {theme}",
+    heading: "Utseende",
   },
   notifications: {
     title: "Aviseringar",
@@ -170,6 +172,8 @@ export const sv = {
     english: "Engelska",
     swedish: "Svenska",
     toggleLabel: "Byt språk",
+    current: "Språk: {language}",
+    heading: "Språk",
   },
   emailVerification: {
     message: "Verifiera din e-postadress.",

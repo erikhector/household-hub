@@ -5704,16 +5704,27 @@ URL and re-fetch on their own; nothing is ever written back.
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
-(`ThemeProvider attribute="class" defaultTheme="dark" enableSystem` in
+(`ThemeProvider attribute="class" defaultTheme={…} enableSystem` in
 `src/app/layout.tsx`), which toggles a `light`/`dark` class on `<html>` and
 handles the flash-of-wrong-theme problem itself (an inline script sets the
 class before first paint, reading its own `localStorage` key — this is the
 same technique, and it's the reason `<html>` has `suppressHydrationWarning`
-and no longer hardcodes a `dark` class). Existing users default to `dark`
-(the app's original look); new visitors can pick any of the three. The
-toggle is `useThemeCycle()` (`src/components/theme/use-theme-cycle.ts`),
-cycling light → dark → system, used in the sidebar (desktop) and bottom
-nav's "More" menu (mobile) — see "Navigation & responsive layout".
+and no longer hardcodes a `dark` class). **UX-51**: a browser with no stored theme follows the
+system's light/dark setting (`defaultTheme` is the signed-in account's saved
+theme, else `"system"`; the `User.theme` column now defaults to `system`, and
+accounts made before keep the `dark` they were given). The browser chrome
+colour follows the page: `layout.tsx`'s `themeColor` lists both schemes by
+media query (`THEME_COLORS` in `theme-choice.ts`) and `ThemeColorSync` sets
+the resolved theme's colour when a visitor's own choice differs from the
+system's. The toggle is `useThemeCycle()`
+(`src/components/theme/use-theme-cycle.ts`), cycling light → dark → system,
+used in the sidebar (desktop), the bottom nav's "More" menu (mobile; the menu
+stays open on a theme tap) and, for logged-out visitors, `PublicThemeToggle`
+in the legal footer beside the language toggle. Each shortcut names the
+setting in use ("Theme: Dark" with the matching icon, "Language: English"),
+not the next one. The Profile's Preferences section has the full choice as
+segmented radio groups, Language (English / Svenska) and Appearance (Light /
+Dark / System), in `PreferencesControls`. `e2e/ux-51.spec.ts` covers it.
 
 Both themes share the same `body` background technique: a
 `radial-gradient(circle, var(--gradient-start), var(--gradient-end))` (set
@@ -6409,8 +6420,8 @@ the locale fallback.
 **Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
 `h2` region, instead of eleven loose cards: **Account** (display name,
 email and password as one card with a divider between the three forms, each
-keeping its own Save), **Preferences** (the Swish number; the Appearance and
-Language controls of UX-51 join it here), **Notifications** (push, weekly
+keeping its own Save), **Preferences** (the Swish number; the Language and Appearance
+Appearance controls of UX-51 sit above it), **Notifications** (push, weekly
 digest, install app) and **Data & privacy** (Export my data; the "About
 Squirrel" version and "Danger zone" account deletion behind native
 `<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
