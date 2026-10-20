@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
-import { E2E_ITEM } from "./seed-data";
+import { E2E_ITEM, E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
 
 // UX-31: screen-reader and small-screen semantics.
@@ -13,7 +13,7 @@ test("an unread notification says 'Unread' in text, not only with a dot", async 
     await client.query(`DELETE FROM "Notification" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
     await client.query(
       `INSERT INTO "Notification" (id, "householdId", kind, "inventoryItemId") VALUES ($1, $2, 'EXPIRING_SOON', $3)`,
-      ["ux31-unread", E2E_HOUSEHOLD.id, E2E_ITEM.id],
+      [`ux31-unread-${E2E_WORKER}`, E2E_HOUSEHOLD.id, E2E_ITEM.id],
     );
   } finally {
     await client.end();
@@ -69,10 +69,13 @@ test("delete household: confirm field is exact-match, has a Cancel and no autoco
   // second one for the duration of the test.
   const db = new Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();
-  await db.query(`INSERT INTO "Household" (id, name) VALUES ('ux31-second', 'UX31 Second')`);
+  // Ids carry the worker: workers share one database, so a fixed id collides
+  // when two of them (or two repeats) run this test at once.
+  const secondId = `ux31-second-${E2E_WORKER}`;
+  await db.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'UX31 Second')`, [secondId]);
   await db.query(
-    `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ('ux31-second-member', 'ux31-second', $1, 'OWNER')`,
-    [E2E_USER.id],
+    `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+    [`${secondId}-member`, secondId, E2E_USER.id],
   );
   try {
     await dismissCookieNotice(context, baseURL!);
@@ -89,7 +92,7 @@ test("delete household: confirm field is exact-match, has a Cancel and no autoco
     await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   } finally {
-    await db.query(`DELETE FROM "Household" WHERE id = 'ux31-second'`);
+    await db.query(`DELETE FROM "Household" WHERE id = $1`, [secondId]);
     await db.end();
   }
 });
@@ -109,6 +112,13 @@ test("invite email is a form, so Enter submits it", async ({ page, context, base
 
 test("password form carries a hidden username for password managers", async ({ page }) => {
   await page.goto("/dashboard/profile");
+  // The profile page streams in behind loading.tsx and React reveals each
+  // Suspense boundary through a view transition, so the form's markup can be
+  // in the document twice for a moment (the hidden streamed copy and the
+  // revealed one). Wait until the form is actually shown (its current-password
+  // field is visible, which the hidden copy never is) before counting, or the
+  // count and the value check below can land on different moments (MAINT-36).
+  await expect(page.locator("#currentPasswordForPassword")).toBeVisible();
   const username = page.locator('input[autocomplete="username"]');
   await expect(username).toHaveCount(1);
   await expect(username).toHaveValue(E2E_USER.email);
