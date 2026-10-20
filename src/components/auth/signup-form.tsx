@@ -110,7 +110,7 @@ export function SignupForm({
             className="pl-8"
           />
         </div>
-        <p id="householdName-hint" className="text-xs text-muted-foreground">
+        <p id="householdName-hint" className="text-sm text-muted-foreground">
           {dict.householdNameHint}
         </p>
       </div>
@@ -160,7 +160,7 @@ export function SignupForm({
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         {legalDict.signupConsentPrefix}{" "}
         <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
           {legalDict.termsLink}
