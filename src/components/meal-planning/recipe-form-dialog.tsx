@@ -670,53 +670,6 @@ export function RecipeFormDialog({
           <p className="-mt-2 text-xs text-muted-foreground">{dict.servingsHint}</p>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="recipe-instructions">{dict.instructionsLabel}</Label>
-            <Textarea
-              autoComplete="off"
-              id="recipe-instructions"
-              name="instructions"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder={dict.instructionsPlaceholder}
-              maxLength={4000}
-              rows={4}
-            />
-          </div>
-
-          {/* GAP-29: toggle chips (same look as the starter pickers) rather
-              than checkboxes — the set is small enough to show whole. The
-              hidden inputs are what's actually posted; the server re-parses
-              them against RECIPE_TAGS, so these buttons are just UI. */}
-          <div className="flex flex-col gap-2">
-            <Label id="recipe-tags-label">{dict.recipeTagsLabel}</Label>
-            <div role="group" aria-labelledby="recipe-tags-label" className="flex flex-wrap gap-1.5">
-              {RECIPE_TAGS.map((tag) => {
-                const isSelected = tags.has(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    aria-pressed={isSelected}
-                    onClick={() => toggleTag(tag)}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs transition-colors",
-                      isSelected
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-input text-muted-foreground hover:border-primary/50",
-                    )}
-                  >
-                    {dict.recipeTags[tag]}
-                  </button>
-                );
-              })}
-            </div>
-            {RECIPE_TAGS.filter((tag) => tags.has(tag)).map((tag) => (
-              <input key={tag} type="hidden" name="tags" value={tag} />
-            ))}
-            <p className="text-xs text-muted-foreground">{dict.recipeTagsHint}</p>
-          </div>
-
-          <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <Label>{dict.ingredientsLabel}</Label>
               <Button type="button" variant="outline" size="xs" onClick={addRow}>
@@ -760,6 +713,7 @@ export function RecipeFormDialog({
                       value={row.quantity}
                       onChange={(e) => updateRow(row.uid, "quantity", e.target.value)}
                       placeholder={dict.ingredientQuantityPlaceholder}
+                      aria-label={dict.ingredientQuantityLabel}
                       className="w-16 shrink-0"
                     />
                     <Input
@@ -768,6 +722,7 @@ export function RecipeFormDialog({
                       value={row.unit}
                       onChange={(e) => updateRow(row.uid, "unit", e.target.value)}
                       placeholder={dict.ingredientUnitPlaceholder}
+                      aria-label={dict.ingredientUnitLabel}
                       maxLength={20}
                       className="w-16 shrink-0 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
                     />
@@ -839,6 +794,7 @@ export function RecipeFormDialog({
                       value={row.quantity}
                       onChange={(e) => updateComponentRow(row.uid, "quantity", e.target.value)}
                       placeholder={dict.componentQuantityPlaceholder}
+                      aria-label={dict.componentQuantityLabel}
                       className="w-20 shrink-0"
                     />
                     <Button
@@ -855,6 +811,57 @@ export function RecipeFormDialog({
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="recipe-instructions">{dict.instructionsLabel}</Label>
+            <Textarea
+              autoComplete="off"
+              id="recipe-instructions"
+              name="instructions"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder={dict.instructionsPlaceholder}
+              maxLength={4000}
+              rows={4}
+              aria-describedby="recipe-instructions-hint"
+            />
+            <p id="recipe-instructions-hint" className="text-xs text-muted-foreground">
+              {dict.instructionsHint}
+            </p>
+          </div>
+
+          {/* GAP-29: toggle chips (same look as the starter pickers) rather
+              than checkboxes — the set is small enough to show whole. The
+              hidden inputs are what's actually posted; the server re-parses
+              them against RECIPE_TAGS, so these buttons are just UI. */}
+          <div className="flex flex-col gap-2">
+            <Label id="recipe-tags-label">{dict.recipeTagsLabel}</Label>
+            <div role="group" aria-labelledby="recipe-tags-label" className="flex flex-wrap gap-2">
+              {RECIPE_TAGS.map((tag) => {
+                const isSelected = tags.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => toggleTag(tag)}
+                    className={cn(
+                      "rounded-full border px-4 py-1 text-sm transition-colors max-sm:min-h-11 pointer-coarse:min-h-11",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-input text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    {dict.recipeTags[tag]}
+                  </button>
+                );
+              })}
+            </div>
+            {RECIPE_TAGS.filter((tag) => tags.has(tag)).map((tag) => (
+              <input key={tag} type="hidden" name="tags" value={tag} />
+            ))}
+            <p className="text-xs text-muted-foreground">{dict.recipeTagsHint}</p>
           </div>
 
           <div className="flex flex-col gap-2">

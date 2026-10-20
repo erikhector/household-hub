@@ -384,6 +384,18 @@ outbound email to arbitrary addresses via this app's sending domain.
   `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
   first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
   cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
+- **Overview stat cards (UX-71)**: the three household cards read honestly
+  and each leads somewhere. Low stock counts items strictly *low* (the same
+  meaning as the inventory filter), so the number matches its link
+  (`/dashboard/inventory?status=low`; `?status=out` when only out-of-stock
+  items remain). The number is warning-coloured only above 0, out-of-stock
+  is its own red line, "N already on your list" counts items needing restock
+  with an unpurchased row on an active list, and when nothing needs
+  restocking the card reads "All stocked up" with a check icon. The shopping
+  card opens the list itself when there's exactly one active list, shows
+  "No lists yet — start one" with a "Start a list" button when there are
+  none. Total items tracked links to the inventory ("Add your first item"
+  when empty). Covered by `e2e/overview-stat-cards.spec.ts`.
 
 ## Data model
 
@@ -1370,9 +1382,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     confirmed at the list's quantities is exactly what this feature exists
     to avoid. Instead "Done shopping" and the ⋯ menu's "Complete list" open
     the dialog in finishing mode whenever rows are waiting: "Put away &
-    finish" or "Finish, put away later". Either way, if unticked rows remain
-    (including ones just marked "Didn't get it"), finishing still goes
-    through the usual "Complete this list?" confirmation. Finishing later doesn't lose
+    finish" or "Finish, put away later". Both complete the list in one step
+    (UX-80): no second "Complete this list?" sheet follows, even with
+    unticked rows (including ones just marked "Didn't get it"). While any
+    would be left behind, the sheet carries a "Move N unbought items to
+    {list}" checkbox, on by default (see "Carrying unbought items over"
+    below). Finishing later doesn't lose
     anything: the rows stay ticked on the completed list, still count as
     incoming, and the button and reminder still find them there.
   - *Incoming stock* (`src/lib/incoming-stock.ts`, pure half unit-tested):
@@ -2296,9 +2311,24 @@ household-scoped (the expense delete is a `deleteMany` on id +
 `householdId`, so a stale or foreign id removes nothing) and idempotent (a
 list that's no longer `COMPLETED` is left alone). Inventory needs no
 reversal, because completing never touches it. The menu's "Complete list" is
-still confirm-gated, since it can complete a list with items still pending.
+still confirm-gated when items are still pending: the sheet says how many
+("1 item isn't ticked off yet. …") and carries the same "Move N unbought
+items to {list}" checkbox. With nothing pending it completes straight away.
 Its toast carries the same Undo. Like "Undo mark cooked", this is a
 fat-finger undo on the toast, not a permanent "reopen list" control.
+
+**Carrying unbought items over (UX-80).** `completeShoppingListAction(listId,
+amountOverride?, carryOver?)` with `carryOver` moves the list's unticked rows
+to the household's active default list (the fresh one when the completed list
+was the default, a new "Next shop" when none exists) inside the completing
+`$transaction`, so they show as pending there. A row whose inventory item is
+already pending on the target stays behind instead of doubling up. The action
+returns `carriedOver: { itemIds, listId, listName }`; the toast's description
+says "N items moved to {list}", and Undo passes the ids to
+`uncompleteShoppingListAction(listId, transactionId, carriedItemIds)`, which
+moves back only those still unticked in the household. The checkbox label
+names the target list (page query for the active default). Flow spec:
+`e2e/shopping-finish-carry-over.spec.ts`.
 
 #### Printing a list (GAP-24)
 
@@ -3964,6 +3994,17 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     it). The popup's `Use "X"` row is a real button: tapping it keeps the
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
+  - **Recipe form order and wording (UX-98)**: the form runs in the order
+    a recipe is written: Name and Servings, Ingredients, Sub-recipes,
+    Instructions, Tags, then optional nutrition. The Instructions field
+    says "One step per line — each becomes a step in Cook mode" (linked
+    with `aria-describedby`). Tag chips are 14 px text and 44 px tall on
+    phones and touch screens, 8 px apart. Quantity and Unit (and a
+    sub-recipe's Batches) carry accessible names, not just placeholders.
+    The sub-recipe hint is plain language. A recipe's ingredient quantity
+    pluralises its unit ("3 cloves", "2 klyftor") in the recipe sheet and
+    Cook mode via `unitLabelForQuantity()` and the dictionary's
+    `unitsPlural` map; one and fractions of one stay singular.
   - **Combo button names (UX-129)**: every `ComboField` (category,
     location, unit, name) names its × "Clear {field}" (the field's own
     label, lower-cased, via the required `label` prop) and its chevron
