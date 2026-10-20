@@ -6887,7 +6887,9 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   feeds from `navigator`/`matchMedia("(display-mode: standalone)")` (plus
   legacy `navigator.standalone`) via `useSyncExternalStore`.
 - **Theme colour.** The root layout sets per-scheme `viewport.themeColor`
-  (light/dark page ground from `globals.css` `--gradient-end`);
+  (light/dark page ground from `globals.css` `--gradient-end`) for first
+  paint; once hydrated, `ThemeColorSync` sets both to the page's colour
+  (UX-51);
   `manifest.ts`'s single `theme_color` carries the dark value, the app's
   default theme, instead of the old fixed brand purple.
 - **Tap highlight and reduced motion.** `globals.css` sets
