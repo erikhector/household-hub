@@ -407,6 +407,7 @@ export function ReceiptScanDialog({
                   value={newItemDraft.name}
                   onValueChange={(v) => updateNewItemDraft({ name: v })}
                   maxLength={120}
+                  label={dict.newItemNameLabel}
                   dict={dict}
                 />
               </div>
@@ -437,6 +438,7 @@ export function ReceiptScanDialog({
                   value={newItemDraft.unit}
                   onValueChange={(v) => updateNewItemDraft({ unit: v })}
                   maxLength={20}
+                  label={dict.newItemUnitLabel}
                   dict={dict}
                 />
               </div>
@@ -452,6 +454,7 @@ export function ReceiptScanDialog({
                   onValueChange={(v) => updateNewItemDraft({ category: v })}
                   placeholder={dict.newItemCategoryPlaceholder}
                   maxLength={60}
+                  label={dict.newItemCategoryLabel}
                   dict={dict}
                 />
               </div>

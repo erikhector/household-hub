@@ -302,6 +302,7 @@ function ReviewRowCard({
                 onValueChange={(value) => onChange({ newCategory: value })}
                 placeholder={t.newCategoryPlaceholder}
                 maxLength={60}
+                label={t.newCategoryLabel}
                 dict={dict}
               />
             </div>

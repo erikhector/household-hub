@@ -247,6 +247,7 @@ export function PutAwayDialog({
                           onValueChange={(value) => update(item, { location: value })}
                           placeholder={item.location ?? t.locationPlaceholder}
                           maxLength={120}
+                          label={t.locationLabel}
                           dict={dict}
                         />
                       </div>

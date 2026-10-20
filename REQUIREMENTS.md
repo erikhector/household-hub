@@ -431,8 +431,20 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       chips and the meal-planning tabs also write `?filter=` / `?tab=`
       with `history.replaceState`, so the browser's back button lands on
       the same filter or tab.
-    - **Header**: name, category · location, "In stock: 1 pcs · running
-      low below 0.5 pcs" and "Change unit…".
+    - **Header**: name, category · location, then the controls the list
+      gives a row (UX-124, `ItemPageControls`, reusing `QuantityStepper`,
+      `StockBadge`, `ExpiryBadge` and `ItemActions`): the −/+ stepper (tap
+      the number for the exact-amount sheet), the stock badge ("In stock",
+      "Low stock", "Out of stock" — an empty item no longer reads "In
+      stock: 0 pcs"), the Expiring soon / Expired, Opened and Frozen tags,
+      "Best before {date}" (≈ when estimated), and the Edit, Delete, Mark
+      opened, Freeze, Add to shopping list and Mark as empty actions (the
+      list's own handlers, `useItemHandlers`, so toasts and Undo match;
+      no "Details" link, since this is it). Delete returns to where the
+      page was opened from. Then "running low below 0.5 pcs" and "Change
+      unit…". The stock actions also revalidate this page, so the badges
+      follow a change. The "Also on" list links are underlined in the link
+      colour.
     - **Units**: "Counted in {unit}" and each conversion, written the way
       people know the number (`conversionSentence`, the review's
       `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with
@@ -528,6 +540,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     opened, Freeze, Add to list, Details, Mark empty, Edit, Delete) fits the
     ~990 px column at 1280 px with no horizontal scroll.
     `e2e/ux-130.desktop.spec.ts` asserts it.
+  - **Cards below `lg`, table from `lg` (UX-141)**: the inventory table
+    only shows from 1024 px (`lg`). Between `sm` and `lg`, a tablet with
+    the sidebar open (810 px), the name column was about three characters
+    ("Crè…") and Last updated ran off the edge, so those widths get the same
+    card list phones do (names read in full, no horizontal scroll). The
+    bulk-edit bar and other `sm` rules are unchanged. `e2e/ux-141.spec.ts`
+    runs in the `tablet` project too and asserts it.
   - **"I used some / I bought more" (UX-119)**: the −/+ stepper moves by a
     step that suits the unit (`quantityStep`, `src/lib/inventory/quantity-step.ts`):
     50 for g and ml, 0.25 for kg and l, 1 for everything else (counts and
@@ -902,7 +921,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   bathroom — `AUTO_CATEGORY_KEYS`' own order (auto-category.ts) — matching a
   category stored in either locale to the same group (a household that
   auto-filed some items in English and some in Swedish still gets one
-  "Dairy & eggs" group, not two). A household's own custom category text
+  "Dairy & eggs" group, not two), labelled in the viewer's language (UX-83:
+  `groupPendingItemsByCategory`'s `locale` argument, so a Swedish session
+  reads "Frukt & grönt" in the headers and the Next up dock even when the
+  category was stored in English). A household's own custom category text
   sorts after the known ones, alphabetically; items with no linked item, a
   blank category, or still sitting in the "Uncategorized" placeholder
   collect under "Other" at the end. Only categories actually present get a
@@ -1409,7 +1431,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   so rows scrolled under it never show through, UX-82). Typing `2 l mjölk, bröd, 6 ägg` and pressing
   Enter adds three rows; the text goes through the shared
   `parsePastedList` (via `parseSmartAddInput`), and a row with no typed
-  unit takes its inventory item's usual unit rather than "pcs". The input
+  unit takes its inventory item's usual unit rather than "pcs". A comma
+  inside brackets doesn't split (UX-88): `dishwasher tablets (lemon-free,
+  120 st), paper towels` is two rows with the brackets intact (an unclosed
+  bracket doesn't count, so a stray `(` can't swallow the line). The input
   clears as soon as it's submitted and keeps focus, so the next item can be
   typed straight away (it's put back if the add fails). Each added row
   highlights for ~2 s and scrolls into view if it was off-screen (the
@@ -1768,6 +1793,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   a single `Transaction` row auto-generates a future one; the flag just
   documents that a logged transaction is one of an expected repeat (e.g.
   rent, a subscription) for the household's own reference.
+  UX-113: a *new* transaction no longer offers "This repeats" (household
+  and Personal Budget share `TransactionDialog`). The flag only fed the
+  fallback estimate below, so ticking it created no recurring item and
+  moved Safe to spend with nothing under Recurring items or "Due this
+  period" to explain it. A repeating bill is added as a recurring item
+  (Manage), which is listed, due and counted by name. The checkbox stays
+  only for a payment logged from a recurring item and for an existing
+  transaction already flagged, so it can be cleared. Covered by
+  `e2e/transaction-repeats.spec.ts`.
 - **Recurring budget templates** (a separate, later-added system — see
   `RecurringTemplate`/`RecurringTemplateAck` in `prisma/schema.prisma`,
   the pure `src/app/dashboard/budget/recurring-template-calc.ts`, and
@@ -3918,6 +3952,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     it). The popup's `Use "X"` row is a real button: tapping it keeps the
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
+  - **Combo button names (UX-129)**: every `ComboField` (category,
+    location, unit, name) names its × "Clear {field}" (the field's own
+    label, lower-cased, via the required `label` prop) and its chevron
+    "Show suggestions", in English and Swedish (`comboboxClear`,
+    `comboboxShowSuggestions` beside the other combobox strings), so a
+    screen reader no longer announces two bare "button"s per field.
+    `e2e/combo-button-names.spec.ts` finds them by role and name.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
@@ -4154,15 +4195,17 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`FillEmptyDaysDialog`,
   `src/components/meal-planning/fill-empty-days-dialog.tsx`), shown while at
   least one day has no entries and hasn't passed yet. It opens a preview with
-  one proposed dinner per such day, taken from favorites
-  (`Recipe.isFavorite`) that aren't already on the week's plan and never the
-  same recipe twice (`proposeDinners` in `fill-empty-days.ts`, name order).
-  With fewer unplanned favorites than empty days the later days are simply
-  left out, and the dialog says so; with no favorites it says to star some.
+  one proposed dinner per such day, taken from favorites first
+  (`Recipe.isFavorite`) and then the household's other recipes once
+  favorites run out (UX-97), skipping recipes already on the week's plan and
+  never the same recipe twice (`proposeDinners` in `fill-empty-days.ts`,
+  each group in name order). With fewer unplanned recipes than empty days
+  the later days are simply left out, and the dialog says so; with no
+  recipes at all it says to add some.
   The proposal is computed on the client from data the page already has and
   **nothing is written** until "Add dinners"; Cancel or closing discards it,
   and reopening re-proposes. Each row has a swap button that moves to the
-  next unused favorite (`nextSwap`), so the no-repeat rule holds without a
+  next unused recipe (`nextSwap`, favorites first), so the no-repeat rule holds without a
   free picker. Accepting calls `fillEmptyDaysAction(weekStart, picks)` in
   `planner-actions.ts`: the week must be a Monday, picks are at most seven
   with unique in-week dates and unique recipes, the recipes are re-checked
@@ -5474,7 +5517,10 @@ co-managers, not kids earning rewards.
   `deleteTaskAction`.
 - **UI**: one shared `TaskFormDialog` for create and edit (title on
   create, assignee, repeat; once a task repeats and the household has two
-  or more members, a "Take turns" list with add, remove and up/down) and a
+  or more members, a "Take turns" list with add, remove and up/down; the
+  first person added starts from the assignee as #1, and a one-person
+  list shows "Add at least one more person" as an error and disables
+  Add) and a
   flat list split into open/completed sections, matching
   `ShoppingListClient`'s shape. An unassigned task shows a neutral
   "Unassigned" badge; a completed task credits its completer by name, never
@@ -6081,7 +6127,12 @@ components directly.
   to dashboard". Copy is in the `notFound` dictionary section. The failed
   states of `/verify-email/<token>` and `/unsubscribe/<token>` are titled
   by outcome ("Link expired" and "Link not valid") instead of the page's
-  label. Covered by `e2e/public-pages.spec.ts` and
+  label. On `/verify-email/<token>` the title follows the cause (UX-142):
+  `verifyEmailAction` returns a `code` (`invalid`, `rateLimited`,
+  `generic`) next to `error`, and the client takes the title and message
+  from the `auth.verifyEmail` dictionary by code, so a rate-limited
+  visitor sees "Too many attempts" with a "try again later" message, not
+  "Link expired". Covered by `e2e/public-pages.spec.ts` and
   `e2e/item-catalog.spec.ts` (signed-in 404).
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes

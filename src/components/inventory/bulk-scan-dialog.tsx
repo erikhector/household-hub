@@ -246,6 +246,7 @@ export function BulkScanDialog({
                   onValueChange={setCategory}
                   placeholder={dict.categoryPlaceholder}
                   maxLength={60}
+                  label={t.sharedCategoryLabel}
                   dict={dict}
                 />
               </div>
@@ -259,6 +260,7 @@ export function BulkScanDialog({
                   onValueChange={setLocation}
                   placeholder={dict.locationPlaceholder}
                   maxLength={120}
+                  label={t.sharedLocationLabel}
                   dict={dict}
                 />
               </div>

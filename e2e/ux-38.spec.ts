@@ -97,12 +97,20 @@ test("under reduced motion the celebration is a still image", async ({ page }) =
   const t = tag();
   await page.goto(await seedList(t, [`Salt ${t}`]));
 
+  // Ticking the only item clears the list, and the server action records a
+  // "list cleared" notification. Wait for that save: left in flight, it can
+  // land after the next test's DELETE of this household's notifications and
+  // leave its history non-empty (MAINT-29).
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
+  );
   await page.getByRole("region", { name: "Next up" }).getByRole("button", { name: /, into the cart$/ }).click();
   const mascot = page.getByRole("main").getByRole("img", { name: "Squirrel mascot" });
   await expect(mascot).toBeVisible();
   // The rise is motion-safe only, so nothing animates the mark (or its tile).
   const animation = await mascot.evaluate((img) => getComputedStyle(img.parentElement!).animationName);
   expect(animation).toBe("none");
+  await saved;
 });
 
 test("the empty notification history shows the squirrel mark", async ({ page }) => {

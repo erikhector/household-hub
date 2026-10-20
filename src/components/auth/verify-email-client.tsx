@@ -46,9 +46,16 @@ export function VerifyEmailClient({
   }
 
   if (state.error) {
+    // Title and message follow the cause (UX-142): a rate-limited visitor's
+    // link may well be fine, so "Link expired" would be wrong for them.
+    const failure = {
+      invalid: { title: dict.invalidTitle, description: dict.invalidDescription },
+      rateLimited: { title: dict.rateLimitedTitle, description: dict.rateLimitedDescription },
+      generic: { title: dict.genericTitle, description: dict.genericDescription },
+    }[state.code ?? "invalid"];
     return (
-      <StatusCard brand={brand} icon={XCircle} tone="error" title={dict.invalidTitle}>
-        <p className="text-sm text-muted-foreground">{state.error}</p>
+      <StatusCard brand={brand} icon={XCircle} tone="error" title={failure.title}>
+        <p className="text-sm text-muted-foreground">{failure.description}</p>
         <StatusCardLink href={isAuthenticated ? "/dashboard" : "/login"}>
           {isAuthenticated ? dict.dashboardResendLink : dict.loginToResendLink}
         </StatusCardLink>

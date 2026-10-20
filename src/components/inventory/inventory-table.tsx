@@ -25,12 +25,6 @@ import {
   adjustQuantityAction,
   bulkUpdateFieldAction,
   deleteInventoryItemAction,
-  markItemEmptyAction,
-  addInventoryItemsToShoppingListAction,
-  markItemOpenedAction,
-  undoMarkItemOpenedAction,
-  freezeItemAction,
-  undoFreezeItemAction,
 } from "@/app/dashboard/inventory/actions";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
@@ -42,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
+import { useItemHandlers } from "@/components/inventory/use-item-handlers";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
@@ -107,6 +102,11 @@ export function InventoryTable({
   view?: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const { handleMarkEmpty, handleMarkOpened, handleFreeze, addToShoppingList } = useItemHandlers({
+    dict,
+    locale,
+    run: (action) => startTransition(action),
+  });
   // UX-33: a deleted item leaves the list at tap time (see
   // local-row-changes.ts) and the rows below glide up; it comes back if
   // the delete fails.
@@ -189,95 +189,8 @@ export function InventoryTable({
     );
   }
 
-  function handleMarkEmpty(item: InventoryItemRow, addToShoppingList: boolean) {
-    startTransition(async () => {
-      const result = await markItemEmptyAction(item.id, addToShoppingList);
-      if (result.error) {
-        toast.error(result.error);
-      } else if (result.listName) {
-        toast.success(format(dict.markedEmptyAddedToast, { name: item.name, list: result.listName }));
-      } else {
-        showAutoAddedToast(result.autoAdded, dict.autoAdd);
-      }
-    });
-  }
-
-  // UX-122: leaves stock alone; the toast says when everything was already
-  // on the list rather than claiming an add that didn't happen.
-  function addToShoppingList(ids: string[], clearSelection: boolean) {
-    startTransition(async () => {
-      const result = await addInventoryItemsToShoppingListAction(ids);
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      const list = result.listName ?? "";
-      const added = result.added ?? 0;
-      if (added === 0) {
-        toast.success(format(plural(ids.length, dict.addToList.alreadyToast), { count: ids.length, list }));
-      } else {
-        toast.success(format(plural(added, dict.addToList.addedToast), { count: added, list }));
-      }
-      if (clearSelection) setSelected(new Set());
-    });
-  }
-
   function handleAddToList(item: InventoryItemRow) {
-    addToShoppingList([item.id], false);
-  }
-
-  // GAP-28: applied straight away with an Undo on the toast (Guardrails'
-  // "undo over confirm", same shape as MarkCookedDialog) — the server hands
-  // back the fields it overwrote so Undo restores them exactly, plus the
-  // openedAt it wrote so a stale Undo can recognise it's no longer current.
-  function handleMarkOpened(item: InventoryItemRow) {
-    startTransition(async () => {
-      const result = await markItemOpenedAction(item.id);
-      if (result.error || !result.openedAt || !result.expiresAt || !result.previous) {
-        if (result.error) toast.error(result.error);
-        return;
-      }
-      const { openedAt, previous } = result;
-      const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(result.expiresAt);
-      toast.success(format(dict.markedOpenedToast, { name: item.name, date }), {
-        duration: 8000,
-        action: {
-          label: dict.undoMarkOpened,
-          onClick: () => {
-            void undoMarkItemOpenedAction(item.id, openedAt, previous).then((undoResult) => {
-              if (undoResult.error) toast.error(undoResult.error);
-              else toast.success(format(dict.markOpenedUndoneToast, { name: item.name }));
-            });
-          },
-        },
-      });
-    });
-  }
-
-  // GAP-44: same shape as handleMarkOpened: applied straight away, Undo on
-  // the toast restores the snapshot unless the item changed since.
-  function handleFreeze(item: InventoryItemRow) {
-    startTransition(async () => {
-      const result = await freezeItemAction(item.id);
-      if (result.error || !result.frozenAt || !result.expiresAt || !result.previous) {
-        if (result.error) toast.error(result.error);
-        return;
-      }
-      const { frozenAt, previous } = result;
-      const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(result.expiresAt);
-      toast.success(format(dict.frozenToast, { name: item.name, date }), {
-        duration: 8000,
-        action: {
-          label: dict.undoFreeze,
-          onClick: () => {
-            void undoFreezeItemAction(item.id, frozenAt, previous).then((undoResult) => {
-              if (undoResult.error) toast.error(undoResult.error);
-              else toast.success(format(dict.freezeUndoneToast, { name: item.name }));
-            });
-          },
-        },
-      });
-    });
+    addToShoppingList([item.id]);
   }
 
   // From the row's confirm dialog, which waits on it and toasts an error.
@@ -377,7 +290,7 @@ export function InventoryTable({
               size="sm"
               className="h-8 max-sm:size-11 max-sm:p-0"
               disabled={isPending}
-              onClick={() => addToShoppingList([...selected], true)}
+              onClick={() => addToShoppingList([...selected], () => setSelected(new Set()))}
             >
               <ShoppingCart aria-hidden className="sm:hidden" />
               <span className="max-sm:sr-only">{dict.addToList.bulk}</span>
@@ -461,7 +374,7 @@ export function InventoryTable({
           </div>
         </div>
       )}
-      <div className="hidden sm:block sm:min-h-0 sm:flex-1 roomy:overflow-y-auto">
+      <div className="hidden lg:block lg:min-h-0 lg:flex-1 roomy:overflow-y-auto">
       <Table>
       <TableHeader className="sticky top-0 z-10 bg-background">
         <TableRow>
@@ -587,7 +500,7 @@ export function InventoryTable({
           accent down its left edge as well as a tint: the rows share one
           border now, so there's no per-card border to colour, and a tint
           alone is hard to see in sunlight. */}
-      <div className="flex min-w-0 flex-col gap-2 sm:hidden">
+      <div className="flex min-w-0 flex-col gap-2 lg:hidden">
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
             {groupBy !== "none" && (
@@ -747,7 +660,7 @@ function SwipeableItemCard({
 // UX-119: a tap moves by a step that suits the unit (50 g, not 1 g), and
 // tapping the number opens the "I used some / I bought more" sheet for an
 // exact amount.
-function QuantityStepper({
+export function QuantityStepper({
   item,
   layout,
   disabled,

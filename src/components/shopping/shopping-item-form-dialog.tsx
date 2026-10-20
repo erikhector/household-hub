@@ -319,6 +319,7 @@ export function ShoppingItemFormDialog({
                     onValueChange={handleNameChange}
                     placeholder={dict.addItemNamePlaceholder}
                     maxLength={120}
+                    label={dict.editItem.nameLabel}
                     dict={dict}
                   />
                 </div>
@@ -341,6 +342,7 @@ export function ShoppingItemFormDialog({
                     onValueChange={setUnit}
                     placeholder={dict.addItemUnitPlaceholder}
                     maxLength={20}
+                    label={dict.editItem.unitLabel}
                     dict={dict}
                   />
                 </div>
@@ -380,6 +382,7 @@ export function ShoppingItemFormDialog({
                     value={name}
                     onValueChange={setName}
                     maxLength={120}
+                    label={dict.editItem.nameLabel}
                     dict={dict.editItem}
                   />
                 </div>
@@ -406,6 +409,7 @@ export function ShoppingItemFormDialog({
                       onValueChange={setUnit}
                       placeholder={dict.editItem.unitPlaceholder}
                       maxLength={20}
+                      label={dict.editItem.unitLabel}
                       dict={dict.editItem}
                     />
                   </div>
@@ -492,6 +496,7 @@ export function ShoppingItemFormDialog({
                             onValueChange={setNewCategory}
                             placeholder={dict.editItem.newItemCategoryPlaceholder}
                             maxLength={60}
+                            label={dict.editItem.newItemCategoryLabel}
                             dict={dict.editItem}
                           />
                         </>

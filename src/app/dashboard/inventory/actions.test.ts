@@ -765,6 +765,16 @@ describe("adjustQuantityAction", () => {
     });
   });
 
+  // UX-124: the item page has its own stepper, which only shows the new
+  // number if the save revalidates that page too.
+  it("revalidates the item page as well as the list", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 2 });
+    updateMock.mockResolvedValue({});
+
+    await adjustQuantityAction("item-1", 1);
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory/items/[id]", "page");
+  });
 });
 
 describe("markItemEmptyAction", () => {
