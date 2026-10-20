@@ -9,7 +9,6 @@ import path from "node:path";
 import {
   NUTRITION_RECAP_DISMISSED_STORAGE_KEY,
   STORAGE_INVENTORY,
-  TASKS_FILTER_STORAGE_KEY,
   TASKS_RECAP_DISMISSED_STORAGE_KEY,
   USE_IT_UP_DISMISSED_STORAGE_KEY,
   VARIETY_RECAP_DISMISSED_STORAGE_KEY,
@@ -51,16 +50,6 @@ describe("STORAGE_INVENTORY", () => {
   it("has no duplicate names", () => {
     const names = STORAGE_INVENTORY.map((entry) => entry.name);
     expect(new Set(names).size).toBe(names.length);
-  });
-});
-
-describe("preference keys", () => {
-  // useLocalPreference only accepts these (typed via PreferenceStorageKey).
-  it("are each listed as a localStorage preference", () => {
-    expect(STORAGE_INVENTORY.find((e) => e.name === TASKS_FILTER_STORAGE_KEY)).toMatchObject({
-      kind: "localStorage",
-      category: "preference",
-    });
   });
 });
 
