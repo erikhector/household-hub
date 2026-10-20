@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.87.0",
+    "date": "2026-10-20",
+    "pr": 463,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Pages you open without logging in now have proper tab titles in your language, and invite and shared-list links show the household or list name when you paste them into a chat.",
+      "sv": "Sidor du öppnar utan att logga in har nu riktiga fliktitlar på ditt språk, och inbjudnings- och dellänkar visar hushållets eller listans namn när du klistrar in dem i en chatt."
+    }
+  },
+  {
     "version": "0.86.1",
     "date": "2026-10-20",
     "pr": 458,
