@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTickFeedback } from "@/lib/tick-feedback";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -110,7 +111,10 @@ const ADDED_HIGHLIGHT_MS = 2000;
 
 // UX-37: how long a just-ticked row stays in its aisle, animating out,
 // before it moves into "In the cart". Matches the row's exit animation.
-const LEAVE_MS = 350;
+// UX-54: 250, not 350: the tick now lands TICK_MS (200) after the tap, and
+// the aisle closing up must still happen inside the 500 ms after input that
+// layout shift (CLS) forgives.
+const LEAVE_MS = 250;
 
 type ShoppingListItemRow = {
   id: string;
@@ -1179,6 +1183,8 @@ function ShoppingRow({
   const unitLabel = useUnitLabel();
   const needsMapping = item.inventoryItemId === null;
   const purchased = item.purchased;
+  // UX-54: the box fills (with a haptic) before the row moves.
+  const { ticking, tick } = useTickFeedback();
   // UX-37: an unticked row on an ACTIVE list is shopping mode proper — the
   // row you're reading at arm's length in the aisle — so it gets large
   // type. Ticked rows (In the cart) and read-only lists stay compact.
@@ -1256,7 +1262,7 @@ function ShoppingRow({
           // below for LEAVE_MS, then moves there. motion-safe only; under
           // reduced motion it isn't held back at all (see toggleItem).
           leaving &&
-            "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-4 motion-safe:fill-mode-forwards motion-safe:duration-350",
+            "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-4 motion-safe:fill-mode-forwards motion-safe:duration-250",
         )}
       >
         {/* Below sm the row stacks: the name gets the full width on its own
@@ -1289,13 +1295,14 @@ function ShoppingRow({
             )}
           >
             <Checkbox
-              checked={purchased}
+              checked={purchased || ticking}
+              data-ticking={ticking || undefined}
               disabled={isPending || !editable}
               // z-[1]: above the label's row-wide ::after (painted after it),
               // so a tap on the box itself lands on the box.
               className={cn(editable && "z-[1] size-5", large && "max-sm:size-6 pointer-coarse:size-6")}
               data-swipe-primary
-            onChange={onToggle}
+              onChange={() => (purchased ? onToggle() : tick(onToggle))}
             />
             <span
               className={cn(

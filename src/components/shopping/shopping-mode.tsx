@@ -13,6 +13,7 @@ import type { NextUp, ShoppingProgress } from "@/lib/shopping/shopping-progress"
 import { useUnitLabel } from "@/components/units-provider";
 import { formatShoppingItemLabel } from "@/lib/shopping-list-text";
 import { cn } from "@/lib/utils";
+import { startTickFeedback, TICK_MS } from "@/lib/tick-feedback";
 
 type ShoppingModeDict = Dictionary["shoppingList"]["shoppingMode"];
 
@@ -73,7 +74,7 @@ export function ProgressRing({
 
 // How long a ticked dock row stays as a filled check before the next item
 // moves up (UX-78); longer than a double tap's gap (400 ms).
-const SETTLE_MS = 450;
+const SETTLE_MS = TICK_MS + 450;
 
 type DockItem = { id: string; name: string; quantity: number; unit: string };
 
@@ -117,8 +118,12 @@ export function NextUpDock<T extends DockItem>({
   }, [settling]);
   const tick = (item: T, index: number) => {
     if (settling) return;
+    // UX-54: the row shows its filled check (springing) and buzzes first;
+    // the real tick, and so the ring and the list, follows TICK_MS later
+    // (at once under reduced motion). Rows are disabled from the tap, so
+    // nothing else can be ticked in between.
     setSettling({ item, index, count: next.items.length });
-    onTick(item);
+    startTickFeedback(() => onTick(item));
   };
   // Minus the ticked row itself: a failed save rolls it back into next.items
   // while it still lingers, and a row must not appear twice.
@@ -216,7 +221,10 @@ export function NextUpDock<T extends DockItem>({
                   className="flex min-h-12 w-full items-center gap-3 rounded-lg bg-muted px-3 py-2 text-left text-lg font-medium transition-[transform,background-color] hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none active:scale-[0.98] disabled:opacity-100"
                 >
                   {ticked ? (
-                    <CircleCheck aria-hidden className="size-6 shrink-0 fill-primary text-primary-foreground" />
+                    <CircleCheck
+                      aria-hidden
+                      className="size-6 shrink-0 fill-primary text-primary-foreground motion-safe:animate-tick-pop"
+                    />
                   ) : (
                     <Circle aria-hidden className="size-6 shrink-0 text-muted-foreground" />
                   )}
