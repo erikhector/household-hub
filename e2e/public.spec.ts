@@ -36,17 +36,17 @@ test.describe("public language toggle", () => {
   test("/join/<token> follows Accept-Language, then switches to English", async ({ page, context, baseURL }) => {
     await dismissCookieNotice(context, baseURL!);
     await page.goto("/join/e2e-invalid-token");
-    await expect(page.getByText("Ogiltig inbjudan")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ogiltig inbjudan" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
 
     // The footer names the language in use (UX-51); a tap switches to the other.
     await page.getByRole("button", { name: "Byt språk: Svenska" }).click();
-    await expect(page.getByText("Invalid invite")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Invalid invite" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
     // The choice is stored (locale cookie), so it survives a reload even
     // though the browser still asks for Swedish.
     await page.reload();
-    await expect(page.getByText("Invalid invite")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Invalid invite" })).toBeVisible();
   });
 });

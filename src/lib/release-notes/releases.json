@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.90.0",
+    "date": "2026-10-20",
+    "pr": 484,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On Budget → Insights, who owes whom now comes first when someone owes money, and empty price and pantry cards fold into a single line.",
+      "sv": "I Budget → Insikter visas nu vem som är skyldig vem överst när någon är skyldig pengar, och tomma pris- och skafferikort samlas i en enda rad."
+    }
+  },
+  {
+    "version": "0.89.0",
+    "date": "2026-10-20",
+    "pr": 477,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Signing up now tells you what the household name is for, and points anyone joining a partner's or family member's household to the invite link they were sent.\n\nRepeating chores now reopen at midnight in your time zone, so a daily chore you tick late in the evening is back on your list the next morning. Weekly chores stay on their day even if you tick them early or late.\n\nRecipes now say \"portions\" everywhere (recipe list, recipe form, planner, Mark as cooked and Meal prep), and the add-meal sheet asks you to \"Choose a recipe\".",
+      "sv": "När du skapar ett konto förklarar vi nu vad hushållets namn används till, och hänvisar den som ska gå med i någon annans hushåll till inbjudningslänken.\n\nÅterkommande sysslor öppnas nu vid midnatt i din tidszon, så en daglig syssla du bockar av sent på kvällen finns tillbaka på listan nästa morgon. Veckosysslor stannar kvar på sin dag, även om du bockar av dem tidigt eller sent.\n\nRecept säger nu \"portioner\" överallt på engelska, och i planeringen står det \"Välj ett recept\" när du lägger till en måltid."
+    }
+  },
+  {
+    "version": "0.88.0",
+    "date": "2026-10-20",
+    "pr": 470,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Finishing a shopping trip is now one step. Anything you didn't get can move straight to your next list, so it isn't forgotten, and Undo puts it back.\n\nThe overview's stock, shopping and inventory cards are clearer: they only turn amber when something is actually low, tell you how many low items are already on your list, and every card takes you straight to the right place.\n\nThe recipe form now follows the order you write a recipe: ingredients come before instructions, tags are easier to tap, and quantity and unit fields are properly labelled. Recipes now say \"3 cloves\" instead of \"3 clove\".",
+      "sv": "Att avsluta ett inköp är nu ett enda steg. Det du inte hittade kan flyttas direkt till nästa lista så att det inte glöms bort, och Ångra lägger tillbaka det.\n\nKorten för lager, inköp och varor på översikten är tydligare: de blir bara gula när något faktiskt börjar ta slut, visar hur många varor med lågt lager som redan finns på din lista, och varje kort tar dig direkt till rätt ställe.\n\nReceptformuläret följer nu den ordning du skriver ett recept i: ingredienserna kommer före instruktionerna, taggarna är lättare att trycka på och fälten för mängd och enhet har riktiga etiketter. Recept visar nu \"3 klyftor\" i stället för \"3 klyfta\"."
+    }
+  },
+  {
+    "version": "0.87.0",
+    "date": "2026-10-20",
+    "pr": 463,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Pages you open without logging in now have proper tab titles in your language, and invite and shared-list links show the household or list name when you paste them into a chat.",
+      "sv": "Sidor du öppnar utan att logga in har nu riktiga fliktitlar på ditt språk, och inbjudnings- och dellänkar visar hushållets eller listans namn när du klistrar in dem i en chatt."
+    }
+  },
+  {
     "version": "0.86.1",
     "date": "2026-10-20",
     "pr": 458,

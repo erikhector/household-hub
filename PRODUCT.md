@@ -33,18 +33,8 @@ Builder picks these, in order, right after `UX-` items.
 
 Decisions only the owner can make, each with a recommended answer.
 
-- `BUDGET-5`: should personal budget get its own starter categories?
-  Recommended: yes, a short personal set via the same picker (money surface).
-- `AUTO-13`: inbound receipt email? Recommended: yes as a first step, but
-  it needs the owner to enable Resend inbound and accept temporary storage
-  of receipt content.
-- `UX-135`: sign in straight from the verification link? Recommended: yes,
-  single-use token (auth surface). Decision issue opened.
-- `UX-136`: opt-in sample data for a new household? Recommended: yes, tagged
-  so one tap clears exactly those rows. Decision issue opened.
-- `UX-138`: what "Safe to spend" subtracts? Recommended: subtract unspent
-  limited-category remainder as its own line (money surface). Decision issue
-  opened.
+- `AUTO-13`: owner chose the inbound address (#399); waiting on the owner to
+  enable Resend inbound and accept temporary storage of receipt content.
 - `PRICE-1`: wait; decide after AUTO-4 shows how much price data exists.
 - `PERF-11`: check the Vercel and database regions in the dashboards; if
   they differ, pin `regions` (likely the biggest latency win).
@@ -56,6 +46,11 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-10-20 | AUTO-13 | Inbound receipt email address, forwarded receipts land as pending review only; stays blocked until Resend inbound is enabled | owner (#399) | Yes |
+| 2026-10-20 | BUDGET-5 | Personal budget gets its own short starter set via the same picker, then the onboarding components merge | owner (#398) | Yes |
+| 2026-10-20 | UX-138 | Safe to spend subtracts unspent limited-category remainder as a "Still budgeted" line; pace projection becomes a qualifier | owner (#397) | Yes |
+| 2026-10-20 | UX-136 | Opt-in, tagged sample data with one-tap clear | owner (#396) | Yes |
+| 2026-10-20 | UX-135 | Valid single-use verification token signs the user in | owner (#395) | Yes |
 | 2026-10-19 | GAP-57 | Build the morning dinner nudge only as a per-user opt-in toggle, default off, one entry per day | Item's own recommendation; opt-in keeps Guardrails on noisy positive alerts | Yes |
 | 2026-10-19 | UX-137 | Recurring tasks reschedule from the start of the local day; weekly+ keep an anchor day; no per-task mode yet | Item's own recommended option; fixes "Next due today" on completed rows with no schema | Yes |
 | 2026-10-15 | UX-36 | Offline v1: cached shopping list plus a queue of ticks only; adds and price edits later | Smallest in-store slice with no merge conflicts; auth and money stay online-only | Yes |

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, PiggyBank, Users } from "lucide-react";
+import { ChevronRight, CircleCheck, PiggyBank, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
 import { isGettingStartedDismissed } from "@/lib/getting-started-dismiss";
+import { getTimeZone } from "@/lib/get-time-zone";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
@@ -80,6 +81,7 @@ export default async function DashboardOverviewPage() {
         assignedToMemberId: true,
         completedAt: true,
         recurrenceIntervalDays: true,
+        createdAt: true,
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -87,11 +89,17 @@ export default async function DashboardOverviewPage() {
     // counts the rows) — not every inventory column for every item.
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { quantity: true, lowStockThreshold: true, expiresAt: true },
+      select: { id: true, quantity: true, lowStockThreshold: true, expiresAt: true },
     }),
     prisma.shoppingList.findMany({
       where: { householdId: household.id, status: "ACTIVE" },
-      include: { _count: { select: { items: { where: { purchased: false } } } } },
+      // The rows still to buy: their count for the card, and which inventory
+      // items they restock for its "already on your list" line.
+      select: {
+        id: true,
+        name: true,
+        items: { where: { purchased: false }, select: { inventoryItemId: true } },
+      },
     }),
     prisma.householdMember.count({
       where: { householdId: household.id, userId: { not: userId } },
@@ -132,8 +140,9 @@ export default async function DashboardOverviewPage() {
 
   // Open tasks first, yours before the household's unassigned ones (stable,
   // so each group keeps its oldest-first order).
+  const timeZone = await getTimeZone();
   const openTasks = todayTasks
-    .filter((t) => isTaskOpen(t, now))
+    .filter((t) => isTaskOpen(t, now, timeZone))
     .map((t) => ({ id: t.id, title: t.title, unassigned: t.assignedToMemberId === null }))
     .sort((a, b) => Number(a.unassigned) - Number(b.unassigned));
   const shownTasks: TodayTask[] = openTasks.slice(0, TODAY_TASK_LIMIT);
@@ -150,14 +159,20 @@ export default async function DashboardOverviewPage() {
       }
     : null;
 
-  const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);
+  const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list.items.length, 0);
+  const onListItemIds = new Set(activeLists.flatMap((list) => list.items.map((row) => row.inventoryItemId)));
 
-  const lowStock = items.filter(
-    (item) => getStockStatus(item.quantity, item.lowStockThreshold) !== "in",
-  );
-  const outOfStock = lowStock.filter(
-    (item) => getStockStatus(item.quantity, item.lowStockThreshold) === "out",
-  );
+  // UX-71: "low" is the inventory filter's own meaning (low but not out), so
+  // the number and the link it sits on agree. Out-of-stock is its own line.
+  const needsRestock = items.filter((item) => getStockStatus(item.quantity, item.lowStockThreshold) !== "in");
+  const lowCount = needsRestock.filter(
+    (item) => getStockStatus(item.quantity, item.lowStockThreshold) === "low",
+  ).length;
+  const outCount = needsRestock.length - lowCount;
+  const alreadyOnListCount = needsRestock.filter((item) => onListItemIds.has(item.id)).length;
+  const lowStockHref = lowCount > 0 ? "/dashboard/inventory?status=low" : "/dashboard/inventory?status=out";
+  // One active list: the card opens it rather than the index.
+  const onlyList = activeLists.length === 1 ? activeLists[0] : null;
 
   // GAP-49: batches still holding portions, soonest eat-by first
   // (getActiveBatches' order). An emptied batch whose last portions are only
@@ -293,19 +308,39 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-1">
-              <p className="font-display text-3xl font-semibold text-warning">{lowStock.length}</p>
-              {outOfStock.length > 0 && (
-                <p className="text-sm text-destructive">
-                  {format(plural(outOfStock.length, dict.dashboard.outOfStock), {
-                    count: outOfStock.length,
-                  })}
+              {needsRestock.length === 0 ? (
+                <p className="flex items-center gap-2 font-display text-xl font-semibold text-success">
+                  <CircleCheck className="size-6 shrink-0" aria-hidden="true" />
+                  {dict.dashboard.allStockedUp}
                 </p>
+              ) : (
+                <>
+                  {/* Warning colour only for a real count; a 0 beside an
+                      out-of-stock line is just a number. */}
+                  <p
+                    className={`font-display text-3xl font-semibold ${lowCount > 0 ? "text-warning" : "text-foreground"}`}
+                  >
+                    {lowCount}
+                  </p>
+                  {outCount > 0 && (
+                    <p className="text-sm text-destructive">
+                      {format(plural(outCount, dict.dashboard.outOfStock), { count: outCount })}
+                    </p>
+                  )}
+                  {alreadyOnListCount > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {format(plural(alreadyOnListCount, dict.dashboard.alreadyOnList), {
+                        count: alreadyOnListCount,
+                      })}
+                    </p>
+                  )}
+                </>
               )}
               <Button
                 variant="outline"
                 size="sm"
                 className={CARD_LINK_BUTTON}
-                render={<Link href="/dashboard/inventory" />}
+                render={<Link href={needsRestock.length === 0 ? "/dashboard/inventory" : lowStockHref} />}
               >
                 {dict.dashboard.viewInventory}
                 <ChevronRight className="size-4" />
@@ -319,19 +354,31 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-1">
-              <p className="font-display text-3xl font-semibold text-primary">{pendingShoppingItems}</p>
-              <p className="text-sm text-muted-foreground">
-                {format(plural(activeLists.length, dict.dashboard.itemsToBuyAcross), {
-                  count: activeLists.length,
-                })}
-              </p>
+              {activeLists.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{dict.dashboard.noListsYet}</p>
+              ) : (
+                <>
+                  <p className="font-display text-3xl font-semibold text-primary">{pendingShoppingItems}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(plural(activeLists.length, dict.dashboard.itemsToBuyAcross), {
+                      count: activeLists.length,
+                    })}
+                  </p>
+                </>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 className={CARD_LINK_BUTTON}
-                render={<Link href="/dashboard/shopping-list" />}
+                render={
+                  <Link href={onlyList ? `/dashboard/shopping-list/${onlyList.id}` : "/dashboard/shopping-list"} />
+                }
               >
-                {dict.dashboard.viewShoppingLists}
+                {activeLists.length === 0
+                  ? dict.dashboard.startShoppingList
+                  : onlyList
+                    ? format(dict.dashboard.openShoppingList, { name: onlyList.name })
+                    : dict.dashboard.viewShoppingLists}
                 <ChevronRight className="size-4" />
               </Button>
             </CardContent>
@@ -342,9 +389,24 @@ export default async function DashboardOverviewPage() {
                 {dict.dashboard.totalItemsTracked}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="font-display text-3xl font-semibold text-foreground">{items.length}</p>
-              <p className="text-sm text-muted-foreground">{dict.dashboard.inInventory}</p>
+            <CardContent className="flex flex-1 flex-col gap-1">
+              {items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{dict.dashboard.nothingTrackedYet}</p>
+              ) : (
+                <>
+                  <p className="font-display text-3xl font-semibold text-foreground">{items.length}</p>
+                  <p className="text-sm text-muted-foreground">{dict.dashboard.inInventory}</p>
+                </>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className={CARD_LINK_BUTTON}
+                render={<Link href="/dashboard/inventory" />}
+              >
+                {items.length === 0 ? dict.dashboard.addFirstItem : dict.dashboard.browseItems}
+                <ChevronRight className="size-4" />
+              </Button>
             </CardContent>
           </Card>
         </div>

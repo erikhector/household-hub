@@ -258,23 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-32. Flaky: Delete and Save buttons overlap in the phone edit sheet** (low, S) —
-      `e2e/budget-transaction-rows.spec.ts:51` ("phone rows open the edit
-      sheet, name themselves and delete from the sheet"), `mobile` project.
-      Failed once in the local `ci:local` gate on release PR #381 (head
-      `ce28040`, 2026-10-19), then passed on a re-run of the same commit;
-      GitHub's `End-to-end (Playwright)` job on that head passed. Seen
-      again in a full local `ci:local` gate on release PR #411 (head
-      `b58108c`, 2026-10-19): the same poll at line 87 got -26.86 after
-      5000 ms, then passed on a same-commit re-run, and GitHub's e2e job
-      was green again. The failing assertion is the poll at line 87: the
-      gap between the Delete and Save buttons was -9.14 (#381) and -26.86
-      (#411), expected at least 8, so the sticky sheet footer's buttons
-      overlapped. Fix it in the app (the footer's layout
-      while the sheet settles) or in the test's waiting, never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/budget-transaction-rows.spec.ts --project=mobile
-      --repeat-each=30` passes 30/30.
 - [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
       `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
       once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
@@ -297,19 +280,7 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
-- [ ] **MAINT-36. Flaky: two `autocomplete="username"` inputs in the account password form** (low, S) —
-      `e2e/ux-31.spec.ts:110`, `desktop` project. Failed its first attempt
-      in the `End-to-end (Playwright)` job on release PR #440 (`f5fb3d4`,
-      2026-10-19, run 39329747316) and passed on the retry: a strict-mode
-      violation, `input[autocomplete="username"]` matched 2 identical
-      `sr-only` inputs, though the `toHaveCount(1)` just before it passed,
-      so a second one renders late. Passed in the local `ci:local` gate and
-      6 repeats. Find why the hidden username input renders twice (a
-      re-render or a duplicate mount) and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/ux-31.spec.ts --project=desktop
-      --repeat-each=30` passes 30/30.
-- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) —
+- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
       clicking the flour ingredient link in the recipe sheet (line 173),
@@ -320,6 +291,57 @@ then MAINT-7 per feature, to avoid churn.
       the spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/item-page.spec.ts:139
       --project=mobile --repeat-each=30` passes 30/30.
+      Investigated 2026-10-20, not fixed: it does not reproduce (30/30 and
+      40/40 on the production build, 3 workers, also with 2 busy CPU loops
+      beside it). The server is not the slow part: the item page's RSC
+      request answers in 10 to 200 ms. The wait is client-side (route
+      chunk, hydrating the item page's client tree): click to heading is
+      0.15 to 1.2 s normally, 1 to 2.9 s with Chromium's CPU throttled 8x
+      and 2.5 to 3.5 s at 25x, so a loaded `ci:local` gate (3 browsers, a
+      build and sibling worktrees on one box) can cross the 5 s default.
+      No dialog-history `back()` runs on this path (checked by logging
+      history calls), so it is not a history race. Needs a decision, since
+      every honest fix changes the budget or the page: (a) give post-
+      navigation heading waits in this spec a longer explicit timeout (a
+      loosened wait, which this item's rules forbid unless the Owner
+      allows it), or (b) restructure the item page so the heading and back
+      arrow render before the eight queries and the controls' client tree
+      (a Suspense split, larger than S).
+- [ ] **MAINT-39. Flaky: shopping-item glide shows a layout shift of 0.0119** (low, S) —
+      `e2e/motion.spec.ts:180` ("adding, ticking and removing shopping
+      items glide, with no layout shift"), `desktop` project. Failed in the
+      local `ci:local` gate on release PR #470 (`edc55ea`, 2026-10-20):
+      CLS 0.0119 against an expected 0, on three shopping-item swipe rows.
+      Passed on a re-run of `e2e/motion.spec.ts --project=desktop` on the
+      same commit (8/8), and the GitHub e2e job was green. Find what shifts
+      the swipe rows under load and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/motion.spec.ts:180 --project=desktop
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
+      shows the all-caught-up card above Completed"), `desktop` project.
+      Failed its first attempt in the GitHub `End-to-end (Playwright)` job
+      on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
+      The assertion at line 91, after `page.reload()`, expected
+      `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
+      but received 1 for the whole 5 s. Find which task is still open after
+      the spec's own completions (a late write, or another row in the
+      worker's shared household) and fix it in the app or the spec's setup
+      and waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
+      `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
+      springs, then moves the row to the cart"), `desktop` project. Failed
+      in the local `ci:local` gate on release PR #477 (`d16c164`,
+      2026-10-20): `toBeChecked()` then "element(s) not found". Passed on a
+      re-run of the whole spec on the same commit (10/10), and the GitHub
+      e2e job was green. Find what makes the row disappear or re-render
+      before the assertion under load and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -385,12 +407,12 @@ UX-89.
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135, UX-136 and UX-138 (UX-137 decided).
+- Needs a decision before building: UX-135, UX-136 and UX-138.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
-  UX-80, UX-81, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-71.
+  UX-81, UX-85.
+- `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/components/inventory/combo-field.tsx` and
@@ -490,16 +512,6 @@ UX-89.
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
 
-- [ ] **UX-60. Explain "Household name" at signup and point invitees to
-      their link** (impact: med, effort: S) — User-centricity. Signup
-      assumes you are starting a new household. Someone whose partner
-      already uses Squirrel creates a second, empty household, with no
-      route from there to the partner's. The only hint is a placeholder
-      that disappears on focus.
-      Acceptance: `/signup` shows "Joining someone's household? Open the
-      invite link they sent you." Household name has helper text saying
-      everyone you invite sees this name.
-
 - [ ] **UX-61. Clearer steps from signup to first login** (impact: med,
       effort: S) — breaks Usability (fewer steps).
       - After submit, the card is still titled "Create your household".
@@ -546,22 +558,6 @@ UX-89.
       {household}", groups by aisle in the household's store order, shows
       "n of m" progress and an All done state, and has a neutral one-line
       banner. Long names can be read in full, and a footer links to `/`.
-
-- [ ] **UX-64. Real page titles, one `<h1>`, and link previews on public
-      pages** (impact: med, effort: S) — breaks Accessibility and Context.
-      - `document.title` is just "Squirrel" on `/`, `/login`, `/signup`,
-        `/forgot-password`, every token page and the 404.
-      - `/privacy` and `/terms` have their own titles but stay English
-        in sv.
-      - Login, signup, forgot-password and the token pages have no
-        `<h1>` (`CardTitle` is a div, for example
-        `src/app/signup/page.tsx:22`).
-      - There are no `og:`/`twitter:` tags, so an invite or share link in
-        WhatsApp or iMessage previews as a bare "Squirrel".
-      Acceptance: each public route has a localised `<title>` ("Log in ·
-      Squirrel") and exactly one `<h1>`. `/`, `/join/[token]` and
-      `/share/shopping-list/[token]` emit `og:title`, `og:description` and
-      `og:image`, with join and share naming the household or list.
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
@@ -614,23 +610,6 @@ UX-89.
       overview shows one call to action per feature. "Plan this week's
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
-
-- [ ] **UX-71. Overview stat cards: honest colours, real links, no dead
-      ends** (impact: med, effort: S) — breaks Colour (status pairs with
-      meaning) and Usability.
-      - The low-stock count is amber even at 0 (`page.tsx:264`), and "1"
-        in amber sits over "1 out of stock" in red.
-      - The "Shopping lists" card shows a count of items.
-      - "0 items to buy across 0 active lists" is how a first run reads.
-      - "View inventory" opens the unfiltered list, and "View shopping
-        lists" opens the index even with one active list (`:276,300`).
-      - "Total items tracked" has no action at all.
-      Acceptance: warning colour appears only when the count is above 0,
-      and zero reads "All stocked up" with an icon. Low stock links to
-      `/dashboard/inventory?status=low` and says "N already on your list".
-      With one active list the shopping card opens that list. Every card
-      is actionable or removed. Empty counts use friendly copy ("No lists
-      yet — start one").
 
 - [ ] **UX-73. New households get a currency from their language**
       (impact: med, effort: S) — breaks M4 (default what you can derive).
@@ -721,23 +700,6 @@ UX-89.
       (AI mocked to fail) types a price and checks it after a reload, on
       desktop and mobile.
 
-- [ ] **UX-80. Finish a shop in one step and carry unbought items over**
-      (impact: high, effort: M) — breaks User control and Usability.
-      - Marking an item "Didn't get it" in the put-away sheet and tapping
-        "Put away & finish" opens a second "Complete this list?" sheet.
-      - That sheet's copy is stale ("Completed by accident? Undo it with
-        Archive, then Unarchive", `en.ts:499`), though completing now
-        has a real Undo.
-      - It doesn't say the pending item is the reason it appeared.
-      - The unbought item stays stranded on the completed list
-        (`completeShoppingListAction`, `actions.ts:2044`), forgotten by
-        next week.
-      Acceptance: "Put away & finish" completes in one step. Pending items
-      are offered "Move N to {next active list / a new list}" (on by
-      default) and show as pending there afterwards. The confirm (from the
-      ⋯ menu) names the pending count and drops the Archive/Unarchive
-      advice in both languages.
-
 - [ ] **UX-81. A short, rewarding end to a shop** (impact: med, effort:
       M) — Delight, M4 and Hierarchy.
       - "All done" shows two buttons for the same thing: "Put away (15)"
@@ -768,8 +730,22 @@ UX-89.
       recent list (unbought or all items)". Template rows say "Use".
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
-      items** (impact: high, effort: M) — breaks User-centricity
-      ("automation suggests, the user decides"). Free-text list items
+      items** (impact: high, effort: M) `[!]` — breaks User-centricity
+      ("automation suggests, the user decides"). Needs a schema change and
+      a decision: nothing records that an item was ever stocked or that a
+      list row created it (only the current `quantity`), so "never
+      stocked", "out" and "delete the item the row created" can't be told
+      apart from a real used-up item without a new marker. Proposed: the
+      `InventoryItem.everStocked` flag from UX-125 (build them together,
+      one migration), plus an `InventoryItem.createdFromList` boolean set
+      by the five list-side create paths; the overview, inventory
+      "out" filter and OUT_OF_STOCK notifications skip items that are not
+      `everStocked`, and `deleteShoppingListItemAction` removes a
+      `createdFromList`, never-stocked item nothing else references.
+      Decide: backfill `everStocked` for existing rows (see UX-125), and
+      whether never-stocked items stay hidden from the "out" count or
+      are not created at all until first stocked (bigger change: list rows
+      would stay unlinked, `needsMapping`). Original report: Free-text list items
       silently create inventory items at 0 stock (`addAdHocItemAction`,
       `smartAddShoppingListItemsAction`). A household that only ever made
       lists sees "14 out of stock" on the overview: napkins, charcoal,
@@ -782,18 +758,6 @@ UX-89.
 
 #### Meals and recipes
 
-- [ ] **UX-95. One word for portions, and keep meal and recipe apart**
-      (impact: med, effort: S) — breaks Consistency. In English the same
-      recipe is "4 servings" in the list and "4 portions" in the planner.
-      The form explains "Servings" as "How many portions…", and Mark as
-      cooked asks "Servings left over" then toasts "saved 2 portions"
-      (`en.ts:1545,1548,1580-1581,1735-1741,1828-1833`). The add sheet
-      labels its field "Recipe" with the placeholder "Choose a meal", while
-      "Meal" names the slot picker. Swedish is already consistent.
-      Acceptance: English says "portions" in the recipe list, form,
-      planner, Mark as cooked and Meal prep. The add sheet reads "Recipe:
-      Choose a recipe" and "Meal: Dinner".
-
 - [ ] **UX-96. The add-meal sheet names the day and can search recipes**
       (impact: med, effort: M) — breaks M4 and Context.
       - "Add a meal" never says which day, and the page behind is
@@ -804,23 +768,6 @@ UX-89.
       Acceptance: the title reads "Add dinner · Mon 12". The recipe field
       filters as you type, lists favourites and recently cooked first, and
       shows at least 5 rows at 412 px.
-
-- [ ] **UX-98. A recipe form in recipe order, in plain words, with 44 px
-      chips** (impact: med, effort: S) — breaks M3, M9 and Accessibility
-      (labelled controls).
-      - Instructions and Tags come before Ingredients.
-      - Nothing says each line becomes a cook-mode step with a timer.
-      - Tag chips are 26 px tall with 12 px text
-        (`recipe-form-dialog.tsx:702`).
-      - Quantity and unit have placeholders but no labels (`:748-768`).
-      - The sub-recipe hint reads "count toward this recipe's own
-        inventory decrement".
-      - "3 cloves" renders as "3 clove".
-      Acceptance: Ingredients follow Name and Servings. Instructions say
-      "One step per line — each becomes a step in Cook mode". Chips are at
-      least 44 px with 14 px text. Quantity and unit have accessible
-      names. The sub-recipe hint is plain language. Plurals render
-      correctly.
 
 #### Tasks
 
@@ -844,26 +791,18 @@ UX-89.
       pass in the GitHub e2e job; do not loosen the 56 px or name
       assertions.
 
-- [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
-      (impact: med, effort: M) — bug, breaks Usability. Today the next due
-      time is the exact moment of the last tick plus the interval
-      (`src/app/dashboard/tasks/recurrence.ts:22-41`), so a daily chore
-      ticked at 23:40 stays under Completed all the next day labelled
-      "Next due {today}", ticking late pushes the schedule back, and a
-      Saturday chore done on Thursday moves to Thursdays for good.
-      Chosen scope: day-based intervals count from the start of the local
-      day (daily reopens at 00:00); weekly or longer chores keep a fixed
-      anchor day unless edited. No per-task "N days after done" choice yet
-      (park as a later item if asked for). UX-133 builds on this.
-      Acceptance: a unit test on `recurrence.ts` covers a daily task ticked
-      at 23:40 (next due is the next local midnight), a late weekly tick
-      (anchor day unchanged) and an early tick; an e2e step ticks a daily
-      task and asserts it shows under Open again after the day rolls over
-      (clock set), and that no completed row reads "Next due" with today's
-      date.
-      Decided 2026-10-19 by autopilot-product: day-anchored rescheduling.
-      Why: the item's own recommended option, no schema, easy to revisit.
-      See PRODUCT.md.
+- [ ] **UX-144. A repeating task's anchor day moves when it is edited**
+      (impact: low, effort: S) — follow-up to UX-137, which anchors a
+      weekly-or-longer chore on the day the task was created
+      (`recurrence.ts`) because it shipped without a schema change. Editing
+      the interval, or wanting "every Thursday" on a task made on a Monday,
+      cannot move that anchor. Add a nullable `recurrenceAnchorAt` on
+      `HouseholdTask` (one migration), set it when a task is created with
+      an interval and whenever its interval is edited, and have
+      `getNextDueDate` read it, falling back to `createdAt` when null.
+      Acceptance: a unit test shows a weekly task whose anchor was reset
+      keeps the new weekday after a late tick; an e2e step edits a weekly
+      task's interval and asserts its next due follows the new anchor.
 
 #### Budgets
 
@@ -896,16 +835,6 @@ UX-89.
       they owe or are owed on the personal Overview and home before
       adding categories. The shared-expense action has one name and
       placement on both pages.
-
-- [ ] **UX-114. Insights: who owes whom first, empty cost cards
-      collapsed** (impact: med, effort: S) — breaks M6. On a phone,
-      Insights is 3,858 px tall. "Anna → Erik 470.00 · Clear debt" is
-      the very last card, after a 12-month trend with 11 empty months and
-      4–5 empty pantry/price cards ("No comparisons yet…", "Nothing is in
-      stock right now").
-      Acceptance: balances appear in the first screenful when a debt
-      exists. Empty cost-analyzer cards collapse into one line ("Price
-      insights appear once you scan receipts").
 
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
@@ -1021,6 +950,33 @@ route passes. The popup probe found two phone-only size gaps.
       (`getBoundingClientRect`), and `dialogs-mobile` reports no
       `smallTargets` for these.
 
+- [ ] **UX-135. Sign in straight from the verification link**
+      (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
+      blocked until the email is verified (`src/lib/auth.ts`) and signup
+      deliberately doesn't sign in, so a new user taps the mail link and
+      then types email and password again. A valid, unused verification
+      token signs the user in (single use, short-lived, same trust as a
+      reset link) and lands on the dashboard with "Welcome to Squirrel,
+      {name}". An expired, used or unknown token keeps today's behaviour.
+      Both `en.ts` and `sv.ts`; no new cookie.
+      Acceptance: in an e2e spec, sign up, open the verification link
+      (read the token from the DB), and land on `/dashboard` signed in
+      with the welcome text; opening the same link again does not sign in.
+      Decided 2026-10-20 by owner: option 1. See #395.
+
+- [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
+      (impact: high, effort: M) — ⚠️ money (human-only area).
+      `src/lib/safe-to-spend-calc.ts` also subtracts the unspent
+      remainder of limited categories, shown as its own "Still budgeted"
+      breakdown line. The pace projection ("At this pace …") becomes a
+      qualifier under the headline, not a second equally weighted "left"
+      figure. Unit-test the calculator (day 1, partly spent, overspent
+      category counts as zero remainder).
+      Acceptance: with a seeded limited category and no spending, the
+      headline excludes its limit, the breakdown shows "Still budgeted",
+      and the projection reads as secondary text.
+      Decided 2026-10-20 by owner: option 1. See #397.
+
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
@@ -1068,6 +1024,17 @@ The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
 Server Components) stays separate by design — only the Client/presentational
 components merge. See the archived spike for the full file-pair inventory and
 the recommended "shared base + thin wrapper" shape.
+
+- [ ] **BUDGET-5. Personal starter categories, then merge `BudgetOnboarding`/`PersonalBudgetOnboarding`**
+      (impact: med, effort: M) — ⚠️ money surface. Give personal budget a
+      short personal-oriented starter set (not the household one) offered
+      through the same one-click `StarterCategoryPicker` as household
+      onboarding, then merge the two onboarding components. Both
+      languages. Keep the merge in the same PR only if it stays small;
+      otherwise ship the set first.
+      Acceptance: a fresh personal budget shows the starter picker; picking
+      two categories creates them and the picker disappears.
+      Decided 2026-10-20 by owner: option 1. See #398.
 
 ---
 
@@ -1142,7 +1109,7 @@ order below is a suggestion, not a dependency, unless noted.
       one-off like "Book the car service" can't get a date, and the
       overview's "Today" block (UX-70) has nothing to say about lateness.
       One migration: a nullable `dueDate`. Recurring tasks derive it from
-      the rule UX-137 settles.
+      the rule UX-137 settled (REQUIREMENTS.md, Recurrence).
       Acceptance: a task can carry an optional due date. Open tasks sort
       overdue, then today, then later. An overdue row shows a
       `warning`-tinted "Overdue · 5 days" with an icon on the tasks page
@@ -1160,6 +1127,18 @@ order below is a suggestion, not a dependency, unless noted.
       spend and recurring statuses use 25th–24th periods. Logging an
       item from a period's Due list counts it in that period and
       defaults its date to the due day. The calculator has unit tests.
+
+- [ ] **UX-136. Opt-in sample data for a new household** (impact: med,
+      effort: L) — one migration (a nullable `sample` tag/batch column on
+      the seeded models). "Try with sample data" on the first overview
+      seeds a small pantry, one list, a planned week, three recipes and a
+      few tasks, all tagged; "Clear sample data" removes exactly the
+      tagged rows and nothing else. Restore the landing page's "example
+      data" line only once this ships. Both languages.
+      Acceptance: an empty household taps "Try with sample data" and sees
+      rows on the overview; "Clear sample data" returns it to empty while
+      a row the user added meanwhile survives.
+      Decided 2026-10-20 by owner: option 1. See #396.
 
 ## Phase 3 — larger items, own PR each
 
@@ -1644,13 +1623,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ## Needs a decision before building
 
-- [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
-      household onboarding offers a one-click `StarterCategoryPicker`; personal onboarding
-      only has the manual `AddCategoryDialog`. Decide: give personal budget its own
-      (personal-oriented) starter set, reuse the household one, or document its absence as
-      intentional. Do the structural merge only after that's decided, so the merge doesn't
-      accidentally ship or hide a product decision as a side effect.
-
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
       decision — ICA, Hemköp and Willys already deliver digital receipts
       (via Kivra), which would remove the photo step entirely. Options:
@@ -1665,6 +1637,10 @@ out to be a product-scope question rather than a scoped task should move to
         anything.
       Either way, the output lands in the same review → apply flow
       (with AUTO-11's auto-accepted matches), never applied unseen.
+      Decided 2026-10-20 by owner: option 1 (inbound address, pending
+      review only). See #399. Stays `[!]` until the owner enables Resend
+      inbound and accepts temporary storage of receipt content; once they
+      say that's done, it becomes a buildable Phase 3 item.
 
 - [ ] **PRICE-1. Should manual purchase-checking ever collect a price?** `[!]`
       The cheap version has shipped (an honest empty-state hint in Cost
@@ -1699,53 +1675,6 @@ out to be a product-scope question rather than a scoped task should move to
       both regions in the dashboards; if they differ, set
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
-
-- [ ] **UX-135. Sign in straight from the verification link?** `[!]`
-      ⚠️ auth (human-only area) — from the 2026-10-15 UI review. Login is
-      blocked until the email is verified (`src/lib/auth.ts:80`), and
-      signup deliberately doesn't sign in (`src/lib/actions/auth.ts:228-232`).
-      So a new user fills in five fields, then has to switch to their mail
-      app (often an in-app browser), tap the link, tap "Go to dashboard"
-      and type their email and password again. (The landing page's old
-      "Setting up takes less than a minute" went with UX-58.)
-      Options:
-      - **Recommended:** a valid, unused verification token signs the
-        user in (single use, short-lived, the same trust as a reset
-        link) and lands on the dashboard with "Welcome to Squirrel,
-        {name}".
-      - Let unverified users in with the existing soft banner and gate
-        only email-sending features.
-      - Keep it as is and only polish the copy (UX-61).
-
-- [ ] **UX-136. Sample data for a new household?** `[!]` — from the
-      2026-10-15 UI review. A new household starts completely empty: the
-      first overview is three "0" cards, and seven sections show empty
-      states. The landing page used to promise "example data to poke
-      around"; UX-58 removed that line, so add it back if this is built.
-      Options:
-      - **Recommended:** an opt-in "Try with sample data" on the first
-        overview that seeds a small pantry, one list, a planned week,
-        three recipes and a few tasks, all tagged so one tap on "Clear
-        sample data" removes exactly them.
-      - No sample data, and lean on starter kits plus UX-50's empty
-        states.
-
-- [ ] **UX-138. What should "Safe to spend" subtract?** `[!]` ⚠️ money
-      (human-only area) — from the 2026-10-15 UI review.
-      `src/lib/safe-to-spend-calc.ts` subtracts only due recurring items
-      and planned bills, not what's still budgeted in categories with a
-      limit.
-      - On day 1 with no spending it showed +24,410 as "safe", which a
-        family reads as free money.
-      - Right under it, "At this pace … about 6,362 left at the end of
-        the month" is a second, equally weighted "left" figure. Nothing
-        says which number to trust.
-      Options:
-      - **Recommended:** subtract the unspent remainder of limited
-        categories as its own "Still budgeted" breakdown line, and show
-        the pace projection as a qualifier under the headline.
-      - Keep the calculation and relabel the headline ("Before
-        budgets"), and also demote the projection.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 

@@ -2040,6 +2040,13 @@ export async function resetCategoryOrderAction(): Promise<ActionState & { previo
  * (put away and finish, or finish and put away later), and a row left
  * waiting isn't lost: it stays incoming on the completed list, where the
  * "Put away" button and the reminder still find it.
+ *
+ * UX-80: with `carryOver`, the rows nobody bought move to the household's
+ * active default list (the fresh one when this list was the default, a new
+ * one when there's none), in the same transaction as the status change, so
+ * they show as pending there instead of sitting forgotten on a closed list.
+ * A row whose inventory item is already pending on the target stays behind
+ * rather than doubling up, the same dedupe the low-stock auto-add uses.
  */
 export async function completeShoppingListAction(
   listId: string,
@@ -2049,8 +2056,13 @@ export async function completeShoppingListAction(
    * the sum (the user corrected it to the real total). Validated like a
    * price, since it ends up in the budget. */
   amountOverride?: number | null,
+  /** UX-80: move the unbought rows to the next active list. */
+  carryOver?: boolean,
 ): Promise<{
   expenseLoggedMessage?: string;
+  /** Rows carried over, for the toast ("Moved 2 to Next shop") and for
+   * uncompleteShoppingListAction to put back exactly those. */
+  carriedOver?: { itemIds: string[]; listId: string; listName: string };
   unresolvedNotice?: string;
   /** The Groceries expense this completion logged, if any — handed back to
    * uncompleteShoppingListAction by the toast's "Undo" (AUTO-5) so it
@@ -2110,13 +2122,36 @@ export async function completeShoppingListAction(
   // Status change and expense commit together (MAINT-5), so a list is never
   // COMPLETED without the expense its prices add up to, or the other way round.
   let expense: LoggedExpense | null;
+  let carriedOver: { itemIds: string[]; listId: string; listName: string } | undefined;
   try {
     expense = await prisma.$transaction(async (tx) => {
       await tx.shoppingList.update({
         where: { id: list.id },
         data: { status: "COMPLETED", completedAt: new Date(), ...(list.isDefault ? { isDefault: false } : {}) },
       });
-      if (list.isDefault) await getOrCreateDefaultShoppingList(tx, household.id);
+      const nextDefault = list.isDefault ? await getOrCreateDefaultShoppingList(tx, household.id) : null;
+
+      const unbought = carryOver ? list.items.filter((item) => !item.purchased) : [];
+      if (unbought.length > 0) {
+        const target = nextDefault ?? (await getOrCreateDefaultShoppingList(tx, household.id));
+        const alreadyThere = await tx.shoppingListItem.findMany({
+          where: {
+            shoppingListId: target.id,
+            purchased: false,
+            inventoryItemId: { in: unbought.flatMap((item) => (item.inventoryItemId ? [item.inventoryItemId] : [])) },
+          },
+          select: { inventoryItemId: true },
+        });
+        const dupes = new Set(alreadyThere.map((row) => row.inventoryItemId));
+        const moving = unbought.filter((item) => !item.inventoryItemId || !dupes.has(item.inventoryItemId));
+        if (moving.length > 0) {
+          await tx.shoppingListItem.updateMany({
+            where: { id: { in: moving.map((item) => item.id) }, shoppingListId: list.id, purchased: false },
+            data: { shoppingListId: target.id },
+          });
+          carriedOver = { itemIds: moving.map((item) => item.id), listId: target.id, listName: target.name };
+        }
+      }
 
       return logGroceriesExpense(tx, {
         householdId: household.id,
@@ -2145,8 +2180,9 @@ export async function completeShoppingListAction(
   revalidatePath("/dashboard/shopping-list");
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/budget");
+  if (carriedOver) revalidatePath(`/dashboard/shopping-list/${carriedOver.listId}`);
 
-  return { expenseLoggedMessage, unresolvedNotice, transactionId };
+  return { expenseLoggedMessage, unresolvedNotice, transactionId, carriedOver };
 }
 
 /**
@@ -2162,10 +2198,15 @@ export async function completeShoppingListAction(
  * completing never touched it (stock moves when each item is checked off,
  * or put away in put-away mode, and neither is undone here; a row still
  * waiting to be put away simply keeps waiting on the reopened list).
+ *
+ * UX-80: `carriedItemIds` are the rows completion moved to the next list;
+ * they come back, but only those still unticked and still in this
+ * household, so a row someone already bought on the new list stays there.
  */
 export async function uncompleteShoppingListAction(
   listId: string,
   transactionId?: string,
+  carriedItemIds?: string[],
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
@@ -2185,6 +2226,16 @@ export async function uncompleteShoppingListAction(
       if (transactionId) {
         await tx.transaction.deleteMany({
           where: { id: transactionId, householdId: household.id },
+        });
+      }
+      if (carriedItemIds && carriedItemIds.length > 0) {
+        await tx.shoppingListItem.updateMany({
+          where: {
+            id: { in: carriedItemIds },
+            purchased: false,
+            shoppingList: { householdId: household.id },
+          },
+          data: { shoppingListId: list.id },
         });
       }
     });

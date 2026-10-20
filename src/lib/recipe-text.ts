@@ -5,7 +5,7 @@
 import { formatCookQuantity, splitSteps } from "@/lib/cook-mode-calc";
 
 export type RecipeTextLabels = {
-  // Already formatted for the recipe's servings, e.g. "4 servings" / "4 portioner".
+  // Already formatted for the recipe's servings, e.g. "4 portions" / "4 portioner".
   servings: string;
   ingredients: string;
   instructions: string;

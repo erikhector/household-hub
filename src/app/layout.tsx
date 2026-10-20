@@ -13,6 +13,7 @@ import { BrowserFloorNotice } from "@/components/pwa/browser-floor-notice";
 import { CookieNotice } from "@/components/legal/cookie-notice";
 import { DialogHistoryListener } from "@/components/ui/dialog-history-listener";
 import { SheetIndent } from "@/components/ui/sheet-indent";
+import { configuredAppUrl } from "@/lib/app-url";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import "./globals.css";
 
@@ -32,7 +33,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Squirrel",
+  // UX-64: pages pass just their own name and the template adds the brand
+  // ("Log in · Squirrel"). Dashboard pages set none, so they keep "Squirrel".
+  title: { default: "Squirrel", template: "%s · Squirrel" },
+  // Relative preview-image URLs (page-metadata.ts) resolve against the
+  // deployer-configured origin, since crawlers need absolute ones. Unset in
+  // local dev, where nothing scrapes the page anyway.
+  metadataBase: new URL(configuredAppUrl() ?? "http://localhost:3000"),
   description: "Inventory, shopping, meal planning, and budgeting for your household.",
   // manifest.ts's "display": "standalone" is enough for Chrome/Android, but
   // pre-16.4 iOS only launches Add to Home Screen as standalone (rather than

@@ -16,6 +16,13 @@ export const en = {
     pcs: "pcs", clove: "clove", can: "can", pack: "pack", slice: "slice",
     bunch: "bunch", jar: "jar", bag: "bag", bottle: "bottle", box: "box", pinch: "pinch",
   },
+  // Plural forms of the units above that change with the quantity, so a recipe
+  // reads "3 cloves" (UX-98). Units absent here are the same in the plural.
+  unitsPlural: {
+    cup: "cups", pint: "pints", quart: "quarts", gallon: "gallons", clove: "cloves", can: "cans",
+    pack: "packs", slice: "slices", bunch: "bunches", jar: "jars", bag: "bags", bottle: "bottles",
+    box: "boxes", pinch: "pinches",
+  },
   common: commonCopy.en,
   // Messages that server actions return as `{ error }` (UX-16). Zod schema messages are these
   // keys, resolved through zodFail() in lib/actions/errors.ts, so each language is chosen per request.
@@ -83,7 +90,7 @@ export const en = {
     addAtLeastOneItem: "Add at least one item",
     tooManyItems: "Too many items",
     portionsMin: "Portions must be at least 1",
-    servingsMin: "Servings must be at least 1",
+    servingsMin: "Portions must be at least 1",
     nutritionNegative: "Nutrition values can't be negative",
     chooseDifferentWeek: "Choose a different week to copy from",
     chooseShoppingList: "Choose a shopping list",
@@ -447,6 +454,17 @@ export const en = {
       one: "{count} out of stock",
       other: "{count} out of stock",
     },
+    allStockedUp: "All stocked up",
+    alreadyOnList: {
+      one: "{count} already on your list",
+      other: "{count} already on your list",
+    },
+    noListsYet: "No lists yet — start one",
+    startShoppingList: "Start a list",
+    openShoppingList: "Open {name}",
+    nothingTrackedYet: "Nothing tracked yet",
+    addFirstItem: "Add your first item",
+    browseItems: "Browse all items",
     viewInventory: "View inventory",
     shoppingLists: "Shopping lists",
     itemsToBuyAcross: {
@@ -530,11 +548,25 @@ export const en = {
     completeList: "Complete list",
     confirmCompleteList: {
       title: "Complete this list?",
-      description:
-        "This marks the list as done and, if items have prices, logs the total to your budget. Completed by accident? Undo it with Archive, then Unarchive on this list.",
+      // UX-80: it appears because something is still unticked, so say so.
+      description: {
+        one: "{count} item isn't ticked off yet. Completing the list logs the total of what you bought to your budget, if items have prices. You can undo it right after.",
+        other: "{count} items aren't ticked off yet. Completing the list logs the total of what you bought to your budget, if items have prices. You can undo it right after.",
+      },
       cancel: "Cancel",
       confirm: "Complete list",
       confirming: "Completing…",
+    },
+    // UX-80: carrying the unbought rows over when a list is completed.
+    carryOver: {
+      label: {
+        one: "Move {count} unbought item to {list}",
+        other: "Move {count} unbought items to {list}",
+      },
+      toast: {
+        one: "{count} item moved to {list}",
+        other: "{count} items moved to {list}",
+      },
     },
     // UX-87: the step before completing when only some of the bought items
     // have a price.
@@ -1643,7 +1675,7 @@ export const en = {
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
     // The add-meal picker before anything is chosen (M4: pick, don't type).
-    chooseMealPlaceholder: "Choose a meal",
+    chooseRecipePlaceholder: "Choose a recipe",
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",
@@ -1678,21 +1710,22 @@ export const en = {
     importErrorNoRecipeFound: "Couldn't read a recipe from that page.",
     importErrorRateLimited: "Too many recipe imports in a short time — wait a bit and try again.",
     recipeNameLabel: "Name",
-    servingsLabel: "Servings",
+    servingsLabel: "Portions",
     servingsHint: "How many portions the ingredient amounts below make.",
     instructionsLabel: "Instructions",
     instructionsPlaceholder: "How to make it…",
+    instructionsHint: "One step per line — each becomes a step in Cook mode",
     addNutritionInfo: "Add nutrition info",
     nutritionSectionLabel: "Nutrition (optional)",
-    caloriesPerServingLabel: "Calories / serving",
-    proteinGramsPerServingLabel: "Protein (g) / serving",
-    carbsGramsPerServingLabel: "Carbs (g) / serving",
-    fatGramsPerServingLabel: "Fat (g) / serving",
+    caloriesPerServingLabel: "Calories / portion",
+    proteinGramsPerServingLabel: "Protein (g) / portion",
+    carbsGramsPerServingLabel: "Carbs (g) / portion",
+    fatGramsPerServingLabel: "Fat (g) / portion",
     nutritionCaloriesValue: "{value} kcal",
     nutritionProteinValue: "{value}g protein",
     nutritionCarbsValue: "{value}g carbs",
     nutritionFatValue: "{value}g fat",
-    recipeCostValue: "~{total} total · ~{perServing}/serving",
+    recipeCostValue: "~{total} total · ~{perServing}/portion",
     recipeCostSkipped: {
       one: "{count} ingredient not priced",
       other: "{count} ingredients not priced",
@@ -1710,13 +1743,16 @@ export const en = {
     comboboxShowSuggestions: "Show suggestions",
     ingredientQuantityPlaceholder: "Qty",
     ingredientUnitPlaceholder: "Unit",
+    ingredientQuantityLabel: "Quantity",
+    ingredientUnitLabel: "Unit",
     addIngredient: "Add ingredient",
     removeIngredientAriaLabel: "Remove ingredient",
     componentsLabel: "Sub-recipes",
     componentsHint:
-      "A sub-recipe's ingredients count toward this recipe's own inventory decrement and missing-ingredients calculations, scaled by however many batches you add here.",
+      "Use another recipe as part of this one. Its ingredients are included when you check what's missing and when you mark this one cooked, multiplied by the number of batches.",
     addComponent: "Add sub-recipe",
     componentQuantityPlaceholder: "Batches",
+    componentQuantityLabel: "Batches",
     removeComponentAriaLabel: "Remove sub-recipe",
     noAvailableComponentRecipes: "Add another recipe first to use it as a sub-recipe.",
     componentQuantityError: "Sub-recipe amounts must be greater than 0",
@@ -1855,8 +1891,8 @@ export const en = {
       other: "{count} ingredients",
     },
     servingsCount: {
-      one: "{count} serving",
-      other: "{count} servings",
+      one: "{count} portion",
+      other: "{count} portions",
     },
     entryPortionsCount: {
       one: "{count} portion",
@@ -1953,9 +1989,9 @@ export const en = {
       one: 'Marked as cooked — {count} item added to "{list}"',
       other: 'Marked as cooked — {count} items added to "{list}"',
     },
-    leftoverServingsLabel: "Servings left over",
+    leftoverServingsLabel: "Portions left over",
     leftoverServingsHint: "Optional — saves them to Meal prep, so you can plan when to eat them.",
-    leftoverServingsInvalid: "Servings left over must be a whole number from 0 to 100",
+    leftoverServingsInvalid: "Portions left over must be a whole number from 0 to 100",
     mealMarkedCookedLeftoversToast: {
       one: "Marked as cooked — saved {count} portion to Meal prep",
       other: "Marked as cooked — saved {count} portions to Meal prep",
@@ -2397,23 +2433,18 @@ export const en = {
       chartSpend: "Spend",
       spendingSubtitle:
         "Total estimated spend per month, from shopping list items marked purchased with a price.",
-      noSpendingData:
-        "No priced grocery purchases yet. Scan a receipt or a barcode when checking off a shopping list item — that's currently the only way an item's price gets recorded, so spend shows up here automatically once you do.",
       trendsTitle: "Price trends",
       trendsSubtitle: "Items with enough purchase history to show a meaningful trend.",
-      noTrendData:
-        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — scanning a receipt or barcode when you buy it is currently the only way to record a price.",
+      // UX-114: one line standing in for every card with nothing to show yet.
+      emptyCollapsed: "Price and pantry insights appear once you scan receipts and add a store name when you do.",
       latestPrice: "Latest",
       cheapestStoreTitle: "Cheapest store",
       cheapestStoreSubtitle:
         "Items you've bought at more than one store, and which was cheapest last time.",
-      noCheapestStoreData:
-        "No comparisons yet. Add a store name when scanning or registering a receipt, and once an item has prices from 2+ stores it'll show up here.",
       cheapestStoreLabel: "Cheapest at {store}:",
       stockValueTitle: "On hand now",
       stockValueSubtitle:
         "Roughly what everything you have in stock cost, at the price you paid last time you bought each item.",
-      noStockData: "Nothing is in stock right now.",
       stockValueBasis: {
         one: "Based on {priced} of {count} item with a known price.",
         other: "Based on {priced} of {count} items with a known price.",
@@ -2425,8 +2456,6 @@ export const en = {
       basketTitle: "Your list, store by store",
       basketSubtitle:
         "What the unchecked items on your shopping lists cost last time at each store. Only items you've bought at 2+ stores are counted.",
-      noBasketData:
-        "Not enough to compare yet. Once at least 2 items on your shopping lists have prices from 2+ stores, you'll see what the list would cost at each one here.",
       // {total} is always ≥ 2 (MIN_BASKET_ITEMS), so no singular form needed.
       basketCoverage: "{count} of {total} items priced",
       basketAllPriced: "All {total} items priced",
@@ -3312,6 +3341,8 @@ export const en = {
       yourName: "Your name",
       householdName: "Household name",
       householdNamePlaceholder: "e.g. The Andersson family",
+      householdNameHint: "Everyone you invite will see this name.",
+      joinHint: "Joining someone's household? Open the invite link they sent you.",
       email: "Email",
       password: "Password",
       confirmPassword: "Confirm password",
@@ -3531,6 +3562,20 @@ export const en = {
   // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
   // read client-side, so these strings live here purely for translation
   // reuse rather than for a live language switch.
+  // UX-64: the text behind each public page's <title> and link preview
+  // (src/lib/page-metadata.ts). Titles that already exist as a heading
+  // elsewhere in the dictionary are reused at the call site; these are
+  // the ones with no other home. The root layout appends " · Squirrel".
+  meta: {
+    homeTitle: "Squirrel: run your household like a dream team",
+    homeDescription:
+      "Inventory, shopping lists, meal planning, tasks and budgets for your whole household, in one place.",
+    privacyTitle: "Privacy policy",
+    termsTitle: "Terms of service",
+    joinDescription: "You've been invited to {name} on Squirrel. Create an account to join the household.",
+    shareDescription: "A shopping list shared from a Squirrel household. Open it to see and tick off items.",
+    fallbackDescription: "Inventory, shopping, meal planning, and budgeting for your household.",
+  },
   digestUnsubscribe: {
     pageTitle: "Weekly digest",
     invalidTitle: "Link not valid",

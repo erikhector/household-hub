@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
+import { getTimeZone } from "@/lib/get-time-zone";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import {
   MAX_ROTATION_MEMBERS,
@@ -206,6 +207,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       previousCompletedAt: true,
       previousCompletedByMemberId: true,
       recurrenceIntervalDays: true,
+      createdAt: true,
       assignedToMemberId: true,
       rotationMemberIds: true,
       rotationPreviousAssigneeId: true,
@@ -214,7 +216,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
   if (!task) return await fail("taskNotFound");
 
   const now = new Date();
-  const nextCompleted = isTaskOpen(task, now);
+  const nextCompleted = isTaskOpen(task, now, await getTimeZone());
   const rotating = isRotating(task);
   // Compare-and-set: the completion and rotating-undo writes below only
   // apply if the task still has the `completedAt` read above. Without it,

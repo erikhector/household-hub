@@ -11,6 +11,12 @@ export const sv = {
     pcs: "st", clove: "klyfta", can: "burk", pack: "förp", slice: "skiva",
     bunch: "knippe", jar: "burk", bag: "påse", bottle: "flaska", box: "ask", pinch: "nypa",
   },
+  // Plural forms of the units above that change with the quantity, so a recipe
+  // reads "3 klyftor" (UX-98). Units absent here are the same in the plural.
+  unitsPlural: {
+    cup: "koppar", pint: "pint", quart: "quart", gallon: "gallon", pack: "förp", clove: "klyftor", can: "burkar", slice: "skivor", bunch: "knippen", jar: "burkar",
+    bag: "påsar", bottle: "flaskor", box: "askar", pinch: "nypor",
+  },
   common: commonCopy.sv,
   // Messages that server actions return as `{ error }` (UX-16). Zod schema messages are these
   // keys, resolved through zodFail() in lib/actions/errors.ts, so each language is chosen per request.
@@ -415,6 +421,17 @@ export const sv = {
       one: "{count} slut i lager",
       other: "{count} slut i lager",
     },
+    allStockedUp: "Allt finns hemma",
+    alreadyOnList: {
+      one: "{count} finns redan på din lista",
+      other: "{count} finns redan på din lista",
+    },
+    noListsYet: "Inga listor än — starta en",
+    startShoppingList: "Starta en lista",
+    openShoppingList: "Öppna {name}",
+    nothingTrackedYet: "Inget i lagret än",
+    addFirstItem: "Lägg till din första vara",
+    browseItems: "Bläddra bland alla varor",
     viewInventory: "Visa lager",
     shoppingLists: "Inköpslistor",
     itemsToBuyAcross: {
@@ -498,11 +515,24 @@ export const sv = {
     completeList: "Markera som klar",
     confirmCompleteList: {
       title: "Markera listan som klar?",
-      description:
-        "Det här markerar listan som klar och, om varorna har priser, loggar totalsumman i din budget. Klarmarkerade av misstag? Ångra genom att arkivera listan och sedan återställa den.",
+      description: {
+        one: "{count} vara är inte avbockad än. När listan markeras som klar loggas summan av det du köpt i din budget, om varorna har priser. Du kan ångra direkt efteråt.",
+        other: "{count} varor är inte avbockade än. När listan markeras som klar loggas summan av det du köpt i din budget, om varorna har priser. Du kan ångra direkt efteråt.",
+      },
       cancel: "Avbryt",
       confirm: "Markera som klar",
       confirming: "Markerar…",
+    },
+    // UX-80: de ej köpta varorna följer med när en lista markeras som klar.
+    carryOver: {
+      label: {
+        one: "Flytta {count} ej köpt vara till {list}",
+        other: "Flytta {count} ej köpta varor till {list}",
+      },
+      toast: {
+        one: "{count} vara flyttades till {list}",
+        other: "{count} varor flyttades till {list}",
+      },
     },
     // UX-87: steget före klarmarkering när bara en del av de köpta varorna
     // har pris.
@@ -1553,7 +1583,7 @@ export const sv = {
     mealMovedDifferentWeekToast: "{meal} flyttad till en annan vecka än den du visar",
     recipeLabel: "Recept",
     customMealOption: "Egen måltid…",
-    chooseMealPlaceholder: "Välj en måltid",
+    chooseRecipePlaceholder: "Välj ett recept",
     customMealNameLabel: "Måltidens namn",
     customMealNamePlaceholder: "t.ex. Tacokväll",
     portionsLabel: "Portioner",
@@ -1592,6 +1622,7 @@ export const sv = {
     servingsHint: "Hur många portioner mängderna nedan räcker till.",
     instructionsLabel: "Instruktioner",
     instructionsPlaceholder: "Så här gör du…",
+    instructionsHint: "Ett steg per rad — varje rad blir ett steg i matlagningsläget",
     addNutritionInfo: "Lägg till näringsinnehåll",
     nutritionSectionLabel: "Näringsinnehåll (valfritt)",
     caloriesPerServingLabel: "Kalorier / portion",
@@ -1620,13 +1651,16 @@ export const sv = {
     comboboxShowSuggestions: "Visa förslag",
     ingredientQuantityPlaceholder: "Antal",
     ingredientUnitPlaceholder: "Enhet",
+    ingredientQuantityLabel: "Mängd",
+    ingredientUnitLabel: "Enhet",
     addIngredient: "Lägg till ingrediens",
     removeIngredientAriaLabel: "Ta bort ingrediens",
     componentsLabel: "Delrecept",
     componentsHint:
-      "Ett delrecepts ingredienser räknas med i detta recepts eget lageravdrag och beräkning av saknade ingredienser, skalat efter hur många omgångar du lägger till här.",
+      "Använd ett annat recept som en del av detta. Dess ingredienser räknas med när du kollar vad som saknas och när du markerar det här som lagat, gånger antalet omgångar.",
     addComponent: "Lägg till delrecept",
     componentQuantityPlaceholder: "Antal",
+    componentQuantityLabel: "Antal omgångar",
     removeComponentAriaLabel: "Ta bort delrecept",
     noAvailableComponentRecipes: "Lägg till ett annat recept först för att kunna använda det som delrecept.",
     componentQuantityError: "Delreceptets mängd måste vara större än 0",
@@ -2284,22 +2318,17 @@ export const sv = {
       chartSpend: "Utgift",
       spendingSubtitle:
         "Total uppskattad utgift per månad, från varor på inköpslistan som markerats köpta med ett pris.",
-      noSpendingData:
-        "Inga prissatta matinköp än. Skanna ett kvitto eller en streckkod när du bockar av en vara på inköpslistan — det är just nu det enda sättet ett pris registreras på, så utgifter visas här automatiskt när du gör det.",
       trendsTitle: "Prisutveckling",
       trendsSubtitle: "Varor med tillräcklig inköpshistorik för att visa en meningsfull trend.",
-      noTrendData:
-        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — att skanna ett kvitto eller en streckkod vid köp är just nu det enda sättet att registrera ett pris.",
+      // UX-114: one line standing in for every card with nothing to show yet.
+      emptyCollapsed: "Pris- och skafferiinsikter dyker upp när du skannar kvitton och anger butik.",
       latestPrice: "Senaste",
       cheapestStoreTitle: "Billigast butik",
       cheapestStoreSubtitle: "Varor du köpt i mer än en butik, och vilken som var billigast senast.",
-      noCheapestStoreData:
-        "Inga jämförelser än. Ange en butik när du skannar eller registrerar ett kvitto — när en vara har priser från 2+ butiker visas den här.",
       cheapestStoreLabel: "Billigast hos {store}:",
       stockValueTitle: "Hemma just nu",
       stockValueSubtitle:
         "Ungefär vad allt du har hemma kostade, till priset du betalade senast du köpte varje vara.",
-      noStockData: "Det finns inget i lager just nu.",
       stockValueBasis: {
         one: "Baserat på {priced} av {count} vara med känt pris.",
         other: "Baserat på {priced} av {count} varor med känt pris.",
@@ -2311,8 +2340,6 @@ export const sv = {
       basketTitle: "Din lista, butik för butik",
       basketSubtitle:
         "Vad de oavbockade varorna på dina inköpslistor kostade senast i varje butik. Bara varor du köpt i 2+ butiker räknas.",
-      noBasketData:
-        "Inte tillräckligt att jämföra än. När minst 2 varor på dina inköpslistor har priser från 2+ butiker ser du här vad listan skulle kosta i varje butik.",
       basketCoverage: "{count} av {total} varor prissatta",
       basketAllPriced: "Alla {total} varor prissatta",
       basketCheapestBadge: "Billigast",
@@ -3180,6 +3207,8 @@ export const sv = {
       yourName: "Ditt namn",
       householdName: "Hushållets namn",
       householdNamePlaceholder: "t.ex. Familjen Andersson",
+      householdNameHint: "Alla du bjuder in ser det här namnet.",
+      joinHint: "Ska du gå med i någons hushåll? Öppna inbjudningslänken du har fått.",
       email: "E-post",
       password: "Lösenord",
       confirmPassword: "Bekräfta lösenord",
@@ -3369,6 +3398,18 @@ export const sv = {
     body: "Sidan du letar efter finns inte, eller har flyttats.",
     backToDashboard: "Till översikten",
     goToSquirrel: "Gå till Squirrel",
+  },
+  // UX-64: texten bakom varje publik sidas <title> och länkförhandsvisning
+  // (src/lib/page-metadata.ts). Rotlayouten lägger till " · Squirrel".
+  meta: {
+    homeTitle: "Squirrel: styr hushållet som ett drömlag",
+    homeDescription:
+      "Lager, inköpslistor, måltidsplanering, sysslor och budget för hela hushållet, på ett ställe.",
+    privacyTitle: "Integritetspolicy",
+    termsTitle: "Användarvillkor",
+    joinDescription: "Du har blivit inbjuden till {name} på Squirrel. Skapa ett konto för att gå med i hushållet.",
+    shareDescription: "En inköpslista som delats från ett Squirrel-hushåll. Öppna den för att se och bocka av varor.",
+    fallbackDescription: "Lager, inköp, måltidsplanering och budget för ditt hushåll.",
   },
   digestUnsubscribe: {
     pageTitle: "Veckosammanfattning",

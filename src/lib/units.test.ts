@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalUnit, classifyUnits, convertForItem, defaultLowStockThreshold, convertQuantity, unitLabel, unitsAreComparable } from "./units";
+import { canonicalUnit, classifyUnits, convertForItem, defaultLowStockThreshold, convertQuantity, unitLabel, unitLabelForQuantity, unitsAreComparable } from "./units";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 
@@ -184,5 +184,20 @@ describe("defaultLowStockThreshold", () => {
     expect(defaultLowStockThreshold("g")).toBe("");
     expect(defaultLowStockThreshold("ml")).toBe("");
     expect(defaultLowStockThreshold("bunch of keys")).toBe("");
+  });
+});
+
+describe("unitLabelForQuantity (UX-98)", () => {
+  it("pluralises count words above one and keeps one and fractions singular", () => {
+    expect(unitLabelForQuantity("clove", 3, en.units, en.unitsPlural)).toBe("cloves");
+    expect(unitLabelForQuantity("clove", 1, en.units, en.unitsPlural)).toBe("clove");
+    expect(unitLabelForQuantity("cup", 0.5, en.units, en.unitsPlural)).toBe("cup");
+    expect(unitLabelForQuantity("klyfta", 2, sv.units, sv.unitsPlural)).toBe("klyftor");
+  });
+
+  it("leaves units that have no distinct plural alone", () => {
+    expect(unitLabelForQuantity("g", 200, en.units, en.unitsPlural)).toBe("g");
+    expect(unitLabelForQuantity("pcs", 4, sv.units, sv.unitsPlural)).toBe("st");
+    expect(unitLabelForQuantity("Glug", 4, en.units, en.unitsPlural)).toBe("Glug");
   });
 });

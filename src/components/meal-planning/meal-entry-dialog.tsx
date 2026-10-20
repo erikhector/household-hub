@@ -134,7 +134,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
 
   const recipeLabel = (value: string | null) =>
     !value
-      ? dict.chooseMealPlaceholder
+      ? dict.chooseRecipePlaceholder
       : value === CUSTOM_RECIPE_SENTINEL
         ? dict.customMealOption
         : value === FROM_PREP_SENTINEL
@@ -212,7 +212,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
               onValueChange={(v) => v && handleRecipeChoiceChange(v)}
             >
               <SelectTrigger id="recipeId" className="w-full">
-                <SelectValue placeholder={dict.chooseMealPlaceholder}>{recipeLabel}</SelectValue>
+                <SelectValue placeholder={dict.chooseRecipePlaceholder}>{recipeLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={CUSTOM_RECIPE_SENTINEL}>{dict.customMealOption}</SelectItem>

@@ -121,6 +121,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   default `en` applied, and since the account locale outranks the cookie, a
   Swedish signup met an English dashboard on first login (and English
   reset/digest emails). `e2e/signup-locale.spec.ts` covers it.
+- **Signup explains household name and points invitees away (UX-60)**:
+  `/signup` opens with "Joining someone's household? Open the invite link
+  they sent you." (someone whose partner already uses Squirrel would
+  otherwise create a second, empty household), and "Household name" has
+  helper text (`aria-describedby`) saying everyone you invite sees this
+  name, since the placeholder vanishes on focus.
+  `e2e/signup-household-hint.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
@@ -378,6 +385,18 @@ outbound email to arbitrary addresses via this app's sending domain.
   `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
   first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
   cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
+- **Overview stat cards (UX-71)**: the three household cards read honestly
+  and each leads somewhere. Low stock counts items strictly *low* (the same
+  meaning as the inventory filter), so the number matches its link
+  (`/dashboard/inventory?status=low`; `?status=out` when only out-of-stock
+  items remain). The number is warning-coloured only above 0, out-of-stock
+  is its own red line, "N already on your list" counts items needing restock
+  with an unpurchased row on an active list, and when nothing needs
+  restocking the card reads "All stocked up" with a check icon. The shopping
+  card opens the list itself when there's exactly one active list, shows
+  "No lists yet — start one" with a "Start a list" button when there are
+  none. Total items tracked links to the inventory ("Add your first item"
+  when empty). Covered by `e2e/overview-stat-cards.spec.ts`.
 
 ## Data model
 
@@ -1364,9 +1383,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     confirmed at the list's quantities is exactly what this feature exists
     to avoid. Instead "Done shopping" and the ⋯ menu's "Complete list" open
     the dialog in finishing mode whenever rows are waiting: "Put away &
-    finish" or "Finish, put away later". Either way, if unticked rows remain
-    (including ones just marked "Didn't get it"), finishing still goes
-    through the usual "Complete this list?" confirmation. Finishing later doesn't lose
+    finish" or "Finish, put away later". Both complete the list in one step
+    (UX-80): no second "Complete this list?" sheet follows, even with
+    unticked rows (including ones just marked "Didn't get it"). While any
+    would be left behind, the sheet carries a "Move N unbought items to
+    {list}" checkbox, on by default (see "Carrying unbought items over"
+    below). Finishing later doesn't lose
     anything: the rows stay ticked on the completed list, still count as
     incoming, and the button and reminder still find them there.
   - *Incoming stock* (`src/lib/incoming-stock.ts`, pure half unit-tested):
@@ -1615,7 +1637,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 - `PreparedBatch` (GAP-49 meal prep, built — see "Meal prep (GAP-49)"
   under "Meal planning"): a household's batch-cooked recipe with
   `totalPortions`/`remainingPortions`, optional `cookedByMember` and
-  `expiryDate`. Recorded by a prep session or by a cook's "Servings left
+  `expiryDate`. Recorded by a prep session or by a cook's "Portions left
   over" (GAP-8). A `MealPlanEntry` can draw portions from one via
   `preparedBatchId` + `preparedPortionsUsed` (0 when it draws none).
   Deleting the recipe deletes its batches (unlinking their entries
@@ -1962,6 +1984,12 @@ Server/Client Components guide — with `hidden` (not conditional rendering)
 toggling which one shows, so switching tabs is instant and doesn't re-fetch
 anything.
 
+**UX-114:** a cost card with nothing to show (no priced purchases, trends,
+store comparison, list basket, stock, or expired items this or last month)
+is not rendered; one muted line ("Price and pantry insights appear once you
+scan receipts…") stands in for all of them. A card returns as soon as it has
+data.
+
 `CostAnalyzer` (`src/components/budget/cost-analyzer.tsx`) surfaces grocery
 cost trends from `PriceHistory`, which is populated whenever a shopping list
 item is marked purchased with an estimated price
@@ -2290,9 +2318,24 @@ household-scoped (the expense delete is a `deleteMany` on id +
 `householdId`, so a stale or foreign id removes nothing) and idempotent (a
 list that's no longer `COMPLETED` is left alone). Inventory needs no
 reversal, because completing never touches it. The menu's "Complete list" is
-still confirm-gated, since it can complete a list with items still pending.
+still confirm-gated when items are still pending: the sheet says how many
+("1 item isn't ticked off yet. …") and carries the same "Move N unbought
+items to {list}" checkbox. With nothing pending it completes straight away.
 Its toast carries the same Undo. Like "Undo mark cooked", this is a
 fat-finger undo on the toast, not a permanent "reopen list" control.
+
+**Carrying unbought items over (UX-80).** `completeShoppingListAction(listId,
+amountOverride?, carryOver?)` with `carryOver` moves the list's unticked rows
+to the household's active default list (the fresh one when the completed list
+was the default, a new "Next shop" when none exists) inside the completing
+`$transaction`, so they show as pending there. A row whose inventory item is
+already pending on the target stays behind instead of doubling up. The action
+returns `carriedOver: { itemIds, listId, listName }`; the toast's description
+says "N items moved to {list}", and Undo passes the ids to
+`uncompleteShoppingListAction(listId, transactionId, carriedItemIds)`, which
+moves back only those still unticked in the household. The checkbox label
+names the target list (page query for the active default). Flow spec:
+`e2e/shopping-finish-carry-over.spec.ts`.
 
 #### Printing a list (GAP-24)
 
@@ -2606,6 +2649,9 @@ same way.
 **"Who owes whom"** (`HouseholdBalances`,
 `src/components/budget/household-balances.tsx`) — on the Budget page's
 Insights tab, shown only when the household has more than one member.
+**UX-114:** when something is owed (a simplified transfer or an unpaid bill)
+it is the first card on the tab, ahead of the period summary and charts;
+with nothing owed it stays last.
 Covers every split bill and repayment the household has, not just the
 month on screen: a debt carries over until it's cleared. (It used to be
 scoped to the selected month, so an unpaid August debt silently vanished
@@ -3958,6 +4004,17 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     it). The popup's `Use "X"` row is a real button: tapping it keeps the
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
+  - **Recipe form order and wording (UX-98)**: the form runs in the order
+    a recipe is written: Name and Portions, Ingredients, Sub-recipes,
+    Instructions, Tags, then optional nutrition. The Instructions field
+    says "One step per line — each becomes a step in Cook mode" (linked
+    with `aria-describedby`). Tag chips are 14 px text and 44 px tall on
+    phones and touch screens, 8 px apart. Quantity and Unit (and a
+    sub-recipe's Batches) carry accessible names, not just placeholders.
+    The sub-recipe hint is plain language. A recipe's ingredient quantity
+    pluralises its unit ("3 cloves", "2 klyftor") in the recipe sheet and
+    Cook mode via `unitLabelForQuantity()` and the dictionary's
+    `unitsPlural` map; one and fractions of one stay singular.
   - **Combo button names (UX-129)**: every `ComboField` (category,
     location, unit, name) names its × "Clear {field}" (the field's own
     label, lower-cased, via the required `label` prop) and its chevron
@@ -4167,7 +4224,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
   chosen) to a date + `MealType` slot. When the household has a recipe or
   a meal-prep batch to pick, the add dialog opens on that picker with
-  nothing chosen ("Choose a meal", favourite recipes first) rather than on
+  nothing chosen ("Choose a recipe", favourite recipes first) rather than on
   "Custom meal…" and an empty name field (M4: pick, don't type); adding
   without a choice gets "Choose a recipe or enter a meal name". With
   nothing to pick it opens on the name field as before. There's no uniqueness constraint on
@@ -4349,7 +4406,7 @@ recipe can have calories set with the rest left blank).
 ### Recipe cost estimate (GAP-15)
 
 Each recipe on the Recipes tab shows a rough cost to make it, e.g.
-`"~45.00 total · ~11.25/serving"`, on its own line under the nutrition
+`"~45.00 total · ~11.25/portion"`, on its own line under the nutrition
 summary. No schema change: it joins data that already exists —
 `RecipeIngredient` → its linked `InventoryItem.lastKnownPrice` (kept current
 by AUTO-4, above) and the purchased shopping-list line that set it — through
@@ -4834,7 +4891,12 @@ actually used, once they've cooked it.
   it caused.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
-- **Leftovers (GAP-8)**: the dialog has an optional "Servings left over"
+- **One word for portions (UX-95)**: English says "portions" everywhere a
+  recipe's yield shows (recipe list and form, per-portion nutrition and
+  cost, planner, Mark as cooked, Meal prep); the Prisma column stays
+  `servings`. The add sheet's recipe picker reads "Recipe: Choose a
+  recipe", distinct from the "Meal" slot picker.
+- **Leftovers (GAP-8)**: the dialog has an optional "Portions left over"
   number input, blank by default. Blank or 0 means no leftovers, and
   nothing is ever inferred from `servings` vs `portions` (Guardrails:
   suggest, don't silently mutate). The value is validated by
@@ -5464,15 +5526,31 @@ co-managers, not kids earning rewards.
   visible text on the mobile project.
 - **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
   1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
-  weekday schedule, just "reopen N days after it was last completed".
-  Nothing is written when a task reopens: `isTaskOpen`
-  (`src/app/dashboard/tasks/recurrence.ts`) derives open/completed from
-  `completedAt + recurrenceIntervalDays` at read time, and page.tsx, the
-  dashboard's "my tasks" card and the toggle action all call it with the
-  same `now`. Completing again overwrites `completedAt`, so there's no
-  completion-history table (the earlier `completedAt` still counts for the
-  week it happened in, e.g. in the weekly recap). While a recurring task is
-  shown completed the row reads "Next due <date>" (`getNextDueDate`).
+  weekday schedule. Nothing is written when a task reopens:
+  `isTaskOpen` (`src/app/dashboard/tasks/recurrence.ts`) derives
+  open/completed from `completedAt` and the interval at read time, and
+  page.tsx, the dashboard's "my tasks" card and the toggle action all call
+  it with the same `now` and time zone. Completing again overwrites
+  `completedAt`, so there's no completion-history table (the earlier
+  `completedAt` still counts for the week it happened in, e.g. in the
+  weekly recap). While a recurring task is shown completed the row reads
+  "Next due <date>" (`getNextDueDate`).
+- **Rescheduling runs on the local day (UX-137)**: the next due moment is
+  always a local midnight, never "the tick plus 24 h". An interval under 7
+  days counts from the start of the local day it was ticked on, so a daily
+  chore ticked at 23:40 reopens at 00:00 and its row never reads "Next due"
+  with today's date. An interval of a week or more keeps a fixed anchor
+  day: occurrences fall on the anchor's local day and every N days after
+  it, and a tick (late, or early because the chore was already open) closes
+  only the occurrence it falls in, so a Saturday chore done on Thursday is
+  still a Saturday chore. The anchor is the local day the task was created
+  (no column, so editing a task does not move it). "Local" is the
+  visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
+  `time_zone` cookie equal to it and refreshes once when it changes;
+  `getTimeZone()` (`src/lib/get-time-zone.ts`) reads it, falling back to
+  UTC before the first visit has set it. `recurring-task-day.spec.ts`
+  covers it (the day rolling over is back-dated in Postgres, since the
+  server clock can't be moved).
 - **Taking turns (GAP-38)**: an opt-in round-robin on a *repeating* task,
   like Grocy's chores or OurHome. `rotationMemberIds` is the ordered list of
   people taking turns; empty = no rotation. Valid only with a recurrence and
@@ -5879,6 +5957,32 @@ stay that way rather than re-adding per-page redirect checks:
   `src/app/page.tsx` does **not** duplicate that check with its own
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
+
+### Public page titles and link previews (UX-64)
+
+- Every public route has a localised `<title>` and exactly one `<h1>`. The
+  root layout's title template appends " · Squirrel", so a page passes only
+  its own name: "Log in · Squirrel" / "Logga in · Squirrel". The landing page
+  uses an absolute title ("Squirrel: run your household like a dream team").
+  Dashboard pages set none and keep the plain "Squirrel".
+- Pages build their metadata through `src/lib/page-metadata.ts`
+  (`buildMetadata`, `titleOnlyMetadata`), which also emits the `og:` and
+  `twitter:` tags. A child's `openGraph` replaces the parent's, so every page
+  that wants a preview gets the full set from that helper.
+- `/`, `/join/[token]` and `/share/shopping-list/[token]` are the pages that
+  get passed around, so their previews are specific: an invite is titled
+  "Join {household}" with a description naming the household, and a shared
+  list is titled with the list's name. A dead token gets the generic
+  "Invalid invite" / "Link not found" title and no household or list name.
+  The share page's lookup is rate limited, so `generateMetadata` and the page
+  share one `cache()`d call.
+- The preview image is `/icon-512-maskable.png`, made absolute by the root
+  layout's `metadataBase` (from `APP_URL`). With `APP_URL` unset it points at
+  localhost, which only matters in local dev.
+- The page's `<h1>` is the card title: `CardTitle` takes `as="h1"`. The text
+  for the titles with no other home is in the dictionaries' `meta` section;
+  `/privacy` and `/terms` titles are localised while their bodies stay English.
+- Covered by `e2e/public-titles.spec.ts`.
 
 ### Session revocation on password change (SCALE-H)
 

@@ -78,7 +78,7 @@ export default async function ShoppingListDetailPage(
   //
   // The repurchase chips (AUTO-10), the heaviest read here, don't gate the
   // page at all any more — see RepurchaseSuggestionsSection above.
-  const [list, items, inventoryItems, lastPurchased, aliases] = await Promise.all([
+  const [list, items, inventoryItems, lastPurchased, aliases, activeDefault] = await Promise.all([
     prisma.shoppingList.findFirst({ where: { id, householdId: household.id } }),
     prisma.shoppingListItem.findMany({
       where: { shoppingListId: id, shoppingList: { householdId: household.id } },
@@ -120,6 +120,12 @@ export default async function ShoppingListDetailPage(
     prisma.itemAlias.findMany({
       where: { householdId: household.id, inventoryItemId: { not: null } },
       select: { normalizedName: true, inventoryItemId: true },
+    }),
+    // UX-80: where the unbought rows go when this list is completed, so the
+    // checkbox can name it. Same list completeShoppingListAction picks.
+    prisma.shoppingList.findFirst({
+      where: { householdId: household.id, isDefault: true, status: "ACTIVE" },
+      select: { id: true, name: true },
     }),
   ]);
   if (!list) notFound();
@@ -187,6 +193,9 @@ export default async function ShoppingListDetailPage(
       defersToPutAway={defersToPutAway(household)}
       aliases={aliases}
       locations={locations}
+      carryOverListName={
+        activeDefault && activeDefault.id !== list.id ? activeDefault.name : dict.shoppingList.defaultListName
+      }
     />
   );
 }

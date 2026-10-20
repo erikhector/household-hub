@@ -5,11 +5,12 @@ import { LegalFooter } from "@/components/legal-footer";
 import { ReleaseList } from "@/components/whats-new/release-list";
 import { format } from "@/lib/i18n/format";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { CURRENT_VERSION } from "@/lib/release-notes";
 
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
-  return { title: `${dict.whatsNew.title} — Squirrel` };
+  return titleOnlyMetadata(dict.whatsNew.title);
 }
 
 // The public release history, linked from every public page's footer with
