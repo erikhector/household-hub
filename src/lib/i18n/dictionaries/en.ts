@@ -2428,23 +2428,18 @@ export const en = {
       chartSpend: "Spend",
       spendingSubtitle:
         "Total estimated spend per month, from shopping list items marked purchased with a price.",
-      noSpendingData:
-        "No priced grocery purchases yet. Scan a receipt or a barcode when checking off a shopping list item — that's currently the only way an item's price gets recorded, so spend shows up here automatically once you do.",
       trendsTitle: "Price trends",
       trendsSubtitle: "Items with enough purchase history to show a meaningful trend.",
-      noTrendData:
-        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — scanning a receipt or barcode when you buy it is currently the only way to record a price.",
+      // UX-114: one line standing in for every card with nothing to show yet.
+      emptyCollapsed: "Price and pantry insights appear once you scan receipts and add a store name when you do.",
       latestPrice: "Latest",
       cheapestStoreTitle: "Cheapest store",
       cheapestStoreSubtitle:
         "Items you've bought at more than one store, and which was cheapest last time.",
-      noCheapestStoreData:
-        "No comparisons yet. Add a store name when scanning or registering a receipt, and once an item has prices from 2+ stores it'll show up here.",
       cheapestStoreLabel: "Cheapest at {store}:",
       stockValueTitle: "On hand now",
       stockValueSubtitle:
         "Roughly what everything you have in stock cost, at the price you paid last time you bought each item.",
-      noStockData: "Nothing is in stock right now.",
       stockValueBasis: {
         one: "Based on {priced} of {count} item with a known price.",
         other: "Based on {priced} of {count} items with a known price.",
@@ -2456,8 +2451,6 @@ export const en = {
       basketTitle: "Your list, store by store",
       basketSubtitle:
         "What the unchecked items on your shopping lists cost last time at each store. Only items you've bought at 2+ stores are counted.",
-      noBasketData:
-        "Not enough to compare yet. Once at least 2 items on your shopping lists have prices from 2+ stores, you'll see what the list would cost at each one here.",
       // {total} is always ≥ 2 (MIN_BASKET_ITEMS), so no singular form needed.
       basketCoverage: "{count} of {total} items priced",
       basketAllPriced: "All {total} items priced",
@@ -2467,7 +2460,6 @@ export const en = {
       expiredTitle: "Went past its date",
       expiredSubtitle:
         "Food that reached its expiry date this month before it was used up, at roughly what it cost last time you bought it.",
-      noExpiredData: "Nothing has gone past its date this month.",
       expiredCount: {
         one: "{count} item went past its date",
         other: "{count} items went past their date",
