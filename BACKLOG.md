@@ -829,23 +829,6 @@ UX-89.
       filters as you type, lists favourites and recently cooked first, and
       shows at least 5 rows at 412 px.
 
-- [ ] **UX-98. A recipe form in recipe order, in plain words, with 44 px
-      chips** (impact: med, effort: S) — breaks M3, M9 and Accessibility
-      (labelled controls).
-      - Instructions and Tags come before Ingredients.
-      - Nothing says each line becomes a cook-mode step with a timer.
-      - Tag chips are 26 px tall with 12 px text
-        (`recipe-form-dialog.tsx:702`).
-      - Quantity and unit have placeholders but no labels (`:748-768`).
-      - The sub-recipe hint reads "count toward this recipe's own
-        inventory decrement".
-      - "3 cloves" renders as "3 clove".
-      Acceptance: Ingredients follow Name and Servings. Instructions say
-      "One step per line — each becomes a step in Cook mode". Chips are at
-      least 44 px with 14 px text. Quantity and unit have accessible
-      names. The sub-recipe hint is plain language. Plurals render
-      correctly.
-
 #### Tasks
 
 - [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,

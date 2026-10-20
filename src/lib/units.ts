@@ -152,6 +152,23 @@ export function unitLabel(unit: string, labels: Readonly<Record<string, string>>
   return Object.hasOwn(labels, key) ? labels[key] : unit;
 }
 
+/**
+ * unitLabel() that also pluralises a count word: "3 cloves", "2 koppar"
+ * (UX-98). `plurals` lists only the units whose plural differs from the
+ * label (ml, g, st, förp don't appear). One and fractions of one ("½ cup")
+ * stay singular, matching how the quantity itself reads.
+ */
+export function unitLabelForQuantity(
+  unit: string,
+  quantity: number,
+  labels: Readonly<Record<string, string>>,
+  plurals: Readonly<Record<string, string>>,
+): string {
+  const key = canonicalUnit(unit);
+  if (quantity > 1 && Object.hasOwn(plurals, key)) return plurals[key];
+  return unitLabel(unit, labels);
+}
+
 export type UnitKind = "count" | "spoon" | Dimension;
 
 /** What kind of amount a unit measures, or null for an unrecognized unit.

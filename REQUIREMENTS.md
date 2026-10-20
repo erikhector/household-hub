@@ -3957,6 +3957,17 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     it). The popup's `Use "X"` row is a real button: tapping it keeps the
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
+  - **Recipe form order and wording (UX-98)**: the form runs in the order
+    a recipe is written: Name and Servings, Ingredients, Sub-recipes,
+    Instructions, Tags, then optional nutrition. The Instructions field
+    says "One step per line — each becomes a step in Cook mode" (linked
+    with `aria-describedby`). Tag chips are 14 px text and 44 px tall on
+    phones and touch screens, 8 px apart. Quantity and Unit (and a
+    sub-recipe's Batches) carry accessible names, not just placeholders.
+    The sub-recipe hint is plain language. A recipe's ingredient quantity
+    pluralises its unit ("3 cloves", "2 klyftor") in the recipe sheet and
+    Cook mode via `unitLabelForQuantity()` and the dictionary's
+    `unitsPlural` map; one and fractions of one stay singular.
   - **Combo button names (UX-129)**: every `ComboField` (category,
     location, unit, name) names its × "Clear {field}" (the field's own
     label, lower-cased, via the required `label` prop) and its chevron
