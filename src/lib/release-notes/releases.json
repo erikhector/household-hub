@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.86.1",
+    "date": "2026-10-20",
+    "pr": 458,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed the Household page jumping around slightly while it loads on phones.",
+      "sv": "Åtgärdade att hushållssidan hoppade till något medan den laddades på mobilen."
+    }
+  },
+  {
     "version": "0.86.0",
     "date": "2026-10-20",
     "pr": 454,
