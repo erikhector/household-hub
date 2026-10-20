@@ -309,7 +309,7 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/ux-31.spec.ts --project=desktop
       --repeat-each=30` passes 30/30.
-- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) —
+- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
       clicking the flour ingredient link in the recipe sheet (line 173),
@@ -320,6 +320,22 @@ then MAINT-7 per feature, to avoid churn.
       the spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/item-page.spec.ts:139
       --project=mobile --repeat-each=30` passes 30/30.
+      Investigated 2026-10-20, not fixed: it does not reproduce (30/30 and
+      40/40 on the production build, 3 workers, also with 2 busy CPU loops
+      beside it). The server is not the slow part: the item page's RSC
+      request answers in 10 to 200 ms. The wait is client-side (route
+      chunk, hydrating the item page's client tree): click to heading is
+      0.15 to 1.2 s normally, 1 to 2.9 s with Chromium's CPU throttled 8x
+      and 2.5 to 3.5 s at 25x, so a loaded `ci:local` gate (3 browsers, a
+      build and sibling worktrees on one box) can cross the 5 s default.
+      No dialog-history `back()` runs on this path (checked by logging
+      history calls), so it is not a history race. Needs a decision, since
+      every honest fix changes the budget or the page: (a) give post-
+      navigation heading waits in this spec a longer explicit timeout (a
+      loosened wait, which this item's rules forbid unless the Owner
+      allows it), or (b) restructure the item page so the heading and back
+      arrow render before the eight queries and the controls' client tree
+      (a Suspense split, larger than S).
 
 ### UX (2026-09-26 scout)
 
@@ -570,22 +586,6 @@ UX-89.
       {household}", groups by aisle in the household's store order, shows
       "n of m" progress and an All done state, and has a neutral one-line
       banner. Long names can be read in full, and a footer links to `/`.
-
-- [ ] **UX-64. Real page titles, one `<h1>`, and link previews on public
-      pages** (impact: med, effort: S) — breaks Accessibility and Context.
-      - `document.title` is just "Squirrel" on `/`, `/login`, `/signup`,
-        `/forgot-password`, every token page and the 404.
-      - `/privacy` and `/terms` have their own titles but stay English
-        in sv.
-      - Login, signup, forgot-password and the token pages have no
-        `<h1>` (`CardTitle` is a div, for example
-        `src/app/signup/page.tsx:22`).
-      - There are no `og:`/`twitter:` tags, so an invite or share link in
-        WhatsApp or iMessage previews as a bare "Squirrel".
-      Acceptance: each public route has a localised `<title>` ("Log in ·
-      Squirrel") and exactly one `<h1>`. `/`, `/join/[token]` and
-      `/share/shopping-list/[token]` emit `og:title`, `og:description` and
-      `og:image`, with join and share naming the household or list.
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context

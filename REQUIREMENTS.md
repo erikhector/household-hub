@@ -5866,6 +5866,32 @@ stay that way rather than re-adding per-page redirect checks:
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
 
+### Public page titles and link previews (UX-64)
+
+- Every public route has a localised `<title>` and exactly one `<h1>`. The
+  root layout's title template appends " · Squirrel", so a page passes only
+  its own name: "Log in · Squirrel" / "Logga in · Squirrel". The landing page
+  uses an absolute title ("Squirrel: run your household like a dream team").
+  Dashboard pages set none and keep the plain "Squirrel".
+- Pages build their metadata through `src/lib/page-metadata.ts`
+  (`buildMetadata`, `titleOnlyMetadata`), which also emits the `og:` and
+  `twitter:` tags. A child's `openGraph` replaces the parent's, so every page
+  that wants a preview gets the full set from that helper.
+- `/`, `/join/[token]` and `/share/shopping-list/[token]` are the pages that
+  get passed around, so their previews are specific: an invite is titled
+  "Join {household}" with a description naming the household, and a shared
+  list is titled with the list's name. A dead token gets the generic
+  "Invalid invite" / "Link not found" title and no household or list name.
+  The share page's lookup is rate limited, so `generateMetadata` and the page
+  share one `cache()`d call.
+- The preview image is `/icon-512-maskable.png`, made absolute by the root
+  layout's `metadataBase` (from `APP_URL`). With `APP_URL` unset it points at
+  localhost, which only matters in local dev.
+- The page's `<h1>` is the card title: `CardTitle` takes `as="h1"`. The text
+  for the titles with no other home is in the dictionaries' `meta` section;
+  `/privacy` and `/terms` titles are localised while their bodies stay English.
+- Covered by `e2e/public-titles.spec.ts`.
+
 ### Session revocation on password change (SCALE-H)
 
 Sessions are stateless JWTs, so there's no session row to delete when a

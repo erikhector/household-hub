@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { Compass } from "lucide-react";
 import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,11 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 // token pages' StatusCard (brand mark, icon, title) with a way to the landing
 // page instead. A signed-in user keeps the in-app card and the way back to
 // their dashboard.
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.notFound.title);
+}
+
 export default async function NotFound() {
   const [session, dict] = await Promise.all([auth(), getDictionary()]);
   const copy = dict.notFound;
@@ -30,7 +37,7 @@ export default async function NotFound() {
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
+          <CardTitle as="h1" className="flex items-center gap-2 text-xl">
             <Compass className="size-5 shrink-0 text-primary" />
             {copy.title}
           </CardTitle>

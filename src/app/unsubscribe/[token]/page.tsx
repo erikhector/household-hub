@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { DigestUnsubscribeClient } from "@/components/auth/digest-unsubscribe-client";
 import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -7,6 +9,11 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 // written during render — see DigestUnsubscribeClient for why the actual
 // opt-out goes through an auto-submitted Server Action, the same reasoning
 // as /verify-email/[token].
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.digestUnsubscribe.pageTitle);
+}
+
 export default async function DigestUnsubscribePage(props: PageProps<"/unsubscribe/[token]">) {
   const [{ token }, dict] = await Promise.all([props.params, getDictionary()]);
 
