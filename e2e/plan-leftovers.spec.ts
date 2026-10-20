@@ -106,7 +106,7 @@ async function cookWithLeftoversAndPlan(page: Page, recipeName: string, base: nu
   await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base)))}`);
   await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as cooked" }).click();
   const cooked = page.getByRole("dialog", { name: "Mark as cooked" });
-  await cooked.getByRole("spinbutton", { name: "Servings left over" }).fill("2");
+  await cooked.getByRole("spinbutton", { name: "Portions left over" }).fill("2");
   await cooked.getByRole("button", { name: "Mark as cooked" }).click();
   const planLeftovers = page.getByRole("button", { name: "Plan leftovers" });
   await expect(planLeftovers).toBeVisible();

@@ -18,7 +18,7 @@ test("the recipe form is in recipe order, labelled, with 44 px tag chips", async
   // Position in the document, independent of how far the sheet is scrolled.
   const pageTop = (locator: ReturnType<typeof dialog.locator>) =>
     locator.evaluate((el) => el.getBoundingClientRect().top - (el.closest("[data-slot=dialog-body]")?.getBoundingClientRect().top ?? 0) + (el.closest("[data-slot=dialog-body]")?.scrollTop ?? 0));
-  const servings = await pageTop(dialog.getByLabel("Servings"));
+  const servings = await pageTop(dialog.getByLabel("Portions"));
   const ingredients = await pageTop(dialog.getByText("Ingredients", { exact: true }));
   const instructions = await pageTop(dialog.getByLabel("Instructions"));
   const tags = await pageTop(dialog.getByText("Tags", { exact: true }));

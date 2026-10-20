@@ -121,6 +121,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   default `en` applied, and since the account locale outranks the cookie, a
   Swedish signup met an English dashboard on first login (and English
   reset/digest emails). `e2e/signup-locale.spec.ts` covers it.
+- **Signup explains household name and points invitees away (UX-60)**:
+  `/signup` opens with "Joining someone's household? Open the invite link
+  they sent you." (someone whose partner already uses Squirrel would
+  otherwise create a second, empty household), and "Household name" has
+  helper text (`aria-describedby`) saying everyone you invite sees this
+  name, since the placeholder vanishes on focus.
+  `e2e/signup-household-hint.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
@@ -1629,7 +1636,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 - `PreparedBatch` (GAP-49 meal prep, built — see "Meal prep (GAP-49)"
   under "Meal planning"): a household's batch-cooked recipe with
   `totalPortions`/`remainingPortions`, optional `cookedByMember` and
-  `expiryDate`. Recorded by a prep session or by a cook's "Servings left
+  `expiryDate`. Recorded by a prep session or by a cook's "Portions left
   over" (GAP-8). A `MealPlanEntry` can draw portions from one via
   `preparedBatchId` + `preparedPortionsUsed` (0 when it draws none).
   Deleting the recipe deletes its batches (unlinking their entries
@@ -3997,7 +4004,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     typed value, closes the popup and moves on the same way. Inventory
     dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
   - **Recipe form order and wording (UX-98)**: the form runs in the order
-    a recipe is written: Name and Servings, Ingredients, Sub-recipes,
+    a recipe is written: Name and Portions, Ingredients, Sub-recipes,
     Instructions, Tags, then optional nutrition. The Instructions field
     says "One step per line — each becomes a step in Cook mode" (linked
     with `aria-describedby`). Tag chips are 14 px text and 44 px tall on
@@ -4216,7 +4223,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
   chosen) to a date + `MealType` slot. When the household has a recipe or
   a meal-prep batch to pick, the add dialog opens on that picker with
-  nothing chosen ("Choose a meal", favourite recipes first) rather than on
+  nothing chosen ("Choose a recipe", favourite recipes first) rather than on
   "Custom meal…" and an empty name field (M4: pick, don't type); adding
   without a choice gets "Choose a recipe or enter a meal name". With
   nothing to pick it opens on the name field as before. There's no uniqueness constraint on
@@ -4398,7 +4405,7 @@ recipe can have calories set with the rest left blank).
 ### Recipe cost estimate (GAP-15)
 
 Each recipe on the Recipes tab shows a rough cost to make it, e.g.
-`"~45.00 total · ~11.25/serving"`, on its own line under the nutrition
+`"~45.00 total · ~11.25/portion"`, on its own line under the nutrition
 summary. No schema change: it joins data that already exists —
 `RecipeIngredient` → its linked `InventoryItem.lastKnownPrice` (kept current
 by AUTO-4, above) and the purchased shopping-list line that set it — through
@@ -4883,7 +4890,12 @@ actually used, once they've cooked it.
   it caused.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
-- **Leftovers (GAP-8)**: the dialog has an optional "Servings left over"
+- **One word for portions (UX-95)**: English says "portions" everywhere a
+  recipe's yield shows (recipe list and form, per-portion nutrition and
+  cost, planner, Mark as cooked, Meal prep); the Prisma column stays
+  `servings`. The add sheet's recipe picker reads "Recipe: Choose a
+  recipe", distinct from the "Meal" slot picker.
+- **Leftovers (GAP-8)**: the dialog has an optional "Portions left over"
   number input, blank by default. Blank or 0 means no leftovers, and
   nothing is ever inferred from `servings` vs `portions` (Guardrails:
   suggest, don't silently mutate). The value is validated by
@@ -5513,15 +5525,31 @@ co-managers, not kids earning rewards.
   visible text on the mobile project.
 - **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
   1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
-  weekday schedule, just "reopen N days after it was last completed".
-  Nothing is written when a task reopens: `isTaskOpen`
-  (`src/app/dashboard/tasks/recurrence.ts`) derives open/completed from
-  `completedAt + recurrenceIntervalDays` at read time, and page.tsx, the
-  dashboard's "my tasks" card and the toggle action all call it with the
-  same `now`. Completing again overwrites `completedAt`, so there's no
-  completion-history table (the earlier `completedAt` still counts for the
-  week it happened in, e.g. in the weekly recap). While a recurring task is
-  shown completed the row reads "Next due <date>" (`getNextDueDate`).
+  weekday schedule. Nothing is written when a task reopens:
+  `isTaskOpen` (`src/app/dashboard/tasks/recurrence.ts`) derives
+  open/completed from `completedAt` and the interval at read time, and
+  page.tsx, the dashboard's "my tasks" card and the toggle action all call
+  it with the same `now` and time zone. Completing again overwrites
+  `completedAt`, so there's no completion-history table (the earlier
+  `completedAt` still counts for the week it happened in, e.g. in the
+  weekly recap). While a recurring task is shown completed the row reads
+  "Next due <date>" (`getNextDueDate`).
+- **Rescheduling runs on the local day (UX-137)**: the next due moment is
+  always a local midnight, never "the tick plus 24 h". An interval under 7
+  days counts from the start of the local day it was ticked on, so a daily
+  chore ticked at 23:40 reopens at 00:00 and its row never reads "Next due"
+  with today's date. An interval of a week or more keeps a fixed anchor
+  day: occurrences fall on the anchor's local day and every N days after
+  it, and a tick (late, or early because the chore was already open) closes
+  only the occurrence it falls in, so a Saturday chore done on Thursday is
+  still a Saturday chore. The anchor is the local day the task was created
+  (no column, so editing a task does not move it). "Local" is the
+  visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
+  `time_zone` cookie equal to it and refreshes once when it changes;
+  `getTimeZone()` (`src/lib/get-time-zone.ts`) reads it, falling back to
+  UTC before the first visit has set it. `recurring-task-day.spec.ts`
+  covers it (the day rolling over is back-dated in Postgres, since the
+  server clock can't be moved).
 - **Taking turns (GAP-38)**: an opt-in round-robin on a *repeating* task,
   like Grocy's chores or OurHome. `rotationMemberIds` is the ordered list of
   people taking turns; empty = no rotation. Valid only with a recurrence and

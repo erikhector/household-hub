@@ -2,6 +2,7 @@ import { Suspense, cache } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { getTimeZone } from "@/lib/get-time-zone";
 import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
@@ -33,15 +34,17 @@ const getTasksData = cache(async (householdId: string) => {
   const activeMemberIds = memberOptions.map((m) => m.id);
 
   const now = new Date();
+  const timeZone = await getTimeZone();
 
   return {
+    timeZone,
     memberOptions,
     memberIdByUserId: new Map(householdMembers.map((m) => [m.userId, m.id])),
     // The weekly recap is worked out in TasksClient (UX-33: so a tick shows
     // in it at tap time), against the server's clock for the week.
     now,
     tasks: tasks.map((t) => {
-      const completed = !isTaskOpen(t, now);
+      const completed = !isTaskOpen(t, now, timeZone);
       // GAP-38: who's up after the current turn. A completed rotating task
       // has already been passed on (toggleTaskCompletedAction advances on
       // completion), so its assignee *is* who's next; an open one is still
@@ -63,6 +66,7 @@ const getTasksData = cache(async (householdId: string) => {
         completed,
         recurrenceIntervalDays: t.recurrenceIntervalDays,
         completedAt: t.completedAt,
+        createdAt: t.createdAt,
         // Current members only, so the edit dialog never offers (or
         // re-saves) someone who has left the household.
         rotationMemberIds: activeRotationMembers(t.rotationMemberIds, activeMemberIds),
@@ -112,7 +116,7 @@ async function TasksSection({
   dict: Dictionary["tasks"];
   locale: Locale;
 }) {
-  const { tasks, memberOptions, memberIdByUserId, now } = await getTasksData(householdId);
+  const { tasks, memberOptions, memberIdByUserId, now, timeZone } = await getTasksData(householdId);
   return (
     <TasksClient
       dict={dict}
@@ -120,6 +124,7 @@ async function TasksSection({
       currentMemberId={memberIdByUserId.get(userId) ?? null}
       tasks={tasks}
       now={now}
+      timeZone={timeZone}
       locale={locale}
     />
   );
