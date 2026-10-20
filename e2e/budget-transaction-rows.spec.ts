@@ -82,6 +82,14 @@ test("phone rows open the edit sheet, name themselves and delete from the sheet"
   await expect(sheet).toBeVisible();
   const del = sheet.getByRole("button", { name: "Delete transaction" });
   const save = sheet.getByRole("button", { name: "Save" });
+  // The form is taller than the sheet once the worker's household has
+  // collected a few categories (one chip each, and every spec adds its
+  // own), so at scrollTop 0 Delete, the last thing in the form body, sits
+  // under the sticky footer. That overlap is the sheet scrolling, not a
+  // layout bug: "away from Save" is only meaningful with Delete scrolled
+  // into view, which is also where a user taps it. Scroll it to the middle
+  // of the scroller first (the footer is below it then, never over it).
+  await del.evaluate((el) => el.scrollIntoView({ block: "center" }));
   // Measured once the sheet has finished sliding up (mid-slide the sticky
   // footer and the form body are still moving relative to each other).
   await expect
