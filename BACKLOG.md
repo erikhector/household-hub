@@ -406,7 +406,7 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-80, UX-81, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-71.
+- `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
@@ -638,23 +638,6 @@ UX-89.
       overview shows one call to action per feature. "Plan this week's
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
-
-- [ ] **UX-71. Overview stat cards: honest colours, real links, no dead
-      ends** (impact: med, effort: S) — breaks Colour (status pairs with
-      meaning) and Usability.
-      - The low-stock count is amber even at 0 (`page.tsx:264`), and "1"
-        in amber sits over "1 out of stock" in red.
-      - The "Shopping lists" card shows a count of items.
-      - "0 items to buy across 0 active lists" is how a first run reads.
-      - "View inventory" opens the unfiltered list, and "View shopping
-        lists" opens the index even with one active list (`:276,300`).
-      - "Total items tracked" has no action at all.
-      Acceptance: warning colour appears only when the count is above 0,
-      and zero reads "All stocked up" with an icon. Low stock links to
-      `/dashboard/inventory?status=low` and says "N already on your list".
-      With one active list the shopping card opens that list. Every card
-      is actionable or removed. Empty counts use friendly copy ("No lists
-      yet — start one").
 
 - [ ] **UX-73. New households get a currency from their language**
       (impact: med, effort: S) — breaks M4 (default what you can derive).
