@@ -2344,6 +2344,7 @@ export const sv = {
       expiredTitle: "Gick ut innan den användes",
       expiredSubtitle:
         "Mat som nådde sitt bäst före-datum den här månaden innan den tog slut, ungefär till vad den kostade senast du köpte den.",
+      noExpiredData: "Inget har gått ut den här månaden.",
       expiredCount: {
         one: "{count} vara gick ut",
         other: "{count} varor gick ut",

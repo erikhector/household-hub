@@ -41,17 +41,8 @@
 // read as worth half what it is. See src/lib/inventory/stock-value.ts.
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import type {
-  BasketComparison,
-  StoreComparison,
-} from "@/lib/cheapest-store-calc";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { BasketComparison, StoreComparison } from "@/lib/cheapest-store-calc";
 import type { ExpiredWasteSummary } from "@/lib/inventory/expired-waste";
 import type { StockValueSummary } from "@/lib/inventory/stock-value";
 import { format, plural } from "@/lib/i18n/format";
@@ -95,14 +86,8 @@ export function CostAnalyzer({
   currencyCode?: string | null;
 }) {
   const numberFormat = createMoneyFormat(locale, currencyCode);
-  const monthFormat = new Intl.DateTimeFormat(locale, {
-    month: "short",
-    year: "2-digit",
-  });
-  const dateFormat = new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-  });
+  const monthFormat = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
+  const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
   // UX-15: "+12,5 %" in sv, "+12.5%" in en — the locale decides the decimal
   // mark and the space before the sign, and signDisplay adds the "+".
   const percentFormat = new Intl.NumberFormat(locale, {
@@ -122,8 +107,7 @@ export function CostAnalyzer({
   const hasTrends = itemTrends.length > 0;
   const hasCheapestStore = storeComparisons.length > 0;
   const hasStock = stockValue.inStockCount > 0;
-  const hasExpired =
-    expiredThisMonth.items.length > 0 || expiredLastMonth.items.length > 0;
+  const hasExpired = expiredThisMonth.items.length > 0 || expiredLastMonth.items.length > 0;
   const anyEmpty = !(
     hasSpending &&
     hasTrends &&
@@ -142,20 +126,18 @@ export function CostAnalyzer({
             <CardDescription>{dict.spendingSubtitle}</CardDescription>
           </CardHeader>
           <CardContent>
-            <BarChart
-              caption={dict.spendingTitle}
-              groupHeader={dict.chartMonth}
-              series={[{ key: "spend", label: dict.chartSpend }]}
-              groups={monthlySpending.map((point) => ({
-                key: point.month,
-                label: monthFormat.format(
-                  new Date(`${point.month}-01T00:00:00`),
-                ),
-                values: [point.total],
-              }))}
-              locale={locale}
-              currencyCode={currencyCode}
-            />
+              <BarChart
+                caption={dict.spendingTitle}
+                groupHeader={dict.chartMonth}
+                series={[{ key: "spend", label: dict.chartSpend }]}
+                groups={monthlySpending.map((point) => ({
+                  key: point.month,
+                  label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
+                  values: [point.total],
+                }))}
+                locale={locale}
+                currencyCode={currencyCode}
+              />
           </CardContent>
         </Card>
       )}
@@ -167,18 +149,18 @@ export function CostAnalyzer({
             <CardDescription>{dict.trendsSubtitle}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {itemTrends.map((item) => (
-                <ItemTrendCard
-                  key={item.id}
-                  item={item}
-                  dict={dict}
-                  numberFormat={numberFormat}
-                  dateFormat={dateFormat}
-                  percentFormat={percentFormat}
-                />
-              ))}
-            </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {itemTrends.map((item) => (
+                  <ItemTrendCard
+                    key={item.id}
+                    item={item}
+                    dict={dict}
+                    numberFormat={numberFormat}
+                    dateFormat={dateFormat}
+                    percentFormat={percentFormat}
+                  />
+                ))}
+              </div>
           </CardContent>
         </Card>
       )}
@@ -190,26 +172,19 @@ export function CostAnalyzer({
             <CardDescription>{dict.cheapestStoreSubtitle}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col divide-y divide-border">
-              {storeComparisons.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex items-center justify-between gap-3 py-2 text-sm"
-                >
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {c.name}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {format(dict.cheapestStoreLabel, {
-                      store: c.cheapestStore,
-                    })}{" "}
-                    <span className="tabular-nums text-success">
-                      {numberFormat.format(c.cheapestPrice)}
+              <div className="flex flex-col divide-y divide-border">
+                {storeComparisons.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {format(dict.cheapestStoreLabel, { store: c.cheapestStore })}{" "}
+                      <span className="tabular-nums text-success">
+                        {numberFormat.format(c.cheapestPrice)}
+                      </span>
                     </span>
-                  </span>
-                </div>
-              ))}
-            </div>
+                  </div>
+                ))}
+              </div>
           </CardContent>
         </Card>
       )}
@@ -223,11 +198,7 @@ export function CostAnalyzer({
       )}
 
       {hasStock && (
-        <StockValueCard
-          stockValue={stockValue}
-          dict={dict}
-          numberFormat={numberFormat}
-        />
+        <StockValueCard stockValue={stockValue} dict={dict} numberFormat={numberFormat} />
       )}
 
       {hasExpired && (
@@ -240,9 +211,7 @@ export function CostAnalyzer({
         />
       )}
 
-      {anyEmpty && (
-        <p className="text-sm text-muted-foreground">{dict.emptyCollapsed}</p>
-      )}
+      {anyEmpty && <p className="text-sm text-muted-foreground">{dict.emptyCollapsed}</p>}
     </div>
   );
 }
@@ -269,15 +238,11 @@ function StockValueCard({
           // "≈ 0 kr" here would read as "your pantry is worth nothing"
           // rather than "we don't know yet".
           <p className="text-sm text-muted-foreground">
-            {format(plural(inStockCount, dict.stockValueNoPrices), {
-              count: inStockCount,
-            })}
+            {format(plural(inStockCount, dict.stockValueNoPrices), { count: inStockCount })}
           </p>
         ) : (
           <>
-            <p className="text-2xl font-semibold tabular-nums">
-              ≈ {numberFormat.format(value)}
-            </p>
+            <p className="text-2xl font-semibold tabular-nums">≈ {numberFormat.format(value)}</p>
             <p className="text-xs text-muted-foreground">
               {format(plural(inStockCount, dict.stockValueBasis), {
                 priced: pricedCount,
@@ -315,51 +280,37 @@ function BasketComparisonCard({
         <CardDescription>{dict.basketSubtitle}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <>
-          <div className="flex flex-col divide-y divide-border">
-            {stores.map((s, i) => {
-              const complete = s.pricedCount === itemCount;
-              return (
-                <div
-                  key={s.store}
-                  className="flex items-center justify-between gap-3 py-2 text-sm"
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="truncate font-medium">{s.store}</span>
-                    {showCheapestBadge && i === 0 && (
-                      <Badge variant="outline" className="shrink-0">
-                        {dict.basketCheapestBadge}
-                      </Badge>
-                    )}
+        <div className="flex flex-col divide-y divide-border">
+          {stores.map((s, i) => {
+            const complete = s.pricedCount === itemCount;
+            return (
+              <div key={s.store} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate font-medium">{s.store}</span>
+                  {showCheapestBadge && i === 0 && (
+                    <Badge variant="outline" className="shrink-0">
+                      {dict.basketCheapestBadge}
+                    </Badge>
+                  )}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {complete
+                    ? format(dict.basketAllPriced, { total: itemCount })
+                    : format(dict.basketCoverage, { count: s.pricedCount, total: itemCount })}
+                  {" · "}
+                  <span
+                    className={`tabular-nums ${
+                      showCheapestBadge && i === 0 ? "text-success" : "text-foreground"
+                    }`}
+                  >
+                    {numberFormat.format(s.total)}
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {complete
-                      ? format(dict.basketAllPriced, { total: itemCount })
-                      : format(dict.basketCoverage, {
-                          count: s.pricedCount,
-                          total: itemCount,
-                        })}
-                    {" · "}
-                    <span
-                      className={`tabular-nums ${
-                        showCheapestBadge && i === 0
-                          ? "text-success"
-                          : "text-foreground"
-                      }`}
-                    >
-                      {numberFormat.format(s.total)}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {hasPartial && (
-            <p className="text-xs text-muted-foreground">
-              {dict.basketPartialNote}
-            </p>
-          )}
-        </>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {hasPartial && <p className="text-xs text-muted-foreground">{dict.basketPartialNote}</p>}
       </CardContent>
     </Card>
   );
@@ -392,7 +343,12 @@ function ExpiredWasteCard({
         <CardDescription>{dict.expiredSubtitle}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {thisMonth.items.length > 0 && (
+        {thisMonth.items.length === 0 ? (
+          // Only last month had items (the card is hidden when both are
+          // empty), so say this month is clear rather than leaving the
+          // "last month" line to read as the whole story.
+          <p className="text-sm text-muted-foreground">{dict.noExpiredData}</p>
+        ) : (
           <>
             <div className="flex flex-col gap-1">
               <p className="text-sm">
@@ -417,21 +373,15 @@ function ExpiredWasteCard({
               )}
               {thisMonth.unpricedCount > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {format(
-                    plural(thisMonth.unpricedCount, dict.expiredUnpriced),
-                    {
-                      count: thisMonth.unpricedCount,
-                    },
-                  )}
+                  {format(plural(thisMonth.unpricedCount, dict.expiredUnpriced), {
+                    count: thisMonth.unpricedCount,
+                  })}
                 </p>
               )}
             </div>
             <div className="flex flex-col divide-y divide-border">
               {shown.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-3 py-2 text-sm"
-                >
+                <div key={item.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="truncate font-medium">{item.name}</span>
                     {item.estimated && (
@@ -466,8 +416,7 @@ function ExpiredWasteCard({
             {format(plural(lastMonth.items.length, dict.expiredLastMonth), {
               count: lastMonth.items.length,
             })}
-            {lastMonth.confirmedValue > 0 &&
-              ` · ≈ ${numberFormat.format(lastMonth.confirmedValue)}`}
+            {lastMonth.confirmedValue > 0 && ` · ≈ ${numberFormat.format(lastMonth.confirmedValue)}`}
           </p>
         )}
       </CardContent>
@@ -500,28 +449,21 @@ function ItemTrendCard({
     <div className="flex flex-col gap-2 rounded-lg border p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="truncate font-medium">{item.name}</span>
-        <span
-          className={`shrink-0 text-xs font-medium tabular-nums ${changeColor}`}
-        >
+        <span className={`shrink-0 text-xs font-medium tabular-nums ${changeColor}`}>
           {percentFormat.format(item.changePercent / 100)}
         </span>
       </div>
       <Sparkline
         points={item.points.map((p) => p.price)}
         label={item.points
-          .map(
-            (p) =>
-              `${dateFormat.format(p.date)} ${numberFormat.format(p.price)}`,
-          )
+          .map((p) => `${dateFormat.format(p.date)} ${numberFormat.format(p.price)}`)
           .join(", ")}
       />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
           {dict.latestPrice} · {dateFormat.format(latest.date)}
         </span>
-        <span className="tabular-nums text-foreground">
-          {numberFormat.format(latest.price)}
-        </span>
+        <span className="tabular-nums text-foreground">{numberFormat.format(latest.price)}</span>
       </div>
     </div>
   );

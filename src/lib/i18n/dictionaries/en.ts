@@ -2460,6 +2460,7 @@ export const en = {
       expiredTitle: "Went past its date",
       expiredSubtitle:
         "Food that reached its expiry date this month before it was used up, at roughly what it cost last time you bought it.",
+      noExpiredData: "Nothing has gone past its date this month.",
       expiredCount: {
         one: "{count} item went past its date",
         other: "{count} items went past their date",

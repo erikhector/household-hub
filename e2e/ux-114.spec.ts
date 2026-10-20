@@ -60,3 +60,33 @@ test("who owes whom is in the first screenful and empty cost cards collapse to o
   await expect(main.getByText("No comparisons yet")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
+
+// The other half of the rule: with nothing owed, "Who owes whom" stays
+// where it was, last on the tab, and a cost card that has data still renders.
+// budget-balances.spec.ts and the test above leave splits behind in this
+// worker's household, so clear them first (scoped to E2E_HOUSEHOLD only).
+test("with nothing owed, who owes whom stays last and a card with data still shows", async ({ page }) => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `DELETE FROM "TransactionSplit" WHERE "transactionId" IN (SELECT id FROM "Transaction" WHERE "householdId" = $1)`,
+      [E2E_HOUSEHOLD.id],
+    );
+  } finally {
+    await client.end();
+  }
+  await page.goto("/dashboard/budget?tab=insights");
+  const main = page.getByRole("main");
+
+  const balances = main.getByText("Who owes whom", { exact: true });
+  await expect(balances).toBeVisible();
+  const summary = main.getByText("Expenses by category").first();
+  await expect(summary).toBeVisible();
+  expect((await balances.boundingBox())!.y).toBeGreaterThan((await summary.boundingBox())!.y);
+
+  // Seeded stock has no known price, so "On hand now" still renders, with
+  // its own message rather than being folded into the collapse line.
+  await expect(main.getByText("On hand now", { exact: true })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
