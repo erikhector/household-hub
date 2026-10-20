@@ -11,6 +11,12 @@ export const sv = {
     pcs: "st", clove: "klyfta", can: "burk", pack: "förp", slice: "skiva",
     bunch: "knippe", jar: "burk", bag: "påse", bottle: "flaska", box: "ask", pinch: "nypa",
   },
+  // Plural forms of the units above that change with the quantity, so a recipe
+  // reads "3 klyftor" (UX-98). Units absent here are the same in the plural.
+  unitsPlural: {
+    cup: "koppar", pint: "pint", quart: "quart", gallon: "gallon", pack: "förp", clove: "klyftor", can: "burkar", slice: "skivor", bunch: "knippen", jar: "burkar",
+    bag: "påsar", bottle: "flaskor", box: "askar", pinch: "nypor",
+  },
   common: commonCopy.sv,
   // Messages that server actions return as `{ error }` (UX-16). Zod schema messages are these
   // keys, resolved through zodFail() in lib/actions/errors.ts, so each language is chosen per request.
@@ -411,6 +417,17 @@ export const sv = {
       one: "{count} slut i lager",
       other: "{count} slut i lager",
     },
+    allStockedUp: "Allt finns hemma",
+    alreadyOnList: {
+      one: "{count} finns redan på din lista",
+      other: "{count} finns redan på din lista",
+    },
+    noListsYet: "Inga listor än — starta en",
+    startShoppingList: "Starta en lista",
+    openShoppingList: "Öppna {name}",
+    nothingTrackedYet: "Inget i lagret än",
+    addFirstItem: "Lägg till din första vara",
+    browseItems: "Bläddra bland alla varor",
     viewInventory: "Visa lager",
     shoppingLists: "Inköpslistor",
     itemsToBuyAcross: {
@@ -494,11 +511,24 @@ export const sv = {
     completeList: "Markera som klar",
     confirmCompleteList: {
       title: "Markera listan som klar?",
-      description:
-        "Det här markerar listan som klar och, om varorna har priser, loggar totalsumman i din budget. Klarmarkerade av misstag? Ångra genom att arkivera listan och sedan återställa den.",
+      description: {
+        one: "{count} vara är inte avbockad än. När listan markeras som klar loggas summan av det du köpt i din budget, om varorna har priser. Du kan ångra direkt efteråt.",
+        other: "{count} varor är inte avbockade än. När listan markeras som klar loggas summan av det du köpt i din budget, om varorna har priser. Du kan ångra direkt efteråt.",
+      },
       cancel: "Avbryt",
       confirm: "Markera som klar",
       confirming: "Markerar…",
+    },
+    // UX-80: de ej köpta varorna följer med när en lista markeras som klar.
+    carryOver: {
+      label: {
+        one: "Flytta {count} ej köpt vara till {list}",
+        other: "Flytta {count} ej köpta varor till {list}",
+      },
+      toast: {
+        one: "{count} vara flyttades till {list}",
+        other: "{count} varor flyttades till {list}",
+      },
     },
     // UX-87: steget före klarmarkering när bara en del av de köpta varorna
     // har pris.
@@ -1588,6 +1618,7 @@ export const sv = {
     servingsHint: "Hur många portioner mängderna nedan räcker till.",
     instructionsLabel: "Instruktioner",
     instructionsPlaceholder: "Så här gör du…",
+    instructionsHint: "Ett steg per rad — varje rad blir ett steg i matlagningsläget",
     addNutritionInfo: "Lägg till näringsinnehåll",
     nutritionSectionLabel: "Näringsinnehåll (valfritt)",
     caloriesPerServingLabel: "Kalorier / portion",
@@ -1616,13 +1647,16 @@ export const sv = {
     comboboxShowSuggestions: "Visa förslag",
     ingredientQuantityPlaceholder: "Antal",
     ingredientUnitPlaceholder: "Enhet",
+    ingredientQuantityLabel: "Mängd",
+    ingredientUnitLabel: "Enhet",
     addIngredient: "Lägg till ingrediens",
     removeIngredientAriaLabel: "Ta bort ingrediens",
     componentsLabel: "Delrecept",
     componentsHint:
-      "Ett delrecepts ingredienser räknas med i detta recepts eget lageravdrag och beräkning av saknade ingredienser, skalat efter hur många omgångar du lägger till här.",
+      "Använd ett annat recept som en del av detta. Dess ingredienser räknas med när du kollar vad som saknas och när du markerar det här som lagat, gånger antalet omgångar.",
     addComponent: "Lägg till delrecept",
     componentQuantityPlaceholder: "Antal",
+    componentQuantityLabel: "Antal omgångar",
     removeComponentAriaLabel: "Ta bort delrecept",
     noAvailableComponentRecipes: "Lägg till ett annat recept först för att kunna använda det som delrecept.",
     componentQuantityError: "Delreceptets mängd måste vara större än 0",

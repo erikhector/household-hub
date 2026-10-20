@@ -471,7 +471,7 @@ function RecipeRow({
                   <li key={ingredient.id} className="break-words">
                     <span className="text-muted-foreground tabular-nums">
                       {formatCookQuantity(ingredient.quantity, 1, locale)}
-                      {ingredient.unit ? ` ${unitLabel(ingredient.unit)}` : ""}
+                      {ingredient.unit ? ` ${unitLabel(ingredient.unit, ingredient.quantity)}` : ""}
                     </span>{" "}
                     {/* MATCH-6: a linked ingredient opens its pantry item's
                         page, whose back arrow comes back to this tab. An
