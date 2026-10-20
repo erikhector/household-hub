@@ -530,16 +530,6 @@ UX-89.
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
 
-- [ ] **UX-60. Explain "Household name" at signup and point invitees to
-      their link** (impact: med, effort: S) — User-centricity. Signup
-      assumes you are starting a new household. Someone whose partner
-      already uses Squirrel creates a second, empty household, with no
-      route from there to the partner's. The only hint is a placeholder
-      that disappears on focus.
-      Acceptance: `/signup` shows "Joining someone's household? Open the
-      invite link they sent you." Household name has helper text saying
-      everyone you invite sees this name.
-
 - [ ] **UX-61. Clearer steps from signup to first login** (impact: med,
       effort: S) — breaks Usability (fewer steps).
       - After submit, the card is still titled "Create your household".

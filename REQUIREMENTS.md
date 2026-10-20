@@ -121,6 +121,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   default `en` applied, and since the account locale outranks the cookie, a
   Swedish signup met an English dashboard on first login (and English
   reset/digest emails). `e2e/signup-locale.spec.ts` covers it.
+- **Signup explains household name and points invitees away (UX-60)**:
+  `/signup` opens with "Joining someone's household? Open the invite link
+  they sent you." (someone whose partner already uses Squirrel would
+  otherwise create a second, empty household), and "Household name" has
+  helper text (`aria-describedby`) saying everyone you invite sees this
+  name, since the placeholder vanishes on focus.
+  `e2e/signup-household-hint.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
