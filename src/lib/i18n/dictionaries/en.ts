@@ -16,6 +16,13 @@ export const en = {
     pcs: "pcs", clove: "clove", can: "can", pack: "pack", slice: "slice",
     bunch: "bunch", jar: "jar", bag: "bag", bottle: "bottle", box: "box", pinch: "pinch",
   },
+  // Plural forms of the units above that change with the quantity, so a recipe
+  // reads "3 cloves" (UX-98). Units absent here are the same in the plural.
+  unitsPlural: {
+    cup: "cups", pint: "pints", quart: "quarts", gallon: "gallons", clove: "cloves", can: "cans",
+    pack: "packs", slice: "slices", bunch: "bunches", jar: "jars", bag: "bags", bottle: "bottles",
+    box: "boxes", pinch: "pinches",
+  },
   common: commonCopy.en,
   // Messages that server actions return as `{ error }` (UX-16). Zod schema messages are these
   // keys, resolved through zodFail() in lib/actions/errors.ts, so each language is chosen per request.
@@ -442,6 +449,17 @@ export const en = {
       one: "{count} out of stock",
       other: "{count} out of stock",
     },
+    allStockedUp: "All stocked up",
+    alreadyOnList: {
+      one: "{count} already on your list",
+      other: "{count} already on your list",
+    },
+    noListsYet: "No lists yet — start one",
+    startShoppingList: "Start a list",
+    openShoppingList: "Open {name}",
+    nothingTrackedYet: "Nothing tracked yet",
+    addFirstItem: "Add your first item",
+    browseItems: "Browse all items",
     viewInventory: "View inventory",
     shoppingLists: "Shopping lists",
     itemsToBuyAcross: {
@@ -525,11 +543,25 @@ export const en = {
     completeList: "Complete list",
     confirmCompleteList: {
       title: "Complete this list?",
-      description:
-        "This marks the list as done and, if items have prices, logs the total to your budget. Completed by accident? Undo it with Archive, then Unarchive on this list.",
+      // UX-80: it appears because something is still unticked, so say so.
+      description: {
+        one: "{count} item isn't ticked off yet. Completing the list logs the total of what you bought to your budget, if items have prices. You can undo it right after.",
+        other: "{count} items aren't ticked off yet. Completing the list logs the total of what you bought to your budget, if items have prices. You can undo it right after.",
+      },
       cancel: "Cancel",
       confirm: "Complete list",
       confirming: "Completing…",
+    },
+    // UX-80: carrying the unbought rows over when a list is completed.
+    carryOver: {
+      label: {
+        one: "Move {count} unbought item to {list}",
+        other: "Move {count} unbought items to {list}",
+      },
+      toast: {
+        one: "{count} item moved to {list}",
+        other: "{count} items moved to {list}",
+      },
     },
     // UX-87: the step before completing when only some of the bought items
     // have a price.
@@ -1677,6 +1709,7 @@ export const en = {
     servingsHint: "How many portions the ingredient amounts below make.",
     instructionsLabel: "Instructions",
     instructionsPlaceholder: "How to make it…",
+    instructionsHint: "One step per line — each becomes a step in Cook mode",
     addNutritionInfo: "Add nutrition info",
     nutritionSectionLabel: "Nutrition (optional)",
     caloriesPerServingLabel: "Calories / serving",
@@ -1705,13 +1738,16 @@ export const en = {
     comboboxShowSuggestions: "Show suggestions",
     ingredientQuantityPlaceholder: "Qty",
     ingredientUnitPlaceholder: "Unit",
+    ingredientQuantityLabel: "Quantity",
+    ingredientUnitLabel: "Unit",
     addIngredient: "Add ingredient",
     removeIngredientAriaLabel: "Remove ingredient",
     componentsLabel: "Sub-recipes",
     componentsHint:
-      "A sub-recipe's ingredients count toward this recipe's own inventory decrement and missing-ingredients calculations, scaled by however many batches you add here.",
+      "Use another recipe as part of this one. Its ingredients are included when you check what's missing and when you mark this one cooked, multiplied by the number of batches.",
     addComponent: "Add sub-recipe",
     componentQuantityPlaceholder: "Batches",
+    componentQuantityLabel: "Batches",
     removeComponentAriaLabel: "Remove sub-recipe",
     noAvailableComponentRecipes: "Add another recipe first to use it as a sub-recipe.",
     componentQuantityError: "Sub-recipe amounts must be greater than 0",

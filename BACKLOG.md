@@ -405,8 +405,8 @@ UX-89.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
-  UX-80, UX-81, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69, UX-71.
+  UX-81, UX-85.
+- `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
 - `src/app/dashboard/profile/`: UX-51.
@@ -639,23 +639,6 @@ UX-89.
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
 
-- [ ] **UX-71. Overview stat cards: honest colours, real links, no dead
-      ends** (impact: med, effort: S) — breaks Colour (status pairs with
-      meaning) and Usability.
-      - The low-stock count is amber even at 0 (`page.tsx:264`), and "1"
-        in amber sits over "1 out of stock" in red.
-      - The "Shopping lists" card shows a count of items.
-      - "0 items to buy across 0 active lists" is how a first run reads.
-      - "View inventory" opens the unfiltered list, and "View shopping
-        lists" opens the index even with one active list (`:276,300`).
-      - "Total items tracked" has no action at all.
-      Acceptance: warning colour appears only when the count is above 0,
-      and zero reads "All stocked up" with an icon. Low stock links to
-      `/dashboard/inventory?status=low` and says "N already on your list".
-      With one active list the shopping card opens that list. Every card
-      is actionable or removed. Empty counts use friendly copy ("No lists
-      yet — start one").
-
 - [ ] **UX-73. New households get a currency from their language**
       (impact: med, effort: S) — breaks M4 (default what you can derive).
       `Household.currencyCode` stays null after signup
@@ -745,23 +728,6 @@ UX-89.
       (AI mocked to fail) types a price and checks it after a reload, on
       desktop and mobile.
 
-- [ ] **UX-80. Finish a shop in one step and carry unbought items over**
-      (impact: high, effort: M) — breaks User control and Usability.
-      - Marking an item "Didn't get it" in the put-away sheet and tapping
-        "Put away & finish" opens a second "Complete this list?" sheet.
-      - That sheet's copy is stale ("Completed by accident? Undo it with
-        Archive, then Unarchive", `en.ts:499`), though completing now
-        has a real Undo.
-      - It doesn't say the pending item is the reason it appeared.
-      - The unbought item stays stranded on the completed list
-        (`completeShoppingListAction`, `actions.ts:2044`), forgotten by
-        next week.
-      Acceptance: "Put away & finish" completes in one step. Pending items
-      are offered "Move N to {next active list / a new list}" (on by
-      default) and show as pending there afterwards. The confirm (from the
-      ⋯ menu) names the pending count and drops the Archive/Unarchive
-      advice in both languages.
-
 - [ ] **UX-81. A short, rewarding end to a shop** (impact: med, effort:
       M) — Delight, M4 and Hierarchy.
       - "All done" shows two buttons for the same thing: "Put away (15)"
@@ -828,23 +794,6 @@ UX-89.
       Acceptance: the title reads "Add dinner · Mon 12". The recipe field
       filters as you type, lists favourites and recently cooked first, and
       shows at least 5 rows at 412 px.
-
-- [ ] **UX-98. A recipe form in recipe order, in plain words, with 44 px
-      chips** (impact: med, effort: S) — breaks M3, M9 and Accessibility
-      (labelled controls).
-      - Instructions and Tags come before Ingredients.
-      - Nothing says each line becomes a cook-mode step with a timer.
-      - Tag chips are 26 px tall with 12 px text
-        (`recipe-form-dialog.tsx:702`).
-      - Quantity and unit have placeholders but no labels (`:748-768`).
-      - The sub-recipe hint reads "count toward this recipe's own
-        inventory decrement".
-      - "3 cloves" renders as "3 clove".
-      Acceptance: Ingredients follow Name and Servings. Instructions say
-      "One step per line — each becomes a step in Cook mode". Chips are at
-      least 44 px with 14 px text. Quantity and unit have accessible
-      names. The sub-recipe hint is plain language. Plurals render
-      correctly.
 
 #### Tasks
 

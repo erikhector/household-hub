@@ -2455,6 +2455,76 @@ describe("completeShoppingListAction", () => {
   });
 });
 
+describe("completeShoppingListAction → carry over (UX-80)", () => {
+  const list = {
+    id: "list-1",
+    name: "Big trip",
+    isDefault: false,
+    items: [
+      { id: "a", inventoryItemId: "inv-a", purchased: true, estimatedPrice: null },
+      { id: "b", inventoryItemId: "inv-b", purchased: false, estimatedPrice: null },
+      { id: "c", inventoryItemId: null, purchased: false, estimatedPrice: null },
+    ],
+  };
+
+  it("moves the unbought rows to the active default list in the completing transaction", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(list);
+    getOrCreateDefaultShoppingListMock.mockResolvedValue({ id: "list-2", name: "Next shop" });
+
+    const result = await completeShoppingListAction("list-1", undefined, true);
+
+    expect(txShoppingListItemUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["b", "c"] }, shoppingListId: "list-1", purchased: false },
+      data: { shoppingListId: "list-2" },
+    });
+    expect(result.carriedOver).toEqual({ itemIds: ["b", "c"], listId: "list-2", listName: "Next shop" });
+  });
+
+  it("leaves a row behind when its inventory item is already pending on the target", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(list);
+    getOrCreateDefaultShoppingListMock.mockResolvedValue({ id: "list-2", name: "Next shop" });
+    txShoppingListItemFindManyMock.mockResolvedValueOnce([{ inventoryItemId: "inv-b" }]);
+
+    const result = await completeShoppingListAction("list-1", undefined, true);
+
+    expect(result.carriedOver?.itemIds).toEqual(["c"]);
+  });
+
+  it("completing the default list carries over to the fresh default it just created", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ ...list, isDefault: true });
+    getOrCreateDefaultShoppingListMock.mockResolvedValue({ id: "list-2", name: "Next shop" });
+
+    await completeShoppingListAction("list-1", undefined, true);
+
+    expect(getOrCreateDefaultShoppingListMock).toHaveBeenCalledTimes(1);
+    expect(txShoppingListItemUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { shoppingListId: "list-2" } }),
+    );
+  });
+
+  it("moves nothing without carryOver, and nothing when every row was bought", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(list);
+    const without = await completeShoppingListAction("list-1");
+    expect(without.carriedOver).toBeUndefined();
+
+    shoppingListFindFirstMock.mockResolvedValue({ ...list, items: [list.items[0]] });
+    const allBought = await completeShoppingListAction("list-1", undefined, true);
+    expect(allBought.carriedOver).toBeUndefined();
+    expect(txShoppingListItemUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("undo puts the carried rows back, only unticked ones in this household", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", status: "COMPLETED" });
+
+    await uncompleteShoppingListAction("list-1", undefined, ["b", "c"]);
+
+    expect(txShoppingListItemUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["b", "c"] }, purchased: false, shoppingList: { householdId: "household-1" } },
+      data: { shoppingListId: "list-1" },
+    });
+  });
+});
+
 describe("completeShoppingListAction → shopping expense (MAINT-5)", () => {
   const pricedList = {
     id: "list-1",
