@@ -311,6 +311,29 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
+- [ ] **MAINT-36. Flaky: two `autocomplete="username"` inputs in the account password form** (low, S) —
+      `e2e/ux-31.spec.ts:110`, `desktop` project. Failed its first attempt
+      in the `End-to-end (Playwright)` job on release PR #440 (`f5fb3d4`,
+      2026-10-19, run 39329747316) and passed on the retry: a strict-mode
+      violation, `input[autocomplete="username"]` matched 2 identical
+      `sr-only` inputs, though the `toHaveCount(1)` just before it passed,
+      so a second one renders late. Passed in the local `ci:local` gate and
+      6 repeats. Find why the hidden username input renders twice (a
+      re-render or a duplicate mount) and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/ux-31.spec.ts --project=desktop
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) —
+      `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
+      `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
+      clicking the flour ingredient link in the recipe sheet (line 173),
+      `getByRole("heading", { name: "Flour …", level: 1 })` was not found
+      within 5 s. Passed on a re-run of the same spec on the same commit,
+      and the GitHub e2e job was green. Find why the item page can be slow
+      to show its heading after that navigation and fix it in the app or
+      the spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/item-page.spec.ts:139
+      --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -482,17 +505,6 @@ UX-89.
       period switcher with the same placement, size and accessible names
       ("Previous month" / "Previous week"), plus a "This month" / "This
       week" jump when you're elsewhere.
-
-- [ ] **UX-54. A shared "tick" moment: check, haptic, then move**
-      (impact: med, effort: S) — Delight, M5. Ticking a shopping row, a
-      dock row or a task removes it at once and nothing fills in. Only
-      swipes vibrate (`navigator.vibrate` exists only in `swipe-row.tsx:145`).
-      Things and Todoist make every tick feel earned.
-      Acceptance: a shared tick feedback is used by shopping rows, the
-      dock and tasks. The checkbox fills with a short spring (about 200
-      ms), a 10 ms vibration fires where supported, and only then does the
-      row move. No animation runs under reduced motion; the haptic still
-      fires.
 
 #### Logged out, signup and invites
 
@@ -861,6 +873,14 @@ UX-89.
       most 56 px, with edit and delete in the swipe tray and the edit
       sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
       filter is remembered.
+      Re-landing note: #437 was reverted (#441) because
+      `e2e/task-compact-rows.spec.ts:46` (`mobile`) failed on both attempts
+      in the GitHub `End-to-end (Playwright)` job on release PR #440 (run
+      39329747316): `row.getByText("E2E Tester", { exact: true })` not
+      found in the task row, though it passed locally. Several builder
+      gates failed it too, so it is not runner-specific. The new spec must
+      pass in the GitHub e2e job; do not loosen the 56 px or name
+      assertions.
 
 - [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
       (impact: med, effort: M) — bug, breaks Usability. Today the next due
@@ -1012,14 +1032,6 @@ UX-89.
       Acceptance: the catalog has search and compact rows in the
       inventory's style and order. Duplicate rows show "Keep" / "Merge"
       labels.
-
-- [ ] **UX-132. Enter in the empty inventory's quick add doesn't submit
-      half an item** (impact: low, effort: S) — Usability. In the
-      empty-state quick-add form, Enter in the category field submits at
-      once (seen during the review, alongside UX-50's empty-state
-      clean-up).
-      Acceptance: Enter only submits from the last field. Earlier fields
-      move focus to the next one.
 
 ### Dependencies
 

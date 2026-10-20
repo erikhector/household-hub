@@ -13,8 +13,10 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 /**
  * Rapid entry for stocking a shelf at a time: name + quantity + unit +
- * category in one row. Pressing Enter in the name field commits the row and
- * refocuses it for the next item — quantity, unit, and category stay put
+ * category in one row. Enter moves focus to the next field and only Enter in
+ * the last one (category) commits the row, so it can't add half an item
+ * (UX-132); the + button still adds from anywhere. After a commit the name is
+ * refocused for the next item — quantity, unit, and category stay put
  * between rows (a shelf is usually one category, and 1-2 units, at a time),
  * so only the name needs retyping. No dialog round trip either way.
  */
@@ -56,15 +58,18 @@ export function QuickAddBar({
     });
   };
 
-  // Submitting directly on keydown (rather than relying on native implicit
-  // form submission) sidesteps base-ui's Field.Control, which intercepts
-  // Enter on its own terms and doesn't reliably let it reach a plain
-  // `<form onSubmit>` here.
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    submit();
-  };
+  // Handling Enter directly on keydown (rather than relying on native
+  // implicit form submission) sidesteps base-ui's Field.Control, which
+  // intercepts Enter on its own terms and doesn't reliably let it reach a
+  // plain `<form onSubmit>` here. Enter walks name -> quantity -> unit ->
+  // category and only the last field submits (UX-132).
+  const focusField = (id: string) => document.getElementById(id)?.focus();
+  const handleEnterTo =
+    (nextId: string) => (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+      e.preventDefault();
+      focusField(nextId);
+    };
 
   return (
     <div className="flex w-full max-w-md flex-col gap-1.5">
@@ -86,7 +91,7 @@ export function QuickAddBar({
             id="quick-add-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleEnterTo("quick-add-quantity")}
             placeholder={dict.quickAdd.placeholder}
             maxLength={120}
             disabled={isPending}
@@ -98,7 +103,7 @@ export function QuickAddBar({
             {dict.quantityLabel}
           </Label>
           <Input
-            enterKeyHint="done"
+            enterKeyHint="next"
             id="quick-add-quantity"
             type="number"
             inputMode="decimal"
@@ -106,7 +111,7 @@ export function QuickAddBar({
             step="any"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleEnterTo("quick-add-unit")}
             disabled={isPending}
           />
         </div>
@@ -123,6 +128,7 @@ export function QuickAddBar({
             items={units}
             value={unit}
             onValueChange={setUnit}
+            onEnter={() => focusField("quick-add-category")}
             maxLength={20}
             label={dict.unitLabel}
             dict={dict}
@@ -138,6 +144,7 @@ export function QuickAddBar({
             items={categories}
             value={category}
             onValueChange={setCategory}
+            onEnter={submit}
             placeholder={dict.categoryPlaceholder}
             maxLength={60}
             label={dict.categoryLabel}
