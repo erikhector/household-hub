@@ -129,9 +129,10 @@ test("quick-add's Enter moves to the next field and only the last one adds", asy
 
     await category.fill("Pantry");
     await category.press("Enter");
-    await expect(name).toBeFocused();
-    await expect(name).toHaveValue("");
+    // The bar only shows while the inventory is empty, so it goes away once
+    // the item exists.
     await expect.poll(count).toBe(1);
+    await expect(name).toBeHidden();
   } finally {
     await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
     await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
