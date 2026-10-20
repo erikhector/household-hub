@@ -1983,6 +1983,12 @@ Server/Client Components guide — with `hidden` (not conditional rendering)
 toggling which one shows, so switching tabs is instant and doesn't re-fetch
 anything.
 
+**UX-114:** a cost card with nothing to show (no priced purchases, trends,
+store comparison, list basket, stock, or expired items this or last month)
+is not rendered; one muted line ("Price and pantry insights appear once you
+scan receipts…") stands in for all of them. A card returns as soon as it has
+data.
+
 `CostAnalyzer` (`src/components/budget/cost-analyzer.tsx`) surfaces grocery
 cost trends from `PriceHistory`, which is populated whenever a shopping list
 item is marked purchased with an estimated price
@@ -2642,6 +2648,9 @@ same way.
 **"Who owes whom"** (`HouseholdBalances`,
 `src/components/budget/household-balances.tsx`) — on the Budget page's
 Insights tab, shown only when the household has more than one member.
+**UX-114:** when something is owed (a simplified transfer or an unpaid bill)
+it is the first card on the tab, ahead of the period summary and charts;
+with nothing owed it stays last.
 Covers every split bill and repayment the household has, not just the
 month on screen: a debt carries over until it's cleared. (It used to be
 scoped to the selected month, so an unpaid August debt silently vanished

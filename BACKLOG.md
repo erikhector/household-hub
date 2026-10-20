@@ -258,23 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-32. Flaky: Delete and Save buttons overlap in the phone edit sheet** (low, S) —
-      `e2e/budget-transaction-rows.spec.ts:51` ("phone rows open the edit
-      sheet, name themselves and delete from the sheet"), `mobile` project.
-      Failed once in the local `ci:local` gate on release PR #381 (head
-      `ce28040`, 2026-10-19), then passed on a re-run of the same commit;
-      GitHub's `End-to-end (Playwright)` job on that head passed. Seen
-      again in a full local `ci:local` gate on release PR #411 (head
-      `b58108c`, 2026-10-19): the same poll at line 87 got -26.86 after
-      5000 ms, then passed on a same-commit re-run, and GitHub's e2e job
-      was green again. The failing assertion is the poll at line 87: the
-      gap between the Delete and Save buttons was -9.14 (#381) and -26.86
-      (#411), expected at least 8, so the sticky sheet footer's buttons
-      overlapped. Fix it in the app (the footer's layout
-      while the sheet settles) or in the test's waiting, never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/budget-transaction-rows.spec.ts --project=mobile
-      --repeat-each=30` passes 30/30.
 - [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
       `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
       once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
@@ -297,21 +280,6 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
       passes 30/30.
-- [ ] **MAINT-36. Flaky: two `autocomplete="username"` inputs in the account password form** (low, S) —
-      `e2e/ux-31.spec.ts:110`, `desktop` project. Failed its first attempt
-      in the `End-to-end (Playwright)` job on release PR #440 (`f5fb3d4`,
-      2026-10-19, run 39329747316) and passed on the retry: a strict-mode
-      violation, `input[autocomplete="username"]` matched 2 identical
-      `sr-only` inputs, though the `toHaveCount(1)` just before it passed,
-      so a second one renders late. Passed in the local `ci:local` gate and
-      6 repeats. Find why the hidden username input renders twice (a
-      re-render or a duplicate mount) and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/ux-31.spec.ts --project=desktop
-      --repeat-each=30` passes 30/30.
-      Seen again on release PR #470 (`edc55ea`, 2026-10-20), `mobile`
-      project, `e2e/ux-31.spec.ts:110`: failed its first attempt in the
-      GitHub e2e job, passed on the retry.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -349,6 +317,30 @@ then MAINT-7 per feature, to avoid churn.
       the swipe rows under load and fix it in the app or the spec's
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
+      shows the all-caught-up card above Completed"), `desktop` project.
+      Failed its first attempt in the GitHub `End-to-end (Playwright)` job
+      on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
+      The assertion at line 91, after `page.reload()`, expected
+      `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
+      but received 1 for the whole 5 s. Find which task is still open after
+      the spec's own completions (a late write, or another row in the
+      worker's shared household) and fix it in the app or the spec's setup
+      and waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
+      `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
+      springs, then moves the row to the cart"), `desktop` project. Failed
+      in the local `ci:local` gate on release PR #477 (`d16c164`,
+      2026-10-20): `toBeChecked()` then "element(s) not found". Passed on a
+      re-run of the whole spec on the same commit (10/10), and the GitHub
+      e2e job was green. Find what makes the row disappear or re-render
+      before the assertion under load and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
       --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
@@ -762,8 +754,22 @@ UX-89.
       recent list (unbought or all items)". Template rows say "Use".
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
-      items** (impact: high, effort: M) — breaks User-centricity
-      ("automation suggests, the user decides"). Free-text list items
+      items** (impact: high, effort: M) `[!]` — breaks User-centricity
+      ("automation suggests, the user decides"). Needs a schema change and
+      a decision: nothing records that an item was ever stocked or that a
+      list row created it (only the current `quantity`), so "never
+      stocked", "out" and "delete the item the row created" can't be told
+      apart from a real used-up item without a new marker. Proposed: the
+      `InventoryItem.everStocked` flag from UX-125 (build them together,
+      one migration), plus an `InventoryItem.createdFromList` boolean set
+      by the five list-side create paths; the overview, inventory
+      "out" filter and OUT_OF_STOCK notifications skip items that are not
+      `everStocked`, and `deleteShoppingListItemAction` removes a
+      `createdFromList`, never-stocked item nothing else references.
+      Decide: backfill `everStocked` for existing rows (see UX-125), and
+      whether never-stocked items stay hidden from the "out" count or
+      are not created at all until first stocked (bigger change: list rows
+      would stay unlinked, `needsMapping`). Original report: Free-text list items
       silently create inventory items at 0 stock (`addAdHocItemAction`,
       `smartAddShoppingListItemsAction`). A household that only ever made
       lists sees "14 out of stock" on the overview: napkins, charcoal,
@@ -853,16 +859,6 @@ UX-89.
       they owe or are owed on the personal Overview and home before
       adding categories. The shared-expense action has one name and
       placement on both pages.
-
-- [ ] **UX-114. Insights: who owes whom first, empty cost cards
-      collapsed** (impact: med, effort: S) — breaks M6. On a phone,
-      Insights is 3,858 px tall. "Anna → Erik 470.00 · Clear debt" is
-      the very last card, after a 12-month trend with 11 empty months and
-      4–5 empty pantry/price cards ("No comparisons yet…", "Nothing is in
-      stock right now").
-      Acceptance: balances appear in the first screenful when a debt
-      exists. Empty cost-analyzer cards collapse into one line ("Price
-      insights appear once you scan receipts").
 
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with

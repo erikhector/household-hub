@@ -947,8 +947,29 @@ async function BudgetTabsSection({
     />
   );
 
+  // UX-114: who owes whom is the one thing on Insights somebody has to act
+  // on (it carries "Clear debt"), so when there is a debt it leads the tab
+  // instead of sitting under every chart. With nothing owed it stays last,
+  // where it's just a record (and the repayment form).
+  const hasDebt = settlements.length > 0 || unpaidBills.length > 0;
+  const balances = hasSplitting ? (
+    <HouseholdBalances
+      settlements={settlements}
+      unpaidBills={unpaidBills}
+      repayments={repayments}
+      members={memberOptions}
+      currentMemberId={currentMemberId}
+      swishNumbers={swishNumbers}
+      dict={dict.budget.balances}
+      locale={locale}
+      currencyCode={currencyCode}
+      onRecordRepayment={recordSettlementAction}
+      onDeleteRepayment={deleteSettlementAction}
+    />
+  ) : null;
   const insights = (
     <div className="flex flex-col gap-6">
+      {hasDebt && balances}
       {periodSummary}
       <FixedBudgetSummary
         monthlyIncome={fixedMonthlySummary.monthlyIncome}
@@ -972,21 +993,7 @@ async function BudgetTabsSection({
           currencyCode={currencyCode}
         />
       </Suspense>
-      {hasSplitting && (
-        <HouseholdBalances
-          settlements={settlements}
-          unpaidBills={unpaidBills}
-          repayments={repayments}
-          members={memberOptions}
-          currentMemberId={currentMemberId}
-          swishNumbers={swishNumbers}
-          dict={dict.budget.balances}
-          locale={locale}
-          currencyCode={currencyCode}
-          onRecordRepayment={recordSettlementAction}
-          onDeleteRepayment={deleteSettlementAction}
-        />
-      )}
+      {!hasDebt && balances}
     </div>
   );
 
