@@ -2,15 +2,19 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 
 // Long-form legal prose, authored directly here in English rather than
 // routed through src/lib/i18n/dictionaries — see the dictionary's `legal`
 // section comment for why full EN/SV translation isn't done for the page
 // body. Only the brand header/footer chrome around this content uses the
 // dictionary, same as every other page in src/app.
-export const metadata: Metadata = {
-  title: "Terms of service — Squirrel",
-};
+// UX-64: the title follows the visitor's language even though the body below
+// stays English (see the note above).
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.meta.termsTitle);
+}
 
 const LAST_UPDATED = "September 7, 2026";
 

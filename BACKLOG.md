@@ -571,22 +571,6 @@ UX-89.
       "n of m" progress and an All done state, and has a neutral one-line
       banner. Long names can be read in full, and a footer links to `/`.
 
-- [ ] **UX-64. Real page titles, one `<h1>`, and link previews on public
-      pages** (impact: med, effort: S) — breaks Accessibility and Context.
-      - `document.title` is just "Squirrel" on `/`, `/login`, `/signup`,
-        `/forgot-password`, every token page and the 404.
-      - `/privacy` and `/terms` have their own titles but stay English
-        in sv.
-      - Login, signup, forgot-password and the token pages have no
-        `<h1>` (`CardTitle` is a div, for example
-        `src/app/signup/page.tsx:22`).
-      - There are no `og:`/`twitter:` tags, so an invite or share link in
-        WhatsApp or iMessage previews as a bare "Squirrel".
-      Acceptance: each public route has a localised `<title>` ("Log in ·
-      Squirrel") and exactly one `<h1>`. `/`, `/join/[token]` and
-      `/share/shopping-list/[token]` emit `og:title`, `og:description` and
-      `og:image`, with join and share naming the household or list.
-
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).

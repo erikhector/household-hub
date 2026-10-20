@@ -20,7 +20,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LegalFooter } from "@/components/legal-footer";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { PhonePreview } from "@/components/landing/phone-preview";
+import type { Metadata } from "next";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { buildMetadata } from "@/lib/page-metadata";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return buildMetadata({
+    title: dict.meta.homeTitle,
+    description: dict.meta.homeDescription,
+    absoluteTitle: true,
+  });
+}
 
 export default async function Home() {
   const dict = await getDictionary();

@@ -1,9 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
 import { LegalFooter } from "@/components/legal-footer";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return titleOnlyMetadata(dict.auth.login.submit);
+}
 
 export default async function LoginPage(props: PageProps<"/login">) {
   const [dict, searchParams] = await Promise.all([getDictionary(), props.searchParams]);
@@ -34,7 +41,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
       </Link>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">{dict.auth.login.welcomeTitle}</CardTitle>
+          <CardTitle as="h1" className="text-xl">{dict.auth.login.welcomeTitle}</CardTitle>
         </CardHeader>
         <CardContent>
           {showPasswordResetSuccess && (

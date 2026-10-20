@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
@@ -8,11 +10,33 @@ import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
+import { buildMetadata } from "@/lib/page-metadata";
+
+// UX-64: generateMetadata and the page both need the invitation; cache()
+// makes it one lookup per request.
+const loadInvitation = cache(getInvitationForDisplay);
+
+// The link preview WhatsApp or iMessage draws for an invite names the
+// household, so the person receiving it sees what they're being asked to join.
+export async function generateMetadata(props: PageProps<"/join/[token]">): Promise<Metadata> {
+  const { token } = await props.params;
+  const [invitation, dict] = await Promise.all([loadInvitation(token), getDictionary()]);
+  if (!invitation) {
+    return buildMetadata({
+      title: dict.auth.join.invalidTitle,
+      description: dict.meta.fallbackDescription,
+    });
+  }
+  return buildMetadata({
+    title: format(dict.auth.join.joinTitle, { name: invitation.householdName }),
+    description: format(dict.meta.joinDescription, { name: invitation.householdName }),
+  });
+}
 
 export default async function JoinPage(props: PageProps<"/join/[token]">) {
   const { token } = await props.params;
   const [invitation, session, dict] = await Promise.all([
-    getInvitationForDisplay(token),
+    loadInvitation(token),
     auth(),
     getDictionary(),
   ]);
@@ -34,7 +58,7 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
       ) : (
         <Card className="w-full max-w-sm">
           <CardHeader>
-            <CardTitle className="text-xl break-words">
+            <CardTitle as="h1" className="text-xl break-words">
               {format(dict.auth.join.joinTitle, { name: invitation.householdName })}
             </CardTitle>
           </CardHeader>
