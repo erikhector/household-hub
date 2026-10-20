@@ -85,6 +85,27 @@ test.describe("logged out", () => {
       "Språk: Svenska",
     );
   });
+
+  test("the footer language button shows it is busy until the change is saved", async ({ page }) => {
+    await page.goto("/login");
+    // Hold the language change on its way to the server: the tap must show
+    // before the answer comes back (M5).
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/login", async (route) => {
+      if (route.request().method() === "POST" && route.request().headers()["next-action"]) await held;
+      await route.continue();
+    });
+    const button = page.getByRole("button", { name: new RegExp(en.language.toggleLabel) });
+    await button.click();
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveAttribute("aria-busy", "true");
+    // Dimmed, so a sighted visitor sees the tap registered.
+    await expect(button).toHaveCSS("opacity", "0.6");
+    release();
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv");
+    await page.unroute("**/login");
+  });
 });
 
 test.describe("signed in", () => {

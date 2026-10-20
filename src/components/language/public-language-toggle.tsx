@@ -10,7 +10,8 @@ import type { Locale } from "@/lib/i18n/locales";
 // ("Language: English", like those do since UX-51; a bare "Swedish" read as
 // the current language) and a tap switches to the other. Reuses the same
 // hook so the cookie is set by setLocaleAction. min-h-11 keeps the tap
-// target at 44 px (DESIGN.md M3) even though the text is small.
+// target at 44 px (DESIGN.md M3) even though the text is small. While the
+// change is saving the button is disabled, dimmed and aria-busy (M5).
 export function PublicLanguageToggle({
   locale,
   dict,
@@ -26,8 +27,9 @@ export function PublicLanguageToggle({
       type="button"
       onClick={toggle}
       disabled={isPending}
+      aria-busy={isPending}
       aria-label={`${dict.toggleLabel}: ${current}`}
-      className="inline-flex min-h-11 items-center rounded-md px-3 text-xs font-medium hover:text-foreground hover:underline"
+      className="inline-flex min-h-11 items-center rounded-md px-3 text-xs font-medium hover:text-foreground hover:underline disabled:cursor-wait disabled:opacity-60"
     >
       {format(dict.current, { language: current })}
     </button>

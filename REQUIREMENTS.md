@@ -151,7 +151,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
   page) carries a `PublicLanguageToggle` button that names the language in
   use ("Language: English", UX-51) and switches to the other, calling
-  `setLocaleAction` like the dashboard toggle.
+  `setLocaleAction` like the dashboard toggle (via `useLocaleToggle`, whose
+  async transition keeps the button disabled, dimmed and `aria-busy` until
+  the refreshed page arrives).
   The `locale` cookie is already in `cookie-inventory.ts` as a preference.
   Covered by `e2e/public.spec.ts`.
 - **Passing translations to Client Components**: the convention is to pass

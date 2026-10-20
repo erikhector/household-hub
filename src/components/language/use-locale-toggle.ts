@@ -10,9 +10,13 @@ export function useLocaleToggle(locale: Locale) {
   const [isPending, startTransition] = useTransition();
   const next: Locale = locale === "en" ? "sv" : "en";
 
+  // An async transition, so `isPending` lasts until the refreshed page (in
+  // the new language) has arrived, not just until the request is sent; the
+  // footer button shows the wait with it (DESIGN.md M5).
   function toggle() {
-    startTransition(() => {
-      setLocaleAction(next).then(() => router.refresh());
+    startTransition(async () => {
+      await setLocaleAction(next);
+      router.refresh();
     });
   }
 
