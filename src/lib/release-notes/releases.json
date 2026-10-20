@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.91.0",
+    "date": "2026-10-20",
+    "pr": 490,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "New visitors now see the app in your device's light or dark setting. The theme and language buttons show what is currently selected, you can switch theme on the sign-in pages too, and Profile has Language and Appearance settings.",
+      "sv": "Nya besökare ser appen i enhetens ljusa eller mörka läge. Tema- och språkknapparna visar vad som är valt, du kan byta tema även på inloggningssidorna, och Profil har inställningar för språk och utseende."
+    }
+  },
+  {
     "version": "0.90.0",
     "date": "2026-10-20",
     "pr": 484,
