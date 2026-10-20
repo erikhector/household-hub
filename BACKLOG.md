@@ -635,19 +635,6 @@ UX-89.
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
 
-- [ ] **UX-73. New households get a currency from their language**
-      (impact: med, effort: S) — breaks M4 (default what you can derive).
-      `Household.currencyCode` stays null after signup
-      (`prisma/schema.prisma:163`, no migration needed). Every amount in
-      the budgets, shopping prices and recipe costs is a bare number
-      ("+16,028.60", "→500.00") until someone finds the setting in the
-      sixth card on the Household page. Money without a currency looks
-      unfinished and less trustworthy.
-      Acceptance: a household created in sv defaults to SEK, and in en to
-      the browser region's currency where known. Budget onboarding shows
-      it with one tap to change. A new household's safe to spend shows the
-      symbol.
-
 - [ ] **UX-74. No "New update" dot for brand-new users** (impact: low,
       effort: S) — User-centricity. `hasUnseenRelease(undefined)` is true,
       so in their first minute a new user gets an unread dot pointing at a

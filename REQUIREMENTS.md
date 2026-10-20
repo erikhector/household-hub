@@ -1937,9 +1937,21 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `src/lib/currency.ts` (locale-aware decimal separator, always 2
   decimals). `Household.currencyCode` (`String?`, default null) picks the
   label:
-  - **Unset (the default)**: the plain symbol-free number every amount used
-    before GAP-13, so existing households see no change until the owner
-    opts in.
+  - **Unset**: the plain symbol-free number every amount used before
+    GAP-13. Existing households stay here until the owner opts in, and a new
+    household lands here only when no currency can be derived (below).
+  - **New households get a default (UX-73)**: `signupAction` and
+    `createHouseholdAction` set `currencyCode` from
+    `defaultCurrencyForNewHousehold(locale, acceptLanguage)`
+    (`src/lib/currency.ts`): a Swedish-language signup gets `SEK`;
+    otherwise the region of the highest-ranked `Accept-Language` tag
+    (`en-GB` GBP, `en-US` USD, `de-DE` EUR, ...) decides, and a missing
+    region or one outside `SUPPORTED_CURRENCIES` (`en-CA`) stays unset
+    rather than guessing a wrong "$". No schema change. The household
+    budget's first-run card shows it as "Amounts show in" with a select
+    (`OnboardingCurrency`, the same `setHouseholdCurrencyAction`, owner-only,
+    disabled for others and in the read-only view), so a wrong guess is one
+    tap to fix.
   - **Set**: `Intl.NumberFormat`'s `{ style: "currency", currency }`, so the
     locale places the symbol ("1 234,50 kr" in Swedish, "SEK 1,234.50" in
     English). An unrecognised stored code falls back to the plain format

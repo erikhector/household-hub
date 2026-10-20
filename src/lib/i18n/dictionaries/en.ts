@@ -2388,6 +2388,7 @@ export const en = {
     onboarding: {
       title: "Let's set up your budget",
       body: "Shared money for {household}: rent, food, bills. Add a category to start logging income, expenses, and savings — you can always add more later.",
+      currencyLabel: "Amounts show in",
     },
     starterCategories: {
       heading: "Or add a starter set",
