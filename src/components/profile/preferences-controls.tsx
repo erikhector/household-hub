@@ -34,7 +34,7 @@ function Segmented<T extends string>({
   return (
     <fieldset className="flex flex-col gap-2" disabled={disabled}>
       <legend className="mb-2 text-sm font-medium">{legend}</legend>
-      <div className="grid auto-cols-fr grid-flow-col gap-1 rounded-lg bg-muted p-1">
+      <div className="grid auto-cols-fr grid-flow-col gap-2 rounded-lg bg-muted p-1">
         {options.map((option) => (
           <label
             key={option.value}
