@@ -442,6 +442,17 @@ export const en = {
       one: "{count} out of stock",
       other: "{count} out of stock",
     },
+    allStockedUp: "All stocked up",
+    alreadyOnList: {
+      one: "{count} already on your list",
+      other: "{count} already on your list",
+    },
+    noListsYet: "No lists yet — start one",
+    startShoppingList: "Start a list",
+    openShoppingList: "Open {name}",
+    nothingTrackedYet: "Nothing tracked yet",
+    addFirstItem: "Add your first item",
+    browseItems: "Browse all items",
     viewInventory: "View inventory",
     shoppingLists: "Shopping lists",
     itemsToBuyAcross: {

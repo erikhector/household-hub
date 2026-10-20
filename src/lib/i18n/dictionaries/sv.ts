@@ -411,6 +411,17 @@ export const sv = {
       one: "{count} slut i lager",
       other: "{count} slut i lager",
     },
+    allStockedUp: "Allt finns hemma",
+    alreadyOnList: {
+      one: "{count} finns redan på din lista",
+      other: "{count} finns redan på din lista",
+    },
+    noListsYet: "Inga listor än — starta en",
+    startShoppingList: "Starta en lista",
+    openShoppingList: "Öppna {name}",
+    nothingTrackedYet: "Inget i lagret än",
+    addFirstItem: "Lägg till din första vara",
+    browseItems: "Bläddra bland alla varor",
     viewInventory: "Visa lager",
     shoppingLists: "Inköpslistor",
     itemsToBuyAcross: {
