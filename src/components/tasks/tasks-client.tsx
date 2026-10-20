@@ -41,6 +41,7 @@ type TaskRow = {
   completed: boolean;
   recurrenceIntervalDays: number | null;
   completedAt: Date | null;
+  createdAt: Date;
   rotationMemberIds: string[];
   /** GAP-38: who's up after the current turn; null unless the task rotates. */
   nextInRotationMemberId: string | null;
@@ -54,6 +55,7 @@ export function TasksClient({
   currentMemberId,
   tasks: serverTasks,
   now,
+  timeZone,
   locale,
 }: {
   dict: TasksDict;
@@ -63,6 +65,8 @@ export function TasksClient({
   tasks: TaskRow[];
   /** The server's clock, which sets the weekly recap's week. */
   now: Date;
+  /** The visitor's zone: the local day a repeating chore reopens on. */
+  timeZone: string;
   locale: Locale;
 }) {
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
@@ -144,6 +148,7 @@ export function TasksClient({
                 onDelete={deleteTask}
                 dict={dict}
                 locale={locale}
+                timeZone={timeZone}
               />
             ))}
             {openTasks.length === 0 && (
@@ -180,6 +185,7 @@ export function TasksClient({
                 onDelete={deleteTask}
                 dict={dict}
                 locale={locale}
+                timeZone={timeZone}
               />
             ))}
             {olderTasks.length > 0 && (
@@ -208,6 +214,7 @@ function TaskItemRow({
   onDelete,
   dict,
   locale,
+  timeZone,
 }: {
   task: TaskRow;
   members: MemberOption[];
@@ -216,6 +223,7 @@ function TaskItemRow({
   onDelete: (task: TaskRow) => Promise<{ error?: string }>;
   dict: TasksDict;
   locale: Locale;
+  timeZone: string;
 }) {
   // UX-14 and UX-33: the tick shows, and the row moves to "Completed", at
   // tap time; TasksClient owns the save (toggleCompleted).
@@ -247,10 +255,10 @@ function TaskItemRow({
   // task's `completedAt` also sticks around once it's auto-reopened past its
   // interval (see recurrence.ts), at which point "next due" would be a date
   // in the past, which isn't worth surfacing.
-  const nextDueAt = task.completed ? getNextDueDate(task) : null;
+  const nextDueAt = task.completed ? getNextDueDate(task, timeZone) : null;
   const nextDueLabel = nextDueAt
     ? format(dict.nextDueLabel, {
-        date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(nextDueAt),
+        date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone }).format(nextDueAt),
       })
     : null;
 

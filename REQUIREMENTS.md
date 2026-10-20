@@ -5463,15 +5463,31 @@ co-managers, not kids earning rewards.
   visible text on the mobile project.
 - **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
   1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
-  weekday schedule, just "reopen N days after it was last completed".
-  Nothing is written when a task reopens: `isTaskOpen`
-  (`src/app/dashboard/tasks/recurrence.ts`) derives open/completed from
-  `completedAt + recurrenceIntervalDays` at read time, and page.tsx, the
-  dashboard's "my tasks" card and the toggle action all call it with the
-  same `now`. Completing again overwrites `completedAt`, so there's no
-  completion-history table (the earlier `completedAt` still counts for the
-  week it happened in, e.g. in the weekly recap). While a recurring task is
-  shown completed the row reads "Next due <date>" (`getNextDueDate`).
+  weekday schedule. Nothing is written when a task reopens:
+  `isTaskOpen` (`src/app/dashboard/tasks/recurrence.ts`) derives
+  open/completed from `completedAt` and the interval at read time, and
+  page.tsx, the dashboard's "my tasks" card and the toggle action all call
+  it with the same `now` and time zone. Completing again overwrites
+  `completedAt`, so there's no completion-history table (the earlier
+  `completedAt` still counts for the week it happened in, e.g. in the
+  weekly recap). While a recurring task is shown completed the row reads
+  "Next due <date>" (`getNextDueDate`).
+- **Rescheduling runs on the local day (UX-137)**: the next due moment is
+  always a local midnight, never "the tick plus 24 h". An interval under 7
+  days counts from the start of the local day it was ticked on, so a daily
+  chore ticked at 23:40 reopens at 00:00 and its row never reads "Next due"
+  with today's date. An interval of a week or more keeps a fixed anchor
+  day: occurrences fall on the anchor's local day and every N days after
+  it, and a tick (late, or early because the chore was already open) closes
+  only the occurrence it falls in, so a Saturday chore done on Thursday is
+  still a Saturday chore. The anchor is the local day the task was created
+  (no column, so editing a task does not move it). "Local" is the
+  visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
+  `time_zone` cookie equal to it and refreshes once when it changes;
+  `getTimeZone()` (`src/lib/get-time-zone.ts`) reads it, falling back to
+  UTC before the first visit has set it. `recurring-task-day.spec.ts`
+  covers it (the day rolling over is back-dated in Postgres, since the
+  server clock can't be moved).
 - **Taking turns (GAP-38)**: an opt-in round-robin on a *repeating* task,
   like Grocy's chores or OurHome. `rotationMemberIds` is the ordered list of
   people taking turns; empty = no rotation. Valid only with a recurrence and

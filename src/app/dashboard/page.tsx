@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
 import { isGettingStartedDismissed } from "@/lib/getting-started-dismiss";
+import { getTimeZone } from "@/lib/get-time-zone";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
@@ -80,6 +81,7 @@ export default async function DashboardOverviewPage() {
         assignedToMemberId: true,
         completedAt: true,
         recurrenceIntervalDays: true,
+        createdAt: true,
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -132,8 +134,9 @@ export default async function DashboardOverviewPage() {
 
   // Open tasks first, yours before the household's unassigned ones (stable,
   // so each group keeps its oldest-first order).
+  const timeZone = await getTimeZone();
   const openTasks = todayTasks
-    .filter((t) => isTaskOpen(t, now))
+    .filter((t) => isTaskOpen(t, now, timeZone))
     .map((t) => ({ id: t.id, title: t.title, unassigned: t.assignedToMemberId === null }))
     .sort((a, b) => Number(a.unassigned) - Number(b.unassigned));
   const shownTasks: TodayTask[] = openTasks.slice(0, TODAY_TASK_LIMIT);

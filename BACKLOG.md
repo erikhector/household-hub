@@ -401,7 +401,7 @@ UX-89.
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135, UX-136 and UX-138 (UX-137 decided).
+- Needs a decision before building: UX-135, UX-136 and UX-138.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
@@ -868,26 +868,18 @@ UX-89.
       pass in the GitHub e2e job; do not loosen the 56 px or name
       assertions.
 
-- [ ] **UX-137. Recurring tasks reschedule from the local day, not the tick**
-      (impact: med, effort: M) — bug, breaks Usability. Today the next due
-      time is the exact moment of the last tick plus the interval
-      (`src/app/dashboard/tasks/recurrence.ts:22-41`), so a daily chore
-      ticked at 23:40 stays under Completed all the next day labelled
-      "Next due {today}", ticking late pushes the schedule back, and a
-      Saturday chore done on Thursday moves to Thursdays for good.
-      Chosen scope: day-based intervals count from the start of the local
-      day (daily reopens at 00:00); weekly or longer chores keep a fixed
-      anchor day unless edited. No per-task "N days after done" choice yet
-      (park as a later item if asked for). UX-133 builds on this.
-      Acceptance: a unit test on `recurrence.ts` covers a daily task ticked
-      at 23:40 (next due is the next local midnight), a late weekly tick
-      (anchor day unchanged) and an early tick; an e2e step ticks a daily
-      task and asserts it shows under Open again after the day rolls over
-      (clock set), and that no completed row reads "Next due" with today's
-      date.
-      Decided 2026-10-19 by autopilot-product: day-anchored rescheduling.
-      Why: the item's own recommended option, no schema, easy to revisit.
-      See PRODUCT.md.
+- [ ] **UX-144. A repeating task's anchor day moves when it is edited**
+      (impact: low, effort: S) — follow-up to UX-137, which anchors a
+      weekly-or-longer chore on the day the task was created
+      (`recurrence.ts`) because it shipped without a schema change. Editing
+      the interval, or wanting "every Thursday" on a task made on a Monday,
+      cannot move that anchor. Add a nullable `recurrenceAnchorAt` on
+      `HouseholdTask` (one migration), set it when a task is created with
+      an interval and whenever its interval is edited, and have
+      `getNextDueDate` read it, falling back to `createdAt` when null.
+      Acceptance: a unit test shows a weekly task whose anchor was reset
+      keeps the new weekday after a late tick; an e2e step edits a weekly
+      task's interval and asserts its next due follows the new anchor.
 
 #### Budgets
 
@@ -1166,7 +1158,7 @@ order below is a suggestion, not a dependency, unless noted.
       one-off like "Book the car service" can't get a date, and the
       overview's "Today" block (UX-70) has nothing to say about lateness.
       One migration: a nullable `dueDate`. Recurring tasks derive it from
-      the rule UX-137 settles.
+      the rule UX-137 settled (REQUIREMENTS.md, Recurrence).
       Acceptance: a task can carry an optional due date. Open tasks sort
       overdue, then today, then later. An overdue row shows a
       `warning`-tinted "Overdue · 5 days" with an icon on the tasks page

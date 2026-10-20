@@ -14,6 +14,8 @@ import { prisma } from "@/lib/prisma";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { getActiveNotifications } from "@/lib/notifications";
+import { TimeZoneCookie } from "@/components/dashboard/time-zone-cookie";
+import { TIME_ZONE_COOKIE } from "@/lib/time-zone";
 import { hasUnseenRelease, LAST_SEEN_RELEASE_COOKIE } from "@/lib/release-notes";
 
 // Isolated behind its own Suspense boundary (see below) so the
@@ -156,6 +158,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             from under it. data-app-main is how globals.css finds the
             dashboard's cards to give them list-bleed on phones (UX-139). */}
         <main data-app-main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:scroll-pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
+          <TimeZoneCookie current={cookieStore.get(TIME_ZONE_COOKIE)?.value ?? null} />
           <UnitsProvider labels={dict.units}>{children}</UnitsProvider>
         </main>
       </div>
