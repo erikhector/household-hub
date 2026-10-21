@@ -338,7 +338,27 @@ then MAINT-7 per feature, to avoid churn.
       app or in the test's waiting before the "before" screenshot, never a
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
-      passes 30/30.
+      passes 30/30. Went red once more on release run 39571297362
+      (2026-10-21) and passed on retry #1 of the same commit.
+- [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
+      `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
+      2026-10-21. Two specs, same symptom: the click on a "More" trigger
+      does not open its menu, so the next `getByRole("menuitem")` never
+      appears. (a) `e2e/ux-51.spec.ts:114` ("the shortcut shows the current
+      theme and language") failed on the attempt and the retry of release
+      run 39571297362, menuitem "Theme: System" not found after clicking
+      the bottom bar's More; it passed on the job re-run and 10/10
+      locally. (b) `e2e/meal-planner-empty-slots.spec.ts:76` failed on the
+      attempt and the retry of release run 39580857482, menuitem "Copy
+      last week" not found after clicking the planner's More; it passed on
+      the job re-run. Likely the click lands before the trigger is wired
+      up (hydration, or the menu's open/close race) even after
+      `expectHydrated`. Find out whether the menu opened and closed again
+      or never opened, and fix it in the app or in the tests' waiting,
+      never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/ux-51.spec.ts:114
+      e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
