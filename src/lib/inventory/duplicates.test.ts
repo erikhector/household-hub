@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { itemNameSimilarity } from "@/lib/item-matching";
 import {
+  amountInExistingUnit,
   compareKeeper,
   findDuplicateGroups,
+  findDuplicateOfName,
   FUZZY_MIN_SCORE,
   isNeverStocked,
   sortedPair,
@@ -210,5 +212,60 @@ describe("sortedPair", () => {
   it("stores the smaller id first", () => {
     expect(sortedPair("b", "a")).toEqual(["a", "b"]);
     expect(sortedPair("a", "b")).toEqual(["a", "b"]);
+  });
+});
+
+describe("findDuplicateOfName (UX-126)", () => {
+  const pantry = [
+    { id: "butter", name: "Smör" },
+    { id: "banana", name: "Banan" },
+    { id: "milk", name: "Mjölk" },
+  ];
+
+  it("matches the same name regardless of case and punctuation", () => {
+    expect(findDuplicateOfName("smör", pantry)?.id).toBe("butter");
+    expect(findDuplicateOfName("  SMÖR. ", pantry)?.id).toBe("butter");
+  });
+
+  it("matches a plural against the singular and back", () => {
+    expect(findDuplicateOfName("Bananer", pantry)?.id).toBe("banana");
+    expect(findDuplicateOfName("Banan", [{ id: "p", name: "Bananer" }])?.id).toBe("p");
+  });
+
+  it("matches a close typo by the catalog's fuzzy threshold", () => {
+    expect(findDuplicateOfName("Mjölkk", pantry)?.id).toBe("milk");
+  });
+
+  it("prefers an exact name over a fold or fuzzy one", () => {
+    const items = [
+      { id: "plural", name: "Bananer" },
+      { id: "exact", name: "Banan" },
+    ];
+    expect(findDuplicateOfName("banan", items)?.id).toBe("exact");
+  });
+
+  it("returns null for an unrelated or empty name", () => {
+    expect(findDuplicateOfName("Pasta", pantry)).toBeNull();
+    expect(findDuplicateOfName("  ", pantry)).toBeNull();
+    expect(findDuplicateOfName("Smör", [])).toBeNull();
+  });
+});
+
+describe("amountInExistingUnit (UX-126)", () => {
+  it("keeps the amount for the same unit or a synonym", () => {
+    expect(amountInExistingUnit(2, "g", "g")).toBe(2);
+    expect(amountInExistingUnit(3, "st", "pcs")).toBe(3);
+  });
+
+  it("converts within a dimension into the item's unit", () => {
+    expect(amountInExistingUnit(2, "kg", "g")).toBe(2000);
+    expect(amountInExistingUnit(0.1, "kg", "g")).toBe(100);
+    expect(amountInExistingUnit(500, "ml", "l")).toBe(0.5);
+  });
+
+  it("returns null across dimensions or for unknown units", () => {
+    expect(amountInExistingUnit(2, "kg", "pcs")).toBeNull();
+    expect(amountInExistingUnit(2, "l", "g")).toBeNull();
+    expect(amountInExistingUnit(2, "bunch", "g")).toBeNull();
   });
 });

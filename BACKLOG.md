@@ -434,7 +434,6 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81.
-- `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
@@ -512,26 +511,6 @@ UX-89.
       week" jump when you're elsewhere.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-59. Signup and login errors next to the field, keeping what
-      was typed** (impact: med, effort: M) — breaks Usability ("inline,
-      actionable errors next to the field") and Context.
-      - A password mismatch wipes both password fields, drops focus to
-        `<body>` and shows one generic line above the consent text,
-        with no `aria-invalid` or `aria-describedby`
-        (`signup-form.tsx:157`, `login-form.tsx:95`).
-      - A short password or bad email only gets the browser's native
-        bubble, in the browser's language.
-      - The 8-character minimum is never shown up front.
-      - "An account with that email already exists" offers no Log in or
-        Forgot password link.
-      Server-message translation is MAINT-7. Whether signup should stop
-      revealing that an email exists is a security call, not part of
-      this item.
-      Acceptance: a mismatch keeps the first password, focuses Confirm
-      password and shows the error under it with `aria-invalid`. The
-      password field shows "At least 8 characters" before submit. The
-      duplicate-email error links to Log in and Forgot password.
 
 - [ ] **UX-62. A warm join page that says who invited you** (impact:
       med, effort: S) — breaks Consistency and the Squirrel voice. An
@@ -704,20 +683,6 @@ UX-89.
 
 #### Budgets
 
-- [ ] **UX-111. Split an expense evenly by default** (impact: med,
-      effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
-      (human-only area).
-      - Typing 940 and ticking "Split this expense" shows both shares at
-        0.00 with an instant red "The shares add up to 0.00…", and Add is
-        disabled until "Split evenly" is found. The even split is
-        computed from the amount when the dialog opens
-        (`transaction-dialog.tsx:94`).
-      - In "Log a shared expense" both Paid fields start at 0, though
-        the person logging it nearly always paid.
-      Acceptance: ticking Split with an amount shows an even split with
-      no error. Shares follow the amount until edited. The current user
-      is preselected as payer.
-
 - [ ] **UX-112. A new member sees their shared costs before setting up a
       personal budget** (impact: med, effort: M) — breaks Context (never
       surprise a member) and Consistency. ⚠️ money.
@@ -751,17 +716,6 @@ UX-89.
       "never stocked".
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
-
-- [ ] **UX-126. Warn about a duplicate while adding, and offer "add to
-      existing"** (impact: med, effort: M) — breaks Usability (prevent
-      errors). Adding "smör" next to "Smör", or "Banan" next to "Bananer",
-      saves a new item with no hint (`add-item-dialog.tsx`). The
-      duplicate surfaces only later, needing a merge that "can't be
-      undone", though "I bought more butter" is exactly when people reach
-      for Add.
-      Acceptance: when the typed name matches an existing item (the
-      duplicates filter's check), the dialog shows "Smör is already in your
-      pantry (499 g)" with a button to add the amount to it.
 
 - [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
       breaks M4 ("pick, don't type").

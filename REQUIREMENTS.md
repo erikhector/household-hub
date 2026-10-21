@@ -133,6 +133,20 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   helper text (`aria-describedby`) saying everyone you invite sees this
   name, since the placeholder vanishes on focus.
   `e2e/signup-household-hint.spec.ts` covers it.
+- **Signup and login errors sit next to the field (UX-59)**: the signup
+  form has `noValidate` and checks its own fields on submit
+  (`validateSignupFields` in `src/lib/signup-validation.ts`, messages from
+  `dict.auth.signup`), so a mistake shows in the page's language under its
+  field (`role="alert"`, `aria-invalid`, `aria-describedby`) and focus moves
+  there. Because the action never runs, a password mismatch keeps both
+  password fields and everything else typed. "Password" shows "At least 8
+  characters" up front. `signupAction` repeats the rules and returns
+  `field` (and `emailTaken`) so a server error lands under the same field;
+  "An account with that email already exists" then links to Log in (email
+  pre-filled) and Forgot password. A failed login shows its error under the
+  Password field and focuses it. Server-message translation stays MAINT-7;
+  whether signup reveals that an email exists is untouched.
+  `e2e/auth-inline-errors.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
@@ -531,6 +545,21 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       stock, stays editable; its refusal comes back with `errorField:
       "unit"` and shows under the unit field, in view, with the same link,
       instead of at the foot of the scrolling form.
+    - **Duplicate warning in the Add dialog (UX-126)**: while a name is
+      typed, `findDuplicateOfName` (`src/lib/inventory/duplicates.ts`)
+      checks it against the household's items with the catalog's
+      duplicate rules (same normalized name, same after the plural fold,
+      or bigram score of at least 0.8; aliases and dismissals don't
+      apply). A match shows "Smör is already in your pantry (499 g)." under
+      the name field with an "Add to existing" button, which adds the
+      form's Quantity to that item through `adjustQuantityAction` (toast,
+      dialog closes), converted from the form's unit into the item's with
+      `amountInExistingUnit` (2 kg onto an item in g adds 2000 g); when the
+      units don't convert (kg vs pcs) the button is replaced by a note that
+      they differ instead of creating a second one. The normal Add
+      buttons still work, so a genuinely different item can be saved. Only
+      the header's Add dialog gets the item list; the empty state's has no
+      items to match.
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's
@@ -2686,11 +2715,15 @@ household has more than one member (`members.length > 1`, fetched by
 "Share" and a "Paid" input. "Paid" defaults to the signed-in member paying
 the whole amount (following the amount field until the user edits a
 payment), and the editor shows how much is still left to pay. Shares
-default to an even split of the transaction's amount
+start as an even split of the amount and follow it (typing or changing
+the amount, or ticking the box afterwards, never shows 0.00 shares and a
+mismatch error) until one share is edited; a saved split (editing, a
+template's) is never overwritten (UX-111). "Split evenly" re-arms the
+following. The even split is
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
-total instead of drifting from naive floating-point division) via a "Split
-evenly" reset button, individually adjustable afterward. The dialog shows
+total instead of drifting from naive floating-point division), individually
+adjustable afterward. The dialog shows
 a live warning and disables submit whenever the shares don't (yet) sum to
 the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
