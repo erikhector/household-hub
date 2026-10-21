@@ -57,7 +57,7 @@ export function StatusCardLink({ href, children }: { href: string; children: Rea
   return (
     <Link
       href={href}
-      className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4"
+      className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-medium text-primary underline underline-offset-4"
     >
       {children}
     </Link>

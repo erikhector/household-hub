@@ -3274,9 +3274,12 @@ export const sv = {
     join: {
       invalidTitle: "Ogiltig inbjudan",
       joinTitle: "Gå med i {name}",
+      invitedBy: "{inviter} har bjudit in dig till {household} på Squirrel",
+      invitedNoName: "Du är inbjuden till {household} på Squirrel",
+      pitch: "Squirrel samlar hushållets inköp, måltider, sysslor och budget på ett ställe.",
+      goToSquirrel: "Gå till Squirrel",
       invalidDescription:
         "Den här inbjudningslänken är ogiltig eller har slutat gälla. Be en hushållsmedlem skicka en ny.",
-      backToLogin: "Tillbaka till inloggning",
       goToDashboard: "Gå till översikten",
       acceptConsequence:
         "Du får full åtkomst till hushållets lager, inköpslistor, matplaner och budgetdata.",

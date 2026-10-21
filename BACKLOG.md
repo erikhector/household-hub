@@ -512,18 +512,6 @@ UX-89.
 
 #### Logged out, signup and invites
 
-- [ ] **UX-62. A warm join page that says who invited you** (impact:
-      med, effort: S) — breaks Consistency and the Squirrel voice. An
-      invitee's first contact with Squirrel is a bare "Join {household}"
-      form (`src/components/household/join-signup-form.tsx`). It has no
-      brand badge, no inviter name, no line on what Squirrel is, and
-      different field styling from `/signup`. An invalid invite offers
-      "Back to log in" to someone who never had an account.
-      Acceptance: the join page shows the BrandBadge, "{inviter} invited
-      you to {household} on Squirrel", a one-line pitch and signup's
-      field styling. The invalid-invite card offers "Go to Squirrel" and
-      "Log in".
-
 - [ ] **UX-63. The shared-list page as good as the member view**
       (impact: med, effort: M) — breaks Consistency and User-centricity
       (the person you share with is often the one in the shop).

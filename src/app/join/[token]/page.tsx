@@ -1,7 +1,9 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { XCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrandBadge } from "@/components/brand/brand-badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { getInvitationForDisplay } from "@/lib/actions/household";
 import { AcceptInviteForm } from "@/components/household/accept-invite-form";
@@ -51,25 +53,47 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
           title={dict.auth.join.invalidTitle}
         >
           <p className="text-sm text-muted-foreground">{dict.auth.join.invalidDescription}</p>
-          <StatusCardLink href={session?.user ? "/dashboard" : "/login"}>
-            {session?.user ? dict.auth.join.goToDashboard : dict.auth.join.backToLogin}
-          </StatusCardLink>
+          {/* Someone who followed a dead invite may never have had an account,
+              so "Back to log in" was wrong: offer the front door first (UX-62). */}
+          {session?.user ? (
+            <StatusCardLink href="/dashboard">{dict.auth.join.goToDashboard}</StatusCardLink>
+          ) : (
+            <>
+              <StatusCardLink href="/">{dict.auth.join.goToSquirrel}</StatusCardLink>
+              <StatusCardLink href="/login">{dict.auth.join.logIn}</StatusCardLink>
+            </>
+          )}
         </StatusCard>
       ) : (
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle as="h1" className="text-xl break-words">
-              {format(dict.auth.join.joinTitle, { name: invitation.householdName })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {session?.user ? (
-              <AcceptInviteForm token={token} dict={dict.auth.join} />
-            ) : (
-              <JoinSignupForm token={token} dict={dict.auth.join} legalDict={dict.legal} />
-            )}
-          </CardContent>
-        </Card>
+        <>
+          <Link
+            href="/"
+            className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
+          >
+            <BrandBadge />
+            {dict.auth.brand}
+          </Link>
+          <Card className="w-full max-w-sm">
+            <CardHeader>
+              <CardTitle as="h1" className="text-xl break-words">
+                {invitation.inviterName
+                  ? format(dict.auth.join.invitedBy, {
+                      inviter: invitation.inviterName,
+                      household: invitation.householdName,
+                    })
+                  : format(dict.auth.join.invitedNoName, { household: invitation.householdName })}
+              </CardTitle>
+              <CardDescription>{dict.auth.join.pitch}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {session?.user ? (
+                <AcceptInviteForm token={token} dict={dict.auth.join} />
+              ) : (
+                <JoinSignupForm token={token} dict={dict.auth.join} legalDict={dict.legal} />
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
       <LegalFooter dict={dict.legal} />
     </div>
