@@ -160,8 +160,11 @@ async function freshRowFromFixtures({ where }: { where: { id: string } }) {
 }
 txShoppingListItemFindUniqueMock.mockImplementation(freshRowFromFixtures);
 
+const templateFindFirstMock = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    shoppingListTemplate: { findFirst: templateFindFirstMock },
     shoppingList: {
       create: shoppingListCreateMock,
       findFirst: shoppingListFindFirstMock,
@@ -199,6 +202,8 @@ vi.mock("@/lib/i18n/get-dictionary", async () => ({
       uncategorized: "Uncategorized",
       autoCategories: (await import("@/lib/i18n/dictionaries/en")).en.inventory.autoCategories },
     shoppingList: {
+      startFrom: (await import("@/lib/i18n/dictionaries/en")).en.shoppingList.startFrom,
+      rename: (await import("@/lib/i18n/dictionaries/en")).en.shoppingList.rename,
       defaultNamePrefix: "Shopping list",
       expenseDescription: "Groceries: {name}",
       expenseLogged: "Logged {amount} to {category}",
@@ -243,6 +248,7 @@ vi.mock("@/lib/shopping/default-list", () => ({
 
 const {
   createShoppingListAction,
+  renameShoppingListAction,
   archiveShoppingListAction,
   deleteShoppingListAction,
   generateFromLowStockAction,
@@ -330,6 +336,123 @@ describe("createShoppingListAction validation (createListSchema)", () => {
         data: expect.objectContaining({ name: "Shopping list — 5 okt. 2026" }),
       }),
     );
+  });
+});
+
+// UX-85: starting a list from a template or a past list.
+describe("createShoppingListAction startFrom (UX-85)", () => {
+  it("copies a template's rows into the new list and names it after the template", async () => {
+    templateFindFirstMock.mockResolvedValue({
+      id: "tpl-1",
+      name: "BBQ",
+      items: [{ name: "Sausages", quantity: 2, unit: "pcs", inventoryItemId: null }],
+    });
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListCreateMock.mockResolvedValue({ id: "list-9" });
+
+    await expect(
+      createShoppingListAction({}, formData({ startFrom: "template", templateId: "tpl-1" })),
+    ).rejects.toThrow("REDIRECT:/dashboard/shopping-list/list-9");
+
+    expect(templateFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "tpl-1", householdId: "household-1" } }),
+    );
+    expect(shoppingListCreateMock).toHaveBeenCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "BBQ",
+        items: { create: [expect.objectContaining({ name: "Sausages", quantity: 2, unit: "pcs" })] },
+      },
+    });
+  });
+
+  it("reads as not found for a template outside the household", async () => {
+    templateFindFirstMock.mockResolvedValue(null);
+    const result = await createShoppingListAction({}, formData({ startFrom: "template", templateId: "theirs" }));
+    expect(result.error).toMatch(/template couldn't be found/);
+    expect(shoppingListCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("copies only the unbought rows of a past list by default, under a dated name", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "past-1",
+      name: "Last week",
+      items: [{ name: "Milk", quantity: 1, unit: "l", inventoryItemId: null }],
+    });
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListCreateMock.mockResolvedValue({ id: "list-10" });
+
+    await expect(
+      createShoppingListAction({}, formData({ startFrom: "list", sourceListId: "past-1" })),
+    ).rejects.toThrow("REDIRECT:/dashboard/shopping-list/list-10");
+
+    expect(shoppingListFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "past-1", householdId: "household-1" },
+        include: { items: { where: { purchased: false }, orderBy: { createdAt: "asc" } } },
+      }),
+    );
+    const data = shoppingListCreateMock.mock.calls[0][0].data;
+    expect(data.name).toContain("Shopping list");
+    expect(data.items.create).toEqual([expect.objectContaining({ name: "Milk", unit: "l" })]);
+  });
+
+  it("copies every row when asked for all items", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "past-1", name: "Last week", items: [] });
+    shoppingListCreateMock.mockResolvedValue({ id: "list-11" });
+
+    await expect(
+      createShoppingListAction({}, formData({ startFrom: "list", sourceListId: "past-1", listScope: "all" })),
+    ).rejects.toThrow("REDIRECT:");
+
+    expect(shoppingListFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ include: { items: { where: undefined, orderBy: { createdAt: "asc" } } } }),
+    );
+    // An empty source still gives a (blank) list rather than failing.
+    expect(shoppingListCreateMock.mock.calls[0][0].data).not.toHaveProperty("items");
+  });
+
+  it("reads as not found for a list outside the household", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(null);
+    const result = await createShoppingListAction({}, formData({ startFrom: "list", sourceListId: "theirs" }));
+    expect(result.error).toMatch(/list couldn't be found/);
+    expect(shoppingListCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("treats an unknown startFrom as a blank list", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-12" });
+    await expect(createShoppingListAction({}, formData({ startFrom: "bogus" }))).rejects.toThrow("REDIRECT:");
+    expect(shoppingListCreateMock.mock.calls[0][0].data).not.toHaveProperty("items");
+  });
+});
+
+describe("renameShoppingListAction (UX-85)", () => {
+  it("renames within the caller's household and revalidates the list", async () => {
+    shoppingListUpdateManyMock.mockResolvedValue({ count: 1 });
+    const result = await renameShoppingListAction({}, formData({ listId: "list-1", name: "  Big shop  " }));
+    expect(result).toEqual({});
+    expect(shoppingListUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "list-1", householdId: "household-1" },
+      data: { name: "Big shop" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/list-1");
+  });
+
+  it("reads as not found when the list isn't the caller's", async () => {
+    shoppingListUpdateManyMock.mockResolvedValue({ count: 0 });
+    const result = await renameShoppingListAction({}, formData({ listId: "theirs", name: "Mine now" }));
+    expect(result.error).toMatch(/couldn't be found/);
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty or over-long name without writing", async () => {
+    expect((await renameShoppingListAction({}, formData({ listId: "list-1", name: "   " }))).error).toBe(
+      "Name is required",
+    );
+    expect((await renameShoppingListAction({}, formData({ listId: "list-1", name: "x".repeat(121) }))).error).toBe(
+      "List name must be 120 characters or fewer",
+    );
+    expect(shoppingListUpdateManyMock).not.toHaveBeenCalled();
   });
 });
 
