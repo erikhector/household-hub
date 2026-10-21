@@ -2608,6 +2608,17 @@ Component page function can't itself be unit-tested.
   the month "Month end" drops to a second line so the two don't collide.
   The headline itself still counts to its new value through
   `AnimatedNumber` after an add. Calm by design: no mascot on money.
+- **Due card and Manage placement (UX-118)**: the Overview's "Due this
+  period" card tells three empty states apart. No active recurring item at
+  all: "Set up recurring bills and income…". Items exist, but none did yet
+  in the viewed month (a template never backward-propagates, so a month
+  before they were created lists none): "Nothing was due this month".
+  Otherwise, nothing left to log: "You're all caught up". Its "Manage
+  recurring items" is a link-styled button. The compact Safe to spend card's
+  "How we got this number" holds the arithmetic only; the still-due list is
+  the Due card's alone, so no item appears twice. On Manage, "Add category",
+  "Add recurring item" and "Add planned bill" all sit top right of their
+  panel, level with its title, on phones too.
 
 ### Household expense splitting
 
