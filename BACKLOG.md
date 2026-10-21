@@ -326,17 +326,6 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
       both the `desktop` and `mobile` projects.
-- [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
-      `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
-      springs, then moves the row to the cart"), `desktop` project. Failed
-      in the local `ci:local` gate on release PR #477 (`d16c164`,
-      2026-10-20): `toBeChecked()` then "element(s) not found". Passed on a
-      re-run of the whole spec on the same commit (10/10), and the GitHub
-      e2e job was green. Find what makes the row disappear or re-render
-      before the assertion under load and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
-      --repeat-each=30` passes 30/30.
 - [ ] **MAINT-42. Flaky: bottom-bar label check can't find "More" while it carries an unread badge** (low, S) —
       `e2e/navigation.mobile.spec.ts:85` ("the bottom bar labels are at
       least 12 px"), `mobile` project. Failed in the local `ci:local` gate
