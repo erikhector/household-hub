@@ -299,6 +299,8 @@ then MAINT-7 per feature, to avoid churn.
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
       --repeat-each=30` passes 30/30. Seen again on a clean `origin/next` (`995cb99`,
       2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
+      Seen again in the `ci:local` gate on release PR #537 (`4f04e69`,
+      2026-10-21): CLS 0.00886, passed on a re-run on the same commit.
 - [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed"), `desktop` project.
@@ -364,6 +366,18 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
       both projects.
+
+- [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
+      `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
+      above the dock, each 56-64 px", `mobile`). Failed on the first
+      attempt in the GitHub `End-to-end (Playwright)` job on release PR
+      #537 (`4f04e69`, 2026-10-21): "sixth row clear of the dock",
+      expected <= 531, received 705, and passed on the CI retry. Find
+      what leaves the list at the wrong size on the first attempt (a late
+      layout settle) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
