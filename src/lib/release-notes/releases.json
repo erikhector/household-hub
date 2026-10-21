@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.94.0",
+    "date": "2026-10-21",
+    "pr": 532,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can rename a shopping list from its menu or the pencil next to its name. When you start a new list you can now begin from a saved template or copy a recent list, either just the items you haven't bought or all of them.\n\nA month from before your recurring items existed now says \"Nothing was due this month\". On Manage, the Add buttons are all in the top right of their section, and \"Safe to spend\" no longer lists your due items a second time.\n\nn/a",
+      "sv": "Du kan byta namn på en inköpslista från menyn eller med pennan bredvid namnet. När du skapar en ny lista kan du nu utgå från en sparad mall eller kopiera en tidigare lista, antingen bara det du inte köpt eller alla varor.\n\nEn månad från innan dina återkommande poster fanns säger nu \"Inget skulle betalas den här månaden\". På Hantera ligger alla Lägg till-knappar uppe till höger i sin ruta, och \"Säkert att spendera\" listar inte längre dina väntande poster en gång till.\n\nn/a"
+    }
+  },
+  {
     "version": "0.93.0",
     "date": "2026-10-21",
     "pr": 519,
