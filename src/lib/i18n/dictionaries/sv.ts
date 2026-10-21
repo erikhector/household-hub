@@ -1047,6 +1047,7 @@ export const sv = {
     duplicateAddToExisting: "Lägg till i befintlig",
     duplicateAdding: "Lägger till…",
     duplicateAdded: "Lade till {amount} i {name}",
+    duplicateUnitsDiffer: "{name} förvaras i {stockUnit}, som {formUnit} inte kan räknas om till. Välj en passande enhet för att lägga till.",
     duplicateAmountInvalid: "Ange en mängd över 0 att lägga till i {name}.",
     sessionAddedCount: {
       one: "{count} vara tillagd denna gång",

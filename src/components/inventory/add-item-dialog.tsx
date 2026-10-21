@@ -21,7 +21,7 @@ import {
   createInventoryItemAction,
   updateInventoryItemAction,
 } from "@/app/dashboard/inventory/actions";
-import { findDuplicateOfName } from "@/lib/inventory/duplicates";
+import { amountInExistingUnit, findDuplicateOfName } from "@/lib/inventory/duplicates";
 import { formatQuantity } from "@/lib/format-quantity";
 import { useUnitLabel } from "@/components/units-provider";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
@@ -177,9 +177,14 @@ export function ItemFormDialog({
   // "I bought more butter": adds the form's quantity to the match instead of
   // creating a second item. The amount is read from the form (it is an
   // uncontrolled field) at click time.
+  const unitsDiffer = !!duplicate && amountInExistingUnit(1, unit, duplicate.unit) === null;
   const addToExisting = () => {
     if (!duplicate) return;
-    const amount = Number(new FormData(formRef.current ?? undefined).get("quantity"));
+    const typed = Number(new FormData(formRef.current ?? undefined).get("quantity"));
+    // The form's unit may differ from the match's ("2 kg" onto an item kept
+    // in g): convert into the item's unit, since the delta is applied in it.
+    const amount = amountInExistingUnit(typed, unit, duplicate.unit);
+    if (amount === null) return;
     if (!Number.isFinite(amount) || amount <= 0) {
       setExistingError(format(dict.duplicateAmountInvalid, { name: duplicate.name }));
       return;
@@ -258,20 +263,30 @@ export function ItemFormDialog({
                   })}
                 </p>
                 {existingError && <p className="text-destructive">{existingError}</p>}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-fit"
-                  disabled={addingToExisting || pending}
-                  onClick={addToExisting}
-                >
-                  <PendingLabel
-                    pending={addingToExisting}
-                    busy={dict.duplicateAdding}
-                    idle={dict.duplicateAddToExisting}
-                  />
-                </Button>
+                {unitsDiffer ? (
+                  <p className="text-muted-foreground">
+                    {format(dict.duplicateUnitsDiffer, {
+                      name: duplicate.name,
+                      stockUnit: unitLabel(duplicate.unit),
+                      formUnit: unitLabel(unit),
+                    })}
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    disabled={addingToExisting || pending}
+                    onClick={addToExisting}
+                  >
+                    <PendingLabel
+                      pending={addingToExisting}
+                      busy={dict.duplicateAdding}
+                      idle={dict.duplicateAddToExisting}
+                    />
+                  </Button>
+                )}
               </div>
             )}
             {mode === "create" && scannedBarcode && (

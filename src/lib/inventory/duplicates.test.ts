@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { itemNameSimilarity } from "@/lib/item-matching";
 import {
+  amountInExistingUnit,
   compareKeeper,
   findDuplicateGroups,
   findDuplicateOfName,
@@ -247,5 +248,24 @@ describe("findDuplicateOfName (UX-126)", () => {
     expect(findDuplicateOfName("Pasta", pantry)).toBeNull();
     expect(findDuplicateOfName("  ", pantry)).toBeNull();
     expect(findDuplicateOfName("Smör", [])).toBeNull();
+  });
+});
+
+describe("amountInExistingUnit (UX-126)", () => {
+  it("keeps the amount for the same unit or a synonym", () => {
+    expect(amountInExistingUnit(2, "g", "g")).toBe(2);
+    expect(amountInExistingUnit(3, "st", "pcs")).toBe(3);
+  });
+
+  it("converts within a dimension into the item's unit", () => {
+    expect(amountInExistingUnit(2, "kg", "g")).toBe(2000);
+    expect(amountInExistingUnit(0.1, "kg", "g")).toBe(100);
+    expect(amountInExistingUnit(500, "ml", "l")).toBe(0.5);
+  });
+
+  it("returns null across dimensions or for unknown units", () => {
+    expect(amountInExistingUnit(2, "kg", "pcs")).toBeNull();
+    expect(amountInExistingUnit(2, "l", "g")).toBeNull();
+    expect(amountInExistingUnit(2, "bunch", "g")).toBeNull();
   });
 });

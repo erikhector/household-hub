@@ -4,6 +4,7 @@
 // inventory page's "Manage items" badge and the tests all agree on it.
 
 import { itemNameSimilarity, normalizeItemName } from "@/lib/item-matching";
+import { convertQuantity } from "@/lib/units";
 import { foldedForms } from "@/lib/recipes/ingredient-match";
 
 export type DuplicateItem = {
@@ -251,4 +252,16 @@ export function findDuplicateOfName<T extends NameMatchCandidate>(typed: string,
     }
   }
   return best;
+}
+
+/**
+ * UX-126: the form's amount expressed in the matched item's own unit, or
+ * null when the two units don't convert ("2 kg" onto an item counted in
+ * pcs). "Add to existing" must never add a number in a different unit than
+ * the item is stored in, so the caller hides the button on null. Rounded to
+ * four decimals to drop float noise (0.1 kg is 100 g, not 100.00000000000001).
+ */
+export function amountInExistingUnit(amount: number, formUnit: string, existingUnit: string): number | null {
+  const converted = convertQuantity(amount, formUnit, existingUnit);
+  return converted === null ? null : Math.round(converted * 10000) / 10000;
 }

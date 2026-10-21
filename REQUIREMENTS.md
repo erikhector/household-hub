@@ -539,7 +539,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       apply). A match shows "Smör is already in your pantry (499 g)." under
       the name field with an "Add to existing" button, which adds the
       form's Quantity to that item through `adjustQuantityAction` (toast,
-      dialog closes) instead of creating a second one. The normal Add
+      dialog closes), converted from the form's unit into the item's with
+      `amountInExistingUnit` (2 kg onto an item in g adds 2000 g); when the
+      units don't convert (kg vs pcs) the button is replaced by a note that
+      they differ instead of creating a second one. The normal Add
       buttons still work, so a genuinely different item can be saved. Only
       the header's Add dialog gets the item list; the empty state's has no
       items to match.

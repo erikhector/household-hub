@@ -30,6 +30,17 @@ test("the add dialog warns about a duplicate and adds to the existing item", asy
   await expect(warning).toBeHidden();
   await dialog.getByLabel("Name").fill(`${id} Wobblebananer`);
 
+  // A unit that doesn't convert to the item's (kg vs pcs): no button, a note
+  // saying the units differ, so the amount is never added in the wrong unit.
+  const unit = dialog.getByLabel("Unit", { exact: true });
+  await unit.fill("kg");
+  await dialog.getByText("Category", { exact: true }).click();
+  await expect(warning.getByRole("button", { name: "Add to existing" })).toBeHidden();
+  await expect(warning).toContainText("is kept in pcs, which kg doesn't convert to");
+  await unit.fill("pcs");
+  await dialog.getByText("Category", { exact: true }).click();
+  await expect(warning.getByRole("button", { name: "Add to existing" })).toBeVisible();
+
   // "I bought more": the form's quantity goes onto the existing item.
   await dialog.getByLabel("Quantity").fill("250");
   await warning.getByRole("button", { name: "Add to existing" }).click();

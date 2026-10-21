@@ -1123,6 +1123,7 @@ export const en = {
     duplicateAddToExisting: "Add to existing",
     duplicateAdding: "Adding…",
     duplicateAdded: "Added {amount} to {name}",
+    duplicateUnitsDiffer: "{name} is kept in {stockUnit}, which {formUnit} doesn't convert to. Pick a matching unit to add to it.",
     duplicateAmountInvalid: "Enter an amount above 0 to add to {name}.",
     sessionAddedCount: {
       one: "{count} item added this session",
