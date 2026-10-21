@@ -41,6 +41,7 @@ export async function GET() {
     recurringTemplateSplits,
     plannedExpenseSplits,
     settlements,
+    invitationsSent,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     prisma.householdMember.findMany({
@@ -119,6 +120,11 @@ export async function GET() {
         toMember: { select: { userId: true, user: { select: { displayName: true } } } },
       },
       orderBy: { date: "asc" },
+    }),
+    prisma.invitation.findMany({
+      where: { invitedById: userId },
+      include: { household: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
@@ -272,6 +278,15 @@ export async function GET() {
         createdAt: settlement.createdAt,
       };
     }),
+    // UX-62: invite links record who made them, so the links this user
+    // made are theirs. The `token` is left out for the same reason as the
+    // push keys: an unused one is a bearer credential to join the household.
+    invitationsSent: invitationsSent.map((invitation) => ({
+      householdName: invitation.household.name,
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
+      acceptedAt: invitation.acceptedAt,
+    })),
   };
 
   const json = JSON.stringify(data, null, 2);

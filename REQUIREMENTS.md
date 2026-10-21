@@ -3469,6 +3469,10 @@ shape is deliberate:
   `memberSettlements` they paid or received (`direction`, the other
   member's display name, amount, date). Other members' shares and the
   household's full transaction list stay out.
+- `invitationsSent`: the invite links the user made (household name,
+  created, expiry and accepted dates), since UX-62 records who made each
+  link. The `token` is left out: an unused one lets anyone join the
+  household.
 - The response sends `Cache-Control: private, no-store`, so no shared or
   browser cache keeps a copy.
 
