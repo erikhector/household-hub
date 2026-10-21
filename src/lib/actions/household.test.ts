@@ -212,6 +212,7 @@ describe("createHouseholdAction validation (createHouseholdSchema)", () => {
     expect(householdCreateMock).toHaveBeenCalledWith({
       data: {
         name: "Beach House",
+        currencyCode: null,
         members: { create: { userId: "user-1", role: "OWNER" } },
       },
     });
@@ -221,6 +222,30 @@ describe("createHouseholdAction validation (createHouseholdSchema)", () => {
       expect.objectContaining({ path: "/" }),
     );
     expect(requireHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  // UX-73: a new household gets a currency label derived from the language
+  // (sv -> SEK) or, for English, the browser region.
+  it("starts the household in SEK for a Swedish user", async () => {
+    householdCreateMock.mockResolvedValue({ id: "new-household" });
+    getLocaleMock.mockResolvedValueOnce("sv");
+
+    await expect(createHouseholdAction({}, formData({ name: "Stugan" }))).rejects.toThrow("REDIRECT:/dashboard");
+
+    expect(householdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: "SEK" }),
+    });
+  });
+
+  it("starts an English household in the browser region's currency", async () => {
+    householdCreateMock.mockResolvedValue({ id: "new-household" });
+    headersMock.mockResolvedValue(new Map([["accept-language", "en-US,en;q=0.9"]]));
+
+    await expect(createHouseholdAction({}, formData({ name: "Beach House" }))).rejects.toThrow("REDIRECT:/dashboard");
+
+    expect(householdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: "USD" }),
+    });
   });
 });
 

@@ -35,6 +35,11 @@ easy for AI coding agents to work in correctly:
   prop (e.g. `<DialogTrigger render={<Button>Add item</Button>} />`), never
   Radix's `asChild` — `asChild` silently leaks through as a DOM attribute and
   produces nested `<button>` hydration errors instead of failing loudly.
+  A `Button` whose `render` element carries an `href` (a `Link` or `<a>`)
+  exposes `role="link"`, not Base UI's default `role="button"`, so a
+  screen reader announces a link for something that navigates (UX-68); e2e
+  finds these with `getByRole("link", …)`. A `role` passed at the call
+  site still wins.
 - **react-hook-form + Zod** are installed for future complex forms; the
   current auth/inventory/shopping forms use React's `useActionState` +
   native `<form action={...}>` directly, which is enough for their shape.
@@ -520,6 +525,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       nothing is measured in the old unit. `updateInventoryItemAction`
       refuses a unit change (other than a respelling like st → pcs) on an
       item with stock or saved conversions and points to "Change unit…".
+      UX-128: for an item with stock the form shows the unit read-only
+      (it still posts, unchanged) with an inline "Change unit…" link to the
+      item page. The one case the form can't see, saved conversions with no
+      stock, stays editable; its refusal comes back with `errorField:
+      "unit"` and shows under the unit field, in view, with the same link,
+      instead of at the foot of the scrolling form.
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's
@@ -1940,9 +1951,21 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `src/lib/currency.ts` (locale-aware decimal separator, always 2
   decimals). `Household.currencyCode` (`String?`, default null) picks the
   label:
-  - **Unset (the default)**: the plain symbol-free number every amount used
-    before GAP-13, so existing households see no change until the owner
-    opts in.
+  - **Unset**: the plain symbol-free number every amount used before
+    GAP-13. Existing households stay here until the owner opts in, and a new
+    household lands here only when no currency can be derived (below).
+  - **New households get a default (UX-73)**: `signupAction` and
+    `createHouseholdAction` set `currencyCode` from
+    `defaultCurrencyForNewHousehold(locale, acceptLanguage)`
+    (`src/lib/currency.ts`): a Swedish-language signup gets `SEK`;
+    otherwise the region of the highest-ranked `Accept-Language` tag
+    (`en-GB` GBP, `en-US` USD, `de-DE` EUR, ...) decides, and a missing
+    region or one outside `SUPPORTED_CURRENCIES` (`en-CA`) stays unset
+    rather than guessing a wrong "$". No schema change. The household
+    budget's first-run card shows it as "Amounts show in" with a select
+    (`OnboardingCurrency`, the same `setHouseholdCurrencyAction`, owner-only,
+    disabled for others and in the read-only view), so a wrong guess is one
+    tap to fix.
   - **Set**: `Intl.NumberFormat`'s `{ style: "currency", currency }`, so the
     locale places the symbol ("1 234,50 kr" in Swedish, "SEK 1,234.50" in
     English). An unrecognised stored code falls back to the plain format
@@ -6514,6 +6537,8 @@ the locale fallback.
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
+  Signing up writes the same cookie with the current version (UX-74), so a
+  brand-new account starts caught up and its first dashboard shows no dot.
 - Profile has an "About Squirrel" disclosure with the version and a link to
   the page (see "Profile sections" below).
 - **Public**: `/whats-new` shows the same list (`ReleaseList`,

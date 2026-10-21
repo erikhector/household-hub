@@ -258,17 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
-      `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
-      once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
-      the "Copy last week" menuitem was not visible after clicking More. It
-      passed 42/42 alone (`--repeat-each=10`) and in the next full gate on
-      the same commit, so it depends on load, probably a click before
-      hydration like MAINT-27. Fix it in the app (when the More menu is
-      interactive) or in the test's waiting, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-35. Flaky: `planner-add-missing` hits a duplicate `MealPlan` week key on mobile** (low, S) —
       `e2e/planner-add-missing.spec.ts:76` and `:82`, `mobile` project.
       Failed in one local `ci:local` gate on the UX-129 branch (`cd0514d`,
@@ -600,15 +589,6 @@ UX-89.
       Acceptance: the form includes a hidden `autocomplete="username"`
       input holding the account email.
 
-- [ ] **UX-68. Landing calls to action are links, not buttons**
-      (impact: low, effort: S) — breaks Accessibility (real `<a>`
-      semantics). "Log in", "Get started free", "Create your household"
-      and the 404's action render as `<a role="button">` through
-      `Button render={<Link/>}`, so screen readers announce a button that
-      navigates.
-      Acceptance: these expose `role="link"`, and e2e finds them with
-      `getByRole("link", …)`.
-
 #### First run and the overview
 
 - [ ] **UX-69. Getting started: ticked steps, progress, one prompt per
@@ -629,27 +609,6 @@ UX-89.
       overview shows one call to action per feature. "Plan this week's
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
-
-- [ ] **UX-73. New households get a currency from their language**
-      (impact: med, effort: S) — breaks M4 (default what you can derive).
-      `Household.currencyCode` stays null after signup
-      (`prisma/schema.prisma:163`, no migration needed). Every amount in
-      the budgets, shopping prices and recipe costs is a bare number
-      ("+16,028.60", "→500.00") until someone finds the setting in the
-      sixth card on the Household page. Money without a currency looks
-      unfinished and less trustworthy.
-      Acceptance: a household created in sv defaults to SEK, and in en to
-      the browser region's currency where known. Budget onboarding shows
-      it with one tap to change. A new household's safe to spend shows the
-      symbol.
-
-- [ ] **UX-74. No "New update" dot for brand-new users** (impact: low,
-      effort: S) — User-centricity. `hasUnseenRelease(undefined)` is true,
-      so in their first minute a new user gets an unread dot pointing at a
-      changelog of things that "used to" behave differently.
-      Acceptance: signup marks the latest release as seen. Optionally,
-      What's new for a first-week user shows "What Squirrel can do"
-      instead.
 
 #### Profile and household settings
 
@@ -921,15 +880,6 @@ UX-89.
         new household gets none and has to type "dl" or "förp".
       Acceptance: one tap shows common units (st/pcs, g, kg, dl, l, förp)
       plus used ones, as chips or a list.
-
-- [ ] **UX-128. Show a refused unit change next to the field** (impact:
-      med, effort: S) — breaks Usability ("errors next to the field") and
-      M5. Changing Smör from g to kg in Edit and tapping Save appears to do
-      nothing: the refusal ("This item has stock… use Change unit…") is
-      below the fold of the scrolling form, and the field stays editable.
-      Acceptance: for an item with stock, the unit field is read-only with
-      an inline "Change unit…" link, and any refusal shows beside it in
-      view.
 
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.

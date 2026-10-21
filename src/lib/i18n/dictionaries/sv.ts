@@ -2279,6 +2279,7 @@ export const sv = {
     onboarding: {
       title: "Sätt igång din budget",
       body: "Gemensamma pengar för {household}: hyra, mat, räkningar. Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
+      currencyLabel: "Belopp visas i",
     },
     starterCategories: {
       heading: "Eller lägg till ett startpaket",

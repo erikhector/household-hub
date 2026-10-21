@@ -286,6 +286,17 @@ export async function gotoRevealed(page: Page, url: string) {
   await page.waitForFunction(() => !document.querySelector("template[id^='B:'], div[hidden][id^='S:']"));
 }
 
+/** Waits until React has hydrated `target`. A click that lands before that
+ * does nothing for a control driven by React state (a Base UI menu trigger
+ * opens only through its handlers), and under a loaded run goto() can
+ * return before hydration. React marks each element it has taken over with
+ * a `__reactProps$…` key. Call it before the first click on such a control. */
+export async function expectHydrated(target: Locator) {
+  await expect
+    .poll(() => target.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps"))))
+    .toBe(true);
+}
+
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

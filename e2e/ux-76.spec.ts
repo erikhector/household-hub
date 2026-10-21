@@ -39,7 +39,7 @@ test("profile is grouped into four sections, with Swish under Preferences", asyn
 test("rare items sit behind disclosures", async ({ page }) => {
   await page.goto("/dashboard/profile");
   const data = page.getByRole("region", { name: t.sections.data });
-  await expect(data.getByRole("button", { name: t.dataExport.button })).toBeVisible();
+  await expect(data.getByRole("link", { name: t.dataExport.button })).toBeVisible();
 
   const deleteTrigger = data.getByRole("button", { name: t.deleteAccount.trigger });
   await expect(deleteTrigger).toBeHidden();

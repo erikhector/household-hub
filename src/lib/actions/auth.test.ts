@@ -7,6 +7,7 @@
 // REQUIREMENTS.md's "Testing" section.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hashToken } from "@/lib/token-hash";
+import { CURRENT_VERSION } from "@/lib/release-notes";
 
 // The real "next-auth" package's index imports "next/server", which Vitest's
 // Node environment can't resolve outside a Next.js build — mock it with a
@@ -46,18 +47,21 @@ const {
   sendVerificationEmailMock,
   requireUserIdMock,
   headersMock,
+  cookieSetMock,
   redirectMock,
   getLocaleMock,
   pushSubscriptionDeleteManyMock,
+  txHouseholdCreateMock,
 } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
+  txHouseholdCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-household" })),
   txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
     user: {
       create: txUserCreateMock,
       update: vi.fn(async () => ({})),
     },
-    household: { create: vi.fn(async () => ({ id: "new-household" })) },
+    household: { create: txHouseholdCreateMock },
     householdMember: { create: vi.fn(async () => ({})) },
     passwordResetToken: {
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -83,6 +87,7 @@ const {
   })),
   sendVerificationEmailMock: vi.fn(async () => ({})),
   requireUserIdMock: vi.fn(async () => "user-1"),
+  cookieSetMock: vi.fn(),
   headersMock: vi.fn(async () => new Map([["host", "localhost:3000"]])),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -131,7 +136,10 @@ vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 // whole module rather than those transitively, same reasoning as the
 // @/lib/session mock above.
 vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
-vi.mock("next/headers", () => ({ headers: headersMock }));
+vi.mock("next/headers", () => ({
+  headers: headersMock,
+  cookies: vi.fn(async () => ({ set: cookieSetMock })),
+}));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
 // The emailed link carries the raw token; the DB row must hold only its hash.
@@ -239,6 +247,28 @@ describe("signupAction behavior", () => {
     expect(result).toEqual({ status: "verification-sent", email: validSignup.email });
   });
 
+  // UX-74: no unread "What's new" dot for an account that has only ever
+  // known the current release.
+  it("marks the latest release as seen so a new user gets no update dot", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    await signupAction({}, formData(validSignup));
+
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "last_seen_release",
+      CURRENT_VERSION,
+      expect.objectContaining({ path: "/" }),
+    );
+  });
+
+  it("does not touch the release cookie when signup is rejected", async () => {
+    findUniqueMock.mockResolvedValue({ id: "existing-user" });
+
+    await signupAction({}, formData(validSignup));
+
+    expect(cookieSetMock).not.toHaveBeenCalled();
+  });
+
   // UX-56: the account locale outranks the cookie after sign-in, so signing
   // up in Swedish must store `sv` rather than the DB default.
   it("stores the UI language on the new account", async () => {
@@ -249,6 +279,40 @@ describe("signupAction behavior", () => {
 
     expect(txUserCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ email: validSignup.email, locale: "sv" }),
+    });
+  });
+
+  // UX-73: a new household starts with a currency label instead of bare
+  // numbers: SEK for a Swedish signup, the browser region's otherwise.
+  it("gives a Swedish signup's household SEK", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    getLocaleMock.mockImplementation(async () => "sv");
+
+    await signupAction({}, formData(validSignup));
+
+    expect(txHouseholdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: "SEK" }),
+    });
+  });
+
+  it("gives an English signup's household the browser region's currency", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    headersMock.mockResolvedValue(new Map([["host", "localhost:3000"], ["accept-language", "en-GB,en;q=0.9"]]));
+
+    await signupAction({}, formData(validSignup));
+
+    expect(txHouseholdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: "GBP" }),
+    });
+  });
+
+  it("leaves the currency unset when the region is unknown", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    await signupAction({}, formData(validSignup));
+
+    expect(txHouseholdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: null }),
     });
   });
 

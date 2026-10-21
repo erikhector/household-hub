@@ -2,6 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { absoluteAppUrl } from "@/lib/app-url";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -13,14 +14,24 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 import { getLocale } from "@/lib/i18n/get-dictionary";
+import { defaultCurrencyForNewHousehold } from "@/lib/currency";
 import { logger } from "@/lib/logger";
 import { hashToken } from "@/lib/token-hash";
+import {
+  CURRENT_VERSION,
+  LAST_SEEN_RELEASE_COOKIE,
+  LAST_SEEN_RELEASE_COOKIE_MAX_AGE,
+} from "@/lib/release-notes";
 
 export type ActionState = {
   error?: string;
   /** Set by the create-transaction actions (UX-109), so the "Added … · Undo"
    * toast can delete exactly the row it announced. */
   createdId?: string;
+  /** UX-128: the field `error` belongs to, when the form can show it next
+   * to that field (a refusal below the fold of a scrolling form looks like
+   * Save did nothing). Unset means a form-level error. */
+  errorField?: "unit";
 };
 
 // bcrypt silently truncates/ignores any bytes past 72 — without a matching
@@ -187,6 +198,9 @@ export async function signupAction(
   // the cookie once someone signs in, so leaving the DB default (`en`) here
   // would flip a Swedish signup to an English dashboard on first login.
   const locale = await getLocale();
+  // UX-73: start the household with a currency label derived from the
+  // language and browser region, so amounts aren't bare numbers.
+  const currencyCode = defaultCurrencyForNewHousehold(locale, (await headers()).get("accept-language"));
   let userId: string;
   try {
     userId = await prisma.$transaction(async (tx) => {
@@ -194,7 +208,7 @@ export async function signupAction(
         data: { email, passwordHash, displayName, locale },
       });
       const household = await tx.household.create({
-        data: { name: householdName },
+        data: { name: householdName, currencyCode },
       });
       await tx.householdMember.create({
         data: { userId: user.id, householdId: household.id, role: "OWNER" },
@@ -204,6 +218,14 @@ export async function signupAction(
   } catch (error) {
     return toFriendlyError(error);
   }
+
+  // UX-74: a brand-new account starts "caught up" on What's new, so its first
+  // minute doesn't show an unread dot for a changelog of things it never knew
+  // differently. The existing last_seen_release cookie, no new storage.
+  (await cookies()).set(LAST_SEEN_RELEASE_COOKIE, CURRENT_VERSION, {
+    maxAge: LAST_SEEN_RELEASE_COOKIE_MAX_AGE,
+    path: "/",
+  });
 
   // Additive, not a hard dependency — same posture as household invites
   // (see sendHouseholdInviteEmail): the account already exists regardless

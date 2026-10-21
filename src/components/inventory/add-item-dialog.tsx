@@ -86,6 +86,10 @@ export function ItemFormDialog({
     kept.values.lowStockThreshold ??
     (item ? String(item.lowStockThreshold) : defaultLowStockThreshold(unit));
 
+  // UX-128: stock (or saved conversions, which only the action can see) ties
+  // the unit to the item page's "Change unit…".
+  const unitLocked = mode === "edit" && !!item && item.quantity > 0;
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
@@ -142,6 +146,7 @@ export function ItemFormDialog({
     }
     return {};
   }, initialState);
+  const unitRefused = state.errorField === "unit";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} longForm>
@@ -252,17 +257,25 @@ export function ItemFormDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="unit">{dict.unitLabel}</Label>
-              <ComboField
-                id="unit"
-                name="unit"
-                items={units}
-                value={unit}
-                onValueChange={setUnit}
-                placeholder={dict.unitPlaceholder}
-                maxLength={20}
-                label={dict.unitLabel}
-                dict={dict}
-              />
+              {/* UX-128: with stock the unit can't be edited here (the action
+                  refuses), so it is read-only instead of a field that looks
+                  editable and fails on Save. A read-only input still posts
+                  its value, so the action sees the unchanged unit. */}
+              {unitLocked ? (
+                <Input id="unit" name="unit" value={unit} readOnly aria-describedby="unit-note" />
+              ) : (
+                <ComboField
+                  id="unit"
+                  name="unit"
+                  items={units}
+                  value={unit}
+                  onValueChange={setUnit}
+                  placeholder={dict.unitPlaceholder}
+                  maxLength={20}
+                  label={dict.unitLabel}
+                  dict={dict}
+                />
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="lowStockThreshold">{dict.runningLowBelowLabel}</Label>
@@ -288,12 +301,21 @@ export function ItemFormDialog({
               conversions happens on its page ("Change unit…"), which is
               also where its conversions and recipes are. */}
           {mode === "edit" && item && (
-            <Link
-              href={`/dashboard/inventory/items/${item.id}`}
-              className="touch-target -mt-2 w-fit text-xs text-primary underline-offset-4 hover:underline"
-            >
-              {dict.unitsAndDetailsLink}
-            </Link>
+            <div id="unit-note" className="-mt-2 flex flex-col gap-1">
+              {/* UX-128: the refusal sits right under the unit field, in view,
+                  not at the foot of the scrolling form. */}
+              {unitRefused && (
+                <p role="alert" className="text-sm text-destructive">
+                  {state.error}
+                </p>
+              )}
+              <Link
+                href={`/dashboard/inventory/items/${item.id}`}
+                className="touch-target w-fit text-xs text-primary underline-offset-4 hover:underline"
+              >
+                {unitLocked || unitRefused ? dict.itemPage.changeUnit : dict.unitsAndDetailsLink}
+              </Link>
+            </div>
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="expiresAt">{dict.expiresAtLabel}</Label>
@@ -335,7 +357,7 @@ export function ItemFormDialog({
             />
             <p className="text-xs text-muted-foreground">{dict.useWithinDaysOpenedHint}</p>
           </div>
-          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {state.error && !unitRefused && <p className="text-sm text-destructive">{state.error}</p>}
           {sessionAddedCount > 0 && (
             <p className="text-xs text-muted-foreground">
               {format(plural(sessionAddedCount, dict.sessionAddedCount), { count: sessionAddedCount })}

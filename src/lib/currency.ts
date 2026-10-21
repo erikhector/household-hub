@@ -64,3 +64,75 @@ export function createMoneyFormat(locale: string | undefined, currencyCode?: str
   }
   return new Intl.NumberFormat(locale, decimals);
 }
+
+// --- Default currency for a new household (UX-73) -------------------------
+//
+// A new household used to start with currencyCode null, so every amount was
+// a bare number until someone found the setting on the Household page. The
+// signup and "create household" actions now derive a starting label (M4,
+// default what you can derive) from what they already know. Still only a
+// label: nothing is converted, and the owner can change it in one tap.
+
+// Region (the part after the dash in an `Accept-Language` tag, "en-GB" ->
+// "GB") to a SUPPORTED_CURRENCIES entry. Only regions whose currency the
+// app can label are listed: a Canadian or Australian browser gets no
+// default rather than a wrong one, because "$" would read as US dollars.
+const REGION_CURRENCY: Record<string, SupportedCurrency> = {
+  SE: "SEK",
+  NO: "NOK",
+  DK: "DKK",
+  CH: "CHF",
+  LI: "CHF",
+  GB: "GBP",
+  US: "USD",
+  // The euro area.
+  AT: "EUR",
+  BE: "EUR",
+  HR: "EUR",
+  CY: "EUR",
+  EE: "EUR",
+  FI: "EUR",
+  FR: "EUR",
+  DE: "EUR",
+  GR: "EUR",
+  IE: "EUR",
+  IT: "EUR",
+  LV: "EUR",
+  LT: "EUR",
+  LU: "EUR",
+  MT: "EUR",
+  NL: "EUR",
+  PT: "EUR",
+  SK: "EUR",
+  SI: "EUR",
+  ES: "EUR",
+};
+
+/**
+ * The currency a new household starts with. A Swedish-language signup gets
+ * SEK (the app's home market, and what Swish and receipt conversion
+ * already assume). Otherwise the region of the browser's highest-ranked
+ * `Accept-Language` tag that names one decides ("en-GB" -> GBP, "en-US" ->
+ * USD, "de-DE" -> EUR). Null when no region is known or its currency isn't
+ * in SUPPORTED_CURRENCIES, which keeps the symbol-free default.
+ */
+export function defaultCurrencyForNewHousehold(
+  locale: string,
+  acceptLanguage: string | null | undefined,
+): SupportedCurrency | null {
+  if (locale === "sv") return "SEK";
+  if (!acceptLanguage) return null;
+  const ranked = acceptLanguage
+    .split(",")
+    .map((part, index) => {
+      const [tag, ...params] = part.trim().split(";");
+      const q = params.map((p) => /^\s*q\s*=\s*([\d.]+)\s*$/i.exec(p)?.[1]).find(Boolean);
+      const weight = q === undefined ? 1 : Number(q);
+      const region = /^[a-z]{2,3}(?:-[a-z]{4})?-([a-z]{2})$/i.exec(tag.trim())?.[1]?.toUpperCase();
+      return { region, weight, index };
+    })
+    .filter((entry) => entry.region && entry.weight > 0 && Number.isFinite(entry.weight))
+    .sort((a, b) => b.weight - a.weight || a.index - b.index);
+  const first = ranked[0]?.region;
+  return first ? (REGION_CURRENCY[first] ?? null) : null;
+}

@@ -73,7 +73,7 @@ test("phone rows open the edit sheet, name themselves and delete from the sheet"
   await expectNoHorizontalOverflow(page);
 
   // Export moved below the list.
-  const exportLink = main.getByRole("button", { name: "Export CSV" });
+  const exportLink = main.getByRole("link", { name: "Export CSV" });
   expect((await exportLink.boundingBox())!.y).toBeGreaterThan((await row.boundingBox())!.y);
 
   // The row opens the edit sheet; Delete lives there, away from Save.
