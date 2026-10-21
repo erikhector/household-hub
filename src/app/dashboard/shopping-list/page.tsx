@@ -74,7 +74,10 @@ async function ShoppingListsSection({
 export default async function ShoppingListPage() {
   const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
 
-  const [inventoryItems, aliases] = await Promise.all([
+  // UX-85: what the New list sheet can start from: saved templates, and the
+  // latest few lists (any status, the default "Next shop" included: repeating
+  // last week's shop is the common case).
+  const [inventoryItems, aliases, startTemplates, startLists] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
       // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
@@ -87,6 +90,17 @@ export default async function ShoppingListPage() {
     prisma.itemAlias.findMany({
       where: { householdId: household.id, inventoryItemId: { not: null } },
       select: { normalizedName: true, inventoryItemId: true },
+    }),
+    prisma.shoppingListTemplate.findMany({
+      where: { householdId: household.id },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.shoppingList.findMany({
+      where: { householdId: household.id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -110,7 +124,12 @@ export default async function ShoppingListPage() {
             aliases={aliases}
           />
           <PrimaryAction>
-            <NewListDialog dict={dict.shoppingList} locale={locale} />
+            <NewListDialog
+              dict={dict.shoppingList}
+              locale={locale}
+              templates={startTemplates}
+              recentLists={startLists}
+            />
           </PrimaryAction>
         </div>
       </div>

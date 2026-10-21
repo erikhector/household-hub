@@ -20,6 +20,7 @@ import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/invent
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
 import { AUTO_FUZZY_MATCH_MIN_SCORE, createInventoryLinker } from "@/lib/shopping/inventory-link";
 import { getOrCreateDefaultShoppingList, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
+import { resolveTemplateRows } from "@/lib/shopping/list-templates";
 import { categoryKey } from "@/lib/shopping/shopping-mode-grouping";
 import {
   applySubsetReorder,
@@ -67,7 +68,50 @@ async function findFuzzyInventoryItem(householdId: string, name: string, preload
 
 const createListSchema = z.object({
   name: z.string().trim().max(120, v("listNameTooLong")).optional(),
+  // UX-85: "blank", "template:<id>" or "list:<id>", what the New list sheet
+  // starts the list from. Split by hand below so an unknown value falls back
+  // to a blank list instead of failing the whole form.
+  start: z.string().optional(),
+  // Only read for "list:<id>": copy just what's still to buy, or every row.
+  items: z.enum(["unbought", "all"]).optional(),
 });
+
+const renameListSchema = z.object({
+  listId: z.string().min(1),
+  name: z.string().trim().min(1, v("nameRequired")).max(120, v("listNameTooLong")),
+});
+
+type CopiedRow = {
+  name: string;
+  quantity: number;
+  unit: string;
+  inventoryItemId: string | null;
+  note?: string | null;
+};
+
+/**
+ * Source rows to ShoppingListItem create data for a fresh list. The same
+ * inventory re-linking a template uses (resolveTemplateRows), so a copied
+ * row whose inventory item was since deleted links again by name or alias.
+ * Rows start unticked; a copied note rides along.
+ */
+async function rowsForNewList(householdId: string, source: CopiedRow[]) {
+  if (source.length === 0) return [];
+  const [inventoryItems, aliases] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { householdId },
+      select: { id: true, name: true, unit: true, lastKnownPrice: true },
+    }),
+    prisma.itemAlias.findMany({
+      where: { householdId },
+      select: { normalizedName: true, inventoryItemId: true },
+    }),
+  ]);
+  return resolveTemplateRows(source, inventoryItems, aliases).map((row, i) => ({
+    ...row,
+    ...(source[i].note ? { note: source[i].note } : {}),
+  }));
+}
 
 export async function createShoppingListAction(
   _prevState: ActionState,
@@ -75,20 +119,54 @@ export async function createShoppingListAction(
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  const parsed = createListSchema.safeParse({ name: formData.get("name") || undefined });
+  const parsed = createListSchema.safeParse({
+    name: formData.get("name") || undefined,
+    start: formData.get("start") || undefined,
+    items: formData.get("items") || undefined,
+  });
   if (!parsed.success) {
     return await zodFail(parsed.error);
   }
 
   const dict = await getDictionary();
+  const start = parsed.data.start ?? "blank";
+  const colon = start.indexOf(":");
+  const kind = colon === -1 ? start : start.slice(0, colon);
+  const sourceId = colon === -1 ? "" : start.slice(colon + 1);
+
   let list;
   try {
+    let name = parsed.data.name;
+    let rows: Awaited<ReturnType<typeof rowsForNewList>> = [];
+
+    if (kind === "template" && sourceId) {
+      const template = await prisma.shoppingListTemplate.findFirst({
+        where: { id: sourceId, householdId: household.id },
+        include: { items: { orderBy: { position: "asc" } } },
+      });
+      if (!template) return await fail("templateNotFound");
+      name ||= template.name;
+      rows = await rowsForNewList(household.id, template.items);
+    } else if (kind === "list" && sourceId) {
+      // Scoped by household, so another household's list id finds nothing.
+      const source = await prisma.shoppingList.findFirst({
+        where: { id: sourceId, householdId: household.id },
+        include: {
+          items: {
+            where: parsed.data.items === "all" ? {} : { purchased: false },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+      if (!source) return await fail("shoppingListNotFound");
+      rows = await rowsForNewList(household.id, source.items);
+    }
+
     list = await prisma.shoppingList.create({
       data: {
         householdId: household.id,
-        name:
-          parsed.data.name ||
-          datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
+        name: name || datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
+        ...(rows.length > 0 ? { items: { create: rows } } : {}),
       },
     });
   } catch (error) {
@@ -97,6 +175,39 @@ export async function createShoppingListAction(
 
   revalidatePath("/dashboard/shopping-list");
   redirect(`/dashboard/shopping-list/${list.id}`);
+}
+
+/**
+ * UX-85: rename a list from its ⋯ menu or by tapping its title. Works on any
+ * status (a finished trip is often renamed to what it was) and leaves
+ * `isDefault` alone, so "Next shop" keeps filling itself under whatever name
+ * the household gives it.
+ */
+export async function renameShoppingListAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = renameListSchema.safeParse({
+    listId: formData.get("listId"),
+    name: formData.get("name"),
+  });
+  if (!parsed.success) return await zodFail(parsed.error);
+
+  try {
+    const { count } = await prisma.shoppingList.updateMany({
+      where: { id: parsed.data.listId, householdId: household.id },
+      data: { name: parsed.data.name },
+    });
+    if (count === 0) return await fail("shoppingListNotFound");
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/shopping-list");
+  revalidatePath(`/dashboard/shopping-list/${parsed.data.listId}`);
+  return {};
 }
 
 export async function archiveShoppingListAction(listId: string): Promise<ActionState> {
