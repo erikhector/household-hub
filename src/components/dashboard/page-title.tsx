@@ -6,7 +6,8 @@ import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { commonCopy } from "@/lib/i18n/common";
 import { getDocumentLocale } from "@/lib/i18n/client-locale";
-import { COMPACT_TITLE_SLOT_ID } from "@/components/dashboard/nav-items";
+import { usePathname } from "next/navigation";
+import { COMPACT_TITLE_SLOT_ID, NAV_ICON_TILE_CLASSES, navItemForPath } from "@/components/dashboard/nav-items";
 import { MorphTitle, type MorphKind } from "@/components/shared/view-transitions";
 
 const subscribeNoop = () => () => {};
@@ -27,6 +28,11 @@ export function PageTitle({
    * Only the large H1 takes part, never the compact copy in the bar. */
   morph?: { kind: MorphKind; id: string };
 }) {
+  // UX-52: the section's hue also marks its page, as a small tile before the
+  // large title, so the colour on the bottom-bar tab means something. Pages
+  // outside a coloured section (Overview, What's new) have none.
+  const section = navItemForPath(usePathname());
+  const SectionIcon = section?.color ? section.icon : null;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   // The portal target only exists in the browser; reading it through
@@ -88,13 +94,29 @@ export function PageTitle({
 
   return (
     <>
-      {morph ? (
-        <MorphTitle kind={morph.kind} id={morph.id}>
-          {title}
-        </MorphTitle>
-      ) : (
-        title
-      )}
+      <div className="flex items-center gap-2.5">
+        {SectionIcon && section?.color && (
+          <span
+            aria-hidden="true"
+            data-section-tile={section.color}
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-lg",
+              NAV_ICON_TILE_CLASSES[section.color],
+            )}
+          >
+            <SectionIcon className="size-5" />
+          </span>
+        )}
+        <div className="min-w-0">
+          {morph ? (
+            <MorphTitle kind={morph.kind} id={morph.id}>
+              {title}
+            </MorphTitle>
+          ) : (
+            title
+          )}
+        </div>
+      </div>
       {/* Mounted only while collapsed, so the title isn't in the DOM twice
           the rest of the time (nor ever on desktop, where the slot's
           header is hidden and the document, not main, scrolls). It fades

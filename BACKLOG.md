@@ -499,21 +499,6 @@ UX-89.
       ("Add your first dinner" / "Fill the week") instead of seven
       slots. Nothing sits under the FAB at 412 px.
 
-- [ ] **UX-52. Bottom bar: one icon style, and keep the colour on the
-      active tab** (impact: low, effort: S) — breaks Consistency.
-      - Inventory, Shopping and Meal planning have tinted icon tiles;
-        Overview and More have plain icons.
-      - The active tab drops its tile (`bottom-nav.tsx:125-127`), so the
-        section colour (`nav-items.ts`, "recognise the screen by colour")
-        disappears on exactly the screen you're on.
-      - "More" has no tile, so its label sits higher than the other
-        four.
-      Acceptance: all five tabs share one icon treatment and their
-      labels sit on one baseline. The active tab keeps its section hue,
-      and that hue also marks the page (for example the large title's
-      accent or the empty-state ring), so the colour coding means
-      something.
-
 - [ ] **UX-53. One period switcher for weeks and months** (impact: low,
       effort: S) — breaks Consistency. The budgets switch months with
       bare chevrons around a large centred heading. The meal planner

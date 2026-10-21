@@ -18,6 +18,8 @@ import {
   isNavItemActive,
   isMoreMenuActive,
   NAV_ICON_TILE_CLASSES,
+  NAV_NEUTRAL_TILE_CLASS,
+  NAV_NEUTRAL_TILE_ACTIVE_CLASS,
   type ShellDictionary,
 } from "@/components/dashboard/nav-items";
 import { useLogout } from "@/lib/push-client";
@@ -119,10 +121,16 @@ export function BottomNav({
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
+              {/* Every tab has a tile, and the active one keeps its section
+                  hue (UX-52): only the neutral tabs (Overview) turn primary. */}
               <span
                 className={cn(
                   "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
-                  !active && color && NAV_ICON_TILE_CLASSES[color],
+                  color
+                    ? NAV_ICON_TILE_CLASSES[color]
+                    : active
+                      ? NAV_NEUTRAL_TILE_ACTIVE_CLASS
+                      : NAV_NEUTRAL_TILE_CLASS,
                 )}
               >
                 <Icon className="size-5" />
@@ -144,12 +152,17 @@ export function BottomNav({
               />
             }
           >
-            <span className="relative inline-flex">
+            <span
+              className={cn(
+                "relative flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                moreActive ? NAV_NEUTRAL_TILE_ACTIVE_CLASS : NAV_NEUTRAL_TILE_CLASS,
+              )}
+            >
               <MoreHorizontal className="size-5" />
               <Suspense fallback={null}>
                 <NotificationBadgeContent
                   notifications={notifications}
-                  className="-top-1.5 -right-2 h-4 min-w-4 px-0.5 text-xs leading-none"
+                  className="-top-1.5 -right-1.5 h-4 min-w-4 px-0.5 text-xs leading-none"
                 />
               </Suspense>
             </span>

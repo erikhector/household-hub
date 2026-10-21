@@ -6252,6 +6252,13 @@ components directly.
   the dropdown: the trigger `Button` overrides its base `shrink-0
   whitespace-nowrap`, so the chevron stays on screen at 412 and 1280
   px (UX-47, `e2e/ux-47.spec.ts`).
+- **One icon treatment (UX-52)**: all five bottom-bar tabs sit on a 28 px
+  tile, so their labels share one baseline. Overview and "More" use a neutral
+  tile (primary-tinted while active); the others keep their section hue
+  (`NAV_ICON_TILE_CLASSES`) active or not, and `PageTitle` shows the same
+  tile with the section's icon before the large title (`navItemForPath`), so
+  the colour marks the page you're on. Covered by
+  `e2e/navigation.mobile.spec.ts`.
 - **Where you are (UX-27)**: the current page is marked in both layouts
   (`aria-current="page"` plus the active fill). On a phone, What's new and
   the notification centre belong to the "More" menu, so while one is open

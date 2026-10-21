@@ -56,6 +56,12 @@ export const NAV_ICON_TILE_CLASSES: Record<NavColor, string> = {
   "chart-5": "bg-chart-5/15 text-chart-5",
 };
 
+// The tile for the tabs with no section hue (Overview, More), so all five
+// bottom-bar tabs share one icon treatment and their labels one baseline
+// (UX-52). Active, it takes the primary tint the sliding pill uses.
+export const NAV_NEUTRAL_TILE_CLASS = "bg-muted text-muted-foreground";
+export const NAV_NEUTRAL_TILE_ACTIVE_CLASS = "bg-primary/15 text-primary";
+
 export type NavItem = {
   href: string;
   key: NavKey;
@@ -109,4 +115,13 @@ export function isMoreMenuActive(pathname: string) {
     overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href)) ||
     moreMenuExtraHrefs.some((href) => isNavItemActive(pathname, href))
   );
+}
+
+// The nav item whose section a path belongs to, for marking the page with
+// its section hue (PageTitle). Longest href wins so a nested page still maps
+// to its own section.
+export function navItemForPath(pathname: string): NavItem | undefined {
+  return navItems
+    .filter((item) => isNavItemActive(pathname, item.href))
+    .sort((a, b) => b.href.length - a.href.length)[0];
 }
