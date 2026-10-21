@@ -5545,7 +5545,7 @@ co-managers, not kids earning rewards.
 
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
-  `completedByMemberId`, nullable `recurrenceIntervalDays`,
+  `completedByMemberId`, nullable `recurrenceIntervalDays`, nullable `recurrenceAnchorAt`,
   `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
   `assignedToMemberId`/`completedByMemberId` are two independent, both-
@@ -5581,8 +5581,13 @@ co-managers, not kids earning rewards.
   day: occurrences fall on the anchor's local day and every N days after
   it, and a tick (late, or early because the chore was already open) closes
   only the occurrence it falls in, so a Saturday chore done on Thursday is
-  still a Saturday chore. The anchor is the local day the task was created
-  (no column, so editing a task does not move it). "Local" is the
+  still a Saturday chore. The anchor is the local day in
+  `HouseholdTask.recurrenceAnchorAt` (UX-144): set when a task is created
+  with an interval and re-set to the day of the edit whenever its interval
+  changes (cleared when the repeat is removed; saving the same interval
+  leaves it), so "every Thursday" is a matter of editing the task on a
+  Thursday. Null (rows from before the column) reads `createdAt`.
+  `task-anchor-day.spec.ts` covers the edit. "Local" is the
   visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
   `time_zone` cookie equal to it and refreshes once when it changes;
   `getTimeZone()` (`src/lib/get-time-zone.ts`) reads it, falling back to

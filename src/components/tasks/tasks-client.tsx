@@ -44,6 +44,7 @@ type TaskRow = {
   recurrenceIntervalDays: number | null;
   completedAt: Date | null;
   createdAt: Date;
+  recurrenceAnchorAt: Date | null;
   rotationMemberIds: string[];
   /** GAP-38: who's up after the current turn; null unless the task rotates. */
   nextInRotationMemberId: string | null;

@@ -83,6 +83,7 @@ export default async function DashboardOverviewPage() {
         assignedToMemberId: true,
         completedAt: true,
         recurrenceIntervalDays: true,
+        recurrenceAnchorAt: true,
         createdAt: true,
       },
       orderBy: { createdAt: "asc" },

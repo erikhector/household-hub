@@ -19,17 +19,21 @@
 //    the anchor's day, then every N days after it; ticking in one
 //    occurrence's window (late, or early because it was already open) closes
 //    it until the next occurrence, so a Saturday chore done on Thursday
-//    stays a Saturday chore. The anchor is the local day the task was
-//    created: there's no column for it (PRODUCT.md: no schema), so editing a
-//    task does not move it.
+//    stays a Saturday chore. The anchor is the local day in
+//    `recurrenceAnchorAt` (UX-144): set when a repeat is created and re-set
+//    whenever the interval is edited, so "every Thursday" is a matter of
+//    editing the task on a Thursday. Rows from before the column (null) keep
+//    reading `createdAt`.
 
 import { isTimeZone } from "@/lib/time-zone";
 
 export type RecurrenceFields = {
   completedAt: Date | null;
   recurrenceIntervalDays: number | null;
-  /** The anchor day of a weekly-or-longer task (see the header). */
+  /** The anchor day of a weekly-or-longer task when `recurrenceAnchorAt` is null (see the header). */
   createdAt: Date;
+  /** UX-144: the anchor day, re-set when the interval is edited; null falls back to `createdAt`. */
+  recurrenceAnchorAt: Date | null;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -96,7 +100,7 @@ export function getNextDueDate(task: RecurrenceFields, timeZone = "UTC"): Date |
   // (the task has been open since then); the next one is a full interval on.
   // A task ticked before its anchor day (an imported row) counts as the
   // first occurrence.
-  const anchorDay = localDayNumber(task.createdAt, zone);
+  const anchorDay = localDayNumber(task.recurrenceAnchorAt ?? task.createdAt, zone);
   const occurrence = Math.max(0, Math.floor((completedDay - anchorDay) / interval));
   return startOfLocalDay(anchorDay + (occurrence + 1) * interval, zone);
 }
