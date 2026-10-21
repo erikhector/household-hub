@@ -482,6 +482,13 @@ export const en = {
       skip: "Skip this step",
       progress: "{done} of {total} done",
       dismiss: "Hide the setup card",
+      doneStep: "Done",
+      allSet: {
+        title: "You're all set",
+        body: "Squirrel has what it needs. Your home is up and running.",
+        close: "Got it",
+        mascotAlt: "Squirrel mascot",
+      },
       steps: {
         household: {
           title: "Invite your household",
@@ -499,9 +506,11 @@ export const en = {
           title: "Set up your household budget",
           description: "Add income and expense categories to start tracking shared spending.",
         },
-        personalBudget: {
-          title: "Track your personal budget",
-          description: "Set up categories for the money that's just yours, kept separate from the household's.",
+        // UX-69: no personal-budget step; the "Your budget" card below is
+        // that feature's one call to action.
+        mealPlan: {
+          title: "Plan this week's meals",
+          description: "Put a few dinners on the planner and Squirrel can work out what to buy.",
         },
       },
     },
@@ -1663,7 +1672,9 @@ export const en = {
     addMeal: "Add meal",
     addMealAriaLabel: "Add meal, {day}",
     todayBadge: "Today",
-    addMealDialogTitle: "Add a meal",
+    addMealDialogTitleDay: "Add {meal} · {day}",
+    recipeSearchPlaceholder: "Search recipes",
+    recipeNoMatches: "No recipe matches",
     editMealAriaLabel: "Edit meal",
     editMealDialogTitle: "Edit meal",
     moveMealAriaLabel: "Move meal",
@@ -1675,7 +1686,6 @@ export const en = {
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
     // The add-meal picker before anything is chosen (M4: pick, don't type).
-    chooseRecipePlaceholder: "Choose a recipe",
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",

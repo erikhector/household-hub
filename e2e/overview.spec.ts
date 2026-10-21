@@ -24,7 +24,7 @@ async function box(locator: Locator) {
 test.describe("the setup card", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("collapses finished steps, can be hidden, and stays hidden", async ({ page }, testInfo) => {
+  test("keeps finished steps as ticked rows under a progress bar, can be hidden, and stays hidden", async ({ page }, testInfo) => {
     const tag = `${Date.now().toString(36)}-${testInfo.project.name}`;
     const userId = `e2e-ov-user-${tag}`;
     const householdId = `e2e-ov-household-${tag}`;
@@ -45,7 +45,7 @@ test.describe("the setup card", () => {
         [`e2e-ov-member-${tag}`, householdId, userId],
       );
       // Done: pantry, shopping list, household budget. Open: invite the
-      // household, personal budget.
+      // household, plan meals.
       await client.query(
         `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
          VALUES ($1, $2, 'Rice', 'Pantry', 1, 'kg', now())`,
@@ -75,12 +75,21 @@ test.describe("the setup card", () => {
         has: page.getByRole("heading", { name: "Get set up" }),
       });
       await expect(card.getByText("3 of 5 done")).toBeVisible();
-      // Only the open steps are listed; the finished ones are just counted.
+      await expect(card.getByRole("progressbar", { name: "3 of 5 done" })).toHaveAttribute("aria-valuenow", "3");
+      // UX-69: every step is a row with a chevron; the finished ones stay, ticked.
       await expect(card.getByRole("link", { name: /Invite your household/ })).toBeVisible();
-      await expect(card.getByRole("link", { name: /Track your personal budget/ })).toBeVisible();
-      await expect(card.getByText("Add what's in the pantry")).toHaveCount(0);
-      await expect(card.getByText("Start a shopping list")).toHaveCount(0);
-      await expect(card.getByText("Set up your household budget")).toHaveCount(0);
+      await expect(card.getByRole("link", { name: /Plan this week's meals/ })).toBeVisible();
+      await expect(card.getByRole("link", { name: /Add what's in the pantry \(Done\)/ })).toBeVisible();
+      await expect(card.getByRole("link", { name: /Start a shopping list \(Done\)/ })).toBeVisible();
+      await expect(card.getByRole("link", { name: /Set up your household budget \(Done\)/ })).toBeVisible();
+      await expect(card.locator("svg.lucide-chevron-right")).toHaveCount(5);
+      // One prompt per feature: the personal budget has its own card below.
+      await expect(card.getByText("Track your personal budget")).toHaveCount(0);
+      expect(
+        await card
+          .getByText("Bring in the people you share this home with")
+          .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+      ).toBeGreaterThanOrEqual(14);
       // Today now sits above the card (UX-70) and is on the first screen.
       await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeInViewport();
       await expectNoHorizontalOverflow(page);
@@ -92,6 +101,96 @@ test.describe("the setup card", () => {
       await expect(main.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
     } finally {
       // Household first: its members, items, lists and categories cascade.
+      await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+      await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
+      await client.end();
+    }
+  });
+});
+
+test.describe("the finish moment (UX-69)", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("shows 'You're all set' once when the last step is done, without animation under reduced motion", async ({
+    page,
+  }, testInfo) => {
+    const tag = `${Date.now().toString(36)}-fin-${testInfo.project.name}`;
+    const userId = `e2e-fin-user-${tag}`;
+    const householdId = `e2e-fin-household-${tag}`;
+    const email = `e2e-fin-${tag}@squirrel.test`;
+    const password = "e2e-password-123";
+
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    try {
+      await client.query(
+        `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+         VALUES ($1, $2, $3, 'Finish', now(), 'en')`,
+        [userId, email, await bcrypt.hash(password, 10)],
+      );
+      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Finish household')`, [householdId]);
+      await client.query(
+        `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+        [`e2e-fin-member-${tag}`, householdId, userId],
+      );
+      await client.query(
+        `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
+         VALUES ($1, $2, 'Rice', 'Pantry', 1, 'kg', now())`,
+        [`e2e-fin-item-${tag}`, householdId],
+      );
+      await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, 'Weekly')`, [
+        `e2e-fin-list-${tag}`,
+        householdId,
+      ]);
+      await client.query(
+        `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Food', 'EXPENSE')`,
+        [`e2e-fin-cat-${tag}`, householdId],
+      );
+
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password", { exact: true }).fill(password);
+      await page.getByRole("button", { name: "Log in" }).click();
+      await expect(page).toHaveURL(/\/dashboard$/);
+
+      const main = page.getByRole("main");
+      // Skip the household step; the meal plan is the last one open.
+      await main.getByRole("button", { name: "Skip this step" }).click();
+      await expect(main.getByText("4 of 5 done")).toBeVisible();
+
+      await client.query(`INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, now())`, [
+        `e2e-fin-plan-${tag}`,
+        householdId,
+      ]);
+      await client.query(
+        `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "freeformName")
+         VALUES ($1, $2, now(), 'DINNER', 'Soup')`,
+        [`e2e-fin-entry-${tag}`, `e2e-fin-plan-${tag}`],
+      );
+      await page.reload();
+
+      const heading = main.getByRole("heading", { name: "You're all set" });
+      await expect(heading).toBeVisible();
+      await expect(main.getByRole("img", { name: "Squirrel mascot" })).toBeVisible();
+      await expect(main.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
+      const card = main.locator('[data-slot="card"]').filter({
+        has: page.getByRole("heading", { name: "You're all set" }),
+      });
+      expect(await card.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+      await expectNoHorizontalOverflow(page);
+
+      // Once: the next visit finds neither the moment nor the card. The
+      // cookie is set by a server action fired on mount, so wait for it
+      // before reloading.
+      await expect
+        .poll(async () => (await page.context().cookies()).some((c) => c.name.startsWith("getting_started_done_")))
+        .toBe(true);
+      await page.reload();
+      await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+      await expect(heading).toHaveCount(0);
+      await expect(main.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
+    } finally {
       await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
       await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
       await client.end();

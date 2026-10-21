@@ -326,17 +326,6 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
       both the `desktop` and `mobile` projects.
-- [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
-      `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
-      springs, then moves the row to the cart"), `desktop` project. Failed
-      in the local `ci:local` gate on release PR #477 (`d16c164`,
-      2026-10-20): `toBeChecked()` then "element(s) not found". Passed on a
-      re-run of the whole spec on the same commit (10/10), and the GitHub
-      e2e job was green. Find what makes the row disappear or re-render
-      before the assertion under load and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
-      --repeat-each=30` passes 30/30.
 - [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
       `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
       through the field or the bar"), `mobile` project. Failed in the local
@@ -420,7 +409,6 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
@@ -576,24 +564,6 @@ UX-89.
 
 #### First run and the overview
 
-- [ ] **UX-69. Getting started: ticked steps, progress, one prompt per
-      feature, and a finish moment** (impact: med, effort: S) — breaks
-      Hierarchy and M6, and misses a delight moment.
-      - Finished steps vanish and the card silently disappears at the end
-        (`src/components/dashboard/getting-started.tsx:50-51`).
-      - "Track your personal budget" and the "Set up your personal
-        budget" card (`src/app/dashboard/page.tsx:133,216-244`) sit
-        stacked: two of the three blocks on the first screen push the
-        same optional feature.
-      - Meals, recipes and tasks have no step.
-      - Rows have no chevron, and descriptions are 12 px (`:89`), below
-        the 14 px floor.
-      Acceptance: finished steps stay as ticked rows under an "N of M"
-      progress bar. Completing the last step shows a short mascot "You're
-      all set" moment once (no animation under reduced motion). The
-      overview shows one call to action per feature. "Plan this week's
-      meals" is a step. Descriptions are at least 14 px and rows show a
-      chevron.
 
 #### Profile and household settings
 
@@ -720,17 +690,6 @@ UX-89.
       inventory item it created removes that item too.
 
 #### Meals and recipes
-
-- [ ] **UX-96. The add-meal sheet names the day and can search recipes**
-      (impact: med, effort: M) — breaks M4 and Context.
-      - "Add a meal" never says which day, and the page behind is
-        blurred.
-      - The recipe field is a plain select whose popup shows about 1.5
-        rows at the bottom of the sheet, with no search and no
-        favourites-first order.
-      Acceptance: the title reads "Add dinner · Mon 12". The recipe field
-      filters as you type, lists favourites and recently cooked first, and
-      shows at least 5 rows at 412 px.
 
 #### Tasks
 

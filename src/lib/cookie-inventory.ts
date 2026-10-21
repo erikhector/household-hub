@@ -150,6 +150,16 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     duration: "1 year",
   },
   {
+    // Suffixed with the household's id at set time (getting_started_done_<id>) —
+    // see markGettingStartedCelebratedAction in src/lib/actions/household.ts.
+    name: "getting_started_done_",
+    kind: "cookie",
+    category: "preference",
+    purpose:
+      "Remembers that you have seen the “You're all set” message after finishing the setup steps, for a given household.",
+    duration: "1 year",
+  },
+  {
     name: "theme",
     kind: "localStorage",
     category: "preference",

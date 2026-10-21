@@ -146,15 +146,15 @@ test("adding a meal starts on the picker, not on typing a name", async ({ page }
   try {
     await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
     await page.getByRole("button", { name: /^Add meal, / }).filter({ visible: true }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add a meal" });
+    const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
     const picker = dialog.getByRole("combobox", { name: "Recipe" });
     // Nothing chosen and no name field: there's something to pick (M4).
-    await expect(picker).toHaveText(/Choose a recipe/);
+    await expect(picker).toHaveValue("");
     await expect(dialog.getByRole("textbox", { name: "Meal name" })).toHaveCount(0);
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.getByText("Choose a recipe or enter a meal name")).toBeVisible();
 
-    await picker.click();
+    await picker.fill(recipeName);
     await page.getByRole("option", { name: recipeName }).click();
     await expect(dialog.getByRole("spinbutton", { name: "Portions" })).toHaveValue("2");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
@@ -255,5 +255,44 @@ test("a long recipe's Cook stays on screen in its sheet, above the scrolling ing
     await expect(clicked.getByRole("heading", { name: recipeName })).toBeFocused();
   } finally {
     await cleanup(recipeId);
+  }
+});
+
+test("the add-meal sheet names the day, filters recipes as you type and lists favourites and recently cooked first", async ({ page }) => {
+  const day = farDay();
+  const names = Array.from({ length: 6 }, (_, i) => unique(`Pick${i}`));
+  const ids: string[] = [];
+  try {
+    // names[4] is a favourite; names[2] was cooked last week (an entry
+    // marked cooked in a past week).
+    const cookedDay = new Date(Date.now() - 7 * DAY_MS);
+    for (const [i, name] of names.entries()) ids.push(await seed(name, i === 2 ? cookedDay : undefined));
+    await withClient(async (client) => {
+      await client.query(`UPDATE "Recipe" SET "isFavorite" = true WHERE id = $1`, [ids[4]]);
+      await client.query(`UPDATE "MealPlanEntry" SET "consumedAt" = now() WHERE "recipeId" = $1`, [ids[2]]);
+    });
+    await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
+    await page.getByRole("button", { name: /^Add meal, / }).filter({ visible: true }).first().click();
+    // "Add dinner · Wed 12": the slot and the day, not just "Add a meal".
+    const dialog = page.getByRole("dialog", { name: /^Add dinner · \w+ \d+$/ });
+    await expect(dialog).toBeVisible();
+
+    // At least five rows show at once, even on a 412 px phone.
+    const options = dialog.getByRole("option");
+    await expect(options.nth(4)).toBeInViewport({ ratio: 1 });
+
+    const labels = await options.allTextContents();
+    const at = (name: string) => labels.findIndex((label) => label.includes(name));
+    expect(at(names[4])).toBeGreaterThan(-1);
+    expect(at(names[4])).toBeLessThan(at(names[2]));
+    expect(at(names[2])).toBeLessThan(at(names[0]));
+
+    await dialog.getByRole("combobox", { name: "Recipe" }).fill(names[3]);
+    await expect(options).toHaveCount(1);
+    await expect(options.first()).toHaveText(names[3]);
+    await dialog.getByRole("combobox", { name: "Recipe" }).fill("zzz-no-such-recipe");
+    await expect(dialog.getByText("No recipe matches")).toBeVisible();
+  } finally {
+    for (const id of ids) await cleanup(id);
   }
 });

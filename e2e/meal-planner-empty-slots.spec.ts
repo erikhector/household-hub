@@ -39,7 +39,7 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
   await page.goto(`/dashboard/meal-planning?week=${addWeek(testInfo.project.name)}`);
 
   await page.getByRole("button", { name: /^Add meal, / }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Add a meal" });
+  const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
   await dialog.getByRole("combobox", { name: "Meal" }).click();
   await page.getByRole("option", { name: "Lunch" }).click();
   await dialog.getByRole("combobox", { name: "Recipe" }).click();

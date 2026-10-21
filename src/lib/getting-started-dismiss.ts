@@ -21,3 +21,15 @@ export async function isGettingStartedDismissed(householdId: string): Promise<bo
   const cookieStore = await cookies();
   return cookieStore.get(`${GETTING_STARTED_DISMISS_COOKIE_PREFIX}${householdId}`)?.value === "1";
 }
+
+// UX-69: set the first time the "You're all set" moment is shown, so it
+// appears once per household and browser and the card is gone afterwards.
+// Same per-household suffix and reasoning as above. Listed in
+// src/lib/cookie-inventory.ts.
+export const GETTING_STARTED_DONE_COOKIE_PREFIX = "getting_started_done_";
+
+/** Whether this browser has already seen the finish moment for `householdId`. */
+export async function isGettingStartedCelebrated(householdId: string): Promise<boolean> {
+  const cookieStore = await cookies();
+  return cookieStore.get(`${GETTING_STARTED_DONE_COOKIE_PREFIX}${householdId}`)?.value === "1";
+}
