@@ -1422,6 +1422,22 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     stop that item from ever being auto-added again. It can still be put
     away from the dialog.
   - *Reminder*: see "Notification center" → Put away your shopping.
+- **Rename, and start from a template or a past list (UX-85)** — a list is
+  renamed from "Rename" in its `⋯` menu (any status) or by tapping its
+  title (a pointer shortcut through `PageTitle`'s `onTap`; the menu item is
+  the keyboard path), which opens `RenameListDialog`.
+  `renameShoppingListAction` trims the name (1–120 characters), scopes the
+  update to the household and leaves `isDefault` alone. The New list sheet
+  has a "Start from" select (shown only when there is a template or a past
+  list): a blank list, a saved template, or one of the 10 newest lists (any
+  status). A past list asks "Only what is still to buy" (default) or "All
+  items". `createShoppingListAction` reads `start` (`blank`,
+  `template:<id>`, `list:<id>`) and `items` (`unbought`, `all`), looks the
+  source up by household, and copies rows unticked through
+  `resolveTemplateRows` (so inventory links are re-resolved), keeping each
+  row's note. A typed name wins; otherwise a template gives its own name and
+  a past list a dated default. An unknown source is an error, never a blank
+  list.
 - **List templates (GAP-4)** — a household can save any list's items as a
   reusable, named template ("BBQ", "Costco run") and stamp it out as a new
   list later. Deliberately separate from AUTO-8's default list: that one
@@ -1455,7 +1471,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     import, it never creates inventory items: an unmatched row stays
     unlinked for "Resolve mappings", and `completeShoppingListAction`'s
     find-or-create still covers it at the end. Estimated prices come from
-    the linked item's `lastKnownPrice` (AUTO-4).
+    the linked item's `lastKnownPrice` (AUTO-4). The template row's button
+    says "Use" (UX-85), so the page has one "New list" button only.
   - *Deleting*: undo over confirm. `deleteShoppingListTemplateAction`
     deletes immediately and returns a snapshot. The toast's Undo passes it
     to `restoreShoppingListTemplateAction`, which validates it with Zod
