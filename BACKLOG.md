@@ -340,6 +340,19 @@ then MAINT-7 per feature, to avoid churn.
       a retry. Acceptance: `npx playwright test
       e2e/navigation.mobile.spec.ts:85 --project=mobile --repeat-each=30`
       passes 30/30.
+- [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
+      `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
+      through the field or the bar"), `mobile` project. Failed in the local
+      `ci:local` gate on PR #499 (`b881bc8`, 2026-10-21), a pixel-equality
+      check on the add bar's screenshot. A locked `--repeat-each=10
+      --workers=1 --project=mobile` run failed 1 of 10 on that branch and
+      1 of 10 on clean `origin/next`, so it flakes at the same rate with
+      nobody's change in it. Likely the screenshot is taken before the bar
+      has settled (caret, focus ring or a late repaint). Fix it in the
+      app or in the test's waiting before the "before" screenshot, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -412,7 +425,7 @@ UX-89.
   UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
+- `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
@@ -509,21 +522,6 @@ UX-89.
       password and shows the error under it with `aria-invalid`. The
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
-
-- [ ] **UX-61. Clearer steps from signup to first login** (impact: med,
-      effort: S) — breaks Usability (fewer steps).
-      - After submit, the card is still titled "Create your household".
-        If the email send fails, a red warning shows inside it.
-      - A valid verify link shows "Verify your email" (an instruction,
-        not an outcome) and a small "Go to dashboard" link that bounces
-        to an empty `/login`
-        (`src/components/auth/verify-email-client.tsx:37-43`).
-      - After a password reset, the login email field is empty too.
-      Signing in straight from the link is UX-135.
-      Acceptance: the post-signup card says "Check your inbox" and names
-      the address. A good verify link says "Email verified" with a
-      primary "Log in" that pre-fills the email. `/login?reset=success`
-      pre-fills the email.
 
 - [ ] **UX-62. A warm join page that says who invited you** (impact:
       med, effort: S) — breaks Consistency and the Squirrel voice. An
@@ -739,26 +737,6 @@ UX-89.
 
 #### Tasks
 
-- [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
-      effort: M) — breaks M6 and Hierarchy.
-      - Rows carry edit and trash icons as well as the swipe tray that
-        already offers both.
-      - With a long assignee name or Swedish recurrence text, the trash
-        wraps to a third line, so about 4 tasks fit on a phone screen.
-      - There's no way to see just your own tasks.
-      Acceptance: at 412 px a one-line task with an assignee badge is at
-      most 56 px, with edit and delete in the swipe tray and the edit
-      sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
-      filter is remembered.
-      Re-landing note: #437 was reverted (#441) because
-      `e2e/task-compact-rows.spec.ts:46` (`mobile`) failed on both attempts
-      in the GitHub `End-to-end (Playwright)` job on release PR #440 (run
-      39329747316): `row.getByText("E2E Tester", { exact: true })` not
-      found in the task row, though it passed locally. Several builder
-      gates failed it too, so it is not runner-specific. The new spec must
-      pass in the GitHub e2e job; do not loosen the 56 px or name
-      assertions.
-
 - [ ] **UX-144. A repeating task's anchor day moves when it is edited**
       (impact: low, effort: S) — follow-up to UX-137, which anchors a
       weekly-or-longer chore on the day the task was created
@@ -888,26 +866,6 @@ UX-89.
 Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
 `tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
 route passes. The popup probe found two phone-only size gaps.
-
-- [ ] **UX-143. Unit and item suggestions are 44 px tall on phones**
-      (impact: med, effort: S) — M-rule break (44 × 44 targets). On the
-      `dialogs-mobile` audit the suggestion rows in the unit pickers
-      (`/dashboard/inventory/items/[id]` "Show suggestions": `pcs`, `g`,
-      `dl` at 168×32) are 32 px high, because `AutocompleteItem`
-      (`src/components/ui/autocomplete.tsx`, the `py-1.5 text-sm` row)
-      lacks the `max-sm:min-h-11 pointer-coarse:min-h-11` that
-      `ComboboxItem` (`src/components/ui/combobox.tsx:137`) already has.
-      The same audit flags the combobox toggle (`ComboboxTrigger`,
-      `combobox.tsx:56/71`) at 44×42 in "Merge into another item…", the
-      shopping list's "Match item" (Inventory item) and personal-budget
-      "Log a shared expense" (Category): `h-full` inside an `h-11` group
-      loses 2 px to the border. Neighbouring suggestion rows are
-      therefore easy to mis-tap in the shop, one-handed.
-      Acceptance: in the `mobile` project, open the unit picker and the
-      Match item dialog; every suggestion row and the combobox toggle
-      measure at least 44 px in both dimensions
-      (`getBoundingClientRect`), and `dialogs-mobile` reports no
-      `smallTargets` for these.
 
 - [ ] **UX-135. Sign in straight from the verification link**
       (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
@@ -1579,6 +1537,32 @@ out to be a product-scope question rather than a scoped task should move to
       an e2e step adds a missing ingredient that has a note from a
       uniquely named recipe and sees the note under the row on the
       shopping list, on desktop and mobile.
+
+### 2026-10-21 scan
+
+- [ ] **GAP-63. Search the month's expenses by what you typed** (impact: med, effort: S) —
+      Splitwise lists "search your full expense history" among its core
+      features; "where did that 340 kr go?" or "what did we pay Clas Ohlson
+      last time?" is the commonest reason to open a ledger. Squirrel's
+      transaction list (`src/components/budget/transaction-list.tsx`) can
+      only be narrowed by category (`categoryFilter`, ~line 294), so
+      finding a row means scrolling the month. Add a "Search" field above
+      the list that filters the already-loaded rows client-side, as the
+      category filter does (nothing refetches), by a case-insensitive
+      substring of the description or category name, and the amount
+      typed as "340" or "340,50" (decimal comma accepted, per the locale
+      helpers). It combines with the category filter, the month's totals
+      stay unchanged, and the empty result says "No expenses match
+      '…'" with a Clear button. Use `type="search"`, `enterKeyHint="search"`,
+      `autoComplete="off"`, a 16 px font and a 44 px field (M-rules); put
+      the term in `?q=` so a reload and the back gesture keep it. Reading
+      only, so no schema or money maths changes. First version covers the
+      month on screen; a cross-month search can follow once there's demand.
+      Acceptance: a unit test for the pure matcher (description, category,
+      amount with comma and dot, empty term, accents); an e2e step creates
+      two uniquely named expenses, types one name in Search, sees only that
+      row, reloads and still sees the filter, clears it and sees both, on
+      desktop and mobile, in `en` and `sv`.
 
 ## Needs a decision before building
 

@@ -2151,7 +2151,11 @@ export const en = {
       confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
-    rowActionsAriaLabel: "More actions for {title}",
+    // UX-106: the "Mine / Everyone" filter above the list.
+    filterLabel: "Show",
+    filterMine: "Mine",
+    filterEveryone: "Everyone",
+    mineEmpty: "Nothing is assigned to you.",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
@@ -2188,6 +2192,8 @@ export const en = {
       cancel: "Cancel",
       save: "Save",
       saving: "Saving…",
+      // UX-106: on a phone the sheet is the visible path to Delete.
+      delete: "Delete",
     },
   },
   budget: {
@@ -3333,6 +3339,8 @@ export const en = {
       submit: "Verify email",
       verifiedDescription: "Your email address has been verified.",
       alreadyVerifiedDescription: "Your email address is already verified.",
+      verifiedTitle: "Email verified",
+      logIn: "Log in",
       goToDashboard: "Go to dashboard",
       dashboardResendLink: "Go to your dashboard to request a new link",
       loginToResendLink: "Log in to request a new link",
@@ -3353,8 +3361,10 @@ export const en = {
       submit: "Create your household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
+      checkInboxTitle: "Check your inbox",
+      accountCreatedTitle: "Account created",
       verificationSentDescription:
-        "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+        "We've sent a verification link to {email}. Open it, then log in to get started.",
       verificationSendFailedDescription:
         "Account created, but we couldn't send the verification email just now. Try resending it below.",
       resend: "Resend verification email",

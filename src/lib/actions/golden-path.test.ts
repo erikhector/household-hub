@@ -389,7 +389,7 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
     const rawToken = verifyUrl.slice(verifyUrl.lastIndexOf("/") + 1);
     expect(verificationToken.token).not.toBe(rawToken);
     const verifyResult = await verifyEmailAction({}, formData({ token: rawToken }));
-    expect(verifyResult).toEqual({ status: "verified" });
+    expect(verifyResult).toEqual({ status: "verified", email: "erik@example.com" });
 
     const verifiedUser = store.users.find((u) => u.id === user.id)!;
     expect(verifiedUser.emailVerifiedAt).toBeInstanceOf(Date);

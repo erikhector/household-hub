@@ -27,7 +27,14 @@ function subscribe() {
   return () => {};
 }
 
-export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
+export function LoginForm({
+  dict,
+  initialEmail,
+}: {
+  dict: Dictionary["auth"]["login"];
+  // UX-61: from `?email=` after verifying an email or resetting a password.
+  initialEmail?: string;
+}) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
   const [resendState, resendFormAction, resendPending] = useActionState(
     resendVerificationEmailForLoginAction,
@@ -65,7 +72,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
               required
               maxLength={254}
               autoComplete="email"
-              defaultValue={kept.values.email}
+              defaultValue={kept.values.email ?? initialEmail}
               className="pl-8"
             />
           </div>

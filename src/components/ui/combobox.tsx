@@ -49,11 +49,14 @@ function ComboboxTrigger({
   children,
   ...props
 }: ComboboxPrimitive.Trigger.Props) {
+  // h-full inside the h-11 group measures 42 px (the group's border takes 2),
+  // so phones set h-11 outright; it overflows the content box by 1 px each
+  // side, centred.
   return (
     <ComboboxPrimitive.Trigger
       data-slot="combobox-trigger"
       className={cn(
-        "flex h-full shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex h-full max-sm:h-11 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -68,7 +71,7 @@ function ComboboxClear({ className, children, ...props }: ComboboxPrimitive.Clea
     <ComboboxPrimitive.Clear
       data-slot="combobox-clear"
       className={cn(
-        "flex h-full shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex h-full max-sm:h-11 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

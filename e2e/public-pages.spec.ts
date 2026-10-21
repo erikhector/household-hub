@@ -124,7 +124,7 @@ test("a logged-out 404 is in Swedish with the Swedish cookie", async ({ page, co
 
 test("signup's button names the same thing as its title", async ({ page }) => {
   await page.goto("/signup");
-  await expect(page.getByText("Create your household").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create your household" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create your household" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Terms of service" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Privacy policy" })).toBeVisible();
