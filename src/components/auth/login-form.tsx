@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useSyncExternalStore } from "react";
+import { useActionState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Mail, Lock, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,13 @@ export function LoginForm({
     () => "",
   );
 
+  // UX-59: the error sits under the password field (the credential that was
+  // rejected, or the one a throttle is waiting on), tied to it for screen
+  // readers, and focus goes back there so a retry is one keystroke away.
+  useEffect(() => {
+    if (state.error) document.getElementById("password")?.focus();
+  }, [state]);
+
   return (
     <div className="flex flex-col gap-4">
       <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
@@ -97,9 +104,15 @@ export function LoginForm({
             autoComplete="current-password"
             showLabel={dict.showPassword}
             hideLabel={dict.hidePassword}
+            aria-invalid={state.error ? true : undefined}
+            aria-describedby={state.error ? "password-error" : undefined}
           />
+          {state.error && (
+            <p id="password-error" role="alert" className="text-sm text-destructive">
+              {state.error}
+            </p>
+          )}
         </div>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
         <Button type="submit" disabled={pending} className="w-full">
           <LogIn className="size-4" />
           <PendingLabel pending={pending} busy={dict.loggingIn} idle={dict.submit} />
