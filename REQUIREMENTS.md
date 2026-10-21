@@ -6300,6 +6300,18 @@ components directly.
   visitor sees "Too many attempts" with a "try again later" message, not
   "Link expired". Covered by `e2e/public-pages.spec.ts` and
   `e2e/item-catalog.spec.ts` (signed-in 404).
+- **Signup to first login (UX-61)**: after `/signup` submits, the card is
+  titled "Check your inbox" and names the address (or "Account created"
+  when the verification email failed to send, with the red warning kept),
+  not "Create your household". `SignupForm` renders the whole card so its
+  title can follow the step. A good `/verify-email/<token>` link ends on
+  "Email verified" with a primary "Log in" button (a signed-in visitor gets
+  "Go to dashboard" instead). `verifyEmailAction` returns the account's
+  `email`, and `resetPasswordAction` redirects to
+  `/login?reset=success&email=…`; `/login` reads `?email=` and pre-fills
+  the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
+  signup card's "Log in" link carries the address too. Covered by
+  `e2e/ux-61.spec.ts`. Signing in straight from the link is UX-135.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;

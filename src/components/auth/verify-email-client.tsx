@@ -2,9 +2,11 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { CheckCircle2, MailCheck, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { verifyEmailAction, type VerifyEmailState } from "@/lib/actions/auth";
+import { loginPath } from "@/lib/login-path";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const initialState: VerifyEmailState = {};
@@ -36,11 +38,20 @@ export function VerifyEmailClient({
 
   if (state.status === "verified" || state.status === "alreadyVerified") {
     return (
-      <StatusCard brand={brand} icon={CheckCircle2} tone="success" title={dict.pageTitle}>
+      <StatusCard brand={brand} icon={CheckCircle2} tone="success" title={dict.verifiedTitle}>
         <p className="text-sm text-muted-foreground">
           {state.status === "verified" ? dict.verifiedDescription : dict.alreadyVerifiedDescription}
         </p>
-        <StatusCardLink href="/dashboard">{dict.goToDashboard}</StatusCardLink>
+        {/* UX-61: the one next step. A signed-in visitor (verifying from
+            the dashboard banner's link) already has a session, so for them
+            it's the dashboard; everyone else logs in with the address
+            pre-filled. */}
+        <Link
+          href={isAuthenticated ? "/dashboard" : loginPath(state.email)}
+          className={buttonVariants({ size: "lg" })}
+        >
+          {isAuthenticated ? dict.goToDashboard : dict.logIn}
+        </Link>
       </StatusCard>
     );
   }

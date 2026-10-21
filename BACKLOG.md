@@ -533,21 +533,6 @@ UX-89.
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
 
-- [ ] **UX-61. Clearer steps from signup to first login** (impact: med,
-      effort: S) — breaks Usability (fewer steps).
-      - After submit, the card is still titled "Create your household".
-        If the email send fails, a red warning shows inside it.
-      - A valid verify link shows "Verify your email" (an instruction,
-        not an outcome) and a small "Go to dashboard" link that bounces
-        to an empty `/login`
-        (`src/components/auth/verify-email-client.tsx:37-43`).
-      - After a password reset, the login email field is empty too.
-      Signing in straight from the link is UX-135.
-      Acceptance: the post-signup card says "Check your inbox" and names
-      the address. A good verify link says "Email verified" with a
-      primary "Log in" that pre-fills the email. `/login?reset=success`
-      pre-fills the email.
-
 - [ ] **UX-62. A warm join page that says who invited you** (impact:
       med, effort: S) — breaks Consistency and the Squirrel voice. An
       invitee's first contact with Squirrel is a bare "Join {household}"
