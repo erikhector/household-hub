@@ -513,26 +513,6 @@ UX-89.
 
 #### Logged out, signup and invites
 
-- [ ] **UX-59. Signup and login errors next to the field, keeping what
-      was typed** (impact: med, effort: M) — breaks Usability ("inline,
-      actionable errors next to the field") and Context.
-      - A password mismatch wipes both password fields, drops focus to
-        `<body>` and shows one generic line above the consent text,
-        with no `aria-invalid` or `aria-describedby`
-        (`signup-form.tsx:157`, `login-form.tsx:95`).
-      - A short password or bad email only gets the browser's native
-        bubble, in the browser's language.
-      - The 8-character minimum is never shown up front.
-      - "An account with that email already exists" offers no Log in or
-        Forgot password link.
-      Server-message translation is MAINT-7. Whether signup should stop
-      revealing that an email exists is a security call, not part of
-      this item.
-      Acceptance: a mismatch keeps the first password, focuses Confirm
-      password and shows the error under it with `aria-invalid`. The
-      password field shows "At least 8 characters" before submit. The
-      duplicate-email error links to Log in and Forgot password.
-
 - [ ] **UX-62. A warm join page that says who invited you** (impact:
       med, effort: S) — breaks Consistency and the Squirrel voice. An
       invitee's first contact with Squirrel is a bare "Join {household}"
