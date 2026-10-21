@@ -546,26 +546,6 @@ UX-89.
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
 
-- [ ] **UX-63. The shared-list page as good as the member view**
-      (impact: med, effort: M) — breaks Consistency and User-centricity
-      (the person you share with is often the one in the shop).
-      `/share/shopping-list/<token>` (`shared-shopping-list-client.tsx`)
-      has:
-      - a flat list in insertion order: no aisle grouping, progress ring,
-        dock or All done;
-      - no brand badge and no sharer;
-      - an amber warning that ticks change "this household's actual
-        shopping list and inventory" (`en.ts:3144`), which is jargon for
-        a non-user;
-      - `sharedShoppingList.footerNote` (`en.ts:3147`) defined but never
-        rendered;
-      - long names clamped to two lines, readable only in a `title`
-        tooltip that phones can't show.
-      Acceptance: the share page shows the brand badge and "Shared by
-      {household}", groups by aisle in the household's store order, shows
-      "n of m" progress and an All done state, and has a neutral one-line
-      banner. Long names can be read in full, and a footer links to `/`.
-
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).

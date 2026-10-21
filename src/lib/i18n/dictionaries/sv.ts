@@ -3399,11 +3399,14 @@ export const sv = {
     notFoundLink: "Gå till Squirrel",
     notFoundDescription:
       "Den här dellänken är ogiltig eller har återkallats. Be den som delade den med dig om en ny.",
-    liveNotice:
-      "Det här sker på riktigt — att bocka av en vara här uppdaterar hushållets faktiska inköpslista och lager direkt.",
-    purchased: "Köpt",
+    liveNotice: "Att bocka av en vara här uppdaterar listan för alla som delar den.",
+    sharedBy: "Delad av {household}",
+    purchased: "I kundvagnen",
     emptyList: "Inget på listan än.",
-    footerNote: "Delad från ett Squirrel-hushåll",
+    allDoneTitle: "Allt klart",
+    allDoneDescription: "Allt på listan är avbockat.",
+    footerNote: "Delad från ett Squirrel-hushåll.",
+    footerLink: "Om Squirrel",
     rateLimited: "För många ändringar i listan. Vänta en stund och försök igen.",
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
   },
