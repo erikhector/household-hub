@@ -3199,6 +3199,8 @@ export const sv = {
       submit: "Verifiera e-post",
       verifiedDescription: "Din e-postadress har verifierats.",
       alreadyVerifiedDescription: "Din e-postadress är redan verifierad.",
+      verifiedTitle: "E-posten är verifierad",
+      logIn: "Logga in",
       goToDashboard: "Gå till översikten",
       dashboardResendLink: "Gå till din översikt för att begära en ny länk",
       loginToResendLink: "Logga in för att begära en ny länk",
@@ -3219,8 +3221,10 @@ export const sv = {
       submit: "Skapa ditt hushåll",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
+      checkInboxTitle: "Kolla din inkorg",
+      accountCreatedTitle: "Kontot är skapat",
       verificationSentDescription:
-        "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
+        "Vi har skickat en verifieringslänk till {email}. Öppna den och logga sedan in för att komma igång.",
       verificationSendFailedDescription:
         "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
       resend: "Skicka verifieringslänk igen",

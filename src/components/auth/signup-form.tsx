@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { User, Home, Mail, Lock, Sparkles, MailCheck, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
@@ -14,6 +15,7 @@ import {
   type SignupState,
   type ResendVerificationForLoginState,
 } from "@/lib/actions/auth";
+import { loginPath } from "@/lib/login-path";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
@@ -43,40 +45,7 @@ export function SignupForm({
   // and email (the passwords still clear — see useKeptFormValues).
   const kept = useKeptFormValues(["displayName", "householdName", "email"]);
 
-  // The account now exists but can't sign in until its email is verified
-  // (see signupAction's doc comment in src/lib/actions/auth.ts) — swap the
-  // form out for this confirmation instead of the old auto-sign-in redirect.
-  if (state.status === "verification-sent") {
-    return (
-      <div className="flex flex-col items-center gap-4 py-2 text-center">
-        {state.emailError ? (
-          <AlertTriangle className="size-10 text-destructive" />
-        ) : (
-          <MailCheck className="size-10 text-muted-foreground" />
-        )}
-        <p className="text-sm text-muted-foreground">
-          {state.emailError
-            ? dict.verificationSendFailedDescription
-            : format(dict.verificationSentDescription, { email: state.email ?? "" })}
-        </p>
-        {resendState.message ? (
-          <p className="text-sm text-muted-foreground">{resendState.message}</p>
-        ) : (
-          <form action={resendFormAction}>
-            <input type="hidden" name="email" value={state.email ?? ""} />
-            <Button type="submit" variant="outline" disabled={resendPending}>
-              {resendPending ? dict.resending : dict.resend}
-            </Button>
-          </form>
-        )}
-        <Link href="/login" className="text-sm font-medium text-primary underline underline-offset-4">
-          {dict.logIn}
-        </Link>
-      </div>
-    );
-  }
-
-  return (
+  const signupForm = (
     <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">{dict.joinHint}</p>
       <div className="flex flex-col gap-2">
@@ -182,5 +151,60 @@ export function SignupForm({
         </Link>
       </p>
     </form>
+  );
+
+  // The account now exists but can't sign in until its email is verified
+  // (see signupAction's doc comment in src/lib/actions/auth.ts) — swap the
+  // form out for this confirmation instead of the old auto-sign-in redirect.
+  // UX-61: the card's title follows the step. Once the account exists it
+  // says what to do next ("Check your inbox"), or just that the account is
+  // made when the email itself failed to send.
+  const sent = state.status === "verification-sent";
+  const title = !sent
+    ? dict.pageTitle
+    : state.emailError
+      ? dict.accountCreatedTitle
+      : dict.checkInboxTitle;
+
+  return (
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle as="h1" className="text-xl">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {sent ? (
+          <div className="flex flex-col items-center gap-4 py-2 text-center">
+            {state.emailError ? (
+              <AlertTriangle className="size-10 text-destructive" />
+            ) : (
+              <MailCheck className="size-10 text-muted-foreground" />
+            )}
+            <p className="text-sm text-muted-foreground">
+              {state.emailError
+                ? dict.verificationSendFailedDescription
+                : format(dict.verificationSentDescription, { email: state.email ?? "" })}
+            </p>
+            {resendState.message ? (
+              <p className="text-sm text-muted-foreground">{resendState.message}</p>
+            ) : (
+              <form action={resendFormAction}>
+                <input type="hidden" name="email" value={state.email ?? ""} />
+                <Button type="submit" variant="outline" disabled={resendPending}>
+                  {resendPending ? dict.resending : dict.resend}
+                </Button>
+              </form>
+            )}
+            <Link
+              href={loginPath(state.email)}
+              className="text-sm font-medium text-primary underline underline-offset-4"
+            >
+              {dict.logIn}
+            </Link>
+          </div>
+        ) : (
+          signupForm
+        )}
+      </CardContent>
+    </Card>
   );
 }

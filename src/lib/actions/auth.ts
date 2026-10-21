@@ -2,6 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { absoluteAppUrl } from "@/lib/app-url";
+import { loginPath } from "@/lib/login-path";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -454,6 +455,9 @@ export async function resetPasswordAction(
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
+  // UX-61: the account's address, carried to /login so the form is
+  // pre-filled after the reset.
+  let resetEmail: string | undefined;
   try {
     const redeemed = await prisma.$transaction(async (tx) => {
       // SEC-8: claim the token first, atomically. The findUnique above is
@@ -467,10 +471,11 @@ export async function resetPasswordAction(
       // passwordChangedAt revokes every session issued before now — the
       // point of a reset is often that someone else has the account (SCALE-H;
       // see src/lib/session.ts).
-      await tx.user.update({
+      const updatedUser = await tx.user.update({
         where: { id: resetToken.userId },
         data: { passwordHash, passwordChangedAt: new Date() },
       });
+      resetEmail = updatedUser?.email;
       // Invalidate any other outstanding reset tokens for this user too —
       // same reasoning as requestPasswordResetAction invalidating old ones
       // up front: a second leaked/older link must stop working once the
@@ -491,7 +496,7 @@ export async function resetPasswordAction(
     return toFriendlyError(error);
   }
 
-  redirect("/login?reset=success");
+  redirect(loginPath(resetEmail, { reset: "success" }));
 }
 
 /**
@@ -503,6 +508,9 @@ export type VerifyEmailErrorCode = "invalid" | "rateLimited" | "generic";
 
 export type VerifyEmailState = {
   status?: "verified" | "alreadyVerified";
+  // UX-61: the verified account's address, so the "Log in" button can
+  // pre-fill it. Only ever the owner of the link's own email.
+  email?: string;
   error?: string;
   code?: VerifyEmailErrorCode;
 };
@@ -554,7 +562,7 @@ export async function verifyEmailAction(
   }
 
   if (verificationToken.user.emailVerifiedAt) {
-    return { status: "alreadyVerified" };
+    return { status: "alreadyVerified", email: verificationToken.user.email };
   }
 
   if (verificationToken.usedAt || verificationToken.expiresAt < new Date()) {
@@ -590,7 +598,7 @@ export async function verifyEmailAction(
     return { ...(await toFriendlyError(error)), code: "generic" };
   }
 
-  return { status: "verified" };
+  return { status: "verified", email: verificationToken.user.email };
 }
 
 export type ResendVerificationState = { error?: string; sent?: boolean };

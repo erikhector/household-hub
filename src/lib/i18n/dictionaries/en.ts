@@ -3333,6 +3333,8 @@ export const en = {
       submit: "Verify email",
       verifiedDescription: "Your email address has been verified.",
       alreadyVerifiedDescription: "Your email address is already verified.",
+      verifiedTitle: "Email verified",
+      logIn: "Log in",
       goToDashboard: "Go to dashboard",
       dashboardResendLink: "Go to your dashboard to request a new link",
       loginToResendLink: "Log in to request a new link",
@@ -3353,8 +3355,10 @@ export const en = {
       submit: "Create your household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
+      checkInboxTitle: "Check your inbox",
+      accountCreatedTitle: "Account created",
       verificationSentDescription:
-        "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+        "We've sent a verification link to {email}. Open it, then log in to get started.",
       verificationSendFailedDescription:
         "Account created, but we couldn't send the verification email just now. Try resending it below.",
       resend: "Resend verification email",
