@@ -204,7 +204,6 @@ describe("signupAction validation", () => {
   it("rejects a missing display name", async () => {
     const result = await signupAction({}, formData({ ...validSignup, displayName: "" }));
     expect(result.error).toBe("Name is required");
-    expect(result.field).toBe("displayName");
     expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
@@ -216,19 +215,11 @@ describe("signupAction validation", () => {
   it("rejects an invalid email", async () => {
     const result = await signupAction({}, formData({ ...validSignup, email: "not-an-email" }));
     expect(result.error).toBe("Enter a valid email");
-    expect(result.field).toBe("email");
   });
 
   it("rejects a password shorter than 8 characters", async () => {
     const result = await signupAction({}, formData({ ...validSignup, password: "short" }));
     expect(result.error).toBe("Password must be at least 8 characters");
-    expect(result.field).toBe("password");
-  });
-
-  it("names Confirm password when the two passwords differ", async () => {
-    const result = await signupAction({}, formData({ ...validSignup, confirmPassword: "something-else" }));
-    expect(result.error).toBe("Passwords do not match");
-    expect(result.field).toBe("confirmPassword");
   });
 });
 
@@ -239,8 +230,6 @@ describe("signupAction behavior", () => {
     const result = await signupAction({}, formData(validSignup));
 
     expect(result.error).toBe("An account with that email already exists");
-    expect(result.field).toBe("email");
-    expect(result.emailTaken).toBe(true);
     expect(transactionMock).not.toHaveBeenCalled();
   });
 

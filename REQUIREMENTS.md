@@ -133,20 +133,6 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   helper text (`aria-describedby`) saying everyone you invite sees this
   name, since the placeholder vanishes on focus.
   `e2e/signup-household-hint.spec.ts` covers it.
-- **Signup and login errors sit next to the field (UX-59)**: the signup
-  form has `noValidate` and checks its own fields on submit
-  (`validateSignupFields` in `src/lib/signup-validation.ts`, messages from
-  `dict.auth.signup`), so a mistake shows in the page's language under its
-  field (`role="alert"`, `aria-invalid`, `aria-describedby`) and focus moves
-  there. Because the action never runs, a password mismatch keeps both
-  password fields and everything else typed. "Password" shows "At least 8
-  characters" up front. `signupAction` repeats the rules and returns
-  `field` (and `emailTaken`) so a server error lands under the same field;
-  "An account with that email already exists" then links to Log in (email
-  pre-filled) and Forgot password. A failed login shows its error under the
-  Password field and focuses it. Server-message translation stays MAINT-7;
-  whether signup reveals that an email exists is untouched.
-  `e2e/auth-inline-errors.spec.ts` covers it.
 - **A warm join page (UX-62)**: `/join/[token]` opens like `/signup`: the
   brand badge, an h1 "{inviter} invited you to {household} on Squirrel", a
   one-line pitch, then the same icon-in-field styling as signup. The
