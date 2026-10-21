@@ -434,7 +434,6 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
-- `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
@@ -717,20 +716,6 @@ UX-89.
 #### Meals and recipes
 
 #### Budgets
-
-- [ ] **UX-111. Split an expense evenly by default** (impact: med,
-      effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
-      (human-only area).
-      - Typing 940 and ticking "Split this expense" shows both shares at
-        0.00 with an instant red "The shares add up to 0.00…", and Add is
-        disabled until "Split evenly" is found. The even split is
-        computed from the amount when the dialog opens
-        (`transaction-dialog.tsx:94`).
-      - In "Log a shared expense" both Paid fields start at 0, though
-        the person logging it nearly always paid.
-      Acceptance: ticking Split with an amount shows an even split with
-      no error. Shares follow the amount until edited. The current user
-      is preselected as payer.
 
 - [ ] **UX-112. A new member sees their shared costs before setting up a
       personal budget** (impact: med, effort: M) — breaks Context (never

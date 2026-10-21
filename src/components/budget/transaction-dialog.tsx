@@ -256,6 +256,12 @@ export function TransactionDialog({
   // amount field (see buildInitialPaidAmounts), so typing the amount after
   // ticking "Split this expense" doesn't leave a stale 0 behind.
   const [paidTouched, setPaidTouched] = useState(false);
+  // UX-111: likewise the shares follow the amount (an even split of it)
+  // until one is edited, so ticking "Split this expense" after typing the
+  // amount, or typing it afterwards, never shows 0.00 shares and a
+  // mismatch error. A saved split (editing, or a template's) is the user's
+  // own numbers, so it starts touched.
+  const [sharesTouched, setSharesTouched] = useState(() => hasSplit(transaction, prefillFromTemplate));
   // UX-13: the description is the dialog's only uncontrolled text field,
   // so it's the one a failed save would otherwise wipe.
   const kept = useKeptFormValues(["description"]);
@@ -320,6 +326,7 @@ export function TransactionDialog({
       ),
     );
     setPaidTouched(false);
+    setSharesTouched(hasSplit(transaction, prefillFromTemplate));
     kept.reset();
     setDate(toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)));
   }
@@ -334,6 +341,7 @@ export function TransactionDialog({
 
   function handleAmountChange(next: string) {
     setAmount(next);
+    if (!sharesTouched) resetToEvenSplit(next);
     if (!isEdit && !paidTouched) {
       setPaidAmounts(buildInitialPaidAmounts(undefined, next, members, currentMemberId));
     }
@@ -501,12 +509,18 @@ export function TransactionDialog({
                   amount={amount}
                   shares={splitAmounts}
                   paid={paidAmounts}
-                  onSharesChange={setSplitAmounts}
+                  onSharesChange={(next) => {
+                    setSplitAmounts(next);
+                    setSharesTouched(true);
+                  }}
                   onPaidChange={(next) => {
                     setPaidAmounts(next);
                     setPaidTouched(true);
                   }}
-                  onSplitEvenly={() => resetToEvenSplit(amount)}
+                  onSplitEvenly={() => {
+                    resetToEvenSplit(amount);
+                    setSharesTouched(false);
+                  }}
                   numberFormat={numberFormat}
                   dict={dict.split}
                 />

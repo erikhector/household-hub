@@ -102,6 +102,12 @@ function defaultPaidAmounts(household: ShareableHousehold | undefined, amount: s
   );
 }
 
+function evenShares(household: ShareableHousehold | undefined, total: string) {
+  const members = household?.members ?? [];
+  const even = evenSplitAmounts(Number(total) || 0, members.length);
+  return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
+}
+
 function prefillSplitAmounts(prefill: SharedExpensePrefill, household: ShareableHousehold | undefined) {
   return Object.fromEntries(
     (household?.members ?? []).map((m) => [m.id, (prefill.splits[m.id] ?? 0).toFixed(2)]),
@@ -152,8 +158,12 @@ export function LogSharedExpenseDialog({
   // See TransactionDialog's identical paidTouched.
   const [paidTouched, setPaidTouched] = useState(false);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
-    prefill ? prefillSplitAmounts(prefill, household) : {},
+    prefill ? prefillSplitAmounts(prefill, household) : evenShares(household, ""),
   );
+  // UX-111: until a share is edited, the shares follow the amount (an even
+  // split of it) instead of sitting at 0.00 with a mismatch error. A due
+  // bill's saved shares are the template's own numbers, so they start touched.
+  const [sharesTouched, setSharesTouched] = useState(!!prefill);
   // This signed-in user's own share of a prefilled due bill (F4) — never the
   // full amount above, which is the whole bill being logged. `undefined`
   // outside the "Log payment" prefill flow, where there's no single "your
@@ -178,11 +188,8 @@ export function LogSharedExpenseDialog({
     setDate(toDateInputValue(defaultDateForMonth(monthKey)));
     setPaidAmounts(defaultPaidAmounts(next, prefill ? String(prefill.amount) : ""));
     setPaidTouched(false);
-    setSplitAmounts(
-      prefill
-        ? prefillSplitAmounts(prefill, next)
-        : Object.fromEntries((next?.members ?? []).map((m) => [m.id, "0.00"])),
-    );
+    setSplitAmounts(prefill ? prefillSplitAmounts(prefill, next) : evenShares(next, ""));
+    setSharesTouched(!!prefill);
   }
 
   function selectHousehold(id: string) {
@@ -191,11 +198,7 @@ export function LogSharedExpenseDialog({
   }
 
   function resetToEvenSplit(total: string) {
-    if (!household) return;
-    const even = evenSplitAmounts(Number(total) || 0, household.members.length);
-    setSplitAmounts(
-      Object.fromEntries(household.members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])),
-    );
+    setSplitAmounts(evenShares(household, total));
   }
 
   const splitCheck = checkSplitForm(amount, splitAmounts, paidAmounts);
@@ -203,6 +206,7 @@ export function LogSharedExpenseDialog({
 
   function handleAmountChange(next: string) {
     setAmount(next);
+    if (!sharesTouched) resetToEvenSplit(next);
     if (!paidTouched) setPaidAmounts(defaultPaidAmounts(household, next));
   }
 
@@ -343,12 +347,18 @@ export function LogSharedExpenseDialog({
               amount={amount}
               shares={splitAmounts}
               paid={paidAmounts}
-              onSharesChange={setSplitAmounts}
+              onSharesChange={(next) => {
+                setSplitAmounts(next);
+                setSharesTouched(true);
+              }}
               onPaidChange={(next) => {
                 setPaidAmounts(next);
                 setPaidTouched(true);
               }}
-              onSplitEvenly={() => resetToEvenSplit(amount)}
+              onSplitEvenly={() => {
+                resetToEvenSplit(amount);
+                setSharesTouched(false);
+              }}
               numberFormat={numberFormat}
               dict={dict.logShared}
             />
