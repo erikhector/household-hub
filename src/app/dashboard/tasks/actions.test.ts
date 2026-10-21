@@ -126,6 +126,7 @@ describe("createTaskAction", () => {
         title: "Water the plants",
         assignedToMemberId: null,
         recurrenceIntervalDays: null,
+        recurrenceAnchorAt: null,
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
       },
@@ -150,6 +151,7 @@ describe("createTaskAction", () => {
         title: "Run the dishwasher",
         assignedToMemberId: "member-2",
         recurrenceIntervalDays: null,
+        recurrenceAnchorAt: null,
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
       },
@@ -172,6 +174,7 @@ describe("createTaskAction", () => {
         title: "Laundry",
         assignedToMemberId: null,
         recurrenceIntervalDays: 3,
+        recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
       },
@@ -204,7 +207,7 @@ describe("updateTaskAction", () => {
 
     expect(householdTaskFindFirstMock).toHaveBeenCalledWith({
       where: { id: "task-in-other-household", householdId: "household-1" },
-      select: { id: true },
+      select: { id: true, recurrenceIntervalDays: true },
     });
     expect(result.error).toBe("Task not found");
     expect(householdTaskUpdateMock).not.toHaveBeenCalled();
@@ -242,6 +245,7 @@ describe("updateTaskAction", () => {
       data: {
         assignedToMemberId: "member-2",
         recurrenceIntervalDays: 3,
+        recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
       },
@@ -299,6 +303,7 @@ describe("updateTaskAction", () => {
       data: {
         assignedToMemberId: null,
         recurrenceIntervalDays: null,
+        recurrenceAnchorAt: null,
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
       },
@@ -322,6 +327,7 @@ describe("toggleTaskCompletedAction", () => {
         previousCompletedAt: true,
         previousCompletedByMemberId: true,
         recurrenceIntervalDays: true,
+        recurrenceAnchorAt: true,
         createdAt: true,
         assignedToMemberId: true,
         rotationMemberIds: true,
@@ -551,6 +557,7 @@ describe("task rotation (GAP-38)", () => {
         title: "Bins",
         assignedToMemberId: "member-2",
         recurrenceIntervalDays: 7,
+        recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: ["member-2", "member-1"],
         rotationPreviousAssigneeId: "member-2",
       },
@@ -643,6 +650,7 @@ describe("task rotation (GAP-38)", () => {
       data: {
         assignedToMemberId: "member-2",
         recurrenceIntervalDays: 7,
+        recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: ["member-1", "member-2"],
         rotationPreviousAssigneeId: "member-2",
       },

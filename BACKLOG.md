@@ -745,21 +745,6 @@ UX-89.
       filters as you type, lists favourites and recently cooked first, and
       shows at least 5 rows at 412 px.
 
-#### Tasks
-
-- [ ] **UX-144. A repeating task's anchor day moves when it is edited**
-      (impact: low, effort: S) — follow-up to UX-137, which anchors a
-      weekly-or-longer chore on the day the task was created
-      (`recurrence.ts`) because it shipped without a schema change. Editing
-      the interval, or wanting "every Thursday" on a task made on a Monday,
-      cannot move that anchor. Add a nullable `recurrenceAnchorAt` on
-      `HouseholdTask` (one migration), set it when a task is created with
-      an interval and whenever its interval is edited, and have
-      `getNextDueDate` read it, falling back to `createdAt` when null.
-      Acceptance: a unit test shows a weekly task whose anchor was reset
-      keeps the new weekday after a late tick; an e2e step edits a weekly
-      task's interval and asserts its next due follows the new anchor.
-
 #### Budgets
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,

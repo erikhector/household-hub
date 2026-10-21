@@ -4,10 +4,16 @@ import { getNextDueDate, isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 const createdAt = new Date("2026-08-01T09:00:00.000Z"); // a Saturday
 const STOCKHOLM = "Europe/Stockholm";
 
-const task = (completedAt: Date | null, recurrenceIntervalDays: number | null, created = createdAt) => ({
+const task = (
+  completedAt: Date | null,
+  recurrenceIntervalDays: number | null,
+  created = createdAt,
+  recurrenceAnchorAt: Date | null = null,
+) => ({
   completedAt,
   recurrenceIntervalDays,
   createdAt: created,
+  recurrenceAnchorAt,
 });
 
 describe("isTaskOpen", () => {
@@ -98,6 +104,24 @@ describe("getNextDueDate", () => {
     expect(getNextDueDate(task(new Date("2026-09-13T12:00:00.000Z"), 1), "Not/AZone")).toEqual(
       new Date("2026-09-14T00:00:00.000Z"),
     );
+  });
+
+  describe("a reset anchor (UX-144)", () => {
+    // Created Saturday 08-01 but re-anchored on Thursday 2026-08-06.
+    const anchor = new Date("2026-08-06T09:00:00.000Z");
+
+    it("a late tick keeps the new weekday, not the creation weekday", () => {
+      // Open since Thu 08-13, done Sat 08-15: still due Thu 08-20.
+      expect(getNextDueDate(task(new Date("2026-08-15T10:00:00.000Z"), 7, createdAt, anchor))).toEqual(
+        new Date("2026-08-20T00:00:00.000Z"),
+      );
+    });
+
+    it("null falls back to createdAt", () => {
+      expect(getNextDueDate(task(new Date("2026-08-15T10:00:00.000Z"), 7, createdAt, null))).toEqual(
+        new Date("2026-08-22T00:00:00.000Z"),
+      );
+    });
   });
 
   describe("weekly tasks keep their anchor day", () => {
