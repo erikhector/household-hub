@@ -154,6 +154,9 @@ export const en = {
     dark: "Dark",
     system: "System",
     toggleLabel: "Switch theme",
+    // UX-51: the shortcut names the theme in use, not the next one.
+    current: "Theme: {theme}",
+    heading: "Appearance",
   },
   notifications: {
     title: "Notifications",
@@ -193,6 +196,8 @@ export const en = {
     english: "English",
     swedish: "Swedish",
     toggleLabel: "Switch language",
+    current: "Language: {language}",
+    heading: "Language",
   },
   // Dashboard-wide banner shown only while the signed-in user's email is
   // unverified (User.emailVerifiedAt is null) — see
@@ -2388,6 +2393,7 @@ export const en = {
     onboarding: {
       title: "Let's set up your budget",
       body: "Shared money for {household}: rent, food, bills. Add a category to start logging income, expenses, and savings — you can always add more later.",
+      currencyLabel: "Amounts show in",
     },
     starterCategories: {
       heading: "Or add a starter set",

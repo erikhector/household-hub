@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#0a0a0a",
     // UX-29: aligned with the dark page ground (globals.css --gradient-end,
   // the per-scheme value layout.tsx's viewport themeColor carries for dark —
-  // the app's default theme) instead of the old fixed brand purple, so the
+  // the app's original look) instead of the old fixed brand purple, so the
   // installed app's task-switcher/splash chrome matches the page behind it.
   theme_color: "#0a0414",
     icons: [

@@ -11,7 +11,7 @@ import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE, type ShellDictionary } from "@/components/dashboard/nav-items";
 import { useLogout } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
-import { THEME_CHOICES } from "@/components/theme/theme-choice";
+import { format } from "@/lib/i18n/format";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
@@ -109,11 +109,9 @@ export function Sidebar({
   const whatsNewActive = isNavItemActive(pathname, "/dashboard/whats-new");
   const notificationsActive = isNavItemActive(pathname, "/dashboard/notifications");
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
-  // Label the toggle with the state it will switch *to* (matching the
-  // locale toggle right next to it, which names the target locale rather
-  // than the active one) instead of the currently active theme.
-  const nextTheme = THEME_CHOICES[(THEME_CHOICES.indexOf(themeChoice) + 1) % THEME_CHOICES.length];
-  const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
+  // UX-51: both buttons name the setting in use ("Theme: Dark", with the
+  // matching icon); a click still moves to the next one.
+  const { toggle: toggleLocale } = useLocaleToggle(locale);
   const { logOut, pending: loggingOut } = useLogout();
 
   function toggle() {
@@ -242,11 +240,11 @@ export function Sidebar({
           label={dict.language.toggleLabel}
           expanded={expanded}
           onClick={toggleLocale}
-          text={nextLocale === "sv" ? dict.language.swedish : dict.language.english}
+          text={format(dict.language.current, { language: locale === "sv" ? dict.language.swedish : dict.language.english })}
         >
           <Languages className="size-4" />
         </FooterButton>
-        <FooterButton label={dict.theme.toggleLabel} expanded={expanded} onClick={cycleTheme} text={dict.theme[nextTheme]}>
+        <FooterButton label={dict.theme.toggleLabel} expanded={expanded} onClick={cycleTheme} text={format(dict.theme.current, { theme: dict.theme[themeChoice] })}>
           <ThemeIcon className="size-4" />
         </FooterButton>
         <FooterButton

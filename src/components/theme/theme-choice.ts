@@ -7,3 +7,8 @@ export type ThemeChoice = (typeof THEME_CHOICES)[number];
 export function isThemeChoice(value: unknown): value is ThemeChoice {
   return typeof value === "string" && (THEME_CHOICES as readonly string[]).includes(value);
 }
+
+// UX-51: the page ground per scheme (globals.css --gradient-end), which the
+// browser chrome follows. layout.tsx lists both for the system scheme;
+// ThemeColorSync overrides them when the visitor's own choice differs.
+export const THEME_COLORS = { light: "#fefcff", dark: "#0a0414" } as const;

@@ -323,7 +323,7 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
     await expect(page.getByRole("listitem").filter({ hasText: recipeName })).toContainText("2 of 2 portions left");
     // Exposed as a button, like the dashboard's other card links
     // (overview.spec.ts): Base UI's Button rendering a Link.
-    await page.getByRole("button", { name: "View meal prep" }).click();
+    await page.getByRole("link", { name: "View meal prep" }).click();
     await expect(page).toHaveURL(/\/dashboard\/meal-planning\?tab=prep$/);
     await expect(batchCard(page, recipeName)).toBeVisible();
 

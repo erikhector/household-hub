@@ -35,6 +35,11 @@ easy for AI coding agents to work in correctly:
   prop (e.g. `<DialogTrigger render={<Button>Add item</Button>} />`), never
   Radix's `asChild` — `asChild` silently leaks through as a DOM attribute and
   produces nested `<button>` hydration errors instead of failing loudly.
+  A `Button` whose `render` element carries an `href` (a `Link` or `<a>`)
+  exposes `role="link"`, not Base UI's default `role="button"`, so a
+  screen reader announces a link for something that navigates (UX-68); e2e
+  finds these with `getByRole("link", …)`. A `role` passed at the call
+  site still wins.
 - **react-hook-form + Zod** are installed for future complex forms; the
   current auth/inventory/shopping forms use React's `useActionState` +
   native `<form action={...}>` directly, which is enough for their shape.
@@ -149,8 +154,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   list (the files MAINT-7 still has to convert; a file that becomes clean
   must be removed from the list), and by `e2e/localised-errors.spec.ts`.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
-  page) carries a `PublicLanguageToggle` button, named after the language
-  it switches to, that calls `setLocaleAction` like the dashboard toggle.
+  page) carries a `PublicLanguageToggle` button that names the language in
+  use ("Language: English", UX-51) and switches to the other, calling
+  `setLocaleAction` like the dashboard toggle (via `useLocaleToggle`, whose
+  async transition keeps the button disabled, dimmed and `aria-busy` until
+  the refreshed page arrives).
   The `locale` cookie is already in `cookie-inventory.ts` as a preference.
   Covered by `e2e/public.spec.ts`.
 - **Passing translations to Client Components**: the convention is to pass
@@ -517,6 +525,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       nothing is measured in the old unit. `updateInventoryItemAction`
       refuses a unit change (other than a respelling like st → pcs) on an
       item with stock or saved conversions and points to "Change unit…".
+      UX-128: for an item with stock the form shows the unit read-only
+      (it still posts, unchanged) with an inline "Change unit…" link to the
+      item page. The one case the form can't see, saved conversions with no
+      stock, stays editable; its refusal comes back with `errorField:
+      "unit"` and shows under the unit field, in view, with the same link,
+      instead of at the foot of the scrolling form.
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's
@@ -1937,9 +1951,21 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `src/lib/currency.ts` (locale-aware decimal separator, always 2
   decimals). `Household.currencyCode` (`String?`, default null) picks the
   label:
-  - **Unset (the default)**: the plain symbol-free number every amount used
-    before GAP-13, so existing households see no change until the owner
-    opts in.
+  - **Unset**: the plain symbol-free number every amount used before
+    GAP-13. Existing households stay here until the owner opts in, and a new
+    household lands here only when no currency can be derived (below).
+  - **New households get a default (UX-73)**: `signupAction` and
+    `createHouseholdAction` set `currencyCode` from
+    `defaultCurrencyForNewHousehold(locale, acceptLanguage)`
+    (`src/lib/currency.ts`): a Swedish-language signup gets `SEK`;
+    otherwise the region of the highest-ranked `Accept-Language` tag
+    (`en-GB` GBP, `en-US` USD, `de-DE` EUR, ...) decides, and a missing
+    region or one outside `SUPPORTED_CURRENCIES` (`en-CA`) stays unset
+    rather than guessing a wrong "$". No schema change. The household
+    budget's first-run card shows it as "Amounts show in" with a select
+    (`OnboardingCurrency`, the same `setHouseholdCurrencyAction`, owner-only,
+    disabled for others and in the read-only view), so a wrong guess is one
+    tap to fix.
   - **Set**: `Intl.NumberFormat`'s `{ style: "currency", currency }`, so the
     locale places the symbol ("1 234,50 kr" in Swedish, "SEK 1,234.50" in
     English). An unrecognised stored code falls back to the plain format
@@ -5782,16 +5808,29 @@ URL and re-fetch on their own; nothing is ever written back.
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
-(`ThemeProvider attribute="class" defaultTheme="dark" enableSystem` in
+(`ThemeProvider attribute="class" defaultTheme={…} enableSystem` in
 `src/app/layout.tsx`), which toggles a `light`/`dark` class on `<html>` and
 handles the flash-of-wrong-theme problem itself (an inline script sets the
 class before first paint, reading its own `localStorage` key — this is the
 same technique, and it's the reason `<html>` has `suppressHydrationWarning`
-and no longer hardcodes a `dark` class). Existing users default to `dark`
-(the app's original look); new visitors can pick any of the three. The
-toggle is `useThemeCycle()` (`src/components/theme/use-theme-cycle.ts`),
-cycling light → dark → system, used in the sidebar (desktop) and bottom
-nav's "More" menu (mobile) — see "Navigation & responsive layout".
+and no longer hardcodes a `dark` class). **UX-51**: a browser with no stored theme follows the
+system's light/dark setting (`defaultTheme` is the signed-in account's saved
+theme, else `"system"`; the `User.theme` column now defaults to `system`, and
+accounts made before keep the `dark` they were given). The browser chrome
+colour follows the page: `layout.tsx`'s `themeColor` lists both schemes by
+media query (`THEME_COLORS` in `theme-choice.ts`) for first paint, and once
+hydrated `ThemeColorSync` writes the resolved theme's colour to every tag, so
+a chosen theme keeps matching chrome when the system scheme flips. The toggle is `useThemeCycle()`
+(`src/components/theme/use-theme-cycle.ts`), cycling light → dark → system,
+used in the sidebar (desktop), the bottom nav's "More" menu (mobile; the menu
+stays open on a theme tap) and, for logged-out visitors, `PublicThemeToggle`
+in the legal footer beside the language toggle. Each shortcut names the
+setting in use ("Theme: Dark" with the matching icon, "Language: English"),
+not the next one. The Profile's Preferences section has the full choice as
+segmented radio groups, Language (English / Svenska) and Appearance (Light /
+Dark / System), in `PreferencesControls`; a language tap checks its segment
+at once (`useOptimistic`) and dims the group until the server has answered
+(M5). `e2e/ux-51.spec.ts` covers it.
 
 Both themes share the same `body` background technique: a
 `radial-gradient(circle, var(--gradient-start), var(--gradient-end))` (set
@@ -6498,6 +6537,8 @@ the locale fallback.
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
+  Signing up writes the same cookie with the current version (UX-74), so a
+  brand-new account starts caught up and its first dashboard shows no dot.
 - Profile has an "About Squirrel" disclosure with the version and a link to
   the page (see "Profile sections" below).
 - **Public**: `/whats-new` shows the same list (`ReleaseList`,
@@ -6513,8 +6554,8 @@ the locale fallback.
 **Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
 `h2` region, instead of eleven loose cards: **Account** (display name,
 email and password as one card with a divider between the three forms, each
-keeping its own Save), **Preferences** (the Swish number; the Appearance and
-Language controls of UX-51 join it here), **Notifications** (push, weekly
+keeping its own Save), **Preferences** (the Language and
+Appearance controls of UX-51, then the Swish number), **Notifications** (push, weekly
 digest, install app) and **Data & privacy** (Export my data; the "About
 Squirrel" version and "Danger zone" account deletion behind native
 `<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
@@ -6977,7 +7018,9 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   feeds from `navigator`/`matchMedia("(display-mode: standalone)")` (plus
   legacy `navigator.standalone`) via `useSyncExternalStore`.
 - **Theme colour.** The root layout sets per-scheme `viewport.themeColor`
-  (light/dark page ground from `globals.css` `--gradient-end`);
+  (light/dark page ground from `globals.css` `--gradient-end`) for first
+  paint; once hydrated, `ThemeColorSync` sets both to the page's colour
+  (UX-51);
   `manifest.ts`'s single `theme_color` carries the dark value, the app's
   default theme, instead of the old fixed brand purple.
 - **Tap highlight and reduced motion.** `globals.css` sets

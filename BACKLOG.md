@@ -258,17 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-34. Flaky: "Copy last week" menuitem not visible in meal-planner-empty-slots** (low, S) —
-      `e2e/meal-planner-empty-slots.spec.ts:76`, `mobile` project. Failed
-      once in the local `ci:local` gate on MAINT-27 (`b4cc843`, 2026-10-19):
-      the "Copy last week" menuitem was not visible after clicking More. It
-      passed 42/42 alone (`--repeat-each=10`) and in the next full gate on
-      the same commit, so it depends on load, probably a click before
-      hydration like MAINT-27. Fix it in the app (when the More menu is
-      interactive) or in the test's waiting, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-35. Flaky: `planner-add-missing` hits a duplicate `MealPlan` week key on mobile** (low, S) —
       `e2e/planner-add-missing.spec.ts:76` and `:82`, `mobile` project.
       Failed in one local `ci:local` gate on the UX-129 branch (`cd0514d`,
@@ -313,7 +302,9 @@ then MAINT-7 per feature, to avoid churn.
       local `ci:local` gate on release PR #470 (`edc55ea`, 2026-10-20):
       CLS 0.0119 against an expected 0, on three shopping-item swipe rows.
       Passed on a re-run of `e2e/motion.spec.ts --project=desktop` on the
-      same commit (8/8), and the GitHub e2e job was green. Find what shifts
+      same commit (8/8), and the GitHub e2e job was green. Seen again in
+      the `ci:local` gate on PR #464 (`815c9ca`, 2026-10-20): CLS 0.012,
+      passed 14/14 on a re-run on the same commit. Find what shifts
       the swipe rows under load and fix it in the app or the spec's
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
@@ -325,12 +316,16 @@ then MAINT-7 per feature, to avoid churn.
       on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
       The assertion at line 91, after `page.reload()`, expected
       `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
-      but received 1 for the whole 5 s. Find which task is still open after
-      the spec's own completions (a late write, or another row in the
-      worker's shared household) and fix it in the app or the spec's setup
-      and waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=desktop --repeat-each=30` passes 30/30.
+      but received 1 for the whole 5 s. Also failed on the `mobile`
+      project in the `ci:local` gate on PR #464 (`fc00440`, 2026-10-20),
+      where another open task appeared in the worker's household mid-test,
+      and passed on re-runs of the same commit. Find which task is still
+      open after the spec's own completions (a late write, or another row
+      in the worker's shared household) and fix it in the app or the
+      spec's setup and waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
+      both the `desktop` and `mobile` projects.
 - [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
       `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
       springs, then moves the row to the cart"), `desktop` project. Failed
@@ -342,6 +337,19 @@ then MAINT-7 per feature, to avoid churn.
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
       --repeat-each=30` passes 30/30.
+- [ ] **MAINT-42. Flaky: bottom-bar label check can't find "More" while it carries an unread badge** (low, S) —
+      `e2e/navigation.mobile.spec.ts:85` ("the bottom bar labels are at
+      least 12 px"), `mobile` project. Failed in the local `ci:local` gate
+      on PR #464 (`6c00cff`, 2026-10-20): the More button read "1 More"
+      (an unread-notification badge left by another spec in the worker's
+      shared household), so `nav.getByText("More", { exact: true })` found
+      nothing. Passed on a re-run of the whole spec on the same commit
+      (8/8). Make the spec independent of other specs' notifications (its
+      own household state, or a locator for the label element itself that
+      still asserts its exact text), never a loosened assertion, a skip or
+      a retry. Acceptance: `npx playwright test
+      e2e/navigation.mobile.spec.ts:85 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -415,7 +423,6 @@ UX-89.
 - `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
-- `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
@@ -465,29 +472,6 @@ UX-89.
       through `PrimaryAction`. An empty week shows one empty state
       ("Add your first dinner" / "Fill the week") instead of seven
       slots. Nothing sits under the FAB at 412 px.
-
-- [ ] **UX-51. Theme and language controls show the current setting;
-      first visits follow the system theme** (impact: med, effort: S) —
-      breaks Accessibility ("respect … system theme") and Consistency.
-      - With no stored theme the app is always dark (`defaultTheme`
-        falls back to `"dark"`, `src/app/layout.tsx:102`), even for a
-        light-mode visitor.
-      - Logged-out pages have no theme control, though REQUIREMENTS
-        "Theming" says new visitors can pick one.
-      - Android shows a near-white `theme-color` (`layout.tsx:84`) over
-        the dark page.
-      - The More menu and sidebar label the theme button with the next
-        theme but show the current theme's icon: a moon beside "System"
-        (`bottom-nav.tsx:70-75,189-194`, `sidebar.tsx:111-116`).
-      - The language button says "Swedish", meaning "switch to Swedish".
-      - The menu closes after each tap, so cycling through three themes
-        takes six taps.
-      - Profile has no language or theme setting at all.
-      Acceptance: a first visit with no stored theme renders the system
-      theme, and the browser chrome colour matches the page in both
-      schemes. Profile has, in its Preferences section (UX-76), "Language" and "Appearance (Light / Dark /
-      System)" segmented controls showing the current value. The
-      menu/sidebar shortcuts show the current state.
 
 - [ ] **UX-52. Bottom bar: one icon style, and keep the colour on the
       active tab** (impact: low, effort: S) — breaks Consistency.
@@ -605,15 +589,6 @@ UX-89.
       Acceptance: the form includes a hidden `autocomplete="username"`
       input holding the account email.
 
-- [ ] **UX-68. Landing calls to action are links, not buttons**
-      (impact: low, effort: S) — breaks Accessibility (real `<a>`
-      semantics). "Log in", "Get started free", "Create your household"
-      and the 404's action render as `<a role="button">` through
-      `Button render={<Link/>}`, so screen readers announce a button that
-      navigates.
-      Acceptance: these expose `role="link"`, and e2e finds them with
-      `getByRole("link", …)`.
-
 #### First run and the overview
 
 - [ ] **UX-69. Getting started: ticked steps, progress, one prompt per
@@ -634,27 +609,6 @@ UX-89.
       overview shows one call to action per feature. "Plan this week's
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
-
-- [ ] **UX-73. New households get a currency from their language**
-      (impact: med, effort: S) — breaks M4 (default what you can derive).
-      `Household.currencyCode` stays null after signup
-      (`prisma/schema.prisma:163`, no migration needed). Every amount in
-      the budgets, shopping prices and recipe costs is a bare number
-      ("+16,028.60", "→500.00") until someone finds the setting in the
-      sixth card on the Household page. Money without a currency looks
-      unfinished and less trustworthy.
-      Acceptance: a household created in sv defaults to SEK, and in en to
-      the browser region's currency where known. Budget onboarding shows
-      it with one tap to change. A new household's safe to spend shows the
-      symbol.
-
-- [ ] **UX-74. No "New update" dot for brand-new users** (impact: low,
-      effort: S) — User-centricity. `hasUnseenRelease(undefined)` is true,
-      so in their first minute a new user gets an unread dot pointing at a
-      changelog of things that "used to" behave differently.
-      Acceptance: signup marks the latest release as seen. Optionally,
-      What's new for a first-week user shows "What Squirrel can do"
-      instead.
 
 #### Profile and household settings
 
@@ -926,15 +880,6 @@ UX-89.
         new household gets none and has to type "dl" or "förp".
       Acceptance: one tap shows common units (st/pcs, g, kg, dl, l, förp)
       plus used ones, as chips or a list.
-
-- [ ] **UX-128. Show a refused unit change next to the field** (impact:
-      med, effort: S) — breaks Usability ("errors next to the field") and
-      M5. Changing Smör from g to kg in Edit and tapping Save appears to do
-      nothing: the refusal ("This item has stock… use Change unit…") is
-      below the fold of the scrolling form, and the field stays editable.
-      Acceptance: for an item with stock, the unit field is read-only with
-      an inline "Change unit…" link, and any refusal shows beside it in
-      view.
 
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.

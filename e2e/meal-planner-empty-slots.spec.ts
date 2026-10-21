@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
 // UX-5 / UX-21: a day with nothing planned in the weekly planner is one
 // "+ Add meal" button that asks for the slot, not four "<slot> + Add meal"
@@ -77,8 +77,8 @@ test("the planner has one control row with the rare actions in a menu", async ({
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
 
   // Previous, next and the ⋯ menu share one row, and the week range is in it.
-  const prev = await page.getByRole("button", { name: "Previous week" }).boundingBox();
-  const next = await page.getByRole("button", { name: "Next week" }).boundingBox();
+  const prev = await page.getByRole("link", { name: "Previous week" }).boundingBox();
+  const next = await page.getByRole("link", { name: "Next week" }).boundingBox();
   const more = page.getByRole("button", { name: "More planner actions" });
   const moreBox = await more.boundingBox();
   expect(Math.abs(prev!.y - next!.y)).toBeLessThan(2);
@@ -92,6 +92,9 @@ test("the planner has one control row with the rare actions in a menu", async ({
   await expect(page.getByRole("button", { name: "Copy last week" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add missing ingredients to shopping list" })).toHaveCount(0);
 
+  // The menu opens through React handlers, so a tap before hydration does
+  // nothing (MAINT-34, as MAINT-27).
+  await expectHydrated(more);
   await more.click();
   await expect(page.getByRole("menuitem", { name: "Copy last week" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Add missing ingredients to shopping list" }).click();

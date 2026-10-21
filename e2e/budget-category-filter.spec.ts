@@ -60,7 +60,7 @@ test("a category on Insights opens Transactions filtered to it", async ({ page, 
   const prev = main.getByRole("link", { name: "Previous month" });
   await expect(prev).toHaveAttribute("href", new RegExp(`tab=transactions&category=${s.aId}`));
 
-  await main.getByRole("button", { name: "Clear filter" }).click();
+  await main.getByRole("link", { name: "Clear filter" }).click();
   await expect(txRow(page, isMobile, `Ticket ${s.tag}`)).toBeVisible();
   await expect(page).not.toHaveURL(/[?&]category=/);
   await expect(main.getByRole("tab", { name: "Transactions" })).toHaveAttribute("aria-selected", "true");
@@ -82,7 +82,7 @@ test("the category select narrows the list, and shows an empty state", async ({ 
   await select.click();
   await page.getByRole("option", { name: s.empty, exact: true }).click();
   await expect(main.getByText(`Nothing logged in ${s.empty} this month.`)).toBeVisible();
-  await main.getByRole("button", { name: "Clear filter" }).click();
+  await main.getByRole("link", { name: "Clear filter" }).click();
   await expect(txRow(page, isMobile, `Milk ${s.tag}`)).toBeVisible();
 });
 
@@ -91,7 +91,7 @@ test("a category id that isn't the household's own is ignored", async ({ page, i
   await page.goto("/dashboard/budget?tab=transactions&category=not-a-category-of-ours");
   await expect(txRow(page, isMobile, `Milk ${s.tag}`)).toBeVisible();
   await expect(txRow(page, isMobile, `Ticket ${s.tag}`)).toBeVisible();
-  await expect(page.getByRole("main").getByRole("button", { name: "Clear filter" })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("link", { name: "Clear filter" })).toHaveCount(0);
 });
 
 test("personal budget: a category on Insights drills into Transactions", async ({ page, isMobile }) => {

@@ -283,7 +283,10 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({
   getDictionary: vi.fn(async () => ({ shoppingList: { defaultNamePrefix: "Shopping list" } })),
   getLocale: vi.fn(async () => "en"),
 }));
-vi.mock("next/headers", () => ({ headers: headersMock }));
+vi.mock("next/headers", () => ({
+  headers: headersMock,
+  cookies: vi.fn(async () => ({ set: vi.fn() })),
+}));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
