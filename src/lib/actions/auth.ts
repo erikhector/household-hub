@@ -14,6 +14,8 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 import { getLocale } from "@/lib/i18n/get-dictionary";
+import { headers } from "next/headers";
+import { defaultCurrencyForNewHousehold } from "@/lib/currency";
 import { logger } from "@/lib/logger";
 import { hashToken } from "@/lib/token-hash";
 import {
@@ -193,6 +195,9 @@ export async function signupAction(
   // the cookie once someone signs in, so leaving the DB default (`en`) here
   // would flip a Swedish signup to an English dashboard on first login.
   const locale = await getLocale();
+  // UX-73: start the household with a currency label derived from the
+  // language and browser region, so amounts aren't bare numbers.
+  const currencyCode = defaultCurrencyForNewHousehold(locale, (await headers()).get("accept-language"));
   let userId: string;
   try {
     userId = await prisma.$transaction(async (tx) => {
@@ -200,7 +205,7 @@ export async function signupAction(
         data: { email, passwordHash, displayName, locale },
       });
       const household = await tx.household.create({
-        data: { name: householdName },
+        data: { name: householdName, currencyCode },
       });
       await tx.householdMember.create({
         data: { userId: user.id, householdId: household.id, role: "OWNER" },

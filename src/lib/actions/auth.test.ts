@@ -51,15 +51,17 @@ const {
   redirectMock,
   getLocaleMock,
   pushSubscriptionDeleteManyMock,
+  txHouseholdCreateMock,
 } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
+  txHouseholdCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-household" })),
   txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
     user: {
       create: txUserCreateMock,
       update: vi.fn(async () => ({})),
     },
-    household: { create: vi.fn(async () => ({ id: "new-household" })) },
+    household: { create: txHouseholdCreateMock },
     householdMember: { create: vi.fn(async () => ({})) },
     passwordResetToken: {
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -277,6 +279,40 @@ describe("signupAction behavior", () => {
 
     expect(txUserCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ email: validSignup.email, locale: "sv" }),
+    });
+  });
+
+  // UX-73: a new household starts with a currency label instead of bare
+  // numbers: SEK for a Swedish signup, the browser region's otherwise.
+  it("gives a Swedish signup's household SEK", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    getLocaleMock.mockImplementation(async () => "sv");
+
+    await signupAction({}, formData(validSignup));
+
+    expect(txHouseholdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: "SEK" }),
+    });
+  });
+
+  it("gives an English signup's household the browser region's currency", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    headersMock.mockResolvedValue(new Map([["host", "localhost:3000"], ["accept-language", "en-GB,en;q=0.9"]]));
+
+    await signupAction({}, formData(validSignup));
+
+    expect(txHouseholdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: "GBP" }),
+    });
+  });
+
+  it("leaves the currency unset when the region is unknown", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    await signupAction({}, formData(validSignup));
+
+    expect(txHouseholdCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ currencyCode: null }),
     });
   });
 
