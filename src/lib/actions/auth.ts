@@ -156,13 +156,6 @@ const UNVERIFIED_LOGIN_MESSAGE =
 
 export type SignupState = {
   error?: string;
-  // UX-59: which input `error` is about, so the form can show it under that
-  // field and focus it. Absent for errors that belong to the whole form
-  // (rate limit, a failed create).
-  field?: "displayName" | "householdName" | "email" | "password" | "confirmPassword";
-  // The email is already registered: the form swaps the bare message for one
-  // with Log in and Forgot password links.
-  emailTaken?: boolean;
   status?: "verification-sent";
   email?: string;
   // Join-via-invite only: the household the new account was added to, so
@@ -176,14 +169,6 @@ export type SignupState = {
   emailError?: boolean;
 };
 
-const SIGNUP_FIELDS = {
-  displayName: true,
-  householdName: true,
-  email: true,
-  password: true,
-  confirmPassword: true,
-} as const;
-
 export async function signupAction(
   _prevState: SignupState,
   formData: FormData,
@@ -196,12 +181,7 @@ export async function signupAction(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const field = issue?.path[0];
-    return {
-      error: issue?.message ?? "Invalid input",
-      ...(typeof field === "string" && field in SIGNUP_FIELDS ? { field: field as keyof typeof SIGNUP_FIELDS } : {}),
-    };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   const { displayName, householdName, email, password } = parsed.data;
 
@@ -211,7 +191,7 @@ export async function signupAction(
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: "An account with that email already exists", field: "email", emailTaken: true };
+    return { error: "An account with that email already exists" };
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
