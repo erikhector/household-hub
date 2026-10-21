@@ -3401,9 +3401,12 @@ export const en = {
     join: {
       invalidTitle: "Invalid invite",
       joinTitle: "Join {name}",
+      invitedBy: "{inviter} invited you to {household} on Squirrel",
+      invitedNoName: "You're invited to {household} on Squirrel",
+      pitch: "Squirrel keeps your household's shopping, meals, tasks and budget in one place.",
+      goToSquirrel: "Go to Squirrel",
       invalidDescription:
         "This invite link is invalid or has expired. Ask a household member to send you a new one.",
-      backToLogin: "Back to log in",
       goToDashboard: "Go to dashboard",
       acceptConsequence:
         "You'll get full access to this household's inventory, shopping lists, meal plans, and budget data.",

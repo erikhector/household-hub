@@ -133,6 +133,17 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   helper text (`aria-describedby`) saying everyone you invite sees this
   name, since the placeholder vanishes on focus.
   `e2e/signup-household-hint.spec.ts` covers it.
+- **A warm join page (UX-62)**: `/join/[token]` opens like `/signup`: the
+  brand badge, an h1 "{inviter} invited you to {household} on Squirrel", a
+  one-line pitch, then the same icon-in-field styling as signup. The
+  inviter comes from `Invitation.invitedById` (set by `createInviteAction`,
+  `ON DELETE SET NULL`); a link made before the column existed, or whose
+  inviter deleted their account, reads "You're invited to {household} on
+  Squirrel". The page is public, so `getInvitationForDisplay` selects the
+  inviter's display name only (never id or email), and only for a valid
+  token. A dead link offers "Go to Squirrel" and "Log in" (a signed-in
+  visitor gets "Go to dashboard"), since the invitee may never have had an
+  account. `e2e/ux-62.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
@@ -3488,6 +3499,10 @@ shape is deliberate:
   `memberSettlements` they paid or received (`direction`, the other
   member's display name, amount, date). Other members' shares and the
   household's full transaction list stay out.
+- `invitationsSent`: the invite links the user made (household name,
+  created, expiry and accepted dates), since UX-62 records who made each
+  link. The `token` is left out: an unused one lets anyone join the
+  household.
 - The response sends `Cache-Control: private, no-store`, so no shared or
   browser cache keeps a copy.
 

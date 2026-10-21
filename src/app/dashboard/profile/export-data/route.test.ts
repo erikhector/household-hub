@@ -23,6 +23,7 @@ const {
   recurringTemplateSplitFindManyMock,
   plannedExpenseSplitFindManyMock,
   memberSettlementFindManyMock,
+  invitationFindManyMock,
 } = vi.hoisted(() => ({
   requireUserIdMock: vi.fn(async () => "user-1"),
   userFindUniqueOrThrowMock: vi.fn(),
@@ -38,6 +39,7 @@ const {
   recurringTemplateSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   plannedExpenseSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   memberSettlementFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  invitationFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -55,6 +57,7 @@ vi.mock("@/lib/prisma", () => ({
     recurringTemplateSplit: { findMany: recurringTemplateSplitFindManyMock },
     plannedExpenseSplit: { findMany: plannedExpenseSplitFindManyMock },
     memberSettlement: { findMany: memberSettlementFindManyMock },
+    invitation: { findMany: invitationFindManyMock },
   },
 }));
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
@@ -349,6 +352,18 @@ describe("GET /dashboard/profile/export-data", () => {
           toMember: member("user-1", "Erik"),
         },
       ]);
+      invitationFindManyMock.mockResolvedValue([
+        {
+          id: "inv-1",
+          token: "invite-bearer-token",
+          householdId: "household-1",
+          invitedById: "user-1",
+          createdAt: fixedNow,
+          expiresAt: fixedNow,
+          acceptedAt: null,
+          household: { name: "The Hectors" },
+        },
+      ]);
     }
 
     // Every key path in the payload, arrays collapsed to their first item.
@@ -470,6 +485,11 @@ describe("GET /dashboard/profile/export-data", () => {
           "memberSettlements[].amount",
           "memberSettlements[].date",
           "memberSettlements[].createdAt",
+          "invitationsSent",
+          "invitationsSent[].householdName",
+          "invitationsSent[].createdAt",
+          "invitationsSent[].expiresAt",
+          "invitationsSent[].acceptedAt",
         ]
       `);
     });
@@ -546,6 +566,24 @@ describe("GET /dashboard/profile/export-data", () => {
       expect(memberSettlementFindManyMock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { OR: [{ fromMember: mine }, { toMember: mine }] } }),
       );
+      expect(invitationFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { invitedById: "user-1" } }),
+      );
+    });
+
+    it("lists the invite links the caller made, without their tokens", async () => {
+      seedEverything();
+      const bodyText = await (await GET()).text();
+
+      expect(JSON.parse(bodyText).invitationsSent).toEqual([
+        {
+          householdName: "The Hectors",
+          createdAt: fixedNow.toISOString(),
+          expiresAt: fixedNow.toISOString(),
+          acceptedAt: null,
+        },
+      ]);
+      expect(bodyText).not.toContain("invite-bearer-token");
     });
   });
 });
