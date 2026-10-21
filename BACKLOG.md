@@ -258,17 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-35. Flaky: `planner-add-missing` hits a duplicate `MealPlan` week key on mobile** (low, S) —
-      `e2e/planner-add-missing.spec.ts:76` and `:82`, `mobile` project.
-      Failed in one local `ci:local` gate on the UX-129 branch (`cd0514d`,
-      2026-10-19) with a unique-constraint error on
-      `MealPlan_householdId_weekStartDate`; the next full gate on the same
-      commit passed. The spec creates the week's plan with a plain insert
-      while the app can create it first. Fix it in the spec's setup (upsert
-      or reuse the existing row) or in the waiting, never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
