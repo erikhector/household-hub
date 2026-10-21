@@ -600,15 +600,6 @@ UX-89.
       Acceptance: the form includes a hidden `autocomplete="username"`
       input holding the account email.
 
-- [ ] **UX-68. Landing calls to action are links, not buttons**
-      (impact: low, effort: S) — breaks Accessibility (real `<a>`
-      semantics). "Log in", "Get started free", "Create your household"
-      and the 404's action render as `<a role="button">` through
-      `Button render={<Link/>}`, so screen readers announce a button that
-      navigates.
-      Acceptance: these expose `role="link"`, and e2e finds them with
-      `getByRole("link", …)`.
-
 #### First run and the overview
 
 - [ ] **UX-69. Getting started: ticked steps, progress, one prompt per
