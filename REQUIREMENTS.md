@@ -4245,11 +4245,11 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   the shopping list's ⋯-menu pattern): it closes as the chosen dialog
   opens, so closing that one, or the phone's back, lands on the planner.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
-  `Recipe` (picked from a `Select`) or a freeform meal name
+  `Recipe` (picked from a searchable list, UX-96) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
   chosen) to a date + `MealType` slot. When the household has a recipe or
   a meal-prep batch to pick, the add dialog opens on that picker with
-  nothing chosen ("Choose a recipe", favourite recipes first) rather than on
+  nothing chosen (an empty "Search recipes" field over the list) rather than on
   "Custom meal…" and an empty name field (M4: pick, don't type); adding
   without a choice gets "Choose a recipe or enter a meal name". With
   nothing to pick it opens on the name field as before. There's no uniqueness constraint on
@@ -4919,8 +4919,21 @@ actually used, once they've cooked it.
 - **One word for portions (UX-95)**: English says "portions" everywhere a
   recipe's yield shows (recipe list and form, per-portion nutrition and
   cost, planner, Mark as cooked, Meal prep); the Prisma column stays
-  `servings`. The add sheet's recipe picker reads "Recipe: Choose a
-  recipe", distinct from the "Meal" slot picker.
+  `servings`.
+- **The add-meal sheet names the day and searches recipes (UX-96)**: the
+  title reads "Add dinner · Mon 12" (the slot currently picked, then the
+  day), so the sheet says what it adds and where. The "Recipe" field is a
+  search input (`role=combobox`) with its list rendered inline in the sheet
+  (`ComboboxInlineList`, `<Combobox inline open>`), not a popup that only
+  got the sliver above the sheet's edge: it filters as you type, shows
+  about five 44 px rows before scrolling, and says "No recipe matches"
+  when empty. Order is "Custom meal…", "From meal prep" (when a batch has
+  portions left), then favourites, then recently cooked recipes
+  (`orderRecipesForPicker`, from `getRecipeCookedStats`, passed down by
+  `PlannerTabSection`), then the rest alphabetically. The typed text is
+  only a filter; the chosen row keeps its check mark. Pinned by
+  `e2e/meal-planner-rows.spec.ts`. The blurred page behind is every
+  sheet's shared backdrop and is unchanged.
 - **Leftovers (GAP-8)**: the dialog has an optional "Portions left over"
   number input, blank by default. Blank or 0 means no leftovers, and
   nothing is ever inferred from `servings` vs `portions` (Guardrails:

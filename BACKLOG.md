@@ -736,17 +736,6 @@ UX-89.
 
 #### Meals and recipes
 
-- [ ] **UX-96. The add-meal sheet names the day and can search recipes**
-      (impact: med, effort: M) — breaks M4 and Context.
-      - "Add a meal" never says which day, and the page behind is
-        blurred.
-      - The recipe field is a plain select whose popup shows about 1.5
-        rows at the bottom of the sheet, with no search and no
-        favourites-first order.
-      Acceptance: the title reads "Add dinner · Mon 12". The recipe field
-      filters as you type, lists favourites and recently cooked first, and
-      shows at least 5 rows at 412 px.
-
 #### Tasks
 
 - [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,

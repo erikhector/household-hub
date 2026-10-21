@@ -43,7 +43,7 @@ async function openAddMeal(page: Page, open: "tap" | "click" = "click") {
   const trigger = page.getByRole("button", { name: /^Add meal, / }).first();
   if (open === "tap") await trigger.tap();
   else await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Add a meal" });
+  const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
   await expect(dialog).toBeVisible();
   return dialog;
 }
