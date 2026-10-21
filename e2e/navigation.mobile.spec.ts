@@ -85,11 +85,26 @@ test("More is marked on pages reached from its menu", async ({ page }) => {
 test("the bottom bar labels are at least 12 px", async ({ page }) => {
   await page.goto("/dashboard");
   const nav = page.getByRole("navigation");
-  for (const name of [en.nav.overview, en.nav.inventory, en.nav.more]) {
+  for (const name of [en.nav.overview, en.nav.inventory]) {
     const size = await nav
       .getByText(name, { exact: true })
       .first()
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(size).toBeGreaterThanOrEqual(12);
   }
+  // More's label is a bare text node inside its button, next to the unread
+  // badge, so the button's whole text reads "1 More" whenever another spec
+  // left a notification in the worker's household. Assert the exact text of
+  // the label node itself instead of the button's combined text.
+  const more = nav.getByRole("button", { name: new RegExp(`${en.nav.more}$`) });
+  const { label, size } = await more.evaluate((el) => ({
+    label: Array.from(el.childNodes)
+      .filter((n) => n.nodeType === Node.TEXT_NODE)
+      .map((n) => n.textContent)
+      .join("")
+      .trim(),
+    size: parseFloat(getComputedStyle(el).fontSize),
+  }));
+  expect(label).toBe(en.nav.more);
+  expect(size).toBeGreaterThanOrEqual(12);
 });

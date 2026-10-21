@@ -28,6 +28,7 @@ import {
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { FillEmptyDaysDialog } from "@/components/meal-planning/fill-empty-days-dialog";
+import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog, type PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
@@ -121,6 +122,7 @@ export function WeekPlanner({
   locale,
   weekStartKey,
   recipes,
+  recipeCooked,
   entries,
   activeShoppingLists,
   batches,
@@ -130,6 +132,8 @@ export function WeekPlanner({
   locale: Locale;
   weekStartKey: string;
   recipes: RecipeData[];
+  // UX-96: orders the add-meal sheet's recipe list.
+  recipeCooked: Record<string, RecipeCookedStats>;
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
   // GAP-49: active meal-prep batches, for the add-meal dialog's
@@ -340,6 +344,7 @@ export function WeekPlanner({
                   dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
                   mealType={openSlot}
                   recipes={recipes}
+                  recipeCooked={recipeCooked}
                   batches={batches}
                 />
               </CardContent>
