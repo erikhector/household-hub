@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalUnit, classifyUnits, convertForItem, defaultLowStockThreshold, convertQuantity, unitLabel, unitLabelForQuantity, unitsAreComparable } from "./units";
+import { canonicalUnit, classifyUnits, convertForItem, defaultLowStockThreshold, convertQuantity, unitLabel, unitLabelForQuantity, unitsAreComparable, withCommonUnits } from "./units";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 
@@ -199,5 +199,14 @@ describe("unitLabelForQuantity (UX-98)", () => {
     expect(unitLabelForQuantity("g", 200, en.units, en.unitsPlural)).toBe("g");
     expect(unitLabelForQuantity("pcs", 4, sv.units, sv.unitsPlural)).toBe("st");
     expect(unitLabelForQuantity("Glug", 4, en.units, en.unitsPlural)).toBe("Glug");
+  });
+});
+
+describe("withCommonUnits", () => {
+  it("gives a new household the common units", () => {
+    expect(withCommonUnits([])).toEqual(["pcs", "g", "kg", "dl", "l", "förp"]);
+  });
+  it("lists the household's own units after them, once each", () => {
+    expect(withCommonUnits(["g", "bunch", "st"])).toEqual(["pcs", "g", "kg", "dl", "l", "förp", "bunch", "st"]);
   });
 });

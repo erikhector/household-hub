@@ -1,3 +1,4 @@
+import { withCommonUnits } from "@/lib/units";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -144,7 +145,7 @@ export default async function ShoppingListDetailPage(
   }));
 
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
-  const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
+  const units = withCommonUnits([...new Set(inventoryItems.map((item) => item.unit))].sort());
   const locations = [
     ...new Set(inventoryItems.flatMap((item) => (item.location?.trim() ? [item.location.trim()] : []))),
   ].sort();

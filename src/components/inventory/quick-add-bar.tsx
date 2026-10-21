@@ -126,6 +126,7 @@ export function QuickAddBar({
             id="quick-add-unit"
             name="unit"
             items={units}
+            browseOnTap
             value={unit}
             onValueChange={setUnit}
             onEnter={() => focusField("quick-add-category")}

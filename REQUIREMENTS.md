@@ -4106,6 +4106,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `comboboxShowSuggestions` beside the other combobox strings), so a
     screen reader no longer announces two bare "button"s per field.
     `e2e/combo-button-names.spec.ts` finds them by role and name.
+  - **Units in one tap (UX-127)**: the unit `ComboField`s (add item, quick
+    add, shopping item form, receipt dialogs) take `browseOnTap`: tapping
+    the field, or its chevron, lists every suggestion even while it holds
+    "pcs" (unfiltered until the user types), so no erasing first. The
+    server pages build the unit suggestions with `withCommonUnits()`
+    (`src/lib/units.ts`): pcs, g, kg, dl, l, förp, then the household's own
+    units, so a new household needn't type "dl". `e2e/unit-one-tap.spec.ts`.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
