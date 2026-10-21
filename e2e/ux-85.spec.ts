@@ -61,12 +61,15 @@ test("a new list can start from a past list's unbought items", async ({ page }) 
   const milk = unique("Milk");
   const bread = unique("Bread");
   await makeList(page, source, [milk, bread]);
-  // Ticked off, so it is "bought" and stays behind.
-  await page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") }).click();
-  await expect(page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") })).toBeChecked();
-  // Reload first so the tick has reached the database before the copy reads it.
-  await page.reload();
-  await expect(page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") })).toBeChecked();
+  // Ticked off, so it is in the cart and stays behind. Wait for the action's
+  // response before leaving, or the navigation can drop the tick.
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
+  );
+  const milkBox = page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") });
+  await milkBox.click();
+  await expect(milkBox).toBeHidden();
+  await saved;
 
   await page.goto("/dashboard/shopping-list");
   await page.getByRole("button", { name: "New list" }).click();
