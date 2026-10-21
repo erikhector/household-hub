@@ -75,7 +75,7 @@ test("a refused unit change shows under the unit field, in view", async ({ page 
   const item = await seedItem(0, true);
   const dialog = await openEdit(page, item.id);
 
-  const unit = dialog.getByRole("textbox", { name: "Unit" });
+  const unit = dialog.getByRole("combobox", { name: "Unit" });
   await expect(unit).toBeEditable();
   await unit.fill("kg");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
