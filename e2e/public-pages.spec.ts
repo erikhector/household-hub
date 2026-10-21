@@ -133,8 +133,18 @@ test("signup's button names the same thing as its title", async ({ page }) => {
 test("the landing page's main button stays on screen in a landscape phone", async ({ page }) => {
   await page.setViewportSize({ width: 915, height: 412 });
   await page.goto("/");
-  const button = page.getByRole("button", { name: "Get started free" });
+  const button = page.getByRole("link", { name: "Get started free" });
   await expect(button).toBeVisible();
   const box = await button.boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(412);
+});
+
+// UX-68: a call to action that navigates is a link to a screen reader, even
+// when it's styled as a button.
+test("the landing page's calls to action are links, not buttons", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Log in" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get started free" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Get started free" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Log in" })).toHaveCount(0);
 });

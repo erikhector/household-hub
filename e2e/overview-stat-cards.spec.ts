@@ -49,9 +49,9 @@ test.describe("the household stat cards", () => {
       await expect(card("Low stock items").getByText("All stocked up")).toBeVisible();
       await expect(card("Low stock items").locator("svg").first()).toBeVisible();
       await expect(card("Shopping lists").getByText("No lists yet — start one")).toBeVisible();
-      await expect(card("Shopping lists").getByRole("button", { name: "Start a list" })).toBeVisible();
+      await expect(card("Shopping lists").getByRole("link", { name: "Start a list" })).toBeVisible();
       await expect(card("Total items tracked").getByText("Nothing tracked yet")).toBeVisible();
-      await expect(card("Total items tracked").getByRole("button", { name: "Add your first item" })).toBeVisible();
+      await expect(card("Total items tracked").getByRole("link", { name: "Add your first item" })).toBeVisible();
       await expectNoHorizontalOverflow(page);
 
       // One low item (already on the list), one out of stock, one list.
@@ -75,17 +75,17 @@ test.describe("the household stat cards", () => {
       await expect(low.getByText("All stocked up")).toHaveCount(0);
       await expect(low.getByText("1 out of stock")).toBeVisible();
       await expect(low.getByText("1 already on your list")).toBeVisible();
-      await expect(low.getByRole("button", { name: "View inventory" })).toBeVisible();
-      await low.getByRole("button", { name: "View inventory" }).click();
+      await expect(low.getByRole("link", { name: "View inventory" })).toBeVisible();
+      await low.getByRole("link", { name: "View inventory" }).click();
       await expect(page).toHaveURL(/\/dashboard\/inventory\?status=low/);
 
       await page.goto("/dashboard");
       // One active list: the card opens it, not the index.
-      await card("Shopping lists").getByRole("button", { name: "Open Weekly" }).click();
+      await card("Shopping lists").getByRole("link", { name: "Open Weekly" }).click();
       await expect(page).toHaveURL(new RegExp(`/dashboard/shopping-list/e2e-sc-list-${tag}$`));
 
       await page.goto("/dashboard");
-      await card("Total items tracked").getByRole("button", { name: "Browse all items" }).click();
+      await card("Total items tracked").getByRole("link", { name: "Browse all items" }).click();
       await expect(page).toHaveURL(/\/dashboard\/inventory$/);
     } finally {
       await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);

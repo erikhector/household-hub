@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { absoluteAppUrl } from "@/lib/app-url";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -17,7 +17,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 import { generateCalendarFeedToken } from "@/lib/calendar-feed";
-import { parseHouseholdCurrency } from "@/lib/currency";
+import { defaultCurrencyForNewHousehold, parseHouseholdCurrency } from "@/lib/currency";
 import { HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX } from "@/lib/household-step-skip";
 import {
   GETTING_STARTED_DISMISS_COOKIE_PREFIX,
@@ -389,11 +389,17 @@ export async function createHouseholdAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
+  // UX-73: same derived starting currency as signupAction.
+  const currencyCode = defaultCurrencyForNewHousehold(
+    await getLocale(),
+    (await headers()).get("accept-language"),
+  );
   let household;
   try {
     household = await prisma.household.create({
       data: {
         name: parsed.data.name,
+        currencyCode,
         members: { create: { userId, role: "OWNER" } },
       },
     });

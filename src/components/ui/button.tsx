@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { isValidElement } from "react"
 import { cn } from "cn"
 
 const buttonVariants = cva(
@@ -49,6 +50,17 @@ const buttonVariants = cva(
   }
 )
 
+// UX-68: Base UI stamps role="button" on any non-native render target, so a
+// Button rendered as a Link announced "button" for something that navigates.
+// A render element carrying an href is a link; say so (a `role` passed at the
+// call site still wins, since props are spread last).
+function isLinkRender(render: ButtonPrimitive.Props["render"]) {
+  return (
+    isValidElement<{ href?: unknown }>(render) &&
+    render.props.href !== undefined
+  )
+}
+
 function Button({
   className,
   variant = "default",
@@ -67,6 +79,7 @@ function Button({
       // site (e.g. rendering onto an actual <button>).
       nativeButton={nativeButton ?? !render}
       render={render}
+      {...(isLinkRender(render) ? { role: "link" } : null)}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

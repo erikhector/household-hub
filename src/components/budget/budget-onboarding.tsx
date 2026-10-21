@@ -12,15 +12,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddCategoryDialog, type CategoryFormAction } from "@/components/budget/category-manager";
 import { StarterCategoryPicker } from "@/components/budget/starter-category-picker";
+import { OnboardingCurrency } from "@/components/budget/onboarding-currency";
 import { format } from "@/lib/i18n/format";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export function BudgetOnboarding({
   dict,
+  currencyDict,
+  locale,
+  currencyCode,
+  canChangeCurrency,
   householdName,
   createCategoryAction,
 }: {
   dict: Dictionary["budget"];
+  // UX-73: the household's currency (derived at signup) with one tap to
+  // change it, so amounts aren't bare numbers from the first screen.
+  currencyDict: Dictionary["household"]["currency"];
+  locale: Locale;
+  currencyCode: string | null;
+  canChangeCurrency: boolean;
   // UX-110: the body says whose shared money this is, by name.
   householdName: string;
   // BUDGET-3 made AddCategoryDialog take its create action as a prop instead
@@ -40,6 +51,13 @@ export function BudgetOnboarding({
           <p className="max-w-md text-sm text-muted-foreground">{format(dict.onboarding.body, { household: householdName })}</p>
           <AddCategoryDialog dict={dict} createAction={createCategoryAction} />
         </div>
+        <OnboardingCurrency
+          currencyCode={currencyCode}
+          canChange={canChangeCurrency}
+          locale={locale}
+          dict={dict.onboarding}
+          currencyDict={currencyDict}
+        />
         <div className="border-t border-primary/20 pt-6">
           <StarterCategoryPicker dict={dict} />
         </div>

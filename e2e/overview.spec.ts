@@ -205,8 +205,8 @@ test("the overview's card buttons line up and keep their chevron inside", async 
   if (testInfo.project.name === "desktop") await page.setViewportSize({ width: 768, height: 1024 });
   await page.goto("/dashboard");
   const main = page.getByRole("main");
-  const inventory = main.getByRole("button", { name: "View inventory" });
-  const shopping = main.getByRole("button", { name: /View shopping lists|Open |Start a list/ });
+  const inventory = main.getByRole("link", { name: "View inventory" });
+  const shopping = main.getByRole("link", { name: /View shopping lists|Open |Start a list/ });
   await expect(shopping).toBeVisible();
 
   const [inv, shop] = [await box(inventory), await box(shopping)];

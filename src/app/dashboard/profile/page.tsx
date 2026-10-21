@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { PreferencesControls } from "@/components/profile/preferences-controls";
 import { UserAvatar } from "@/components/profile/avatar";
 import { DisplayNameForm } from "@/components/profile/display-name-form";
 import { EmailForm } from "@/components/profile/email-form";
@@ -26,7 +27,7 @@ const sectionHeading = "font-heading text-lg font-semibold";
 // Log out as the last thing on the page. One column on phones; two from `lg`
 // up, filling row by row so the DOM order is the phone order.
 export default async function ProfilePage() {
-  const [{ userId }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
+  const [{ userId }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
   const [user, pushSubscriptions] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     // Only what PushNotificationsCard needs to show this browser's quiet
@@ -71,8 +72,14 @@ export default async function ProfilePage() {
           <h2 id="profile-preferences" className={sectionHeading}>
             {dict.profile.sections.preferences}
           </h2>
-          <div className="list-bleed rounded-md border p-4">
-            <SwishNumberForm swishNumber={user.swishNumber} dict={dict.profile.swishForm} />
+          <div className="list-bleed flex flex-col divide-y rounded-md border">
+            {/* UX-51: every choice named, where the menu shortcut only cycles. */}
+            <div className="p-4">
+              <PreferencesControls locale={locale} theme={dict.theme} language={dict.language} />
+            </div>
+            <div className="p-4">
+              <SwishNumberForm swishNumber={user.swishNumber} dict={dict.profile.swishForm} />
+            </div>
           </div>
         </section>
         <section aria-labelledby="profile-notifications" className="flex flex-col gap-3">

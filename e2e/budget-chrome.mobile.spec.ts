@@ -64,7 +64,7 @@ test("the floating Add transaction clears the end of a long list", async ({ page
   await expect(main.getByRole("button", { name: `Row 0 ${tag}` })).toBeVisible();
 
   await main.evaluate((el) => el.scrollTo(0, el.scrollHeight));
-  const exportLink = main.getByRole("button", { name: "Export CSV" });
+  const exportLink = main.getByRole("link", { name: "Export CSV" });
   await expect(exportLink).toBeInViewport();
   expect(await overlaps(add, exportLink), "Add transaction covers Export CSV").toBe(false);
   // The list's last row (structural: the last swipeable row on the tab).
