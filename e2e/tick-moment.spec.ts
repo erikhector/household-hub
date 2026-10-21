@@ -99,6 +99,12 @@ test("ticking a shopping row buzzes 10 ms, springs, then moves the row to the ca
   await page.goto(await seedList(t, [name, `Eggs ${t}`]));
 
   await page.getByRole("checkbox", { name: new RegExp(name) }).click();
+  // The ticked row leaves its aisle ~450 ms after the tap (the spring, then
+  // LEAVE_MS) and lands in the collapsed "In the cart", where `hidden` takes
+  // it out of the accessibility tree. Asserting "checked" on the aisle copy
+  // raced that: under load the first check could run after the row was gone.
+  // Open the cart instead and assert the row's resting place.
+  await page.getByRole("button", { name: /^In the cart/ }).click();
   await expect(page.getByRole("checkbox", { name: new RegExp(name) })).toBeChecked();
   await expect.poll(async () => (await recorded(page)).vibrations).toEqual([10]);
   expect((await recorded(page)).sawTicking).toBe(true);
