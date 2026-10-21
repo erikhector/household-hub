@@ -42,24 +42,33 @@ test.beforeEach(async ({ context, baseURL }, testInfo) => {
        VALUES ($1, $3, $4, 12, 'pcs'), ($2, $3, $5, 2, 'pcs')`,
       [`${recipe}-a`, `${recipe}-b`, recipe, sheets, ricotta],
     );
-    await client.query(`INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)`, [
-      `e2e-plan-${tag}-${week}`,
-      E2E_HOUSEHOLD.id,
-      week,
-    ]);
+    // The app creates a week's MealPlan itself the first time it needs one, and
+    // that row has its own id, so a plain insert collides on
+    // (householdId, weekStartDate) whenever a row for the week already exists
+    // (the flaky mobile failure, MAINT-35). Upsert and hang the entry off
+    // whichever row is there. The no-op DO UPDATE is what makes RETURNING
+    // give back the existing row's id.
+    const plan = await client.query<{ id: string }>(
+      `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
+       ON CONFLICT ("householdId", "weekStartDate") DO UPDATE SET "weekStartDate" = EXCLUDED."weekStartDate"
+       RETURNING id`,
+      [`e2e-plan-${tag}-${week}`, E2E_HOUSEHOLD.id, week],
+    );
     await client.query(
       `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId", portions)
        VALUES ($1, $2, $3, 'DINNER', $4, 4)`,
-      [`e2e-entry-${tag}-${week}`, `e2e-plan-${tag}-${week}`, week, recipe],
+      [`e2e-entry-${tag}-${week}`, plan.rows[0].id, week, recipe],
     );
   });
 });
 
 test.afterEach(async () => {
   await withClient(async (client) => {
-    await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND id LIKE $2`, [
+    // By week, not by our id prefix: a plan the app created for these
+    // far-future weeks has a different id and would otherwise outlive the test.
+    await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::date[])`, [
       E2E_HOUSEHOLD.id,
-      `e2e-plan-${tag}-%`,
+      [EMPTY_WEEK, plannedWeek("mobile"), plannedWeek("desktop")],
     ]);
     await client.query(`DELETE FROM "Recipe" WHERE "householdId" = $1 AND id = $2`, [
       E2E_HOUSEHOLD.id,
