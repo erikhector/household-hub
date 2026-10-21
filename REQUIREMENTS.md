@@ -6526,6 +6526,8 @@ the locale fallback.
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
+  Signing up writes the same cookie with the current version (UX-74), so a
+  brand-new account starts caught up and its first dashboard shows no dot.
 - Profile has an "About Squirrel" disclosure with the version and a link to
   the page (see "Profile sections" below).
 - **Public**: `/whats-new` shows the same list (`ReleaseList`,

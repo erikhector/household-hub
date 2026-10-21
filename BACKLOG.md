@@ -630,14 +630,6 @@ UX-89.
       meals" is a step. Descriptions are at least 14 px and rows show a
       chevron.
 
-- [ ] **UX-74. No "New update" dot for brand-new users** (impact: low,
-      effort: S) — User-centricity. `hasUnseenRelease(undefined)` is true,
-      so in their first minute a new user gets an unread dot pointing at a
-      changelog of things that "used to" behave differently.
-      Acceptance: signup marks the latest release as seen. Optionally,
-      What's new for a first-week user shows "What Squirrel can do"
-      instead.
-
 #### Profile and household settings
 
 - [ ] **UX-77. Deleting your only household: explain instead of a button
