@@ -24,24 +24,29 @@ async function expectAtLeast44(target: Locator, what: string) {
   }
 }
 
-test("unit suggestions are at least 44 px tall", async ({ page }) => {
+test("unit suggestions are at least 44 x 44", async ({ page }) => {
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
   await page.getByRole("button", { name: "More list actions" }).click();
   await page.getByRole("menuitem", { name: "Add item" }).click();
   const dialog = page.getByRole("dialog", { name: "Add an item" });
-  await dialog.getByRole("button", { name: "Show suggestions" }).first().click();
-  const rows = page.locator("[data-slot=autocomplete-item]");
-  await expect(rows.first()).toBeVisible();
-  const count = await rows.count();
-  for (let i = 0; i < count; i++) {
-    // The popup zooms in from 95%, so poll until the animation has settled.
-    await expect
-      .poll(() => rows.nth(i).evaluate((el) => el.getBoundingClientRect().height), {
-        message: `unit suggestion #${i} height`,
-      })
-      // 43.9999 is the animation's last sub-pixel step, not a 43 px row.
-      .toBeGreaterThanOrEqual(43.99);
-  }
+  // The name and unit fields both have a "Show suggestions" button (name
+  // first), so take the one in the unit field's group. The unit input has
+  // no visible label in this dialog; its name comes from the placeholder.
+  await dialog
+    .getByRole("group")
+    .filter({ has: page.getByRole("combobox", { name: "Unit", exact: true }) })
+    .getByRole("button", { name: "Show suggestions" })
+    .click();
+  // A seeded pantry unit, so the test can't pass on the item-name list.
+  await expect(page.getByRole("option", { name: "pcs", exact: true })).toBeVisible();
+  // The popup zooms in from 95%, scaling every row with it until the
+  // animation ends, so measure the settled layout rather than a frame of it.
+  await page
+    .locator("[data-slot=autocomplete-content]")
+    .evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {}))),
+    );
+  await expectAtLeast44(page.locator("[data-slot=autocomplete-item]"), "unit suggestion");
 });
 
 test("the Match item combobox toggle is 44 x 44", async ({ page }) => {
