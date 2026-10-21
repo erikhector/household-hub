@@ -179,7 +179,7 @@ test("a month before the recurring items existed says nothing was due", async ({
   const main = page.getByRole("main");
 
   await page.goto("/dashboard/budget?month=2020-01");
-  await expect(main.getByRole("heading", { name: "Due this period" })).toBeVisible();
+  await expect(main.getByText("Due this period", { exact: true })).toBeVisible();
   await expect(main.getByText("Nothing was due this month", { exact: true })).toBeVisible();
   await expect(main.getByText("Set up recurring bills and income")).toHaveCount(0);
   await expect(main.getByText(name)).toHaveCount(0);

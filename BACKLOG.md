@@ -723,23 +723,6 @@ UX-89.
       adding categories. The shared-expense action has one name and
       placement on both pages.
 
-- [ ] **UX-118. The "Due this period" card: right empty state, one Add
-      placement** (impact: low, effort: S) — breaks Usability and
-      Consistency.
-      - With six recurring items, a past month says "Set up recurring
-        bills and income to see what's due here"
-        (`due-recurring-widget.tsx:177`).
-      - Its ghost "Manage recurring items" reads like a stray label
-        (`:172`).
-      - On Manage, "Add recurring item" and "Add planned bill" sit under
-        their descriptions while "Add category" sits top right.
-      - The expanded safe-to-spend card repeats the Due list right above
-        it.
-      Acceptance: a month before the items existed says "Nothing was due
-      this month". The three "Add …" buttons on Manage share one
-      placement. The Due card's link looks like a link. Due items aren't
-      listed twice.
-
 #### Inventory
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
