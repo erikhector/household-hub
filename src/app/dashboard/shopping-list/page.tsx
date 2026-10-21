@@ -74,20 +74,7 @@ async function ShoppingListsSection({
 export default async function ShoppingListPage() {
   const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
 
-  const [startTemplates, recentLists, inventoryItems, aliases] = await Promise.all([
-    // UX-85: what the New list sheet can start from. Templates by name;
-    // recent lists newest first and only the ones with something to copy.
-    prisma.shoppingListTemplate.findMany({
-      where: { householdId: household.id, items: { some: {} } },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.shoppingList.findMany({
-      where: { householdId: household.id, items: { some: {} } },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: { id: true, name: true },
-    }),
+  const [inventoryItems, aliases] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
       // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
@@ -123,12 +110,7 @@ export default async function ShoppingListPage() {
             aliases={aliases}
           />
           <PrimaryAction>
-            <NewListDialog
-              dict={dict.shoppingList}
-              locale={locale}
-              templates={startTemplates}
-              recentLists={recentLists}
-            />
+            <NewListDialog dict={dict.shoppingList} locale={locale} />
           </PrimaryAction>
         </div>
       </div>

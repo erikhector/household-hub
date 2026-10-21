@@ -17,7 +17,6 @@ import { learnItemAlias } from "@/lib/item-alias";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
-import { buildTemplateItems, resolveTemplateRows, type TemplateItemInput } from "@/lib/shopping/list-templates";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
 import { AUTO_FUZZY_MATCH_MIN_SCORE, createInventoryLinker } from "@/lib/shopping/inventory-link";
 import { getOrCreateDefaultShoppingList, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
@@ -68,12 +67,6 @@ async function findFuzzyInventoryItem(householdId: string, name: string, preload
 
 const createListSchema = z.object({
   name: z.string().trim().max(120, v("listNameTooLong")).optional(),
-  // UX-85: where the new list's rows come from. Anything unrecognised (or
-  // absent, as from an older client) is a blank list.
-  startFrom: z.enum(["blank", "template", "list"]).catch("blank"),
-  templateId: z.string().min(1).optional(),
-  sourceListId: z.string().min(1).optional(),
-  listScope: z.enum(["unbought", "all"]).catch("unbought"),
 });
 
 export async function createShoppingListAction(
@@ -82,82 +75,20 @@ export async function createShoppingListAction(
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  const parsed = createListSchema.safeParse({
-    name: formData.get("name") || undefined,
-    startFrom: formData.get("startFrom") || undefined,
-    templateId: formData.get("templateId") || undefined,
-    sourceListId: formData.get("sourceListId") || undefined,
-    listScope: formData.get("listScope") || undefined,
-  });
+  const parsed = createListSchema.safeParse({ name: formData.get("name") || undefined });
   if (!parsed.success) {
     return await zodFail(parsed.error);
   }
 
   const dict = await getDictionary();
-  const { startFrom, templateId, sourceListId, listScope } = parsed.data;
   let list;
   try {
-    let name = parsed.data.name;
-    let itemRows: ReturnType<typeof resolveTemplateRows> = [];
-
-    if (startFrom !== "blank") {
-      // The id comes from the client, so the source is looked up inside the
-      // caller's household: another household's list or template reads as
-      // "not found", never as a copy of their rows.
-      let source: { name: string; items: TemplateItemInput[] };
-      if (startFrom === "template") {
-        const template = templateId
-          ? await prisma.shoppingListTemplate.findFirst({
-              where: { id: templateId, householdId: household.id },
-              include: { items: { orderBy: { position: "asc" } } },
-            })
-          : null;
-        if (!template) return { error: dict.shoppingList.startFrom.errors.templateNotFound };
-        source = { name: template.name, items: template.items };
-      } else {
-        const past = sourceListId
-          ? await prisma.shoppingList.findFirst({
-              where: { id: sourceListId, householdId: household.id },
-              include: {
-                items: {
-                  where: listScope === "unbought" ? { purchased: false } : undefined,
-                  orderBy: { createdAt: "asc" },
-                },
-              },
-            })
-          : null;
-        if (!past) return { error: dict.shoppingList.startFrom.errors.listNotFound };
-        // Same collapse a template save does (duplicate lines merge), so
-        // "repeat last week's shop" and "save, then use a template" agree.
-        source = { name: past.name, items: buildTemplateItems(past.items) };
-      }
-
-      if (source.items.length > 0) {
-        // Re-linked to inventory exactly like createListFromTemplateAction,
-        // so prices come from lastKnownPrice rather than going stale.
-        const [inventoryItems, aliases] = await Promise.all([
-          prisma.inventoryItem.findMany({
-            where: { householdId: household.id },
-            select: { id: true, name: true, unit: true, lastKnownPrice: true },
-          }),
-          prisma.itemAlias.findMany({
-            where: { householdId: household.id },
-            select: { normalizedName: true, inventoryItemId: true },
-          }),
-        ]);
-        itemRows = resolveTemplateRows(source.items, inventoryItems, aliases);
-      }
-      // A template names the list after itself, as it always has; a past
-      // list gets a dated name, since reusing its name would put two lists
-      // with the same title side by side.
-      if (!name && startFrom === "template") name = source.name;
-    }
-
     list = await prisma.shoppingList.create({
       data: {
         householdId: household.id,
-        name: name || datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
-        ...(itemRows.length > 0 ? { items: { create: itemRows } } : {}),
+        name:
+          parsed.data.name ||
+          datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
       },
     });
   } catch (error) {
@@ -166,46 +97,6 @@ export async function createShoppingListAction(
 
   revalidatePath("/dashboard/shopping-list");
   redirect(`/dashboard/shopping-list/${list.id}`);
-}
-
-const renameListSchema = z.object({
-  listId: z.string().min(1),
-  name: z.string().trim().min(1, v("nameRequired")).max(120, v("listNameTooLong")),
-});
-
-/**
- * UX-85: renames a list from its ⋯ menu. Scoped by household in the write
- * itself; a list that isn't the caller's matches nothing and reads as not
- * found. Any status can be renamed (a finished trip often gets a better
- * name afterwards), and the default "Next shop" list keeps its role
- * whatever it's called, since that's the isDefault flag and not the name.
- */
-export async function renameShoppingListAction(
-  _prevState: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const { household } = await requireHousehold();
-
-  const parsed = renameListSchema.safeParse({
-    listId: formData.get("listId"),
-    name: formData.get("name"),
-  });
-  if (!parsed.success) return await zodFail(parsed.error);
-
-  let count: number;
-  try {
-    ({ count } = await prisma.shoppingList.updateMany({
-      where: { id: parsed.data.listId, householdId: household.id },
-      data: { name: parsed.data.name },
-    }));
-  } catch (error) {
-    return toFriendlyError(error);
-  }
-  if (count === 0) return { error: (await getDictionary()).shoppingList.rename.errors.notFound };
-
-  revalidatePath("/dashboard/shopping-list");
-  revalidatePath(`/dashboard/shopping-list/${parsed.data.listId}`);
-  return {};
 }
 
 export async function archiveShoppingListAction(listId: string): Promise<ActionState> {

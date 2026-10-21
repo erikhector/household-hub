@@ -9,8 +9,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Radio } from "@/components/ui/radio";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -46,35 +44,8 @@ type ShoppingListDict = Dictionary["shoppingList"];
 
 const initialState: ActionState = {};
 
-type StartFrom = "blank" | "template" | "list";
-type ListScope = "unbought" | "all";
-
-export type StartSource = { id: string; name: string };
-
-/**
- * UX-85: the New list sheet. Besides the name it asks where the rows come
- * from (DESIGN.md M4: pick, don't type): nothing, a saved template, or a
- * recent list, with its unbought items or all of them. An option with
- * nothing to offer (no templates, no recent lists) isn't shown, so a
- * first-time household still sees a one-field sheet.
- */
-export function NewListDialog({
-  dict,
-  locale,
-  templates,
-  recentLists,
-}: {
-  dict: ShoppingListDict;
-  locale: Locale;
-  templates: StartSource[];
-  recentLists: StartSource[];
-}) {
+export function NewListDialog({ dict, locale }: { dict: ShoppingListDict; locale: Locale }) {
   const [open, setOpen] = useState(false);
-  const [startFrom, setStartFrom] = useState<StartFrom>("blank");
-  // The first of each is pre-selected, so choosing a source is one tap.
-  const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
-  const [sourceListId, setSourceListId] = useState(recentLists[0]?.id ?? "");
-  const [listScope, setListScope] = useState<ListScope>("unbought");
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -84,47 +55,8 @@ export function NewListDialog({
     return result;
   }, initialState);
 
-  const sd = dict.startFrom;
-  const options: { value: StartFrom; label: string }[] = [
-    { value: "blank", label: sd.blank },
-    ...(templates.length > 0 ? [{ value: "template" as const, label: sd.template }] : []),
-    ...(recentLists.length > 0 ? [{ value: "list" as const, label: sd.recentList }] : []),
-  ];
-  const sourceSelect = (
-    id: string,
-    label: string,
-    sources: StartSource[],
-    value: string,
-    onChange: (value: string) => void,
-  ) => (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Select value={value} onValueChange={(next) => onChange(String(next))}>
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue>{(v: string) => sources.find((source) => source.id === v)?.name ?? v}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {sources.map((source) => (
-            <SelectItem key={source.id} value={source.id}>
-              {source.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) {
-          setStartFrom("blank");
-          setListScope("unbought");
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
           <Button>
@@ -149,51 +81,7 @@ export function NewListDialog({
               maxLength={120}
             />
           </div>
-          {options.length > 1 && (
-            <>
-              <fieldset className="flex flex-col gap-1">
-                <legend className="mb-1 text-sm font-medium">{sd.label}</legend>
-                {options.map((option) => (
-                  <label key={option.value} className="flex min-h-11 items-center gap-3 text-sm">
-                    <Radio
-                      name="startFrom"
-                      value={option.value}
-                      checked={startFrom === option.value}
-                      onChange={() => setStartFrom(option.value)}
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </fieldset>
-              {startFrom === "template" && (
-                <>
-                  {sourceSelect("new-list-template", sd.pickTemplate, templates, templateId, setTemplateId)}
-                  <input type="hidden" name="templateId" value={templateId} />
-                </>
-              )}
-              {startFrom === "list" && (
-                <>
-                  {sourceSelect("new-list-source", sd.pickList, recentLists, sourceListId, setSourceListId)}
-                  <input type="hidden" name="sourceListId" value={sourceListId} />
-                  <fieldset className="flex flex-col gap-1">
-                    <legend className="mb-1 text-sm font-medium">{sd.scopeLabel}</legend>
-                    {(["unbought", "all"] as const).map((scope) => (
-                      <label key={scope} className="flex min-h-11 items-center gap-3 text-sm">
-                        <Radio
-                          name="listScope"
-                          value={scope}
-                          checked={listScope === scope}
-                          onChange={() => setListScope(scope)}
-                        />
-                        {scope === "unbought" ? sd.scopeUnbought : sd.scopeAll}
-                      </label>
-                    ))}
-                  </fieldset>
-                </>
-              )}
-            </>
-          )}
-          {state.error &&<p className="text-sm text-destructive">{state.error}</p>}
+          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
               <PendingLabel pending={pending} busy={dict.creating} idle={dict.create} />
