@@ -449,6 +449,13 @@ export const sv = {
       skip: "Hoppa över det här steget",
       progress: "{done} av {total} klara",
       dismiss: "Dölj Kom igång-kortet",
+      doneStep: "Klart",
+      allSet: {
+        title: "Nu är allt klart",
+        body: "Squirrel har vad det behöver. Ditt hem är igång.",
+        close: "Uppfattat",
+        mascotAlt: "Squirrel-maskot",
+      },
       steps: {
         household: {
           title: "Bjud in ditt hushåll",
@@ -466,9 +473,9 @@ export const sv = {
           title: "Sätt upp hushållets budget",
           description: "Lägg till inkomst- och utgiftskategorier för att börja spåra gemensamma utgifter.",
         },
-        personalBudget: {
-          title: "Spåra din personliga budget",
-          description: "Sätt upp kategorier för pengarna som bara är dina, hållna separat från hushållets.",
+        mealPlan: {
+          title: "Planera veckans måltider",
+          description: "Lägg in några middagar i planeraren så kan Squirrel räkna ut vad som ska köpas.",
         },
       },
     },
@@ -1572,7 +1579,9 @@ export const sv = {
     addMeal: "Lägg till måltid",
     addMealAriaLabel: "Lägg till måltid, {day}",
     todayBadge: "Idag",
-    addMealDialogTitle: "Lägg till en måltid",
+    addMealDialogTitleDay: "Lägg till {meal} · {day}",
+    recipeSearchPlaceholder: "Sök recept",
+    recipeNoMatches: "Inget recept matchar",
     editMealAriaLabel: "Redigera måltid",
     editMealDialogTitle: "Redigera måltid",
     moveMealAriaLabel: "Flytta måltid",
@@ -1583,7 +1592,6 @@ export const sv = {
     mealMovedDifferentWeekToast: "{meal} flyttad till en annan vecka än den du visar",
     recipeLabel: "Recept",
     customMealOption: "Egen måltid…",
-    chooseRecipePlaceholder: "Välj ett recept",
     customMealNameLabel: "Måltidens namn",
     customMealNamePlaceholder: "t.ex. Tacokväll",
     portionsLabel: "Portioner",
@@ -2045,7 +2053,10 @@ export const sv = {
       confirming: "Tar bort…",
     },
     editTaskAriaLabel: "Redigera {title}",
-    rowActionsAriaLabel: "Fler åtgärder för {title}",
+    filterLabel: "Visa",
+    filterMine: "Mina",
+    filterEveryone: "Alla",
+    mineEmpty: "Inget är tilldelat dig.",
     toggleCompleteAriaLabel: "Markera {title} som klar",
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     doneToast: "Klart: {title}",
@@ -2082,6 +2093,7 @@ export const sv = {
       cancel: "Avbryt",
       save: "Spara",
       saving: "Sparar…",
+      delete: "Ta bort",
     },
   },
   budget: {
@@ -2258,6 +2270,10 @@ export const sv = {
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} för idag, månadens sista dag.",
+        other: "≈ {amount} per dag de {count} dagar som är kvar.",
+      },
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
       projectionOver: "Ungefär {amount} över i slutet av månaden.",
@@ -2739,6 +2755,10 @@ export const sv = {
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} för idag, månadens sista dag.",
+        other: "≈ {amount} per dag de {count} dagar som är kvar.",
+      },
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
       projectionOver: "Ungefär {amount} över i slutet av månaden.",
@@ -3199,6 +3219,8 @@ export const sv = {
       submit: "Verifiera e-post",
       verifiedDescription: "Din e-postadress har verifierats.",
       alreadyVerifiedDescription: "Din e-postadress är redan verifierad.",
+      verifiedTitle: "E-posten är verifierad",
+      logIn: "Logga in",
       goToDashboard: "Gå till översikten",
       dashboardResendLink: "Gå till din översikt för att begära en ny länk",
       loginToResendLink: "Logga in för att begära en ny länk",
@@ -3219,8 +3241,10 @@ export const sv = {
       submit: "Skapa ditt hushåll",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
+      checkInboxTitle: "Kolla din inkorg",
+      accountCreatedTitle: "Kontot är skapat",
       verificationSentDescription:
-        "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
+        "Vi har skickat en verifieringslänk till {email}. Öppna den och logga sedan in för att komma igång.",
       verificationSendFailedDescription:
         "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
       resend: "Skicka verifieringslänk igen",

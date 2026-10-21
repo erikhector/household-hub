@@ -669,6 +669,30 @@ describe("resetPasswordAction behavior", () => {
     expect(result.error).toBe("This password reset link is invalid or has expired. Request a new one.");
   });
 
+  // UX-61: the login form is pre-filled after a reset.
+  it("redirects to login with the account's email pre-filled", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue({
+      id: "token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    });
+    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        user: { update: vi.fn(async () => ({ email: "ada+x@example.com" })) },
+        passwordResetToken: {
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          deleteMany: vi.fn(async () => ({ count: 0 })),
+        },
+        pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      }),
+    );
+
+    await expect(resetPasswordAction({}, formData(validReset))).rejects.toThrow(
+      "REDIRECT:/login?reset=success&email=ada%2Bx%40example.com",
+    );
+  });
+
   it("updates the password, marks the token used, and redirects on a valid token", async () => {
     passwordResetTokenFindUniqueMock.mockResolvedValue({
       id: "token-row",
@@ -879,12 +903,12 @@ describe("verifyEmailAction", () => {
       userId: "user-1",
       usedAt: new Date(),
       expiresAt: new Date(Date.now() - 1000),
-      user: { emailVerifiedAt: new Date() },
+      user: { emailVerifiedAt: new Date(), email: "ada@example.com" },
     });
 
     const result = await verifyEmailAction({}, formData(validVerify));
 
-    expect(result).toEqual({ status: "alreadyVerified" });
+    expect(result).toEqual({ status: "alreadyVerified", email: "ada@example.com" });
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
@@ -931,12 +955,12 @@ describe("verifyEmailAction", () => {
       userId: "user-1",
       usedAt: null,
       expiresAt: new Date(Date.now() + 1000 * 60 * 60),
-      user: { emailVerifiedAt: null },
+      user: { emailVerifiedAt: null, email: "ada@example.com" },
     });
 
     const result = await verifyEmailAction({}, formData(validVerify));
 
-    expect(result).toEqual({ status: "verified" });
+    expect(result).toEqual({ status: "verified", email: "ada@example.com" });
     expect(transactionMock).toHaveBeenCalledTimes(1);
   });
 });

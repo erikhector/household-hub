@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { clickRowAction, dismissCookieNotice } from "./ui";
+import { dismissCookieNotice } from "./ui";
 
 // UX-24: one primary (solid) action per view. DESIGN.md's hierarchy rule
 // reads the solid `default` Button as "the" call to action, so the checks
@@ -59,7 +59,8 @@ test("task create and edit dialogs share one footer, and the title can be rename
   await create.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
 
-  await clickRowAction(page, { button: `Edit ${title}`, menu: `More actions for ${title}`, item: "Edit" });
+  // UX-106: the title opens the edit sheet at every width.
+  await page.getByRole("main").getByRole("button", { name: title, exact: true }).click();
   const edit = page.getByRole("dialog");
   await expect(edit.getByRole("button", { name: "Cancel" })).toBeVisible();
   await expect(edit.getByRole("button", { name: "Save", exact: true })).toHaveClass(PRIMARY);

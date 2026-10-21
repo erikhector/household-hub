@@ -148,6 +148,8 @@ export async function createTaskAction(
         householdId: household.id,
         title: parsed.data.title,
         ...resolved.data,
+        // UX-144: a repeating task's anchor day starts as the day it is made.
+        recurrenceAnchorAt: resolved.data.recurrenceIntervalDays === null ? null : new Date(),
       },
     });
   } catch (error) {
@@ -166,7 +168,7 @@ export async function updateTaskAction(
 
   const task = await prisma.householdTask.findFirst({
     where: { id: taskId, householdId: household.id },
-    select: { id: true },
+    select: { id: true, recurrenceIntervalDays: true },
   });
   if (!task) return await fail("taskNotFound");
 
@@ -185,7 +187,18 @@ export async function updateTaskAction(
   try {
     await prisma.householdTask.update({
       where: { id: task.id },
-      data: { ...resolved.data, ...(parsed.data.title !== undefined && { title: parsed.data.title }) },
+      data: {
+        ...resolved.data,
+        ...(parsed.data.title !== undefined && { title: parsed.data.title }),
+        // UX-144: editing the interval re-anchors the schedule on today, which
+        // is how "every Thursday" is set (edit on a Thursday). Saving the same
+        // interval leaves the anchor alone; dropping the repeat clears it.
+        ...(resolved.data.recurrenceIntervalDays === null
+          ? { recurrenceAnchorAt: null }
+          : resolved.data.recurrenceIntervalDays !== (task.recurrenceIntervalDays ?? null) && {
+              recurrenceAnchorAt: new Date(),
+            }),
+      },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -207,6 +220,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       previousCompletedAt: true,
       previousCompletedByMemberId: true,
       recurrenceIntervalDays: true,
+      recurrenceAnchorAt: true,
       createdAt: true,
       assignedToMemberId: true,
       rotationMemberIds: true,

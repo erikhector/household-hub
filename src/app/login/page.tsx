@@ -30,6 +30,10 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const showSessionExpired =
     (Array.isArray(expiredParam) ? expiredParam[0] : expiredParam) === "password";
 
+  // UX-61: pre-fills the email after verifying it or resetting the password.
+  const emailParam = searchParams.email;
+  const initialEmail = (Array.isArray(emailParam) ? emailParam[0] : emailParam)?.slice(0, 254);
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Link
@@ -55,7 +59,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
               {dict.auth.login.sessionExpiredPasswordChanged}
             </p>
           )}
-          <LoginForm dict={dict.auth.login} />
+          <LoginForm dict={dict.auth.login} initialEmail={initialEmail} />
         </CardContent>
       </Card>
       <LegalFooter dict={dict.legal} />

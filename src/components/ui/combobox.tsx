@@ -49,11 +49,14 @@ function ComboboxTrigger({
   children,
   ...props
 }: ComboboxPrimitive.Trigger.Props) {
+  // h-full inside the h-11 group measures 42 px (the group's border takes 2),
+  // so phones set h-11 outright; it overflows the content box by 1 px each
+  // side, centred.
   return (
     <ComboboxPrimitive.Trigger
       data-slot="combobox-trigger"
       className={cn(
-        "flex h-full shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex h-full max-sm:h-11 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -68,7 +71,7 @@ function ComboboxClear({ className, children, ...props }: ComboboxPrimitive.Clea
     <ComboboxPrimitive.Clear
       data-slot="combobox-clear"
       className={cn(
-        "flex h-full shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex h-full max-sm:h-11 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -129,6 +132,35 @@ function ComboboxContent({
   )
 }
 
+// UX-96: the list without a popup, for a picker that sits in a bottom sheet
+// where a popup anchored under the field gets the sliver of screen between
+// the field and the sheet's edge (about 1.5 rows). Used with
+// `<Combobox inline open>`: the list is part of the form, about five rows
+// tall before it scrolls.
+function ComboboxInlineList({
+  className,
+  children,
+  emptyMessage,
+}: {
+  className?: string
+  children: ComboboxPrimitive.List.Props["children"]
+  emptyMessage: React.ReactNode
+}) {
+  return (
+    <div className="rounded-lg border border-input">
+      <ComboboxPrimitive.Empty className="px-2.5 text-sm text-muted-foreground not-empty:py-3">
+        {emptyMessage}
+      </ComboboxPrimitive.Empty>
+      <ComboboxPrimitive.List
+        data-slot="combobox-inline-list"
+        className={cn("max-h-60 overflow-y-auto p-1 empty:hidden", className)}
+      >
+        {children}
+      </ComboboxPrimitive.List>
+    </div>
+  )
+}
+
 function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.Props) {
   return (
     <ComboboxPrimitive.Item
@@ -155,6 +187,7 @@ export {
   Combobox,
   ComboboxClear,
   ComboboxContent,
+  ComboboxInlineList,
   ComboboxInput,
   ComboboxInputGroup,
   ComboboxItem,

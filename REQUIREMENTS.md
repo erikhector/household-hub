@@ -2594,6 +2594,20 @@ Component page function can't itself be unit-tested.
   computes it from the month's transactions; `loadPersonalBudgetPosition`
   returns it as `safeToSpendProjection`, so Personal Budget and the
   dashboard card show the same line.
+- **Daily allowance and labelled chart (UX-117)**: in the current month a
+  line under the headline answers "how much can I spend today?": "≈ N per
+  day for the D days left" (`dailyAllowance` in `src/lib/chart-calc.ts`:
+  the headline divided by the days left *including today*, so the last day
+  reads "≈ N for today, the last day of the month"). No line for a past or
+  future month, or when the headline is zero or negative (the status line
+  already says so; a negative "per day" would read as a target) or
+  non-finite. Unlike the projection it doesn't need any spending yet. The
+  household page computes it; `loadPersonalBudgetPosition` returns it as
+  `safeToSpendDaily` for Personal Budget and the dashboard. The chart's
+  "Today" and "Month end" labels carry their amounts; past the middle of
+  the month "Month end" drops to a second line so the two don't collide.
+  The headline itself still counts to its new value through
+  `AnimatedNumber` after an add. Calm by design: no mascot on money.
 
 ### Household expense splitting
 
@@ -4245,11 +4259,11 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   the shopping list's ⋯-menu pattern): it closes as the chosen dialog
   opens, so closing that one, or the phone's back, lands on the planner.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
-  `Recipe` (picked from a `Select`) or a freeform meal name
+  `Recipe` (picked from a searchable list, UX-96) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
   chosen) to a date + `MealType` slot. When the household has a recipe or
   a meal-prep batch to pick, the add dialog opens on that picker with
-  nothing chosen ("Choose a recipe", favourite recipes first) rather than on
+  nothing chosen (an empty "Search recipes" field over the list) rather than on
   "Custom meal…" and an empty name field (M4: pick, don't type); adding
   without a choice gets "Choose a recipe or enter a meal name". With
   nothing to pick it opens on the name field as before. There's no uniqueness constraint on
@@ -4919,8 +4933,21 @@ actually used, once they've cooked it.
 - **One word for portions (UX-95)**: English says "portions" everywhere a
   recipe's yield shows (recipe list and form, per-portion nutrition and
   cost, planner, Mark as cooked, Meal prep); the Prisma column stays
-  `servings`. The add sheet's recipe picker reads "Recipe: Choose a
-  recipe", distinct from the "Meal" slot picker.
+  `servings`.
+- **The add-meal sheet names the day and searches recipes (UX-96)**: the
+  title reads "Add dinner · Mon 12" (the slot currently picked, then the
+  day), so the sheet says what it adds and where. The "Recipe" field is a
+  search input (`role=combobox`) with its list rendered inline in the sheet
+  (`ComboboxInlineList`, `<Combobox inline open>`), not a popup that only
+  got the sliver above the sheet's edge: it filters as you type, shows
+  about five 44 px rows before scrolling, and says "No recipe matches"
+  when empty. Order is "Custom meal…", "From meal prep" (when a batch has
+  portions left), then favourites, then recently cooked recipes
+  (`orderRecipesForPicker`, from `getRecipeCookedStats`, passed down by
+  `PlannerTabSection`), then the rest alphabetically. The typed text is
+  only a filter; the chosen row keeps its check mark. Pinned by
+  `e2e/meal-planner-rows.spec.ts`. The blurred page behind is every
+  sheet's shared backdrop and is unchanged.
 - **Leftovers (GAP-8)**: the dialog has an optional "Portions left over"
   number input, blank by default. Blank or 0 means no leftovers, and
   nothing is ever inferred from `servings` vs `portions` (Guardrails:
@@ -5532,7 +5559,7 @@ co-managers, not kids earning rewards.
 
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
-  `completedByMemberId`, nullable `recurrenceIntervalDays`,
+  `completedByMemberId`, nullable `recurrenceIntervalDays`, nullable `recurrenceAnchorAt`,
   `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
   `assignedToMemberId`/`completedByMemberId` are two independent, both-
@@ -5568,8 +5595,13 @@ co-managers, not kids earning rewards.
   day: occurrences fall on the anchor's local day and every N days after
   it, and a tick (late, or early because the chore was already open) closes
   only the occurrence it falls in, so a Saturday chore done on Thursday is
-  still a Saturday chore. The anchor is the local day the task was created
-  (no column, so editing a task does not move it). "Local" is the
+  still a Saturday chore. The anchor is the local day in
+  `HouseholdTask.recurrenceAnchorAt` (UX-144): set when a task is created
+  with an interval and re-set to the day of the edit whenever its interval
+  changes (cleared when the repeat is removed; saving the same interval
+  leaves it), so "every Thursday" is a matter of editing the task on a
+  Thursday. Null (rows from before the column) reads `createdAt`.
+  `task-anchor-day.spec.ts` covers the edit. "Local" is the
   visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
   `time_zone` cookie equal to it and refreshes once when it changes;
   `getTimeZone()` (`src/lib/get-time-zone.ts`) reads it, falling back to
@@ -5671,6 +5703,24 @@ co-managers, not kids earning rewards.
   older" button under the Completed rows (toggles to "Hide older"); nothing
   is deleted. Repeating tasks never collapse. The open/closed state is
   per-visit, not stored (`e2e/task-caught-up.spec.ts`).
+- **Compact rows, and a Mine filter (UX-106)**: a task row is one line on a
+  phone, checkbox, title and assignee badge, at most 56 px (about eight tasks
+  a screen, up from four). Repeat, next due, whose turn and who did it wrap
+  in a small line under the title instead of pushing the actions onto a
+  second and third line, and a long assignee name is cut short (full name as
+  the tooltip). Below `sm` the row carries neither Edit and Delete icons nor
+  a ⋯: Edit and Delete are in the swipe tray, and the edit sheet (a tap on
+  the title) has a quiet **Delete** button that closes the sheet and hands
+  over to the row's own trash button, so the same confirm dialog opens
+  (M7: the sheet is the visible path). From `sm` up the icons stay.
+  Above the list, in a household of two or more, an **Everyone / Mine**
+  toggle (`aria-pressed` buttons) shows only the tasks assigned to you
+  (`filterTasks`, `src/app/dashboard/tasks/task-filter.ts`: open or
+  completed; unassigned tasks only show under Everyone). The weekly recap
+  stays household-wide. The choice is remembered per device in localStorage
+  under `tasks.filter` (`TASKS_FILTER_STORAGE_KEY`, listed on the privacy
+  page; `useLocalPreference`). Nothing stored means Everyone, so a first
+  visit never hides a task (`e2e/task-compact-rows.spec.ts`).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -6188,9 +6238,20 @@ components directly.
   `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
 - **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
   leads with today (the Today block, UX-70, then your budget), so the "Get set up" card
-  (`src/components/dashboard/getting-started.tsx`) stays short: it lists only
-  the steps still open and counts the finished (or skipped) ones in one
-  "3 of 5 done" line, and disappears on its own once every step is done.
+  (`src/components/dashboard/getting-started.tsx`) stays short.
+  **UX-69**: every step is a row with a chevron and a 14 px description;
+  open ones come first, finished (or skipped) ones stay below as ticked
+  rows (title only), all under an "N of M done" `progressbar`. The steps are
+  household, pantry, shopping list, "Plan this week's meals" (done once the
+  household has any meal plan entry) and household budget. There is no
+  personal-budget step: the "Your budget" card below is that feature's one
+  call to action. When the last step is done the card gives way to a
+  one-off "You're all set" mascot moment
+  (`src/components/dashboard/getting-started-all-set.tsx`, entrance
+  animation `motion-safe:` only), which records the per-browser,
+  per-household cookie `getting_started_done_<householdId>` (1 year, via
+  `markGettingStartedCelebratedAction`, listed in `cookie-inventory.ts`)
+  so it never shows again; it stays until closed or navigated away from.
   Its `X` ("Hide the setup card") hides it for good via
   `dismissGettingStartedAction` (`src/lib/actions/household.ts`), a
   per-browser, per-household cookie (`getting_started_dismissed_<householdId>`,
@@ -6282,6 +6343,18 @@ components directly.
   visitor sees "Too many attempts" with a "try again later" message, not
   "Link expired". Covered by `e2e/public-pages.spec.ts` and
   `e2e/item-catalog.spec.ts` (signed-in 404).
+- **Signup to first login (UX-61)**: after `/signup` submits, the card is
+  titled "Check your inbox" and names the address (or "Account created"
+  when the verification email failed to send, with the red warning kept),
+  not "Create your household". `SignupForm` renders the whole card so its
+  title can follow the step. A good `/verify-email/<token>` link ends on
+  "Email verified" with a primary "Log in" button (a signed-in visitor gets
+  "Go to dashboard" instead). `verifyEmailAction` returns the account's
+  `email`, and `resetPasswordAction` redirects to
+  `/login?reset=success&email=…`; `/login` reads `?email=` and pre-fills
+  the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
+  signup card's "Log in" link carries the address too. Covered by
+  `e2e/ux-61.spec.ts`. Signing in straight from the link is UX-135.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -7106,11 +7179,12 @@ Todoist-style. Built as one shared wrapper,
   the button the deliberate one.
 - **No action shows twice on a phone.** Below `sm`, a swipeable row
   doesn't also show Edit and Delete icons: they sit behind the row's ⋯
-  menu instead. Task and shopping rows get `RowActionsMenu`
+  menu instead. Shopping rows get `RowActionsMenu`
   (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
-  `sm` up the icons show as before.
+  `sm` up the icons show as before. Task rows have no ⋯ at all (UX-106):
+  the edit sheet has a Delete button instead.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
   swipe only takes over once the finger has moved 8 px more sideways than
@@ -7344,6 +7418,13 @@ approximating them, so the email never disagrees with the app.
   `text-sm` or a raw `<input>`. Covered
   by `e2e/form-control-sizes.mobile.spec.ts`, which also runs on the
   `landscape` and `tablet` projects.
+- Suggestion rows and combobox buttons are 44 px on touch screens (UX-143):
+  `AutocompleteItem` has `max-sm:min-h-11 pointer-coarse:min-h-11` like
+  `ComboboxItem`, and `ComboboxTrigger`/`ComboboxClear` set `h-11` there
+  (`h-full` in the `h-11` group measured 42 px after the border; no picker
+  renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
+  `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
+  Match item toggle.
 - Comboboxes keep their value readable on phones. An autocomplete field
   shows one 44 px button at a time below `sm`: the chevron while it's
   empty, the clear (×) once it has a value (clearing brings the chevron

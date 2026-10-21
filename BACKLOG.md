@@ -326,29 +326,18 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
       both the `desktop` and `mobile` projects.
-- [ ] **MAINT-41. Flaky: shopping tick moment can't find the checked row** (low, S) —
-      `e2e/tick-moment.spec.ts:96` ("ticking a shopping row buzzes 10 ms,
-      springs, then moves the row to the cart"), `desktop` project. Failed
-      in the local `ci:local` gate on release PR #477 (`d16c164`,
-      2026-10-20): `toBeChecked()` then "element(s) not found". Passed on a
-      re-run of the whole spec on the same commit (10/10), and the GitHub
-      e2e job was green. Find what makes the row disappear or re-render
-      before the assertion under load and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/tick-moment.spec.ts:96 --project=desktop
-      --repeat-each=30` passes 30/30.
-- [ ] **MAINT-42. Flaky: bottom-bar label check can't find "More" while it carries an unread badge** (low, S) —
-      `e2e/navigation.mobile.spec.ts:85` ("the bottom bar labels are at
-      least 12 px"), `mobile` project. Failed in the local `ci:local` gate
-      on PR #464 (`6c00cff`, 2026-10-20): the More button read "1 More"
-      (an unread-notification badge left by another spec in the worker's
-      shared household), so `nav.getByText("More", { exact: true })` found
-      nothing. Passed on a re-run of the whole spec on the same commit
-      (8/8). Make the spec independent of other specs' notifications (its
-      own household state, or a locator for the label element itself that
-      still asserts its exact text), never a loosened assertion, a skip or
-      a retry. Acceptance: `npx playwright test
-      e2e/navigation.mobile.spec.ts:85 --project=mobile --repeat-each=30`
+- [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
+      `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
+      through the field or the bar"), `mobile` project. Failed in the local
+      `ci:local` gate on PR #499 (`b881bc8`, 2026-10-21), a pixel-equality
+      check on the add bar's screenshot. A locked `--repeat-each=10
+      --workers=1 --project=mobile` run failed 1 of 10 on that branch and
+      1 of 10 on clean `origin/next`, so it flakes at the same rate with
+      nobody's change in it. Likely the screenshot is taken before the bar
+      has settled (caret, focus ring or a late repaint). Fix it in the
+      app or in the test's waiting before the "before" screenshot, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
       passes 30/30.
 
 ### UX (2026-09-26 scout)
@@ -420,9 +409,8 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
+- `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
@@ -520,21 +508,6 @@ UX-89.
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
 
-- [ ] **UX-61. Clearer steps from signup to first login** (impact: med,
-      effort: S) — breaks Usability (fewer steps).
-      - After submit, the card is still titled "Create your household".
-        If the email send fails, a red warning shows inside it.
-      - A valid verify link shows "Verify your email" (an instruction,
-        not an outcome) and a small "Go to dashboard" link that bounces
-        to an empty `/login`
-        (`src/components/auth/verify-email-client.tsx:37-43`).
-      - After a password reset, the login email field is empty too.
-      Signing in straight from the link is UX-135.
-      Acceptance: the post-signup card says "Check your inbox" and names
-      the address. A good verify link says "Email verified" with a
-      primary "Log in" that pre-fills the email. `/login?reset=success`
-      pre-fills the email.
-
 - [ ] **UX-62. A warm join page that says who invited you** (impact:
       med, effort: S) — breaks Consistency and the Squirrel voice. An
       invitee's first contact with Squirrel is a bare "Join {household}"
@@ -591,24 +564,6 @@ UX-89.
 
 #### First run and the overview
 
-- [ ] **UX-69. Getting started: ticked steps, progress, one prompt per
-      feature, and a finish moment** (impact: med, effort: S) — breaks
-      Hierarchy and M6, and misses a delight moment.
-      - Finished steps vanish and the card silently disappears at the end
-        (`src/components/dashboard/getting-started.tsx:50-51`).
-      - "Track your personal budget" and the "Set up your personal
-        budget" card (`src/app/dashboard/page.tsx:133,216-244`) sit
-        stacked: two of the three blocks on the first screen push the
-        same optional feature.
-      - Meals, recipes and tasks have no step.
-      - Rows have no chevron, and descriptions are 12 px (`:89`), below
-        the 14 px floor.
-      Acceptance: finished steps stay as ticked rows under an "N of M"
-      progress bar. Completing the last step shows a short mascot "You're
-      all set" moment once (no animation under reduced motion). The
-      overview shows one call to action per feature. "Plan this week's
-      meals" is a step. Descriptions are at least 14 px and rows show a
-      chevron.
 
 #### Profile and household settings
 
@@ -736,52 +691,6 @@ UX-89.
 
 #### Meals and recipes
 
-- [ ] **UX-96. The add-meal sheet names the day and can search recipes**
-      (impact: med, effort: M) — breaks M4 and Context.
-      - "Add a meal" never says which day, and the page behind is
-        blurred.
-      - The recipe field is a plain select whose popup shows about 1.5
-        rows at the bottom of the sheet, with no search and no
-        favourites-first order.
-      Acceptance: the title reads "Add dinner · Mon 12". The recipe field
-      filters as you type, lists favourites and recently cooked first, and
-      shows at least 5 rows at 412 px.
-
-#### Tasks
-
-- [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
-      effort: M) — breaks M6 and Hierarchy.
-      - Rows carry edit and trash icons as well as the swipe tray that
-        already offers both.
-      - With a long assignee name or Swedish recurrence text, the trash
-        wraps to a third line, so about 4 tasks fit on a phone screen.
-      - There's no way to see just your own tasks.
-      Acceptance: at 412 px a one-line task with an assignee badge is at
-      most 56 px, with edit and delete in the swipe tray and the edit
-      sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
-      filter is remembered.
-      Re-landing note: #437 was reverted (#441) because
-      `e2e/task-compact-rows.spec.ts:46` (`mobile`) failed on both attempts
-      in the GitHub `End-to-end (Playwright)` job on release PR #440 (run
-      39329747316): `row.getByText("E2E Tester", { exact: true })` not
-      found in the task row, though it passed locally. Several builder
-      gates failed it too, so it is not runner-specific. The new spec must
-      pass in the GitHub e2e job; do not loosen the 56 px or name
-      assertions.
-
-- [ ] **UX-144. A repeating task's anchor day moves when it is edited**
-      (impact: low, effort: S) — follow-up to UX-137, which anchors a
-      weekly-or-longer chore on the day the task was created
-      (`recurrence.ts`) because it shipped without a schema change. Editing
-      the interval, or wanting "every Thursday" on a task made on a Monday,
-      cannot move that anchor. Add a nullable `recurrenceAnchorAt` on
-      `HouseholdTask` (one migration), set it when a task is created with
-      an interval and whenever its interval is edited, and have
-      `getNextDueDate` read it, falling back to `createdAt` when null.
-      Acceptance: a unit test shows a weekly task whose anchor was reset
-      keeps the new weekday after a late tick; an e2e step edits a weekly
-      task's interval and asserts its next due follows the new anchor.
-
 #### Budgets
 
 - [ ] **UX-111. Split an expense evenly by default** (impact: med,
@@ -813,16 +722,6 @@ UX-89.
       they owe or are owed on the personal Overview and home before
       adding categories. The shared-expense action has one name and
       placement on both pages.
-
-- [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
-      chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
-      no mascot on money. The pace chart has only "Today" and "Month end"
-      labels and no values. The daily question, "how much can I spend
-      today?", isn't answered. Copilot Money and PocketGuard show a daily
-      allowance.
-      Acceptance: the card shows "≈ N per day for the D days left". The
-      chart labels its Today and Month-end points with amounts. After an
-      add, the headline animates through the existing `AnimatedNumber`.
 
 - [ ] **UX-118. The "Due this period" card: right empty state, one Add
       placement** (impact: low, effort: S) — breaks Usability and
@@ -898,26 +797,6 @@ UX-89.
 Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
 `tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
 route passes. The popup probe found two phone-only size gaps.
-
-- [ ] **UX-143. Unit and item suggestions are 44 px tall on phones**
-      (impact: med, effort: S) — M-rule break (44 × 44 targets). On the
-      `dialogs-mobile` audit the suggestion rows in the unit pickers
-      (`/dashboard/inventory/items/[id]` "Show suggestions": `pcs`, `g`,
-      `dl` at 168×32) are 32 px high, because `AutocompleteItem`
-      (`src/components/ui/autocomplete.tsx`, the `py-1.5 text-sm` row)
-      lacks the `max-sm:min-h-11 pointer-coarse:min-h-11` that
-      `ComboboxItem` (`src/components/ui/combobox.tsx:137`) already has.
-      The same audit flags the combobox toggle (`ComboboxTrigger`,
-      `combobox.tsx:56/71`) at 44×42 in "Merge into another item…", the
-      shopping list's "Match item" (Inventory item) and personal-budget
-      "Log a shared expense" (Category): `h-full` inside an `h-11` group
-      loses 2 px to the border. Neighbouring suggestion rows are
-      therefore easy to mis-tap in the shop, one-handed.
-      Acceptance: in the `mobile` project, open the unit picker and the
-      Match item dialog; every suggestion row and the combobox toggle
-      measure at least 44 px in both dimensions
-      (`getBoundingClientRect`), and `dialogs-mobile` reports no
-      `smallTargets` for these.
 
 - [ ] **UX-135. Sign in straight from the verification link**
       (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
@@ -1589,6 +1468,32 @@ out to be a product-scope question rather than a scoped task should move to
       an e2e step adds a missing ingredient that has a note from a
       uniquely named recipe and sees the note under the row on the
       shopping list, on desktop and mobile.
+
+### 2026-10-21 scan
+
+- [ ] **GAP-63. Search the month's expenses by what you typed** (impact: med, effort: S) —
+      Splitwise lists "search your full expense history" among its core
+      features; "where did that 340 kr go?" or "what did we pay Clas Ohlson
+      last time?" is the commonest reason to open a ledger. Squirrel's
+      transaction list (`src/components/budget/transaction-list.tsx`) can
+      only be narrowed by category (`categoryFilter`, ~line 294), so
+      finding a row means scrolling the month. Add a "Search" field above
+      the list that filters the already-loaded rows client-side, as the
+      category filter does (nothing refetches), by a case-insensitive
+      substring of the description or category name, and the amount
+      typed as "340" or "340,50" (decimal comma accepted, per the locale
+      helpers). It combines with the category filter, the month's totals
+      stay unchanged, and the empty result says "No expenses match
+      '…'" with a Clear button. Use `type="search"`, `enterKeyHint="search"`,
+      `autoComplete="off"`, a 16 px font and a 44 px field (M-rules); put
+      the term in `?q=` so a reload and the back gesture keep it. Reading
+      only, so no schema or money maths changes. First version covers the
+      month on screen; a cross-month search can follow once there's demand.
+      Acceptance: a unit test for the pure matcher (description, category,
+      amount with comma and dot, empty term, accents); an e2e step creates
+      two uniquely named expenses, types one name in Search, sees only that
+      row, reloads and still sees the filter, clears it and sees both, on
+      desktop and mobile, in `en` and `sv`.
 
 ## Needs a decision before building
 

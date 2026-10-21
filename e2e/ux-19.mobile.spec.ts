@@ -19,7 +19,7 @@ test("a meal row and its sheet's actions are 44 px and 8 px apart", async ({ pag
   const name = `Soup ${suffix()}`;
   await page.goto("/dashboard/meal-planning?week=2031-03-03");
   await page.getByRole("button", { name: /^Add meal, / }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Add a meal" });
+  const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
   await dialog.getByRole("combobox", { name: "Meal" }).click();
   await page.getByRole("option", { name: "Lunch" }).click();
   await dialog.getByRole("combobox", { name: "Recipe" }).click();

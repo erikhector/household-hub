@@ -482,6 +482,13 @@ export const en = {
       skip: "Skip this step",
       progress: "{done} of {total} done",
       dismiss: "Hide the setup card",
+      doneStep: "Done",
+      allSet: {
+        title: "You're all set",
+        body: "Squirrel has what it needs. Your home is up and running.",
+        close: "Got it",
+        mascotAlt: "Squirrel mascot",
+      },
       steps: {
         household: {
           title: "Invite your household",
@@ -499,9 +506,11 @@ export const en = {
           title: "Set up your household budget",
           description: "Add income and expense categories to start tracking shared spending.",
         },
-        personalBudget: {
-          title: "Track your personal budget",
-          description: "Set up categories for the money that's just yours, kept separate from the household's.",
+        // UX-69: no personal-budget step; the "Your budget" card below is
+        // that feature's one call to action.
+        mealPlan: {
+          title: "Plan this week's meals",
+          description: "Put a few dinners on the planner and Squirrel can work out what to buy.",
         },
       },
     },
@@ -1663,7 +1672,9 @@ export const en = {
     addMeal: "Add meal",
     addMealAriaLabel: "Add meal, {day}",
     todayBadge: "Today",
-    addMealDialogTitle: "Add a meal",
+    addMealDialogTitleDay: "Add {meal} · {day}",
+    recipeSearchPlaceholder: "Search recipes",
+    recipeNoMatches: "No recipe matches",
     editMealAriaLabel: "Edit meal",
     editMealDialogTitle: "Edit meal",
     moveMealAriaLabel: "Move meal",
@@ -1675,7 +1686,6 @@ export const en = {
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
     // The add-meal picker before anything is chosen (M4: pick, don't type).
-    chooseRecipePlaceholder: "Choose a recipe",
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",
@@ -2151,7 +2161,11 @@ export const en = {
       confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
-    rowActionsAriaLabel: "More actions for {title}",
+    // UX-106: the "Mine / Everyone" filter above the list.
+    filterLabel: "Show",
+    filterMine: "Mine",
+    filterEveryone: "Everyone",
+    mineEmpty: "Nothing is assigned to you.",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
@@ -2188,6 +2202,8 @@ export const en = {
       cancel: "Cancel",
       save: "Save",
       saving: "Saving…",
+      // UX-106: on a phone the sheet is the visible path to Delete.
+      delete: "Delete",
     },
   },
   budget: {
@@ -2372,6 +2388,10 @@ export const en = {
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} for today, the last day of the month.",
+        other: "≈ {amount} per day for the {count} days left.",
+      },
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
       projectionOver: "About {amount} over by the end of the month.",
@@ -2863,6 +2883,10 @@ export const en = {
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} for today, the last day of the month.",
+        other: "≈ {amount} per day for the {count} days left.",
+      },
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
       projectionOver: "About {amount} over by the end of the month.",
@@ -3333,6 +3357,8 @@ export const en = {
       submit: "Verify email",
       verifiedDescription: "Your email address has been verified.",
       alreadyVerifiedDescription: "Your email address is already verified.",
+      verifiedTitle: "Email verified",
+      logIn: "Log in",
       goToDashboard: "Go to dashboard",
       dashboardResendLink: "Go to your dashboard to request a new link",
       loginToResendLink: "Log in to request a new link",
@@ -3353,8 +3379,10 @@ export const en = {
       submit: "Create your household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
+      checkInboxTitle: "Check your inbox",
+      accountCreatedTitle: "Account created",
       verificationSentDescription:
-        "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+        "We've sent a verification link to {email}. Open it, then log in to get started.",
       verificationSendFailedDescription:
         "Account created, but we couldn't send the verification email just now. Try resending it below.",
       resend: "Resend verification email",
