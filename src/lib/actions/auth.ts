@@ -2,7 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { absoluteAppUrl } from "@/lib/app-url";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -14,7 +14,6 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 import { getLocale } from "@/lib/i18n/get-dictionary";
-import { headers } from "next/headers";
 import { defaultCurrencyForNewHousehold } from "@/lib/currency";
 import { logger } from "@/lib/logger";
 import { hashToken } from "@/lib/token-hash";
