@@ -16,6 +16,9 @@ test("the add dialog warns about a duplicate and adds to the existing item", asy
   await dialog.getByLabel("Name").fill(base);
   await dialog.getByLabel("Quantity").fill("500");
   await dialog.getByLabel("Unit", { exact: true }).fill("g");
+  // The combobox's popup stays open (and the rest of the dialog inert) until
+  // the typed unit is chosen.
+  await page.getByText('Use "g"', { exact: true }).click();
   await dialog.getByRole("button", { name: "Add item", exact: true }).click();
   await expect(dialog).toBeHidden();
 
