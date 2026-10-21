@@ -297,7 +297,8 @@ then MAINT-7 per feature, to avoid churn.
       the swipe rows under load and fix it in the app or the spec's
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
-      --repeat-each=30` passes 30/30.
+      --repeat-each=30` passes 30/30. Seen again on a clean `origin/next` (`995cb99`,
+      2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
 - [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed"), `desktop` project.
@@ -348,6 +349,21 @@ then MAINT-7 per feature, to avoid churn.
       `npx playwright test e2e/ux-51.spec.ts:114
       e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
       --repeat-each=30` passes 30/30.
+- [ ] **MAINT-45. Flaky: `native-sheets` dialog and sheet position checks fail in the full run** (low, S) —
+      `e2e/native-sheets.spec.ts:152` ("on a desktop: the centred dialog
+      doesn't drag", `desktop`) and `e2e/native-sheets.spec.ts:54` ("on a
+      phone: a flick down on the grabber dismisses the sheet and leaves no
+      back step", `mobile`). Both failed in a `ci:local` run on a clean
+      `origin/next` (`995cb99`, 2026-10-21), and `:152` also failed in
+      three separate gates on the MAINT-35, UX-85 and UX-118 branches,
+      none touching the spec's area. At line 175 the dialog's y was 60,
+      expected 109. `--repeat-each=5` of the file alone on `desktop`
+      passed 12/12, so it only fails under the load or ordering of the
+      full run. Find what moves the dialog (a late layout or animation
+      settle) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
+      both projects.
 
 ### UX (2026-09-26 scout)
 
