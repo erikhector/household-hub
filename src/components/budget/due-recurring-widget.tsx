@@ -78,6 +78,7 @@ export type SharedDueRow = {
 export function DueRecurringWidget({
   templates,
   hasTemplates,
+  hadTemplatesInMonth,
   plannedDue = [],
   sharedDueRows = [],
   sharedExpenseHouseholds = [],
@@ -102,6 +103,10 @@ export function DueRecurringWidget({
    * all, due or not — distinguishes "nothing set up yet" from "all caught
    * up". */
   hasTemplates: boolean;
+  /** UX-118: whether any of them already existed in the month being
+   * viewed. `false` with `hasTemplates` true means a month from before
+   * they were set up: nothing was due, which is not "set them up". */
+  hadTemplatesInMonth: boolean;
   /** Outstanding (overdue or due) planned bills, BUDGET-8, and planned
    * income expected this month — already filtered with
    * isPlannedItemCounted. Listed after the templates; any entry counts as
@@ -169,13 +174,16 @@ export function DueRecurringWidget({
           <CardTitle>{dict.dueWidget.title}</CardTitle>
           <p className="text-sm text-muted-foreground">{dict.dueWidget.subtitle}</p>
         </div>
-        <Button type="button" variant="ghost" size="sm" onClick={onManageClick}>
+        {/* UX-118: a link, not a ghost button that reads as a stray label. */}
+        <Button type="button" variant="link" size="sm" onClick={onManageClick}>
           {dict.dueWidget.manageButton}
         </Button>
       </CardHeader>
       <CardContent>
         {!hasTemplates && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.dueWidget.noTemplatesBody}</p>
+        ) : !hadTemplatesInMonth && templates.length === 0 && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{dict.dueWidget.nothingDueBody}</p>
         ) : templates.length === 0 && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-success" />

@@ -85,3 +85,29 @@ test("a category chip shows its whole name and edits, with Delete in the sheet",
   await page.getByRole("dialog", { name: `Delete ${category}?` }).getByRole("button", { name: "Delete" }).click();
   await expect(chip).toHaveCount(0);
 });
+
+// UX-118: the three Add buttons on Manage share one placement, top right
+// of their panel, level with its title.
+test("Add category, Add recurring item and Add planned bill sit top right", async ({ page }) => {
+  await seed();
+  await page.goto("/dashboard/budget?tab=manage");
+  const main = page.getByRole("main");
+  const boxes = [];
+  for (const [add, title] of [
+    ["Add category", "Categories"],
+    ["Add recurring item", "Recurring items"],
+    ["Add planned bill", "Planned bills"],
+  ] as const) {
+    const button = main.getByRole("button", { name: add, exact: true });
+    await expect(button).toBeVisible();
+    const heading = main.getByRole("heading", { name: title, exact: true });
+    const [b, h] = [(await button.boundingBox())!, (await heading.boundingBox())!];
+    // Beside the title, not under the description.
+    expect(b.y).toBeLessThan(h.y + h.height + 24);
+    expect(b.x).toBeGreaterThan(h.x + h.width - 1);
+    boxes.push(b);
+  }
+  const rights = boxes.map((b) => b.x + b.width);
+  expect(Math.max(...rights) - Math.min(...rights)).toBeLessThan(2);
+  await expectNoHorizontalOverflow(page);
+});

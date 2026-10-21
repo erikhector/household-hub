@@ -49,9 +49,9 @@ test("a recurring income shows as expected income next month", async ({ page }) 
   // widget lists what's due right under it).
   await main.getByText("How we got this number").click();
   await expect(main.getByText("Expected income", { exact: true })).toBeVisible();
-  // Listed under "Still due this month" as money coming in, not going out.
-  const row = main.getByRole("listitem").filter({ hasText: name });
-  await expect(row.getByText("Income", { exact: true })).toBeVisible();
-  await expect(row.getByText(/^\+\D*45[\s,.  ]?678/)).toBeVisible();
+  // Listed once, in the due card (UX-118), with its amount.
+  const dueCard = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const row = dueCard.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
+  await expect(row.getByText(/45[\s,.  ]?678/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

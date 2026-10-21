@@ -1119,6 +1119,12 @@ export const en = {
     saving: "Saving…",
     save: "Save",
     saveAndAddAnother: "Save & add another",
+    duplicateWarning: "{name} is already in your pantry ({stock}).",
+    duplicateAddToExisting: "Add to existing",
+    duplicateAdding: "Adding…",
+    duplicateAdded: "Added {amount} to {name}",
+    duplicateUnitsDiffer: "{name} is kept in {stockUnit}, which {formUnit} doesn't convert to. Pick a matching unit to add to it.",
+    duplicateAmountInvalid: "Enter an amount above 0 to add to {name}.",
     sessionAddedCount: {
       one: "{count} item added this session",
       other: "{count} items added this session",
@@ -2443,6 +2449,8 @@ export const en = {
       allCaughtUpTitle: "You're all caught up",
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      // UX-118: a month from before the items existed.
+      nothingDueBody: "Nothing was due this month",
       manageButton: "Manage recurring items",
       // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
       log: "Log",
@@ -2955,6 +2963,8 @@ export const en = {
       allCaughtUpTitle: "You're all caught up",
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      // UX-118: a month from before the items existed.
+      nothingDueBody: "Nothing was due this month",
       manageButton: "Manage recurring items",
       // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
       log: "Log",
@@ -3387,6 +3397,17 @@ export const en = {
         "Account created, but we couldn't send the verification email just now. Try resending it below.",
       resend: "Resend verification email",
       resending: "Sending…",
+      passwordHint: "At least 8 characters",
+      nameRequired: "Enter your name",
+      householdRequired: "Enter a name for your household",
+      emailInvalid: "Enter a valid email address, like name@example.com",
+      passwordTooShort: "Password must be at least 8 characters",
+      passwordTooLong: "Password must be 72 characters or fewer",
+      confirmRequired: "Confirm your password",
+      passwordMismatch: "The passwords don't match",
+      emailTaken: "An account with that email already exists",
+      emailTakenLogIn: "Log in",
+      emailTakenForgot: "Forgot password?",
     },
     join: {
       invalidTitle: "Invalid invite",

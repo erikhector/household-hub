@@ -468,7 +468,8 @@ async function PersonalBudgetTabsSection({
       limitAlerts={limitAlerts}
       householdDebts={householdDebts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
-      hasRecurringTemplates={recurringTemplateRows.length > 0}
+      hasRecurringTemplates={recurringTemplates.some((t) => t.active)}
+      hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}
       plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
       sharedDueRows={sharedDueRows}
       showHouseholdName={showHouseholdName}

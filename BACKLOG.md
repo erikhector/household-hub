@@ -258,17 +258,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **MAINT-35. Flaky: `planner-add-missing` hits a duplicate `MealPlan` week key on mobile** (low, S) —
-      `e2e/planner-add-missing.spec.ts:76` and `:82`, `mobile` project.
-      Failed in one local `ci:local` gate on the UX-129 branch (`cd0514d`,
-      2026-10-19) with a unique-constraint error on
-      `MealPlan_householdId_weekStartDate`; the next full gate on the same
-      commit passed. The spec creates the week's plan with a plain insert
-      while the app can create it first. Fix it in the spec's setup (upsert
-      or reuse the existing row) or in the waiting, never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -308,7 +297,8 @@ then MAINT-7 per feature, to avoid churn.
       the swipe rows under load and fix it in the app or the spec's
       waiting, never a loosened assertion, a skip or a retry. Acceptance:
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
-      --repeat-each=30` passes 30/30.
+      --repeat-each=30` passes 30/30. Seen again on a clean `origin/next` (`995cb99`,
+      2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
 - [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed"), `desktop` project.
@@ -338,7 +328,42 @@ then MAINT-7 per feature, to avoid churn.
       app or in the test's waiting before the "before" screenshot, never a
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
-      passes 30/30.
+      passes 30/30. Went red once more on release run 39571297362
+      (2026-10-21) and passed on retry #1 of the same commit.
+- [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
+      `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
+      2026-10-21. Two specs, same symptom: the click on a "More" trigger
+      does not open its menu, so the next `getByRole("menuitem")` never
+      appears. (a) `e2e/ux-51.spec.ts:114` ("the shortcut shows the current
+      theme and language") failed on the attempt and the retry of release
+      run 39571297362, menuitem "Theme: System" not found after clicking
+      the bottom bar's More; it passed on the job re-run and 10/10
+      locally. (b) `e2e/meal-planner-empty-slots.spec.ts:76` failed on the
+      attempt and the retry of release run 39580857482, menuitem "Copy
+      last week" not found after clicking the planner's More; it passed on
+      the job re-run. Likely the click lands before the trigger is wired
+      up (hydration, or the menu's open/close race) even after
+      `expectHydrated`. Find out whether the menu opened and closed again
+      or never opened, and fix it in the app or in the tests' waiting,
+      never a loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/ux-51.spec.ts:114
+      e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
+      --repeat-each=30` passes 30/30.
+- [ ] **MAINT-45. Flaky: `native-sheets` dialog and sheet position checks fail in the full run** (low, S) —
+      `e2e/native-sheets.spec.ts:152` ("on a desktop: the centred dialog
+      doesn't drag", `desktop`) and `e2e/native-sheets.spec.ts:54` ("on a
+      phone: a flick down on the grabber dismisses the sheet and leaves no
+      back step", `mobile`). Both failed in a `ci:local` run on a clean
+      `origin/next` (`995cb99`, 2026-10-21), and `:152` also failed in
+      three separate gates on the MAINT-35, UX-85 and UX-118 branches,
+      none touching the spec's area. At line 175 the dialog's y was 60,
+      expected 109. `--repeat-each=5` of the file alone on `desktop`
+      passed 12/12, so it only fails under the load or ordering of the
+      full run. Find what moves the dialog (a late layout or animation
+      settle) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
+      both projects.
 
 ### UX (2026-09-26 scout)
 
@@ -409,7 +434,6 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
-- `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
@@ -487,26 +511,6 @@ UX-89.
       week" jump when you're elsewhere.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-59. Signup and login errors next to the field, keeping what
-      was typed** (impact: med, effort: M) — breaks Usability ("inline,
-      actionable errors next to the field") and Context.
-      - A password mismatch wipes both password fields, drops focus to
-        `<body>` and shows one generic line above the consent text,
-        with no `aria-invalid` or `aria-describedby`
-        (`signup-form.tsx:157`, `login-form.tsx:95`).
-      - A short password or bad email only gets the browser's native
-        bubble, in the browser's language.
-      - The 8-character minimum is never shown up front.
-      - "An account with that email already exists" offers no Log in or
-        Forgot password link.
-      Server-message translation is MAINT-7. Whether signup should stop
-      revealing that an email exists is a security call, not part of
-      this item.
-      Acceptance: a mismatch keeps the first password, focuses Confirm
-      password and shows the error under it with `aria-invalid`. The
-      password field shows "At least 8 characters" before submit. The
-      duplicate-email error links to Log in and Forgot password.
 
 - [ ] **UX-63. The shared-list page as good as the member view**
       (impact: med, effort: M) — breaks Consistency and User-centricity
@@ -681,20 +685,6 @@ UX-89.
 
 #### Budgets
 
-- [ ] **UX-111. Split an expense evenly by default** (impact: med,
-      effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
-      (human-only area).
-      - Typing 940 and ticking "Split this expense" shows both shares at
-        0.00 with an instant red "The shares add up to 0.00…", and Add is
-        disabled until "Split evenly" is found. The even split is
-        computed from the amount when the dialog opens
-        (`transaction-dialog.tsx:94`).
-      - In "Log a shared expense" both Paid fields start at 0, though
-        the person logging it nearly always paid.
-      Acceptance: ticking Split with an amount shows an even split with
-      no error. Shares follow the amount until edited. The current user
-      is preselected as payer.
-
 - [ ] **UX-112. A new member sees their shared costs before setting up a
       personal budget** (impact: med, effort: M) — breaks Context (never
       surprise a member) and Consistency. ⚠️ money.
@@ -710,23 +700,6 @@ UX-89.
       they owe or are owed on the personal Overview and home before
       adding categories. The shared-expense action has one name and
       placement on both pages.
-
-- [ ] **UX-118. The "Due this period" card: right empty state, one Add
-      placement** (impact: low, effort: S) — breaks Usability and
-      Consistency.
-      - With six recurring items, a past month says "Set up recurring
-        bills and income to see what's due here"
-        (`due-recurring-widget.tsx:177`).
-      - Its ghost "Manage recurring items" reads like a stray label
-        (`:172`).
-      - On Manage, "Add recurring item" and "Add planned bill" sit under
-        their descriptions while "Add category" sits top right.
-      - The expanded safe-to-spend card repeats the Due list right above
-        it.
-      Acceptance: a month before the items existed says "Nothing was due
-      this month". The three "Add …" buttons on Manage share one
-      placement. The Due card's link looks like a link. Due items aren't
-      listed twice.
 
 #### Inventory
 
@@ -745,17 +718,6 @@ UX-89.
       "never stocked".
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
-
-- [ ] **UX-126. Warn about a duplicate while adding, and offer "add to
-      existing"** (impact: med, effort: M) — breaks Usability (prevent
-      errors). Adding "smör" next to "Smör", or "Banan" next to "Bananer",
-      saves a new item with no hint (`add-item-dialog.tsx`). The
-      duplicate surfaces only later, needing a merge that "can't be
-      undone", though "I bought more butter" is exactly when people reach
-      for Add.
-      Acceptance: when the typed name matches an existing item (the
-      duplicates filter's check), the dialog shows "Smör is already in your
-      pantry (499 g)" with a button to add the amount to it.
 
 - [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
       breaks M4 ("pick, don't type").

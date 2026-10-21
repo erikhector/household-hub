@@ -132,6 +132,7 @@ export function BudgetTabs({
   householdDebts = [],
   dueTemplates,
   hasRecurringTemplates,
+  hadRecurringTemplatesInMonth,
   plannedDue = [],
   members = [],
   currentMemberId = "",
@@ -190,7 +191,12 @@ export function BudgetTabs({
   householdDebts?: HouseholdDebt[];
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
+  /** Any active recurring template at all, whatever month is viewed. */
   hasRecurringTemplates: boolean;
+  /** UX-118: whether any of them existed in the viewed month (a template
+   * never backward-propagates), so a month from before they were set up
+   * says "nothing was due" rather than "set up recurring items". */
+  hadRecurringTemplatesInMonth: boolean;
   /** Outstanding planned bills (BUDGET-8), for the due strip: the
    * household's, or on the personal budget page the user's own. */
   plannedDue?: PlannedExpenseRow[];
@@ -361,6 +367,7 @@ export function BudgetTabs({
               <DueRecurringWidget
                 templates={dueTemplates}
                 hasTemplates={hasRecurringTemplates}
+                hadTemplatesInMonth={hadRecurringTemplatesInMonth}
                 plannedDue={plannedDue}
                 sharedDueRows={sharedDueRows}
                 sharedExpenseHouseholds={sharedExpenseHouseholds}

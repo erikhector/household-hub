@@ -114,11 +114,8 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
 
   // --- It counts in Safe to spend ------------------------------------------
   await page.getByRole("tab", { name: "Overview" }).click();
-  // The "Still due" list sits behind Safe to spend's disclosure (phone
-  // pass, Oct 2026): the bill counts in the number, the list is a tap away.
-  await main.getByText("How we got this number").click();
-  const stillDue = main.getByText("Still due this month").locator("xpath=following-sibling::ul");
-  await expect(stillDue.getByRole("listitem").filter({ hasText: name })).toBeVisible();
+  // The due strip below is the one list of what's due (UX-118), so the
+  // bill is checked there, not repeated inside Safe to spend.
 
   // --- It shows in the Overview's due strip ---------------------------------
   // The strip is a card (no landmark role), so find it by its heading.

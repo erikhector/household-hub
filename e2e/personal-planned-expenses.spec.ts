@@ -96,9 +96,6 @@ test("adds a personal planned bill, counts it until paid, and keeps it off the h
 
   // --- It counts in Safe to spend and shows in the due strip ---------------
   await page.getByRole("tab", { name: "Overview" }).click();
-  await main.getByText("How we got this number").click();
-  const stillDue = main.getByText("Still due this month").locator("xpath=following-sibling::ul");
-  await expect(stillDue.getByRole("listitem").filter({ hasText: name })).toBeVisible();
   const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
   const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
   await expect(stripRow.getByRole("button", { name: "Log payment" })).toBeVisible();
