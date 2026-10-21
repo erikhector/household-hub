@@ -1020,7 +1020,8 @@ async function BudgetTabsSection({
       safeToSpendDaily={safeToSpendDaily}
       limitAlerts={limitAlerts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
-      hasRecurringTemplates={recurringTemplateRows.length > 0}
+      hasRecurringTemplates={activeRecurringTemplates.length > 0}
+      hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}
       plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
       members={memberOptions}
       currentMemberId={currentMemberId}

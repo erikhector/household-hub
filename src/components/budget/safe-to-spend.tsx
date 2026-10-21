@@ -83,7 +83,7 @@ export function SafeToSpend({
    * line of the arithmetic and what's still due. "compact" (the budget
    * pages' Overview, where the due widget right below already lists what's
    * due, with buttons) keeps the number and one totals line, and folds the
-   * arithmetic, caveat and still-due list into a "How we got this number"
+   * arithmetic and caveat into a "How we got this number"
    * disclosure (DESIGN.md M6), so Overview stops repeating itself. */
   variant?: "full" | "compact";
   /** UX-116: where the setup state's two actions go (add income, add
@@ -261,7 +261,8 @@ export function SafeToSpend({
             </summary>
             <div className="flex flex-col gap-3 pt-1">
               {arithmetic}
-              {expectedList}
+              {/* UX-118: the still-due list is the Due card's job right
+                  below; repeating it here listed every item twice. */}
             </div>
           </details>
         </>

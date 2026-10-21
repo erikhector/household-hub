@@ -38,6 +38,8 @@ test("Overview shows each number once and keeps due items to one line", async ({
   await expect(savings.locator("xpath=following-sibling::dd")).toHaveText(/^→/);
   await main.getByText("How we got this number").click();
   await expect(arithmetic).toHaveCount(1);
+  // UX-118: what's still due is the Due card's list, not repeated in here.
+  await expect(main.getByText("Still due this month", { exact: true }).filter({ visible: true })).toHaveCount(0);
   // "This month" (PeriodSummary) isn't repeated on Overview.
   await expect(main.getByRole("heading", { name: "This month" })).toBeHidden();
 
@@ -168,4 +170,28 @@ test("Expenses by category bars are neutral, warning near the limit, destructive
   // Same neutral colour whatever the row's position, and status rows differ.
   expect(hobbies).toBe(clothes);
   expect(new Set([hobbies, groceries, restaurants]).size).toBe(3);
+});
+
+// UX-118: a month from before the items existed has nothing due. It is not
+// "set up recurring bills", which is for a household with none.
+test("a month before the recurring items existed says nothing was due", async ({ page }) => {
+  const { name } = await seed();
+  const main = page.getByRole("main");
+
+  await page.goto("/dashboard/budget?month=2020-01");
+  await expect(main.getByRole("heading", { name: "Due this period" })).toBeVisible();
+  await expect(main.getByText("Nothing was due this month", { exact: true })).toBeVisible();
+  await expect(main.getByText("Set up recurring bills and income")).toHaveCount(0);
+  await expect(main.getByText(name)).toHaveCount(0);
+
+  // This month the item is due, so the card lists it.
+  await page.goto("/dashboard/budget");
+  await expect(main.getByText("Nothing was due this month")).toHaveCount(0);
+  await expect(main.getByRole("button", { name: `More actions for ${name}` })).toBeVisible();
+  // Its link to Manage is a link: primary-coloured text, not a ghost label.
+  const manage = main.getByRole("button", { name: "Manage recurring items" });
+  await expect(manage).toBeVisible();
+  const color = await manage.evaluate((el) => getComputedStyle(el).color);
+  const body = await page.locator("body").evaluate((el) => getComputedStyle(el).color);
+  expect(color).not.toBe(body);
 });
