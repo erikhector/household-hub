@@ -3,6 +3,7 @@ import { itemNameSimilarity } from "@/lib/item-matching";
 import {
   compareKeeper,
   findDuplicateGroups,
+  findDuplicateOfName,
   FUZZY_MIN_SCORE,
   isNeverStocked,
   sortedPair,
@@ -210,5 +211,41 @@ describe("sortedPair", () => {
   it("stores the smaller id first", () => {
     expect(sortedPair("b", "a")).toEqual(["a", "b"]);
     expect(sortedPair("a", "b")).toEqual(["a", "b"]);
+  });
+});
+
+describe("findDuplicateOfName (UX-126)", () => {
+  const pantry = [
+    { id: "butter", name: "Smör" },
+    { id: "banana", name: "Banan" },
+    { id: "milk", name: "Mjölk" },
+  ];
+
+  it("matches the same name regardless of case and punctuation", () => {
+    expect(findDuplicateOfName("smör", pantry)?.id).toBe("butter");
+    expect(findDuplicateOfName("  SMÖR. ", pantry)?.id).toBe("butter");
+  });
+
+  it("matches a plural against the singular and back", () => {
+    expect(findDuplicateOfName("Bananer", pantry)?.id).toBe("banana");
+    expect(findDuplicateOfName("Banan", [{ id: "p", name: "Bananer" }])?.id).toBe("p");
+  });
+
+  it("matches a close typo by the catalog's fuzzy threshold", () => {
+    expect(findDuplicateOfName("Mjölkk", pantry)?.id).toBe("milk");
+  });
+
+  it("prefers an exact name over a fold or fuzzy one", () => {
+    const items = [
+      { id: "plural", name: "Bananer" },
+      { id: "exact", name: "Banan" },
+    ];
+    expect(findDuplicateOfName("banan", items)?.id).toBe("exact");
+  });
+
+  it("returns null for an unrelated or empty name", () => {
+    expect(findDuplicateOfName("Pasta", pantry)).toBeNull();
+    expect(findDuplicateOfName("  ", pantry)).toBeNull();
+    expect(findDuplicateOfName("Smör", [])).toBeNull();
   });
 });

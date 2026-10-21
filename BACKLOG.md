@@ -758,17 +758,6 @@ UX-89.
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
 
-- [ ] **UX-126. Warn about a duplicate while adding, and offer "add to
-      existing"** (impact: med, effort: M) — breaks Usability (prevent
-      errors). Adding "smör" next to "Smör", or "Banan" next to "Bananer",
-      saves a new item with no hint (`add-item-dialog.tsx`). The
-      duplicate surfaces only later, needing a merge that "can't be
-      undone", though "I bought more butter" is exactly when people reach
-      for Add.
-      Acceptance: when the typed name matches an existing item (the
-      duplicates filter's check), the dialog shows "Smör is already in your
-      pantry (499 g)" with a button to add the amount to it.
-
 - [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
       breaks M4 ("pick, don't type").
       - The unit field is prefilled "pcs" and its chevron is hidden while

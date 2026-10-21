@@ -1119,6 +1119,11 @@ export const en = {
     saving: "Saving…",
     save: "Save",
     saveAndAddAnother: "Save & add another",
+    duplicateWarning: "{name} is already in your pantry ({stock}).",
+    duplicateAddToExisting: "Add to existing",
+    duplicateAdding: "Adding…",
+    duplicateAdded: "Added {amount} to {name}",
+    duplicateAmountInvalid: "Enter an amount above 0 to add to {name}.",
     sessionAddedCount: {
       one: "{count} item added this session",
       other: "{count} items added this session",

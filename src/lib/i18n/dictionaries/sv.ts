@@ -1043,6 +1043,11 @@ export const sv = {
     saving: "Sparar…",
     save: "Spara",
     saveAndAddAnother: "Spara & lägg till fler",
+    duplicateWarning: "{name} finns redan i skafferiet ({stock}).",
+    duplicateAddToExisting: "Lägg till i befintlig",
+    duplicateAdding: "Lägger till…",
+    duplicateAdded: "Lade till {amount} i {name}",
+    duplicateAmountInvalid: "Ange en mängd över 0 att lägga till i {name}.",
     sessionAddedCount: {
       one: "{count} vara tillagd denna gång",
       other: "{count} varor tillagda denna gång",

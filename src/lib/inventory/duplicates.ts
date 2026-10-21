@@ -3,7 +3,7 @@
 // groups, each with a suggested keeper. Pure, so the catalog page, the
 // inventory page's "Manage items" badge and the tests all agree on it.
 
-import { normalizeItemName } from "@/lib/item-matching";
+import { itemNameSimilarity, normalizeItemName } from "@/lib/item-matching";
 import { foldedForms } from "@/lib/recipes/ingredient-match";
 
 export type DuplicateItem = {
@@ -216,4 +216,39 @@ export function findDuplicateGroups(
   return [...groups.values()]
     .map((group) => ({ strength: group.strength, members: group.members.sort(compareKeeper) }))
     .sort((a, b) => b.strength - a.strength || a.members[0].name.localeCompare(b.members[0].name));
+}
+
+export type NameMatchCandidate = { id: string; name: string };
+
+/**
+ * UX-126: the existing item a name being typed into the Add dialog is
+ * probably the same as, or null. It applies the catalog's pair rules
+ * (equal normalized name, equal after the plural fold, bigram score of at
+ * least FUZZY_MIN_SCORE) to one typed name instead of every pair. Aliases
+ * and "Not duplicates" dismissals are about two stored items, so they have
+ * no say here. The strongest rule wins ("Smör" over "Smöret"), then the
+ * higher fuzzy score, then the first in the list's order.
+ */
+export function findDuplicateOfName<T extends NameMatchCandidate>(typed: string, items: readonly T[]): T | null {
+  const normalized = normalizeItemName(typed);
+  if (!normalized) return null;
+  const forms = foldedForms(normalized);
+  let best: T | null = null;
+  let bestScore = 0;
+  for (const item of items) {
+    const other = normalizeItemName(item.name);
+    if (!other) continue;
+    let score = 0;
+    if (other === normalized) score = EXACT_STRENGTH;
+    else if ([...foldedForms(other)].some((form) => forms.has(form))) score = FOLD_STRENGTH;
+    else if (normalized.length <= FUZZY_MAX_NAME_LENGTH && other.length <= FUZZY_MAX_NAME_LENGTH) {
+      const similarity = itemNameSimilarity(normalized, other);
+      if (similarity >= FUZZY_MIN_SCORE) score = similarity;
+    }
+    if (score > bestScore) {
+      best = item;
+      bestScore = score;
+    }
+  }
+  return best;
 }
