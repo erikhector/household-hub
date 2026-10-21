@@ -350,6 +350,19 @@ then MAINT-7 per feature, to avoid churn.
       a retry. Acceptance: `npx playwright test
       e2e/navigation.mobile.spec.ts:85 --project=mobile --repeat-each=30`
       passes 30/30.
+- [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
+      `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
+      through the field or the bar"), `mobile` project. Failed in the local
+      `ci:local` gate on PR #499 (`b881bc8`, 2026-10-21), a pixel-equality
+      check on the add bar's screenshot. A locked `--repeat-each=10
+      --workers=1 --project=mobile` run failed 1 of 10 on that branch and
+      1 of 10 on clean `origin/next`, so it flakes at the same rate with
+      nobody's change in it. Likely the screenshot is taken before the bar
+      has settled (caret, focus ring or a late repaint). Fix it in the
+      app or in the test's waiting before the "before" screenshot, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
