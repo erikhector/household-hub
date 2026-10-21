@@ -299,6 +299,8 @@ then MAINT-7 per feature, to avoid churn.
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
       --repeat-each=30` passes 30/30. Seen again on a clean `origin/next` (`995cb99`,
       2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
+      Seen again in the `ci:local` gate on release PR #537 (`4f04e69`,
+      2026-10-21): CLS 0.00886, passed on a re-run on the same commit.
 - [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed"), `desktop` project.
@@ -364,6 +366,18 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
       both projects.
+
+- [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
+      `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
+      above the dock, each 56-64 px", `mobile`). Failed on the first
+      attempt in the GitHub `End-to-end (Playwright)` job on release PR
+      #537 (`4f04e69`, 2026-10-21): "sixth row clear of the dock",
+      expected <= 531, received 705, and passed on the CI retry. Find
+      what leaves the list at the wrong size on the first attempt (a late
+      layout settle) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -434,7 +448,6 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
-- `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
@@ -532,18 +545,6 @@ UX-89.
       password and shows the error under it with `aria-invalid`. The
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
-
-- [ ] **UX-62. A warm join page that says who invited you** (impact:
-      med, effort: S) — breaks Consistency and the Squirrel voice. An
-      invitee's first contact with Squirrel is a bare "Join {household}"
-      form (`src/components/household/join-signup-form.tsx`). It has no
-      brand badge, no inviter name, no line on what Squirrel is, and
-      different field styling from `/signup`. An invalid invite offers
-      "Back to log in" to someone who never had an account.
-      Acceptance: the join page shows the BrandBadge, "{inviter} invited
-      you to {household} on Squirrel", a one-line pitch and signup's
-      field styling. The invalid-invite card offers "Go to Squirrel" and
-      "Log in".
 
 - [ ] **UX-63. The shared-list page as good as the member view**
       (impact: med, effort: M) — breaks Consistency and User-centricity
@@ -718,20 +719,6 @@ UX-89.
 
 #### Budgets
 
-- [ ] **UX-111. Split an expense evenly by default** (impact: med,
-      effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
-      (human-only area).
-      - Typing 940 and ticking "Split this expense" shows both shares at
-        0.00 with an instant red "The shares add up to 0.00…", and Add is
-        disabled until "Split evenly" is found. The even split is
-        computed from the amount when the dialog opens
-        (`transaction-dialog.tsx:94`).
-      - In "Log a shared expense" both Paid fields start at 0, though
-        the person logging it nearly always paid.
-      Acceptance: ticking Split with an amount shows an even split with
-      no error. Shares follow the amount until edited. The current user
-      is preselected as payer.
-
 - [ ] **UX-112. A new member sees their shared costs before setting up a
       personal budget** (impact: med, effort: M) — breaks Context (never
       surprise a member) and Consistency. ⚠️ money.
@@ -765,17 +752,6 @@ UX-89.
       "never stocked".
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
-
-- [ ] **UX-126. Warn about a duplicate while adding, and offer "add to
-      existing"** (impact: med, effort: M) — breaks Usability (prevent
-      errors). Adding "smör" next to "Smör", or "Banan" next to "Bananer",
-      saves a new item with no hint (`add-item-dialog.tsx`). The
-      duplicate surfaces only later, needing a merge that "can't be
-      undone", though "I bought more butter" is exactly when people reach
-      for Add.
-      Acceptance: when the typed name matches an existing item (the
-      duplicates filter's check), the dialog shows "Smör is already in your
-      pantry (499 g)" with a button to add the amount to it.
 
 - [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
       breaks M4 ("pick, don't type").

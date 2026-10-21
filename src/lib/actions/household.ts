@@ -38,13 +38,14 @@ const INVITE_TTL_DAYS = 7;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 36 * 60 * 60 * 1000;
 
 export async function createInviteAction(): Promise<{ url?: string; token?: string; error?: string }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   let invitation;
   try {
     invitation = await prisma.invitation.create({
       data: {
         householdId: household.id,
+        invitedById: userId,
         token: randomUUID(),
         expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000),
       },
@@ -116,7 +117,7 @@ export async function sendInviteEmailAction(token: string, email: string): Promi
 async function getValidInvitation(token: string) {
   const invitation = await prisma.invitation.findUnique({
     where: { token },
-    include: { household: true },
+    include: { household: true, invitedBy: { select: { displayName: true } } },
   });
   if (!invitation || invitation.acceptedAt || invitation.expiresAt < new Date()) {
     return null;
@@ -127,7 +128,13 @@ async function getValidInvitation(token: string) {
 export async function getInvitationForDisplay(token: string) {
   const invitation = await getValidInvitation(token);
   if (!invitation) return null;
-  return { householdName: invitation.household.name };
+  // UX-62: /join is public, so the inviter is exposed as a display name and
+  // nothing else (no id, no email), and only to someone holding a valid token.
+  // Null for links made before the column existed.
+  return {
+    householdName: invitation.household.name,
+    inviterName: invitation.invitedBy?.displayName ?? null,
+  };
 }
 
 export async function acceptInviteAction(

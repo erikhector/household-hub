@@ -1043,6 +1043,12 @@ export const sv = {
     saving: "Sparar…",
     save: "Spara",
     saveAndAddAnother: "Spara & lägg till fler",
+    duplicateWarning: "{name} finns redan i skafferiet ({stock}).",
+    duplicateAddToExisting: "Lägg till i befintlig",
+    duplicateAdding: "Lägger till…",
+    duplicateAdded: "Lade till {amount} i {name}",
+    duplicateUnitsDiffer: "{name} förvaras i {stockUnit}, som {formUnit} inte kan räknas om till. Välj en passande enhet för att lägga till.",
+    duplicateAmountInvalid: "Ange en mängd över 0 att lägga till i {name}.",
     sessionAddedCount: {
       one: "{count} vara tillagd denna gång",
       other: "{count} varor tillagda denna gång",
@@ -3257,9 +3263,12 @@ export const sv = {
     join: {
       invalidTitle: "Ogiltig inbjudan",
       joinTitle: "Gå med i {name}",
+      invitedBy: "{inviter} har bjudit in dig till {household} på Squirrel",
+      invitedNoName: "Du är inbjuden till {household} på Squirrel",
+      pitch: "Squirrel samlar hushållets inköp, måltider, sysslor och budget på ett ställe.",
+      goToSquirrel: "Gå till Squirrel",
       invalidDescription:
         "Den här inbjudningslänken är ogiltig eller har slutat gälla. Be en hushållsmedlem skicka en ny.",
-      backToLogin: "Tillbaka till inloggning",
       goToDashboard: "Gå till översikten",
       acceptConsequence:
         "Du får full åtkomst till hushållets lager, inköpslistor, matplaner och budgetdata.",

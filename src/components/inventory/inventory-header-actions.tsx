@@ -15,7 +15,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { Download, Ellipsis, ListChecks, ScanBarcode, ScanLine, ClipboardList, Sparkles, Plus } from "lucide-react";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 
-type InventoryHeaderItem = { id: string; name: string };
+type InventoryHeaderItem = { id: string; name: string; quantity: number; unit: string };
 
 export function InventoryHeaderActionsClient({
   items,
@@ -51,6 +51,8 @@ export function InventoryHeaderActionsClient({
   const bulkRef = useRef<HTMLButtonElement | null>(null);
   const aiRef = useRef<HTMLButtonElement | null>(null);
   const addRef = useRef<HTMLButtonElement | null>(null);
+  // UX-126: what the Add dialog checks a typed name against.
+  const existingItems = items.map((it) => ({ id: it.id, name: it.name, quantity: it.quantity, unit: it.unit }));
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -64,7 +66,7 @@ export function InventoryHeaderActionsClient({
       <BulkPasteDialog dict={dict} categories={categories} locations={locations} trigger={<button ref={pasteRef} type="button" tabIndex={-1} aria-hidden="true" className="sr-only" />} />
       <BulkScanDialog dict={dict} barcodeDict={barcodeDict} categories={categories} locations={locations} trigger={<button ref={bulkRef} type="button" tabIndex={-1} aria-hidden="true" className="sr-only" />} />
       <AiShelfScanDialog dict={dict} categories={categories} locations={locations} configured={aiShelfScanConfigured} trigger={<button ref={aiRef} type="button" tabIndex={-1} aria-hidden="true" className="sr-only" />} />
-      <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiCategoryFallbackEnabled} trigger={<button ref={addRef} type="button" tabIndex={-1} aria-hidden="true" className="sr-only" />} />
+      <ItemFormDialog mode="create" existingItems={existingItems} categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiCategoryFallbackEnabled} trigger={<button ref={addRef} type="button" tabIndex={-1} aria-hidden="true" className="sr-only" />} />
 
       {/* Desktop / tablet: keep icon buttons visible */}
       <div className="hidden sm:flex flex-wrap items-center gap-2">
@@ -92,7 +94,7 @@ export function InventoryHeaderActionsClient({
             <span className="sr-only sm:not-sr-only">{dict.aiShelfScan.triggerLabel}</span>
           </Button>
         } />
-      <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiCategoryFallbackEnabled} trigger={
+      <ItemFormDialog mode="create" existingItems={existingItems} categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiCategoryFallbackEnabled} trigger={
           <Button className="gap-1.5">
             <Plus className="size-4" />
             <span className="sr-only sm:not-sr-only">{dict.addItem}</span>

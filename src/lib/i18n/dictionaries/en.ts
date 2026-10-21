@@ -1119,6 +1119,12 @@ export const en = {
     saving: "Saving…",
     save: "Save",
     saveAndAddAnother: "Save & add another",
+    duplicateWarning: "{name} is already in your pantry ({stock}).",
+    duplicateAddToExisting: "Add to existing",
+    duplicateAdding: "Adding…",
+    duplicateAdded: "Added {amount} to {name}",
+    duplicateUnitsDiffer: "{name} is kept in {stockUnit}, which {formUnit} doesn't convert to. Pick a matching unit to add to it.",
+    duplicateAmountInvalid: "Enter an amount above 0 to add to {name}.",
     sessionAddedCount: {
       one: "{count} item added this session",
       other: "{count} items added this session",
@@ -3395,9 +3401,12 @@ export const en = {
     join: {
       invalidTitle: "Invalid invite",
       joinTitle: "Join {name}",
+      invitedBy: "{inviter} invited you to {household} on Squirrel",
+      invitedNoName: "You're invited to {household} on Squirrel",
+      pitch: "Squirrel keeps your household's shopping, meals, tasks and budget in one place.",
+      goToSquirrel: "Go to Squirrel",
       invalidDescription:
         "This invite link is invalid or has expired. Ask a household member to send you a new one.",
-      backToLogin: "Back to log in",
       goToDashboard: "Go to dashboard",
       acceptConsequence:
         "You'll get full access to this household's inventory, shopping lists, meal plans, and budget data.",

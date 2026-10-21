@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, type ReactElement } from "react";
+import { useActionState, useMemo, useRef, useState, useTransition, type ReactElement } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,7 +15,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
-import { createInventoryItemAction, updateInventoryItemAction } from "@/app/dashboard/inventory/actions";
+import { toast } from "sonner";
+import {
+  adjustQuantityAction,
+  createInventoryItemAction,
+  updateInventoryItemAction,
+} from "@/app/dashboard/inventory/actions";
+import { amountInExistingUnit, findDuplicateOfName } from "@/lib/inventory/duplicates";
+import { formatQuantity } from "@/lib/format-quantity";
+import { useUnitLabel } from "@/components/units-provider";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import type { AutoAddedItem } from "@/lib/shopping/default-list";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
@@ -41,6 +49,7 @@ export function ItemFormDialog({
   barcodeDict,
   trigger,
   aiCategoryFallbackEnabled = false,
+  existingItems,
 }: {
   mode: "create" | "edit";
   item?: InventoryItemRow;
@@ -59,8 +68,17 @@ export function ItemFormDialog({
    * on a deployment where it can't actually run (see AiShelfScanDialog's
    * own "configured" prop for the same gating pattern). */
   aiCategoryFallbackEnabled?: boolean;
+  /** UX-126: create mode only. The pantry's names and stock, so a typed name
+   * that matches one shows "already in your pantry" with an add-to-it
+   * button. Left out where the list isn't at hand (the empty state has no
+   * items to match anyway). */
+  existingItems?: { id: string; name: string; quantity: number; unit: string }[];
 }) {
   const [open, setOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const unitLabel = useUnitLabel();
+  const [addingToExisting, startAddToExisting] = useTransition();
+  const [existingError, setExistingError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(item?.name ?? "");
   const [category, setCategory] = useState(item?.category ?? "");
@@ -100,6 +118,7 @@ export function ItemFormDialog({
       setNeverExpires(item?.shelfLifeDays === -1);
       setScannedBarcode(null);
       setSessionAddedCount(0);
+      setExistingError(null);
       kept.reset();
     }
   };
@@ -148,6 +167,45 @@ export function ItemFormDialog({
   }, initialState);
   const unitRefused = state.errorField === "unit";
 
+  // UX-126: the same check as the catalog's duplicates filter, run on the
+  // name as it is typed (or filled in by a barcode scan).
+  const duplicate = useMemo(
+    () => (mode === "create" && existingItems ? findDuplicateOfName(name, existingItems) : null),
+    [mode, existingItems, name],
+  );
+
+  // "I bought more butter": adds the form's quantity to the match instead of
+  // creating a second item. The amount is read from the form (it is an
+  // uncontrolled field) at click time.
+  const unitsDiffer = !!duplicate && amountInExistingUnit(1, unit, duplicate.unit) === null;
+  const addToExisting = () => {
+    if (!duplicate) return;
+    const typed = Number(new FormData(formRef.current ?? undefined).get("quantity"));
+    // The form's unit may differ from the match's ("2 kg" onto an item kept
+    // in g): convert into the item's unit, since the delta is applied in it.
+    const amount = amountInExistingUnit(typed, unit, duplicate.unit);
+    if (amount === null) return;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setExistingError(format(dict.duplicateAmountInvalid, { name: duplicate.name }));
+      return;
+    }
+    setExistingError(null);
+    startAddToExisting(async () => {
+      const result = await adjustQuantityAction(duplicate.id, amount);
+      if (result.error) {
+        setExistingError(result.error);
+        return;
+      }
+      toast.success(
+        format(dict.duplicateAdded, {
+          amount: `${formatQuantity(amount)} ${unitLabel(duplicate.unit)}`,
+          name: duplicate.name,
+        }),
+      );
+      handleOpenChange(false);
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} longForm>
       <DialogTrigger render={trigger} />
@@ -174,7 +232,7 @@ export function ItemFormDialog({
             })()}
           </p>
         )}
-        <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+        <form ref={formRef} action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
           {mode === "edit" && item && <input type="hidden" name="itemId" value={item.id} />}
           {/* Remembered on the new item (AUTO-6) so the next scan of this
               product resolves straight to it — see createInventoryItemAction. */}
@@ -196,6 +254,41 @@ export function ItemFormDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
+            {duplicate && (
+              <div role="status" className="flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+                <p>
+                  {format(dict.duplicateWarning, {
+                    name: duplicate.name,
+                    stock: `${formatQuantity(duplicate.quantity)} ${unitLabel(duplicate.unit)}`,
+                  })}
+                </p>
+                {existingError && <p className="text-destructive">{existingError}</p>}
+                {unitsDiffer ? (
+                  <p className="text-muted-foreground">
+                    {format(dict.duplicateUnitsDiffer, {
+                      name: duplicate.name,
+                      stockUnit: unitLabel(duplicate.unit),
+                      formUnit: unitLabel(unit),
+                    })}
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    disabled={addingToExisting || pending}
+                    onClick={addToExisting}
+                  >
+                    <PendingLabel
+                      pending={addingToExisting}
+                      busy={dict.duplicateAdding}
+                      idle={dict.duplicateAddToExisting}
+                    />
+                  </Button>
+                )}
+              </div>
+            )}
             {mode === "create" && scannedBarcode && (
               <div className="flex flex-col gap-0.5">
                 <ScannedBarcodeNote barcode={scannedBarcode} dict={barcodeDict} />
