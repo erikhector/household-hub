@@ -75,8 +75,13 @@ for (const locale of LOCALES) {
     });
 
     test("names the inviter, shows the brand and the pitch, and shares signup's fields", async ({ page }, testInfo) => {
+      // Other specs rename the seeded user, so read the name as it is now.
+      const inviter = await withDb(async (c) => {
+        const { rows } = await c.query(`SELECT "displayName" FROM "User" WHERE id = $1`, [E2E_USER.id]);
+        return rows[0].displayName as string;
+      });
       await expectRendersCleanly(page, { pattern: "/join/[token]", path: `/join/${namedToken}` });
-      await expect(page.getByRole("heading", { level: 1, name: t.invited(E2E_USER.displayName) })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: t.invited(inviter) })).toBeVisible();
       await expect(page.getByText(t.pitch)).toBeVisible();
       await expect(page.getByRole("link", { name: "Squirrel", exact: true }).first()).toBeVisible();
       // Signup's field styling: the name and email fields carry a leading icon.
