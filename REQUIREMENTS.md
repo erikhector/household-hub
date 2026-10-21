@@ -7344,6 +7344,13 @@ approximating them, so the email never disagrees with the app.
   `text-sm` or a raw `<input>`. Covered
   by `e2e/form-control-sizes.mobile.spec.ts`, which also runs on the
   `landscape` and `tablet` projects.
+- Suggestion rows and combobox buttons are 44 px on touch screens (UX-143):
+  `AutocompleteItem` has `max-sm:min-h-11 pointer-coarse:min-h-11` like
+  `ComboboxItem`, and `ComboboxTrigger`/`ComboboxClear` set `h-11` there
+  (`h-full` in the `h-11` group measured 42 px after the border; no picker
+  renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
+  `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
+  Match item toggle.
 - Comboboxes keep their value readable on phones. An autocomplete field
   shows one 44 px button at a time below `sm`: the chevron while it's
   empty, the clear (×) once it has a value (clearing brings the chevron
