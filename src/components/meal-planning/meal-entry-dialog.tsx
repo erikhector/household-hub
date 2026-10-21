@@ -21,6 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Combobox,
+  ComboboxInlineList,
+  ComboboxInput,
+  ComboboxInputGroup,
+  ComboboxItem,
+  createComboboxItems,
+} from "@/components/ui/combobox";
+import { orderRecipesForPicker } from "@/components/meal-planning/recipe-picker-order";
+import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
 import { addMealEntryAction, updateMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { CUSTOM_RECIPE_SENTINEL, MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { PortionStepper } from "@/components/meal-planning/portion-stepper";
@@ -45,6 +55,8 @@ const NO_CHOICE = "";
 type CommonProps = {
   dict: MealPlanningDict;
   recipes: RecipeData[];
+  // UX-96: when each recipe was last cooked, to list those first.
+  recipeCooked?: Record<string, RecipeCookedStats>;
 };
 
 // "create" adds a new entry to a given day/slot; "edit" (an existing entry's
@@ -80,7 +92,7 @@ type EditProps = CommonProps & {
 };
 
 export function MealEntryDialog(props: CreateProps | EditProps) {
-  const { dict, recipes } = props;
+  const { dict, recipes, recipeCooked = {} } = props;
   const isEdit = props.mode === "edit";
 
   const [open, setOpen] = useState(false);
@@ -96,9 +108,10 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   const [recipeChoice, setRecipeChoice] = useState(
     isEdit ? (props.entry.recipeId ?? CUSTOM_RECIPE_SENTINEL) : initialChoice,
   );
-  // Favourites first (GAP-18), otherwise the list's own order, so the
-  // household's go-to meals are at the top of the picker.
-  const pickerRecipes = [...recipes].sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite));
+  // UX-96: what's typed in the recipe field. Only a filter, never the
+  // chosen value (that's `recipeChoice`), so picking doesn't narrow the
+  // list down to the one row.
+  const [recipeQuery, setRecipeQuery] = useState("");
   const [portions, setPortions] = useState(isEdit ? String(props.entry.portions) : "4");
   const [mealType, setMealType] = useState<MealType>(isEdit ? props.entry.mealType : props.mealType);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -132,14 +145,16 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
     return result;
   }, initialState);
 
-  const recipeLabel = (value: string | null) =>
-    !value
-      ? dict.chooseRecipePlaceholder
-      : value === CUSTOM_RECIPE_SENTINEL
-        ? dict.customMealOption
-        : value === FROM_PREP_SENTINEL
-          ? dict.prepFromPrepOption
-          : (recipes.find((r) => r.id === value)?.name ?? value);
+  // The two fixed sources, then favourites and recently cooked (UX-96).
+  const pickerItems: { id: string; label: string }[] = [
+    { id: CUSTOM_RECIPE_SENTINEL, label: dict.customMealOption },
+    ...(availableBatches.length > 0 ? [{ id: FROM_PREP_SENTINEL, label: dict.prepFromPrepOption }] : []),
+    ...orderRecipesForPicker(recipes, recipeCooked).map((r) => ({ id: r.id, label: r.name })),
+  ];
+  const pickerComboboxItems = createComboboxItems(pickerItems, {
+    getValue: (item) => item.id,
+    getLabel: (item) => item.label,
+  });
 
   // Base UI's SelectValue renders the raw value (a batch id) unless mapped.
   const batchLabel = (value: string) => {
@@ -157,7 +172,13 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen} handle={isEdit ? props.handle : undefined}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setRecipeQuery("");
+      }}
+      handle={isEdit ? props.handle : undefined}>
       {/* Editing opens from the meal's sheet (`handle`); adding is the
           day's one "+ Add meal". */}
       {!isEdit && (
@@ -174,7 +195,14 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
         initialFocus={freeformNameRef}
       >
         <DialogHeader>
-          <DialogTitle>{isEdit ? dict.editMealDialogTitle : dict.addMealDialogTitle}</DialogTitle>
+          <DialogTitle>
+            {isEdit
+              ? dict.editMealDialogTitle
+              : format(dict.addMealDialogTitleDay, {
+                  meal: dict[mealTypeDictKey[mealType]].toLowerCase(),
+                  day: props.dayLabel,
+                })}
+          </DialogTitle>
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           {isEdit ? (
@@ -207,25 +235,31 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="recipeId">{dict.recipeLabel}</Label>
-            <Select
+            {/* M4 + UX-96: type to filter, or scroll the list that sits
+                right here in the sheet (a popup under the field only got
+                the 1.5 rows left above the sheet's edge). */}
+            <Combobox
+              inline
+              open
+              items={pickerComboboxItems}
               value={choice || null}
-              onValueChange={(v) => v && handleRecipeChoiceChange(v)}
+              onValueChange={(v) => typeof v === "string" && handleRecipeChoiceChange(v)}
+              inputValue={recipeQuery}
+              onInputValueChange={(v, details) => {
+                if (details.reason === "input-change" || details.reason === "input-clear") setRecipeQuery(v);
+              }}
             >
-              <SelectTrigger id="recipeId" className="w-full">
-                <SelectValue placeholder={dict.chooseRecipePlaceholder}>{recipeLabel}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={CUSTOM_RECIPE_SENTINEL}>{dict.customMealOption}</SelectItem>
-                {availableBatches.length > 0 && (
-                  <SelectItem value={FROM_PREP_SENTINEL}>{dict.prepFromPrepOption}</SelectItem>
+              <ComboboxInputGroup>
+                <ComboboxInput id="recipeId" autoComplete="off" placeholder={dict.recipeSearchPlaceholder} />
+              </ComboboxInputGroup>
+              <ComboboxInlineList emptyMessage={dict.recipeNoMatches}>
+                {(item: { id: string; label: string }) => (
+                  <ComboboxItem key={item.id} value={item.id}>
+                    {item.label}
+                  </ComboboxItem>
                 )}
-                {pickerRecipes.map((recipe) => (
-                  <SelectItem key={recipe.id} value={recipe.id}>
-                    {recipe.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              </ComboboxInlineList>
+            </Combobox>
             {choice !== FROM_PREP_SENTINEL && <input type="hidden" name="recipeId" value={choice} />}
           </div>
 

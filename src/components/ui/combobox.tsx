@@ -132,6 +132,35 @@ function ComboboxContent({
   )
 }
 
+// UX-96: the list without a popup, for a picker that sits in a bottom sheet
+// where a popup anchored under the field gets the sliver of screen between
+// the field and the sheet's edge (about 1.5 rows). Used with
+// `<Combobox inline open>`: the list is part of the form, about five rows
+// tall before it scrolls.
+function ComboboxInlineList({
+  className,
+  children,
+  emptyMessage,
+}: {
+  className?: string
+  children: ComboboxPrimitive.List.Props["children"]
+  emptyMessage: React.ReactNode
+}) {
+  return (
+    <div className="rounded-lg border border-input">
+      <ComboboxPrimitive.Empty className="px-2.5 text-sm text-muted-foreground not-empty:py-3">
+        {emptyMessage}
+      </ComboboxPrimitive.Empty>
+      <ComboboxPrimitive.List
+        data-slot="combobox-inline-list"
+        className={cn("max-h-60 overflow-y-auto p-1 empty:hidden", className)}
+      >
+        {children}
+      </ComboboxPrimitive.List>
+    </div>
+  )
+}
+
 function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.Props) {
   return (
     <ComboboxPrimitive.Item
@@ -158,6 +187,7 @@ export {
   Combobox,
   ComboboxClear,
   ComboboxContent,
+  ComboboxInlineList,
   ComboboxInput,
   ComboboxInputGroup,
   ComboboxItem,

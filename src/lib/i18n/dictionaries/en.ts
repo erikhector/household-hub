@@ -1672,7 +1672,9 @@ export const en = {
     addMeal: "Add meal",
     addMealAriaLabel: "Add meal, {day}",
     todayBadge: "Today",
-    addMealDialogTitle: "Add a meal",
+    addMealDialogTitleDay: "Add {meal} · {day}",
+    recipeSearchPlaceholder: "Search recipes",
+    recipeNoMatches: "No recipe matches",
     editMealAriaLabel: "Edit meal",
     editMealDialogTitle: "Edit meal",
     moveMealAriaLabel: "Move meal",
@@ -1684,7 +1686,6 @@ export const en = {
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
     // The add-meal picker before anything is chosen (M4: pick, don't type).
-    chooseRecipePlaceholder: "Choose a recipe",
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",
