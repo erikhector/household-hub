@@ -744,7 +744,7 @@ export const sv = {
       sectionTitle: "Mallar",
       itemCount: { one: "{count} vara", other: "{count} varor" },
       use: "Använd",
-      useAriaLabel: 'Starta en ny lista från "{name}"',
+      useAriaLabel: 'Använd mallen "{name}"',
       deleteAriaLabel: 'Ta bort mallen "{name}"',
       deletedToast: 'Mallen "{name}" togs bort',
       undo: "Ångra",

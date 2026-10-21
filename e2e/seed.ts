@@ -88,8 +88,7 @@ async function seedWorker(client: Client, data: ReturnType<typeof e2eWorkerData>
   // The item page's seeded row (MATCH-6, e2e/routes.ts): flour counted in
   // bags, with "1 pcs = 2000 g" saved, used by one recipe in grams (✓) and
   // one in dl (⚠), on the seeded list, and a learned name. No template:
-  // a seeded one adds a "Start a new list from…" button that flows.spec.ts's
-  // "New list" locator would also match.
+  // a seeded one would add a template row to every worker's overview.
   await client.query(
     `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
      VALUES ($1, $2, $3, 'Baking', 1, 'pcs', 0.5, now())`,

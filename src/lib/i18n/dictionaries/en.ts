@@ -796,7 +796,7 @@ export const en = {
       sectionTitle: "Templates",
       itemCount: { one: "{count} item", other: "{count} items" },
       use: "Use",
-      useAriaLabel: 'Start a new list from "{name}"',
+      useAriaLabel: 'Use template "{name}"',
       deleteAriaLabel: 'Delete template "{name}"',
       deletedToast: 'Template "{name}" deleted',
       undo: "Undo",

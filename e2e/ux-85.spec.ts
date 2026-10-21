@@ -64,6 +64,9 @@ test("a new list can start from a past list's unbought items", async ({ page }) 
   // Ticked off, so it is "bought" and stays behind.
   await page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") }).click();
   await expect(page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") })).toBeChecked();
+  // Reload first so the tick has reached the database before the copy reads it.
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") })).toBeChecked();
 
   await page.goto("/dashboard/shopping-list");
   await page.getByRole("button", { name: "New list" }).click();
@@ -94,7 +97,7 @@ test("a new list can start from a template, and its row says Use", async ({ page
 
   await page.goto("/dashboard/shopping-list");
   // The template row's button is "Use", not a second "New list".
-  await expect(page.getByRole("button", { name: `Start a new list from "${template}"` })).toHaveText("Use");
+  await expect(page.getByRole("button", { name: `Use template "${template}"` })).toHaveText("Use");
 
   await page.getByRole("button", { name: "New list" }).click();
   await page.getByRole("combobox", { name: t.startFrom.label }).click();
