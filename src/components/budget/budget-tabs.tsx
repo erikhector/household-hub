@@ -81,7 +81,7 @@ import type {
   SafeToSpendBreakdown,
   SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
-import type { MonthProjection } from "@/lib/chart-calc";
+import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -127,6 +127,7 @@ export function BudgetTabs({
   safeToSpendBreakdown,
   safeToSpendExpectedRecurring,
   safeToSpendProjection = null,
+  safeToSpendDaily = null,
   limitAlerts = [],
   householdDebts = [],
   dueTemplates,
@@ -183,6 +184,8 @@ export function BudgetTabs({
   limitAlerts?: LimitAlertRow[];
   /** UX-39 — see SafeToSpend's `projection` prop. */
   safeToSpendProjection?: MonthProjection | null;
+  /** UX-117 — see SafeToSpend's `dailyAllowance` prop. */
+  safeToSpendDaily?: DailyAllowance | null;
   /** Personal budget only — see SafeToSpend's identical prop. */
   householdDebts?: HouseholdDebt[];
   /** Already filtered to `status === "due"`. */
@@ -344,6 +347,7 @@ export function BudgetTabs({
                 householdDebts={householdDebts}
                 showHouseholdName={showHouseholdName}
                 projection={safeToSpendProjection}
+                dailyAllowance={safeToSpendDaily}
                 variant="compact"
                 setupHrefs={{ income: tabHref("transactions"), bills: tabHref("manage") }}
                 limitAlertCount={limitAlerts.length}

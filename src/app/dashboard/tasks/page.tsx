@@ -66,6 +66,7 @@ const getTasksData = cache(async (householdId: string) => {
         completed,
         recurrenceIntervalDays: t.recurrenceIntervalDays,
         completedAt: t.completedAt,
+        recurrenceAnchorAt: t.recurrenceAnchorAt,
         createdAt: t.createdAt,
         // Current members only, so the edit dialog never offers (or
         // re-saves) someone who has left the household.

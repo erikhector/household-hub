@@ -158,6 +158,7 @@ const {
   transferOwnershipAction,
   switchHouseholdAction,
   dismissGettingStartedAction,
+  markGettingStartedCelebratedAction,
   setAutoAddLowStockToListAction,
   enableCalendarFeedAction,
   regenerateCalendarFeedAction,
@@ -947,6 +948,29 @@ describe("transferOwnershipAction", () => {
       data: { role: "OWNER" },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+});
+
+describe("markGettingStartedCelebratedAction (UX-69)", () => {
+  it("remembers the finish moment for the session's own household, without revalidating", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" } });
+
+    await markGettingStartedCelebratedAction();
+
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "getting_started_done_household-1",
+      "1",
+      expect.objectContaining({ path: "/", maxAge: 60 * 60 * 24 * 365 }),
+    );
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("sets nothing when there is no signed-in household", async () => {
+    requireHouseholdMock.mockRejectedValue(new Error("REDIRECT:/login"));
+
+    await expect(markGettingStartedCelebratedAction()).rejects.toThrow("REDIRECT:/login");
+
+    expect(cookieSetMock).not.toHaveBeenCalled();
   });
 });
 

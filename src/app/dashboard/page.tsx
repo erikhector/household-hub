@@ -8,7 +8,7 @@ import { TodayBlock, type TodayTask } from "@/components/dashboard/today-block";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
-import { isGettingStartedDismissed } from "@/lib/getting-started-dismiss";
+import { isGettingStartedCelebrated, isGettingStartedDismissed } from "@/lib/getting-started-dismiss";
 import { getTimeZone } from "@/lib/get-time-zone";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
@@ -61,6 +61,8 @@ export default async function DashboardOverviewPage() {
     tonightEntries,
     householdStepSkipped,
     gettingStartedDismissed,
+    gettingStartedCelebrated,
+    plannedMealCount,
     prepBatches,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
@@ -81,6 +83,7 @@ export default async function DashboardOverviewPage() {
         assignedToMemberId: true,
         completedAt: true,
         recurrenceIntervalDays: true,
+        recurrenceAnchorAt: true,
         createdAt: true,
       },
       orderBy: { createdAt: "asc" },
@@ -134,6 +137,9 @@ export default async function DashboardOverviewPage() {
     }),
     isHouseholdStepSkipped(household.id),
     isGettingStartedDismissed(household.id),
+    isGettingStartedCelebrated(household.id),
+    // UX-69: the "Plan this week's meals" step is done once anything is planned.
+    prisma.mealPlanEntry.count({ where: { mealPlan: { householdId: household.id } } }),
     getActiveBatches(household.id),
   ]);
   const budgetCategoryCount = householdBudget.count;
@@ -195,12 +201,11 @@ export default async function DashboardOverviewPage() {
     },
     { key: "inventory", href: "/dashboard/inventory", done: items.length > 0 },
     { key: "shoppingList", href: "/dashboard/shopping-list", done: shoppingListCount > 0 },
+    { key: "mealPlan", href: "/dashboard/meal-planning", done: plannedMealCount > 0 },
     { key: "budget", href: "/dashboard/budget", done: budgetCategoryCount > 0 },
-    {
-      key: "personalBudget",
-      href: "/dashboard/personal-budget",
-      done: personalBudgetCategoryCount > 0,
-    },
+    // No personal-budget step (UX-69): the "Your budget" card below already
+    // is that feature's call to action, and two stacked prompts for one
+    // optional feature were one too many on the first screen.
   ];
 
   return (
@@ -229,7 +234,11 @@ export default async function DashboardOverviewPage() {
       />
 
       {!gettingStartedDismissed && (
-        <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
+        <GettingStarted
+          steps={gettingStartedSteps}
+          celebrated={gettingStartedCelebrated}
+          dict={dict.dashboard.gettingStarted}
+        />
       )}
 
       <div>
@@ -242,6 +251,7 @@ export default async function DashboardOverviewPage() {
             householdDebts={personalPosition.householdDebts}
             showHouseholdName={personalPosition.showHouseholdName}
             projection={personalPosition.safeToSpendProjection}
+            dailyAllowance={personalPosition.safeToSpendDaily}
             setupHrefs={{
               income: "/dashboard/personal-budget?tab=transactions",
               bills: "/dashboard/personal-budget?tab=manage",

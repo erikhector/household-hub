@@ -52,7 +52,11 @@ export function ProjectionChart({
   const solid = [`${x(0)},${y(start)}`, ...actual.map((v, i) => `${x(i + 1)},${y(v)}`)].join(" ");
   const over = projected < 0;
   // The "Today" tick sits under today's point, kept off the card's edges.
-  const todayLeft = Math.min(85, Math.max(15, (x(daysElapsed) / WIDTH) * 100));
+  const todayLeft = Math.min(82, Math.max(18, (x(daysElapsed) / WIDTH) * 100));
+  // Both labels now carry an amount, so they're about twice as wide: past
+  // the middle "Month end" drops to a second line (right-aligned under the
+  // line's end) instead of colliding with "Today".
+  const stacked = todayLeft > 45;
 
   return (
     <div className="flex flex-col gap-1.5 border-t border-border pt-3">
@@ -101,14 +105,21 @@ export function ProjectionChart({
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        <div className="relative h-4 text-xs text-muted-foreground">
-          <span className="absolute -translate-x-1/2" style={{ left: `${todayLeft}%` }}>
-            {dict.projectionToday}
-          </span>
-          {/* Dropped once "Today" would run into it (late in the month);
-              the sentence below still names the month end. */}
-          {todayLeft <= 65 && (
-            <span className="absolute right-0">{dict.projectionMonthEnd}</span>
+        <div className="relative text-xs text-muted-foreground">
+          <div className="relative h-4">
+            <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${todayLeft}%` }}>
+              {dict.projectionToday} <span className="tabular-nums">{numberFormat.format(today)}</span>
+            </span>
+            {!stacked && (
+              <span className="absolute right-0 whitespace-nowrap">
+                {dict.projectionMonthEnd} <span className="tabular-nums">{numberFormat.format(projected)}</span>
+              </span>
+            )}
+          </div>
+          {stacked && (
+            <p className="text-right">
+              {dict.projectionMonthEnd} <span className="tabular-nums">{numberFormat.format(projected)}</span>
+            </p>
           )}
         </div>
       </div>

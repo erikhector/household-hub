@@ -43,7 +43,7 @@ async function openAddMeal(page: Page, open: "tap" | "click" = "click") {
   const trigger = page.getByRole("button", { name: /^Add meal, / }).first();
   if (open === "tap") await trigger.tap();
   else await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Add a meal" });
+  const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
   await expect(dialog).toBeVisible();
   return dialog;
 }
@@ -151,6 +151,18 @@ test.describe("on a desktop", () => {
 
   test("the centred dialog doesn't drag", async ({ page }) => {
     const dialog = await openAddMeal(page);
+    // The recipe list (UX-96) fills in as the dialog opens and the centred
+    // dialog re-centres around it, so measure once its top has stopped moving.
+    await expect(dialog.getByRole("option").first()).toBeVisible();
+    let last = -1;
+    await expect
+      .poll(async () => {
+        const y = (await dialog.boundingBox())!.y;
+        const settled = y === last;
+        last = y;
+        return settled;
+      })
+      .toBe(true);
     const before = (await dialog.boundingBox())!;
     // The grabber is phone-only; drag the dialog's top edge instead.
     const x = before.x + before.width / 2;

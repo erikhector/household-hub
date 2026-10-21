@@ -19,7 +19,10 @@ import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 import { generateCalendarFeedToken } from "@/lib/calendar-feed";
 import { defaultCurrencyForNewHousehold, parseHouseholdCurrency } from "@/lib/currency";
 import { HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX } from "@/lib/household-step-skip";
-import { GETTING_STARTED_DISMISS_COOKIE_PREFIX } from "@/lib/getting-started-dismiss";
+import {
+  GETTING_STARTED_DISMISS_COOKIE_PREFIX,
+  GETTING_STARTED_DONE_COOKIE_PREFIX,
+} from "@/lib/getting-started-dismiss";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -335,6 +338,18 @@ export async function dismissGettingStartedAction(): Promise<void> {
     path: "/",
   });
   revalidatePath("/dashboard");
+}
+
+// UX-69: called once by the "You're all set" moment when it first shows. No
+// revalidatePath: the moment must stay on screen until the person leaves the
+// overview; the cookie only stops it from appearing again.
+export async function markGettingStartedCelebratedAction(): Promise<void> {
+  const { household } = await requireHousehold();
+  const cookieStore = await cookies();
+  cookieStore.set(`${GETTING_STARTED_DONE_COOKIE_PREFIX}${household.id}`, "1", {
+    maxAge: GETTING_STARTED_DISMISS_COOKIE_MAX_AGE,
+    path: "/",
+  });
 }
 
 // `returnTo` lets a caller land somewhere other than /dashboard after
