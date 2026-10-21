@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.95.0",
+    "date": "2026-10-21",
+    "pr": 544,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Adding an item whose name matches one you already have (like \"Banana\" next to \"Bananas\") now tells you, and lets you add the amount to the existing item instead of creating a second one.\n\nSplitting an expense now starts with an even split, so you no longer see a mismatch error before you have typed anything. The shares follow the amount until you change one.\n\nSignup and login mistakes now show right under the field they're about, in your language, and signup keeps what you typed. The password field says up front that it needs at least 8 characters, and \"email already in use\" links to Log in and Forgot password.\n\nAn invite link now shows who invited you, what Squirrel is, and the same sign-up form as the main page. An expired link points you to Squirrel or log in.\n\nNo user-facing change.",
+      "sv": "När du lägger till en vara som liknar en du redan har (som \"Banan\" bredvid \"Bananer\") får du nu en varning, och kan lägga mängden på den befintliga varan i stället för att skapa en till.\n\nAtt dela en utgift börjar nu med en jämn delning, så du slipper felmeddelandet innan du har skrivit något. Andelarna följer beloppet tills du ändrar någon.\n\nFel vid registrering och inloggning visas nu direkt under rätt fält, på ditt språk, och registreringen behåller det du skrivit. Lösenordsfältet visar i förväg att det kräver minst 8 tecken, och \"e-postadressen används redan\" länkar till Logga in och Glömt lösenordet.\n\nEn inbjudningslänk visar nu vem som bjöd in dig, vad Squirrel är och samma registreringsformulär som startsidan. En utgången länk visar vägen till Squirrel eller inloggning.\n\nIngen förändring för användare."
+    }
+  },
+  {
     "version": "0.94.0",
     "date": "2026-10-21",
     "pr": 532,
