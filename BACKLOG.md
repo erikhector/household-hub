@@ -326,19 +326,6 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
       both the `desktop` and `mobile` projects.
-- [ ] **MAINT-42. Flaky: bottom-bar label check can't find "More" while it carries an unread badge** (low, S) —
-      `e2e/navigation.mobile.spec.ts:85` ("the bottom bar labels are at
-      least 12 px"), `mobile` project. Failed in the local `ci:local` gate
-      on PR #464 (`6c00cff`, 2026-10-20): the More button read "1 More"
-      (an unread-notification badge left by another spec in the worker's
-      shared household), so `nav.getByText("More", { exact: true })` found
-      nothing. Passed on a re-run of the whole spec on the same commit
-      (8/8). Make the spec independent of other specs' notifications (its
-      own household state, or a locator for the label element itself that
-      still asserts its exact text), never a loosened assertion, a skip or
-      a retry. Acceptance: `npx playwright test
-      e2e/navigation.mobile.spec.ts:85 --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
       `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
       through the field or the bar"), `mobile` project. Failed in the local
