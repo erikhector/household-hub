@@ -78,6 +78,9 @@ test("a refused unit change shows under the unit field, in view", async ({ page 
   const unit = dialog.getByRole("combobox", { name: "Unit" });
   await expect(unit).toBeEditable();
   await unit.fill("kg");
+  // Tab closes the suggestion list, which otherwise hides the dialog's
+  // buttons from the accessibility tree.
+  await unit.press("Tab");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
 
   const refusal = dialog.getByRole("alert").filter({ hasText: "Change unit" });
