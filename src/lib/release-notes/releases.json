@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.93.0",
+    "date": "2026-10-21",
+    "pr": 519,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Suggestion lists, such as the unit picker, now have taller rows on phones, and the dropdown button in item pickers is bigger, so they are easier to tap.\n\nThe unit field on an item's edit form now looks read-only when the item has stock, so it no longer appears editable.\n\nTask rows are now compact on phones, so more tasks fit on screen. Edit and delete are in the swipe menu and the edit sheet. A new Mine / Everyone switch on the Tasks page shows just your tasks, and remembers your choice.\n\nAfter signing up, the page now says \"Check your inbox\" and shows which address we emailed. Once your email is verified, \"Log in\" takes you to the login page with your email already filled in, and so does resetting your password.\n\nThe \"Get set up\" card now keeps the steps you have finished as ticked rows under a progress bar, adds a \"Plan this week's meals\" step, and says \"You're all set\" when you reach the end.\n\nAdding a meal now says which day and meal it is for, and you can type to search your recipes. Favourites and recently cooked recipes come first, and several recipes are visible at once on a phone.\n\nn/a\n\nA repeating task's schedule now follows the day you set it up or last changed how often it repeats, so editing a weekly chore on a Thursday makes it a Thursday chore.\n\nSafe to spend now tells you roughly how much you can spend per day for the rest of the month, and the pace chart shows the amounts at Today and Month end.",
+      "sv": "Förslagslistor, till exempel enhetsväljaren, har nu högre rader på mobilen, och rullgardinsknappen i artikelväljare är större, så de är lättare att trycka på.\n\nEnhetsfältet i varans redigeringsformulär ser nu skrivskyddat ut när varan har lager, så det ser inte längre ändringsbart ut.\n\nUppgiftsraderna är nu kompakta på mobilen, så fler uppgifter ryms på skärmen. Redigera och ta bort finns i svepmenyn och i redigeringsvyn. En ny Mina / Alla-växel på Uppgifter-sidan visar bara dina uppgifter och kommer ihåg ditt val.\n\nEfter registreringen står det nu \"Kolla din inkorg\" och vilken adress vi mejlat. När din e-post är verifierad tar \"Logga in\" dig till inloggningen med e-postadressen redan ifylld, och det gör även en lösenordsåterställning.\n\nKortet \"Kom igång\" behåller nu de steg du är klar med som avbockade rader under en förloppsindikator, har fått ett nytt steg \"Planera veckans måltider\" och säger \"Nu är allt klart\" när du är i mål.\n\nNär du lägger till en måltid står det nu vilken dag och måltid det gäller, och du kan skriva för att söka bland dina recept. Favoriter och nyligen lagade recept visas först, och flera recept syns samtidigt på mobilen.\n\nn/a\n\nEn återkommande uppgifts schema följer nu den dag du skapade den eller senast ändrade hur ofta den upprepas, så om du redigerar en veckosyssla på en torsdag blir den en torsdagssyssla.\n\nSäkert att spendera visar nu ungefär hur mycket du kan spendera per dag resten av månaden, och takt-diagrammet visar beloppen för Idag och Månadens slut."
+    }
+  },
+  {
     "version": "0.92.0",
     "date": "2026-10-21",
     "pr": 502,
