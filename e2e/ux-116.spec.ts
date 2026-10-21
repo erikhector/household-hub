@@ -26,11 +26,11 @@ test("an empty budget asks for income and regular bills instead of a green zero"
   const main = page.getByRole("main");
   await expect(main.getByText("Add your income and regular bills to see what's safe to spend.")).toBeVisible();
   await expect(main.getByText("You're in good shape for the rest of the month.")).toBeHidden();
-  await expect(main.getByRole("button", { name: "Add income" })).toBeVisible();
-  await expect(main.getByRole("button", { name: "Add regular bills" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Add income" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Add regular bills" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  await main.getByRole("button", { name: "Add regular bills" }).click();
+  await main.getByRole("link", { name: "Add regular bills" }).click();
   await expect(page).toHaveURL(/tab=manage/);
 
   // With income logged the number returns, and the glyphs are explained.

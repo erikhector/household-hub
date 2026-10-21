@@ -35,6 +35,11 @@ easy for AI coding agents to work in correctly:
   prop (e.g. `<DialogTrigger render={<Button>Add item</Button>} />`), never
   Radix's `asChild` — `asChild` silently leaks through as a DOM attribute and
   produces nested `<button>` hydration errors instead of failing loudly.
+  A `Button` whose `render` element carries an `href` (a `Link` or `<a>`)
+  exposes `role="link"`, not Base UI's default `role="button"`, so a
+  screen reader announces a link for something that navigates (UX-68); e2e
+  finds these with `getByRole("link", …)`. A `role` passed at the call
+  site still wins.
 - **react-hook-form + Zod** are installed for future complex forms; the
   current auth/inventory/shopping forms use React's `useActionState` +
   native `<form action={...}>` directly, which is enough for their shape.

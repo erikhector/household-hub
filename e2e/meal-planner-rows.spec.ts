@@ -132,7 +132,7 @@ test("a planned meal is one row whose sheet holds its labelled actions, delete s
     await expect(row).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.reload();
-    await expect(page.getByRole("button", { name: "Previous week" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Previous week" })).toBeVisible();
     await expect(row).toHaveCount(0);
   } finally {
     await cleanup(recipeId);
@@ -170,7 +170,7 @@ test("the week bar stays on screen down a phone-length week", async ({ page }, t
   test.skip(testInfo.project.name !== "mobile", "only the phone's main scrolls under a sticky bar");
   await page.goto("/dashboard/meal-planning?week=2031-02-03");
   await page.getByRole("main").evaluate((main) => main.scrollTo(0, main.scrollHeight));
-  await expect(page.getByRole("button", { name: "Previous week" })).toBeInViewport();
+  await expect(page.getByRole("link", { name: "Previous week" })).toBeInViewport();
   await expect(page.getByRole("button", { name: "More planner actions" })).toBeInViewport();
 });
 
