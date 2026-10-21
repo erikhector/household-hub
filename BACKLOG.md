@@ -1590,6 +1590,32 @@ out to be a product-scope question rather than a scoped task should move to
       uniquely named recipe and sees the note under the row on the
       shopping list, on desktop and mobile.
 
+### 2026-10-21 scan
+
+- [ ] **GAP-63. Search the month's expenses by what you typed** (impact: med, effort: S) —
+      Splitwise lists "search your full expense history" among its core
+      features; "where did that 340 kr go?" or "what did we pay Clas Ohlson
+      last time?" is the commonest reason to open a ledger. Squirrel's
+      transaction list (`src/components/budget/transaction-list.tsx`) can
+      only be narrowed by category (`categoryFilter`, ~line 294), so
+      finding a row means scrolling the month. Add a "Search" field above
+      the list that filters the already-loaded rows client-side, as the
+      category filter does (nothing refetches), by a case-insensitive
+      substring of the description or category name, and the amount
+      typed as "340" or "340,50" (decimal comma accepted, per the locale
+      helpers). It combines with the category filter, the month's totals
+      stay unchanged, and the empty result says "No expenses match
+      '…'" with a Clear button. Use `type="search"`, `enterKeyHint="search"`,
+      `autoComplete="off"`, a 16 px font and a 44 px field (M-rules); put
+      the term in `?q=` so a reload and the back gesture keep it. Reading
+      only, so no schema or money maths changes. First version covers the
+      month on screen; a cross-month search can follow once there's demand.
+      Acceptance: a unit test for the pure matcher (description, category,
+      amount with comma and dot, empty term, accents); an e2e step creates
+      two uniquely named expenses, types one name in Search, sees only that
+      row, reloads and still sees the filter, clears it and sees both, on
+      desktop and mobile, in `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
