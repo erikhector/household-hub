@@ -2351,6 +2351,8 @@ export const sv = {
       allCaughtUpTitle: "Allt är klart",
       allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
       noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
+      // UX-118: a month from before the items existed.
+      nothingDueBody: "Inget skulle betalas den här månaden",
       manageButton: "Hantera återkommande poster",
       log: "Logga",
       moreAriaLabel: "Fler åtgärder för {name}",
@@ -2850,6 +2852,8 @@ export const sv = {
       allCaughtUpTitle: "Allt är klart",
       allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
       noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
+      // UX-118: a month from before the items existed.
+      nothingDueBody: "Inget skulle betalas den här månaden",
       manageButton: "Hantera återkommande poster",
       log: "Logga",
       moreAriaLabel: "Fler åtgärder för {name}",

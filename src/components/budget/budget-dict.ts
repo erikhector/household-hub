@@ -70,6 +70,7 @@ export type BudgetDict = {
     log: string;
     moreAriaLabel: string;
     noTemplatesBody: string;
+    nothingDueBody: string;
     subtitle: string;
     title: string;
   };

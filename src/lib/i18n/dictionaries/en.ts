@@ -2469,6 +2469,8 @@ export const en = {
       allCaughtUpTitle: "You're all caught up",
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      // UX-118: a month from before the items existed.
+      nothingDueBody: "Nothing was due this month",
       manageButton: "Manage recurring items",
       // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
       log: "Log",
@@ -2981,6 +2983,8 @@ export const en = {
       allCaughtUpTitle: "You're all caught up",
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      // UX-118: a month from before the items existed.
+      nothingDueBody: "Nothing was due this month",
       manageButton: "Manage recurring items",
       // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
       log: "Log",

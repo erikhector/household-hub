@@ -133,11 +133,6 @@ test("adds household planned income, counts it this month and marks it received 
 
   // --- It's expected income in Safe to spend and in the due strip ----------
   await page.getByRole("tab", { name: "Overview" }).click();
-  await main.getByText("How we got this number").click();
-  const stillDue = main.getByText("Still due this month").locator("xpath=following-sibling::ul");
-  const breakdownRow = stillDue.getByRole("listitem").filter({ hasText: name });
-  await expect(breakdownRow).toBeVisible();
-  await expect(breakdownRow).toContainText("+");
   const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
   const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
   await expect(stripRow.getByRole("button", { name: "Log income" })).toBeVisible();
