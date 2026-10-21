@@ -262,7 +262,14 @@ export function ItemFormDialog({
                   editable and fails on Save. A read-only input still posts
                   its value, so the action sees the unchanged unit. */}
               {unitLocked ? (
-                <Input id="unit" name="unit" value={unit} readOnly aria-describedby="unit-note" />
+                <Input
+                  id="unit"
+                  name="unit"
+                  value={unit}
+                  readOnly
+                  aria-describedby="unit-note"
+                  className="bg-muted text-muted-foreground"
+                />
               ) : (
                 <ComboField
                   id="unit"
