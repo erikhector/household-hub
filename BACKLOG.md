@@ -326,7 +326,6 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
       both the `desktop` and `mobile` projects.
-      --repeat-each=30` passes 30/30.
 - [ ] **MAINT-42. Flaky: bottom-bar label check can't find "More" while it carries an unread badge** (low, S) —
       `e2e/navigation.mobile.spec.ts:85` ("the bottom bar labels are at
       least 12 px"), `mobile` project. Failed in the local `ci:local` gate

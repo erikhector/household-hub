@@ -103,9 +103,16 @@ test("ticking a shopping row buzzes 10 ms, springs, then moves the row to the ca
   // LEAVE_MS) and lands in the collapsed "In the cart", where `hidden` takes
   // it out of the accessibility tree. Asserting "checked" on the aisle copy
   // raced that: under load the first check could run after the row was gone.
-  // Open the cart instead and assert the row's resting place.
+  // Open the cart instead and assert the row's resting place. Until LEAVE_MS
+  // is up the fading aisle copy is still there too: `inert` hides it from a
+  // screen reader but not from Playwright's role query, so with the cart open
+  // both copies match. Wait for the aisle one to go first, which also proves
+  // the row moved, rather than letting `toBeChecked()` hit a strict-mode
+  // violation (which fails at once, without retrying).
   await page.getByRole("button", { name: /^In the cart/ }).click();
-  await expect(page.getByRole("checkbox", { name: new RegExp(name) })).toBeChecked();
+  const row = page.getByRole("checkbox", { name: new RegExp(name) });
+  await expect(row).toHaveCount(1);
+  await expect(row).toBeChecked();
   await expect.poll(async () => (await recorded(page)).vibrations).toEqual([10]);
   expect((await recorded(page)).sawTicking).toBe(true);
 
