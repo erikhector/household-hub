@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { clickRowAction, dismissCookieNotice, holdServerActions } from "./ui";
+import { dismissCookieNotice, holdServerActions } from "./ui";
 
 // UX-14: ticking is instant. A shopping row, a share-page row, a task and an
 // inventory +/- all change on tap, before the server answers, and one
@@ -285,8 +285,15 @@ test("a task delete that can't reach the server brings the row back", async ({ p
     (route) => (route.request().method() === "POST" ? route.abort() : route.continue()),
   );
 
-  await clickRowAction(page, { button: `Delete ${title}`, menu: `More actions for ${title}`, item: "Delete" });
-  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  // UX-106: a phone task row has no trash icon or ⋯; the edit sheet (a tap
+  // on the title) carries Delete, which hands over to the same confirm.
+  if ((page.viewportSize()?.width ?? 1280) >= 640) {
+    await page.getByRole("button", { name: `Delete ${title}`, exact: true }).click();
+  } else {
+    await page.getByRole("main").getByRole("button", { name: title, exact: true }).click();
+    await page.getByRole("dialog", { name: `Edit "${title}"` }).getByRole("button", { name: "Delete", exact: true }).click();
+  }
+  await page.getByRole("dialog", { name: `Delete ${title}?` }).getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
   await page.reload();

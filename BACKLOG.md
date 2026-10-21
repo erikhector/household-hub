@@ -422,7 +422,7 @@ UX-89.
   UX-81, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
-- `src/components/tasks/tasks-client.tsx`: UX-49, UX-106.
+- `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
@@ -748,26 +748,6 @@ UX-89.
       shows at least 5 rows at 412 px.
 
 #### Tasks
-
-- [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
-      effort: M) — breaks M6 and Hierarchy.
-      - Rows carry edit and trash icons as well as the swipe tray that
-        already offers both.
-      - With a long assignee name or Swedish recurrence text, the trash
-        wraps to a third line, so about 4 tasks fit on a phone screen.
-      - There's no way to see just your own tasks.
-      Acceptance: at 412 px a one-line task with an assignee badge is at
-      most 56 px, with edit and delete in the swipe tray and the edit
-      sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
-      filter is remembered.
-      Re-landing note: #437 was reverted (#441) because
-      `e2e/task-compact-rows.spec.ts:46` (`mobile`) failed on both attempts
-      in the GitHub `End-to-end (Playwright)` job on release PR #440 (run
-      39329747316): `row.getByText("E2E Tester", { exact: true })` not
-      found in the task row, though it passed locally. Several builder
-      gates failed it too, so it is not runner-specific. The new spec must
-      pass in the GitHub e2e job; do not loosen the 56 px or name
-      assertions.
 
 - [ ] **UX-144. A repeating task's anchor day moves when it is edited**
       (impact: low, effort: S) — follow-up to UX-137, which anchors a

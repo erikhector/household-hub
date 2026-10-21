@@ -6,7 +6,7 @@
 // editing a task both go through the shared TaskFormDialog (see
 // task-form-dialog.tsx) rather than delete-and-re-add.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Check, Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,9 @@ import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
-import { RowActionsMenu } from "@/components/shared/row-actions-menu";
+import { useLocalPreference } from "@/components/shared/use-local-preference";
+import { filterTasks, parseTaskFilter, type TaskFilter } from "@/app/dashboard/tasks/task-filter";
+import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
@@ -77,9 +79,16 @@ export function TasksClient({
   // in a row never waits on (or greys out behind) an earlier save (UX-14),
   // and a failed one moves its row back at once, with a toast.
   const local = useLocalRowChanges(serverTasks);
-  const tasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed) =>
+  const allTasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed) =>
     withLocalCompletion(task, completed, currentMemberId, new Date()),
   );
+  // UX-106: "Mine / Everyone", remembered on this device. It only shows (and
+  // only applies) to someone who is in a household with a second person; for
+  // a household of one it would filter nothing.
+  const [storedFilter, setStoredFilter] = useLocalPreference(TASKS_FILTER_STORAGE_KEY);
+  const canFilter = currentMemberId !== null && members.length > 1;
+  const filter: TaskFilter = canFilter ? parseTaskFilter(storedFilter) : "everyone";
+  const tasks = filterTasks(allTasks, filter, currentMemberId);
   // UX-105: older completed one-offs stay behind "Show N older" until asked.
   const [showOlder, setShowOlder] = useState(false);
   const toggleCompleted = (task: TaskRow) => {
@@ -130,12 +139,33 @@ export function TasksClient({
     <div ref={containerRef} className="relative flex flex-col gap-6">
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
 
+      {canFilter && (
+        <div role="group" aria-label={dict.filterLabel} className="-mb-2 flex gap-2">
+          {(["everyone", "mine"] as const).map((value) => (
+            <Button
+              key={value}
+              variant={filter === value ? "default" : "outline"}
+              size="sm"
+              aria-pressed={filter === value}
+              className="max-sm:min-h-11 pointer-coarse:min-h-11"
+              onClick={() => setStoredFilter(value)}
+            >
+              {value === "mine" ? dict.filterMine : dict.filterEveryone}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {/* Keyed too, so the list glides down when the recap above grows. */}
       <div data-flip-key="tasks" className="relative flex flex-col gap-2">
-        {tasks.length === 0 ? (
+        {allTasks.length === 0 ? (
           <MascotEmptyState alt={dict.mascotAlt}>
             <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
           </MascotEmptyState>
+        ) : tasks.length === 0 ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            {dict.mineEmpty}
+          </p>
         ) : (
           <>
             {openTasks.map((task) => (
@@ -262,6 +292,14 @@ function TaskItemRow({
       })
     : null;
 
+  const hasDetails =
+    recurrenceLabel !== null ||
+    nextDueLabel !== null ||
+    nextInRotationName !== undefined ||
+    task.completed ||
+    completerName !== undefined;
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+
   if (hidden) return null;
 
   return (
@@ -274,29 +312,30 @@ function TaskItemRow({
       deleteLabel={dict.swipe.delete}
       onDelete={remove}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
-        {/* basis-full forces the title onto its own line on narrow screens —
-            otherwise the recurrence/assignee badges and the edit/delete
-            buttons (all shrink-0) crowd the flex-1 title span down to just a
-            few visible characters. */}
+      <div className="flex items-center gap-3 rounded-md border px-3 py-1 sm:py-2">
+        {/* UX-106: a phone row is one line, checkbox, title, assignee, so
+            about eight fit a screen (M6). Whatever else the task carries
+            (repeat, next due, whose turn, who last did it) wraps in a small
+            line under the title instead of pushing the assignee and the
+            actions onto a second and third line. */}
         {/* UX-101: only the tick completes a task (or the right swipe). The
             title is its own button that opens the edit dialog by clicking
             the row's edit button (the same hidden-button hand-off the swipe
-            and the ⋯ menu use), so a stray tap while scrolling can't
-            complete the task silently (M5, forgiving). */}
-        <div className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
-          <Checkbox
-            data-swipe-primary
-            data-ticking={ticking || undefined}
-            checked={completed || ticking}
-            aria-label={format(completed ? dict.toggleIncompleteAriaLabel : dict.toggleCompleteAriaLabel, {
-              title: task.title,
-            })}
-            onChange={handleToggleCompleted}
-          />
+            uses), so a stray tap while scrolling can't complete the task
+            silently (M5, forgiving). */}
+        <Checkbox
+          data-swipe-primary
+          data-ticking={ticking || undefined}
+          checked={completed || ticking}
+          aria-label={format(completed ? dict.toggleIncompleteAriaLabel : dict.toggleCompleteAriaLabel, {
+            title: task.title,
+          })}
+          onChange={handleToggleCompleted}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
           <button
             type="button"
-            className={`min-w-0 flex-1 cursor-pointer rounded-sm text-left line-clamp-2 break-words focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:line-clamp-1 max-sm:min-h-11 pointer-coarse:min-h-11 ${completed ? "text-muted-foreground line-through" : ""}`}
+            className={`min-w-0 cursor-pointer rounded-sm text-left line-clamp-2 break-words focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:line-clamp-1 max-sm:min-h-11 pointer-coarse:min-h-11 max-sm:flex max-sm:items-center ${completed ? "text-muted-foreground line-through" : ""}`}
             title={task.title}
             onClick={(e) =>
               e.currentTarget.closest("[data-swipe-row]")?.querySelector<HTMLElement>("[data-swipe-edit]")?.click()
@@ -304,54 +343,52 @@ function TaskItemRow({
           >
             {task.title}
           </button>
+          {hasDetails && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pb-1 text-xs text-muted-foreground sm:pb-0">
+              {recurrenceLabel && (
+                <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
+                  <Repeat className="size-3" />
+                  {recurrenceLabel}
+                </Badge>
+              )}
+              {nextDueLabel && <span>{nextDueLabel}</span>}
+              {/* Just whose turn is next — never a count or tally of who's
+                  done it how often (see REQUIREMENTS.md, "Household tasks"). */}
+              {nextInRotationName && <span>{format(dict.rotationNextLabel, { name: nextInRotationName })}</span>}
+              {task.completed && <span>{format(dict.completedByLabel, { name: completerName ?? dict.unassignedBadge })}</span>}
+              {/* An open task can still carry a completedByMemberId from before it
+                  was reopened (manually, or automatically once its recurrence
+                  interval elapsed — see toggleTaskCompletedAction/recurrence.ts):
+                  that's real "last done by" history, not stale data, so surface it
+                  rather than letting it silently disappear once the task reopens. */}
+              {!task.completed && completerName && (
+                <span>{format(dict.lastCompletedByLabel, { name: completerName })}</span>
+              )}
+            </div>
+          )}
         </div>
-        {/* w-full below sm gives this group its own full-width row to wrap
-            badges/buttons within — shrink-0 alone left it sized to its
-            unwrapped content width, which could overflow the card on narrow
-            screens instead of actually wrapping. */}
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-          {recurrenceLabel && (
-            <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
-              <Repeat className="size-3" />
-              {recurrenceLabel}
-            </Badge>
-          )}
-          {nextDueLabel && <span className="shrink-0 text-xs text-muted-foreground">{nextDueLabel}</span>}
-          {/* Just whose turn is next — never a count or tally of who's done
-              it how often (see REQUIREMENTS.md, "Household tasks"). */}
-          {nextInRotationName && (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {format(dict.rotationNextLabel, { name: nextInRotationName })}
-            </span>
-          )}
+        <div className="flex shrink-0 items-center gap-2">
           {!task.completed && (
-            <Badge variant={assigneeName ? "secondary" : "outline"} className="shrink-0">
+            // A long name is cut short here (the full one is the tooltip and
+            // the edit sheet) so it can't squeeze the title.
+            <Badge
+              variant={assigneeName ? "secondary" : "outline"}
+              className="block max-w-28 truncate sm:max-w-48"
+              title={assigneeName}
+            >
               {assigneeName ?? dict.unassignedBadge}
             </Badge>
           )}
-          {task.completed && (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {format(dict.completedByLabel, { name: completerName ?? dict.unassignedBadge })}
-            </span>
-          )}
-          {/* An open task can still carry a completedByMemberId from before it
-              was reopened (manually, or automatically once its recurrence
-              interval elapsed — see toggleTaskCompletedAction/recurrence.ts):
-              that's real "last done by" history, not stale data, so surface it
-              rather than letting it silently disappear once the task reopens. */}
-          {!task.completed && completerName && (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {format(dict.lastCompletedByLabel, { name: completerName })}
-            </span>
-          )}
-          {/* Edit and Delete as icons from sm up; on a phone the row's left
-              swipe shows them, so they sit behind one ⋯ instead
-              (RowActionsMenu, which clicks these hidden buttons). */}
+          {/* Edit and Delete as icons from sm up. On a phone the row's left
+              swipe shows them, and the edit sheet (a tap on the title) has
+              Delete too, so the row carries neither (M6, M7); these buttons
+              stay mounted, hidden, for the swipe and the sheet to click. */}
           <TaskFormDialog
             mode="edit"
             task={task}
             members={members}
             dict={dict}
+            onDelete={() => deleteButtonRef.current?.click()}
             trigger={
               <Button
                 variant="ghost"
@@ -367,6 +404,7 @@ function TaskItemRow({
           <ConfirmDialog
             trigger={
               <Button
+                ref={deleteButtonRef}
                 variant="ghost"
                 size="icon"
                 data-row-delete
@@ -383,11 +421,6 @@ function TaskItemRow({
             pendingLabel={dict.confirmDelete.confirming}
             // UX-33: the row goes at once and comes back if the delete fails.
             onConfirm={() => onDelete(task)}
-          />
-          <RowActionsMenu
-            label={format(dict.rowActionsAriaLabel, { title: task.title })}
-            editLabel={dict.swipe.edit}
-            deleteLabel={dict.swipe.delete}
           />
         </div>
       </div>
