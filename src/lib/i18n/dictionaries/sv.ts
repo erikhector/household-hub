@@ -449,6 +449,13 @@ export const sv = {
       skip: "Hoppa över det här steget",
       progress: "{done} av {total} klara",
       dismiss: "Dölj Kom igång-kortet",
+      doneStep: "Klart",
+      allSet: {
+        title: "Nu är allt klart",
+        body: "Squirrel har vad det behöver. Ditt hem är igång.",
+        close: "Uppfattat",
+        mascotAlt: "Squirrel-maskot",
+      },
       steps: {
         household: {
           title: "Bjud in ditt hushåll",
@@ -466,9 +473,9 @@ export const sv = {
           title: "Sätt upp hushållets budget",
           description: "Lägg till inkomst- och utgiftskategorier för att börja spåra gemensamma utgifter.",
         },
-        personalBudget: {
-          title: "Spåra din personliga budget",
-          description: "Sätt upp kategorier för pengarna som bara är dina, hållna separat från hushållets.",
+        mealPlan: {
+          title: "Planera veckans måltider",
+          description: "Lägg in några middagar i planeraren så kan Squirrel räkna ut vad som ska köpas.",
         },
       },
     },

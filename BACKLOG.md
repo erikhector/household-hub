@@ -422,7 +422,6 @@ UX-89.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
-- `src/app/dashboard/page.tsx`: UX-69.
 - `src/components/budget/transaction-dialog.tsx`: UX-111.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/inventory/combo-field.tsx` and
@@ -578,24 +577,6 @@ UX-89.
 
 #### First run and the overview
 
-- [ ] **UX-69. Getting started: ticked steps, progress, one prompt per
-      feature, and a finish moment** (impact: med, effort: S) — breaks
-      Hierarchy and M6, and misses a delight moment.
-      - Finished steps vanish and the card silently disappears at the end
-        (`src/components/dashboard/getting-started.tsx:50-51`).
-      - "Track your personal budget" and the "Set up your personal
-        budget" card (`src/app/dashboard/page.tsx:133,216-244`) sit
-        stacked: two of the three blocks on the first screen push the
-        same optional feature.
-      - Meals, recipes and tasks have no step.
-      - Rows have no chevron, and descriptions are 12 px (`:89`), below
-        the 14 px floor.
-      Acceptance: finished steps stay as ticked rows under an "N of M"
-      progress bar. Completing the last step shows a short mascot "You're
-      all set" moment once (no animation under reduced motion). The
-      overview shows one call to action per feature. "Plan this week's
-      meals" is a step. Descriptions are at least 14 px and rows show a
-      chevron.
 
 #### Profile and household settings
 

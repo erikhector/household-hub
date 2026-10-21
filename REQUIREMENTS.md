@@ -6206,9 +6206,20 @@ components directly.
   `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
 - **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
   leads with today (the Today block, UX-70, then your budget), so the "Get set up" card
-  (`src/components/dashboard/getting-started.tsx`) stays short: it lists only
-  the steps still open and counts the finished (or skipped) ones in one
-  "3 of 5 done" line, and disappears on its own once every step is done.
+  (`src/components/dashboard/getting-started.tsx`) stays short.
+  **UX-69**: every step is a row with a chevron and a 14 px description;
+  open ones come first, finished (or skipped) ones stay below as ticked
+  rows (title only), all under an "N of M done" `progressbar`. The steps are
+  household, pantry, shopping list, "Plan this week's meals" (done once the
+  household has any meal plan entry) and household budget. There is no
+  personal-budget step: the "Your budget" card below is that feature's one
+  call to action. When the last step is done the card gives way to a
+  one-off "You're all set" mascot moment
+  (`src/components/dashboard/getting-started-all-set.tsx`, entrance
+  animation `motion-safe:` only), which records the per-browser,
+  per-household cookie `getting_started_done_<householdId>` (1 year, via
+  `markGettingStartedCelebratedAction`, listed in `cookie-inventory.ts`)
+  so it never shows again; it stays until closed or navigated away from.
   Its `X` ("Hide the setup card") hides it for good via
   `dismissGettingStartedAction` (`src/lib/actions/household.ts`), a
   per-browser, per-household cookie (`getting_started_dismissed_<householdId>`,
