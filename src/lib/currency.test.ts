@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMoneyFormat, isSupportedCurrency, parseHouseholdCurrency, SUPPORTED_CURRENCIES } from "./currency";
+import { createMoneyFormat, defaultCurrencyForNewHousehold, isSupportedCurrency, parseHouseholdCurrency, SUPPORTED_CURRENCIES } from "./currency";
 
 // Intl separates a currency symbol from the number with a (narrow) no-break
 // space, and sv-SE groups thousands with one too. Normalized to a plain
@@ -62,5 +62,33 @@ describe("createMoneyFormat", () => {
   it("falls back to the plain format for an unrecognized stored code", () => {
     expect(() => createMoneyFormat("en", "NOT-A-CODE")).not.toThrow();
     expect(plain(createMoneyFormat("en", "JPY").format(5))).toBe("5.00");
+  });
+});
+
+describe("defaultCurrencyForNewHousehold (UX-73)", () => {
+  it("gives a Swedish-language signup SEK whatever the browser region says", () => {
+    expect(defaultCurrencyForNewHousehold("sv", null)).toBe("SEK");
+    expect(defaultCurrencyForNewHousehold("sv", "en-US,en;q=0.9")).toBe("SEK");
+  });
+
+  it("derives an English signup's currency from the browser region", () => {
+    expect(defaultCurrencyForNewHousehold("en", "en-GB,en;q=0.9")).toBe("GBP");
+    expect(defaultCurrencyForNewHousehold("en", "en-US,en;q=0.9")).toBe("USD");
+    expect(defaultCurrencyForNewHousehold("en", "de-DE,de;q=0.9,en;q=0.8")).toBe("EUR");
+    expect(defaultCurrencyForNewHousehold("en", "en-SE")).toBe("SEK");
+    expect(defaultCurrencyForNewHousehold("en", "nb-NO")).toBe("NOK");
+    expect(defaultCurrencyForNewHousehold("en", "zh-Hant-CH")).toBe("CHF");
+  });
+
+  it("follows the q-ranking, not the header order", () => {
+    expect(defaultCurrencyForNewHousehold("en", "en-US;q=0.5,en-GB;q=0.9")).toBe("GBP");
+  });
+
+  it("stays symbol-free when the region is unknown or has no supported currency", () => {
+    expect(defaultCurrencyForNewHousehold("en", null)).toBeNull();
+    expect(defaultCurrencyForNewHousehold("en", "")).toBeNull();
+    expect(defaultCurrencyForNewHousehold("en", "en")).toBeNull();
+    expect(defaultCurrencyForNewHousehold("en", "en-CA,en;q=0.9")).toBeNull();
+    expect(defaultCurrencyForNewHousehold("en", "*")).toBeNull();
   });
 });

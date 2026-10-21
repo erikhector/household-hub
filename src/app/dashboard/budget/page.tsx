@@ -350,6 +350,7 @@ async function BudgetTabsSection({
   trendWindowEnd,
   now,
   readOnly,
+  canChangeCurrency,
   householdParam,
   householdName,
 }: {
@@ -367,6 +368,8 @@ async function BudgetTabsSection({
   trendWindowEnd: Date;
   now: Date;
   readOnly: boolean;
+  // UX-73: owner of the household on screen, and not in F1's read-only view.
+  canChangeCurrency: boolean;
   householdParam: string | undefined;
   // UX-110: the viewed household's name, for the onboarding copy.
   householdName: string;
@@ -1028,6 +1031,10 @@ async function BudgetTabsSection({
       savingsGoals={savingsGoals}
       onboarding={<BudgetOnboarding
           dict={dict.budget}
+          currencyDict={dict.household.currency}
+          locale={locale}
+          currencyCode={currencyCode}
+          canChangeCurrency={canChangeCurrency}
           householdName={householdName}
           createCategoryAction={createCategoryAction}
         />}
@@ -1063,7 +1070,7 @@ function BudgetTabsSkeleton({ label }: { label: string }) {
 }
 
 export default async function BudgetPage(props: PageProps<"/dashboard/budget">) {
-  const [{ household, userId, households }, dict, locale, searchParams] = await Promise.all([
+  const [{ household, userId, role, households }, dict, locale, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
@@ -1147,6 +1154,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
           trendWindowEnd={trendWindowEnd}
           now={now}
           readOnly={readOnly}
+          canChangeCurrency={!readOnly && role === "OWNER"}
           householdParam={householdParam}
         />
       </Suspense>
