@@ -2684,11 +2684,15 @@ household has more than one member (`members.length > 1`, fetched by
 "Share" and a "Paid" input. "Paid" defaults to the signed-in member paying
 the whole amount (following the amount field until the user edits a
 payment), and the editor shows how much is still left to pay. Shares
-default to an even split of the transaction's amount
+start as an even split of the amount and follow it (typing or changing
+the amount, or ticking the box afterwards, never shows 0.00 shares and a
+mismatch error) until one share is edited; a saved split (editing, a
+template's) is never overwritten (UX-111). "Split evenly" re-arms the
+following. The even split is
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
-total instead of drifting from naive floating-point division) via a "Split
-evenly" reset button, individually adjustable afterward. The dialog shows
+total instead of drifting from naive floating-point division), individually
+adjustable afterward. The dialog shows
 a live warning and disables submit whenever the shares don't (yet) sum to
 the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
