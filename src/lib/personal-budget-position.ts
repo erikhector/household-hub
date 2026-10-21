@@ -42,7 +42,7 @@ import {
   isPlannedExpenseOutstanding,
   plannedItemType,
 } from "@/lib/planned-expense-calc";
-import { projectMonthEnd } from "@/lib/chart-calc";
+import { dailyAllowance, projectMonthEnd } from "@/lib/chart-calc";
 import {
   computeMemberPosition,
   remainingDue,
@@ -591,6 +591,8 @@ export async function loadPersonalBudgetPosition({
     today: now,
   });
 
+  const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, today: now });
+
   return {
     transactions,
     monthTransactions,
@@ -613,6 +615,7 @@ export async function loadPersonalBudgetPosition({
     safeToSpendStatus,
     safeToSpendBreakdown,
     safeToSpendProjection,
+    safeToSpendDaily,
     expectedRecurring,
   };
 }

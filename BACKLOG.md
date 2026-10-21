@@ -723,16 +723,6 @@ UX-89.
       adding categories. The shared-expense action has one name and
       placement on both pages.
 
-- [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
-      chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
-      no mascot on money. The pace chart has only "Today" and "Month end"
-      labels and no values. The daily question, "how much can I spend
-      today?", isn't answered. Copilot Money and PocketGuard show a daily
-      allowance.
-      Acceptance: the card shows "≈ N per day for the D days left". The
-      chart labels its Today and Month-end points with amounts. After an
-      add, the headline animates through the existing `AnimatedNumber`.
-
 - [ ] **UX-118. The "Due this period" card: right empty state, one Add
       placement** (impact: low, effort: S) — breaks Usability and
       Consistency.

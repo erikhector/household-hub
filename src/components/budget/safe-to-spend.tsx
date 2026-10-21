@@ -31,7 +31,7 @@ import type {
 } from "@/lib/safe-to-spend-calc";
 import { needsSafeToSpendSetup } from "@/lib/safe-to-spend-calc";
 import { createMoneyFormat } from "@/lib/currency";
-import type { MonthProjection } from "@/lib/chart-calc";
+import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import { AnimatedNumber } from "@/components/charts/animated-number";
 import { ProjectionChart } from "@/components/charts/projection-chart";
 
@@ -54,6 +54,7 @@ export function SafeToSpend({
   householdDebts = [],
   showHouseholdName = false,
   projection = null,
+  dailyAllowance = null,
   variant = "full",
   setupHrefs,
   limitAlertCount = 0,
@@ -75,6 +76,9 @@ export function SafeToSpend({
    * line) for any month but the current one, or before any everyday
    * spending. */
   projection?: MonthProjection | null;
+  /** UX-117: the headline spread over the days left this month — null
+   * for any month but the current one, or with nothing left to spend. */
+  dailyAllowance?: DailyAllowance | null;
   /** Phone pass (Oct 2026), P4. "full" (the dashboard card) shows every
    * line of the arithmetic and what's still due. "compact" (the budget
    * pages' Overview, where the due widget right below already lists what's
@@ -221,6 +225,14 @@ export function SafeToSpend({
       <p className={`font-display text-4xl font-bold ${STATUS_COLOR[status]}`}>
         <AnimatedNumber value={amount} locale={locale} currencyCode={currencyCode} showPlus />
       </p>
+      {dailyAllowance && (
+        <p className="text-sm text-foreground">
+          {format(plural(dailyAllowance.daysLeft, dict.dailyAllowance), {
+            amount: numberFormat.format(dailyAllowance.perDay),
+            count: dailyAllowance.daysLeft,
+          })}
+        </p>
+      )}
       {projection && <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />}
       {variant === "full" ? (
         <>

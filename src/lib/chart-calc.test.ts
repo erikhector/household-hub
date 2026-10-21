@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   barHeightPercent,
   countUpValue,
+  dailyAllowance,
   historyMonthLabels,
   projectMonthEnd,
   withSpendHistory,
@@ -187,5 +188,60 @@ describe("barHeightPercent", () => {
     expect(barHeightPercent(1, 1000)).toBe(3);
     expect(barHeightPercent(0, 100)).toBe(0);
     expect(barHeightPercent(10, 0)).toBe(0);
+  });
+});
+
+describe("dailyAllowance", () => {
+  const monthStart = new Date(2026, 9, 1); // October: 31 days
+
+  it("spreads the amount over the days left, today included", () => {
+    // 21 Oct: 21..31 is 11 days.
+    const a = dailyAllowance({ safeToSpend: 1100, monthStart, today: new Date(2026, 9, 21) });
+    expect(a).toEqual({ perDay: 100, daysLeft: 11 });
+  });
+
+  it("gives the whole amount to the last day", () => {
+    const a = dailyAllowance({ safeToSpend: 250, monthStart, today: new Date(2026, 9, 31) });
+    expect(a).toEqual({ perDay: 250, daysLeft: 1 });
+  });
+
+  it("counts every day on the first", () => {
+    const a = dailyAllowance({ safeToSpend: 3100, monthStart, today: new Date(2026, 9, 1) });
+    expect(a).toEqual({ perDay: 100, daysLeft: 31 });
+  });
+
+  it("knows a short month and a leap February", () => {
+    const leap = new Date(2028, 1, 1);
+    expect(dailyAllowance({ safeToSpend: 290, monthStart: leap, today: new Date(2028, 1, 20) })).toEqual({
+      perDay: 29,
+      daysLeft: 10,
+    });
+    const feb = new Date(2027, 1, 1);
+    expect(dailyAllowance({ safeToSpend: 10, monthStart: feb, today: new Date(2027, 1, 28) })?.daysLeft).toBe(1);
+  });
+
+  it("is null when nothing is left to spend", () => {
+    const today = new Date(2026, 9, 21);
+    expect(dailyAllowance({ safeToSpend: 0, monthStart, today })).toBeNull();
+    expect(dailyAllowance({ safeToSpend: -50, monthStart, today })).toBeNull();
+    expect(dailyAllowance({ safeToSpend: 0.004, monthStart, today })).toBeNull();
+    expect(dailyAllowance({ safeToSpend: -1, monthStart, today: new Date(2026, 9, 31) })).toBeNull();
+  });
+
+  it("is null for a non-finite amount", () => {
+    expect(dailyAllowance({ safeToSpend: NaN, monthStart, today: new Date(2026, 9, 21) })).toBeNull();
+    expect(dailyAllowance({ safeToSpend: Infinity, monthStart, today: new Date(2026, 9, 21) })).toBeNull();
+  });
+
+  it("keeps a small positive amount (half a cent or more)", () => {
+    const a = dailyAllowance({ safeToSpend: 0.01, monthStart, today: new Date(2026, 9, 31) });
+    expect(a).toEqual({ perDay: 0.01, daysLeft: 1 });
+  });
+
+  it("is null for a past or future month", () => {
+    const today = new Date(2026, 9, 21);
+    expect(dailyAllowance({ safeToSpend: 500, monthStart: new Date(2026, 8, 1), today })).toBeNull();
+    expect(dailyAllowance({ safeToSpend: 500, monthStart: new Date(2026, 10, 1), today })).toBeNull();
+    expect(dailyAllowance({ safeToSpend: 500, monthStart: new Date(2025, 9, 1), today })).toBeNull();
   });
 });

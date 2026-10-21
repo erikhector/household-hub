@@ -2388,6 +2388,10 @@ export const en = {
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} for today, the last day of the month.",
+        other: "≈ {amount} per day for the {count} days left.",
+      },
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
       projectionOver: "About {amount} over by the end of the month.",
@@ -2879,6 +2883,10 @@ export const en = {
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} for today, the last day of the month.",
+        other: "≈ {amount} per day for the {count} days left.",
+      },
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
       projectionOver: "About {amount} over by the end of the month.",
