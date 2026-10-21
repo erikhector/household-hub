@@ -63,7 +63,7 @@ import {
   updateTransactionAction,
 } from "@/app/dashboard/budget/actions";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
-import { projectMonthEnd, withSpendHistory } from "@/lib/chart-calc";
+import { dailyAllowance, projectMonthEnd, withSpendHistory } from "@/lib/chart-calc";
 import { resolveBudgetHouseholdView } from "@/lib/budget-household-view";
 import { ReadOnlyHouseholdBanner } from "@/components/budget/read-only-household-banner";
 import {
@@ -721,6 +721,7 @@ async function BudgetTabsSection({
     monthStart,
     today: now,
   });
+  const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, today: now });
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => {
     // F7: who ran "Mark accounted for" for this period, if it was
     // acknowledged rather than posted — resolved from the matching
@@ -1016,6 +1017,7 @@ async function BudgetTabsSection({
       safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
       safeToSpendProjection={safeToSpendProjection}
+      safeToSpendDaily={safeToSpendDaily}
       limitAlerts={limitAlerts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}

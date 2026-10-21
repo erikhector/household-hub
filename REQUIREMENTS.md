@@ -2594,6 +2594,20 @@ Component page function can't itself be unit-tested.
   computes it from the month's transactions; `loadPersonalBudgetPosition`
   returns it as `safeToSpendProjection`, so Personal Budget and the
   dashboard card show the same line.
+- **Daily allowance and labelled chart (UX-117)**: in the current month a
+  line under the headline answers "how much can I spend today?": "≈ N per
+  day for the D days left" (`dailyAllowance` in `src/lib/chart-calc.ts`:
+  the headline divided by the days left *including today*, so the last day
+  reads "≈ N for today, the last day of the month"). No line for a past or
+  future month, or when the headline is zero or negative (the status line
+  already says so; a negative "per day" would read as a target) or
+  non-finite. Unlike the projection it doesn't need any spending yet. The
+  household page computes it; `loadPersonalBudgetPosition` returns it as
+  `safeToSpendDaily` for Personal Budget and the dashboard. The chart's
+  "Today" and "Month end" labels carry their amounts; past the middle of
+  the month "Month end" drops to a second line so the two don't collide.
+  The headline itself still counts to its new value through
+  `AnimatedNumber` after an add. Calm by design: no mascot on money.
 
 ### Household expense splitting
 

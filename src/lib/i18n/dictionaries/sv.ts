@@ -2262,6 +2262,10 @@ export const sv = {
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} för idag, månadens sista dag.",
+        other: "≈ {amount} per dag de {count} dagar som är kvar.",
+      },
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
       projectionOver: "Ungefär {amount} över i slutet av månaden.",
@@ -2743,6 +2747,10 @@ export const sv = {
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
+      dailyAllowance: {
+        one: "≈ {amount} för idag, månadens sista dag.",
+        other: "≈ {amount} per dag de {count} dagar som är kvar.",
+      },
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
       projectionOver: "Ungefär {amount} över i slutet av månaden.",

@@ -158,6 +158,7 @@ async function PersonalBudgetTabsSection({
     safeToSpendStatus,
     safeToSpendBreakdown,
     safeToSpendProjection,
+    safeToSpendDaily,
     expectedRecurring,
   } = position;
 
@@ -463,6 +464,7 @@ async function PersonalBudgetTabsSection({
       safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
       safeToSpendProjection={safeToSpendProjection}
+      safeToSpendDaily={safeToSpendDaily}
       limitAlerts={limitAlerts}
       householdDebts={householdDebts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}

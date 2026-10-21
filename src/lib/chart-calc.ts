@@ -174,6 +174,45 @@ export function projectMonthEnd({
   };
 }
 
+export type DailyAllowance = {
+  /** What's safe to spend today, spread evenly over the days left. */
+  perDay: number;
+  /** Days left in the month, today included (today's money is still unspent). */
+  daysLeft: number;
+};
+
+/**
+ * UX-117: Safe to spend as a daily number — "how much can I spend today?".
+ * The headline divided by the days left, today counted, so on the last day
+ * the whole amount is today's.
+ *
+ * Returns null when there's no honest daily figure: a month other than the
+ * current one, or nothing left to spend (zero or negative; the card's
+ * status line already says so, and "≈ -12 per day" would read as a target).
+ * Not rounded here: the card formats it, and rounding twice would drift.
+ */
+export function dailyAllowance({
+  safeToSpend,
+  monthStart,
+  today,
+}: {
+  safeToSpend: number;
+  monthStart: Date;
+  today: Date;
+}): DailyAllowance | null {
+  if (
+    today.getFullYear() !== monthStart.getFullYear() ||
+    today.getMonth() !== monthStart.getMonth()
+  ) {
+    return null;
+  }
+  // Under half a cent formats as zero, so it's "nothing left" too.
+  if (!Number.isFinite(safeToSpend) || safeToSpend < 0.005) return null;
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+  const daysLeft = daysInMonth - today.getDate() + 1;
+  return { perDay: safeToSpend / daysLeft, daysLeft };
+}
+
 /** How long a number takes to count to its new value. Long enough to read
  * as movement, short enough not to hold up the eye. */
 export const COUNT_UP_MS = 600;
