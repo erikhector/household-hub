@@ -47,7 +47,7 @@ const {
   householdUpdateManyMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
-  invitationCreateMock: vi.fn(async (_args: unknown) => ({ token: "t" })),
+  invitationCreateMock: vi.fn(async () => ({ token: "t" })),
   txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   invitationFindFirstMock: vi.fn(),
   invitationUpdateManyMock: vi.fn(async (): Promise<{ count: number }> => ({ count: 1 })),
@@ -1362,7 +1362,7 @@ describe("invite inviter name (UX-62)", () => {
   it("createInviteAction records who made the link", async () => {
     requireHouseholdMock.mockResolvedValue({ userId: "user-1", household: { id: "household-1", name: "The Hectors" } });
     await createInviteAction();
-    expect(invitationCreateMock.mock.calls[0][0]).toMatchObject({
+    expect((invitationCreateMock.mock.calls[0] as unknown[])[0]).toMatchObject({
       data: { householdId: "household-1", invitedById: "user-1" },
     });
   });

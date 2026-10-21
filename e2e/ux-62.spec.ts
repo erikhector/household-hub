@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectRendersCleanly, expectTouchTargets, LOCALES, setLocaleCookie } from "./ui";
+import { dismissCookieNotice, expectRendersCleanly, expectTouchTargets, LOCALES, saveScreenshot, setLocaleCookie } from "./ui";
 
 // UX-62: an invitee's first contact with Squirrel names who invited them,
 // shows the brand and a one-line pitch, and a dead link offers the front
@@ -91,6 +91,7 @@ for (const locale of LOCALES) {
       // Only the display name is public: no email of the inviter anywhere.
       await expect(page.locator("body")).not.toContainText(E2E_USER.email);
       if (testInfo.project.name !== "desktop") await expectTouchTargets(page);
+      await saveScreenshot(page, testInfo, locale, { pattern: "/join/invite", path: `/join/${namedToken}` });
     });
 
     test("a link without a recorded inviter still reads warmly", async ({ page }) => {
