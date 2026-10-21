@@ -18,6 +18,7 @@ const {
   householdUpdateManyMock,
   userFindUniqueMock,
   invitationFindUniqueMock,
+  invitationCreateMock,
   txUserCreateMock,
   invitationFindFirstMock,
   invitationUpdateManyMock,
@@ -46,6 +47,7 @@ const {
   householdUpdateManyMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
+  invitationCreateMock: vi.fn(async (_args: unknown) => ({ token: "t" })),
   txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   invitationFindFirstMock: vi.fn(),
   invitationUpdateManyMock: vi.fn(async (): Promise<{ count: number }> => ({ count: 1 })),
@@ -107,6 +109,7 @@ vi.mock("@/lib/prisma", () => ({
     invitation: {
       findUnique: invitationFindUniqueMock,
       findFirst: invitationFindFirstMock,
+      create: invitationCreateMock,
       update: vi.fn(async () => ({})),
     },
     householdMember: {
@@ -145,6 +148,8 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 const {
   createHouseholdAction,
   acceptInviteAction,
+  createInviteAction,
+  getInvitationForDisplay,
   joinViaInviteSignupAction,
   sendInviteEmailAction,
   removeMemberAction,
@@ -1326,5 +1331,49 @@ describe("setInventorySyncModeAction (put-away)", () => {
 
     expect(result.error).toBe("Invalid input");
     expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("invite inviter name (UX-62)", () => {
+  it("createInviteAction records who made the link", async () => {
+    requireHouseholdMock.mockResolvedValue({ userId: "user-1", household: { id: "household-1", name: "The Hectors" } });
+    await createInviteAction();
+    expect(invitationCreateMock.mock.calls[0][0]).toMatchObject({
+      data: { householdId: "household-1", invitedById: "user-1" },
+    });
+  });
+
+  it("getInvitationForDisplay returns only the household and the inviter's display name", async () => {
+    invitationFindUniqueMock.mockResolvedValue({
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      household: { name: "The Hectors" },
+      invitedBy: { displayName: "Lars" },
+    });
+    expect(await getInvitationForDisplay("tok")).toEqual({ householdName: "The Hectors", inviterName: "Lars" });
+    // Never asks the database for more than the display name.
+    expect(invitationFindUniqueMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      include: { invitedBy: { select: { displayName: true } } },
+    });
+  });
+
+  it("has no inviter name for a link made before the column existed", async () => {
+    invitationFindUniqueMock.mockResolvedValue({
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      household: { name: "The Hectors" },
+      invitedBy: null,
+    });
+    expect(await getInvitationForDisplay("tok")).toEqual({ householdName: "The Hectors", inviterName: null });
+  });
+
+  it("returns null for a used or expired link", async () => {
+    invitationFindUniqueMock.mockResolvedValue({
+      acceptedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+      household: { name: "x" },
+      invitedBy: { displayName: "Lars" },
+    });
+    expect(await getInvitationForDisplay("tok")).toBeNull();
   });
 });

@@ -78,6 +78,7 @@ model User {
   emailVerificationTokens    EmailVerificationToken[]
   pushSubscriptions          PushSubscription[]
   weeklyDigestSends          WeeklyDigestSend[]
+  invitationsSent            Invitation[]
 }
 
 // One row per subscribed browser/device (src/lib/actions/push.ts). Per-user
@@ -244,10 +245,16 @@ model Invitation {
   createdAt   DateTime  @default(now())
   expiresAt   DateTime
   acceptedAt  DateTime?
+  // UX-62: who made the link, so the public /join page can say "{name}
+  // invited you". Null for links made before this column existed (the page
+  // then leaves the name out) and when the inviter's account is deleted.
+  invitedById String?
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  invitedBy User?      @relation(fields: [invitedById], references: [id], onDelete: SetNull)
 
   @@index([householdId])
+  @@index([invitedById])
 }
 
 // Password-reset link, same token-based/time-limited shape as Invitation
