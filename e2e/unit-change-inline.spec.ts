@@ -87,8 +87,11 @@ test("a refused unit change shows under the unit field, in view", async ({ page 
   await expect(refusal).toBeVisible();
   await expect(refusal).toBeInViewport({ ratio: 1 });
   await expect(dialog.getByRole("link", { name: "Change unit…" })).toBeVisible();
-  // Beside the field, not the form-level message at the foot.
+  // Directly under the field and above the rest of the form, not the
+  // form-level message at the foot (which would sit below Save's row).
   const unitBox = (await unit.boundingBox())!;
   const refusalBox = (await refusal.boundingBox())!;
-  expect(refusalBox.y - (unitBox.y + unitBox.height)).toBeLessThan(80);
+  const expiryBox = (await dialog.getByLabel("Expires on").boundingBox())!;
+  expect(refusalBox.y).toBeGreaterThanOrEqual(unitBox.y + unitBox.height);
+  expect(refusalBox.y + refusalBox.height).toBeLessThanOrEqual(expiryBox.y);
 });
