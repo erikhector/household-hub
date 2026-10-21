@@ -531,6 +531,21 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       stock, stays editable; its refusal comes back with `errorField:
       "unit"` and shows under the unit field, in view, with the same link,
       instead of at the foot of the scrolling form.
+    - **Duplicate warning in the Add dialog (UX-126)**: while a name is
+      typed, `findDuplicateOfName` (`src/lib/inventory/duplicates.ts`)
+      checks it against the household's items with the catalog's
+      duplicate rules (same normalized name, same after the plural fold,
+      or bigram score of at least 0.8; aliases and dismissals don't
+      apply). A match shows "Smör is already in your pantry (499 g)." under
+      the name field with an "Add to existing" button, which adds the
+      form's Quantity to that item through `adjustQuantityAction` (toast,
+      dialog closes), converted from the form's unit into the item's with
+      `amountInExistingUnit` (2 kg onto an item in g adds 2000 g); when the
+      units don't convert (kg vs pcs) the button is replaced by a note that
+      they differ instead of creating a second one. The normal Add
+      buttons still work, so a genuinely different item can be saved. Only
+      the header's Add dialog gets the item list; the empty state's has no
+      items to match.
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's
