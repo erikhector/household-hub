@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.92.0",
+    "date": "2026-10-21",
+    "pr": 502,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "New households now start with a currency: Swedish accounts get kronor, and English accounts get the currency of their region when we know it. You can change it right on the budget's first screen.\n\nNew accounts no longer start with an unread dot on \"What's new\".\n\nButtons that take you to another page, like \"Log in\" and \"Get started free\", are now announced as links by screen readers.\n\nChanging an item's unit is now clearer: when an item has stock, the unit is shown as read-only with a \"Change unit…\" link, and if a change is refused the reason appears right under the unit field.",
+      "sv": "Nya hushåll får nu en valuta från start: svenska konton får kronor, och engelska konton får valutan för sin region när vi känner till den. Du kan ändra den direkt på budgetens första sida.\n\nNya konton börjar inte längre med en oläst prick på \"Nytt\".\n\nKnappar som tar dig till en annan sida, som \"Logga in\" och \"Kom igång gratis\", läses nu upp som länkar av skärmläsare.\n\nAtt byta enhet på en vara är nu tydligare: när varan har lager visas enheten som skrivskyddad med en länk till \"Byt enhet…\", och om ett byte nekas visas orsaken precis under enhetsfältet."
+    }
+  },
+  {
     "version": "0.91.0",
     "date": "2026-10-20",
     "pr": 490,
