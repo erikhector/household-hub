@@ -1441,26 +1441,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     already in use (case-insensitively) is refused rather than overwritten.
     The cap is `MAX_TEMPLATE_ITEMS` (300, the same as import/paste) and
     names are 1–120 characters, the same as a list name.
-  - *Starting a list (UX-85)*: the New list sheet asks "Start from": a
-    blank list, a template, or a recent list (the ten newest with at least
-    one item; "Items not bought yet" by default, or "All items"). The
-    template and list choices only appear when there is something to pick,
-    so a new household still sees a one-field sheet, and the newest of each
-    is pre-selected. `createShoppingListAction` reads `startFrom`,
-    `templateId`, `sourceListId` and `listScope`, looks the source up inside
-    the caller's household (anything else is "not found") and creates the
-    list and its rows in one write, re-linking through
-    `buildTemplateItems` + `resolveTemplateRows` exactly as a template does.
-    A blank name falls back to the template's name, or to the dated default
-    for a past list. The template rows' button says "Use", so the page has
-    a single "New list" button.
-  - *Renaming (UX-85)*: "Rename list" in the list's `⋯` menu, and a pencil
-    button beside the title, open `RenameListDialog` (prefilled).
-    `renameShoppingListAction` trims the name (1–120 characters) and
-    updates by `id` + `householdId`, on a list of any status; the default
-    list keeps its role because that is the `isDefault` flag, not the name.
   - *Using*: the overview page lists templates alphabetically under
-    "Templates" with an item count. "Use" calls
+    "Templates" with an item count. "New list" calls
     `createListFromTemplateAction`, which creates a new `ACTIVE` list named
     after the template (never the default list) with all its items in one
     nested write, then opens it. `resolveTemplateRows` keeps a saved
