@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.97.0",
+    "date": "2026-10-22",
+    "pr": 564,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The bottom bar's five tabs now look alike, and the tab you are on keeps its colour. Each section's main page shows the same colour under its title.\n\nThe month switcher on the budgets and the week switcher on the meal planner now look and work the same: arrows on either side of the period, and a \"This month\" / \"This week\" link when you're looking at another one.",
+      "sv": "Alla fem flikar i det nedre fältet ser nu likadana ut, och fliken du är på behåller sin färg. Varje sektions huvudsida visar samma färg under rubriken.\n\nMånadsväljaren i budgetarna och veckoväljaren i måltidsplaneringen ser nu ut och fungerar likadant: pilar på var sida om perioden och en länk \"Denna månad\" / \"Denna vecka\" när du tittar på en annan."
+    }
+  },
+  {
     "version": "0.96.0",
     "date": "2026-10-22",
     "pr": 553,
