@@ -139,6 +139,37 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       200 items, plus the existing dedupe (item already pending is counted
       in `alreadyOnList`); the existing inventory bulk-add e2e still passes.
 
+- [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
+      a Server Action that calls `revalidatePath` already returns the
+      re-rendered page with its response, so a `router.refresh()` after it
+      renders the same page (and runs all its queries) a second time. Every
+      action behind these calls already revalidates `MEAL_PLANNING_PATH`:
+      `week-planner.tsx:464` (`unassignBatchPortionAction`),
+      `plan-portions-dialog.tsx:174` (`assignBatchPortionsAction`, success
+      path only; the error path at :169 refreshes on purpose, nothing was
+      revalidated), `prep-tab.tsx:158` (`undoDiscardBatchAction`),
+      `fill-empty-days-dialog.tsx:100` (`undoCopyWeekAction`) and
+      `record-prep-dialog.tsx:158` (`undoRecordPrepAction`). The undo calls
+      run from a toast outside `startTransition`, so confirm the page still
+      updates without the refresh before removing each one. Leave the
+      cookie-driven refreshes (`mark-release-seen.tsx`,
+      `preferences-controls.tsx`) alone: no action revalidates there.
+      Acceptance: an e2e check per flow that the change shows without a
+      reload (extend `e2e/meal-prep.spec.ts` and
+      `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
+
+- [ ] **PERF-20. Cache Open Food Facts barcode lookups** (low, S) —
+      `lookupBarcodeAction`'s `fetch` (`src/lib/actions/barcode.ts:69`) goes to
+      Open Food Facts on every scan, even for a barcode scanned a minute
+      ago. The response is public product data with no household in it, so
+      it's safe to share across households: pass
+      `next: { revalidate: 86400 }` like `src/lib/exchange-rate.ts:19`
+      does (the URL already keys it by barcode). Cache only the raw
+      response, not the mapped result: the category label comes from the
+      caller's dictionary, which differs by locale. Don't cache failures or
+      timeouts. Acceptance: a unit test asserts the fetch options; existing
+      barcode tests still pass.
+
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
@@ -361,7 +392,9 @@ then MAINT-7 per feature, to avoid churn.
       none touching the spec's area. At line 175 the dialog's y was 60,
       expected 109. `--repeat-each=5` of the file alone on `desktop`
       passed 12/12, so it only fails under the load or ordering of the
-      full run. Find what moves the dialog (a late layout or animation
+      full run. Seen again 2026-10-22: `:152` failed on clean `origin/next`
+      (`2fbd567`) and in gates on the UX-131, UX-53 and UX-81 branches,
+      while the UX-52 gate passed. Find what moves the dialog (a late layout or animation
       settle) and fix it in the app or the spec's waiting, never a
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
@@ -496,31 +529,6 @@ UX-89.
       through `PrimaryAction`. An empty week shows one empty state
       ("Add your first dinner" / "Fill the week") instead of seven
       slots. Nothing sits under the FAB at 412 px.
-
-- [ ] **UX-52. Bottom bar: one icon style, and keep the colour on the
-      active tab** (impact: low, effort: S) — breaks Consistency.
-      - Inventory, Shopping and Meal planning have tinted icon tiles;
-        Overview and More have plain icons.
-      - The active tab drops its tile (`bottom-nav.tsx:125-127`), so the
-        section colour (`nav-items.ts`, "recognise the screen by colour")
-        disappears on exactly the screen you're on.
-      - "More" has no tile, so its label sits higher than the other
-        four.
-      Acceptance: all five tabs share one icon treatment and their
-      labels sit on one baseline. The active tab keeps its section hue,
-      and that hue also marks the page (for example the large title's
-      accent or the empty-state ring), so the colour coding means
-      something.
-
-- [ ] **UX-53. One period switcher for weeks and months** (impact: low,
-      effort: S) — breaks Consistency. The budgets switch months with
-      bare chevrons around a large centred heading. The meal planner
-      switches weeks with bordered square buttons on the left and a
-      small date.
-      Acceptance: the budget, personal budget and planner use one shared
-      period switcher with the same placement, size and accessible names
-      ("Previous month" / "Previous week"), plus a "This month" / "This
-      week" jump when you're elsewhere.
 
 #### Logged out, signup and invites
 
@@ -768,6 +776,40 @@ route passes. The popup probe found two phone-only size gaps.
       headline excludes its limit, the breakdown shows "Still budgeted",
       and the projection reads as secondary text.
       Decided 2026-10-20 by owner: option 1. See #397.
+
+### UX (2026-10-22 scout)
+
+Thursday area: tasks, household, members and invites. Found by reading
+the area's components and checking `Button` sizes; the screenshot and
+audit sweeps were not run this time, so confirm the layout in a
+`small-phone` screenshot first.
+
+- [ ] **UX-145. Member rows: don't squeeze the name between three
+      controls, and keep Remove away from Transfer** (impact: med, effort: S) —
+      `src/components/household/member-list.tsx:94-142`: each row puts the
+      role badge, a Crown (transfer ownership) button and a UserMinus
+      (remove) button side by side, 8 px apart. `icon-sm` grows to 44 px
+      on phones, so at 320 px those controls take about 170 px and the
+      name and email get the rest, clamped to two lines. Remove sits
+      next to a button that hands the household over, which M2 forbids
+      (destructive actions apart from the others).
+      Acceptance: at 320 px (`mobile` project, `small-phone` audit) an
+      owner's row shows the full display name on at most two lines with
+      no horizontal overflow, and Transfer and Remove are reached from
+      one "Member actions" menu or sheet (or sit on a second line apart
+      from each other) instead of two adjacent icons. An e2e test opens
+      it, sees both actions labelled, and Remove still asks for
+      confirmation.
+- [ ] **UX-146. Invite dialog: clear a failed link error on retry, and
+      offer Try again** (impact: low, effort: S) — `src/components/household/invite-button.tsx:29-41,68`:
+      `error` is set when `createInviteAction` fails but is never reset,
+      so closing and reopening the dialog after a failure that then
+      succeeds shows the red error above the working link. While it is
+      failed the only way to retry is to close and reopen (nothing says
+      so). Breaks "Error recovery" (UX principle) and M5.
+      Acceptance: with the action failing once and then succeeding
+      (`mobile` project, route-level mock), the dialog shows the error
+      with a "Try again" button; pressing it shows the link and no error.
 
 ### Dependencies
 
@@ -1018,6 +1060,46 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       Decided 2026-10-15 by autopilot-product: ticks-only offline queue on
       the shopping list. Why: it's the in-store case Bring! and AnyList
       cover and the smallest slice with no merge conflicts. See PRODUCT.md.
+
+### Server caching (2026-10-22 review)
+
+Today nothing is cached across requests: every dashboard page renders
+fresh per request, `React.cache()` only dedupes within one request, and
+the 31 action files invalidate with `revalidatePath` (46 calls for
+`"/dashboard"` alone), which mostly just clears the browser's router cache.
+
+- [ ] **PERF-22. Spike: Cache Components with household-scoped tags** (L) —
+      a time-boxed spike that ends in follow-up items, not a merged
+      migration. Next 16's `cacheComponents: true` plus `"use cache"`,
+      `cacheTag` and `updateTag` would give each page a static shell and
+      serve cached data, rendered only when a household's data changes.
+      The flag is app-wide, so the spike is a throwaway branch that turns
+      it on and records:
+      - Which routes fail the build (uncached reads or `cookies()` outside
+        a `<Suspense>`). Locale comes from a cookie, so expect most,
+        starting with `src/app/dashboard/layout.tsx`.
+      - A pilot: the home page summary (`src/app/dashboard/page.tsx:67-142`,
+        ~13 queries plus `loadHouseholdSafeToSpend`) behind `"use cache"`,
+        with before/after server timings.
+      - Whether Vercel needs `"use cache: remote"` for hits across
+        serverless instances (the default store is in-memory per
+        instance).
+      Rules the follow-up design must keep:
+      - Cached functions take `householdId` (or `userId` for the personal
+        budget) as an argument so it's in the cache key, and are only
+        called after `requireHousehold()`. One helper builds every tag
+        (`householdTag(id, "inventory")`), so no tag is ever unscoped.
+      - Every write clears the tags it touches: `updateTag` in Server
+        Actions, `revalidateTag` in the cron routes
+        (`api/cron/sync-notifications`, `weekly-digest`) and the share-link
+        actions (`src/app/share/shopping-list/actions.ts`), which write outside a
+        session.
+      - Never cache `requireHousehold()` / `requireUserId()`: their DB read
+        is the SCALE-H revocation check. Keep the open shopping list
+        uncached too (other members tick it live).
+      Output: a short write-up in the PR (route failures, pilot timings,
+      remote-cache answer, a go/no-go) plus follow-up items in this file,
+      one per feature area.
 
 ## Competitive gap scan
 
@@ -1493,6 +1575,22 @@ out to be a product-scope question rather than a scoped task should move to
       both regions in the dashboards; if they differ, set
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
+
+- [ ] **PERF-21. Keep recently visited pages in the browser** `[!]` needs a
+      product decision — Next 16 keeps no client copy of dynamic pages
+      (`staleTimes.dynamic` defaults to 0), so every switch between
+      bottom-bar tabs is a full server render plus that page's queries,
+      even for a tab seen seconds ago. Setting
+      `experimental.staleTimes: { dynamic: 30 }` in `next.config.ts` makes
+      going back to it instant. Your own edits still show at once (an
+      action's `revalidatePath` clears this cache). The cost: another
+      household member's change can take up to 30 s to appear when you
+      navigate (a reload always shows it), which matters most for a shopping
+      list two people work through in the shop. Decide the window (30 s,
+      shorter, or none). The flag is marked experimental. If PERF-22 goes
+      ahead, `cacheLife`'s `stale` value controls this instead.
+      Acceptance once decided: the config change plus an e2e check that an
+      edit still shows after navigating away and back.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 

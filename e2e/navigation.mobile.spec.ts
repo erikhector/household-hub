@@ -92,19 +92,45 @@ test("the bottom bar labels are at least 12 px", async ({ page }) => {
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(size).toBeGreaterThanOrEqual(12);
   }
-  // More's label is a bare text node inside its button, next to the unread
-  // badge, so the button's whole text reads "1 More" whenever another spec
-  // left a notification in the worker's household. Assert the exact text of
-  // the label node itself instead of the button's combined text.
+  // The unread badge sits in More's tile, so the button's whole text reads
+  // "1 More" whenever another spec left a notification in the worker's
+  // household. Assert the exact text of the label span (the button's last
+  // one) instead of the button's combined text.
   const more = nav.getByRole("button", { name: new RegExp(`${en.nav.more}$`) });
-  const { label, size } = await more.evaluate((el) => ({
-    label: Array.from(el.childNodes)
-      .filter((n) => n.nodeType === Node.TEXT_NODE)
-      .map((n) => n.textContent)
-      .join("")
-      .trim(),
+  const { label, size } = await more.locator("span").last().evaluate((el) => ({
+    label: el.textContent?.trim(),
     size: parseFloat(getComputedStyle(el).fontSize),
   }));
   expect(label).toBe(en.nav.more);
   expect(size).toBeGreaterThanOrEqual(12);
+});
+
+// UX-52: all five tabs share one icon treatment (a tile), so their labels sit
+// on one baseline; the active tab keeps its section hue, and the page it
+// opens is marked with the same hue.
+test("bottom bar tabs share one tile and the active one keeps its hue", async ({ page }) => {
+  await page.goto("/dashboard/inventory");
+  const nav = page.getByRole("navigation");
+  const tabs = [
+    ...primaryMobileNavItems.map((item) => nav.getByRole("link", { name: en.nav[item.key], exact: true })),
+    nav.getByRole("button", { name: en.nav.more }),
+  ];
+  expect(tabs).toHaveLength(5);
+
+  // Same baseline: every tab's tile and its label (the last span) sit at one
+  // height. "More" used to have no tile and a taller line box.
+  for (const which of ["first", "last"] as const) {
+    const tops = await Promise.all(
+      tabs.map((tab) => tab.locator("span")[which]().evaluate((el) => el.getBoundingClientRect().top)),
+    );
+    for (const top of tops) expect(Math.abs(top - tops[0])).toBeLessThanOrEqual(1);
+  }
+
+  // The active tab (Inventory) keeps its tinted tile instead of dropping it.
+  const inventory = nav.getByRole("link", { name: en.nav.inventory, exact: true });
+  await expect(inventory).toHaveAttribute("aria-current", "page");
+  await expect(inventory.locator("span").first()).toHaveClass(/bg-chart-1\/15/);
+
+  // The page is marked with the same section hue.
+  await expect(page.locator("[data-section-accent='chart-1']")).toBeVisible();
 });
