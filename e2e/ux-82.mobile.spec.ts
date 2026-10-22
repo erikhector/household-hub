@@ -44,6 +44,11 @@ test("a row under the add bar does not show through the field or the bar", async
   await page.goto(LIST_URL);
   const field = page.getByRole("combobox", { name: "Add to the list" });
   await expect(field).toBeVisible();
+  // The bar is server-rendered without the mic (support is only known once
+  // the page hydrates), then the mic appears and the field's padding and
+  // placeholder clip change. A "before" shot taken in between differs from
+  // every later one, so wait for the hydrated bar (Chromium has a recognizer).
+  await expect(page.getByRole("button", { name: "Add by voice" })).toBeVisible();
   const bar = field.locator("xpath=ancestor::div[contains(@class,'sticky')][1]");
   const box = (await bar.boundingBox())!;
   const clip = { x: box.x, y: box.y, width: box.width, height: box.height };
