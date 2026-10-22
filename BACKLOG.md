@@ -424,6 +424,21 @@ then MAINT-7 per feature, to avoid churn.
       Acceptance: `npx playwright test
       e2e/shopping-finish-carry-over.spec.ts:170 --project=desktop
       --repeat-each=30` passes 30/30.
+      Seen again on release PR #588 (`673a16e`, 2026-10-22): the GitHub
+      e2e job failed the attempt (the 'Put everything away' button stayed
+      disabled and kept detaching) and passed on the retry.
+
+- [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
+      `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
+      three done before any save answers", `mobile`). Failed the attempt
+      in the GitHub `End-to-end (Playwright)` job on release PR #588
+      (`673a16e`, 2026-10-22) and passed on the CI retry. Find what lets
+      the third tick land late (a re-render between taps, or the spec
+      asserting before the optimistic state settles) and fix it in the
+      app or the spec's waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/optimistic-ticking.spec.ts:169 --project=mobile
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
