@@ -316,8 +316,11 @@ ownership hand-off are two separate actions in
 - UI (`MemberList`, `src/components/household/member-list.tsx`): every
   member sees a leave control on their own row, except the owner — the
   owner's row never shows "leave" since they must transfer or delete
-  instead. The owner additionally sees a transfer-ownership control on
-  every other (non-owner) row. Both actions confirm in a dialog
+  instead. The owner additionally sees one "Member actions" menu (a ⋯
+  button) on every other (non-owner) row, holding "Make owner" and "Remove
+  from household" (UX-145): two adjacent icons squeezed the name at 320 px
+  and put Remove beside the action that hands the household over (M2).
+  Transfer, Remove and leave all confirm in a dialog
   (`src/components/ui/dialog.tsx`) before running — transfer names the
   target member, leave states what access is lost — mirroring
   `DeleteHouseholdDialog`'s confirm-before-destructive-action pattern
@@ -6482,7 +6485,28 @@ components directly.
   `/login?reset=success&email=…`; `/login` reads `?email=` and pre-fills
   the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
   signup card's "Log in" link carries the address too. Covered by
-  `e2e/ux-61.spec.ts`. Signing in straight from the link is UX-135.
+  `e2e/ux-61.spec.ts`.
+- **Sign in from the verification link (UX-135)**: a valid, unused,
+  unexpired `/verify-email/<token>` link opened by a signed-out visitor
+  signs them in and lands on `/dashboard?welcome=1`, where the overview's
+  title reads "Welcome to Squirrel, {first name}" instead of the time-of-day
+  greeting (`WelcomeTitle` drops the `welcome` query from the address bar, so
+  a reload shows the ordinary greeting). The sign-in is a second Credentials
+  provider, `verification-link`, in `src/lib/auth.ts`. Its proof is the
+  emailed raw token, never a user id; it rate-limits per token (like the
+  page's action), looks the token up by hash, refuses a used, expired or
+  unknown token, and refuses an account that is already verified. It spends
+  the token with the same atomic claim that verifies the email
+  (`redeemVerificationToken`, `src/lib/verification-redeem.ts`), so the link
+  signs in once. `verifyEmailAction` calls `signIn("verification-link")`,
+  catches only `AuthError` (the redirect passes through) and maps a refusal
+  to the existing "Link expired" card. Opening the link again, an expired
+  link, or a link for an already-verified account keeps the old behaviour:
+  "Email verified" with a "Log in" button, no session. A visitor who is
+  already signed in (the dashboard banner's resend flow) is only verified,
+  never switched to another account. No new cookie. Covered by
+  `e2e/ux-135.spec.ts`, `src/lib/auth.test.ts` and
+  `src/lib/actions/auth.test.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -6659,7 +6683,11 @@ version or the notes by hand.
   and joins their release notes, oldest first, into one entry. A PR with
   no Swedish note would contribute its English one to the Swedish text,
   which is why the preview check now requires both (below). Then it
-  merges `master` back into `next`. A hotfix PR straight into `master`
+  merges `master` back into `next`. When `next` moved on meanwhile, that
+  merge commit is the new tip of `next`, so it carries no `[skip ci]`: the
+  next release branch is cut at it, and the marker on a PR's head commit
+  stops every `pull_request` workflow (CI and the preview) from running
+  on that PR. A hotfix PR straight into `master`
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
   typecheck, unit tests and build; PRs into `master` swap the build for
@@ -7484,6 +7512,21 @@ approximating them, so the email never disagrees with the app.
   those carry into the next item, while expiry and use-within go back to
   blank (so AUTO-7 can still estimate the next item's expiry). Covered by
   `e2e/form-errors.spec.ts`.
+- **Signup and login errors sit next to the field (UX-59).** Both forms
+  are `noValidate` and check in the browser first
+  (`src/components/auth/signup-form.tsx`, `login-form.tsx`): a missing
+  name, bad email, password under 8 characters or a password mismatch is
+  worded in the page's language under its field (`FieldError`, `role="alert"`),
+  the field gets `aria-invalid` and `aria-describedby`, and focus goes to the
+  first one. A blocked submit never runs the action, so nothing is reset:
+  a mismatch keeps the first password. The signup password field always
+  shows "At least 8 characters". Server rejections come back with a
+  `field` (and `code: "email-taken"`) in `SignupState`: the error shows
+  under that field and takes focus. A taken email also offers Log in
+  (prefilled with the email) and Forgot password links. A wrong login
+  password is shown under the password field, which takes focus; the email
+  is kept. Server messages stay English (MAINT-7). Covered by
+  `e2e/auth-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

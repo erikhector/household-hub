@@ -156,6 +156,14 @@ describe("parseTrainLog", () => {
     ]);
   });
 
+  // The sync merge dropped its `[skip ci]` (a release branch cut at it got
+  // no CI); older ones in history still carry it, and both are syncs.
+  it("marks a sync merge with or without [skip ci]", () => {
+    expect(parseTrainLog("fffffff chore: sync master into next")).toEqual([
+      { sha: "fffffff", pr: null, sync: true },
+    ]);
+  });
+
   it("ignores a PR number mentioned mid-subject", () => {
     expect(parseTrainLog("eeeeeee revert: undo #4 (#5)")).toEqual([
       { sha: "eeeeeee", pr: 5, sync: false },

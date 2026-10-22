@@ -20,6 +20,7 @@ import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
 import { createMoneyFormat } from "@/lib/currency";
 import { parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { Greeting } from "@/components/dashboard/greeting";
+import { WelcomeTitle } from "@/components/dashboard/welcome-title";
 import { firstName } from "@/lib/greeting";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
@@ -37,12 +38,15 @@ const TODAY_TASK_LIMIT = 5;
 // onto the card's border.
 const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto pointer-coarse:h-auto max-sm:min-h-11 pointer-coarse:min-h-11";
 
-export default async function DashboardOverviewPage() {
-  const [{ household, userId }, dict, locale] = await Promise.all([
+export default async function DashboardOverviewPage(props: PageProps<"/dashboard">) {
+  const [{ household, userId }, dict, locale, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
+    props.searchParams,
   ]);
+  // UX-135: set by a verification link that has just signed the user in.
+  const showWelcome = searchParams.welcome === "1";
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -212,7 +216,13 @@ export default async function DashboardOverviewPage() {
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>
-          <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
+          {showWelcome ? (
+            <WelcomeTitle
+              text={format(dict.dashboard.welcome, { name: firstName(user.displayName) })}
+            />
+          ) : (
+            <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
+          )}
         </PageTitle>
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>

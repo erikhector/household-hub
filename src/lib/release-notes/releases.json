@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.99.1",
+    "date": "2026-10-22",
+    "pr": 582,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On the Household page, an owner now finds \"Make owner\" and \"Remove from household\" in one menu on each member, and long names are no longer squeezed on small phones.",
+      "sv": "På sidan Hushåll hittar en ägare nu \"Gör till ägare\" och \"Ta bort från hushållet\" i en och samma meny för varje medlem, och långa namn kläms inte längre ihop på små telefoner."
+    }
+  },
+  {
+    "version": "0.99.0",
+    "date": "2026-10-22",
+    "pr": 576,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Signup and login mistakes now show right under the field they belong to. A password mismatch keeps what you typed, the password field says up front that it needs 8 characters, and \"email already in use\" links to Log in and Forgot password.",
+      "sv": "Fel vid registrering och inloggning visas nu precis under fältet de gäller. Om lösenorden inte matchar behåller formuläret det du skrivit, lösenordsfältet visar direkt att det krävs 8 tecken, och \"e-postadressen används redan\" länkar till Logga in och Glömt lösenordet."
+    }
+  },
+  {
+    "version": "0.98.0",
+    "date": "2026-10-22",
+    "pr": 573,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now rename a shopping list from its ⋯ menu or by tapping its title. When you start a new list you can begin from a saved template or from a recent list, with just what you still have to buy or everything.\n\nManage items is easier to scan on your phone: search your items, see stock at a glance in compact rows, and duplicate groups now label which item to keep and which to merge. The list is sorted the same way as your inventory.\n\nWhen you finish a shop, \"All done\" now shows a one-line summary of the trip and a single \"Put everything away\" button. Review the details only if you want to. Finished lists offer \"Back to lists\" and \"Start next list\".",
+      "sv": "Du kan nu byta namn på en inköpslista från ⋯-menyn eller genom att trycka på titeln. När du skapar en ny lista kan du utgå från en sparad mall eller en senaste lista, med bara det du ännu ska köpa eller allt.\n\nHantera varor är lättare att överblicka i mobilen: sök bland varorna, se lagerstatus direkt i kompakta rader, och dubblettgrupper visar nu tydligt vilken vara som behålls och vilka som slås ihop. Listan har samma ordning som lagret.\n\nNär du är klar med inköpen visar \"Allt klart\" nu en rad om rundan och en enda knapp, \"Ställ in allt\". Granska detaljerna bara om du vill. Färdiga listor har \"Tillbaka till listorna\" och \"Starta nästa lista\"."
+    }
+  },
+  {
     "version": "0.97.0",
     "date": "2026-10-22",
     "pr": 564,

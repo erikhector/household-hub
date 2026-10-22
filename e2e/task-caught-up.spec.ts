@@ -82,7 +82,12 @@ test("with nothing open, a fresh visit shows the all-caught-up card above Comple
   const open = page.getByRole("checkbox", { name: /^Mark .* as done$/ });
   while ((await open.count()) > 0) {
     const before = await open.count();
+    // A tick moves the row at tap time (UX-33), before the save lands. Wait
+    // for the Server Action's response, or the reload below can abort a save
+    // still in flight and bring that task back open.
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && !!r.request().headers()["next-action"]);
     await open.first().click();
+    await saved;
     await expect(open).toHaveCount(before - 1);
   }
 

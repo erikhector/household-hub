@@ -248,7 +248,11 @@ export const en = {
       "Owners can remove members, transfer ownership, manage the calendar feed, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
     owner: "Owner",
     contributor: "Contributor",
-    removeAriaLabel: "Remove {name}",
+    memberActions: {
+      ariaLabel: "Member actions for {name}",
+      transfer: "Make owner",
+      remove: "Remove from household",
+    },
     confirmRemoveMember: {
       title: "Remove {name}?",
       description: "They'll lose access to this household's inventory, shopping lists, meal plans, and budget data.",
@@ -393,7 +397,6 @@ export const en = {
       deleting: "Deleting…",
     },
     transfer: {
-      ariaLabel: "Make {name} the owner",
       confirmTitle: "Transfer ownership to {name}?",
       confirmDescription:
         "{name} will become the owner and you'll become a contributor. Only the new owner can transfer it back.",
@@ -423,6 +426,8 @@ export const en = {
       afternoon: "Good afternoon, {name}",
       evening: "Good evening, {name}",
     },
+    // UX-135: the title right after a verification link signs the user in.
+    welcome: "Welcome to Squirrel, {name}",
     manage: "Manage",
     sharedWithIn: {
       one: "Shared with {count} other person in {name}",
@@ -3360,6 +3365,8 @@ export const en = {
       showPassword: "Show password",
       hidePassword: "Hide password",
       forgotPassword: "Forgot password?",
+      emailInvalid: "Enter a valid email address.",
+      passwordRequired: "Enter your password.",
       loggingIn: "Logging in…",
       submit: "Log in",
       noAccount: "No account yet?",
@@ -3419,8 +3426,18 @@ export const en = {
       householdNamePlaceholder: "e.g. The Andersson family",
       householdNameHint: "Everyone you invite will see this name.",
       joinHint: "Joining someone's household? Open the invite link they sent you.",
+      nameRequired: "Enter your name.",
+      householdNameRequired: "Enter a name for your household.",
       email: "Email",
+      emailInvalid: "Enter a valid email address.",
+      emailTaken: "An account with that email already exists",
+      emailTakenLogIn: "Log in",
+      emailTakenForgot: "Forgot password?",
       password: "Password",
+      passwordHint: "At least 8 characters",
+      passwordTooShort: "Use at least 8 characters.",
+      passwordsDontMatch: "The passwords don't match.",
+      confirmRequired: "Type the password again to confirm it.",
       confirmPassword: "Confirm password",
       showPassword: "Show password",
       hidePassword: "Hide password",

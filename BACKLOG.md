@@ -316,23 +316,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
-      shows the all-caught-up card above Completed"), `desktop` project.
-      Failed its first attempt in the GitHub `End-to-end (Playwright)` job
-      on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
-      The assertion at line 91, after `page.reload()`, expected
-      `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
-      but received 1 for the whole 5 s. Also failed on the `mobile`
-      project in the `ci:local` gate on PR #464 (`fc00440`, 2026-10-20),
-      where another open task appeared in the worker's household mid-test,
-      and passed on re-runs of the same commit. Find which task is still
-      open after the spec's own completions (a late write, or another row
-      in the worker's shared household) and fix it in the app or the
-      spec's setup and waiting, never a loosened assertion, a skip or a
-      retry. Acceptance: `npx playwright test
-      e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
-      both the `desktop` and `mobile` projects.
 - [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
       `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
       through the field or the bar"), `mobile` project. Failed in the local
@@ -346,7 +329,14 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
       passes 30/30. Went red once more on release run 39571297362
-      (2026-10-21) and passed on retry #1 of the same commit.
+      (2026-10-21) and passed on retry #1 of the same commit. Failed
+      again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
+      the retry both failed in the GitHub e2e job, and it failed once in
+      the local `ci:local` gate; it passed on a GitHub job re-run and on a
+      local re-run of the same commit. Seen again on release PR #582
+      (`dec00a0`, 2026-10-22): it failed the attempt and the retry of
+      GitHub e2e run 39803999752 and once in the local `ci:local` gate;
+      it passed on a GitHub job re-run and on a local re-run.
 - [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
       `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
       2026-10-21. Two specs, same symptom: the click on a "More" trigger
@@ -366,6 +356,12 @@ then MAINT-7 per feature, to avoid churn.
       `npx playwright test e2e/ux-51.spec.ts:114
       e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
       --repeat-each=30` passes 30/30.
+      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
+      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
+      System" not found within 5s; passed on a re-run on the same commit.
+      Seen again in the `ci:local` gate on release PR #582 (`dec00a0`,
+      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
+      System" not found; passed in two focused re-runs.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
@@ -384,6 +380,9 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on both
       projects.
+      Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
+      failed the attempt and the retry of the GitHub e2e job and in the
+      local `ci:local` gate; it passed on the job re-run and on a local re-run.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
@@ -396,6 +395,17 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
       passes 30/30.
+- [ ] **MAINT-47. Flaky: "Done shopping" after a carry-over completion and Undo sometimes leaves the late pending row out of place** (low, S) —
+      `e2e/shopping-finish-carry-over.spec.ts:170` ("Done shopping after
+      an earlier carry-over completion and Undo leaves a late pending row
+      where it is", `desktop`). Failed in the local `ci:local` gate on
+      release PR #576 (`e585c70`, 2026-10-22) and passed on a local re-run
+      of the same commit. Find what lets the row move or the assertion run
+      before the list has settled after Undo, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test
+      e2e/shopping-finish-carry-over.spec.ts:170 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -461,7 +471,7 @@ UX-89.
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135, UX-136 and UX-138.
+- Needs a decision before building: UX-136 and UX-138.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49.
@@ -515,26 +525,6 @@ UX-89.
       slots. Nothing sits under the FAB at 412 px.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-59. Signup and login errors next to the field, keeping what
-      was typed** (impact: med, effort: M) — breaks Usability ("inline,
-      actionable errors next to the field") and Context.
-      - A password mismatch wipes both password fields, drops focus to
-        `<body>` and shows one generic line above the consent text,
-        with no `aria-invalid` or `aria-describedby`
-        (`signup-form.tsx:157`, `login-form.tsx:95`).
-      - A short password or bad email only gets the browser's native
-        bubble, in the browser's language.
-      - The 8-character minimum is never shown up front.
-      - "An account with that email already exists" offers no Log in or
-        Forgot password link.
-      Server-message translation is MAINT-7. Whether signup should stop
-      revealing that an email exists is a security call, not part of
-      this item.
-      Acceptance: a mismatch keeps the first password, focuses Confirm
-      password and shows the error under it with `aria-invalid`. The
-      password field shows "At least 8 characters" before submit. The
-      duplicate-email error links to Log in and Forgot password.
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
@@ -691,21 +681,7 @@ UX-89.
 
 Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
 `tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
-route passes. The popup probe found two phone-only size gaps.
 
-- [ ] **UX-135. Sign in straight from the verification link**
-      (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
-      blocked until the email is verified (`src/lib/auth.ts`) and signup
-      deliberately doesn't sign in, so a new user taps the mail link and
-      then types email and password again. A valid, unused verification
-      token signs the user in (single use, short-lived, same trust as a
-      reset link) and lands on the dashboard with "Welcome to Squirrel,
-      {name}". An expired, used or unknown token keeps today's behaviour.
-      Both `en.ts` and `sv.ts`; no new cookie.
-      Acceptance: in an e2e spec, sign up, open the verification link
-      (read the token from the DB), and land on `/dashboard` signed in
-      with the welcome text; opening the same link again does not sign in.
-      Decided 2026-10-20 by owner: option 1. See #395.
 
 - [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
       (impact: high, effort: M) — ⚠️ money (human-only area).
@@ -727,22 +703,6 @@ the area's components and checking `Button` sizes; the screenshot and
 audit sweeps were not run this time, so confirm the layout in a
 `small-phone` screenshot first.
 
-- [ ] **UX-145. Member rows: don't squeeze the name between three
-      controls, and keep Remove away from Transfer** (impact: med, effort: S) —
-      `src/components/household/member-list.tsx:94-142`: each row puts the
-      role badge, a Crown (transfer ownership) button and a UserMinus
-      (remove) button side by side, 8 px apart. `icon-sm` grows to 44 px
-      on phones, so at 320 px those controls take about 170 px and the
-      name and email get the rest, clamped to two lines. Remove sits
-      next to a button that hands the household over, which M2 forbids
-      (destructive actions apart from the others).
-      Acceptance: at 320 px (`mobile` project, `small-phone` audit) an
-      owner's row shows the full display name on at most two lines with
-      no horizontal overflow, and Transfer and Remove are reached from
-      one "Member actions" menu or sheet (or sit on a second line apart
-      from each other) instead of two adjacent icons. An e2e test opens
-      it, sees both actions labelled, and Remove still asks for
-      confirmation.
 - [ ] **UX-146. Invite dialog: clear a failed link error on retry, and
       offer Try again** (impact: low, effort: S) — `src/components/household/invite-button.tsx:29-41,68`:
       `error` is set when `createInviteAction` fails but is never reset,

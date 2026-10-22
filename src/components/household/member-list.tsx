@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Crown, LogOut, UserMinus } from "lucide-react";
+import { Crown, Ellipsis, LogOut, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
+  createDialogHandle,
   Dialog,
   DialogClose,
   DialogContent,
@@ -15,6 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { leaveHouseholdAction, removeMemberAction, transferOwnershipAction } from "@/lib/actions/household";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -27,6 +34,66 @@ type Member = {
   displayName: string;
   email: string;
 };
+
+// An owner's two actions on another member, behind one "Member actions" menu
+// (UX-145). They used to be two 44 px icons side by side, which squeezed the
+// name at 320 px and put Remove (destructive) right next to Transfer, which
+// hands the household over (DESIGN.md M2). The menu is one small target, and
+// Remove still asks first: its dialog sits outside the menu (a menu's popup
+// unmounts as it closes), opened through a handle.
+function MemberActions({
+  member,
+  dict,
+  disabled,
+  onTransfer,
+  onRemove,
+}: {
+  member: Member;
+  dict: Dictionary["household"];
+  disabled: boolean;
+  onTransfer: () => void;
+  onRemove: () => void;
+}) {
+  const [removeHandle] = useState(() => createDialogHandle());
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground"
+              disabled={disabled}
+              aria-label={format(dict.memberActions.ariaLabel, { name: member.displayName })}
+            >
+              <Ellipsis className="size-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onTransfer}>
+            <Crown />
+            {dict.memberActions.transfer}
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={() => removeHandle.open(null)}>
+            <UserMinus />
+            {dict.memberActions.remove}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog
+        handle={removeHandle}
+        title={format(dict.confirmRemoveMember.title, { name: member.displayName })}
+        description={dict.confirmRemoveMember.description}
+        cancelLabel={dict.confirmRemoveMember.cancel}
+        confirmLabel={dict.confirmRemoveMember.confirm}
+        pendingLabel={dict.confirmRemoveMember.confirming}
+        onConfirm={onRemove}
+      />
+    </>
+  );
+}
 
 export function MemberList({
   members,
@@ -78,9 +145,12 @@ export function MemberList({
         return (
           <div
             key={member.id}
-            className="list-bleed flex items-center justify-between rounded-md border px-3 py-2"
+            // On a phone the badge and actions wrap onto a second line rather
+            // than squeezing the name into a sliver beside them (UX-145); from
+            // `sm` up everything stays on one line.
+            className="list-bleed flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border px-3 py-2 sm:flex-nowrap"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 basis-56 sm:basis-0">
               <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={member.displayName}>
                 {member.displayName}
               </p>
@@ -91,41 +161,17 @@ export function MemberList({
                 <p className="text-xs text-muted-foreground">{dict.leave.ownerExplanation}</p>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <Badge variant={member.role === "OWNER" ? "secondary" : "outline"}>
                 {member.role === "OWNER" ? dict.owner : dict.contributor}
               </Badge>
               {isOwner && member.role !== "OWNER" && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground hover:text-primary"
+                <MemberActions
+                  member={member}
+                  dict={dict}
                   disabled={isPending}
-                  aria-label={format(dict.transfer.ariaLabel, { name: member.displayName })}
-                  onClick={() => setTransferTarget(member)}
-                >
-                  <Crown className="size-3.5" />
-                </Button>
-              )}
-              {isOwner && member.role !== "OWNER" && (
-                <ConfirmDialog
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      disabled={isPending}
-                      aria-label={format(dict.removeAriaLabel, { name: member.displayName })}
-                    >
-                      <UserMinus className="size-3.5" />
-                    </Button>
-                  }
-                  title={format(dict.confirmRemoveMember.title, { name: member.displayName })}
-                  description={dict.confirmRemoveMember.description}
-                  cancelLabel={dict.confirmRemoveMember.cancel}
-                  confirmLabel={dict.confirmRemoveMember.confirm}
-                  pendingLabel={dict.confirmRemoveMember.confirming}
-                  onConfirm={() => handleRemove(member.id)}
+                  onTransfer={() => setTransferTarget(member)}
+                  onRemove={() => handleRemove(member.id)}
                 />
               )}
               {isSelf && member.role !== "OWNER" && (
