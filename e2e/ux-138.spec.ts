@@ -53,10 +53,10 @@ test("the headline holds back an untouched limit and shows it as Still budgeted"
   await expect(label).toBeVisible();
   await expect(label.locator("xpath=..")).toContainText(/[–-]\s*1\D?000[.,]00/);
 
-  // The projection is secondary text: small and muted, not another headline.
+  // The projection is a qualifier: body size (M9) but muted, not another headline.
   const projection = main.locator("p", { hasText: /^About .+ left at the end of the month\.$/ });
   await expect(projection).toBeVisible();
-  await expect(projection).toHaveClass(/text-xs/);
+  await expect(projection).toHaveClass(/text-sm/);
   await expect(projection).toHaveClass(/text-muted-foreground/);
 
   await expectNoHorizontalOverflow(page);

@@ -2712,8 +2712,8 @@ Component page function can't itself be unit-tested.
   computes it from the month's transactions; `loadPersonalBudgetPosition`
   returns it as `safeToSpendProjection`, so Personal Budget and the
   dashboard card show the same line. Since UX-138 it is a qualifier on the
-  headline, not a second figure of the same weight: the sentence is small
-  (`text-xs`) and muted, red only when the month ends over, and spending in
+  headline, not a second figure of the same weight: the sentence keeps
+  body size (`text-sm`, Mobile UX rule M9) and is muted, red only when the month ends over, and spending in
   limited categories is left out of the pace (`excludeCategoryIds`), since
   that money is already held back as "Still budgeted" and doesn't lower the
   number.
