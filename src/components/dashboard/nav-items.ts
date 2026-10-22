@@ -56,6 +56,14 @@ export const NAV_ICON_TILE_CLASSES: Record<NavColor, string> = {
   "chart-5": "bg-chart-5/15 text-chart-5",
 };
 
+// The same hues as a solid bar, the page-side mark of a section (PageTitle).
+export const NAV_ACCENT_BAR_CLASSES: Record<NavColor, string> = {
+  "chart-1": "bg-chart-1",
+  "chart-2": "bg-chart-2",
+  "chart-3": "bg-chart-3",
+  "chart-5": "bg-chart-5",
+};
+
 // The tile for the tabs with no section hue (Overview, More), so all five
 // bottom-bar tabs share one icon treatment and their labels one baseline
 // (UX-52). Active, it takes the primary tint the sliding pill uses.
