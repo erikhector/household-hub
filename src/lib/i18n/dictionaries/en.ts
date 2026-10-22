@@ -2432,6 +2432,8 @@ export const en = {
       lineOwedFromEarlier: "Owed from earlier months",
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Still budgeted",
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
@@ -2929,6 +2931,8 @@ export const en = {
       lineOwedFromEarlier: "Owed from earlier months",
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Still budgeted",
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",

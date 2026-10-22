@@ -44,6 +44,10 @@ export type ExpectedRecurringExpense = {
    * logged — see settle-up-calc.ts's computeBillPositions — rather than a
    * recurring item that hasn't been logged at all. Display only. */
   leftDue?: boolean;
+  /** UX-138: the budget category a due payment belongs to, when it has
+   * one. Lets "still budgeted" skip what a due bill already takes out of
+   * the same category's limit, so a limited category isn't counted twice. */
+  budgetCategoryId?: string;
   // Purely additive, display-layer tags — computeSafeToSpend itself never
   // sets these (every row it produces is implicitly "personal"); a caller
   // that wants to show shared-household rows alongside them (see
@@ -78,7 +82,7 @@ export type SafeToSpendStatus = "over" | "tight" | "healthy";
 
 /** Each term of the headline number, for the breakdown under it. All
  * non-negative; `safeToSpend = income + dueIncome - expense - savings
- * - owedFromEarlier - duePayments - dueSavings`. */
+ * - owedFromEarlier - duePayments - dueSavings - stillBudgeted`. */
 export type SafeToSpendBreakdown = {
   income: number;
   /** Recurring income still due this month — see computeSafeToSpend. */
@@ -88,6 +92,10 @@ export type SafeToSpendBreakdown = {
   owedFromEarlier: number;
   duePayments: number;
   dueSavings: number;
+  /** UX-138: the unspent remainder of every category with a monthly limit
+   * (see computeStillBudgeted). Money already earmarked for that category,
+   * so it isn't safe to spend elsewhere. */
+  stillBudgeted: number;
 };
 
 /** UX-116: true while there is nothing to compute a safe-to-spend number
@@ -106,6 +114,7 @@ export function needsSafeToSpendSetup(
     breakdown.dueIncome < EPS &&
     breakdown.duePayments < EPS &&
     breakdown.dueSavings < EPS &&
+    breakdown.stillBudgeted < EPS &&
     breakdown.owedFromEarlier < EPS &&
     breakdown.expense < EPS &&
     breakdown.savings < EPS &&
@@ -133,6 +142,49 @@ export type SafeToSpendResult = {
   status: SafeToSpendStatus;
 };
 
+/** A category with a monthly limit, for {@link computeStillBudgeted}. */
+export type CategoryEnvelope = {
+  id: string;
+  /** EXPENSE logged in this category in the viewed month. */
+  spent: number;
+  /** What the month may spend there: the limit plus any rollover carried
+   * in (GAP-21), the same envelope Insights draws its bar against. */
+  available: number;
+};
+
+/**
+ * UX-138: how much of the month's limits is still unspent, as one number.
+ * A category with a limit has money earmarked for it, so what's left of
+ * that limit is not "safe to spend" on something else, even though it
+ * hasn't been spent yet. Without this a 3,000 food limit with nothing logged
+ * on the 1st left all 3,000 in the headline, and the headline then fell as
+ * the food was bought.
+ *
+ * Per category: `available - spent - what a due payment in it already takes`,
+ * never below zero. The floor matters twice: an overspent category has no
+ * remainder to hold back (the overspend is already in the expenses
+ * total, so a negative remainder would add money back), and a due bill
+ * in the same category is already subtracted as a due payment, so only the
+ * rest of the limit is held back, not the bill twice. Categories without a
+ * limit are not in `categories`, and contribute nothing.
+ */
+export function computeStillBudgeted(
+  categories: readonly CategoryEnvelope[],
+  expectedRecurring: readonly ExpectedRecurringExpense[],
+): number {
+  const dueByCategory = new Map<string, number>();
+  for (const e of expectedRecurring) {
+    if (!e.budgetCategoryId) continue;
+    if (e.type === "SAVINGS" || e.type === "INCOME") continue;
+    dueByCategory.set(e.budgetCategoryId, (dueByCategory.get(e.budgetCategoryId) ?? 0) + e.amount);
+  }
+  let total = 0;
+  for (const c of categories) {
+    total += Math.max(0, c.available - c.spent - (dueByCategory.get(c.id) ?? 0));
+  }
+  return total;
+}
+
 /**
  * The final aggregation step of computeSafeToSpend below, pulled out so a
  * caller can re-derive the headline number and status after appending its
@@ -150,6 +202,7 @@ export function deriveSafeToSpend({
   expenseSoFar,
   savingsSoFar,
   owedFromEarlier = 0,
+  stillBudgeted = 0,
   expectedRecurring,
 }: {
   incomeSoFar: number;
@@ -159,6 +212,9 @@ export function deriveSafeToSpend({
    * still owed on shared bills, when the month started — debts carry over
    * until they're cleared (see src/lib/personal-budget-position.ts). */
   owedFromEarlier?: number;
+  /** UX-138: computeStillBudgeted's total. Computed by the caller because
+   * it needs the categories' limits, which this function never sees. */
+  stillBudgeted?: number;
   expectedRecurring: ExpectedRecurringExpense[];
 }): { safeToSpend: number; status: SafeToSpendStatus; breakdown: SafeToSpendBreakdown } {
   let duePayments = 0;
@@ -170,7 +226,14 @@ export function deriveSafeToSpend({
     else duePayments += e.amount;
   }
   const safeToSpend =
-    incomeSoFar + dueIncome - expenseSoFar - savingsSoFar - owedFromEarlier - duePayments - dueSavings;
+    incomeSoFar +
+    dueIncome -
+    expenseSoFar -
+    savingsSoFar -
+    owedFromEarlier -
+    duePayments -
+    dueSavings -
+    stillBudgeted;
 
   // "Tight" is judged against the month's whole expected income, due
   // salary included — otherwise a future month (nothing logged yet) would
@@ -194,6 +257,7 @@ export function deriveSafeToSpend({
       owedFromEarlier,
       duePayments,
       dueSavings,
+      stillBudgeted,
     },
   };
 }
@@ -220,6 +284,9 @@ export type SafeToSpendPlannedExpense = {
   status: PlannedExpenseStatus;
   /** Its category's type. Unset means "EXPENSE", a bill. */
   type?: PlannedItemType;
+  /** UX-138: its category, so a due bill isn't also held back as still
+   * budgeted in that category's limit. */
+  categoryId?: string;
 };
 
 /**
@@ -248,6 +315,9 @@ export type SafeToSpendPlannedExpense = {
  * "INCOME"` and is added as expected income, but only while "due": see
  * isPlannedItemCounted for why late income stops counting.
  *
+ * Limited categories (`categoryLimits`, UX-138) then hold back what is still
+ * unspent of their limit: see computeStillBudgeted.
+ *
  * Categories without a recurring item fall back to the older estimate below,
  * so households that only ever ticked "this repeats" on a transaction keep
  * getting one. A category that has an active recurring item is skipped
@@ -272,6 +342,7 @@ export function computeSafeToSpend({
   templates = [],
   plannedExpenses = [],
   owedFromEarlier = 0,
+  categoryLimits = [],
 }: {
   transactions: SafeToSpendTransaction[];
   monthStart: Date;
@@ -284,6 +355,8 @@ export function computeSafeToSpend({
   /** Planned bills with their status this month. */
   plannedExpenses?: SafeToSpendPlannedExpense[];
   owedFromEarlier?: number;
+  /** UX-138: the limited categories' envelopes this month. */
+  categoryLimits?: CategoryEnvelope[];
 }): SafeToSpendResult {
   const templateCategoryIds = new Set(templates.map((t) => t.categoryId));
   const expenseTxByCategory = new Map<string, SafeToSpendTransaction[]>();
@@ -319,6 +392,7 @@ export function computeSafeToSpend({
       categoryId: mostRecent.categoryId,
       categoryName: mostRecent.categoryName,
       amount: mostRecent.amount,
+      budgetCategoryId: mostRecent.categoryId,
     });
   }
 
@@ -329,6 +403,7 @@ export function computeSafeToSpend({
       categoryName: t.name,
       amount: t.amount,
       type: t.type,
+      budgetCategoryId: t.categoryId,
     });
   }
 
@@ -340,6 +415,7 @@ export function computeSafeToSpend({
       categoryName: p.name,
       amount: p.amount,
       type,
+      budgetCategoryId: p.categoryId,
     });
   }
 
@@ -350,6 +426,7 @@ export function computeSafeToSpend({
     expenseSoFar,
     savingsSoFar,
     owedFromEarlier,
+    stillBudgeted: computeStillBudgeted(categoryLimits, expectedRecurring),
     expectedRecurring,
   });
 
