@@ -361,7 +361,9 @@ then MAINT-7 per feature, to avoid churn.
       none touching the spec's area. At line 175 the dialog's y was 60,
       expected 109. `--repeat-each=5` of the file alone on `desktop`
       passed 12/12, so it only fails under the load or ordering of the
-      full run. Find what moves the dialog (a late layout or animation
+      full run. Seen again 2026-10-22: `:152` failed on clean `origin/next`
+      (`2fbd567`) and in gates on the UX-131, UX-53 and UX-81 branches,
+      while the UX-52 gate passed. Find what moves the dialog (a late layout or animation
       settle) and fix it in the app or the spec's waiting, never a
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
