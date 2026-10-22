@@ -10,10 +10,13 @@ export async function loadCatalog(householdId: string) {
   const [items, purchased, recipeUnits, conversions, aliases, dismissals] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId },
+      // Same order as the inventory page (UX-131).
+      orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
         category: true,
+        lowStockThreshold: true,
         unit: true,
         quantity: true,
         createdAt: true,

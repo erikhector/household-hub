@@ -718,18 +718,6 @@ UX-89.
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
 
-- [ ] **UX-131. A scannable item catalog on phones** (impact: low,
-      effort: M) — breaks M6 and Consistency.
-      - "All" shows ~130 px cards, three per screen, with no search, no
-        stock badge and no sign that a card opens the item page.
-      - The sort order differs from the inventory's (Ägg first here,
-        last there).
-      - In duplicate groups the radio/checkbox pair has no visible
-        labels.
-      Acceptance: the catalog has search and compact rows in the
-      inventory's style and order. Duplicate rows show "Keep" / "Merge"
-      labels.
-
 ### UX (2026-10-20 scout)
 
 Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,

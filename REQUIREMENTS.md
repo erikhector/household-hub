@@ -636,8 +636,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     pure `buildCatalog` (`src/lib/inventory/catalog.ts`). Filter chips,
     each with its count:
     - **All**: name (with "never stocked" and "Can't convert {units}"
-      tags), category, stock + unit, "N recipes". Each row links to the
-      item page. A grid on wider screens, stacked cards on phones.
+      tags), category, stock + unit with the inventory's stock badge,
+      "N recipes". Each row links to the item page. A table on wider
+      screens; on phones a compact inventory-style row (name, one muted
+      line of category · stock · recipes, stock badge and a chevron). Rows
+      come in the inventory page's order (`orderBy name asc` in
+      `loadCatalog`, kept as given by `buildCatalog`), not a JS
+      `localeCompare`. A search box above every chip narrows rows by name
+      (and keeps a duplicate group while any member matches) (UX-131).
     - **Possible duplicates**: the groups below.
     - **Never stocked**: quantity 0, no `PriceHistory`, never on a bought
       list row (`isNeverStocked`).
@@ -657,7 +663,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     "never stocked", and sorted by `compareKeeper`: stock first, then the
     most recipe/list/template/price rows, then the oldest. In each group a
     radio picks the keeper (the suggested one to start with) and a
-    checkbox each item to merge (all ticked).
+    checkbox each item to merge (all ticked), each with a visible "Keep" /
+    "Merge" label (UX-131).
     - **Not duplicates** (`dismissDuplicatesAction`) stores every pair in
       the group as an `InventoryDuplicateDismissal` (`householdId`,
       `itemAId`, `itemBId`, ids sorted, unique, cascading with either item

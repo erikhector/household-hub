@@ -8,6 +8,7 @@ function source(id: string, overrides: Partial<CatalogSourceItem> = {}): Catalog
     category: "Pantry",
     unit: "pcs",
     quantity: 0,
+    lowStockThreshold: 1,
     createdAt: new Date(2026, 0, 1),
     barcode: null,
     recipeCount: 0,
@@ -35,6 +36,7 @@ describe("buildCatalog", () => {
       source("eggs", { name: "eggs", recipeCount: 2 }),
       source("bought", { name: "Salt" }),
       source("priced", { name: "Pepper", priceCount: 1 }),
+      source("aagg", { name: "Ägg", priceCount: 1 }),
     ],
     purchasedCounts: new Map([["bought", 1]]),
     recipeUnits: [
@@ -46,8 +48,10 @@ describe("buildCatalog", () => {
     dismissals: [],
   });
 
-  it("builds a sorted row per item with its tags", () => {
-    expect(catalog.rows.map((row) => row.name)).toEqual(["Egg", "eggs", "Pepper", "Salt", "Wheat flour"]);
+  it("builds a row per item, in the order given, with its tags", () => {
+    // The database sorts (as the inventory page does); re-sorting here put
+    // "Ägg" first where the inventory has it last (UX-131).
+    expect(catalog.rows.map((row) => row.name)).toEqual(["Wheat flour", "Egg", "eggs", "Salt", "Pepper", "Ägg"]);
     const flour = catalog.rows.find((row) => row.id === "flour")!;
     expect(flour.unitProblems).toEqual(["dl"]);
     expect(catalog.rows.find((row) => row.id === "bought")!.purchasedListCount).toBe(1);
@@ -60,7 +64,7 @@ describe("buildCatalog", () => {
   it("filters never stocked and unit problems", () => {
     expect(filterCatalogRows(catalog.rows, "neverStocked").map((row) => row.id)).toEqual(["eggs"]);
     expect(filterCatalogRows(catalog.rows, "unitProblems").map((row) => row.id)).toEqual(["flour"]);
-    expect(filterCatalogRows(catalog.rows, "all")).toHaveLength(5);
+    expect(filterCatalogRows(catalog.rows, "all")).toHaveLength(6);
   });
 });
 

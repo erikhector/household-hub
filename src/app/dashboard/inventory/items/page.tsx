@@ -31,6 +31,7 @@ export default async function ItemCatalogPage() {
         rows={rows}
         groups={groups}
         dict={dict}
+        stockDict={fullDict.inventory}
         locale={locale}
       />
     </div>
