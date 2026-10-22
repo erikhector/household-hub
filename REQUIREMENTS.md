@@ -316,8 +316,11 @@ ownership hand-off are two separate actions in
 - UI (`MemberList`, `src/components/household/member-list.tsx`): every
   member sees a leave control on their own row, except the owner — the
   owner's row never shows "leave" since they must transfer or delete
-  instead. The owner additionally sees a transfer-ownership control on
-  every other (non-owner) row. Both actions confirm in a dialog
+  instead. The owner additionally sees one "Member actions" menu (a ⋯
+  button) on every other (non-owner) row, holding "Make owner" and "Remove
+  from household" (UX-145): two adjacent icons squeezed the name at 320 px
+  and put Remove beside the action that hands the household over (M2).
+  Transfer, Remove and leave all confirm in a dialog
   (`src/components/ui/dialog.tsx`) before running — transfer names the
   target member, leave states what access is lost — mirroring
   `DeleteHouseholdDialog`'s confirm-before-destructive-action pattern
