@@ -6659,7 +6659,11 @@ version or the notes by hand.
   and joins their release notes, oldest first, into one entry. A PR with
   no Swedish note would contribute its English one to the Swedish text,
   which is why the preview check now requires both (below). Then it
-  merges `master` back into `next`. A hotfix PR straight into `master`
+  merges `master` back into `next`. When `next` moved on meanwhile, that
+  merge commit is the new tip of `next`, so it carries no `[skip ci]`: the
+  next release branch is cut at it, and the marker on a PR's head commit
+  stops every `pull_request` workflow (CI and the preview) from running
+  on that PR. A hotfix PR straight into `master`
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
   typecheck, unit tests and build; PRs into `master` swap the build for

@@ -122,6 +122,11 @@ jobs:
       # Brings the release commit (and a hotfix's change) into `next`. A
       # fast-forward when nothing merged into `next` meanwhile, otherwise a
       # merge commit, which `train-prs` skips by its subject.
+      # That merge commit carries no `[skip ci]`: it is then the tip of
+      # `next`, so the next release branch is cut at it, and GitHub reads
+      # the marker on a PR's head commit and starts none of its
+      # `pull_request` workflows. Release PR #570 got no CI or preview that
+      # way. Nothing runs on a push to `next`, so the marker skipped nothing.
       # Retries like the release push, in case a PR merges into `next` at
       # the same moment. Skipped until the `next` branch exists.
       - name: Sync master into next
@@ -134,7 +139,7 @@ jobs:
               exit 0
             fi
             git checkout -q -B next origin/next
-            if ! git merge --no-edit -m "chore: sync master into next [skip ci]" origin/master; then
+            if ! git merge --no-edit -m "chore: sync master into next" origin/master; then
               echo "::error::master doesn't merge cleanly into next. Merge it by hand (a PR from master into next) before the next release."
               exit 1
             fi
