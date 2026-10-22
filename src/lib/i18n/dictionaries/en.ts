@@ -248,7 +248,11 @@ export const en = {
       "Owners can remove members, transfer ownership, manage the calendar feed, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
     owner: "Owner",
     contributor: "Contributor",
-    removeAriaLabel: "Remove {name}",
+    memberActions: {
+      ariaLabel: "Member actions for {name}",
+      transfer: "Make owner",
+      remove: "Remove from household",
+    },
     confirmRemoveMember: {
       title: "Remove {name}?",
       description: "They'll lose access to this household's inventory, shopping lists, meal plans, and budget data.",
@@ -393,7 +397,6 @@ export const en = {
       deleting: "Deleting…",
     },
     transfer: {
-      ariaLabel: "Make {name} the owner",
       confirmTitle: "Transfer ownership to {name}?",
       confirmDescription:
         "{name} will become the owner and you'll become a contributor. Only the new owner can transfer it back.",

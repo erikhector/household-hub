@@ -225,7 +225,11 @@ export const sv = {
       "Ägare kan ta bort medlemmar, överföra ägarskap, hantera kalenderflödet och radera hushållet. Medlemmar har samma åtkomst till vardagsdata — lager, inköpslistor, matplaner och budget.",
     owner: "Ägare",
     contributor: "Medlem",
-    removeAriaLabel: "Ta bort {name}",
+    memberActions: {
+      ariaLabel: "Medlemsåtgärder för {name}",
+      transfer: "Gör till ägare",
+      remove: "Ta bort från hushållet",
+    },
     confirmRemoveMember: {
       title: "Ta bort {name}?",
       description: "Personen förlorar åtkomst till hushållets lager, inköpslistor, matplaner och budgetdata.",
@@ -361,7 +365,6 @@ export const sv = {
       deleting: "Tar bort…",
     },
     transfer: {
-      ariaLabel: "Gör {name} till ägare",
       confirmTitle: "Överför ägarskap till {name}?",
       confirmDescription:
         "{name} blir ägare och du blir medlem. Bara den nya ägaren kan överföra det tillbaka.",
