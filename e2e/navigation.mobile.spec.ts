@@ -121,11 +121,14 @@ test("bottom bar tabs share one tile and the active one keeps its hue", async ({
   ];
   expect(tabs).toHaveLength(5);
 
-  // Same baseline: every tab's tile (and so its label) starts at one height.
-  const tops = await Promise.all(
-    tabs.map((tab) => tab.locator("span").first().evaluate((el) => el.getBoundingClientRect().top)),
-  );
-  for (const top of tops) expect(Math.abs(top - tops[0])).toBeLessThanOrEqual(1);
+  // Same baseline: every tab's tile and its label (the last span) sit at one
+  // height. "More" used to have no tile and a taller line box.
+  for (const which of ["first", "last"] as const) {
+    const tops = await Promise.all(
+      tabs.map((tab) => tab.locator("span")[which]().evaluate((el) => el.getBoundingClientRect().top)),
+    );
+    for (const top of tops) expect(Math.abs(top - tops[0])).toBeLessThanOrEqual(1);
+  }
 
   // The active tab (Inventory) keeps its tinted tile instead of dropping it.
   const inventory = nav.getByRole("link", { name: en.nav.inventory, exact: true });

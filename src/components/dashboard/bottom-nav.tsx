@@ -166,7 +166,9 @@ export function BottomNav({
                 />
               </Suspense>
             </span>
-            {dict.nav.more}
+            {/* Same label box as the links' (leading-tight), so the five labels
+                share one baseline (UX-52). */}
+            <span className="w-full text-center leading-tight">{dict.nav.more}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" sideOffset={8} className="w-56">
             {overflowMobileNavItems.map(({ href, key, icon: Icon, color }) => (
