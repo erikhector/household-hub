@@ -1401,7 +1401,18 @@ function ShoppingRow({
 
   return (
     <SwipeRow
-      className="list-bleed rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]"
+      className={cn(
+        "list-bleed rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]",
+        // MAINT-39: a leaving row takes no room in the aisle from the tap
+        // on (zero height, the list's 0.5rem gap cancelled by the negative
+        // margin, drawn back at its own place by `top-2` and kept above the
+        // rows that rise into it), so the rows below move up at tap time,
+        // inside the 500 ms the layout-shift metric forgives. Removing it
+        // from the DOM after LEAVE_MS then moves nothing. Holding its full
+        // height until that timer fired meant a busy main thread could run
+        // the timer late and the rows below jumped, as a real layout shift.
+        leaving && "top-2 z-10 -mt-2 h-0 overflow-visible",
+      )}
       // UX-33: the row glides when the list moves; not while it's leaving
       // its aisle, which has its own animation (it then arrives in "In the
       // cart" as a new row and rises in there).

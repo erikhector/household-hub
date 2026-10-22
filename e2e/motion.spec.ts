@@ -198,13 +198,17 @@ test("adding, ticking and removing shopping items glide, with no layout shift", 
   // it's still moving.
   await resetRecording(page);
   const held = await holdServerActions(page, path);
+  const zapKey = await page
+    .getByRole("checkbox", { name: /motion zap/ })
+    .locator("xpath=ancestor::*[@data-swipe-row]")
+    .getAttribute("data-flip-key");
   await page.getByRole("checkbox", { name: /motion qux/ }).click();
   const cart = page.getByRole("button", { name: new RegExp(`^${en.shoppingList.shoppingMode.inCart}`) });
   await expect(cart).toContainText("1");
   await expect(page.getByRole("checkbox", { name: /motion qux/ })).toHaveCount(0);
   await expect
     .poll(async () => (await flips(page)).filter((flip) => flip.id === "flip-move").map((flip) => flip.key))
-    .toContain("label:purchased");
+    .toContain(zapKey);
   await page.getByRole("checkbox", { name: /motion zap/ }).click();
   await expect(cart).toContainText("2");
   await page.waitForTimeout(800);
