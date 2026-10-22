@@ -377,7 +377,7 @@ email is built server-side from request headers (`x-forwarded-host`/
 Action is a POST endpoint reachable by anyone, not just through the UI that
 renders it. `InviteButton` (`src/components/household/invite-button.tsx`)
 adds an email input + send button below the existing link/copy UI, reusing
-the same invitation token the link already points at. `sendInviteEmailAction`
+the same invitation token the link already points at. If creating the link fails (a returned error or a dropped request), the dialog shows the error with a "Try again" button; every attempt clears the previous error first, so a retry that works never shows the old failure above the link (UX-146). `sendInviteEmailAction`
 is rate-limited (`checkRateLimit`, 10/hour) keyed on the *sending* household
 member (`invite-email:<userId>`), returning `{ error }` past the limit —
 without it, any authenticated household member could trigger unlimited
