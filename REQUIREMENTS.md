@@ -1617,6 +1617,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     `revokedAt`. `revokedAt: null` means active; there's no background job
     or time-based expiry at all.
 
+  - **The share page (UX-63)** gives the person in the shop the member
+    view's aids: the brand badge (linking to `/`), the list name with
+    "Shared by {household}" (the household's name is all it reveals),
+    pending rows grouped by aisle in the household's store order (AUTO-9;
+    `getShoppingListByShareToken` returns each row's linked item's category
+    and the household's order), a progress ring with "n of m", and an All
+    done card once every row is ticked. A neutral one-line banner replaces
+    the old warning ("Ticking an item here updates the list for everyone who
+    shares it"), long names wrap in full instead of clamping to a tooltip,
+    and a footer note links to `/`. No dock.
+
   Schema: `id`, `shoppingListId` (`onDelete: Cascade`), `token`
   (`String @unique`, generated with `randomUUID()` the same way
   `Invitation`/password-reset/email-verification tokens are), `createdAt`,

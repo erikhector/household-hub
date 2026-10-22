@@ -3557,11 +3557,16 @@ export const en = {
     notFoundLink: "Go to Squirrel",
     notFoundDescription:
       "This share link is invalid or has been revoked. Ask whoever shared it with you for a new one.",
-    liveNotice:
-      "This is live — checking an item here updates this household's actual shopping list and inventory right away.",
-    purchased: "Purchased",
+    // UX-63: neutral, one line, no product jargon ("inventory") for someone
+    // who has no account.
+    liveNotice: "Ticking an item here updates the list for everyone who shares it.",
+    sharedBy: "Shared by {household}",
+    purchased: "In the cart",
     emptyList: "Nothing on this list yet.",
-    footerNote: "Shared from a Squirrel household",
+    allDoneTitle: "All done",
+    allDoneDescription: "Everything on this list is ticked off.",
+    footerNote: "Shared from a Squirrel household.",
+    footerLink: "About Squirrel",
     rateLimited: "Too many changes to this list. Please wait a while and try again.",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
   },

@@ -19,6 +19,7 @@ const {
   shoppingListItemCountMock,
   inventoryItemUpdateMock,
   inventoryItemFindUniqueMock,
+  inventoryItemFindManyMock,
   priceHistoryCreateMock,
   notificationFindFirstMock,
   notificationCreateMock,
@@ -36,6 +37,7 @@ const {
   shoppingListItemCountMock: vi.fn(async () => 0),
   inventoryItemUpdateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
+  inventoryItemFindManyMock: vi.fn(async (): Promise<{ id: string; category: string }[]> => []),
   priceHistoryCreateMock: vi.fn(async () => ({ id: "ph-1" })),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
@@ -60,6 +62,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     shoppingListShareLink: { findUnique: shareLinkFindUniqueMock },
     shoppingList: { findUnique: shoppingListFindUniqueMock },
+    inventoryItem: { findMany: inventoryItemFindManyMock },
     shoppingListItem: { findFirst: shoppingListItemFindFirstMock, update: shoppingListItemUpdateMock },
     $transaction: transactionMock,
   },
@@ -161,23 +164,33 @@ describe("getShoppingListByShareToken", () => {
     shoppingListFindUniqueMock.mockResolvedValue({
       id: "list-1",
       name: "Weekly shop",
+      householdId: "hh-1",
+      household: { name: "The Smiths", categoryOrderLearned: { "auto:dairy": 0.2, bad: "x" }, categoryOrderManual: ["auto:produce"] },
       items: [
-        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null },
-        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones" },
+        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null, inventoryItemId: "inv-1" },
+        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones", inventoryItemId: null },
       ],
     });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-1", category: "Dairy & eggs" }]);
 
     const result = await getShoppingListByShareToken("active-token");
 
     expect(result).toEqual({
       id: "list-1",
       name: "Weekly shop",
+      // UX-63: who shared it, and the store order the aisles follow.
+      householdName: "The Smiths",
+      storeOrder: { learned: { "auto:dairy": 0.2 }, manual: ["auto:produce"] },
       items: [
-        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null },
+        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null, category: "Dairy & eggs" },
         // GAP-5: the note reaches link holders too.
-        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones" },
+        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones", category: null },
       ],
     });
+    // The category lookup is scoped to the list's own household.
+    expect(inventoryItemFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["inv-1"] }, householdId: "hh-1" } }),
+    );
   });
 });
 
