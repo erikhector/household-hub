@@ -139,6 +139,37 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       200 items, plus the existing dedupe (item already pending is counted
       in `alreadyOnList`); the existing inventory bulk-add e2e still passes.
 
+- [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
+      a Server Action that calls `revalidatePath` already returns the
+      re-rendered page with its response, so a `router.refresh()` after it
+      renders the same page (and runs all its queries) a second time. Every
+      action behind these calls already revalidates `MEAL_PLANNING_PATH`:
+      `week-planner.tsx:464` (`unassignBatchPortionAction`),
+      `plan-portions-dialog.tsx:174` (`assignBatchPortionsAction`, success
+      path only; the error path at :169 refreshes on purpose, nothing was
+      revalidated), `prep-tab.tsx:158` (`undoDiscardBatchAction`),
+      `fill-empty-days-dialog.tsx:100` (`undoCopyWeekAction`) and
+      `record-prep-dialog.tsx:158` (`undoRecordPrepAction`). The undo calls
+      run from a toast outside `startTransition`, so confirm the page still
+      updates without the refresh before removing each one. Leave the
+      cookie-driven refreshes (`mark-release-seen.tsx`,
+      `preferences-controls.tsx`) alone: no action revalidates there.
+      Acceptance: an e2e check per flow that the change shows without a
+      reload (extend `e2e/meal-prep.spec.ts` and
+      `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
+
+- [ ] **PERF-20. Cache Open Food Facts barcode lookups** (low, S) —
+      `lookupBarcodeAction`'s `fetch` (`src/lib/actions/barcode.ts:69`) goes to
+      Open Food Facts on every scan, even for a barcode scanned a minute
+      ago. The response is public product data with no household in it, so
+      it's safe to share across households: pass
+      `next: { revalidate: 86400 }` like `src/lib/exchange-rate.ts:19`
+      does (the URL already keys it by barcode). Cache only the raw
+      response, not the mapped result: the category label comes from the
+      caller's dictionary, which differs by locale. Don't cache failures or
+      timeouts. Acceptance: a unit test asserts the fetch options; existing
+      barcode tests still pass.
+
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
@@ -1019,6 +1050,46 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       the shopping list. Why: it's the in-store case Bring! and AnyList
       cover and the smallest slice with no merge conflicts. See PRODUCT.md.
 
+### Server caching (2026-10-22 review)
+
+Today nothing is cached across requests: every dashboard page renders
+fresh per request, `React.cache()` only dedupes within one request, and
+the 31 action files invalidate with `revalidatePath` (46 calls for
+`"/dashboard"` alone), which mostly just clears the browser's router cache.
+
+- [ ] **PERF-22. Spike: Cache Components with household-scoped tags** (L) —
+      a time-boxed spike that ends in follow-up items, not a merged
+      migration. Next 16's `cacheComponents: true` plus `"use cache"`,
+      `cacheTag` and `updateTag` would give each page a static shell and
+      serve cached data, rendered only when a household's data changes.
+      The flag is app-wide, so the spike is a throwaway branch that turns
+      it on and records:
+      - Which routes fail the build (uncached reads or `cookies()` outside
+        a `<Suspense>`). Locale comes from a cookie, so expect most,
+        starting with `src/app/dashboard/layout.tsx`.
+      - A pilot: the home page summary (`src/app/dashboard/page.tsx:67-142`,
+        ~13 queries plus `loadHouseholdSafeToSpend`) behind `"use cache"`,
+        with before/after server timings.
+      - Whether Vercel needs `"use cache: remote"` for hits across
+        serverless instances (the default store is in-memory per
+        instance).
+      Rules the follow-up design must keep:
+      - Cached functions take `householdId` (or `userId` for the personal
+        budget) as an argument so it's in the cache key, and are only
+        called after `requireHousehold()`. One helper builds every tag
+        (`householdTag(id, "inventory")`), so no tag is ever unscoped.
+      - Every write clears the tags it touches: `updateTag` in Server
+        Actions, `revalidateTag` in the cron routes
+        (`api/cron/sync-notifications`, `weekly-digest`) and the share-link
+        actions (`src/app/share/shopping-list/actions.ts`), which write outside a
+        session.
+      - Never cache `requireHousehold()` / `requireUserId()`: their DB read
+        is the SCALE-H revocation check. Keep the open shopping list
+        uncached too (other members tick it live).
+      Output: a short write-up in the PR (route failures, pilot timings,
+      remote-cache answer, a go/no-go) plus follow-up items in this file,
+      one per feature area.
+
 ## Competitive gap scan
 
 A running log, appended to at most once a day, of feature gaps found by
@@ -1493,6 +1564,22 @@ out to be a product-scope question rather than a scoped task should move to
       both regions in the dashboards; if they differ, set
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
+
+- [ ] **PERF-21. Keep recently visited pages in the browser** `[!]` needs a
+      product decision — Next 16 keeps no client copy of dynamic pages
+      (`staleTimes.dynamic` defaults to 0), so every switch between
+      bottom-bar tabs is a full server render plus that page's queries,
+      even for a tab seen seconds ago. Setting
+      `experimental.staleTimes: { dynamic: 30 }` in `next.config.ts` makes
+      going back to it instant. Your own edits still show at once (an
+      action's `revalidatePath` clears this cache). The cost: another
+      household member's change can take up to 30 s to appear when you
+      navigate (a reload always shows it), which matters most for a shopping
+      list two people work through in the shop. Decide the window (30 s,
+      shorter, or none). The flag is marked experimental. If PERF-22 goes
+      ahead, `cacheLife`'s `stale` value controls this instead.
+      Acceptance once decided: the config change plus an e2e check that an
+      edit still shows after navigating away and back.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
