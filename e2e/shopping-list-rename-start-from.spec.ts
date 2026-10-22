@@ -27,6 +27,18 @@ async function makeList(page: Page, name: string, items: string[]) {
   }
 }
 
+// Wait for the action's response before leaving, or the navigation can drop
+// the tick.
+async function tick(page: Page, item: string) {
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
+  );
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${item}\\b`, "i") });
+  await box.click();
+  await expect(box).toBeHidden();
+  await saved;
+}
+
 test("Rename in the ⋯ menu changes the title and survives a reload", async ({ page }) => {
   const before = unique("Rename me");
   const after = unique("Renamed");
@@ -61,15 +73,8 @@ test("a new list can start from a past list's unbought items", async ({ page }) 
   const milk = unique("Milk");
   const bread = unique("Bread");
   await makeList(page, source, [milk, bread]);
-  // Ticked off, so it is in the cart and stays behind. Wait for the action's
-  // response before leaving, or the navigation can drop the tick.
-  const saved = page.waitForResponse(
-    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
-  );
-  const milkBox = page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") });
-  await milkBox.click();
-  await expect(milkBox).toBeHidden();
-  await saved;
+  // Ticked off, so it is in the cart and stays behind.
+  await tick(page, milk);
 
   await page.goto("/dashboard/shopping-list");
   await page.getByRole("button", { name: "New list" }).click();
@@ -84,6 +89,26 @@ test("a new list can start from a past list's unbought items", async ({ page }) 
   await expect(page.getByRole("heading", { level: 1, name: copy })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: new RegExp(`^${bread}\\b`, "i") })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: new RegExp(`^${milk}\\b`, "i") })).toHaveCount(0);
+});
+
+test("a past list with everything ticked defaults to copying all items", async ({ page }) => {
+  const source = unique("Done trip");
+  const eggs = unique("Eggs");
+  await makeList(page, source, [eggs]);
+  await tick(page, eggs);
+
+  await page.goto("/dashboard/shopping-list");
+  await page.getByRole("button", { name: "New list" }).click();
+  const copy = unique("Again");
+  await page.getByRole("textbox", { name: "Name" }).fill(copy);
+  await page.getByRole("combobox", { name: t.startFrom.label }).click();
+  await page.getByRole("option", { name: source, exact: true }).click();
+  // Nothing is left to buy, so "only what is still to buy" would copy nothing.
+  await expect(page.getByRole("radio", { name: t.startFrom.itemsAll })).toBeChecked();
+  await page.getByRole("button", { name: "Create list" }).click();
+
+  await expect(page.getByRole("heading", { level: 1, name: copy })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: new RegExp(`^${eggs}\\b`, "i") })).toBeVisible();
 });
 
 test("a new list can start from a template, and its row says Use", async ({ page }) => {
@@ -105,6 +130,8 @@ test("a new list can start from a template, and its row says Use", async ({ page
   await page.getByRole("button", { name: "New list" }).click();
   await page.getByRole("combobox", { name: t.startFrom.label }).click();
   await page.getByRole("option", { name: template, exact: true }).click();
+  // The empty name field says what the list will be called.
+  await expect(page.getByRole("textbox", { name: "Name" })).toHaveAttribute("placeholder", template);
   await page.getByRole("button", { name: "Create list" }).click();
 
   // No name typed: the list takes the template's.

@@ -55,6 +55,8 @@ type ShoppingListDict = Dictionary["shoppingList"];
 const initialState: ActionState = {};
 
 export type StartSource = { id: string; name: string };
+/** A recent list, with how many of its rows are still to buy. */
+export type RecentListSource = StartSource & { unbought: number };
 
 // UX-85: what "Start from" holds is `blank`, `template:<id>` or `list:<id>`,
 // the format createShoppingListAction reads.
@@ -69,7 +71,7 @@ export function NewListDialog({
   dict: ShoppingListDict;
   locale: Locale;
   templates?: StartSource[];
-  recentLists?: StartSource[];
+  recentLists?: RecentListSource[];
 }) {
   const [open, setOpen] = useState(false);
   const [start, setStart] = useState(BLANK_START);
@@ -87,6 +89,20 @@ export function NewListDialog({
     if (!result.error) setOpen(false);
     return result;
   }, initialState);
+
+  // Picking a past list defaults to what's still to buy, unless nothing is:
+  // a finished trip has every row ticked, and copying "only what is still
+  // to buy" from it would make an empty list.
+  const chooseStart = (value: string) => {
+    setStart(value);
+    const list = recentLists.find((l) => `list:${l.id}` === value);
+    if (list) setCopy(list.unbought > 0 ? "unbought" : "all");
+  };
+  // With no name typed, a template's list takes the template's name, so the
+  // placeholder shows that rather than the dated default.
+  const namePlaceholder = start.startsWith("template:")
+    ? (startLabels.get(start) ?? datedName(dict.defaultNamePrefix, locale))
+    : datedName(dict.defaultNamePrefix, locale);
 
   // Back to a blank list each time the sheet opens.
   const handleOpenChange = (next: boolean) => {
@@ -119,7 +135,7 @@ export function NewListDialog({
               enterKeyHint="done"
               id="new-list-name"
               name="name"
-              placeholder={datedName(dict.defaultNamePrefix, locale)}
+              placeholder={namePlaceholder}
               maxLength={120}
             />
           </div>
@@ -127,7 +143,7 @@ export function NewListDialog({
             <div className="flex flex-col gap-2">
               <Label htmlFor="new-list-start">{dict.startFrom.label}</Label>
               <input type="hidden" name="start" value={start} />
-              <Select value={start} onValueChange={(v) => setStart(v ?? BLANK_START)}>
+              <Select value={start} onValueChange={(v) => chooseStart(v ?? BLANK_START)}>
                 <SelectTrigger id="new-list-start" className="w-full">
                   <SelectValue>{(value: string) => startLabels.get(value) ?? dict.startFrom.blank}</SelectValue>
                 </SelectTrigger>

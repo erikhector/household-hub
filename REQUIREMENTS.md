@@ -1455,9 +1455,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `renameShoppingListAction` trims the name (1–120 characters), scopes the
   update to the household and leaves `isDefault` alone. The New list sheet
   has a "Start from" select (shown only when there is a template or a past
-  list): a blank list, a saved template, or one of the 10 newest lists (any
-  status). A past list asks "Only what is still to buy" (default) or "All
-  items". `createShoppingListAction` reads `start` (`blank`,
+  list): a blank list, a saved template, or one of the 10 newest lists that
+  have any rows (any status). A past list asks "Only what is still to buy"
+  or "All items"; the default is the first, unless nothing on that list is
+  left to buy (a finished trip), then "All items". With a template chosen,
+  the empty name field's placeholder shows the template's name, which the
+  list takes. `createShoppingListAction` reads `start` (`blank`,
   `template:<id>`, `list:<id>`) and `items` (`unbought`, `all`), looks the
   source up by household, and copies rows unticked through
   `resolveTemplateRows` (so inventory links are re-resolved), keeping each

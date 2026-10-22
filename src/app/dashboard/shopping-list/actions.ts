@@ -69,8 +69,9 @@ async function findFuzzyInventoryItem(householdId: string, name: string, preload
 const createListSchema = z.object({
   name: z.string().trim().max(120, v("listNameTooLong")).optional(),
   // UX-85: "blank", "template:<id>" or "list:<id>", what the New list sheet
-  // starts the list from. Split by hand below so an unknown value falls back
-  // to a blank list instead of failing the whole form.
+  // starts the list from. Split by hand below so a malformed value falls back
+  // to a blank list instead of failing the whole form; a well-formed one
+  // whose source isn't found in the household is an error.
   start: z.string().optional(),
   // Only read for "list:<id>": copy just what's still to buy, or every row.
   items: z.enum(["unbought", "all"]).optional(),
