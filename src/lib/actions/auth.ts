@@ -9,8 +9,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { auth, signIn, signOut, EmailNotVerifiedSignin, RateLimitedSignin } from "@/lib/auth";
-import { redeemVerificationToken } from "@/lib/verification-redeem";
+import { signIn, signOut, EmailNotVerifiedSignin, RateLimitedSignin } from "@/lib/auth";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -514,10 +513,6 @@ export async function resetPasswordAction(
  * message from the dictionary by this code, because `error` is one English
  * string it can't tell the causes apart by.
  */
-// UX-135: where a verification link lands. `welcome` makes the overview say
-// "Welcome to Squirrel, {name}" (a query, not a cookie).
-const WELCOME_PATH = "/dashboard?welcome=1";
-
 export type VerifyEmailErrorCode = "invalid" | "rateLimited" | "generic";
 
 export type VerifyEmailState = {
@@ -583,36 +578,30 @@ export async function verifyEmailAction(
     return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
   }
 
-  // UX-135: a visitor who isn't signed in is signed in by the link itself
-  // (the `verification-link` provider in src/lib/auth.ts spends the token in
-  // its own atomic claim and verifies the email), then lands on the
-  // dashboard with a welcome. A visitor who already has a session (the
-  // dashboard banner's resend flow) keeps today's behaviour: verify only,
-  // never switch accounts under them. signIn redirects on success by
-  // throwing, so only AuthError is caught here (AGENTS.md, auth redirects).
-  const session = await auth();
-  if (!session?.user) {
-    try {
-      await signIn("verification-link", { token, redirectTo: WELCOME_PATH });
-    } catch (error) {
-      if (error instanceof RateLimitedSignin) {
-        return {
-          error: "Too many attempts. Please wait a few minutes and try again.",
-          code: "rateLimited",
-        };
-      }
-      // Lost the race to another request, or the token went stale between
-      // the lookup above and the claim.
-      if (error instanceof AuthError) {
-        return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
-      }
-      throw error;
-    }
-    return { status: "verified", email: verificationToken.user.email };
-  }
-
   try {
-    const redeemed = await redeemVerificationToken(verificationToken.id, verificationToken.userId);
+    const redeemed = await prisma.$transaction(async (tx) => {
+      // SEC-8: claim the token atomically (see resetPasswordAction).
+      const claimed = await tx.emailVerificationToken.updateMany({
+        where: { id: verificationToken.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      if (claimed.count === 0) return false;
+      await tx.user.update({
+        where: { id: verificationToken.userId },
+        data: { emailVerifiedAt: new Date() },
+      });
+      // Same reasoning as resetPasswordAction invalidating other reset
+      // tokens on success: an older leaked/unused link for this user should
+      // stop working once verification has actually gone through.
+      await tx.emailVerificationToken.deleteMany({
+        where: {
+          userId: verificationToken.userId,
+          usedAt: null,
+          id: { not: verificationToken.id },
+        },
+      });
+      return true;
+    });
     if (!redeemed) return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
   } catch (error) {
     return { ...(await toFriendlyError(error)), code: "generic" };

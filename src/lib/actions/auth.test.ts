@@ -36,7 +36,6 @@ const {
   transactionMock,
   txUserCreateMock,
   signInMock,
-  authMock,
   signOutMock,
   passwordResetTokenFindUniqueMock,
   passwordResetTokenDeleteManyMock,
@@ -75,7 +74,6 @@ const {
     pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
   })),
   signInMock: vi.fn(),
-  authMock: vi.fn(async () => null as unknown),
   signOutMock: vi.fn(),
   passwordResetTokenFindUniqueMock: vi.fn(),
   passwordResetTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
@@ -116,7 +114,6 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/auth", () => ({
-  auth: authMock,
   signIn: signInMock,
   signOut: signOutMock,
   EmailNotVerifiedSignin,
@@ -180,7 +177,6 @@ const originalAppUrl = process.env.APP_URL;
 
 afterEach(() => {
   vi.clearAllMocks();
-  authMock.mockImplementation(async () => null);
   _resetRateLimitsForTests();
   redirectMock.mockImplementation((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -866,7 +862,6 @@ describe("verifyEmailAction", () => {
       expiresAt: new Date(Date.now() + 1000 * 60 * 60),
       user: { emailVerifiedAt: null },
     });
-    authMock.mockResolvedValue({ user: { id: "user-1" } });
     transactionMock.mockRejectedValueOnce(new Error("db down"));
 
     const result = await verifyEmailAction({}, formData(validVerify));
@@ -946,7 +941,6 @@ describe("verifyEmailAction", () => {
       expiresAt: new Date(Date.now() + 1000 * 60 * 60),
       user: { emailVerifiedAt: null },
     });
-    authMock.mockResolvedValue({ user: { id: "user-1" } });
     const txUserUpdate = vi.fn(async () => ({}));
     transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
       cb({
@@ -964,83 +958,19 @@ describe("verifyEmailAction", () => {
     expect(result.error).toBeDefined();
   });
 
-  const unverifiedRow = () => ({
-    id: "verify-token-row",
-    userId: "user-1",
-    usedAt: null,
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60),
-    user: { emailVerifiedAt: null, email: "ada@example.com" },
-  });
-
-  // UX-135: the link itself signs a signed-out visitor in; the token is
-  // spent inside the provider's own claim, so the action doesn't claim it.
-  it("signs a signed-out visitor in with the raw token and sends them to the welcome", async () => {
-    emailVerificationTokenFindUniqueMock.mockResolvedValue(unverifiedRow());
-    signInMock.mockReset();
-    signInMock.mockImplementation(async () => {
-      throw new Error("REDIRECT:/dashboard?welcome=1");
-    });
-
-    await expect(verifyEmailAction({}, formData(validVerify))).rejects.toThrow(
-      "REDIRECT:/dashboard?welcome=1",
-    );
-
-    expect(signInMock).toHaveBeenCalledWith("verification-link", {
-      token: "verify-token",
-      redirectTo: "/dashboard?welcome=1",
-    });
-    expect(transactionMock).not.toHaveBeenCalled();
-  });
-
-  it("reports an invalid link when the sign-in provider refuses the token", async () => {
-    emailVerificationTokenFindUniqueMock.mockResolvedValue(unverifiedRow());
-    signInMock.mockReset();
-    signInMock.mockRejectedValue(new AuthError("CredentialsSignin"));
-
-    const result = await verifyEmailAction({}, formData(validVerify));
-
-    expect(result.code).toBe("invalid");
-  });
-
-  it("reports rate limiting when the sign-in provider throttles the token", async () => {
-    emailVerificationTokenFindUniqueMock.mockResolvedValue(unverifiedRow());
-    signInMock.mockReset();
-    signInMock.mockRejectedValue(new RateLimitedSignin());
-
-    const result = await verifyEmailAction({}, formData(validVerify));
-
-    expect(result.code).toBe("rateLimited");
-  });
-
-  it("rethrows anything that isn't an AuthError (the sign-in redirect must not be swallowed)", async () => {
-    emailVerificationTokenFindUniqueMock.mockResolvedValue(unverifiedRow());
-    signInMock.mockReset();
-    signInMock.mockRejectedValue(new Error("boom"));
-
-    await expect(verifyEmailAction({}, formData(validVerify))).rejects.toThrow("boom");
-  });
-
-  it("does not sign in an already-verified account", async () => {
+  it("marks the user verified and consumes the token on a valid token", async () => {
     emailVerificationTokenFindUniqueMock.mockResolvedValue({
-      ...unverifiedRow(),
-      usedAt: new Date(),
-      user: { emailVerifiedAt: new Date(), email: "ada@example.com" },
+      id: "verify-token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: { emailVerifiedAt: null, email: "ada@example.com" },
     });
-
-    await verifyEmailAction({}, formData(validVerify));
-
-    expect(signInMock).not.toHaveBeenCalled();
-  });
-
-  it("verifies without switching accounts for an already-signed-in visitor", async () => {
-    authMock.mockResolvedValue({ user: { id: "someone" } });
-    emailVerificationTokenFindUniqueMock.mockResolvedValue(unverifiedRow());
 
     const result = await verifyEmailAction({}, formData(validVerify));
 
     expect(result).toEqual({ status: "verified", email: "ada@example.com" });
     expect(transactionMock).toHaveBeenCalledTimes(1);
-    expect(signInMock).not.toHaveBeenCalled();
   });
 });
 
