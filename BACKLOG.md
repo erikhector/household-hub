@@ -334,23 +334,6 @@ then MAINT-7 per feature, to avoid churn.
       2026-10-21): CLS 0.00886, passed on a re-run on the same commit.
       Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
       2026-10-22): `desktop`, passed on a re-run on the same commit.
-- [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
-      shows the all-caught-up card above Completed"), `desktop` project.
-      Failed its first attempt in the GitHub `End-to-end (Playwright)` job
-      on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
-      The assertion at line 91, after `page.reload()`, expected
-      `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
-      but received 1 for the whole 5 s. Also failed on the `mobile`
-      project in the `ci:local` gate on PR #464 (`fc00440`, 2026-10-20),
-      where another open task appeared in the worker's household mid-test,
-      and passed on re-runs of the same commit. Find which task is still
-      open after the spec's own completions (a late write, or another row
-      in the worker's shared household) and fix it in the app or the
-      spec's setup and waiting, never a loosened assertion, a skip or a
-      retry. Acceptance: `npx playwright test
-      e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
-      both the `desktop` and `mobile` projects.
 - [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
       `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
       through the field or the bar"), `mobile` project. Failed in the local
