@@ -30,6 +30,9 @@ export type StockArrivalOptions = {
   /** Per-line price to record as PriceHistory + lastKnownPrice (AUTO-4,
    * GAP-9), or null to leave prices alone. */
   price: number | null;
+  /** What becomes the item's `lastKnownPrice` when that isn't `price`
+   * (UX-140: a hand-typed line total is remembered per unit). */
+  lastKnownPrice?: number;
   /** The quantity `price` was paid for, when that differs from what's
    * arriving — the put-away dialog's corrected quantity must not change the
    * unit price GAP-9 compares (price ÷ quantity), or a smaller-than-listed
@@ -80,7 +83,7 @@ export async function applyStockArrival(
     : estimatedExpiryUpdate(current, previousQuantity, nextQuantity);
   const data = {
     quantity: nextQuantity,
-    ...(price != null ? { lastKnownPrice: price } : {}),
+    ...(price != null ? { lastKnownPrice: options.lastKnownPrice ?? price } : {}),
     ...(options.location ? { location: options.location } : {}),
     ...openedReset,
     ...frozenReset,

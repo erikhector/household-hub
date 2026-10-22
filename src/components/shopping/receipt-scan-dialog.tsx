@@ -58,7 +58,14 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 /** `barcode` is the linked inventory item's (AUTO-6), for exact matching,
  * and `inventoryItemId` the item itself, for the household's learned
  * aliases (MATCH-5). */
-type PendingItem = { id: string; name: string; barcode?: string | null; inventoryItemId?: string | null };
+type PendingItem = {
+  id: string;
+  name: string;
+  /** The row's quantity, for UX-140's hand-typed review rows. */
+  quantity?: number;
+  barcode?: string | null;
+  inventoryItemId?: string | null;
+};
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
 
 type ReviewRow = {
@@ -76,6 +83,10 @@ type ReviewRow = {
    * finger. */
   autoAccepted: boolean;
   byBarcode: boolean;
+  /** UX-140: a row of the hand-typed review. Its price is the total paid for
+   * the row's quantity, which applyReceiptScanAction turns into a per-unit
+   * lastKnownPrice. */
+  typed?: boolean;
 };
 
 /** Draft fields for the inline "add as new item" form — OCR'd name/quantity
@@ -184,6 +195,27 @@ export function ReceiptScanDialog({
         byBarcode: match.confidence === "barcode",
       };
     });
+  }
+
+  /** UX-140: the way forward when the photo can't be read. One row per list
+   * item a receipt line may match, matched to itself, price empty; a row
+   * left empty is dropped when applying, so the user types only what they
+   * have. Same review step, same Apply, as a scanned receipt. */
+  function startManualEntry() {
+    setErrorMessage(null);
+    setRows(
+      pendingItems.map((item) => ({
+        key: `manual-${item.id}`,
+        name: item.name,
+        quantity: item.quantity ?? 1,
+        price: "",
+        matchId: item.id,
+        autoAccepted: false,
+        byBarcode: false,
+        typed: true,
+      })),
+    );
+    setPhase("review");
   }
 
   function errorMessageFor(code: string | undefined): string {
@@ -303,7 +335,11 @@ export function ReceiptScanDialog({
   function handleApply() {
     const matches = rows
       .filter((row) => row.matchId !== SKIP_VALUE)
-      .map((row) => ({ shoppingListItemId: row.matchId, price: Number(row.price) }))
+      .map((row) => ({
+        shoppingListItemId: row.matchId,
+        price: Number(row.price),
+        ...(row.typed ? { typed: true } : {}),
+      }))
       .filter((m) => Number.isFinite(m.price) && m.price > 0);
 
     if (matches.length === 0) {
@@ -582,6 +618,9 @@ export function ReceiptScanDialog({
           {phase === "error" && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-destructive">{errorMessage}</p>
+              <Button type="button" onClick={startManualEntry}>
+                {dict.enterByHand}
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button type="button" variant="outline">{dict.tryAgain}</Button>} />
                 <DropdownMenuContent align="start">
@@ -600,7 +639,9 @@ export function ReceiptScanDialog({
 
           {(phase === "review" || phase === "applying") && (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">{dict.reviewSubtitle}</p>
+              <p className="text-sm text-muted-foreground">
+                {rows.some((row) => row.typed) ? dict.manualSubtitle : dict.reviewSubtitle}
+              </p>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="flex flex-col gap-2">

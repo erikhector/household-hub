@@ -929,6 +929,10 @@ export const en = {
       noLinesFound:
         "Couldn't find any priced items on this receipt. Try a clearer, well-lit photo.",
       tryAgain: "Try another photo",
+      // UX-140: the way forward when the photo can't be read.
+      enterByHand: "Enter prices by hand",
+      manualSubtitle:
+        "Type what you paid for each item (the total for its quantity). Leave a price empty to skip that item.",
       analysisFailedError: "Something went wrong reading that receipt. Try again.",
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
       providerBusyError: "The AI service is busy right now — wait a moment and try again.",
@@ -989,6 +993,10 @@ export const en = {
       noLinesFound:
         "Couldn't find any priced items on this receipt. Try a clearer, well-lit photo.",
       tryAgain: "Try another photo",
+      enterByHand: "Enter receipt by hand",
+      addLine: "Add line",
+      manualSubtitle:
+        "Type each item with what you paid for it (the total for its quantity). Lines without a price are skipped.",
       analysisFailedError: "Something went wrong reading that receipt. Try again.",
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
       providerBusyError: "The AI service is busy right now — wait a moment and try again.",

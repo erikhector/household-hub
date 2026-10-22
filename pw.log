@@ -1,0 +1,82 @@
+[playwright] E2E_WEBKIT is not set: the `iphone` (WebKit) project is skipped. Set E2E_WEBKIT=1 after `npx playwright install webkit` to run it.
+
+Running 6 tests using 2 workers
+
+[1A[2K[1/6] [setup] › e2e/auth.setup.ts:14:8 › log in every worker's en user
+[1A[2K[2m[WebServer] [22m{"level":"warn","time":"2026-10-22T19:12:53.836Z","message":"[rate-limit] UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are not set — falling back to the in-memory rate limiter. That limiter resets on every restart and does NOT share state across instances, so on any multi-instance or serverless deployment each instance/invocation gets its own independent budget and brute-force protection on login/signup silently degrades. Set both env vars (see .env.example and DEPLOYMENT.md) if this app runs on more than one instance."}
+
+[1A[2K[2/6] [setup] › e2e/auth.setup.ts:14:8 › log in every worker's sv user
+[1A[2K[3/6] [mobile] › e2e/manual-receipt-prices.spec.ts:70:5 › a failed scan lets you type the price, and it's recorded like a scanned one
+[1A[2K[4/6] [desktop] › e2e/manual-receipt-prices.spec.ts:70:5 › a failed scan lets you type the price, and it's recorded like a scanned one
+[1A[2K[5/6] [mobile] › e2e/manual-receipt-prices.spec.ts:127:5 › Register receipt can be typed in line by line when the scan fails
+[1A[2K[6/6] [desktop] › e2e/manual-receipt-prices.spec.ts:127:5 › Register receipt can be typed in line by line when the scan fails
+[1A[2K  1) [desktop] › e2e/manual-receipt-prices.spec.ts:127:5 › Register receipt can be typed in line by line when the scan fails 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('dialog').getByRole('button', { name: 'Apply' })[22m
+
+
+      152 |     await page.keyboard.press("Tab");
+      153 |   }
+    > 154 |   await dialog.getByRole("button", { name: "Apply" }).click();
+          |                                                       ^
+      155 |
+      156 |   await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/]+$/);
+      157 |   await page.reload();
+        at /home/user/household-hub/.claude/worktrees/agent-a966176b1340d6611/e2e/manual-receipt-prices.spec.ts:154:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-desktop/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  2) [mobile] › e2e/manual-receipt-prices.spec.ts:127:5 › Register receipt can be typed in line by line when the scan fails 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('dialog').getByRole('button', { name: 'Apply' })[22m
+
+
+      152 |     await page.keyboard.press("Tab");
+      153 |   }
+    > 154 |   await dialog.getByRole("button", { name: "Apply" }).click();
+          |                                                       ^
+      155 |
+      156 |   await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/]+$/);
+      157 |   await page.reload();
+        at /home/user/household-hub/.claude/worktrees/agent-a966176b1340d6611/e2e/manual-receipt-prices.spec.ts:154:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-mobile/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-mobile/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-mobile/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/manual-receipt-prices-Regi-02264-by-line-when-the-scan-fails-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  2 failed
+    [desktop] › e2e/manual-receipt-prices.spec.ts:127:5 › Register receipt can be typed in line by line when the scan fails 
+    [mobile] › e2e/manual-receipt-prices.spec.ts:127:5 › Register receipt can be typed in line by line when the scan fails 
+  4 passed (51.4s)

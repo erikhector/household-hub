@@ -1939,6 +1939,22 @@ describe("applyReceiptScanAction", () => {
     expect(recordPriceSpikesMock).not.toHaveBeenCalled();
   });
 
+  // UX-140
+  it("remembers a hand-typed line's price per unit but records what was paid in PriceHistory", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(baseList);
+
+    await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10, typed: true }]);
+
+    // Row quantity 2: 10 paid for 2 is 5 each.
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 3, lastKnownPrice: 5 },
+    });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 10, quantity: 2, unit: "pcs", store: null },
+    });
+  });
+
   it("stamps every PriceHistory row it writes with the receipt's store (GAP-6)", async () => {
     shoppingListFindFirstMock.mockResolvedValue(baseList);
 
@@ -2163,6 +2179,30 @@ describe("registerReceiptAction", () => {
     expect(result).toEqual(
       expect.objectContaining({ listId: "list-1", itemsAdded: 1, totalAmount: 15 }),
     );
+  });
+
+  // UX-140
+  it("remembers a hand-typed line's price per unit but records what was paid in PriceHistory", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 2, unit: "l" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+    resolveShoppingExpenseCategoryMock.mockResolvedValue({ id: "cat-groceries" });
+    transactionCreateMock.mockResolvedValue({});
+
+    await registerReceiptAction("My receipt", "SEK", [
+      { name: "Milk", quantity: 3, unit: "l", price: 45, typed: true },
+    ]);
+
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ quantity: 3, estimatedPrice: 45 }),
+    });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 5, lastKnownPrice: 15 },
+    });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 45, quantity: 3, unit: "l", store: null },
+    });
   });
 
   it("logs the expense inside the receipt's transaction and returns a friendly error when it can't be written (MAINT-5)", async () => {

@@ -32,7 +32,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Camera, ImageUp, Loader2, Trash2 } from "lucide-react";
+import { Camera, ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +88,9 @@ type ReviewRow = {
    * the rows are built, so editing a row never makes it jump sections. */
   autoAccepted: boolean;
   byBarcode: boolean;
+  /** UX-140: typed by hand, so the price is the total paid for the quantity
+   * (see ReceiptRegistrationItem.typed). */
+  typed?: boolean;
 };
 
 type Phase = "idle" | "analyzing" | "reading" | "review" | "applying" | "error";
@@ -167,6 +170,35 @@ export function RegisterReceiptDialog({
         byBarcode: match.confidence === "barcode",
       };
     });
+  }
+
+  function blankRow(): ReviewRow {
+    return {
+      key: `manual-${Date.now()}-${rows.length}`,
+      name: "",
+      quantity: "1",
+      unit: "pcs",
+      price: "",
+      mode: inventoryItems.length > 0 ? "existing" : "new",
+      matchId: "",
+      category: "",
+      autoAccepted: false,
+      byBarcode: false,
+      typed: true,
+    };
+  }
+
+  /** UX-140: type the receipt in without a photo, from the scan's error
+   * state; "Add line" adds more. A typed line left completely blank is
+   * dropped when applying, so one left over costs nothing. */
+  function startManualEntry() {
+    setErrorMessage(null);
+    setRows([blankRow()]);
+    setPhase("review");
+  }
+
+  function addLine() {
+    setRows((prev) => [...prev, blankRow()]);
   }
 
   function errorMessageFor(code: string | undefined): string {
@@ -262,7 +294,10 @@ export function RegisterReceiptDialog({
     // row instead), but just as invisible to the user. Both dialogs now
     // require an explicit choice: block Apply and point at the offending
     // row rather than guessing either way.
-    const unresolvedExisting = rows.filter((row) => row.mode === "existing" && !row.matchId);
+    // A typed line left completely blank (no name, no price) is just an
+    // unused "Add line": it's dropped before the checks below.
+    const live = rows.filter((row) => !(row.typed && !row.name.trim() && !row.price.trim()));
+    const unresolvedExisting = live.filter((row) => row.mode === "existing" && !row.matchId);
     if (unresolvedExisting.length > 0) {
       setAttemptedApply(true);
       // Never point at a row the user can't see: if the offending row sits
@@ -272,8 +307,9 @@ export function RegisterReceiptDialog({
       return;
     }
 
-    const items = rows
+    const items = live
       .map((row) => ({
+        ...(row.typed ? { typed: true } : {}),
         name: row.name.trim(),
         quantity: Number(row.quantity),
         unit: row.unit.trim() || "pcs",
@@ -560,6 +596,9 @@ export function RegisterReceiptDialog({
           {phase === "error" && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-destructive">{errorMessage}</p>
+              <Button type="button" onClick={startManualEntry}>
+                {dict.enterByHand}
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button type="button" variant="outline">{dict.tryAgain}</Button>} />
                 <DropdownMenuContent align="start">
@@ -578,7 +617,9 @@ export function RegisterReceiptDialog({
 
           {(phase === "review" || phase === "applying") && (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">{dict.reviewSubtitle}</p>
+              <p className="text-sm text-muted-foreground">
+                {rows.some((row) => row.typed) ? dict.manualSubtitle : dict.reviewSubtitle}
+              </p>
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="register-receipt-name">{dict.nameLabel}</Label>
@@ -636,6 +677,11 @@ export function RegisterReceiptDialog({
               )}
 
               {reviewRows.length > 0 && <div className="flex flex-col gap-2">{reviewRows.map(renderRow)}</div>}
+
+              <Button type="button" variant="outline" className="w-fit" onClick={addLine}>
+                <Plus className="size-4" />
+                {dict.addLine}
+              </Button>
 
               {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
             </div>
