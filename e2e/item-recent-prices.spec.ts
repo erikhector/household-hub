@@ -70,10 +70,8 @@ test("buying an item with a price lists it under Recent prices, newest first", a
   );
 
   await page.goto(`/dashboard/shopping-list/${listId}`);
-  await page.getByRole("button", { name: "Put things away" }).click();
-  const dialog = page.getByRole("dialog", { name: "Put away before you finish?" });
-  await dialog.getByRole("button", { name: "Put away & finish" }).click();
-  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Put everything away" }).click();
+  await expect(page.getByText("List completed").first()).toBeVisible();
 
   await page.goto(`/dashboard/inventory/items/${id}`);
   const section = page.getByRole("main").getByRole("region", { name: "Recent prices" });

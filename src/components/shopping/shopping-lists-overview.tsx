@@ -27,6 +27,16 @@ import type { ActionState } from "@/lib/actions/auth";
 import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
+import { Radio } from "@/components/ui/radio";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { MorphTitle } from "@/components/shared/view-transitions";
@@ -44,8 +54,33 @@ type ShoppingListDict = Dictionary["shoppingList"];
 
 const initialState: ActionState = {};
 
-export function NewListDialog({ dict, locale }: { dict: ShoppingListDict; locale: Locale }) {
+export type StartSource = { id: string; name: string };
+/** A recent list, with how many of its rows are still to buy. */
+export type RecentListSource = StartSource & { unbought: number };
+
+// UX-85: what "Start from" holds is `blank`, `template:<id>` or `list:<id>`,
+// the format createShoppingListAction reads.
+const BLANK_START = "blank";
+
+export function NewListDialog({
+  dict,
+  locale,
+  templates = [],
+  recentLists = [],
+}: {
+  dict: ShoppingListDict;
+  locale: Locale;
+  templates?: StartSource[];
+  recentLists?: RecentListSource[];
+}) {
   const [open, setOpen] = useState(false);
+  const [start, setStart] = useState(BLANK_START);
+  const [copy, setCopy] = useState<"unbought" | "all">("unbought");
+  const startLabels = new Map<string, string>([
+    [BLANK_START, dict.startFrom.blank],
+    ...templates.map((t) => [`template:${t.id}`, t.name] as const),
+    ...recentLists.map((l) => [`list:${l.id}`, l.name] as const),
+  ]);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -55,8 +90,31 @@ export function NewListDialog({ dict, locale }: { dict: ShoppingListDict; locale
     return result;
   }, initialState);
 
+  // Picking a past list defaults to what's still to buy, unless nothing is:
+  // a finished trip has every row ticked, and copying "only what is still
+  // to buy" from it would make an empty list.
+  const chooseStart = (value: string) => {
+    setStart(value);
+    const list = recentLists.find((l) => `list:${l.id}` === value);
+    if (list) setCopy(list.unbought > 0 ? "unbought" : "all");
+  };
+  // With no name typed, a template's list takes the template's name, so the
+  // placeholder shows that rather than the dated default.
+  const namePlaceholder = start.startsWith("template:")
+    ? (startLabels.get(start) ?? datedName(dict.defaultNamePrefix, locale))
+    : datedName(dict.defaultNamePrefix, locale);
+
+  // Back to a blank list each time the sheet opens.
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      setStart(BLANK_START);
+      setCopy("unbought");
+    }
+    setOpen(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
           <Button>
@@ -77,10 +135,60 @@ export function NewListDialog({ dict, locale }: { dict: ShoppingListDict; locale
               enterKeyHint="done"
               id="new-list-name"
               name="name"
-              placeholder={datedName(dict.defaultNamePrefix, locale)}
+              placeholder={namePlaceholder}
               maxLength={120}
             />
           </div>
+          {startLabels.size > 1 && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="new-list-start">{dict.startFrom.label}</Label>
+              <input type="hidden" name="start" value={start} />
+              <Select value={start} onValueChange={(v) => chooseStart(v ?? BLANK_START)}>
+                <SelectTrigger id="new-list-start" className="w-full">
+                  <SelectValue>{(value: string) => startLabels.get(value) ?? dict.startFrom.blank}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={BLANK_START}>{dict.startFrom.blank}</SelectItem>
+                  {templates.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>{dict.startFrom.templatesGroup}</SelectLabel>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={`template:${t.id}`}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {recentLists.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>{dict.startFrom.recentGroup}</SelectLabel>
+                      {recentLists.map((l) => (
+                        <SelectItem key={l.id} value={`list:${l.id}`}>
+                          {l.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {start.startsWith("list:") && (
+            <fieldset className="flex flex-col gap-3">
+              <legend className="mb-2 text-sm font-medium">{dict.startFrom.itemsLabel}</legend>
+              {(["unbought", "all"] as const).map((value) => (
+                <label key={value} className="flex items-center gap-3 text-sm">
+                  <Radio
+                    name="items"
+                    value={value}
+                    checked={copy === value}
+                    onChange={() => setCopy(value)}
+                  />
+                  {value === "unbought" ? dict.startFrom.itemsUnbought : dict.startFrom.itemsAll}
+                </label>
+              ))}
+            </fieldset>
+          )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>

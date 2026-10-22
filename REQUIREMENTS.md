@@ -636,8 +636,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     pure `buildCatalog` (`src/lib/inventory/catalog.ts`). Filter chips,
     each with its count:
     - **All**: name (with "never stocked" and "Can't convert {units}"
-      tags), category, stock + unit, "N recipes". Each row links to the
-      item page. A grid on wider screens, stacked cards on phones.
+      tags), category, stock + unit with the inventory's stock badge,
+      "N recipes". Each row links to the item page. A table on wider
+      screens; on phones a compact inventory-style row (name, one muted
+      line of category · stock · recipes, stock badge and a chevron). Rows
+      come in the inventory page's order (`orderBy name asc` in
+      `loadCatalog`, kept as given by `buildCatalog`), not a JS
+      `localeCompare`. A search box above every chip narrows rows by name
+      (and keeps a duplicate group while any member matches) (UX-131).
     - **Possible duplicates**: the groups below.
     - **Never stocked**: quantity 0, no `PriceHistory`, never on a bought
       list row (`isNeverStocked`).
@@ -657,7 +663,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     "never stocked", and sorted by `compareKeeper`: stock first, then the
     most recipe/list/template/price rows, then the oldest. In each group a
     radio picks the keeper (the suggested one to start with) and a
-    checkbox each item to merge (all ticked).
+    checkbox each item to merge (all ticked), each with a visible "Keep" /
+    "Merge" label (UX-131).
     - **Not duplicates** (`dismissDuplicatesAction`) stores every pair in
       the group as an `InventoryDuplicateDismissal` (`householdId`,
       `itemAId`, `itemBId`, ids sorted, unique, cascading with either item
@@ -1033,7 +1040,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       are still pending. A saved tick goes at once if the current list
       already shows it, and otherwise holds until the next server list,
       which wins even where it disagrees (another member unticked the
-      row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
+      row), so no row is stuck showing the overlay. "Put everything away"/"Done shopping" wait while any toggle is in
       flight. It stays in
       its aisle for 250 ms (UX-54 shortened it from 350 so the drop still ends inside the 500 ms CLS grace after the tick moment's 200 ms) animating down and out (that fading copy is
       `inert` and `aria-hidden`, so the item is exposed once, as the "In
@@ -1070,9 +1077,20 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       held so the dock doesn't change height).
     - *All done*: the cleared state shows the full ring with a tick and pops
       in (motion-safe). When ticked rows still wait to be put away it says
-      how many and its primary action is "Put things away", which opens the
-      put-away dialog in finish mode; otherwise it's "Done shopping" as
-      before. Both wait for in-flight ticks to save. On the tick that clears
+      how many and its primary action is "Put everything away" (UX-81),
+      which accepts the put-away sheet's defaults (the list quantity, no
+      best-before date, the item's own location) in one tap and, on an
+      `ACTIVE` list, completes it; a quieter "Review first" opens the
+      put-away dialog in finish mode instead. Otherwise the primary is
+      "Done shopping" as before. Both wait for in-flight ticks to save.
+      Above the buttons a one-line trip summary reads "15 items · ≈ 240 kr
+      · 18 min": the count of ticked rows, the sum of their estimated
+      prices (left out when none has one) and the minutes from the first
+      to the last tick (`checkedOffAt`; `tripDurationMinutes` in
+      `src/lib/shopping/trip-summary.ts` leaves it out under two timed
+      ticks, under a minute, or over four hours). The header's "Put away
+      (N)" button steps aside while this card shows, so the same action
+      isn't offered twice. On the tick that clears
       an active list, the squirrel mark rises into the full ring in place
       of the tick (UX-38, see "Mascot empty states").
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
@@ -1407,12 +1425,18 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   - *UI*: a "Put away (N)" button beside "Scan receipt" whenever N rows are
     waiting on a list that isn't archived (completed lists included — the
     end of a trip is when there's unpacking to do), and a "Not put away"
-    tag on those rows. It opens `PutAwayDialog`
+    tag on those rows once the list is completed (UX-81: mid-shop, with
+    every cart row waiting, the tag would be on all of them, so an
+    `ACTIVE` list shows none). It opens `PutAwayDialog`
     (`src/components/shopping/put-away-dialog.tsx`): one row per waiting
     item, pre-filled with the list quantity, each with Put away / Later /
     Didn't get it, and — for linked items — quantity, best-before and
     location (the item's current location as placeholder, blank = leave
-    it). "Put away all" confirms. `?putAway=1` on the list URL opens it
+    it). Rows open collapsed to one line (name, quantity, price) with an
+    "Edit" button that reveals the choice and the stock fields (UX-81), so
+    a 15-item trip is a short list to confirm rather than 15 forms; a row
+    set to Later or Didn't get it says so on its collapsed line. "Put away
+    all" confirms. `?putAway=1` on the list URL opens it
     straight away (the reminder links there). The client watches the
     parameter rather than reading it once on mount, so tapping the bell
     while the list is already open works, and closing the dialog strips
@@ -1430,6 +1454,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     below). Finishing later doesn't lose
     anything: the rows stay ticked on the completed list, still count as
     incoming, and the button and reminder still find them there.
+  - *After the trip (UX-81)*: a `COMPLETED` list with nothing left to put
+    away shows a "Trip complete" card above its read-only rows with the
+    same summary line and two ways on. "Start next list" opens the
+    household's active default list when it isn't this one (where unbought
+    rows were carried), and otherwise creates a fresh dated list
+    (`createShoppingListAction`); "Back to lists" returns to the overview.
+    Covered by `e2e/shopping-trip-end.spec.ts`.
   - *Incoming stock* (`src/lib/incoming-stock.ts`, pure half unit-tested):
     a ticked, linked, not-put-away row on an `ACTIVE` or `COMPLETED` list
     is stock on its way home. Everything that reacts to a low count treats
@@ -1448,6 +1479,25 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     stop that item from ever being auto-added again. It can still be put
     away from the dialog.
   - *Reminder*: see "Notification center" → Put away your shopping.
+- **Rename, and start from a template or a past list (UX-85)** — a list is
+  renamed from "Rename" in its `⋯` menu (any status) or by tapping its
+  title (a pointer shortcut through `PageTitle`'s `onTap`; the menu item is
+  the keyboard path), which opens `RenameListDialog`.
+  `renameShoppingListAction` trims the name (1–120 characters), scopes the
+  update to the household and leaves `isDefault` alone. The New list sheet
+  has a "Start from" select (shown only when there is a template or a past
+  list): a blank list, a saved template, or one of the 10 newest lists that
+  have any rows (any status). A past list asks "Only what is still to buy"
+  or "All items"; the default is the first, unless nothing on that list is
+  left to buy (a finished trip), then "All items". With a template chosen,
+  the empty name field's placeholder shows the template's name, which the
+  list takes. `createShoppingListAction` reads `start` (`blank`,
+  `template:<id>`, `list:<id>`) and `items` (`unbought`, `all`), looks the
+  source up by household, and copies rows unticked through
+  `resolveTemplateRows` (so inventory links are re-resolved), keeping each
+  row's note. A typed name wins; otherwise a template gives its own name and
+  a past list a dated default. An unknown source is an error, never a blank
+  list.
 - **List templates (GAP-4)** — a household can save any list's items as a
   reusable, named template ("BBQ", "Costco run") and stamp it out as a new
   list later. Deliberately separate from AUTO-8's default list: that one
@@ -1481,7 +1531,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     import, it never creates inventory items: an unmatched row stays
     unlinked for "Resolve mappings", and `completeShoppingListAction`'s
     find-or-create still covers it at the end. Estimated prices come from
-    the linked item's `lastKnownPrice` (AUTO-4).
+    the linked item's `lastKnownPrice` (AUTO-4). The template row's button
+    says "Use" (UX-85), so the page has one "New list" button only.
   - *Deleting*: undo over confirm. `deleteShoppingListTemplateAction`
     deletes immediately and returns a snapshot. The toast's Undo passes it
     to `restoreShoppingListTemplateAction`, which validates it with Zod
@@ -6608,7 +6659,11 @@ version or the notes by hand.
   and joins their release notes, oldest first, into one entry. A PR with
   no Swedish note would contribute its English one to the Swedish text,
   which is why the preview check now requires both (below). Then it
-  merges `master` back into `next`. A hotfix PR straight into `master`
+  merges `master` back into `next`. When `next` moved on meanwhile, that
+  merge commit is the new tip of `next`, so it carries no `[skip ci]`: the
+  next release branch is cut at it, and the marker on a PR's head commit
+  stops every `pull_request` workflow (CI and the preview) from running
+  on that PR. A hotfix PR straight into `master`
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
   typecheck, unit tests and build; PRs into `master` swap the build for

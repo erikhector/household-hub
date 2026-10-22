@@ -68,6 +68,8 @@ async function openFinishSheet(page: Page) {
 
 async function markNotBought(page: Page, notBought: string) {
   const sheet = await openFinishSheet(page);
+  // UX-81: the rows open collapsed.
+  await sheet.getByRole("button", { name: `Edit ${notBought}` }).click();
   await sheet
     .getByRole("radiogroup", { name: `What to do with ${notBought}` })
     .getByRole("radio", { name: en.shoppingList.putAway.options.notBought })
@@ -184,15 +186,10 @@ test("Done shopping after an earlier carry-over completion and Undo leaves a lat
   await page.getByRole("button", { name: en.shoppingList.undo, exact: true }).click();
   await expect.poll(() => listOf(`Milk ${t}`)).toBe(listId);
 
-  // Tick the last row and put it away, so the cleared state offers "Done
-  // shopping" with nothing awaiting put-away.
+  // Tick the last row: "All done" offers to put everything away, which also
+  // finishes the list (UX-81).
   await page.getByRole("checkbox", { name: new RegExp(`^Milk ${t}\\b`) }).click();
-  await page.getByRole("button", { name: /^Put away \(1\)/ }).click();
-  await page
-    .getByRole("dialog", { name: en.shoppingList.putAway.title })
-    .getByRole("button", { name: en.shoppingList.putAway.confirmAll })
-    .click();
-  const done = page.getByRole("button", { name: en.shoppingList.doneShopping, exact: true });
+  const done = page.getByRole("button", { name: en.shoppingList.putAway.everything, exact: true });
   await expect(done).toBeVisible();
 
   // A row shows up unticked from another device (this page doesn't know it).

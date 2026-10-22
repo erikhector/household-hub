@@ -151,18 +151,7 @@ test.describe("on a desktop", () => {
 
   test("the centred dialog doesn't drag", async ({ page }) => {
     const dialog = await openAddMeal(page);
-    // The recipe list (UX-96) fills in as the dialog opens and the centred
-    // dialog re-centres around it, so measure once its top has stopped moving.
     await expect(dialog.getByRole("option").first()).toBeVisible();
-    let last = -1;
-    await expect
-      .poll(async () => {
-        const y = (await dialog.boundingBox())!.y;
-        const settled = y === last;
-        last = y;
-        return settled;
-      })
-      .toBe(true);
     const before = (await dialog.boundingBox())!;
     // The grabber is phone-only; drag the dialog's top edge instead.
     const x = before.x + before.width / 2;
@@ -172,6 +161,18 @@ test.describe("on a desktop", () => {
     await page.mouse.move(x, y + 300, { steps: 10 });
     await page.mouse.up();
     await expect(dialog).toBeVisible();
-    expect(Math.round((await dialog.boundingBox())!.y)).toBe(Math.round(before.y));
+    // MAINT-45: not "its top is where it was". The recipe list (UX-96) can
+    // still be filling in, and the centred dialog re-centres as it grows, so
+    // under the full run's load its top moved after it had looked settled
+    // (y 60 where 109 was measured). What a drag would break is the
+    // centring itself: a dialog pulled down 300px has far more room above it
+    // than below. So assert it's still centred, once any growth has landed.
+    const viewport = page.viewportSize()!;
+    await expect
+      .poll(async () => {
+        const box = (await dialog.boundingBox())!;
+        return Math.abs(box.y - (viewport.height - (box.y + box.height)));
+      })
+      .toBeLessThanOrEqual(2);
   });
 });
