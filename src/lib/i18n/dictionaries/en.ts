@@ -426,6 +426,8 @@ export const en = {
       afternoon: "Good afternoon, {name}",
       evening: "Good evening, {name}",
     },
+    // UX-135: the title right after a verification link signs the user in.
+    welcome: "Welcome to Squirrel, {name}",
     manage: "Manage",
     sharedWithIn: {
       one: "Shared with {count} other person in {name}",

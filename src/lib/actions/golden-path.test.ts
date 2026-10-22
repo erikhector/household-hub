@@ -258,6 +258,8 @@ const {
 
 vi.mock("@/lib/prisma", () => ({ prisma: fakePrisma }));
 vi.mock("@/lib/auth", () => ({
+  // UX-135: verifyEmailAction asks whether the visitor already has a session.
+  auth: async () => (store.currentUserId ? { user: { id: store.currentUserId } } : null),
   signIn: signInMock,
   signOut: signOutMock,
   EmailNotVerifiedSignin,
@@ -295,7 +297,20 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 // the password against the *real* bcrypt hash signupAction produced —
 // resolving unconditionally here would prove nothing about whether login
 // actually checks the account created in step 1 (see task brief).
-signInMock.mockImplementation(async (_provider: string, options: { email: string; password: string }) => {
+const { redeemVerificationToken } = await import("@/lib/verification-redeem");
+const { hashToken } = await import("@/lib/token-hash");
+signInMock.mockImplementation(async (provider: string, options: { email: string; password: string; token?: string }) => {
+  // UX-135: the `verification-link` provider spends the emailed token with
+  // the same shared claim the real provider uses, then signs the user in and
+  // redirects (signIn redirects by throwing, like Next's redirect()).
+  if (provider === "verification-link") {
+    const row = store.emailVerificationTokens.find((t) => t.token === hashToken(options.token ?? ""));
+    if (!row || row.usedAt || !(await redeemVerificationToken(row.id as string, row.userId as string))) {
+      throw new AuthError("CredentialsSignin");
+    }
+    store.currentUserId = row.userId as string;
+    throw new Error("REDIRECT:/dashboard?welcome=1");
+  }
   const user = store.users.find((u) => u.email === options.email);
   if (!user || !(await bcrypt.compare(options.password, user.passwordHash as string))) {
     throw new AuthError("CredentialsSignin");
@@ -388,8 +403,13 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
     const { verifyUrl } = (sendVerificationEmailMock.mock.calls as unknown as Array<[{ verifyUrl: string }]>)[0][0];
     const rawToken = verifyUrl.slice(verifyUrl.lastIndexOf("/") + 1);
     expect(verificationToken.token).not.toBe(rawToken);
-    const verifyResult = await verifyEmailAction({}, formData({ token: rawToken }));
-    expect(verifyResult).toEqual({ status: "verified", email: "erik@example.com" });
+    // UX-135: the link also signs the user in and redirects to the welcome.
+    await expect(verifyEmailAction({}, formData({ token: rawToken }))).rejects.toThrow(
+      "REDIRECT:/dashboard?welcome=1",
+    );
+    expect(store.currentUserId).toBe(user.id);
+    // Forget that session so step 3 still proves the password login itself.
+    store.currentUserId = null;
 
     const verifiedUser = store.users.find((u) => u.id === user.id)!;
     expect(verifiedUser.emailVerifiedAt).toBeInstanceOf(Date);
