@@ -500,7 +500,7 @@ UX-89.
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135, UX-136 and UX-138.
+- Needs a decision before building: UX-136 and UX-138.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49.
@@ -710,21 +710,7 @@ UX-89.
 
 Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
 `tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
-route passes. The popup probe found two phone-only size gaps.
 
-- [ ] **UX-135. Sign in straight from the verification link**
-      (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
-      blocked until the email is verified (`src/lib/auth.ts`) and signup
-      deliberately doesn't sign in, so a new user taps the mail link and
-      then types email and password again. A valid, unused verification
-      token signs the user in (single use, short-lived, same trust as a
-      reset link) and lands on the dashboard with "Welcome to Squirrel,
-      {name}". An expired, used or unknown token keeps today's behaviour.
-      Both `en.ts` and `sv.ts`; no new cookie.
-      Acceptance: in an e2e spec, sign up, open the verification link
-      (read the token from the DB), and land on `/dashboard` signed in
-      with the welcome text; opening the same link again does not sign in.
-      Decided 2026-10-20 by owner: option 1. See #395.
 
 - [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
       (impact: high, effort: M) — ⚠️ money (human-only area).
