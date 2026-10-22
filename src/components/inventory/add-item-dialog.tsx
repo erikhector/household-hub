@@ -368,6 +368,7 @@ export function ItemFormDialog({
                   id="unit"
                   name="unit"
                   items={units}
+                  browseOnTap
                   value={unit}
                   onValueChange={setUnit}
                   placeholder={dict.unitPlaceholder}

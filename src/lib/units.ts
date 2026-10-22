@@ -289,3 +289,14 @@ export function convertForItem(
   }
   return null;
 }
+
+/** UX-127: the units a household gets suggested before it has used any
+ * (and alongside the ones it has), so a new household picks "dl" or "förp"
+ * instead of typing it. Spelled as they're stored. */
+export const COMMON_UNITS = ["pcs", "g", "kg", "dl", "l", "förp"] as const;
+
+/** The common units first, then the household's own, each spelling once. A
+ * used "st" stays beside "pcs": they are synonyms but stored as typed. */
+export function withCommonUnits(used: readonly string[]): string[] {
+  return [...new Set([...COMMON_UNITS, ...used])];
+}

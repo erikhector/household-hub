@@ -1,3 +1,4 @@
+import { withCommonUnits } from "@/lib/units";
 import { Suspense, cache } from "react";
 import Link from "next/link";
 import { ListChecks } from "lucide-react";
@@ -84,7 +85,7 @@ const getInventoryData = cache(async (householdId: string) => {
   const members = householdMembers.map((m) => ({ userId: m.userId, displayName: m.user.displayName }));
   const categories = [...new Set(items.map((item) => item.category))].sort();
   const locations = [...new Set(items.flatMap((item) => (item.location ? [item.location] : [])))].sort();
-  const units = [...new Set(items.map((item) => item.unit))].sort();
+  const units = withCommonUnits([...new Set(items.map((item) => item.unit))].sort());
 
   // Footnote-weight positive state (see docs/archive/JOY_GAP_BACKLOG.md item 2): the
   // common case right after a restock — nothing low or out — otherwise gets

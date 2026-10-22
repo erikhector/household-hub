@@ -299,6 +299,8 @@ then MAINT-7 per feature, to avoid churn.
       `npx playwright test e2e/motion.spec.ts:180 --project=desktop
       --repeat-each=30` passes 30/30. Seen again on a clean `origin/next` (`995cb99`,
       2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
+      Seen again in the `ci:local` gate on release PR #537 (`4f04e69`,
+      2026-10-21): CLS 0.00886, passed on a re-run on the same commit.
 - [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed"), `desktop` project.
@@ -364,6 +366,18 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
       both projects.
+
+- [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
+      `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
+      above the dock, each 56-64 px", `mobile`). Failed on the first
+      attempt in the GitHub `End-to-end (Playwright)` job on release PR
+      #537 (`4f04e69`, 2026-10-21): "sixth row clear of the dock",
+      expected <= 531, received 705, and passed on the CI retry. Find
+      what leaves the list at the wrong size on the first attempt (a late
+      layout settle) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -435,8 +449,6 @@ UX-89.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
-- `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
 
 #### Shell and cross-cutting
@@ -512,37 +524,25 @@ UX-89.
 
 #### Logged out, signup and invites
 
-- [ ] **UX-62. A warm join page that says who invited you** (impact:
-      med, effort: S) — breaks Consistency and the Squirrel voice. An
-      invitee's first contact with Squirrel is a bare "Join {household}"
-      form (`src/components/household/join-signup-form.tsx`). It has no
-      brand badge, no inviter name, no line on what Squirrel is, and
-      different field styling from `/signup`. An invalid invite offers
-      "Back to log in" to someone who never had an account.
-      Acceptance: the join page shows the BrandBadge, "{inviter} invited
-      you to {household} on Squirrel", a one-line pitch and signup's
-      field styling. The invalid-invite card offers "Go to Squirrel" and
-      "Log in".
-
-- [ ] **UX-63. The shared-list page as good as the member view**
-      (impact: med, effort: M) — breaks Consistency and User-centricity
-      (the person you share with is often the one in the shop).
-      `/share/shopping-list/<token>` (`shared-shopping-list-client.tsx`)
-      has:
-      - a flat list in insertion order: no aisle grouping, progress ring,
-        dock or All done;
-      - no brand badge and no sharer;
-      - an amber warning that ticks change "this household's actual
-        shopping list and inventory" (`en.ts:3144`), which is jargon for
-        a non-user;
-      - `sharedShoppingList.footerNote` (`en.ts:3147`) defined but never
-        rendered;
-      - long names clamped to two lines, readable only in a `title`
-        tooltip that phones can't show.
-      Acceptance: the share page shows the brand badge and "Shared by
-      {household}", groups by aisle in the household's store order, shows
-      "n of m" progress and an All done state, and has a neutral one-line
-      banner. Long names can be read in full, and a footer links to `/`.
+- [ ] **UX-59. Signup and login errors next to the field, keeping what
+      was typed** (impact: med, effort: M) — breaks Usability ("inline,
+      actionable errors next to the field") and Context.
+      - A password mismatch wipes both password fields, drops focus to
+        `<body>` and shows one generic line above the consent text,
+        with no `aria-invalid` or `aria-describedby`
+        (`signup-form.tsx:157`, `login-form.tsx:95`).
+      - A short password or bad email only gets the browser's native
+        bubble, in the browser's language.
+      - The 8-character minimum is never shown up front.
+      - "An account with that email already exists" offers no Log in or
+        Forgot password link.
+      Server-message translation is MAINT-7. Whether signup should stop
+      revealing that an email exists is a security call, not part of
+      this item.
+      Acceptance: a mismatch keeps the first password, focuses Confirm
+      password and shows the error under it with `aria-invalid`. The
+      password field shows "At least 8 characters" before submit. The
+      duplicate-email error links to Log in and Forgot password.
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
@@ -558,13 +558,6 @@ UX-89.
       carries `lang="en"` and an "Only available in English" note. "Who
       we are" matches how Squirrel is offered. The page starts with a
       jump list.
-
-- [ ] **UX-67. Let password managers update the right login on reset**
-      (impact: low, effort: S) — M4. `reset-password-form.tsx:25` has no
-      username field, so Chrome and iOS offer to save a password with no
-      account attached.
-      Acceptance: the form includes a hidden `autocomplete="username"`
-      input holding the account email.
 
 #### First run and the overview
 
@@ -717,17 +710,6 @@ UX-89.
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
 
-- [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
-      breaks M4 ("pick, don't type").
-      - The unit field is prefilled "pcs" and its chevron is hidden while
-        it has a value (`combo-field.tsx:50-55`,
-        `ui/autocomplete.tsx:63-69`), so seeing other units means erasing
-        "pcs" first.
-      - Suggestions only include units the household already uses, so a
-        new household gets none and has to type "dl" or "förp".
-      Acceptance: one tap shows common units (st/pcs, g, kg, dl, l, förp)
-      plus used ones, as chips or a list.
-
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.
       - "All" shows ~130 px cards, three per screen, with no search, no
@@ -772,6 +754,40 @@ route passes. The popup probe found two phone-only size gaps.
       headline excludes its limit, the breakdown shows "Still budgeted",
       and the projection reads as secondary text.
       Decided 2026-10-20 by owner: option 1. See #397.
+
+### UX (2026-10-22 scout)
+
+Thursday area: tasks, household, members and invites. Found by reading
+the area's components and checking `Button` sizes; the screenshot and
+audit sweeps were not run this time, so confirm the layout in a
+`small-phone` screenshot first.
+
+- [ ] **UX-145. Member rows: don't squeeze the name between three
+      controls, and keep Remove away from Transfer** (impact: med, effort: S) —
+      `src/components/household/member-list.tsx:94-142`: each row puts the
+      role badge, a Crown (transfer ownership) button and a UserMinus
+      (remove) button side by side, 8 px apart. `icon-sm` grows to 44 px
+      on phones, so at 320 px those controls take about 170 px and the
+      name and email get the rest, clamped to two lines. Remove sits
+      next to a button that hands the household over, which M2 forbids
+      (destructive actions apart from the others).
+      Acceptance: at 320 px (`mobile` project, `small-phone` audit) an
+      owner's row shows the full display name on at most two lines with
+      no horizontal overflow, and Transfer and Remove are reached from
+      one "Member actions" menu or sheet (or sit on a second line apart
+      from each other) instead of two adjacent icons. An e2e test opens
+      it, sees both actions labelled, and Remove still asks for
+      confirmation.
+- [ ] **UX-146. Invite dialog: clear a failed link error on retry, and
+      offer Try again** (impact: low, effort: S) — `src/components/household/invite-button.tsx:29-41,68`:
+      `error` is set when `createInviteAction` fails but is never reset,
+      so closing and reopening the dialog after a failure that then
+      succeeds shows the red error above the working link. While it is
+      failed the only way to retry is to close and reopen (nothing says
+      so). Breaks "Error recovery" (UX principle) and M5.
+      Acceptance: with the action failing once and then succeeding
+      (`mobile` project, route-level mock), the dialog shows the error
+      with a "Try again" button; pressing it shows the link and no error.
 
 ### Dependencies
 

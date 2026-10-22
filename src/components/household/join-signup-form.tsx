@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { MailCheck, AlertTriangle, Lock } from "lucide-react";
+import { MailCheck, AlertTriangle, Lock, Mail, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,26 +87,35 @@ export function JoinSignupForm({
       <input type="hidden" name="token" value={token} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>
-        <Input
-          id="displayName"
-          name="displayName"
-          required
-          maxLength={60}
-          autoComplete="name"
-          defaultValue={kept.values.displayName}
-        />
+        {/* Same icon-in-field styling as /signup (UX-62). */}
+        <div className="relative">
+          <User className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="displayName"
+            name="displayName"
+            required
+            maxLength={60}
+            autoComplete="name"
+            defaultValue={kept.values.displayName}
+            className="pl-8"
+          />
+        </div>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{dict.email}</Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          required
-          maxLength={254}
-          autoComplete="email"
-          defaultValue={kept.values.email}
-        />
+        <div className="relative">
+          <Mail className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            required
+            maxLength={254}
+            autoComplete="email"
+            defaultValue={kept.values.email}
+            className="pl-8"
+          />
+        </div>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">{dict.password}</Label>
@@ -138,7 +147,7 @@ export function JoinSignupForm({
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         {legalDict.signupConsentPrefix}{" "}
         <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
           {legalDict.termsLink}
@@ -150,6 +159,7 @@ export function JoinSignupForm({
         {legalDict.consentSuffix}
       </p>
       <Button type="submit" disabled={pending} className="w-full">
+        <Sparkles className="size-4" />
         <PendingLabel pending={pending} busy={dict.creating} idle={dict.submit} />
       </Button>
       {/* Equal visual weight with the "create account" path above — an

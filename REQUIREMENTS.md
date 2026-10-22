@@ -133,20 +133,17 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   helper text (`aria-describedby`) saying everyone you invite sees this
   name, since the placeholder vanishes on focus.
   `e2e/signup-household-hint.spec.ts` covers it.
-- **Signup and login errors sit next to the field (UX-59)**: the signup
-  form has `noValidate` and checks its own fields on submit
-  (`validateSignupFields` in `src/lib/signup-validation.ts`, messages from
-  `dict.auth.signup`), so a mistake shows in the page's language under its
-  field (`role="alert"`, `aria-invalid`, `aria-describedby`) and focus moves
-  there. Because the action never runs, a password mismatch keeps both
-  password fields and everything else typed. "Password" shows "At least 8
-  characters" up front. `signupAction` repeats the rules and returns
-  `field` (and `emailTaken`) so a server error lands under the same field;
-  "An account with that email already exists" then links to Log in (email
-  pre-filled) and Forgot password. A failed login shows its error under the
-  Password field and focuses it. Server-message translation stays MAINT-7;
-  whether signup reveals that an email exists is untouched.
-  `e2e/auth-inline-errors.spec.ts` covers it.
+- **A warm join page (UX-62)**: `/join/[token]` opens like `/signup`: the
+  brand badge, an h1 "{inviter} invited you to {household} on Squirrel", a
+  one-line pitch, then the same icon-in-field styling as signup. The
+  inviter comes from `Invitation.invitedById` (set by `createInviteAction`,
+  `ON DELETE SET NULL`); a link made before the column existed, or whose
+  inviter deleted their account, reads "You're invited to {household} on
+  Squirrel". The page is public, so `getInvitationForDisplay` selects the
+  inviter's display name only (never id or email), and only for a valid
+  token. A dead link offers "Go to Squirrel" and "Log in" (a signed-in
+  visitor gets "Go to dashboard"), since the invitee may never have had an
+  account. `e2e/ux-62.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
@@ -1636,6 +1633,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     not owner-, scoped — same convention as `deleteShoppingListAction`), via
     `revokedAt`. `revokedAt: null` means active; there's no background job
     or time-based expiry at all.
+
+  - **The share page (UX-63)** gives the person in the shop the member
+    view's aids: the brand badge (linking to `/`), the list name with
+    "Shared by {household}" (the household's name is all it reveals),
+    pending rows grouped by aisle in the household's store order (AUTO-9;
+    `getShoppingListByShareToken` returns each row's linked item's category
+    and the household's order), a progress ring with "n of m", and an All
+    done card once every row is ticked. A neutral one-line banner replaces
+    the old warning ("Ticking an item here updates the list for everyone who
+    shares it"), long names wrap in full instead of clamping to a tooltip,
+    and a footer note links to `/`. No dock.
 
   Schema: `id`, `shoppingListId` (`onDelete: Cascade`), `token`
   (`String @unique`, generated with `randomUUID()` the same way
@@ -3519,6 +3527,10 @@ shape is deliberate:
   `memberSettlements` they paid or received (`direction`, the other
   member's display name, amount, date). Other members' shares and the
   household's full transaction list stay out.
+- `invitationsSent`: the invite links the user made (household name,
+  created, expiry and accepted dates), since UX-62 records who made each
+  link. The `token` is left out: an unused one lets anyone join the
+  household.
 - The response sends `Cache-Control: private, no-store`, so no shared or
   browser cache keeps a copy.
 
@@ -4122,6 +4134,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `comboboxShowSuggestions` beside the other combobox strings), so a
     screen reader no longer announces two bare "button"s per field.
     `e2e/combo-button-names.spec.ts` finds them by role and name.
+  - **Units in one tap (UX-127)**: the unit `ComboField`s (add item, quick
+    add, shopping item form, receipt dialogs) take `browseOnTap`: tapping
+    the field, or its chevron, lists every suggestion even while it holds
+    "pcs" (unfiltered until the user types), so no erasing first. The
+    server pages build the unit suggestions with `withCommonUnits()`
+    (`src/lib/units.ts`): pcs, g, kg, dl, l, förp, then the household's own
+    units, so a new household needn't type "dl". `e2e/unit-one-tap.spec.ts`.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
@@ -6359,9 +6378,11 @@ components directly.
   finished state in one `StatusCard` (`src/components/auth/status-card.tsx`):
   brand mark, tinted icon, title, message and a 44 px recovery link.
   `/reset-password/<token>` checks the link first
-  (`isPasswordResetTokenUsable`, `src/lib/reset-token.ts`) and shows
+  (`getUsablePasswordResetEmail`, `src/lib/reset-token.ts`) and shows
   "Link expired" with a link to `/forgot-password` rather than the form;
-  `resetPasswordAction` still validates on submit. The privacy page lists
+  `resetPasswordAction` still validates on submit. The live form carries the
+  account email as a hidden `autocomplete="username"` input (UX-67) so
+  password managers update the right login. The privacy page lists
   cookies as a definition list per entry (a table clipped "Purpose" to a few
   characters on phones). The English-only legal body is `lang="en"` and set
   in `foreground`; "Terms of service" and "Privacy policy" are sentence

@@ -435,6 +435,7 @@ export function ReceiptScanDialog({
                   id={`${row.key}-new-unit`}
                   name="unit"
                   items={units}
+                  browseOnTap
                   value={newItemDraft.unit}
                   onValueChange={(v) => updateNewItemDraft({ unit: v })}
                   maxLength={20}

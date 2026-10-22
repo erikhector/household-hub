@@ -87,6 +87,8 @@ test("after a password reset the login email is pre-filled", async ({ page }) =>
   await insertToken("PasswordResetToken", raw);
 
   await page.goto(`/reset-password/${raw}`);
+  // UX-67: a hidden username lets password managers update the right login.
+  await expect(page.locator('input[autocomplete="username"]')).toHaveValue(email);
   await page.getByLabel(en.auth.resetPassword.newPassword, { exact: true }).fill("a-new-password-1");
   await page.getByLabel(en.auth.resetPassword.confirmPassword).fill("a-new-password-1");
   await page.getByRole("button", { name: en.auth.resetPassword.submit }).click();
