@@ -332,6 +332,8 @@ then MAINT-7 per feature, to avoid churn.
       2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
       Seen again in the `ci:local` gate on release PR #537 (`4f04e69`,
       2026-10-21): CLS 0.00886, passed on a re-run on the same commit.
+      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
+      2026-10-22): `desktop`, passed on a re-run on the same commit.
 - [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed"), `desktop` project.
@@ -382,6 +384,9 @@ then MAINT-7 per feature, to avoid churn.
       `npx playwright test e2e/ux-51.spec.ts:114
       e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
       --repeat-each=30` passes 30/30.
+      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
+      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
+      System" not found within 5s; passed on a re-run on the same commit.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
@@ -400,6 +405,9 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry. Acceptance: `npx playwright test
       e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on both
       projects.
+      Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
+      failed the attempt and the retry of the GitHub e2e job and in the
+      local `ci:local` gate; it passed on the job re-run and on a local re-run.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
