@@ -105,11 +105,15 @@ export function PutAwayDialog({
   const [error, setError] = useState<string | null>(null);
   const [carryOver, setCarryOver] = useState(true);
   const [rows, setRows] = useState(() => initialRows(items));
+  // UX-81: rows open collapsed to one line, since the defaults are right for
+  // most of a trip; "Edit" reveals the choice and the stock fields.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
       setRows(initialRows(items));
+      setExpanded(new Set());
       setError(null);
       setCarryOver(true);
     }
@@ -121,6 +125,15 @@ export function PutAwayDialog({
 
   function update(item: PutAwayItem, patch: Partial<RowState>) {
     setRows((prev) => ({ ...prev, [item.id]: { ...(prev[item.id] ?? initialRows([item])[item.id]), ...patch } }));
+  }
+
+  function toggleExpanded(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   const putAwayCount = items.filter((item) => rowFor(item).choice === "putAway").length;
@@ -188,40 +201,63 @@ export function PutAwayDialog({
           {items.map((item) => {
             const row = rowFor(item);
             const linked = item.inventoryItemId !== null;
+            const open = expanded.has(item.id);
             return (
               <div key={item.id} className="flex flex-col gap-2 rounded-md border p-2">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <p className="min-w-0 flex-1 text-sm font-medium break-words">
-                    {item.name}
-                    {item.estimatedPrice != null && (
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <p className="min-w-0 flex-1 text-sm font-medium break-words">
+                      {item.name}
                       <span className="ml-2 font-normal text-muted-foreground tabular-nums">
-                        ≈ {numberFormat.format(item.estimatedPrice)}
+                        {format(t.rowQuantity, { quantity: row.quantity || String(item.quantity), unit: unitLabel(item.unit) })}
                       </span>
-                    )}
-                  </p>
-                  <div
-                    role="radiogroup"
-                    aria-label={format(t.optionAriaLabel, { name: item.name })}
-                    className="flex w-fit shrink-0 gap-1 rounded-lg bg-muted p-1"
-                  >
-                    {(["putAway", "later", "notBought"] as const).map((choice) => (
-                      <Button
-                        key={choice}
-                        type="button"
-                        role="radio"
-                        aria-checked={row.choice === choice}
-                        variant={row.choice === choice ? "secondary" : "ghost"}
-                        size="sm"
-                        disabled={pending}
-                        onClick={() => update(item, { choice })}
-                      >
-                        {t.options[choice]}
-                      </Button>
-                    ))}
+                      {item.estimatedPrice != null && (
+                        <span className="ml-2 font-normal text-muted-foreground tabular-nums">
+                          ≈ {numberFormat.format(item.estimatedPrice)}
+                        </span>
+                      )}
+                      {row.choice !== "putAway" && (
+                        <span className="ml-2 font-normal text-muted-foreground">· {t.options[row.choice]}</span>
+                      )}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      aria-expanded={open}
+                      aria-label={format(t.editRowAriaLabel, { name: item.name })}
+                      disabled={pending}
+                      onClick={() => toggleExpanded(item.id)}
+                    >
+                      {t.editRow}
+                    </Button>
                   </div>
+                  {open && (
+                    <div
+                      role="radiogroup"
+                      aria-label={format(t.optionAriaLabel, { name: item.name })}
+                      className="flex w-fit shrink-0 gap-1 rounded-lg bg-muted p-1"
+                    >
+                      {(["putAway", "later", "notBought"] as const).map((choice) => (
+                        <Button
+                          key={choice}
+                          type="button"
+                          role="radio"
+                          aria-checked={row.choice === choice}
+                          variant={row.choice === choice ? "secondary" : "ghost"}
+                          size="sm"
+                          disabled={pending}
+                          onClick={() => update(item, { choice })}
+                        >
+                          {t.options[choice]}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {row.choice === "putAway" &&
+                {open && row.choice === "putAway" &&
                   (linked ? (
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-[6rem_1fr_1fr]">
                       <label className="flex flex-col gap-1 text-xs text-muted-foreground">

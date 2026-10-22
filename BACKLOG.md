@@ -447,7 +447,7 @@ UX-89.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
-  UX-81, UX-85.
+  UX-85.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
 
@@ -629,21 +629,6 @@ UX-89.
       without a photo. New strings in `en.ts` and `sv.ts`; an e2e flow
       (AI mocked to fail) types a price and checks it after a reload, on
       desktop and mobile.
-
-- [ ] **UX-81. A short, rewarding end to a shop** (impact: med, effort:
-      M) — Delight, M4 and Hierarchy.
-      - "All done" shows two buttons for the same thing: "Put away (15)"
-        and "Put things away".
-      - The put-away sheet is 15 cards, each with a three-way choice and
-        quantity, best-before and location fields (about 4,500 px,
-        `put-away-dialog.tsx:176-245`).
-      - Every cart row has a "Not put away" badge mid-shop.
-      - After completing, you're left on a struck-through read-only list.
-      Acceptance: All done shows a one-line trip summary ("15 items · ≈
-      240 kr · 18 min") and one primary "Put everything away" that
-      accepts the defaults, with per-item details collapsed. No "Not put
-      away" badges while the list is active. After completing, the page
-      offers "Back to lists" and "Start next list".
 
 - [ ] **UX-85. Rename a list, and start a new list from a template or a
       past list** (impact: med, effort: M) — breaks User control and M4.

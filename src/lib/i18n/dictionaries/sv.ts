@@ -636,6 +636,16 @@ export const sv = {
     undo: "Ångra",
     clearedTitle: "Allt klart",
     clearedDescription: "Allt på listan är avbockat eller borttaget.",
+    // UX-81: rundan på en rad, delarna skiljs med " · ". Priset och tiden
+    // utelämnas när de är okända i stället för att visas som noll.
+    tripSummary: {
+      items: { one: "{count} vara", other: "{count} varor" },
+      cost: "≈ {amount}",
+      minutes: "{count} min",
+    },
+    tripCompleteTitle: "Rundan är klar",
+    backToLists: "Tillbaka till listorna",
+    startNextList: "Starta nästa lista",
     clearedDismissAriaLabel: "Stäng",
     mascotAlt: "Squirrel-maskot",
     purchased: "Köpt",
@@ -650,13 +660,19 @@ export const sv = {
         one: "{count} vara väntar på att ställas in.",
         other: "{count} varor väntar på att ställas in.",
       },
-      putAwayNow: "Ställ in varorna",
     },
     // "Ställ in" som i streckkodsskanningens "Ställt in (+1)", så att båda
     // läses som samma sak.
     putAway: {
       button: "Ställ in ({count})",
       awaitingBadge: "Inte inställd",
+      // UX-81: "Allt klart" ställer in allt med standardvärdena i ett tryck;
+      // "Granska först" öppnar bladet för de få raderna som är värda att ändra.
+      everything: "Ställ in allt",
+      reviewFirst: "Granska först",
+      editRow: "Ändra",
+      editRowAriaLabel: "Ändra {name}",
+      rowQuantity: "× {quantity} {unit}",
       title: "Ställ in varorna",
       description:
         "Kolla vad som faktiskt kom hem. Varorna läggs till i lagret när du bekräftar, och det du sparar till senare ligger kvar här.",

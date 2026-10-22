@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { Fragment, useActionState, useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -55,17 +55,20 @@ import { NextUpDock, ProgressRing } from "@/components/shopping/shopping-mode";
 import {
   archiveShoppingListAction,
   completeShoppingListAction,
+  createShoppingListAction,
   deleteShoppingListAction,
   deleteShoppingListItemAction,
   generateFromLowStockAction,
   resetCategoryOrderAction,
   saveCategoryOrderAction,
+  putAwayItemsAction,
   togglePurchasedAction,
   unarchiveShoppingListAction,
   uncompleteShoppingListAction,
   updateShoppingListItemPriceAction,
 } from "@/app/dashboard/shopping-list/actions";
 import { format, plural } from "@/lib/i18n/format";
+import { tripDurationMinutes } from "@/lib/shopping/trip-summary";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
@@ -146,6 +149,9 @@ type ShoppingListItemRow = {
   // PutAwayDialog; priceRecordedAt says a receipt already priced it.
   putAwayAt: Date | null;
   priceRecordedAt: Date | null;
+  // When the row was ticked, for the trip summary's duration (UX-81). null
+  // for a receipt-applied row or one ticked before the column existed.
+  checkedOffAt: Date | null;
   // The linked InventoryItem's current location, the put-away dialog's
   // "stays where it is" placeholder.
   location: string | null;
@@ -181,6 +187,7 @@ export function ShoppingListClient({
   defersToPutAway = false,
   locations = [],
   carryOverListName = "",
+  nextListId = null,
   aliases = [],
 }: {
   list: ShoppingListData;
@@ -210,6 +217,9 @@ export function ShoppingListClient({
   locations?: string[];
   /** UX-80: the list the unbought rows move to on completion. */
   carryOverListName?: string;
+  /** UX-81: the household's active default list when it isn't this one, which
+   * "Start next list" opens; null makes that button create a fresh list. */
+  nextListId?: string | null;
   /** MATCH-5: the household's learned item names, so a receipt line or an
    * unlinked row's suggestion links the way the household taught it. */
   aliases?: ItemAliasLike[];
@@ -543,6 +553,43 @@ export function ShoppingListClient({
     }
   };
 
+  // UX-81: "All done"'s one primary. Accepts every default the put-away sheet
+  // would open with (the list's quantity, no best-before, the item's own
+  // location), then finishes the list when it's still active. Nothing is
+  // pending here (the cleared state needs every row ticked), so there's no
+  // carry-over to ask about. "Review first" opens the sheet for the rows
+  // worth adjusting.
+  const putEverythingAway = () =>
+    startTransition(async () => {
+      const result = await putAwayItemsAction(
+        list.id,
+        awaitingPutAway.map((item) => ({ itemId: item.id, quantity: item.quantity })),
+      );
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const putAway = result.putAway ?? 0;
+      if (putAway > 0) toast.success(format(plural(putAway, dict.putAway.doneToast), { count: putAway }));
+      showAutoAddedToast(result.autoAdded, autoAddDict);
+      if (isActive) {
+        setCarryOver(false);
+        completeList();
+      }
+    });
+
+  // UX-81: "15 items · ≈ 240 kr · 18 min". The price part follows the
+  // header's rule (rows with a price only) and, like the time, is left out
+  // when unknown rather than shown as zero.
+  const tripMinutes = tripDurationMinutes(purchasedItems.map((item) => item.checkedOffAt));
+  const tripSummary = [
+    format(plural(purchasedItems.length, dict.tripSummary.items), { count: purchasedItems.length }),
+    boughtPricedTotal > 0 ? format(dict.tripSummary.cost, { amount: numberFormat.format(boughtPricedTotal) }) : null,
+    tripMinutes === null ? null : format(dict.tripSummary.minutes, { count: tripMinutes }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   // AUTO-9: back to the learned order, undoable rather than confirm-gated
   // (the dropped order comes back from the action for exactly that).
   const resetStoreOrder = () =>
@@ -592,7 +639,10 @@ export function ShoppingListClient({
       setCelebrate(false);
     }
   }
-  const showCleared = isCleared && !clearedDismissed;
+  // A completed list with nothing left to put away has no "All done" to
+  // show: its own card (CompletedActions) says the trip is over instead.
+  const showCleared = isCleared && !clearedDismissed && (isActive || awaitingPutAway.length > 0);
+  const showCompleted = list.status === "COMPLETED" && !showCleared && purchasedItems.length > 0;
 
   const [highlightedIds, setHighlightedIds] = useState<ReadonlySet<string>>(new Set());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -647,7 +697,9 @@ export function ShoppingListClient({
             outside it (see the handles above) because the menu's popup
             unmounts as it closes. */}
         <div className="flex flex-wrap items-center gap-2">
-          {awaitingPutAway.length > 0 && (
+          {/* UX-81: "All done" already offers the put-away as its one
+              primary, so the header's twin button steps aside there. */}
+          {awaitingPutAway.length > 0 && !showCleared && (
             <Button variant="outline" disabled={isPending} onClick={() => setPutAwayMode("putAway")}>
               <PackageCheck className="size-4" />
               {format(dict.putAway.button, { count: awaitingPutAway.length })}
@@ -917,6 +969,8 @@ export function ShoppingListClient({
       )}
       {isActive && repurchaseSuggestions}
 
+      {showCompleted && <CompletedActions dict={dict} tripSummary={tripSummary} nextListId={nextListId} />}
+
       <div ref={listRef} className="relative flex flex-col gap-2">
         {showCleared ? (
           <ClearedState
@@ -931,7 +985,9 @@ export function ShoppingListClient({
             // here (finishing the list once it's confirmed), on a list that
             // isn't archived, whether or not it's still ACTIVE.
             awaitingPutAway={awaitingPutAway.length}
-            onPutAway={() => setPutAwayMode(isActive ? "finish" : "putAway")}
+            tripSummary={tripSummary}
+            onPutAway={putEverythingAway}
+            onReview={() => setPutAwayMode(isActive ? "finish" : "putAway")}
             // Wait for every tick to save first: the put-away rows and the
             // completion both read what the server has.
             isPending={isPending || isTicking}
@@ -1032,7 +1088,9 @@ export function ShoppingListClient({
                   units={units}
                   dict={dict}
                   numberFormat={numberFormat}
-                  awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
+                  // UX-81: only once the trip is over. Mid-shop every cart row would
+                  // carry the badge, which is noise: the cart is where they are.
+                  awaitingPutAway={list.status === "COMPLETED" && isAwaitingPutAway(item)}
                 />
               ))}
             </div>
@@ -1111,7 +1169,9 @@ function ClearedState({
   onDismiss,
   onDone,
   awaitingPutAway,
+  tripSummary,
   onPutAway,
+  onReview,
   isPending,
 }: {
   dict: ShoppingListDict;
@@ -1122,7 +1182,12 @@ function ClearedState({
   /** AUTO-5: completes the list in one tap, with Undo on the toast. */
   onDone?: () => void;
   awaitingPutAway: number;
+  /** UX-81: the trip in one line. */
+  tripSummary: string;
+  /** Puts everything away with the defaults (and finishes the list). */
   onPutAway: () => void;
+  /** Opens the put-away sheet instead, to adjust rows first. */
+  onReview: () => void;
   isPending: boolean;
 }) {
   return (
@@ -1156,11 +1221,17 @@ function ClearedState({
           ? format(plural(awaitingPutAway, dict.shoppingMode.waitingToPutAway), { count: awaitingPutAway })
           : dict.clearedDescription}
       </p>
+      {progress.total > 0 && <p className="text-sm font-medium tabular-nums">{tripSummary}</p>}
       {awaitingPutAway > 0 ? (
-        <Button className="mt-3" disabled={isPending} onClick={onPutAway}>
-          <PackageCheck className="size-4" />
-          {dict.shoppingMode.putAwayNow}
-        </Button>
+        <>
+          <Button className="mt-3" disabled={isPending} onClick={onPutAway}>
+            <PackageCheck className="size-4" />
+            {dict.putAway.everything}
+          </Button>
+          <Button variant="ghost" size="sm" disabled={isPending} onClick={onReview}>
+            {dict.putAway.reviewFirst}
+          </Button>
+        </>
       ) : (
         onDone && (
           <Button className="mt-3" disabled={isPending} onClick={onDone}>
@@ -1177,6 +1248,47 @@ function ClearedState({
       >
         <X className="size-3.5" />
       </Button>
+    </div>
+  );
+}
+
+/**
+ * UX-81: where a finished trip lands. The list below it is the read-only,
+ * struck-through record; this card says the trip is over and offers the two
+ * places to go next. "Start next list" opens the household's active default
+ * list when there is one (where unbought rows were carried to), and only
+ * creates a fresh dated list when there isn't.
+ */
+function CompletedActions({
+  dict,
+  tripSummary,
+  nextListId,
+}: {
+  dict: ShoppingListDict;
+  tripSummary: string;
+  nextListId: string | null;
+}) {
+  const [, createAction, creating] = useActionState(createShoppingListAction, {});
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+      <div>
+        <p className="font-heading text-lg font-semibold">{dict.tripCompleteTitle}</p>
+        <p className="text-sm text-muted-foreground tabular-nums">{tripSummary}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {nextListId ? (
+          <Button render={<Link href={`/dashboard/shopping-list/${nextListId}`} />}>{dict.startNextList}</Button>
+        ) : (
+          <form action={createAction}>
+            <Button type="submit" disabled={creating}>
+              {dict.startNextList}
+            </Button>
+          </form>
+        )}
+        <Button variant="outline" render={<Link href="/dashboard/shopping-list" />}>
+          {dict.backToLists}
+        </Button>
+      </div>
     </div>
   );
 }

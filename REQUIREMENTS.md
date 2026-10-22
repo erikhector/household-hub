@@ -1033,7 +1033,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       are still pending. A saved tick goes at once if the current list
       already shows it, and otherwise holds until the next server list,
       which wins even where it disagrees (another member unticked the
-      row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
+      row), so no row is stuck showing the overlay. "Put everything away"/"Done shopping" wait while any toggle is in
       flight. It stays in
       its aisle for 250 ms (UX-54 shortened it from 350 so the drop still ends inside the 500 ms CLS grace after the tick moment's 200 ms) animating down and out (that fading copy is
       `inert` and `aria-hidden`, so the item is exposed once, as the "In
@@ -1070,9 +1070,20 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       held so the dock doesn't change height).
     - *All done*: the cleared state shows the full ring with a tick and pops
       in (motion-safe). When ticked rows still wait to be put away it says
-      how many and its primary action is "Put things away", which opens the
-      put-away dialog in finish mode; otherwise it's "Done shopping" as
-      before. Both wait for in-flight ticks to save. On the tick that clears
+      how many and its primary action is "Put everything away" (UX-81),
+      which accepts the put-away sheet's defaults (the list quantity, no
+      best-before date, the item's own location) in one tap and, on an
+      `ACTIVE` list, completes it; a quieter "Review first" opens the
+      put-away dialog in finish mode instead. Otherwise the primary is
+      "Done shopping" as before. Both wait for in-flight ticks to save.
+      Above the buttons a one-line trip summary reads "15 items · ≈ 240 kr
+      · 18 min": the count of ticked rows, the sum of their estimated
+      prices (left out when none has one) and the minutes from the first
+      to the last tick (`checkedOffAt`; `tripDurationMinutes` in
+      `src/lib/shopping/trip-summary.ts` leaves it out under two timed
+      ticks, under a minute, or over four hours). The header's "Put away
+      (N)" button steps aside while this card shows, so the same action
+      isn't offered twice. On the tick that clears
       an active list, the squirrel mark rises into the full ring in place
       of the tick (UX-38, see "Mascot empty states").
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
@@ -1407,12 +1418,18 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   - *UI*: a "Put away (N)" button beside "Scan receipt" whenever N rows are
     waiting on a list that isn't archived (completed lists included — the
     end of a trip is when there's unpacking to do), and a "Not put away"
-    tag on those rows. It opens `PutAwayDialog`
+    tag on those rows once the list is completed (UX-81: mid-shop, with
+    every cart row waiting, the tag would be on all of them, so an
+    `ACTIVE` list shows none). It opens `PutAwayDialog`
     (`src/components/shopping/put-away-dialog.tsx`): one row per waiting
     item, pre-filled with the list quantity, each with Put away / Later /
     Didn't get it, and — for linked items — quantity, best-before and
     location (the item's current location as placeholder, blank = leave
-    it). "Put away all" confirms. `?putAway=1` on the list URL opens it
+    it). Rows open collapsed to one line (name, quantity, price) with an
+    "Edit" button that reveals the choice and the stock fields (UX-81), so
+    a 15-item trip is a short list to confirm rather than 15 forms; a row
+    set to Later or Didn't get it says so on its collapsed line. "Put away
+    all" confirms. `?putAway=1` on the list URL opens it
     straight away (the reminder links there). The client watches the
     parameter rather than reading it once on mount, so tapping the bell
     while the list is already open works, and closing the dialog strips
@@ -1430,6 +1447,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     below). Finishing later doesn't lose
     anything: the rows stay ticked on the completed list, still count as
     incoming, and the button and reminder still find them there.
+  - *After the trip (UX-81)*: a `COMPLETED` list with nothing left to put
+    away shows a "Trip complete" card above its read-only rows with the
+    same summary line and two ways on. "Start next list" opens the
+    household's active default list when it isn't this one (where unbought
+    rows were carried), and otherwise creates a fresh dated list
+    (`createShoppingListAction`); "Back to lists" returns to the overview.
+    Covered by `e2e/shopping-trip-end.spec.ts`.
   - *Incoming stock* (`src/lib/incoming-stock.ts`, pure half unit-tested):
     a ticked, linked, not-put-away row on an `ACTIVE` or `COMPLETED` list
     is stock on its way home. Everything that reacts to a low count treats

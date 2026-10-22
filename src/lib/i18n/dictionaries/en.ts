@@ -676,6 +676,16 @@ export const en = {
     undo: "Undo",
     clearedTitle: "All done",
     clearedDescription: "Everything on this list is checked off or gone.",
+    // UX-81: the trip in one line, parts joined with " · ". The price and
+    // the time are left out when unknown rather than shown as zero.
+    tripSummary: {
+      items: { one: "{count} item", other: "{count} items" },
+      cost: "≈ {amount}",
+      minutes: "{count} min",
+    },
+    tripCompleteTitle: "Trip complete",
+    backToLists: "Back to lists",
+    startNextList: "Start next list",
     clearedDismissAriaLabel: "Dismiss",
     mascotAlt: "Squirrel mascot",
     purchased: "Purchased",
@@ -695,7 +705,6 @@ export const en = {
         one: "{count} thing is waiting to be put away.",
         other: "{count} things are waiting to be put away.",
       },
-      putAwayNow: "Put things away",
     },
     // The two-phase "in the cart, then put away" flow (PutAwayDialog,
     // putAwayItemsAction). "Put away" is the same phrase barcode Scan mode
@@ -703,6 +712,13 @@ export const en = {
     putAway: {
       button: "Put away ({count})",
       awaitingBadge: "Not put away",
+      // UX-81: "All done" puts everything away with the defaults in one tap;
+      // "Review first" opens the sheet for the few rows worth adjusting.
+      everything: "Put everything away",
+      reviewFirst: "Review first",
+      editRow: "Edit",
+      editRowAriaLabel: "Edit {name}",
+      rowQuantity: "× {quantity} {unit}",
       title: "Put away your shopping",
       description:
         "Check what actually came home. It's added to your inventory when you confirm, and anything you leave for later stays here.",
