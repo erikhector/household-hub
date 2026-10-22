@@ -49,6 +49,8 @@ const PASSWORD_MAX_LENGTH = 72;
 const SIGNUP_RATE_LIMIT = 5;
 const SIGNUP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
+const SIGNUP_FIELDS = ["displayName", "householdName", "email", "password", "confirmPassword"] as const;
+
 const signupSchema = z
   .object({
     displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
@@ -156,6 +158,11 @@ const UNVERIFIED_LOGIN_MESSAGE =
 
 export type SignupState = {
   error?: string;
+  // UX-59: which field `error` belongs to, so the form can put it next to
+  // that field. `code` marks the one error the form words itself and gives
+  // links to (log in / reset password).
+  field?: "displayName" | "householdName" | "email" | "password" | "confirmPassword";
+  code?: "email-taken";
   status?: "verification-sent";
   email?: string;
   // Join-via-invite only: the household the new account was added to, so
@@ -181,7 +188,9 @@ export async function signupAction(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    const issue = parsed.error.issues[0];
+    const field = SIGNUP_FIELDS.find((name) => name === issue?.path[0]);
+    return { error: issue?.message ?? "Invalid input", field };
   }
   const { displayName, householdName, email, password } = parsed.data;
 
@@ -191,7 +200,7 @@ export async function signupAction(
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: "An account with that email already exists" };
+    return { error: "An account with that email already exists", field: "email", code: "email-taken" };
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
