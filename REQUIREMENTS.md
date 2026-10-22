@@ -6354,9 +6354,11 @@ components directly.
   finished state in one `StatusCard` (`src/components/auth/status-card.tsx`):
   brand mark, tinted icon, title, message and a 44 px recovery link.
   `/reset-password/<token>` checks the link first
-  (`isPasswordResetTokenUsable`, `src/lib/reset-token.ts`) and shows
+  (`getUsablePasswordResetEmail`, `src/lib/reset-token.ts`) and shows
   "Link expired" with a link to `/forgot-password` rather than the form;
-  `resetPasswordAction` still validates on submit. The privacy page lists
+  `resetPasswordAction` still validates on submit. The live form carries the
+  account email as a hidden `autocomplete="username"` input (UX-67) so
+  password managers update the right login. The privacy page lists
   cookies as a definition list per entry (a table clipped "Purpose" to a few
   characters on phones). The English-only legal body is `lang="en"` and set
   in `foreground`; "Terms of service" and "Privacy policy" are sentence

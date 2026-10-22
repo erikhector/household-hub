@@ -561,13 +561,6 @@ UX-89.
       we are" matches how Squirrel is offered. The page starts with a
       jump list.
 
-- [ ] **UX-67. Let password managers update the right login on reset**
-      (impact: low, effort: S) — M4. `reset-password-form.tsx:25` has no
-      username field, so Chrome and iOS offer to save a password with no
-      account attached.
-      Acceptance: the form includes a hidden `autocomplete="username"`
-      input holding the account email.
-
 #### First run and the overview
 
 
