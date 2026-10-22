@@ -497,21 +497,6 @@ UX-89.
       ("Add your first dinner" / "Fill the week") instead of seven
       slots. Nothing sits under the FAB at 412 px.
 
-- [ ] **UX-52. Bottom bar: one icon style, and keep the colour on the
-      active tab** (impact: low, effort: S) — breaks Consistency.
-      - Inventory, Shopping and Meal planning have tinted icon tiles;
-        Overview and More have plain icons.
-      - The active tab drops its tile (`bottom-nav.tsx:125-127`), so the
-        section colour (`nav-items.ts`, "recognise the screen by colour")
-        disappears on exactly the screen you're on.
-      - "More" has no tile, so its label sits higher than the other
-        four.
-      Acceptance: all five tabs share one icon treatment and their
-      labels sit on one baseline. The active tab keeps its section hue,
-      and that hue also marks the page (for example the large title's
-      accent or the empty-state ring), so the colour coding means
-      something.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-59. Signup and login errors next to the field, keeping what
@@ -758,6 +743,40 @@ route passes. The popup probe found two phone-only size gaps.
       headline excludes its limit, the breakdown shows "Still budgeted",
       and the projection reads as secondary text.
       Decided 2026-10-20 by owner: option 1. See #397.
+
+### UX (2026-10-22 scout)
+
+Thursday area: tasks, household, members and invites. Found by reading
+the area's components and checking `Button` sizes; the screenshot and
+audit sweeps were not run this time, so confirm the layout in a
+`small-phone` screenshot first.
+
+- [ ] **UX-145. Member rows: don't squeeze the name between three
+      controls, and keep Remove away from Transfer** (impact: med, effort: S) —
+      `src/components/household/member-list.tsx:94-142`: each row puts the
+      role badge, a Crown (transfer ownership) button and a UserMinus
+      (remove) button side by side, 8 px apart. `icon-sm` grows to 44 px
+      on phones, so at 320 px those controls take about 170 px and the
+      name and email get the rest, clamped to two lines. Remove sits
+      next to a button that hands the household over, which M2 forbids
+      (destructive actions apart from the others).
+      Acceptance: at 320 px (`mobile` project, `small-phone` audit) an
+      owner's row shows the full display name on at most two lines with
+      no horizontal overflow, and Transfer and Remove are reached from
+      one "Member actions" menu or sheet (or sit on a second line apart
+      from each other) instead of two adjacent icons. An e2e test opens
+      it, sees both actions labelled, and Remove still asks for
+      confirmation.
+- [ ] **UX-146. Invite dialog: clear a failed link error on retry, and
+      offer Try again** (impact: low, effort: S) — `src/components/household/invite-button.tsx:29-41,68`:
+      `error` is set when `createInviteAction` fails but is never reset,
+      so closing and reopening the dialog after a failure that then
+      succeeds shows the red error above the working link. While it is
+      failed the only way to retry is to close and reopen (nothing says
+      so). Breaks "Error recovery" (UX principle) and M5.
+      Acceptance: with the action failing once and then succeeding
+      (`mobile` project, route-level mock), the dialog shows the error
+      with a "Try again" button; pressing it shows the link and no error.
 
 ### Dependencies
 
