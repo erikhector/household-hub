@@ -1965,8 +1965,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   (`src/components/budget/month-navigator.tsx`, shared with the personal
   budget) renders prev/next/"this month" as plain `<Link>`s that change
   the param — a full server-rendered navigation with no client state, so
-  the selected month survives a refresh and is shareable as a URL, the
-  same pattern meal-planning's week navigation uses. It reads as
+  the selected month survives a refresh and is shareable as a URL. It is
+  a thin wrapper over the shared `PeriodSwitcher`
+  (`src/components/period-switcher.tsx`, UX-53), which the meal planner's
+  week switcher uses too, so months and weeks share one placement, size
+  and set of accessible names ("Previous month" / "Previous week", "Next
+  …", "This month" / "This week"). It reads as
   `‹  October 2026  ›`: two 44 px arrow links flanking the month name set
   in `heading`, with a "This month" link under the name only once you've
   paged away from the current month (the server passes its own month key
@@ -4309,8 +4313,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   for the slot (a "Meal" select: Dinner preselected, or the first empty
   slot once dinner is planned). Empty slots get no rows of their own, so
   an empty week is 7 buttons and a week of dinners isn't 21 "Add meal"
-  rows on a phone (DESIGN.md M6). The controls are one row: ‹ ›, the week
-  range, "This week" (only when another week is shown) and a ⋯ menu ("More
+  rows on a phone (DESIGN.md M6). The controls are one row: the shared
+  `PeriodSwitcher` (UX-53, as the budgets' month switcher: `‹  Oct 19 – 25  ›`
+  with "This week" under the range only when another week is shown) and a ⋯ menu ("More
   planner actions") holding "Copy last week" (empty week only), "Fill
   empty days" and "Add missing ingredients to shopping list" (the week's
   main shopping-list action is the bottom "Add N missing" button, UX-91,
@@ -6290,6 +6295,13 @@ components directly.
   the dropdown: the trigger `Button` overrides its base `shrink-0
   whitespace-nowrap`, so the chevron stays on screen at 412 and 1280
   px (UX-47, `e2e/ux-47.spec.ts`).
+- **One icon treatment (UX-52)**: all five bottom-bar tabs sit on a 28 px
+  tile, so their labels share one baseline. Overview and "More" use a neutral
+  tile (primary-tinted while active); the others keep their section hue
+  (`NAV_ICON_TILE_CLASSES`) active or not, and `PageTitle` draws a short bar
+  in the same hue under the large title of the section's own page (`navItemForPath`,
+  `NAV_ACCENT_BAR_CLASSES`), so the colour marks the page you're on. Covered by
+  `e2e/navigation.mobile.spec.ts`.
 - **Where you are (UX-27)**: the current page is marked in both layouts
   (`aria-current="page"` plus the active fill). On a phone, What's new and
   the notification centre belong to the "More" menu, so while one is open
