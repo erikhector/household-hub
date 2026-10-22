@@ -268,24 +268,26 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
                   checkbox keep their full aria-labels (they name the item);
                   the visible word starts the same way. The keeper's Merge
                   is hidden but keeps its width, so the columns line up. */}
-              <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <Radio
-                  name={radioName}
-                  checked={isKeeper}
-                  onChange={() => setKeeperId(member.id)}
-                  aria-label={format(dict.keepLabel, { name: member.name })}
-                />
-                {dict.keep}
+              <div className="flex shrink-0 flex-col gap-2">
+                <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <Radio
+                    name={radioName}
+                    checked={isKeeper}
+                    onChange={() => setKeeperId(member.id)}
+                    aria-label={format(dict.keepLabel, { name: member.name })}
+                  />
+                  {dict.keep}
+                </label>
+                <label className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", isKeeper && "invisible")}>
+                  <Checkbox
+                    checked={!isKeeper && !unticked.has(member.id)}
+                    disabled={isKeeper}
+                    onChange={(event) => toggle(member.id, event.target.checked)}
+                    aria-label={format(dict.mergeLabel, { name: member.name })}
+                  />
+                  {dict.merge}
               </label>
-              <label className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", isKeeper && "invisible")}>
-                <Checkbox
-                  checked={!isKeeper && !unticked.has(member.id)}
-                  disabled={isKeeper}
-                  onChange={(event) => toggle(member.id, event.target.checked)}
-                  aria-label={format(dict.mergeLabel, { name: member.name })}
-                />
-                {dict.merge}
-              </label>
+              </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <Link
                   href={itemPageHref(member.id, { kind: "catalog", filter: "duplicates" })}

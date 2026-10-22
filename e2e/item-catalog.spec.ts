@@ -201,7 +201,7 @@ test("the catalog's All list is searchable, compact and in the inventory's order
 
   await page.goto("/dashboard/inventory");
   await page.getByRole("main").getByPlaceholder("Search by name…").fill(tag);
-  await expect(page.getByRole("main").getByText(names[2]).first()).toBeVisible();
+  await expect(page.getByRole("main").getByText(names[2]).filter({ visible: true }).first()).toBeVisible();
   const inventoryText = await page.getByRole("main").innerText();
 
   const order = (text: string) => [...names].sort((a, b) => text.indexOf(a) - text.indexOf(b));
