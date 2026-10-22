@@ -170,3 +170,55 @@ test("“Merge into another item…” on the item page asks for a factor when t
   await expect(main.getByRole("button", { name: /^Adjust .* \(2.5 pcs\)$/ })).toBeVisible();
   await expect(main.getByText("1 pcs = 2 dl")).toBeVisible();
 });
+
+// UX-131: "All" is a searchable list of compact rows in the inventory's order,
+// each with a stock badge and a chevron on phones.
+test("the catalog's All list is searchable, compact and in the inventory's order", async ({ page }) => {
+  const tag = suffix();
+  const names = [`${tag} Ägg`, `${tag} Banana`, `${tag} Apple`];
+  await seedItems(names.map((name, index) => ({ id: `${tag}-${index}`, name, quantity: index === 0 ? 0 : 3, unit: "pcs" })));
+
+  await page.goto("/dashboard/inventory/items");
+  await page.getByRole("button", { name: /^All/ }).click();
+  const search = page.getByRole("searchbox", { name: "Search items…" });
+  await search.fill(tag);
+  const rows = page.getByRole("main").getByRole("link", { name: new RegExp(`^${tag}`) });
+  await expect(rows).toHaveCount(3);
+  // Compact rows: well under the old ~130 px card.
+  const box = await rows.first().boundingBox();
+  expect(box!.height).toBeLessThan(80);
+  // A stock badge on every row; the empty one reads "Out of stock".
+  await expect(rows.filter({ hasText: names[0] })).toContainText("Out of stock");
+  await expectNoHorizontalOverflow(page);
+
+  await search.fill(`${tag} banana`);
+  await expect(rows).toHaveCount(1);
+  await search.fill(`${tag} nothing`);
+  await expect(page.getByText("No items match your search.")).toBeVisible();
+  await search.fill(tag);
+  await expect(rows).toHaveCount(3);
+  const catalogText = await page.getByRole("main").innerText();
+
+  await page.goto("/dashboard/inventory");
+  await page.getByRole("main").getByPlaceholder("Search by name…").fill(tag);
+  await expect(page.getByRole("main").getByText(names[2]).first()).toBeVisible();
+  const inventoryText = await page.getByRole("main").innerText();
+
+  const order = (text: string) => [...names].sort((a, b) => text.indexOf(a) - text.indexOf(b));
+  expect(order(catalogText)).toEqual(order(inventoryText));
+});
+
+test("duplicate rows label the keep radio and the merge checkbox", async ({ page }) => {
+  const tag = suffix();
+  const a = { id: `${tag}-pea`, name: `${tag} pea`, quantity: 2, unit: "pcs" };
+  const b = { id: `${tag}-peas`, name: `${tag} peas`, quantity: 0, unit: "pcs" };
+  await seedItems([a, b]);
+
+  await page.goto("/dashboard/inventory/items?filter=duplicates");
+  const pair = group(page, a.name);
+  await expect(pair.getByText("Keep", { exact: true })).toHaveCount(2);
+  await expect(pair.getByText("Merge", { exact: true })).toHaveCount(2);
+  await expect(pair.getByText("Keep", { exact: true }).first()).toBeVisible();
+  await expect(pair.getByRole("checkbox", { name: `Merge ${b.name} into the kept item` })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
