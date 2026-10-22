@@ -368,7 +368,10 @@ then MAINT-7 per feature, to avoid churn.
       again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
       the retry both failed in the GitHub e2e job, and it failed once in
       the local `ci:local` gate; it passed on a GitHub job re-run and on a
-      local re-run of the same commit.
+      local re-run of the same commit. Seen again on release PR #582
+      (`dec00a0`, 2026-10-22): it failed the attempt and the retry of
+      GitHub e2e run 39803999752 and once in the local `ci:local` gate;
+      it passed on a GitHub job re-run and on a local re-run.
 - [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
       `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
       2026-10-21. Two specs, same symptom: the click on a "More" trigger
@@ -391,6 +394,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
       2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
       System" not found within 5s; passed on a re-run on the same commit.
+      Seen again in the `ci:local` gate on release PR #582 (`dec00a0`,
+      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
+      System" not found; passed in two focused re-runs.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
