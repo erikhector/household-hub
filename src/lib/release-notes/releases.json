@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.96.0",
+    "date": "2026-10-22",
+    "pr": 553,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The shared shopping list page now looks and works like the one in the app: it shows who shared the list, groups items by aisle in your store's order, shows how many you have ticked off, says \"All done\" when you finish, and shows long item names in full.\n\nPassword managers now update the right saved login when you reset your password.\n\nTapping the unit field now shows common units (pcs, g, kg, dl, l, förp) right away, even when it already says \"pcs\".",
+      "sv": "Sidan för delade inköpslistor ser nu ut och fungerar som listan i appen: den visar vem som delat listan, grupperar varor efter avdelning i din butiks ordning, visar hur många du bockat av, säger \"Allt klart\" när du är klar och visar långa varunamn i sin helhet.\n\nLösenordshanterare uppdaterar nu rätt sparad inloggning när du återställer ditt lösenord.\n\nNär du trycker på enhetsfältet visas nu vanliga enheter (st, g, kg, dl, l, förp) direkt, även när det redan står \"st\"."
+    }
+  },
+  {
     "version": "0.95.1",
     "date": "2026-10-22",
     "pr": 547,
