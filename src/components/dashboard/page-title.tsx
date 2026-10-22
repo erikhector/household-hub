@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { commonCopy } from "@/lib/i18n/common";
 import { getDocumentLocale } from "@/lib/i18n/client-locale";
-import { usePathname } from "next/navigation";
 import { COMPACT_TITLE_SLOT_ID, NAV_ACCENT_BAR_CLASSES, navItemForPath } from "@/components/dashboard/nav-items";
 import { MorphTitle, type MorphKind } from "@/components/shared/view-transitions";
 
@@ -28,11 +28,11 @@ export function PageTitle({
    * Only the large H1 takes part, never the compact copy in the bar. */
   morph?: { kind: MorphKind; id: string };
 }) {
-  // UX-52: the section's hue also marks its page, as a short accent bar under the
-  // large title, so the colour on the bottom-bar tab means something. Pages
-  // outside a coloured section (Overview, What's new) have none. A bar under
-  // the title rather than a tile beside it: the title stays on the page's
-  // gutter, aligned with the lists below it (UX-139).
+  // UX-52: the section's hue also marks its page, as a short accent bar
+  // under the large title, so the colour on the bottom-bar tab means
+  // something. Pages outside a coloured section (Overview, What's new) have
+  // none. A bar under the title rather than a tile beside it: the title stays
+  // on the page's gutter, aligned with the lists below it (UX-139).
   const section = navItemForPath(usePathname());
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
