@@ -92,17 +92,13 @@ test("the bottom bar labels are at least 12 px", async ({ page }) => {
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(size).toBeGreaterThanOrEqual(12);
   }
-  // More's label is a bare text node inside its button, next to the unread
-  // badge, so the button's whole text reads "1 More" whenever another spec
-  // left a notification in the worker's household. Assert the exact text of
-  // the label node itself instead of the button's combined text.
+  // The unread badge sits in More's tile, so the button's whole text reads
+  // "1 More" whenever another spec left a notification in the worker's
+  // household. Assert the exact text of the label span (the button's last
+  // one) instead of the button's combined text.
   const more = nav.getByRole("button", { name: new RegExp(`${en.nav.more}$`) });
-  const { label, size } = await more.evaluate((el) => ({
-    label: Array.from(el.childNodes)
-      .filter((n) => n.nodeType === Node.TEXT_NODE)
-      .map((n) => n.textContent)
-      .join("")
-      .trim(),
+  const { label, size } = await more.locator("span").last().evaluate((el) => ({
+    label: el.textContent?.trim(),
     size: parseFloat(getComputedStyle(el).fontSize),
   }));
   expect(label).toBe(en.nav.more);
