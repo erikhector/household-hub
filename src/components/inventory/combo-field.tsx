@@ -49,6 +49,7 @@ export function ComboField({
   label,
   dict,
   onEnter,
+  browseOnTap,
 }: {
   id: string;
   /** Omit when the value is read from state rather than posted with a
@@ -71,18 +72,38 @@ export function ComboField({
    * the `Use "X"` row is tapped. Also stops that Enter from submitting the
    * surrounding form. */
   onEnter?: () => void;
+  /** UX-127, for the unit fields: tapping the field itself opens the whole
+   * list, so the other units are one tap away even while it holds "pcs".
+   * Off for category/location, whose long lists would cover the next field. */
+  browseOnTap?: boolean;
 }) {
   const trimmed = value.trim();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  // UX-127: a field that already holds a value ("pcs") would filter the list
+  // down to that one value, so seeing the other units meant erasing it first.
+  // While the popup was opened by a tap (field or chevron) rather than by
+  // typing, show every suggestion; typing filters again.
+  const [browsing, setBrowsing] = useState(false);
+  const browse = () => {
+    setBrowsing(true);
+    setOpen(true);
+  };
   return (
     <Autocomplete
       items={items}
       name={name}
       value={value}
-      onValueChange={onValueChange}
+      filter={browsing ? null : undefined}
+      onValueChange={(next, details) => {
+        if (details.reason === "input-change") setBrowsing(false);
+        onValueChange(next);
+      }}
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setBrowsing(false);
+      }}
     >
       <AutocompleteInputGroup>
         <AutocompleteInput
@@ -91,6 +112,7 @@ export function ComboField({
           placeholder={placeholder}
           maxLength={maxLength}
           aria-label={ariaLabel}
+          onClick={browseOnTap ? browse : undefined}
           onKeyDown={
             onEnter
               ? (event) => {
@@ -107,7 +129,7 @@ export function ComboField({
         <AutocompleteClear
           aria-label={format(dict.comboboxClear, { field: label.toLocaleLowerCase() })}
         />
-        <AutocompleteTrigger aria-label={dict.comboboxShowSuggestions} />
+        <AutocompleteTrigger aria-label={dict.comboboxShowSuggestions} onClick={() => setBrowsing(true)} />
       </AutocompleteInputGroup>
       <AutocompleteContent>
         <AutocompleteEmpty>

@@ -1,3 +1,4 @@
+import { withCommonUnits } from "@/lib/units";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
@@ -90,7 +91,7 @@ export default async function ShoppingListPage() {
     }),
   ]);
 
-  const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
+  const units = withCommonUnits([...new Set(inventoryItems.map((item) => item.unit))].sort());
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
 
   return (

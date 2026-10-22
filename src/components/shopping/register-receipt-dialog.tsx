@@ -385,6 +385,7 @@ export function RegisterReceiptDialog({
               id={`${row.key}-unit`}
               name="unit"
               items={units}
+              browseOnTap
               value={row.unit}
               onValueChange={(v) => updateRow(row.key, { unit: v })}
               maxLength={20}

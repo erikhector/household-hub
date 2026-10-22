@@ -9,6 +9,7 @@ import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } fr
 import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away";
 import { defersToPutAway } from "@/lib/shopping/put-away-calc";
+import { parseLearnedOrder, type StoreOrder } from "@/lib/shopping/store-order";
 
 // Genuinely unauthenticated actions reached via the token-only public page at
 // src/app/share/shopping-list/[token]/page.tsx — there is no session on this
@@ -57,11 +58,19 @@ export type SharedShoppingListItem = {
   // exactly whoever ends up doing the shopping, which is often the person
   // the list was shared with.
   note: string | null;
+  // UX-63: the linked inventory item's category, so the share page can group
+  // by aisle like the member view. null for an unlinked row.
+  category: string | null;
 };
 
 export type SharedShoppingList = {
   id: string;
   name: string;
+  // UX-63: "Shared by {household}". The link holder sees this much of the
+  // household and no more (no member names, no ids).
+  householdName: string;
+  // UX-63: the household's store order (AUTO-9), for the aisle grouping.
+  storeOrder: StoreOrder;
   items: SharedShoppingListItem[];
 };
 
@@ -84,13 +93,32 @@ export async function getShoppingListByShareToken(token: string): Promise<Shared
 
   const list = await prisma.shoppingList.findUnique({
     where: { id: shareLink.shoppingListId },
-    include: { items: { orderBy: { createdAt: "asc" } } },
+    include: {
+      items: { orderBy: { createdAt: "asc" } },
+      household: { select: { name: true, categoryOrderLearned: true, categoryOrderManual: true } },
+    },
   });
   if (!list) return null;
+
+  // UX-63: a row's category lives on its linked inventory item. Scoped to the
+  // list's own household, so a row can never surface another one's category.
+  const linkedIds = list.items.flatMap((item) => (item.inventoryItemId ? [item.inventoryItemId] : []));
+  const linked = linkedIds.length
+    ? await prisma.inventoryItem.findMany({
+        where: { id: { in: linkedIds }, householdId: list.householdId },
+        select: { id: true, category: true },
+      })
+    : [];
+  const categoryById = new Map(linked.map((row) => [row.id, row.category]));
 
   return {
     id: list.id,
     name: list.name,
+    householdName: list.household.name,
+    storeOrder: {
+      learned: parseLearnedOrder(list.household.categoryOrderLearned),
+      manual: list.household.categoryOrderManual,
+    },
     items: list.items.map((item) => ({
       id: item.id,
       name: item.name,
@@ -98,6 +126,7 @@ export async function getShoppingListByShareToken(token: string): Promise<Shared
       unit: item.unit,
       purchased: item.purchased,
       note: item.note ?? null,
+      category: item.inventoryItemId ? (categoryById.get(item.inventoryItemId) ?? null) : null,
     })),
   };
 }

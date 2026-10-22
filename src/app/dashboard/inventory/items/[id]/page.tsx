@@ -6,7 +6,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import { usedInRows } from "@/lib/inventory/item-units";
-import { canonicalUnit, unitLabel } from "@/lib/units";
+import { canonicalUnit, unitLabel, withCommonUnits } from "@/lib/units";
 import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { getRecentPrices } from "@/lib/inventory/recent-prices";
 import { ItemRecentPrices } from "@/components/inventory/item-page/item-recent-prices";
@@ -124,7 +124,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
   const everyItem = [item, ...otherItems];
   const categories = [...new Set(everyItem.map((row) => row.category))].sort();
   const locations = [...new Set(everyItem.flatMap((row) => (row.location ? [row.location] : [])))].sort();
-  const allUnits = [...new Set(everyItem.map((row) => row.unit))].sort();
+  const allUnits = withCommonUnits([...new Set(everyItem.map((row) => row.unit))].sort());
   const bestBefore = item.expiresAt
     ? format(dict.bestBefore, {
         date: `${item.expiresAtEstimated ? "≈ " : ""}${new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(item.expiresAt)}`,

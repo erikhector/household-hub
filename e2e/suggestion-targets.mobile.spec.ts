@@ -16,8 +16,11 @@ async function expectAtLeast44(target: Locator, what: string) {
   expect(count, `${what} is on screen`).toBeGreaterThan(0);
   for (let i = 0; i < count; i++) {
     const box = await target.nth(i).evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      return { width: r.width, height: r.height };
+      // Layout size (rounded), not the transformed rect: a popup list long
+      // enough to scroll (UX-127 lists every common unit) measured
+      // 43.99997 from float noise in the 95% zoom-in, for a 44 px row.
+      const h = el as HTMLElement;
+      return { width: h.offsetWidth, height: h.offsetHeight };
     });
     expect(box.width, `${what} #${i} width`).toBeGreaterThanOrEqual(44);
     expect(box.height, `${what} #${i} height`).toBeGreaterThanOrEqual(44);

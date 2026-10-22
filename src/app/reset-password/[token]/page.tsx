@@ -6,7 +6,7 @@ import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { isPasswordResetTokenUsable } from "@/lib/reset-token";
+import { getUsablePasswordResetEmail } from "@/lib/reset-token";
 
 // UX-28: like /join/[token], the link is checked up front so a dead one
 // (unknown, used or expired) shows the shared status card with a way to ask
@@ -20,17 +20,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ResetPasswordPage(props: PageProps<"/reset-password/[token]">) {
   const [{ token }, dict] = await Promise.all([props.params, getDictionary()]);
-  const usable = await isPasswordResetTokenUsable(token);
+  const email = await getUsablePasswordResetEmail(token);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      {usable ? (
+      {email ? (
         <Card className="w-full max-w-sm">
           <CardHeader>
             <CardTitle as="h1" className="text-xl">{dict.auth.resetPassword.pageTitle}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResetPasswordForm token={token} dict={dict.auth.resetPassword} />
+            <ResetPasswordForm token={token} email={email} dict={dict.auth.resetPassword} />
           </CardContent>
         </Card>
       ) : (

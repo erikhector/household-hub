@@ -1617,6 +1617,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     `revokedAt`. `revokedAt: null` means active; there's no background job
     or time-based expiry at all.
 
+  - **The share page (UX-63)** gives the person in the shop the member
+    view's aids: the brand badge (linking to `/`), the list name with
+    "Shared by {household}" (the household's name is all it reveals),
+    pending rows grouped by aisle in the household's store order (AUTO-9;
+    `getShoppingListByShareToken` returns each row's linked item's category
+    and the household's order), a progress ring with "n of m", and an All
+    done card once every row is ticked. A neutral one-line banner replaces
+    the old warning ("Ticking an item here updates the list for everyone who
+    shares it"), long names wrap in full instead of clamping to a tooltip,
+    and a footer note links to `/`. No dock.
+
   Schema: `id`, `shoppingListId` (`onDelete: Cascade`), `token`
   (`String @unique`, generated with `randomUUID()` the same way
   `Invitation`/password-reset/email-verification tokens are), `createdAt`,
@@ -4106,6 +4117,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `comboboxShowSuggestions` beside the other combobox strings), so a
     screen reader no longer announces two bare "button"s per field.
     `e2e/combo-button-names.spec.ts` finds them by role and name.
+  - **Units in one tap (UX-127)**: the unit `ComboField`s (add item, quick
+    add, shopping item form, receipt dialogs) take `browseOnTap`: tapping
+    the field, or its chevron, lists every suggestion even while it holds
+    "pcs" (unfiltered until the user types), so no erasing first. The
+    server pages build the unit suggestions with `withCommonUnits()`
+    (`src/lib/units.ts`): pcs, g, kg, dl, l, förp, then the household's own
+    units, so a new household needn't type "dl". `e2e/unit-one-tap.spec.ts`.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
@@ -6350,9 +6368,11 @@ components directly.
   finished state in one `StatusCard` (`src/components/auth/status-card.tsx`):
   brand mark, tinted icon, title, message and a 44 px recovery link.
   `/reset-password/<token>` checks the link first
-  (`isPasswordResetTokenUsable`, `src/lib/reset-token.ts`) and shows
+  (`getUsablePasswordResetEmail`, `src/lib/reset-token.ts`) and shows
   "Link expired" with a link to `/forgot-password` rather than the form;
-  `resetPasswordAction` still validates on submit. The privacy page lists
+  `resetPasswordAction` still validates on submit. The live form carries the
+  account email as a hidden `autocomplete="username"` input (UX-67) so
+  password managers update the right login. The privacy page lists
   cookies as a definition list per entry (a table clipped "Purpose" to a few
   characters on phones). The English-only legal body is `lang="en"` and set
   in `foreground`; "Terms of service" and "Privacy policy" are sentence
