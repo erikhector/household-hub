@@ -364,7 +364,11 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
       passes 30/30. Went red once more on release run 39571297362
-      (2026-10-21) and passed on retry #1 of the same commit.
+      (2026-10-21) and passed on retry #1 of the same commit. Failed
+      again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
+      the retry both failed in the GitHub e2e job, and it failed once in
+      the local `ci:local` gate; it passed on a GitHub job re-run and on a
+      local re-run of the same commit.
 - [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
       `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
       2026-10-21. Two specs, same symptom: the click on a "More" trigger
@@ -420,6 +424,17 @@ then MAINT-7 per feature, to avoid churn.
       loosened assertion, a skip or a retry. Acceptance: `npx playwright
       test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
       passes 30/30.
+- [ ] **MAINT-47. Flaky: "Done shopping" after a carry-over completion and Undo sometimes leaves the late pending row out of place** (low, S) —
+      `e2e/shopping-finish-carry-over.spec.ts:170` ("Done shopping after
+      an earlier carry-over completion and Undo leaves a late pending row
+      where it is", `desktop`). Failed in the local `ci:local` gate on
+      release PR #576 (`e585c70`, 2026-10-22) and passed on a local re-run
+      of the same commit. Find what lets the row move or the assertion run
+      before the list has settled after Undo, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test
+      e2e/shopping-finish-carry-over.spec.ts:170 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
