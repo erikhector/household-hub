@@ -449,8 +449,6 @@ UX-89.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
-- `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
 
 #### Shell and cross-cutting
@@ -725,17 +723,6 @@ UX-89.
       "never stocked".
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
-
-- [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
-      breaks M4 ("pick, don't type").
-      - The unit field is prefilled "pcs" and its chevron is hidden while
-        it has a value (`combo-field.tsx:50-55`,
-        `ui/autocomplete.tsx:63-69`), so seeing other units means erasing
-        "pcs" first.
-      - Suggestions only include units the household already uses, so a
-        new household gets none and has to type "dl" or "förp".
-      Acceptance: one tap shows common units (st/pcs, g, kg, dl, l, förp)
-      plus used ones, as chips or a list.
 
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.
