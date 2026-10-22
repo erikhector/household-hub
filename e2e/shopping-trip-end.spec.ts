@@ -121,10 +121,11 @@ test("a ticked row carries no Not put away badge while the list is active, only 
     `Milk ${t}`,
   ]);
   await page.goto(path);
-  await expect(page.getByText(names[0]).first()).toBeVisible();
+  // Ticked rows sit in the collapsed "In the cart" section: attached, not shown.
+  await expect(page.getByText(names[0]).first()).toBeAttached();
   await expect(page.getByText("Not put away")).toHaveCount(0);
 
   await sql(`UPDATE "ShoppingList" SET status = 'COMPLETED' WHERE id = $1`, [listId]);
   await page.reload();
-  await expect(page.getByText("Not put away").first()).toBeVisible();
+  await expect(page.getByText("Not put away").first()).toBeAttached();
 });
