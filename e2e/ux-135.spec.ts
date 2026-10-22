@@ -59,6 +59,8 @@ async function insertToken(raw: string, interval: string) {
 
 test("the verification link signs the new user in and welcomes them; a second open does not", async ({
   page,
+  browser,
+  baseURL,
 }) => {
   await signUp(page);
   const raw = `ux135-link-${stamp}`;
@@ -74,13 +76,20 @@ test("the verification link signs the new user in and welcomes them; a second op
   await page.reload();
   await expect(page.getByRole("heading", { name: /Welcome to Squirrel/ })).toHaveCount(0);
 
-  // Same link, signed out (a fresh browser): verified, but not signed in.
-  await page.context().clearCookies();
-  await page.goto(`/verify-email/${raw}`);
-  await expect(page.getByRole("heading", { name: en.auth.verifyEmail.verifiedTitle })).toBeVisible();
-  await expect(page).toHaveURL(/\/verify-email\//);
-  await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/login/);
+  // Same link in a fresh browser (the signed-in page could re-set its
+  // session cookie after a clearCookies): verified, but not signed in.
+  const fresh = await browser.newContext({ baseURL: baseURL! });
+  try {
+    await dismissCookieNotice(fresh, baseURL!);
+    const other = await fresh.newPage();
+    await other.goto(`/verify-email/${raw}`);
+    await expect(other.getByRole("heading", { name: en.auth.verifyEmail.verifiedTitle })).toBeVisible();
+    await expect(other).toHaveURL(/\/verify-email\//);
+    await other.goto("/dashboard");
+    await expect(other).toHaveURL(/\/login/);
+  } finally {
+    await fresh.close();
+  }
 });
 
 test("an expired verification link keeps today's behaviour and signs nobody in", async ({ page }) => {

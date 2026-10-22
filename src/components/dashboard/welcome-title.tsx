@@ -12,7 +12,7 @@ export function WelcomeTitle({ text }: { text: string }) {
     const url = new URL(window.location.href);
     if (url.searchParams.has("welcome")) {
       url.searchParams.delete("welcome");
-      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
   }, []);
   return <>{text}</>;

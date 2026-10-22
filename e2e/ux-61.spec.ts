@@ -69,6 +69,8 @@ test("after signup the card stops saying 'Create your household'", async ({ page
 
 test("a verify link opened again, signed out, says 'Email verified' and Log in pre-fills the email", async ({
   page,
+  browser,
+  baseURL,
 }) => {
   await signUp(page);
   await expect(page.getByRole("heading", { name: SENT_TITLE })).toBeVisible();
@@ -79,12 +81,20 @@ test("a verify link opened again, signed out, says 'Email verified' and Log in p
   // verified" card is what the same link shows afterwards.
   await page.goto(`/verify-email/${raw}`);
   await expect(page).toHaveURL(/\/dashboard/);
-  await page.context().clearCookies();
-  await page.goto(`/verify-email/${raw}`);
-  await expect(page.getByRole("heading", { name: en.auth.verifyEmail.verifiedTitle })).toBeVisible();
-  await page.getByRole("link", { name: en.auth.verifyEmail.logIn }).click();
-  await expect(page).toHaveURL(/\/login/);
-  await expect(page.getByLabel(en.auth.login.email)).toHaveValue(email);
+  // A fresh browser, not clearCookies: the signed-in page could re-set its
+  // session cookie after a clear.
+  const fresh = await browser.newContext({ baseURL: baseURL! });
+  try {
+    await dismissCookieNotice(fresh, baseURL!);
+    const other = await fresh.newPage();
+    await other.goto(`/verify-email/${raw}`);
+    await expect(other.getByRole("heading", { name: en.auth.verifyEmail.verifiedTitle })).toBeVisible();
+    await other.getByRole("link", { name: en.auth.verifyEmail.logIn }).click();
+    await expect(other).toHaveURL(/\/login/);
+    await expect(other.getByLabel(en.auth.login.email)).toHaveValue(email);
+  } finally {
+    await fresh.close();
+  }
 });
 
 test("after a password reset the login email is pre-filled", async ({ page }) => {
