@@ -7775,7 +7775,8 @@ A shopping row leaving its aisle (UX-37's 250 ms drop towards "In the
 cart") carries no flip key meanwhile, so it has one animation, not two.
 It then arrives in "In the cart" as a new row and rises in there. The
 leaving row takes no room in the aisle from the tap on (zero height, drawn
-at its own place and above its neighbours), so the aisle closes up with a
+at its own place, with the rows rising into it painted over it), so the
+aisle closes up with a
 glide at tap time, inside the 500 ms the layout-shift metric forgives;
 dropping the row from the DOM after the 250 ms moves nothing (MAINT-39). Since it animates the real element and not
 a snapshot, a row stays tappable at the place it's drawn while it moves. A view transition, which
