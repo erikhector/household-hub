@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.99.0",
+    "date": "2026-10-22",
+    "pr": 576,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Signup and login mistakes now show right under the field they belong to. A password mismatch keeps what you typed, the password field says up front that it needs 8 characters, and \"email already in use\" links to Log in and Forgot password.",
+      "sv": "Fel vid registrering och inloggning visas nu precis under fältet de gäller. Om lösenorden inte matchar behåller formuläret det du skrivit, lösenordsfältet visar direkt att det krävs 8 tecken, och \"e-postadressen används redan\" länkar till Logga in och Glömt lösenordet."
+    }
+  },
+  {
     "version": "0.98.0",
     "date": "2026-10-22",
     "pr": 573,
