@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.95.1",
+    "date": "2026-10-22",
+    "pr": 547,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The signup button now stays fully visible above the cookie notice on phones.",
+      "sv": "Registreringsknappen syns nu helt ovanför cookie-meddelandet på mobilen."
+    }
+  },
+  {
     "version": "0.95.0",
     "date": "2026-10-21",
     "pr": 544,
