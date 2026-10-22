@@ -145,9 +145,12 @@ export function MemberList({
         return (
           <div
             key={member.id}
-            className="list-bleed flex items-center justify-between rounded-md border px-3 py-2"
+            // On a phone the badge and actions wrap onto a second line rather
+            // than squeezing the name into a sliver beside them (UX-145); from
+            // `sm` up everything stays on one line.
+            className="list-bleed flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border px-3 py-2 sm:flex-nowrap"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 basis-56 sm:basis-0">
               <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={member.displayName}>
                 {member.displayName}
               </p>
@@ -158,7 +161,7 @@ export function MemberList({
                 <p className="text-xs text-muted-foreground">{dict.leave.ownerExplanation}</p>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <Badge variant={member.role === "OWNER" ? "secondary" : "outline"}>
                 {member.role === "OWNER" ? dict.owner : dict.contributor}
               </Badge>
