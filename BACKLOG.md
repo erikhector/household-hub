@@ -497,16 +497,6 @@ UX-89.
       ("Add your first dinner" / "Fill the week") instead of seven
       slots. Nothing sits under the FAB at 412 px.
 
-- [ ] **UX-53. One period switcher for weeks and months** (impact: low,
-      effort: S) — breaks Consistency. The budgets switch months with
-      bare chevrons around a large centred heading. The meal planner
-      switches weeks with bordered square buttons on the left and a
-      small date.
-      Acceptance: the budget, personal budget and planner use one shared
-      period switcher with the same placement, size and accessible names
-      ("Previous month" / "Previous week"), plus a "This month" / "This
-      week" jump when you're elsewhere.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-59. Signup and login errors next to the field, keeping what

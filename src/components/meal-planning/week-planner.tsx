@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Trash2, Unlink, Utensils } from "lucide-react";
+import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Trash2, Unlink, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PeriodSwitcher } from "@/components/period-switcher";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { FillEmptyDaysDialog } from "@/components/meal-planning/fill-empty-days-dialog";
@@ -224,23 +224,16 @@ export function WeekPlanner({
       {/* Sticky on phones, so the week and its arrows stay in view down a
           week of day cards, and when the page opens scrolled to today
           (UX-21) — the same frosted bar as the shopping list's add bar. */}
-      <div className="flex flex-wrap items-center gap-1 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:gap-2 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2 max-sm:backdrop-blur-sm">
-        <Button variant="outline" size="icon-sm" aria-label={dict.previousWeek} render={
-          <Link href={`/dashboard/meal-planning?week=${prevWeekKey}`} />
-        }>
-          <ChevronLeft className="size-4" />
-        </Button>
-        <Button variant="outline" size="icon-sm" aria-label={dict.nextWeek} render={
-          <Link href={`/dashboard/meal-planning?week=${nextWeekKey}`} />
-        }>
-          <ChevronRight className="size-4" />
-        </Button>
-        <p className="min-w-0 flex-1 px-1 text-sm font-medium">{weekRange}</p>
-        {!isCurrentWeek && (
-          <Button variant="outline" size="sm" render={<Link href="/dashboard/meal-planning" />}>
-            {dict.thisWeek}
-          </Button>
-        )}
+      <div className="flex items-center gap-2 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2 max-sm:backdrop-blur-sm">
+        <PeriodSwitcher
+          className="min-w-0 flex-1"
+          label={weekRange}
+          prevHref={`/dashboard/meal-planning?week=${prevWeekKey}`}
+          nextHref={`/dashboard/meal-planning?week=${nextWeekKey}`}
+          currentHref="/dashboard/meal-planning"
+          isCurrent={isCurrentWeek}
+          dict={{ previous: dict.previousWeek, next: dict.nextWeek, current: dict.thisWeek }}
+        />
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
