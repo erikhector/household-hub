@@ -7488,6 +7488,21 @@ approximating them, so the email never disagrees with the app.
   those carry into the next item, while expiry and use-within go back to
   blank (so AUTO-7 can still estimate the next item's expiry). Covered by
   `e2e/form-errors.spec.ts`.
+- **Signup and login errors sit next to the field (UX-59).** Both forms
+  are `noValidate` and check in the browser first
+  (`src/components/auth/signup-form.tsx`, `login-form.tsx`): a missing
+  name, bad email, password under 8 characters or a password mismatch is
+  worded in the page's language under its field (`FieldError`, `role="alert"`),
+  the field gets `aria-invalid` and `aria-describedby`, and focus goes to the
+  first one. A blocked submit never runs the action, so nothing is reset:
+  a mismatch keeps the first password. The signup password field always
+  shows "At least 8 characters". Server rejections come back with a
+  `field` (and `code: "email-taken"`) in `SignupState`: the error shows
+  under that field and takes focus. A taken email also offers Log in
+  (prefilled with the email) and Forgot password links. A wrong login
+  password is shown under the password field, which takes focus; the email
+  is kept. Server messages stay English (MAINT-7). Covered by
+  `e2e/auth-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

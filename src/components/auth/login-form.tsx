@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useSyncExternalStore } from "react";
+import { useActionState, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { Mail, Lock, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import {
   loginAction,
@@ -42,6 +43,35 @@ export function LoginForm({
   );
   // UX-13: a wrong password keeps the email filled in.
   const kept = useKeptFormValues(["email"]);
+  // UX-59: browser-side checks word a missing or malformed email/password in
+  // the page's language, under the field, instead of the browser's own bubble.
+  const [clientErrors, setClientErrors] = useState<{ email?: string; password?: string }>({});
+  const blocked = Boolean(clientErrors.email || clientErrors.password);
+  // The server's verdict is about the credentials as a pair (it never says
+  // which half was wrong, on purpose), so it sits under the password, the
+  // field that was just wiped and needs retyping.
+  const emailError = clientErrors.email;
+  const passwordError = blocked ? clientErrors.password : state.error;
+  // After a refused login the password is empty: put the cursor back there.
+  useEffect(() => {
+    if (state.error) document.getElementById("password")?.focus();
+  }, [state]);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    const data = new FormData(event.currentTarget);
+    const email = String(data.get("email") ?? "").trim();
+    const found: { email?: string; password?: string } = {};
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) found.email = dict.emailInvalid;
+    if (!data.get("password")) found.password = dict.passwordRequired;
+    setClientErrors(found);
+    if (found.email || found.password) {
+      // Stops React running the form action, so nothing is reset.
+      event.preventDefault();
+      document.getElementById(found.email ? "email" : "password")?.focus();
+      return;
+    }
+    kept.onSubmit(event);
+  }
   // Read client-side (rather than via a `next`/`callbackUrl` prop threaded
   // down from src/app/login/page.tsx) so a deep link followed while logged
   // out lands back where it was headed after login — see proxy.ts, which
@@ -59,7 +89,7 @@ export function LoginForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+      <form action={formAction} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <input type="hidden" name="next" value={nextPath} />
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">{dict.email}</Label>
@@ -73,9 +103,12 @@ export function LoginForm({
               maxLength={254}
               autoComplete="email"
               defaultValue={kept.values.email ?? initialEmail}
+              aria-invalid={emailError ? true : undefined}
+              aria-describedby={emailError ? fieldErrorId("email") : undefined}
               className="pl-8"
             />
           </div>
+          <FieldError fieldId="email">{emailError}</FieldError>
         </div>
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -95,11 +128,13 @@ export function LoginForm({
             required
             maxLength={72}
             autoComplete="current-password"
+            aria-invalid={passwordError ? true : undefined}
+            aria-describedby={passwordError ? fieldErrorId("password") : undefined}
             showLabel={dict.showPassword}
             hideLabel={dict.hidePassword}
           />
+          <FieldError fieldId="password">{passwordError}</FieldError>
         </div>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
         <Button type="submit" disabled={pending} className="w-full">
           <LogIn className="size-4" />
           <PendingLabel pending={pending} busy={dict.loggingIn} idle={dict.submit} />
