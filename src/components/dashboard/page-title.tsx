@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { commonCopy } from "@/lib/i18n/common";
 import { getDocumentLocale } from "@/lib/i18n/client-locale";
-import { COMPACT_TITLE_SLOT_ID } from "@/components/dashboard/nav-items";
+import { COMPACT_TITLE_SLOT_ID, NAV_ACCENT_BAR_CLASSES, navItemForPath } from "@/components/dashboard/nav-items";
 import { MorphTitle, type MorphKind } from "@/components/shared/view-transitions";
 
 const subscribeNoop = () => () => {};
@@ -21,12 +22,29 @@ const subscribeNoop = () => () => {};
 export function PageTitle({
   children,
   morph,
+  onTap,
+  tapHint,
 }: {
   children: ReactNode;
+  /** UX-85: tapping the large title does something (a list's title opens
+   * Rename). A pointer shortcut only: the same action must also sit in a
+   * menu, since the heading itself isn't a tab stop. */
+  onTap?: () => void;
+  /** Tooltip for `onTap`, e.g. "Tap the title to rename". */
+  tapHint?: string;
   /** UX-33: the list row whose title flies into this one (MorphTitle).
    * Only the large H1 takes part, never the compact copy in the bar. */
   morph?: { kind: MorphKind; id: string };
 }) {
+  // UX-52: the section's hue also marks its page, as a short accent bar
+  // under the large title, so the colour on the bottom-bar tab means
+  // something. Pages outside a coloured section (Overview, What's new) have
+  // none. A bar under the title rather than a tile beside it: the title stays
+  // on the page's gutter, aligned with the lists below it (UX-139). Only on
+  // the section's own page: a detail page (a shopping list) needs its height
+  // for rows (UX-79).
+  const pathname = usePathname();
+  const section = navItemForPath(pathname);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   // The portal target only exists in the browser; reading it through
@@ -78,9 +96,11 @@ export function PageTitle({
     <h1
       ref={titleRef}
       tabIndex={-1}
+      onClick={onTap}
+      title={onTap ? tapHint : undefined}
       // break-words: a long name (the overview greeting, an item) or a
       // long Swedish word at 200% text would otherwise widen the page.
-      className="font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl"
+      className={cn("font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl", onTap && "cursor-pointer")}
     >
       {children}
     </h1>
@@ -94,6 +114,13 @@ export function PageTitle({
         </MorphTitle>
       ) : (
         title
+      )}
+      {section?.color && section.href === pathname && (
+        <span
+          aria-hidden="true"
+          data-section-accent={section.color}
+          className={cn("mt-1.5 mb-1 block h-1 w-8 rounded-full", NAV_ACCENT_BAR_CLASSES[section.color])}
+        />
       )}
       {/* Mounted only while collapsed, so the title isn't in the DOM twice
           the rest of the time (nor ever on desktop, where the slot's
