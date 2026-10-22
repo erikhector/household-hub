@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.99.1",
+    "date": "2026-10-22",
+    "pr": 582,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On the Household page, an owner now finds \"Make owner\" and \"Remove from household\" in one menu on each member, and long names are no longer squeezed on small phones.",
+      "sv": "På sidan Hushåll hittar en ägare nu \"Gör till ägare\" och \"Ta bort från hushållet\" i en och samma meny för varje medlem, och långa namn kläms inte längre ihop på små telefoner."
+    }
+  },
+  {
     "version": "0.99.0",
     "date": "2026-10-22",
     "pr": 576,
