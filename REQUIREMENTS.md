@@ -2696,8 +2696,9 @@ Component page function can't itself be unit-tested.
   The household page, `loadHouseholdSafeToSpend` (Today block) and
   `loadPersonalBudgetPosition` (Personal Budget and the dashboard card) all
   pass the limited categories in, so the numbers agree; without any limit
-  nothing changes. A limited category also counts as "data" for the empty
-  state (`needsSafeToSpendSetup`). Decided in #397 (option 1).
+  nothing changes. A limit alone does not count as data for the empty
+  state (`needsSafeToSpendSetup`), so a fresh budget still asks for income
+  instead of showing a negative number. Decided in #397 (option 1).
 - **Projected end of month (UX-39)**: in the current month, under the
   number, a small line chart ("At this pace"): solid for what was safe to
   spend at the end of each day so far, dashed from today to the last day at

@@ -114,7 +114,6 @@ export function needsSafeToSpendSetup(
     breakdown.dueIncome < EPS &&
     breakdown.duePayments < EPS &&
     breakdown.dueSavings < EPS &&
-    breakdown.stillBudgeted < EPS &&
     breakdown.owedFromEarlier < EPS &&
     breakdown.expense < EPS &&
     breakdown.savings < EPS &&

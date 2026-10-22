@@ -625,9 +625,13 @@ describe("needsSafeToSpendSetup", () => {
   });
 
   it("is false when any single field is set on its own", () => {
-    for (const k of ["income", "dueIncome", "expense", "savings", "owedFromEarlier", "duePayments", "dueSavings", "stillBudgeted"] as const) {
+    for (const k of ["income", "dueIncome", "expense", "savings", "owedFromEarlier", "duePayments", "dueSavings"] as const) {
       expect(needsSafeToSpendSetup({ ...empty, [k]: 1 }, [])).toBe(false);
     }
+  });
+
+  it("still asks for setup when only a category limit is held back (UX-138)", () => {
+    expect(needsSafeToSpendSetup({ ...empty, stillBudgeted: 3000 }, [])).toBe(true);
   });
 
   it("keeps logged spending visible when there is no income", () => {
