@@ -480,7 +480,7 @@ UX-89.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
-  UX-81, UX-85.
+  UX-81.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
 
@@ -652,20 +652,6 @@ UX-89.
       accepts the defaults, with per-item details collapsed. No "Not put
       away" badges while the list is active. After completing, the page
       offers "Back to lists" and "Start next list".
-
-- [ ] **UX-85. Rename a list, and start a new list from a template or a
-      past list** (impact: med, effort: M) — breaks User control and M4.
-      - Lists can't be renamed anywhere: there's no action in
-        `shopping-list/actions.ts`.
-      - The New list sheet asks only for a name.
-      - Templates sit further down, each with its own "New list" button,
-        so the page has two "New list" buttons that mean different
-        things.
-      - Repeating last week's shop means saving a template first; in
-        Bring! and AnyList it's one tap.
-      Acceptance: the list ⋯ menu (and tapping the title) offers Rename.
-      The New list sheet offers "Start from: blank / a template / a
-      recent list (unbought or all items)". Template rows say "Use".
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) `[!]` — breaks User-centricity

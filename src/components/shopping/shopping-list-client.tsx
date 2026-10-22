@@ -19,6 +19,7 @@ import {
   Link2,
   PackageCheck,
   PackagePlus,
+  Pencil,
   Plus,
   Printer,
   RotateCcw,
@@ -50,6 +51,7 @@ import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { CategoryChip } from "@/components/shopping/category-chip";
 import { ReorderSectionsDialog } from "@/components/shopping/reorder-sections-dialog";
 import { SaveTemplateDialog } from "@/components/shopping/list-templates";
+import { RenameListDialog } from "@/components/shopping/rename-list-dialog";
 import { PutAwayDialog } from "@/components/shopping/put-away-dialog";
 import { NextUpDock, ProgressRing } from "@/components/shopping/shopping-mode";
 import {
@@ -434,6 +436,7 @@ export function ShoppingListClient({
     deleteList: createDialogHandle(),
     reorderSections: createDialogHandle(),
     saveTemplate: createDialogHandle(),
+    renameList: createDialogHandle(),
   }));
 
   // null = closed; "finish" = opened from "Done shopping"/"Complete list"
@@ -626,7 +629,11 @@ export function ShoppingListClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <PageTitle morph={{ kind: "shopping-list", id: list.id }}>{list.name}</PageTitle>
+            <PageTitle
+              morph={{ kind: "shopping-list", id: list.id }}
+              onTap={() => dialogs.renameList.open(null)}
+              tapHint={dict.renameList.titleHint}
+            >{list.name}</PageTitle>
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
           {/* AUTO-4: hidden until at least one pending item has a price —
@@ -682,6 +689,11 @@ export function ShoppingListClient({
               }
             />
             <DropdownMenuContent align="end" className="w-auto min-w-52 print:hidden">
+              {/* UX-85: offered on any status, like Save as template. */}
+              <DropdownMenuItem onClick={() => dialogs.renameList.open(null)}>
+                <Pencil />
+                {dict.renameList.menuItem}
+              </DropdownMenuItem>
               {isActive && (
                 <>
                   <DropdownMenuItem onClick={() => dialogs.addItem.open(null)}>
@@ -825,6 +837,8 @@ export function ShoppingListClient({
           autoAddDict={autoAddDict}
         />
       )}
+
+      <RenameListDialog listId={list.id} listName={list.name} dict={dict.renameList} handle={dialogs.renameList} />
 
       {items.length > 0 && (
         <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />

@@ -22,8 +22,16 @@ const subscribeNoop = () => () => {};
 export function PageTitle({
   children,
   morph,
+  onTap,
+  tapHint,
 }: {
   children: ReactNode;
+  /** UX-85: tapping the large title does something (a list's title opens
+   * Rename). A pointer shortcut only: the same action must also sit in a
+   * menu, since the heading itself isn't a tab stop. */
+  onTap?: () => void;
+  /** Tooltip for `onTap`, e.g. "Tap the title to rename". */
+  tapHint?: string;
   /** UX-33: the list row whose title flies into this one (MorphTitle).
    * Only the large H1 takes part, never the compact copy in the bar. */
   morph?: { kind: MorphKind; id: string };
@@ -88,9 +96,11 @@ export function PageTitle({
     <h1
       ref={titleRef}
       tabIndex={-1}
+      onClick={onTap}
+      title={onTap ? tapHint : undefined}
       // break-words: a long name (the overview greeting, an item) or a
       // long Swedish word at 200% text would otherwise widen the page.
-      className="font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl"
+      className={cn("font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl", onTap && "cursor-pointer")}
     >
       {children}
     </h1>

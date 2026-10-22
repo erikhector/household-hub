@@ -75,7 +75,12 @@ async function ShoppingListsSection({
 export default async function ShoppingListPage() {
   const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
 
-  const [inventoryItems, aliases] = await Promise.all([
+  // UX-85: what the New list sheet can start from: saved templates, and the
+  // latest few lists (any status, the default "Next shop" included: repeating
+  // last week's shop is the common case). A list with no rows has nothing to
+  // copy, so it isn't offered; the unbought count lets the sheet default a
+  // finished trip, where every row is ticked, to "All items".
+  const [inventoryItems, aliases, startTemplates, recentLists] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
       // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
@@ -89,7 +94,19 @@ export default async function ShoppingListPage() {
       where: { householdId: household.id, inventoryItemId: { not: null } },
       select: { normalizedName: true, inventoryItemId: true },
     }),
+    prisma.shoppingListTemplate.findMany({
+      where: { householdId: household.id },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.shoppingList.findMany({
+      where: { householdId: household.id, items: { some: {} } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { id: true, name: true, _count: { select: { items: { where: { purchased: false } } } } },
+    }),
   ]);
+  const startLists = recentLists.map((list) => ({ id: list.id, name: list.name, unbought: list._count.items }));
 
   const units = withCommonUnits([...new Set(inventoryItems.map((item) => item.unit))].sort());
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
@@ -111,7 +128,12 @@ export default async function ShoppingListPage() {
             aliases={aliases}
           />
           <PrimaryAction>
-            <NewListDialog dict={dict.shoppingList} locale={locale} />
+            <NewListDialog
+              dict={dict.shoppingList}
+              locale={locale}
+              templates={startTemplates}
+              recentLists={startLists}
+            />
           </PrimaryAction>
         </div>
       </div>
