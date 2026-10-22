@@ -449,8 +449,6 @@ UX-89.
 - `src/components/shopping/shopping-list-client.tsx`: UX-49,
   UX-81, UX-85.
 - `src/components/tasks/tasks-client.tsx`: UX-49.
-- `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-127.
 - `src/components/meal-planning/week-planner.tsx`: UX-49.
 
 #### Shell and cross-cutting
@@ -546,26 +544,6 @@ UX-89.
       password field shows "At least 8 characters" before submit. The
       duplicate-email error links to Log in and Forgot password.
 
-- [ ] **UX-63. The shared-list page as good as the member view**
-      (impact: med, effort: M) — breaks Consistency and User-centricity
-      (the person you share with is often the one in the shop).
-      `/share/shopping-list/<token>` (`shared-shopping-list-client.tsx`)
-      has:
-      - a flat list in insertion order: no aisle grouping, progress ring,
-        dock or All done;
-      - no brand badge and no sharer;
-      - an amber warning that ticks change "this household's actual
-        shopping list and inventory" (`en.ts:3144`), which is jargon for
-        a non-user;
-      - `sharedShoppingList.footerNote` (`en.ts:3147`) defined but never
-        rendered;
-      - long names clamped to two lines, readable only in a `title`
-        tooltip that phones can't show.
-      Acceptance: the share page shows the brand badge and "Shared by
-      {household}", groups by aisle in the household's store order, shows
-      "n of m" progress and an All done state, and has a neutral one-line
-      banner. Long names can be read in full, and a footer links to `/`.
-
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
       accurate "who we are"** (impact: med, effort: M) — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).
@@ -580,13 +558,6 @@ UX-89.
       carries `lang="en"` and an "Only available in English" note. "Who
       we are" matches how Squirrel is offered. The page starts with a
       jump list.
-
-- [ ] **UX-67. Let password managers update the right login on reset**
-      (impact: low, effort: S) — M4. `reset-password-form.tsx:25` has no
-      username field, so Chrome and iOS offer to save a password with no
-      account attached.
-      Acceptance: the form includes a hidden `autocomplete="username"`
-      input holding the account email.
 
 #### First run and the overview
 
@@ -752,17 +723,6 @@ UX-89.
       "never stocked".
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
-
-- [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
-      breaks M4 ("pick, don't type").
-      - The unit field is prefilled "pcs" and its chevron is hidden while
-        it has a value (`combo-field.tsx:50-55`,
-        `ui/autocomplete.tsx:63-69`), so seeing other units means erasing
-        "pcs" first.
-      - Suggestions only include units the household already uses, so a
-        new household gets none and has to type "dl" or "förp".
-      Acceptance: one tap shows common units (st/pcs, g, kg, dl, l, förp)
-      plus used ones, as chips or a list.
 
 - [ ] **UX-131. A scannable item catalog on phones** (impact: low,
       effort: M) — breaks M6 and Consistency.

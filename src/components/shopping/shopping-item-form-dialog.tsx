@@ -338,6 +338,7 @@ export function ShoppingItemFormDialog({
                     id="add-item-unit"
                     name="unit"
                     items={units}
+                    browseOnTap
                     value={unit}
                     onValueChange={setUnit}
                     placeholder={dict.addItemUnitPlaceholder}
@@ -405,6 +406,7 @@ export function ShoppingItemFormDialog({
                       id="edit-item-unit"
                       name="unit"
                       items={units}
+                      browseOnTap
                       value={unit}
                       onValueChange={setUnit}
                       placeholder={dict.editItem.unitPlaceholder}
