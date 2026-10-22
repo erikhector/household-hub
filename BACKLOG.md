@@ -316,24 +316,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-39. Flaky: shopping-item glide shows a layout shift of 0.0119** (low, S) —
-      `e2e/motion.spec.ts:180` ("adding, ticking and removing shopping
-      items glide, with no layout shift"), `desktop` project. Failed in the
-      local `ci:local` gate on release PR #470 (`edc55ea`, 2026-10-20):
-      CLS 0.0119 against an expected 0, on three shopping-item swipe rows.
-      Passed on a re-run of `e2e/motion.spec.ts --project=desktop` on the
-      same commit (8/8), and the GitHub e2e job was green. Seen again in
-      the `ci:local` gate on PR #464 (`815c9ca`, 2026-10-20): CLS 0.012,
-      passed 14/14 on a re-run on the same commit. Find what shifts
-      the swipe rows under load and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/motion.spec.ts:180 --project=desktop
-      --repeat-each=30` passes 30/30. Seen again on a clean `origin/next` (`995cb99`,
-      2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
-      Seen again in the `ci:local` gate on release PR #537 (`4f04e69`,
-      2026-10-21): CLS 0.00886, passed on a re-run on the same commit.
-      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
-      2026-10-22): `desktop`, passed on a re-run on the same commit.
 - [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
       `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
       through the field or the bar"), `mobile` project. Failed in the local
