@@ -32,8 +32,11 @@ export function PageTitle({
   // under the large title, so the colour on the bottom-bar tab means
   // something. Pages outside a coloured section (Overview, What's new) have
   // none. A bar under the title rather than a tile beside it: the title stays
-  // on the page's gutter, aligned with the lists below it (UX-139).
-  const section = navItemForPath(usePathname());
+  // on the page's gutter, aligned with the lists below it (UX-139). Only on
+  // the section's own page: a detail page (a shopping list) needs its height
+  // for rows (UX-79).
+  const pathname = usePathname();
+  const section = navItemForPath(pathname);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   // The portal target only exists in the browser; reading it through
@@ -102,7 +105,7 @@ export function PageTitle({
       ) : (
         title
       )}
-      {section?.color && (
+      {section?.color && section.href === pathname && (
         <span
           aria-hidden="true"
           data-section-accent={section.color}

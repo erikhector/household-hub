@@ -6256,7 +6256,7 @@ components directly.
   tile, so their labels share one baseline. Overview and "More" use a neutral
   tile (primary-tinted while active); the others keep their section hue
   (`NAV_ICON_TILE_CLASSES`) active or not, and `PageTitle` draws a short bar
-  in the same hue under the large title (`navItemForPath`,
+  in the same hue under the large title of the section's own page (`navItemForPath`,
   `NAV_ACCENT_BAR_CLASSES`), so the colour marks the page you're on. Covered by
   `e2e/navigation.mobile.spec.ts`.
 - **Where you are (UX-27)**: the current page is marked in both layouts
