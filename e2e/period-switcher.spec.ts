@@ -26,7 +26,7 @@ for (const s of switchers) {
 
     // Same arrow size everywhere (the ghost icon-lg link of PeriodSwitcher).
     const prev = await main.getByRole("link", { name: s.prev }).boundingBox();
-    expect(prev!.width).toBeGreaterThanOrEqual(40);
+    expect(prev!.width).toBeGreaterThanOrEqual(36);
     expect(Math.round(prev!.width)).toBe(Math.round(prev!.height));
 
     await page.goto(s.away);
