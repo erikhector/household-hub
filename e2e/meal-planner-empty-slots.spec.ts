@@ -82,7 +82,9 @@ test("the planner has one control row with the rare actions in a menu", async ({
   const more = page.getByRole("button", { name: "More planner actions" });
   const moreBox = await more.boundingBox();
   expect(Math.abs(prev!.y - next!.y)).toBeLessThan(2);
-  expect(Math.abs(prev!.y - moreBox!.y)).toBeLessThan(2);
+  // Centres, not tops: the switcher's "This week" link sits under the range
+  // on another week, so the row is taller than the ⋯ button (UX-53).
+  expect(Math.abs(prev!.y + prev!.height / 2 - (moreBox!.y + moreBox!.height / 2))).toBeLessThan(2);
   if (testInfo.project.name === "mobile") {
     // M3: 44 px targets with at least 8 px between neighbours.
     expect(prev!.width).toBeGreaterThanOrEqual(44);
