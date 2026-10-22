@@ -197,6 +197,7 @@ export default async function ShoppingListDetailPage(
       carryOverListName={
         activeDefault && activeDefault.id !== list.id ? activeDefault.name : dict.shoppingList.defaultListName
       }
+      nextListId={activeDefault && activeDefault.id !== list.id ? activeDefault.id : null}
     />
   );
 }

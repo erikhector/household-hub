@@ -148,7 +148,7 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
   await expect(main.getByRole("progressbar", { name: "Shopping progress" })).toHaveAttribute("aria-valuetext", "4 of 4");
   await expect(dock).toHaveCount(0);
   await expect(main.getByText("4 things are waiting to be put away.")).toBeVisible();
-  await expect(main.getByRole("button", { name: "Put things away" })).toBeEnabled();
+  await expect(main.getByRole("button", { name: "Put everything away" })).toBeEnabled();
 
   // Never scrolled: neither the page nor (on a phone) main, its scroller.
   const scrolled = await page.evaluate(() => window.scrollY + (document.querySelector("main")?.scrollTop ?? 0));
@@ -156,7 +156,7 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
 
   // Every tick saved.
   await page.reload();
-  await expect(main.getByRole("button", { name: "Put things away" })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Put everything away" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -214,7 +214,7 @@ test("All done offers to put away what's still in the cart", async ({ page }) =>
   await expect(main.getByText("All done", { exact: true })).toBeVisible();
   // The seeded household puts away later (ON_PUT_AWAY), so both wait.
   await expect(main.getByText("2 things are waiting to be put away.")).toBeVisible();
-  await page.getByRole("button", { name: "Put things away" }).click();
+  await page.getByRole("button", { name: "Review first" }).click();
   await expect(page.getByRole("dialog", { name: "Put away before you finish?" })).toBeVisible();
 });
 
