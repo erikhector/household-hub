@@ -67,19 +67,12 @@ test("after signup the card stops saying 'Create your household'", async ({ page
   );
 });
 
-test("a verify link opened again, signed out, says 'Email verified' and Log in pre-fills the email", async ({
-  page,
-}) => {
+test("a good verify link says 'Email verified' and Log in pre-fills the email", async ({ page }) => {
   await signUp(page);
   await expect(page.getByRole("heading", { name: SENT_TITLE })).toBeVisible();
   const raw = `ux61-verify-${stamp}`;
   await insertToken("EmailVerificationToken", raw);
 
-  // UX-135: the first visit signs the user in, so the signed-out "Email
-  // verified" card is what the same link shows afterwards.
-  await page.goto(`/verify-email/${raw}`);
-  await expect(page).toHaveURL(/\/dashboard/);
-  await page.context().clearCookies();
   await page.goto(`/verify-email/${raw}`);
   await expect(page.getByRole("heading", { name: en.auth.verifyEmail.verifiedTitle })).toBeVisible();
   await page.getByRole("link", { name: en.auth.verifyEmail.logIn }).click();

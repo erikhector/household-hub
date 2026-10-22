@@ -6485,28 +6485,7 @@ components directly.
   `/login?reset=success&email=…`; `/login` reads `?email=` and pre-fills
   the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
   signup card's "Log in" link carries the address too. Covered by
-  `e2e/ux-61.spec.ts`.
-- **Sign in from the verification link (UX-135)**: a valid, unused,
-  unexpired `/verify-email/<token>` link opened by a signed-out visitor
-  signs them in and lands on `/dashboard?welcome=1`, where the overview's
-  title reads "Welcome to Squirrel, {first name}" instead of the time-of-day
-  greeting (`WelcomeTitle` drops the `welcome` query from the address bar, so
-  a reload shows the ordinary greeting). The sign-in is a second Credentials
-  provider, `verification-link`, in `src/lib/auth.ts`. Its proof is the
-  emailed raw token, never a user id; it rate-limits per token (like the
-  page's action), looks the token up by hash, refuses a used, expired or
-  unknown token, and refuses an account that is already verified. It spends
-  the token with the same atomic claim that verifies the email
-  (`redeemVerificationToken`, `src/lib/verification-redeem.ts`), so the link
-  signs in once. `verifyEmailAction` calls `signIn("verification-link")`,
-  catches only `AuthError` (the redirect passes through) and maps a refusal
-  to the existing "Link expired" card. Opening the link again, an expired
-  link, or a link for an already-verified account keeps the old behaviour:
-  "Email verified" with a "Log in" button, no session. A visitor who is
-  already signed in (the dashboard banner's resend flow) is only verified,
-  never switched to another account. No new cookie. Covered by
-  `e2e/ux-135.spec.ts`, `src/lib/auth.test.ts` and
-  `src/lib/actions/auth.test.ts`.
+  `e2e/ux-61.spec.ts`. Signing in straight from the link is UX-135.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;

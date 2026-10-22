@@ -4,8 +4,6 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/lib/auth.config";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { hashToken } from "@/lib/token-hash";
-import { redeemVerificationToken } from "@/lib/verification-redeem";
 
 // Thrown from `authorize` below once the password checks out but the
 // account's email is still unverified — lets loginAction (src/lib/actions/
@@ -42,12 +40,6 @@ export class RateLimitedSignin extends CredentialsSignin {
 // that endpoint free to guess passwords without limit.
 const LOGIN_RATE_LIMIT = 10;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-
-// UX-135: same per-token budget verifyEmailAction applies, repeated here
-// because Auth.js also accepts POST /api/auth/callback/verification-link
-// directly, which never goes through that action.
-const VERIFY_LINK_RATE_LIMIT = 10;
-const VERIFY_LINK_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -92,51 +84,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.displayName,
           passwordChangedAt: user.passwordChangedAt,
-        };
-      },
-    }),
-    // UX-135: a valid, unused, unexpired email-verification link signs the
-    // user in (same trust as a password-reset link, which proves the same
-    // inbox). The proof is the emailed raw token, never a user id, so this
-    // endpoint can't be used to sign in as someone by guessing an id. The
-    // token is spent here, in the same atomic claim that verifies the email
-    // (redeemVerificationToken), so the link signs in exactly once; an
-    // expired, used or unknown token returns null and the caller falls back
-    // to today's "log in" behaviour. No password is involved, so
-    // EmailNotVerifiedSignin can't apply: redeeming is what verifies.
-    Credentials({
-      id: "verification-link",
-      credentials: { token: { label: "Token", type: "text" } },
-      authorize: async (credentials) => {
-        const token = credentials?.token;
-        if (typeof token !== "string" || !token) return null;
-
-        if (
-          !(await checkRateLimit(
-            `verify-link:${token}`,
-            VERIFY_LINK_RATE_LIMIT,
-            VERIFY_LINK_RATE_LIMIT_WINDOW_MS,
-          ))
-        ) {
-          throw new RateLimitedSignin();
-        }
-
-        const row = await prisma.emailVerificationToken.findUnique({
-          where: { token: hashToken(token) },
-          include: { user: true },
-        });
-        if (!row || row.usedAt || row.expiresAt < new Date()) return null;
-        // Already verified: nothing to prove by this link, so it doesn't
-        // sign in (a stale second link must not become a login).
-        if (row.user.emailVerifiedAt) return null;
-
-        if (!(await redeemVerificationToken(row.id, row.userId))) return null;
-
-        return {
-          id: row.user.id,
-          email: row.user.email,
-          name: row.user.displayName,
-          passwordChangedAt: row.user.passwordChangedAt,
         };
       },
     }),

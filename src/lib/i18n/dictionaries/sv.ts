@@ -393,7 +393,6 @@ export const sv = {
       afternoon: "God eftermiddag, {name}",
       evening: "God kväll, {name}",
     },
-    welcome: "Välkommen till Squirrel, {name}",
     manage: "Hantera",
     sharedWithIn: {
       one: "Delas med {count} annan person i {name}",
