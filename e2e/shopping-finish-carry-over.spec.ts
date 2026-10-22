@@ -192,6 +192,13 @@ test("Done shopping after an earlier carry-over completion and Undo leaves a lat
   const done = page.getByRole("button", { name: en.shoppingList.putAway.everything, exact: true });
   await expect(done).toBeVisible();
 
+  // Let the tick's own save land and its revalidated list arrive first: a
+  // late row inserted while that is still on its way is in that list, and
+  // the page then shows it (so "All done" goes away and the button is
+  // replaced under the click) instead of not knowing it.
+  await expect.poll(async () => (await sql<{ purchased: boolean }>(`SELECT purchased FROM "ShoppingListItem" WHERE "shoppingListId" = $1 AND name = $2`, [listId, `Milk ${t}`]))[0]?.purchased).toBe(true);
+  await page.waitForLoadState("networkidle");
+
   // A row shows up unticked from another device (this page doesn't know it).
   const late = `Late ${t}`;
   await sql(`INSERT INTO "ShoppingListItem" (id, "shoppingListId", name, unit, purchased) VALUES ($1, $2, $3, 'pcs', false)`, [

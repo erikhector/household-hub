@@ -316,41 +316,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-39. Flaky: shopping-item glide shows a layout shift of 0.0119** (low, S) —
-      `e2e/motion.spec.ts:180` ("adding, ticking and removing shopping
-      items glide, with no layout shift"), `desktop` project. Failed in the
-      local `ci:local` gate on release PR #470 (`edc55ea`, 2026-10-20):
-      CLS 0.0119 against an expected 0, on three shopping-item swipe rows.
-      Passed on a re-run of `e2e/motion.spec.ts --project=desktop` on the
-      same commit (8/8), and the GitHub e2e job was green. Seen again in
-      the `ci:local` gate on PR #464 (`815c9ca`, 2026-10-20): CLS 0.012,
-      passed 14/14 on a re-run on the same commit. Find what shifts
-      the swipe rows under load and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/motion.spec.ts:180 --project=desktop
-      --repeat-each=30` passes 30/30. Seen again on a clean `origin/next` (`995cb99`,
-      2026-10-21) `ci:local` run, on both `desktop` and `mobile`.
-      Seen again in the `ci:local` gate on release PR #537 (`4f04e69`,
-      2026-10-21): CLS 0.00886, passed on a re-run on the same commit.
-      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
-      2026-10-22): `desktop`, passed on a re-run on the same commit.
-- [ ] **MAINT-40. Flaky: all-caught-up card test still sees an open task checkbox after reload** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
-      shows the all-caught-up card above Completed"), `desktop` project.
-      Failed its first attempt in the GitHub `End-to-end (Playwright)` job
-      on release PR #477 (`d16c164`, 2026-10-20) and passed on the retry.
-      The assertion at line 91, after `page.reload()`, expected
-      `getByRole("checkbox", { name: /^Mark .* as done$/ })` to have count 0
-      but received 1 for the whole 5 s. Also failed on the `mobile`
-      project in the `ci:local` gate on PR #464 (`fc00440`, 2026-10-20),
-      where another open task appeared in the worker's household mid-test,
-      and passed on re-runs of the same commit. Find which task is still
-      open after the spec's own completions (a late write, or another row
-      in the worker's shared household) and fix it in the app or the
-      spec's setup and waiting, never a loosened assertion, a skip or a
-      retry. Acceptance: `npx playwright test
-      e2e/task-caught-up.spec.ts:77 --repeat-each=30` passes 30/30 on
-      both the `desktop` and `mobile` projects.
 - [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
       `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
       through the field or the bar"), `mobile` project. Failed in the local
@@ -368,7 +333,10 @@ then MAINT-7 per feature, to avoid churn.
       again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
       the retry both failed in the GitHub e2e job, and it failed once in
       the local `ci:local` gate; it passed on a GitHub job re-run and on a
-      local re-run of the same commit.
+      local re-run of the same commit. Seen again on release PR #582
+      (`dec00a0`, 2026-10-22): it failed the attempt and the retry of
+      GitHub e2e run 39803999752 and once in the local `ci:local` gate;
+      it passed on a GitHub job re-run and on a local re-run.
 - [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
       `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
       2026-10-21. Two specs, same symptom: the click on a "More" trigger
@@ -391,6 +359,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
       2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
       System" not found within 5s; passed on a re-run on the same commit.
+      Seen again in the `ci:local` gate on release PR #582 (`dec00a0`,
+      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
+      System" not found; passed in two focused re-runs.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
@@ -434,6 +405,21 @@ then MAINT-7 per feature, to avoid churn.
       spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test
       e2e/shopping-finish-carry-over.spec.ts:170 --project=desktop
+      --repeat-each=30` passes 30/30.
+      Seen again on release PR #588 (`673a16e`, 2026-10-22): the GitHub
+      e2e job failed the attempt (the 'Put everything away' button stayed
+      disabled and kept detaching) and passed on the retry.
+
+- [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
+      `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
+      three done before any save answers", `mobile`). Failed the attempt
+      in the GitHub `End-to-end (Playwright)` job on release PR #588
+      (`673a16e`, 2026-10-22) and passed on the CI retry. Find what lets
+      the third tick land late (a re-render between taps, or the spec
+      asserting before the optimistic state settles) and fix it in the
+      app or the spec's waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/optimistic-ticking.spec.ts:169 --project=mobile
       --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
