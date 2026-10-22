@@ -382,23 +382,24 @@ then MAINT-7 per feature, to avoid churn.
       `npx playwright test e2e/ux-51.spec.ts:114
       e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
       --repeat-each=30` passes 30/30.
-- [ ] **MAINT-45. Flaky: `native-sheets` dialog and sheet position checks fail in the full run** (low, S) —
-      `e2e/native-sheets.spec.ts:152` ("on a desktop: the centred dialog
-      doesn't drag", `desktop`) and `e2e/native-sheets.spec.ts:54` ("on a
-      phone: a flick down on the grabber dismisses the sheet and leaves no
-      back step", `mobile`). Both failed in a `ci:local` run on a clean
-      `origin/next` (`995cb99`, 2026-10-21), and `:152` also failed in
-      three separate gates on the MAINT-35, UX-85 and UX-118 branches,
-      none touching the spec's area. At line 175 the dialog's y was 60,
-      expected 109. `--repeat-each=5` of the file alone on `desktop`
-      passed 12/12, so it only fails under the load or ordering of the
-      full run. Seen again 2026-10-22: `:152` failed on clean `origin/next`
-      (`2fbd567`) and in gates on the UX-131, UX-53 and UX-81 branches,
-      while the UX-52 gate passed. Find what moves the dialog (a late layout or animation
-      settle) and fix it in the app or the spec's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on
-      both projects.
+- [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
+      `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
+      grabber dismisses the sheet and leaves no back step", `mobile`)
+      failed in a `ci:local` run on a clean `origin/next` (`995cb99`,
+      2026-10-21). `--repeat-each=30` of the file on `mobile` fails it
+      3-6 times in 30 (2026-10-22): the dialog is still there after the
+      flick (`toHaveCount(0)` received 1). Waiting for the open
+      animation to finish first, as the slow-pull test does, didn't
+      change the rate, so suspect the flick's velocity: four CDP moves
+      with no delay, spread out by a loaded machine, may read as a slow
+      260 px pull that springs back. (The desktop half of this item,
+      `:152` "the centred dialog doesn't drag", was fixed separately: it
+      now asserts the dialog stays centred rather than that its top
+      didn't move, since the dialog re-centres as its content grows.)
+      Fix it in the app or the spec's driving, never a loosened
+      assertion, a skip or a retry. Acceptance: `npx playwright test
+      e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on both
+      projects.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
@@ -701,18 +702,6 @@ UX-89.
       "never stocked".
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
-
-- [ ] **UX-131. A scannable item catalog on phones** (impact: low,
-      effort: M) — breaks M6 and Consistency.
-      - "All" shows ~130 px cards, three per screen, with no search, no
-        stock badge and no sign that a card opens the item page.
-      - The sort order differs from the inventory's (Ägg first here,
-        last there).
-      - In duplicate groups the radio/checkbox pair has no visible
-        labels.
-      Acceptance: the catalog has search and compact rows in the
-      inventory's style and order. Duplicate rows show "Keep" / "Merge"
-      labels.
 
 ### UX (2026-10-20 scout)
 

@@ -1586,7 +1586,11 @@ export const en = {
         one: "{count} group",
         other: "{count} groups",
       },
-      keep: "keep",
+      keep: "Keep",
+      merge: "Merge",
+      searchPlaceholder: "Search items…",
+      clearSearch: "Clear search",
+      noSearchResults: "No items match your search.",
       keepLabel: "Keep {name}",
       mergeLabel: "Merge {name} into the kept item",
       mergeButton: {

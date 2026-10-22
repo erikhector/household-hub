@@ -3,12 +3,15 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { TriangleAlert } from "lucide-react";
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Radio } from "@/components/ui/radio";
+import { SearchInput } from "@/components/ui/search-input";
+import { StockBadge } from "@/components/inventory/stock-badge";
+import { getStockStatus } from "@/lib/stock-status";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MergePreviewBody } from "@/components/inventory/catalog/merge-preview";
 import { dismissDuplicatesAction } from "@/app/dashboard/inventory/items/actions";
@@ -29,21 +32,29 @@ import { useUnitLabel } from "@/components/units-provider";
 import { MorphTitle } from "@/components/shared/view-transitions";
 
 type CatalogDict = Dictionary["inventory"]["catalog"];
+type StockDict = Pick<Dictionary["inventory"], "statusOut" | "statusLow" | "statusIn">;
 
 // The item catalog (MATCH-7, design §6.2): every item behind filter chips,
 // and the possible-duplicate groups with merge and "Not duplicates". Rows
-// are a grid on wider screens and stacked cards on phones.
+// are a table on wider screens and compact inventory-style rows on phones
+// (stock badge, chevron), in the inventory page's order, with a name search
+// (UX-131).
 export function ItemCatalog({
   rows,
   groups,
   dict,
+  stockDict,
   locale,
 }: {
   rows: CatalogRow[];
   groups: DuplicateGroup[];
   dict: CatalogDict;
+  stockDict: StockDict;
   locale: Locale;
 }) {
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLowerCase();
+  const matches = (name: string) => !needle || name.toLowerCase().includes(needle);
   // The chip lives in `?filter=` (replaced, not pushed, so chips don't pile
   // up history), so the browser's own back button from an item page lands
   // on the same filter as the page's back arrow does. It's read back from
@@ -59,6 +70,11 @@ export function ItemCatalog({
     neverStocked: filterCatalogRows(rows, "neverStocked").length,
     unitProblems: filterCatalogRows(rows, "unitProblems").length,
   };
+
+  // The search narrows whichever chip is open; a group stays while any
+  // member matches, so a keeper isn't hidden from its duplicate.
+  const visibleGroups = groups.filter((group) => group.members.some((member) => matches(member.name)));
+  const visibleRows = (filter === "duplicates" ? [] : filterCatalogRows(rows, filter)).filter((row) => matches(row.name));
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -81,12 +97,23 @@ export function ItemCatalog({
         ))}
       </div>
 
+      <SearchInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder={dict.searchPlaceholder}
+        aria-label={dict.searchPlaceholder}
+        clearLabel={dict.clearSearch}
+        containerClassName="sm:w-72"
+      />
+
       {filter === "duplicates" ? (
         groups.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.empty.duplicates}</p>
+        ) : visibleGroups.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{dict.noSearchResults}</p>
         ) : (
           <ul className="list-bleed flex flex-col gap-3">
-            {groups.map((group) => (
+            {visibleGroups.map((group) => (
               <DuplicateGroupCard
                 key={group.members.map((member) => member.id).join(",")}
                 group={group}
@@ -97,7 +124,13 @@ export function ItemCatalog({
           </ul>
         )
       ) : (
-        <CatalogRows rows={filterCatalogRows(rows, filter)} filter={filter} emptyText={dict.empty[filter]} dict={dict} />
+        <CatalogRows
+          rows={visibleRows}
+          filter={filter}
+          emptyText={needle ? dict.noSearchResults : dict.empty[filter]}
+          dict={dict}
+          stockDict={stockDict}
+        />
       )}
     </div>
   );
@@ -108,11 +141,13 @@ function CatalogRows({
   filter,
   emptyText,
   dict,
+  stockDict,
 }: {
   rows: CatalogRow[];
   filter: CatalogFilter;
   emptyText: string;
   dict: CatalogDict;
+  stockDict: StockDict;
 }) {
   const unitLabel = useUnitLabel();
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
@@ -125,32 +160,48 @@ function CatalogRows({
         <span>{dict.columns.stock}</span>
         <span>{dict.columns.usedIn}</span>
       </div>
-      <ul className="list-bleed flex flex-col gap-2 sm:gap-0 sm:divide-y sm:rounded-lg sm:border">
+      <ul className="list-bleed flex flex-col divide-y rounded-lg border">
         {rows.map((row) => (
-          <li key={row.id} className="rounded-lg border sm:rounded-none sm:border-0">
+          <li key={row.id}>
             <Link
               href={itemPageHref(row.id, { kind: "catalog", filter })}
-              className={cn("flex flex-col gap-1 p-3 text-sm hover:bg-muted/50 max-sm:min-h-11 pointer-coarse:min-h-11", grid)}
+              className={cn("flex items-center gap-2 p-3 text-sm hover:bg-muted/50 max-sm:min-h-11 pointer-coarse:min-h-11", grid)}
             >
-              <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                {/* UX-33: flies up into the item page's title on the way in. */}
-                <MorphTitle kind="inventory-item" id={row.id}>
-                  <span className="font-medium break-words">{row.name}</span>
-                </MorphTitle>
-                {row.neverStocked && <Badge variant="secondary">{dict.neverStocked}</Badge>}
-                {row.unitProblems.length > 0 && (
-                  <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-                    <TriangleAlert className="size-3.5" aria-hidden="true" />
-                    {format(dict.unitProblem, { units: row.unitProblems.join(", ") })}
-                  </span>
-                )}
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-none">
+                <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  {/* UX-33: flies up into the item page's title on the way in. */}
+                  <MorphTitle kind="inventory-item" id={row.id}>
+                    <span className="font-medium break-words">{row.name}</span>
+                  </MorphTitle>
+                  {row.neverStocked && <Badge variant="secondary">{dict.neverStocked}</Badge>}
+                  {row.unitProblems.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+                      <TriangleAlert className="size-3.5" aria-hidden="true" />
+                      {format(dict.unitProblem, { units: row.unitProblems.join(", ") })}
+                    </span>
+                  )}
+                </span>
+                {/* Phones: the other columns fold into one muted line under
+                    the name, as the inventory's rows do (UX-131). */}
+                <span className="text-xs break-words text-muted-foreground sm:hidden">
+                  {[
+                    row.category,
+                    `${row.quantity} ${unitLabel(row.unit)}`,
+                    ...(row.recipeCount > 0 ? [format(plural(row.recipeCount, dict.recipes), { count: row.recipeCount })] : []),
+                  ].join(" · ")}
+                </span>
               </span>
-              <span className="break-words text-muted-foreground">{row.category}</span>
-              <span className="tabular-nums">
+              <span className="hidden break-words text-muted-foreground sm:block">{row.category}</span>
+              <span className="hidden items-center gap-2 tabular-nums sm:flex">
                 {row.quantity} {unitLabel(row.unit)}
+                <StockBadge status={getStockStatus(row.quantity, row.lowStockThreshold)} dict={stockDict} />
               </span>
-              <span className="text-muted-foreground">
+              <span className="hidden text-muted-foreground sm:block">
                 {format(plural(row.recipeCount, dict.recipes), { count: row.recipeCount })}
+              </span>
+              <span className="flex shrink-0 items-center gap-1 sm:hidden">
+                <StockBadge status={getStockStatus(row.quantity, row.lowStockThreshold)} dict={stockDict} />
+                <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
               </span>
             </Link>
           </li>
@@ -212,21 +263,31 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
         {group.members.map((member) => {
           const isKeeper = member.id === keeperId;
           return (
-            <li key={member.id} className="flex min-w-0 items-start gap-3 text-sm">
-              <Radio
-                name={radioName}
-                className="mt-1"
-                checked={isKeeper}
-                onChange={() => setKeeperId(member.id)}
-                aria-label={format(dict.keepLabel, { name: member.name })}
-              />
-              <Checkbox
-                className={cn("mt-1", isKeeper && "invisible")}
-                checked={!isKeeper && !unticked.has(member.id)}
-                disabled={isKeeper}
-                onChange={(event) => toggle(member.id, event.target.checked)}
-                aria-label={format(dict.mergeLabel, { name: member.name })}
-              />
+            <li key={member.id} className="flex min-w-0 items-start gap-2 text-sm">
+              {/* UX-131: each control says what it does. The radio and the
+                  checkbox keep their full aria-labels (they name the item);
+                  the visible word starts the same way. The keeper's Merge
+                  is hidden but keeps its width, so the columns line up. */}
+              <div className="flex shrink-0 flex-col gap-2">
+                <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <Radio
+                    name={radioName}
+                    checked={isKeeper}
+                    onChange={() => setKeeperId(member.id)}
+                    aria-label={format(dict.keepLabel, { name: member.name })}
+                  />
+                  {dict.keep}
+                </label>
+                <label className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", isKeeper && "invisible")}>
+                  <Checkbox
+                    checked={!isKeeper && !unticked.has(member.id)}
+                    disabled={isKeeper}
+                    onChange={(event) => toggle(member.id, event.target.checked)}
+                    aria-label={format(dict.mergeLabel, { name: member.name })}
+                  />
+                  {dict.merge}
+              </label>
+              </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <Link
                   href={itemPageHref(member.id, { kind: "catalog", filter: "duplicates" })}
@@ -236,7 +297,6 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
                 </Link>
                 <span className="text-muted-foreground">{memberDetails(member, dict, unitLabel)}</span>
               </div>
-              {isKeeper && <Badge variant="secondary">{dict.keep}</Badge>}
             </li>
           );
         })}

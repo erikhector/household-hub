@@ -1505,7 +1505,11 @@ export const sv = {
         one: "{count} grupp",
         other: "{count} grupper",
       },
-      keep: "behåll",
+      keep: "Behåll",
+      merge: "Slå ihop",
+      searchPlaceholder: "Sök varor…",
+      clearSearch: "Rensa sökning",
+      noSearchResults: "Inga varor matchar din sökning.",
       keepLabel: "Behåll {name}",
       mergeLabel: "Slå ihop {name} med varan som behålls",
       mergeButton: {

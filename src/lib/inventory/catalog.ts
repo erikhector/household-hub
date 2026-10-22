@@ -20,10 +20,15 @@ export function parseCatalogFilter(value: unknown): CatalogFilter {
   return CATALOG_FILTERS.find((filter) => filter === value) ?? "all";
 }
 
-export type CatalogSourceItem = Omit<DuplicateItem, "purchasedListCount"> & { category: string };
+export type CatalogSourceItem = Omit<DuplicateItem, "purchasedListCount"> & {
+  category: string;
+  /** For the stock badge, as on the inventory page. */
+  lowStockThreshold: number;
+};
 
 export type CatalogRow = DuplicateItem & {
   category: string;
+  lowStockThreshold: number;
   neverStocked: boolean;
   /** Units a recipe uses this item in that neither the generic table nor
    * the item's conversions can turn into its own unit. */
@@ -61,8 +66,10 @@ export function buildCatalog({
   const unitsByItem = groupBy(recipeUnits, (row) => row.inventoryItemId);
   const conversionsByItem = groupBy(conversions, (row) => row.inventoryItemId);
 
-  const rows = items
-    .map((item) => {
+  // Rows keep the order of `items`, which loadCatalog asks the database to
+  // sort by name exactly as the inventory page does (UX-131). A JS
+  // localeCompare here ordered "Ägg" first where the inventory puts it last.
+  const rows = items.map((item) => {
       const full = { ...item, purchasedListCount: purchasedCounts.get(item.id) ?? 0 };
       return {
         ...full,
@@ -73,8 +80,7 @@ export function buildCatalog({
           conversionsByItem.get(item.id) ?? [],
         ),
       };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    });
 
   return { rows, groups: findDuplicateGroups(rows, aliases, dismissals) };
 }
