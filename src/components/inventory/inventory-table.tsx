@@ -41,6 +41,7 @@ import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
+import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { getStockStatus } from "@/lib/stock-status";
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
@@ -193,9 +194,27 @@ export function InventoryTable({
     addToShoppingList([item.id]);
   }
 
-  // From the row's confirm dialog, which waits on it and toasts an error.
-  async function handleDelete(itemId: string) {
-    return settleDelete(local.markDeleted(itemId), deleteInventoryItemAction(itemId), dict.saveFailedToast);
+  // UX-49: the ⋯ menu's and the desktop trash's Delete hide the row at once
+  // and offer Undo, as the swipe does. A bulk delete inside the window would
+  // race the deferred one, so the item also leaves the selection.
+  function handleDelete(item: InventoryItemRow) {
+    setSelected((prev) => {
+      if (!prev.has(item.id)) return prev;
+      const next = new Set(prev);
+      next.delete(item.id);
+      return next;
+    });
+    const settle = local.markDeleted(item.id);
+    startUndoableDelete({
+      run: async () => {
+        const result = await settleDelete(settle, deleteInventoryItemAction(item.id), dict.saveFailedToast);
+        if (result.error) toast.error(result.error);
+        return !result.error;
+      },
+      restore: () => settle(false),
+      message: format(dict.swipe.deletedToast, { name: item.name }),
+      undoLabel: dict.swipe.undo,
+    });
   }
 
   function toggleItem(itemId: string) {
@@ -601,7 +620,7 @@ export function InventoryTable({
 }
 
 // UX-35: the phone card's swipe actions: left for Edit and a Delete with
-// Undo (the ⋯ menu's Delete keeps its confirm dialog). No right swipe: its
+// Undo (the ⋯ menu and trash do the same, UX-49). No right swipe: its
 // +1 sat right next to the card's own + button, an easier tap than a 40%
 // swipe, and a swipe that adds stock by accident is worse than one that
 // does nothing. Its own

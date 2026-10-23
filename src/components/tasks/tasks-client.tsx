@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
@@ -25,7 +24,7 @@ import { filterTasks, parseTaskFilter, type TaskFilter } from "@/app/dashboard/t
 import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
-import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
 import { withLocalCompletion } from "@/lib/task-rotation";
@@ -109,10 +108,6 @@ export function TasksClient({
       settle(result !== null);
     })();
   };
-  // From the row's confirm dialog, which waits on it and toasts an error.
-  const deleteTask = async (task: TaskRow) => {
-    return settleDelete(local.markDeleted(task.id), deleteTaskAction(task.id), dict.saveFailedToast);
-  };
   const containerRef = useFlipList<HTMLDivElement>();
 
   const openTasks = tasks.filter((t) => !t.completed);
@@ -176,7 +171,6 @@ export function TasksClient({
                 members={members}
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
-                onDelete={deleteTask}
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
@@ -213,7 +207,6 @@ export function TasksClient({
                 members={members}
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
-                onDelete={deleteTask}
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
@@ -242,7 +235,6 @@ function TaskItemRow({
   members,
   memberNameById,
   onToggleCompleted,
-  onDelete,
   dict,
   locale,
   timeZone,
@@ -251,7 +243,6 @@ function TaskItemRow({
   members: MemberOption[];
   memberNameById: Map<string, string>;
   onToggleCompleted: (task: TaskRow) => void;
-  onDelete: (task: TaskRow) => Promise<{ error?: string }>;
   dict: TasksDict;
   locale: Locale;
   timeZone: string;
@@ -402,27 +393,20 @@ function TaskItemRow({
               </Button>
             }
           />
-          <ConfirmDialog
-            trigger={
-              <Button
-                ref={deleteButtonRef}
-                variant="ghost"
-                size="icon"
-                data-row-delete
-                className="size-7 shrink-0 text-muted-foreground hover:text-destructive max-sm:hidden"
-                aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            }
-            title={format(dict.confirmDelete.title, { name: task.title })}
-            description={dict.confirmDelete.description}
-            cancelLabel={dict.confirmDelete.cancel}
-            confirmLabel={dict.confirmDelete.confirm}
-            pendingLabel={dict.confirmDelete.confirming}
-            // UX-33: the row goes at once and comes back if the delete fails.
-            onConfirm={() => onDelete(task)}
-          />
+          {/* UX-49: removes at once with the same Undo toast as the swipe,
+              not a "can't be undone" confirm for a task that is one tap to
+              add back. */}
+          <Button
+            ref={deleteButtonRef}
+            variant="ghost"
+            size="icon"
+            data-row-delete
+            className="size-7 shrink-0 text-muted-foreground hover:text-destructive max-sm:hidden"
+            aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
+            onClick={remove}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
         </div>
       </div>
     </SwipeRow>

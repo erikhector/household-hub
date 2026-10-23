@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets, openRowSheet } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets, openRowSheet, waitForUndoableDelete } from "./ui";
 
 // The planner's meals and the Recipes tab's recipes are one tappable row
 // each, opening a sheet of labelled actions with delete set apart (DESIGN.md
@@ -128,9 +128,10 @@ test("a planned meal is one row whose sheet holds its labelled actions, delete s
 
     // Removing it from the sheet, then confirming, takes it off the plan.
     await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Remove meal" }).click();
-    await page.getByRole("dialog", { name: `Remove ${recipeName}?` }).getByRole("button", { name: "Remove" }).click();
+    // UX-49: no confirm; the toast offers Undo and the delete follows it.
     await expect(row).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    await waitForUndoableDelete(page, `Removed "${recipeName}"`);
     await page.reload();
     await expect(page.getByRole("link", { name: "Previous week" })).toBeVisible();
     await expect(row).toHaveCount(0);
@@ -201,9 +202,10 @@ test("a recipe is one row whose sheet has its ingredients and actions, delete se
     if (testInfo.project.name === "mobile") await expectTouchTargets(page);
 
     await sheet.getByRole("button", { name: "Delete recipe" }).click();
-    await page.getByRole("dialog", { name: `Delete ${recipeName}?` }).getByRole("button", { name: "Delete" }).click();
+    // UX-49: no confirm; the toast offers Undo and the delete follows it.
     await expect(row).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    await waitForUndoableDelete(page, `Deleted "${recipeName}"`);
     await page.reload();
     await page.getByRole("searchbox", { name: /Search recipes/ }).fill(recipeName);
     await expect(page.getByText("No recipes match your search.")).toBeVisible();

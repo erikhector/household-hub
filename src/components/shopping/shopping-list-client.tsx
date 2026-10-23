@@ -55,7 +55,6 @@ import { RenameListDialog } from "@/components/shopping/rename-list-dialog";
 import { PutAwayDialog } from "@/components/shopping/put-away-dialog";
 import { NextUpDock, ProgressRing } from "@/components/shopping/shopping-mode";
 import {
-  archiveShoppingListAction,
   completeShoppingListAction,
   createShoppingListAction,
   deleteShoppingListAction,
@@ -75,6 +74,7 @@ import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
 import { RowActionsMenu } from "@/components/shared/row-actions-menu";
+import { archiveListWithUndo } from "@/components/shopping/archive-list";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
@@ -96,7 +96,7 @@ import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway, withLocalTick } from "@/lib/shopping/put-away-calc";
-import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
@@ -279,11 +279,6 @@ export function ShoppingListClient({
     local.changes,
     (item) => item,
   );
-  // Called from the row's confirm dialog, which waits on it and toasts an
-  // error; the row has already gone by then and comes back if it failed.
-  const deleteItem = async (item: ShoppingListItemRow) => {
-    return settleDelete(local.markDeleted(item.id), deleteShoppingListItemAction(item.id), dict.saveFailedToast);
-  };
   // UX-33: rows glide when they move (use-flip-list.ts). A row leaving its
   // aisle (`leaving` below) has its own drop-out animation instead.
   const listRef = useFlipList<HTMLDivElement>();
@@ -840,8 +835,7 @@ export function ShoppingListClient({
                 <DropdownMenuItem
                   onClick={() =>
                     startTransition(async () => {
-                      const result = await archiveShoppingListAction(list.id);
-                      if (result.error) toast.error(result.error);
+                      await archiveListWithUndo(list.id, dict);
                     })
                   }
                 >
@@ -1033,7 +1027,6 @@ export function ShoppingListClient({
                     key={item.id}
                     item={item}
                     onToggle={() => toggleItem(item)}
-                    onDelete={deleteItem}
                     leaving={leaving.has(item.id)}
                     highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
@@ -1094,7 +1087,6 @@ export function ShoppingListClient({
                   key={item.id}
                   item={item}
                   onToggle={() => toggleItem(item)}
-                  onDelete={deleteItem}
                   editable={isActive}
                   isPending={isPending}
                   startTransition={startTransition}
@@ -1311,7 +1303,6 @@ function CompletedActions({
 function ShoppingRow({
   item,
   onToggle,
-  onDelete,
   leaving = false,
   highlighted = false,
   editable,
@@ -1330,8 +1321,6 @@ function ShoppingRow({
   item: ShoppingListItemRow;
   /** The optimistic tick, owned by ShoppingListClient. */
   onToggle: () => void;
-  /** The confirmed delete, owned by ShoppingListClient (UX-33). */
-  onDelete: (item: ShoppingListItemRow) => Promise<{ error?: string }>;
   /** UX-37: just ticked, animating out of its aisle towards "In the cart". */
   leaving?: boolean;
   /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
@@ -1386,7 +1375,7 @@ function ShoppingRow({
   }, [highlighted]);
 
   // UX-35: swipe left → Delete hides the row with an Undo toast; the trash
-  // button below keeps its confirm dialog.
+  // button below does the same (UX-49).
   const { hidden, remove } = useUndoableDelete({
     run: async () =>
       (await settleOptimisticAction(() => deleteShoppingListItemAction(item.id), dict.saveFailedToast)) !== null,
@@ -1560,28 +1549,20 @@ function ShoppingRow({
                   editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
                   matchItemLabel={dict.matchItemButton}
                 />
-                <ConfirmDialog
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      data-row-delete
-                      className="size-7 text-muted-foreground hover:text-destructive max-sm:hidden"
-                      disabled={isPending}
-                      aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  }
-                  title={format(dict.confirmDeleteItem.title, { name: item.name })}
-                  description={dict.confirmDeleteItem.description}
-                  cancelLabel={dict.confirmDeleteItem.cancel}
-                  confirmLabel={dict.confirmDeleteItem.confirm}
-                  pendingLabel={dict.confirmDeleteItem.confirming}
-                  // UX-33: the row goes at once; the dialog waits on the save
-                  // and toasts an error, and the row comes back.
-                  onConfirm={() => onDelete(item)}
-                />
+                {/* UX-49: removes at once with the swipe's Undo toast, not a
+                    "can't be undone" confirm for an item that is one tap to
+                    add back. */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  data-row-delete
+                  className="size-7 text-muted-foreground hover:text-destructive max-sm:hidden"
+                  disabled={isPending}
+                  aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
+                  onClick={remove}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
                 {/* On a phone the Edit and Delete icons above are hidden
                     (the row's left swipe shows both) and this ⋯ is their
                     tap path, clicking those same buttons. */}

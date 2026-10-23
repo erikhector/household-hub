@@ -274,6 +274,16 @@ export async function waitForDialogHistory(page: Page) {
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 }
 
+/** UX-49: a delete that offers Undo only reaches the server once its toast
+ * closes. Waits for that toast to show and go, and for the request it sends
+ * to finish, so a reload after it sees the row gone. */
+export async function waitForUndoableDelete(page: Page, message: string | RegExp) {
+  const toast = page.getByText(message);
+  await expect(toast).toBeVisible();
+  await expect(toast).toBeHidden({ timeout: 15_000 });
+  await page.waitForLoadState("networkidle");
+}
+
 /** page.goto, then waits until React has revealed every streamed Suspense
  * boundary. goto resolves on `load`, but React 19.2 batches the reveals,
  * so on a loaded runner the page can still be showing a loading.tsx

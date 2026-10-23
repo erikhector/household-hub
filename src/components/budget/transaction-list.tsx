@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ExternalLink, Pencil, Repeat, Trash2, Users, X } from "lucide-react";
@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   TransactionDialog,
@@ -30,7 +29,7 @@ import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
 import { SwipeRow } from "@/components/shared/swipe-row";
-import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { dayHeading, groupByDay, localDateKey } from "@/lib/budget-transaction-days";
 import { resolveCategoryFilter } from "@/lib/budget-url";
@@ -281,12 +280,36 @@ export function TransactionList({
     );
   }
 
+  // UX-49: every delete (the table's trash, the edit sheet's Delete, the
+  // phone row's swipe) hides the row at once and offers Undo; the delete
+  // goes out when the toast closes. The ids stay in the set once saved: the
+  // refreshed list no longer has them.
+  const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(() => new Set());
+  function removeTransaction(row: TransactionListRow) {
+    const setRemoved = (removed: boolean) =>
+      setRemovedIds((current) => {
+        const next = new Set(current);
+        if (removed) next.add(row.id);
+        else next.delete(row.id);
+        return next;
+      });
+    setRemoved(true);
+    startUndoableDelete({
+      run: async () => (await settleOptimisticAction(() => onDelete(row.id), dict.saveFailedToast)) !== null,
+      restore: () => setRemoved(false),
+      // The description is what the user typed to tell rows apart ("ICA",
+      // "Netflix"); without one the category is the best name the row has.
+      message: format(dict.swipe.deletedToast, { name: row.description || row.categoryName }),
+      undoLabel: dict.swipe.undo,
+    });
+  }
+
   // sharedRows is always [] on the household budget page, so this sort is a
   // no-op there (a stable sort over an already date-desc-ordered array keeps
   // same-day ties in their original, createdAt-desc order) — see
   // SharedPostedRow's doc comment.
   const allRows: Row[] = [
-    ...transactions.map((row): Row => ({ kind: "own", row, date: row.date, amount: row.amount, type: row.type })),
+    ...transactions.filter((row) => !removedIds.has(row.id)).map((row): Row => ({ kind: "own", row, date: row.date, amount: row.amount, type: row.type })),
     ...sharedRows.map((row): Row => ({ kind: "shared", row, date: row.date, amount: row.amount, type: row.type })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
   // A shared row is a household category, never one of the viewer's own,
@@ -422,7 +445,7 @@ export function TransactionList({
                   transaction={item.row}
                   createAction={createAction}
                   updateAction={updateAction}
-                  onDelete={() => onDelete(item.row.id)}
+                  onDelete={() => removeTransaction(item.row)}
                   trigger={
                     <Button
                       variant="ghost"
@@ -434,27 +457,15 @@ export function TransactionList({
                     </Button>
                   }
                 />
-                <ConfirmDialog
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7 text-muted-foreground hover:text-destructive"
-                      aria-label={dict.deleteAriaLabel}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  }
-                  title={dict.confirmDeleteTransaction.title}
-                  description={dict.confirmDeleteTransaction.description}
-                  cancelLabel={dict.confirmDeleteTransaction.cancel}
-                  confirmLabel={dict.confirmDeleteTransaction.confirm}
-                  pendingLabel={dict.confirmDeleteTransaction.confirming}
-                  // UX-23: hand ConfirmDialog the action's promise (it owns
-                  // the pending state and toasts a returned `error`), so the
-                  // confirm button shows "Deleting…" until the server answers.
-                  onConfirm={() => onDelete(item.row.id)}
-                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-muted-foreground hover:text-destructive"
+                  aria-label={dict.deleteAriaLabel}
+                  onClick={() => removeTransaction(item.row)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
               </div>
             </TableCell>
           </TableRow>
@@ -522,7 +533,7 @@ export function TransactionList({
                     categories={categories}
                     members={members}
                     currentMemberId={currentMemberId}
-                    onDelete={onDelete}
+                    onRemove={() => removeTransaction(item.row)}
                     createAction={createAction}
                     updateAction={updateAction}
                     readOnly={readOnly}
@@ -540,7 +551,7 @@ export function TransactionList({
 }
 
 // One own transaction on a phone. Its own component so each row gets its
-// own useUndoableDelete (as the task and inventory rows do).
+// own component; its swipe and edit sheet both go through onRemove.
 function TransactionPhoneRow({
   row,
   badges,
@@ -550,7 +561,7 @@ function TransactionPhoneRow({
   categories,
   members,
   currentMemberId,
-  onDelete,
+  onRemove,
   createAction,
   updateAction,
   readOnly,
@@ -563,7 +574,7 @@ function TransactionPhoneRow({
   categories: CategoryRow[];
   members: MemberOption[];
   currentMemberId: string;
-  onDelete: (id: string) => Promise<ActionState>;
+  onRemove: () => void;
   createAction: TransactionFormAction;
   updateAction: TransactionFormAction;
   readOnly: boolean;
@@ -571,16 +582,10 @@ function TransactionPhoneRow({
   // The description is what the user typed to tell rows apart ("ICA",
   // "Netflix"); without one the category is the best name the row has.
   const title = row.description || row.categoryName;
-  const { hidden, remove } = useUndoableDelete({
-    run: async () => (await settleOptimisticAction(() => onDelete(row.id), dict.saveFailedToast)) !== null,
-    message: format(dict.swipe.deletedToast, { name: title }),
-    undoLabel: dict.swipe.undo,
-  });
-  if (hidden) return null;
 
   return (
     <li>
-      <SwipeRow editLabel={dict.swipe.edit} deleteLabel={dict.swipe.delete} onDelete={remove} disabled={readOnly}>
+      <SwipeRow editLabel={dict.swipe.edit} deleteLabel={dict.swipe.delete} onDelete={onRemove} disabled={readOnly}>
         <TransactionDialog
           numberFormat={numberFormat}
           dict={dict}
@@ -590,7 +595,7 @@ function TransactionPhoneRow({
           transaction={row}
           createAction={createAction}
           updateAction={updateAction}
-          onDelete={() => onDelete(row.id)}
+          onDelete={onRemove}
           trigger={
             // A real button the width of the row: its text (title, category,
             // amount) is its accessible name, and SwipeRow's Edit clicks it.
