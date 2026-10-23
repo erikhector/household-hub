@@ -340,6 +340,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
       (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
       still there after 5 s) and passed on retry #1.
+      Seen again in a `ci:local` run on `cccc1d5` (2026-10-23, heavy
+      load): `native-sheets.spec.ts:54` (mobile) failed once and passed
+      on a same-commit re-run.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
@@ -398,6 +401,19 @@ then MAINT-7 per feature, to avoid churn.
       e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
       --project=mobile --repeat-each=30` passes 30/30, and two full
       `ci:local` runs show none of these specs failing.
+      Seen again on PR #611 (2026-10-23): the merge sub-agent saw
+      `recipe-form-order` (mobile) fail once locally.
+
+- [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
+      shows the all-caught-up card above Completed", `mobile`) failed once
+      in a local `ci:local` run on `cccc1d5` (2026-10-23, heavy load) and
+      passed on a same-commit re-run; it doesn't fail in GitHub CI. Find
+      out whether the card renders late (data load, hydration) or the
+      spec asserts before the page settles, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=mobile --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -461,10 +477,10 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** Six items sit in other sections of this file:
+**Built elsewhere.** Three items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-136 and UX-138.
+- Needs a decision before building: UX-136.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49.
@@ -520,8 +536,14 @@ UX-89.
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) — breaks Context
+      accurate "who we are"** (impact: med, effort: M) `[!]` — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).
+      Blocked: needs the owner. Rewriting "who we are" and any Swedish
+      legal text is privacy-policy wording (AUTOPILOT.md `never_decide`).
+      Question: (1) Swedish translation of the policy, or (2) keep it
+      English with `lang="en"` and an "Only available in English" note?
+      And what is the accurate "who we are" sentence for how Squirrel is
+      offered? Once decided, the jump list and `lang` markup are buildable.
       - The sv cookie notice's "Läs mer" opens an English-only policy
         inside `<html lang="sv">`, so screen readers read English with a
         Swedish voice.
@@ -581,29 +603,6 @@ UX-89.
       as today. A unit test on `applyReceiptScanAction` (and one on
       `registerReceiptAction`) fails without the fix, and the receipt e2e
       spec covers a ×3 line.
-
-- [ ] **UX-140. Type prices in by hand when the receipt scan fails**
-      (impact: medium, effort: M) — reported by the owner, 2026-10-18.
-      Breaks User control and Error recovery.
-      - When the photo can't be read (`noLinesFound`, `ocrError`, a
-        provider error), `ReceiptScanDialog`'s only way forward is "Try
-        again" with another photo (`receipt-scan-dialog.tsx:578-590`).
-        Register receipt dead-ends the same way.
-      - The per-row "Add price" on the list exists, but on a row already
-        ticked as bought it only changes the row's estimate
-        (`updateShoppingListItemPriceAction`,
-        `src/app/dashboard/shopping-list/actions.ts:459`): it never
-        becomes `lastKnownPrice` or a PriceHistory row, so a typed price
-        counts for less than a scanned one.
-      Acceptance: the scan's error state offers "Enter prices by hand"
-      next to "Try again". It opens the same review step with one row per
-      receipt-matchable list item (name, quantity, an empty price), and
-      Apply records them exactly like scanned lines (PriceHistory,
-      `lastKnownPrice`, `priceRecordedAt`, divided by quantity per BUG-3).
-      Register receipt gets an "Add line" so a receipt can be typed in
-      without a photo. New strings in `en.ts` and `sv.ts`; an e2e flow
-      (AI mocked to fail) types a price and checks it after a reload, on
-      desktop and mobile.
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) `[!]` — breaks User-centricity
@@ -677,43 +676,6 @@ Friday area: household and personal budgets. Swept `desktop`, `mobile`,
 sweeps; every route passes and the popup probe has no phone-size or
 off-screen hits in the budget dialogs. WebKit was not run.
 
-- [ ] **UX-147. Budget forms: stop name autofill, set the Enter key**
-      (impact: low, effort: S) — DESIGN.md's "right keyboard and autofill"
-      rule: `autoComplete="off"` for household data and `enterKeyHint` on
-      the last field. The budget dialogs set neither (`dialogs-mobile.json`:
-      `/dashboard/budget` and `/dashboard/personal-budget` "Add category",
-      `autoComplete: ""`, `enterKeyHint: ""`). A field called `name` makes
-      Chrome and Android offer the user's own name and contacts for a
-      category such as "Groceries", and the keyboard's action key stays a
-      generic Return. Affected: `src/components/budget/category-manager.tsx`
-      (add and edit name at ~281 and ~382; the limit and goal fields below
-      them), `recurring-template-dialog.tsx` (4 inputs, none set) and
-      `transaction-dialog.tsx` (`autoComplete` on the description and amount
-      fields; its `enterKeyHint` is already set). The other budget and
-      shopping dialogs already do this (`planned-expense-dialog.tsx:194-199`).
-      Acceptance: in the `mobile` project, `e2e/dialog-audit` style check
-      (or a small spec) opens Add category, Add recurring and Add
-      transaction and asserts every text field has `autocomplete="off"` and
-      the last field of each form has an `enterkeyhint`.
-
-### UX (2026-10-20 scout)
-
-Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
-`tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
-route passes. The popup probe found two phone-only size gaps.
-
-- [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
-      (impact: high, effort: M) — ⚠️ money (human-only area).
-      `src/lib/safe-to-spend-calc.ts` also subtracts the unspent
-      remainder of limited categories, shown as its own "Still budgeted"
-      breakdown line. The pace projection ("At this pace …") becomes a
-      qualifier under the headline, not a second equally weighted "left"
-      figure. Unit-test the calculator (day 1, partly spent, overspent
-      category counts as zero remainder).
-      Acceptance: with a seeded limited category and no spending, the
-      headline excludes its limit, the breakdown shows "Still budgeted",
-      and the projection reads as secondary text.
-      Decided 2026-10-20 by owner: option 1. See #397.
 
 ### Dependencies
 

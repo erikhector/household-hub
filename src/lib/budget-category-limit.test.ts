@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   categoriesNearLimit,
+  categoryEnvelopes,
   limitForType,
   limitProgress,
   monthlyLimitField,
@@ -161,5 +162,61 @@ describe("categoriesNearLimit", () => {
     expect(categoriesNearLimit([{ id: "a", name: "A", total: 120, limit: 100, carried: 100 }])).toEqual([]);
     const [alert] = categoriesNearLimit([{ id: "a", name: "A", total: 190, limit: 100, carried: 100 }]);
     expect(alert).toMatchObject({ available: 200, over: false });
+  });
+});
+
+describe("categoryEnvelopes (UX-138)", () => {
+  const monthStart = new Date(2026, 9, 1);
+  const monthEnd = new Date(2026, 10, 1);
+  const category = (overrides: Record<string, unknown>) => ({
+    id: "food",
+    type: "EXPENSE" as "INCOME" | "EXPENSE" | "SAVINGS",
+    monthlyLimit: 3000 as number | null,
+    rolloverEnabled: false,
+    createdAt: new Date(2026, 0, 1),
+    ...overrides,
+  });
+  const spend = (categoryId: string, amount: number, date: Date) => ({
+    categoryId,
+    type: "EXPENSE" as const,
+    amount,
+    date,
+  });
+
+  it("pairs each limited category's limit with this month's spending in it", () => {
+    expect(
+      categoryEnvelopes({
+        categories: [category({})],
+        transactions: [spend("food", 400, new Date(2026, 9, 3)), spend("food", 100, new Date(2026, 8, 20))],
+        monthStart,
+        monthEnd,
+      }),
+    ).toEqual([{ id: "food", spent: 400, available: 3000 }]);
+  });
+
+  it("skips categories without a usable limit and non-expense categories", () => {
+    expect(
+      categoryEnvelopes({
+        categories: [
+          category({ id: "a", monthlyLimit: null }),
+          category({ id: "b", monthlyLimit: 0 }),
+          category({ id: "c", type: "SAVINGS" }),
+        ],
+        transactions: [],
+        monthStart,
+        monthEnd,
+      }),
+    ).toEqual([]);
+  });
+
+  it("includes what rollover carries in, like the limit list", () => {
+    const [envelope] = categoryEnvelopes({
+      categories: [category({ rolloverEnabled: true, createdAt: new Date(2026, 7, 1) })],
+      // August and September both unspent: 3000 + 3000 carried in.
+      transactions: [],
+      monthStart,
+      monthEnd,
+    });
+    expect(envelope.available).toBe(9000);
   });
 });

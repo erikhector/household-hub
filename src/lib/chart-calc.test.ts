@@ -245,3 +245,39 @@ describe("dailyAllowance", () => {
     expect(dailyAllowance({ safeToSpend: 500, monthStart: new Date(2025, 9, 1), today })).toBeNull();
   });
 });
+
+describe("projectMonthEnd with limited categories (UX-138)", () => {
+  const monthStart = new Date(2026, 9, 1);
+  const tx = (categoryId: string, amount: number, day: number) => ({
+    categoryId,
+    type: "EXPENSE" as const,
+    amount,
+    date: new Date(2026, 9, day),
+    isRecurring: false,
+    recurringTemplateId: null,
+  });
+
+  it("leaves spending in limited categories out of the pace", () => {
+    const p = projectMonthEnd({
+      safeToSpend: 1000,
+      transactions: [tx("food", 500, 2), tx("fun", 100, 3)],
+      monthStart,
+      today: new Date(2026, 9, 10),
+      excludeCategoryIds: new Set(["food"]),
+    });
+    expect(p!.dailyPace).toBe(10);
+    expect(p!.start).toBe(1100);
+  });
+
+  it("has nothing to project when all the spending is in limited categories", () => {
+    expect(
+      projectMonthEnd({
+        safeToSpend: 1000,
+        transactions: [tx("food", 500, 2)],
+        monthStart,
+        today: new Date(2026, 9, 10),
+        excludeCategoryIds: new Set(["food"]),
+      }),
+    ).toBeNull();
+  });
+});

@@ -1827,7 +1827,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   match). `CategoryBreakdown` then draws the bar, the "spent / X" figure and
   the "X over" note against limit + carried and adds an "incl. X carried over"
   line under the bar when anything was carried. Like the limit itself it's
-  purely visual: safe to spend and every total ignore it.
+  purely visual for the totals, but not for safe to spend: the carried amount
+  is part of the envelope that safe to spend holds back (UX-138, see "Safe to
+  spend").
 - **Savings goals (GAP-22)**: a savings category can carry an optional
   target amount and date, the way YNAB's and Qapital's goals do.
   `goalAmount Float?` and `goalDate DateTime?` sit on both `BudgetCategory`
@@ -2676,6 +2678,28 @@ Component page function can't itself be unit-tested.
   Budgeting (GAP-13); the headline number is colored `text-success` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
+- **Still budgeted (UX-138)**: the unspent remainder of every expense
+  category with a monthly limit also comes off the headline, as its own
+  "Still budgeted" breakdown line (`breakdown.stillBudgeted`), because that
+  money is earmarked. Before this a 3 000 food limit with nothing logged on
+  the 1st left all 3 000 in the number, and the number then fell as the food
+  was bought. `computeStillBudgeted` (`src/lib/safe-to-spend-calc.ts`) takes
+  one envelope per limited category (`categoryEnvelopes` in
+  `src/lib/budget-category-limit.ts`: limit plus any GAP-21 rollover carried
+  in, the same envelope Insights and "Near or over their limit" use, and what
+  is spent in it this month) and sums `max(0, available − spent − due)`.
+  An overspent category counts as a zero remainder, never a negative one (the
+  overspend is already in the expenses total). A due bill or planned bill in
+  the same category (`budgetCategoryId` on the expected row) is subtracted
+  from the remainder, since it is already in due payments and would
+  otherwise be held back twice. Due savings and income never reduce it.
+  The household page, `loadHouseholdSafeToSpend` (Today block) and
+  `loadPersonalBudgetPosition` (Personal Budget and the dashboard card) and
+  the weekly digest (`src/lib/weekly-digest.ts`) all pass the limited
+  categories in, so the numbers agree; without any limit
+  nothing changes. A limit alone does not count as data for the empty
+  state (`needsSafeToSpendSetup`), so a fresh budget still asks for income
+  instead of showing a negative number. Decided in #397 (option 1).
 - **Projected end of month (UX-39)**: in the current month, under the
   number, a small line chart ("At this pace"): solid for what was safe to
   spend at the end of each day so far, dashed from today to the last day at
@@ -2688,7 +2712,12 @@ Component page function can't itself be unit-tested.
   past or future month, or before any everyday spending. The household page
   computes it from the month's transactions; `loadPersonalBudgetPosition`
   returns it as `safeToSpendProjection`, so Personal Budget and the
-  dashboard card show the same line.
+  dashboard card show the same line. Since UX-138 it is a qualifier on the
+  headline, not a second figure of the same weight: the sentence keeps
+  body size (`text-sm`, Mobile UX rule M9) and is muted, red only when the month ends over, and spending in
+  limited categories is left out of the pace (`excludeCategoryIds`), since
+  that money is already held back as "Still budgeted" and doesn't lower the
+  number.
 - **Daily allowance and labelled chart (UX-117)**: in the current month a
   line under the headline answers "how much can I spend today?": "≈ N per
   day for the D days left" (`dailyAllowance` in `src/lib/chart-calc.ts`:
@@ -3884,6 +3913,26 @@ below.
   not just inventory items) when its similarity score clears a threshold,
   else defaulting to "— Skip —" rather than guessing wrong. The user can
   fix any price, change any match, or skip any line before confirming.
+- **Typing prices in by hand (UX-140)**: a scan that can't be read (no
+  lines found, an OCR error, a provider error or rate limit) no longer
+  dead-ends in "Try another photo". Both error states also offer a primary
+  "Enter prices by hand" (`ReceiptScanDialog`) / "Enter receipt by hand"
+  (`RegisterReceiptDialog`) button that opens the same review step without
+  a photo. On a list, it has one row per receipt-matchable list item
+  (`pendingItems`: unticked rows, plus ticked ones no receipt has priced in
+  put-away mode), matched to itself with its quantity and an empty price;
+  rows left empty are dropped on Apply. Register receipt starts with one
+  blank line, and its review step has an "Add line" button (also on a
+  scanned receipt, for a line the photo missed; tapping it focuses the new
+  line's name). A typed price is what was paid for the line's whole
+  quantity, which is what a receipt line's price already means, so typed
+  rows go through `applyReceiptScanAction` / `registerReceiptAction`
+  exactly like scanned ones: `estimatedPrice`, PriceHistory (with the
+  quantity), `lastKnownPrice` (the line price, as every writer stores it;
+  see `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
+  shows only when every row was typed, not when "Add line" joins a scanned
+  receipt. Covered by `e2e/manual-receipt-prices.spec.ts`, with the vision
+  call mocked to fail.
 - **Confident matches start accepted (AUTO-11)**: reviewing every line of
   a long receipt when most matches are obvious was the slow part, so both
   dialogs sort lines by confidence with `matchReceiptLines`
@@ -7284,6 +7333,13 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   "New list" name no longer autofills the user's own name. `enterKeyHint` is
   set on the last field of the recipe-import, add-category and stock-scan
   "new item" inputs.
+  (UX-147) The budget dialogs follow suit: every text and number field in
+  the category add/edit, recurring-item and transaction dialogs sets
+  `autoComplete="off"`, and the last field of each form sets
+  `enterKeyHint` (`done`; earlier fields `next`). In the recurring dialog
+  Due day is `next` while "Split this bill" is on and each member's share is
+  `next` except the last. Covered by
+  `e2e/budget-form-autofill.spec.ts`.
 - **`src/app/dashboard/error.tsx`** is a segment boundary below the dashboard
   layout: a feature crash replaces only the page content, so the sidebar or
   bottom bar stay usable. When `navigator.onLine` is false it says the page

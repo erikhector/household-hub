@@ -10,6 +10,7 @@ import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
+import { categoryEnvelopes } from "@/lib/budget-category-limit";
 import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { createDigestUnsubscribeToken } from "@/lib/digest-unsubscribe-token";
@@ -105,7 +106,7 @@ export async function loadHouseholdDigestInput(householdId: string, now: Date): 
 // feed it.
 async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, monthEnd: Date) {
   const lookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
-  const [transactions, templates, acks, plannedExpenses] = await Promise.all([
+  const [transactions, templates, acks, plannedExpenses, limitedCategories] = await Promise.all([
     prisma.transaction.findMany({
       where: { householdId, date: { gte: lookbackStart, lt: monthEnd } },
       select: {
@@ -153,9 +154,16 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
         name: true,
         amount: true,
         dueDate: true,
+        categoryId: true,
         category: { select: { type: true } },
         transaction: { select: { date: true } },
       },
+    }),
+    // UX-138: the limited categories, whose unspent remainder is held back,
+    // so the digest's number matches the Budget page's.
+    prisma.budgetCategory.findMany({
+      where: { householdId, type: "EXPENSE", monthlyLimit: { not: null } },
+      select: { id: true, type: true, monthlyLimit: true, rolloverEnabled: true, createdAt: true },
     }),
   ]);
 
@@ -188,6 +196,7 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
     })),
     monthStart,
     monthEnd,
+    categoryLimits: categoryEnvelopes({ categories: limitedCategories, transactions, monthStart, monthEnd }),
     incomeSoFar: income,
     expenseSoFar: expense,
     savingsSoFar: savings,
@@ -203,6 +212,7 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
       id: p.id,
       name: p.name,
       amount: p.amount,
+      categoryId: p.categoryId,
       type: plannedItemType(p.category.type),
       status: getPlannedExpenseStatus(
         { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },

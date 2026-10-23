@@ -383,6 +383,8 @@ export function TransactionDialog({
               name="amount"
               type="number"
               inputMode="decimal"
+              autoComplete="off"
+              enterKeyHint="next"
               min={0.01}
               step="any"
               value={amount}
@@ -429,6 +431,7 @@ export function TransactionDialog({
               id="tx-date"
               name="date"
               type="date"
+              autoComplete="off"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
@@ -441,6 +444,7 @@ export function TransactionDialog({
               id="tx-description"
               name="description"
               maxLength={200}
+              autoComplete="off"
               placeholder={dict.descriptionPlaceholder}
               defaultValue={kept.values.description ?? transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />

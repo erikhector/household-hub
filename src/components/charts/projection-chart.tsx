@@ -123,7 +123,11 @@ export function ProjectionChart({
           )}
         </div>
       </div>
-      <p className={"flex items-start gap-1.5 text-sm " + (over ? "text-destructive" : "text-foreground")}>
+      {/* UX-138: a qualifier on the headline above, not a second "left"
+          figure: it keeps body size (DESIGN.md M9) and gets its lower rank
+          from muted colour and its place under the headline, red only when
+          the month ends in the red. */}
+      <p className={"flex items-start gap-1.5 text-sm " + (over ? "text-destructive" : "text-muted-foreground")}>
         {over && <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />}
         <span>
           {format(over ? dict.projectionOver : dict.projectionLeft, {

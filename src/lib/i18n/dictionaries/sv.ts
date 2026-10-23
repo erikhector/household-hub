@@ -879,6 +879,9 @@ export const sv = {
       noLinesFound:
         "Hittade inga prissatta varor på kvittot. Prova ett tydligare, väl upplyst foto.",
       tryAgain: "Prova ett annat foto",
+      enterByHand: "Ange priser för hand",
+      manualSubtitle:
+        "Skriv vad du betalade för varje vara (totalen för antalet). Lämna priset tomt för att hoppa över varan.",
       analysisFailedError: "Något gick fel när kvittot lästes. Försök igen.",
       rateLimitedError: "För många skanningar på kort tid — vänta lite och försök igen.",
       providerBusyError: "AI-tjänsten är upptagen just nu — vänta en stund och försök igen.",
@@ -934,6 +937,10 @@ export const sv = {
       noLinesFound:
         "Hittade inga prissatta varor på kvittot. Prova ett tydligare, väl upplyst foto.",
       tryAgain: "Prova ett annat foto",
+      enterByHand: "Ange kvittot för hand",
+      addLine: "Lägg till rad",
+      manualSubtitle:
+        "Skriv varje vara med vad du betalade för den (totalen för antalet). Rader utan pris hoppas över.",
       analysisFailedError: "Något gick fel när kvittot lästes. Försök igen.",
       rateLimitedError: "För många skanningar på kort tid — vänta lite och försök igen.",
       providerBusyError: "AI-tjänsten är upptagen just nu — vänta en stund och försök igen.",
@@ -2317,6 +2324,8 @@ export const sv = {
       lineOwedFromEarlier: "Skulder från tidigare månader",
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Ännu budgeterat",
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
@@ -2804,6 +2813,8 @@ export const sv = {
       lineOwedFromEarlier: "Skulder från tidigare månader",
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Ännu budgeterat",
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).

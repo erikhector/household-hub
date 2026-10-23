@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   templates: vi.fn(),
   acks: vi.fn(),
   planned: vi.fn(),
+  categories: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -13,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
     recurringTemplate: { findMany: mocks.templates },
     recurringTemplateAck: { findMany: mocks.acks },
     plannedExpense: { findMany: mocks.planned },
+    budgetCategory: { findMany: mocks.categories },
   },
 }));
 
@@ -39,6 +41,7 @@ describe("loadHouseholdSafeToSpend", () => {
     mocks.templates.mockResolvedValue([]);
     mocks.acks.mockResolvedValue([]);
     mocks.planned.mockResolvedValue([]);
+    mocks.categories.mockResolvedValue([]);
   });
 
   it("is this month's income minus expenses and savings so far", async () => {
@@ -68,6 +71,19 @@ describe("loadHouseholdSafeToSpend", () => {
     expect(mocks.templates.mock.calls[0][0].where).toEqual({ householdId: "h1", active: true });
     expect(mocks.acks.mock.calls[0][0].where).toEqual({ recurringTemplate: { householdId: "h1" } });
     expect(mocks.planned.mock.calls[0][0].where.householdId).toBe("h1");
+    expect(mocks.categories.mock.calls[0][0].where.householdId).toBe("h1");
+  });
+
+  it("holds back what is still unspent of a category limit (UX-138)", async () => {
+    mocks.transactions.mockResolvedValue([
+      tx("INCOME", 10000, new Date(2026, 9, 2), "salary"),
+      tx("EXPENSE", 1200, new Date(2026, 9, 5), "food"),
+    ]);
+    mocks.categories.mockResolvedValue([
+      { id: "food", type: "EXPENSE", monthlyLimit: 3000, rolloverEnabled: false, createdAt: new Date(2026, 0, 1) },
+    ]);
+    const result = await loadHouseholdSafeToSpend("h1", NOW);
+    expect(result.amount).toBe(10000 - 1200 - 1800);
   });
 
   it("subtracts a planned bill that is due and unpaid", async () => {
