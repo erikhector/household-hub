@@ -306,11 +306,21 @@ export async function expectHydrated(target: Locator) {
  * expectHydrated is not enough here: React hands an element its props while
  * rendering the hydrating tree, before that tree commits, and a tap in
  * between is dropped. MealPlanningView sets `data-interactive` from an
- * effect, which runs after its commit, so wait for that, click, then assert
- * the tab took, before reaching for anything inside the panel. */
+ * effect, which runs after its commit.
+ *
+ * Nor is that enough. The tab is driven by useSearchParams, and the click
+ * changes the URL with history.replaceState, which Next's app router patches
+ * (so that useSearchParams follows) in a passive effect of its own, and a
+ * child's effect runs before it. A click in that gap changes the URL and
+ * nothing else, and the tab stays unselected. So wait for both the marker
+ * and replaceState no longer being native code, click, then assert the tab
+ * took, before reaching for anything inside the panel. */
 export async function openRecipesTab(page: Page) {
   const tab = page.getByRole("tab", { name: "Recipes" });
   await expect(page.locator("[data-interactive]")).toHaveCount(1);
+  await expect
+    .poll(() => page.evaluate(() => !/\[native code\]/.test(window.history.replaceState.toString())))
+    .toBe(true);
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }
