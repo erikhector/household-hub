@@ -654,24 +654,6 @@ Friday area: household and personal budgets. Swept `desktop`, `mobile`,
 sweeps; every route passes and the popup probe has no phone-size or
 off-screen hits in the budget dialogs. WebKit was not run.
 
-- [ ] **UX-147. Budget forms: stop name autofill, set the Enter key**
-      (impact: low, effort: S) — DESIGN.md's "right keyboard and autofill"
-      rule: `autoComplete="off"` for household data and `enterKeyHint` on
-      the last field. The budget dialogs set neither (`dialogs-mobile.json`:
-      `/dashboard/budget` and `/dashboard/personal-budget` "Add category",
-      `autoComplete: ""`, `enterKeyHint: ""`). A field called `name` makes
-      Chrome and Android offer the user's own name and contacts for a
-      category such as "Groceries", and the keyboard's action key stays a
-      generic Return. Affected: `src/components/budget/category-manager.tsx`
-      (add and edit name at ~281 and ~382; the limit and goal fields below
-      them), `recurring-template-dialog.tsx` (4 inputs, none set) and
-      `transaction-dialog.tsx` (`autoComplete` on the description and amount
-      fields; its `enterKeyHint` is already set). The other budget and
-      shopping dialogs already do this (`planned-expense-dialog.tsx:194-199`).
-      Acceptance: in the `mobile` project, `e2e/dialog-audit` style check
-      (or a small spec) opens Add category, Add recurring and Add
-      transaction and asserts every text field has `autocomplete="off"` and
-      the last field of each form has an `enterkeyhint`.
 
 ### UX (2026-10-20 scout)
 
