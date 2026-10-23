@@ -488,7 +488,34 @@ UX-89.
   on payday).
 - Needs a decision before building: UX-136.
 
+**File conflicts.** Don't build these in parallel:
+- `src/components/shopping/shopping-list-client.tsx`: UX-49.
+- `src/components/tasks/tasks-client.tsx`: UX-49.
+- `src/components/meal-planning/week-planner.tsx`: UX-49.
+
 #### Shell and cross-cutting
+
+- [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
+      (impact: med, effort: M) — breaks Consistency and User control
+      (DESIGN.md: "prefer undo for frequent, low-stakes actions"). On
+      the same row, swipe → Delete removes the row with an Undo toast,
+      while the visible trash or menu Delete opens a confirm saying the
+      delete is permanent. Where:
+      - tasks: `tasks-client.tsx:278-298`;
+      - shopping items: `shopping-list-client.tsx:1301-1330`;
+      - inventory ⋯ → Delete: `inventory-table.tsx:605-607`;
+      - "Remove meal": `week-planner.tsx:581-585`;
+      - Edit transaction → Delete stacks a second sheet;
+      - deleting a recipe gives no toast at all.
+      Archiving a shopping list is silent, with no toast and no undo
+      (`shopping-lists-overview.tsx:139-170`), and its icon sits right
+      next to the trash icon on every row.
+      Acceptance: every delete path for a task, shopping item, inventory
+      item, planned meal and transaction removes at once and shows the
+      same Undo toast. Archiving a list shows "List archived · Undo".
+      Archive and delete are no longer adjacent lookalike icons (for
+      example, both behind a row ⋯ menu). Household, budget and account
+      deletes keep their confirms.
 
 - [ ] **UX-50. One empty-state pattern, with the next step inside it**
       (impact: med, effort: M) — breaks Consistency, Usability ("empty:

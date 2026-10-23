@@ -2,13 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import {
-  clickRowAction,
-  dismissCookieNotice,
-  expectNoHorizontalOverflow,
-  waitForDialogHistory,
-  waitForUndoableDelete,
-} from "./ui";
+import { clickRowAction, dismissCookieNotice, expectNoHorizontalOverflow, waitForDialogHistory } from "./ui";
 
 // UX-124: the item page has the controls the inventory list gives a row:
 // status badge, expiry, opened and frozen tags, a stepper, Edit and Delete,
@@ -100,11 +94,8 @@ test("Edit renames the item and Delete removes it and leaves the page", async ({
   await expect(page.getByRole("heading", { name: renamed, level: 1 })).toBeVisible();
 
   await clickRowAction(page, { button: "Delete item", menu: "More actions", item: "Delete" });
-  // UX-49: no confirm; it leaves the page at once and the toast offers Undo.
+  await page.getByRole("dialog", { name: `Delete ${renamed}?` }).getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/inventory$/);
-  await waitForUndoableDelete(page, `Deleted "${renamed}"`);
-  await page.reload();
-  await expect(page.getByText(renamed, { exact: true })).toHaveCount(0);
 });
 
 test("the shopping lists an item is on are links that look like links", async ({ page }) => {

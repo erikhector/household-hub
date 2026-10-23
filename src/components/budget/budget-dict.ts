@@ -52,6 +52,13 @@ export type BudgetDict = {
   columnCategory: string;
   columnDate: string;
   columnDescription: string;
+  confirmDeleteTransaction: {
+    cancel: string;
+    confirm: string;
+    confirming: string;
+    description: string;
+    title: string;
+  };
   dateLabel: string;
   deleteAriaLabel: string;
   descriptionLabel: string;

@@ -8,9 +8,7 @@ import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { QuantityStepper } from "@/components/inventory/inventory-table";
 import { useItemHandlers } from "@/components/inventory/use-item-handlers";
-import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
-import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
-import { format } from "@/lib/i18n/format";
+import { settleDelete } from "@/components/shared/local-row-changes";
 import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table-utils";
 import { getStockStatus } from "@/lib/stock-status";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -60,18 +58,12 @@ export function ItemPageControls({
     run: (action) => startTransition(action),
   });
 
-  // UX-49: Delete leaves the page at once, for where it came from, and the
-  // toast there offers Undo; the delete only goes out when it closes. Undo
-  // just keeps the item, so there is nothing to put back on this page.
-  function handleDelete(row: InventoryItemRow) {
-    router.push(backHref);
-    startUndoableDelete({
-      run: async () =>
-        (await settleOptimisticAction(() => deleteInventoryItemAction(row.id), dict.saveFailedToast)) !== null,
-      restore: () => {},
-      message: format(dict.swipe.deletedToast, { name: row.name }),
-      undoLabel: dict.swipe.undo,
-    });
+  // From the confirm dialog, which waits on it and toasts an error. The
+  // page is deleted along with the item, so leave it for where it came from.
+  async function handleDelete(itemId: string) {
+    const result = await settleDelete(() => {}, deleteInventoryItemAction(itemId), dict.saveFailedToast);
+    if (!result.error) router.push(backHref);
+    return result;
   }
 
   return (

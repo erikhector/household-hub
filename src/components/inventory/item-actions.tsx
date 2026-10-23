@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -56,8 +57,7 @@ export function ItemActions({
   onMarkEmpty: (item: InventoryItemRow, addToShoppingList: boolean) => void;
   onMarkOpened: (item: InventoryItemRow) => void;
   onFreeze: (item: InventoryItemRow) => void;
-  /** UX-49: hides the item and offers Undo; the delete itself is deferred. */
-  onDelete: (item: InventoryItemRow) => void;
+  onDelete: (itemId: string) => Promise<{ error?: string }>;
   size?: string;
   /** UX-124: the item page is the details page, so its own cluster leaves
    * the "Details" link out rather than link to itself. */
@@ -69,9 +69,10 @@ export function ItemActions({
   const canMarkOpened = item.useWithinDaysOpened != null && item.useWithinDaysOpened > 0 && !item.openedAt;
   // GAP-44: only an item with an expiry date to extend, and not frozen yet.
   const canFreeze = item.expiresAt != null && !item.frozenAt;
-  // A ref for the edit dialog's trigger so the mobile menu can open it
-  // without rendering the dialog inside the menu popup (which would unmount
-  // it as the menu closes).
+  // refs for dialog triggers so the mobile menu can open them without
+  // rendering the dialogs inside the menu popup (which would unmount them
+  // as the menu closes).
+  const deleteRef = React.useRef<HTMLButtonElement | null>(null);
   const editRef = React.useRef<HTMLButtonElement | null>(null);
   return (
     <div className="flex items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2">
@@ -147,6 +148,18 @@ export function ItemActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Hidden programmatic trigger for the delete dialog (used by mobile menu).
+          Not focusable: it exists only so the menu can open the dialog. */}
+      <ConfirmDialog
+        trigger={<button ref={deleteRef} className="sr-only" tabIndex={-1} aria-hidden="true" />}
+        title={format(dict.confirmDelete.title, { name: item.name })}
+        description={dict.confirmDelete.description}
+        cancelLabel={dict.confirmDelete.cancel}
+        confirmLabel={dict.confirmDelete.confirm}
+        pendingLabel={dict.confirmDelete.confirming}
+        onConfirm={() => onDelete(item.id)}
+      />
+
       {/* Edit & delete. On a phone both live in the ⋯ menu: the card's
           left swipe (SwipeRow) shows them too, so a visible icon would be a
           third copy. The edit button stays mounted there, hidden, as the
@@ -175,18 +188,25 @@ export function ItemActions({
           </Button>
         }
       />
-      {/* UX-49: Delete removes at once and offers Undo in a toast, instead
-          of a "can't be undone" confirm. */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn(size, "text-muted-foreground hover:text-destructive hidden sm:inline-flex")}
-        disabled={isPending}
-        aria-label={dict.deleteAriaLabel}
-        onClick={() => onDelete(item)}
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
+      <ConfirmDialog
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(size, "text-muted-foreground hover:text-destructive hidden sm:inline-flex")}
+            disabled={isPending}
+            aria-label={dict.deleteAriaLabel}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        }
+        title={format(dict.confirmDelete.title, { name: item.name })}
+        description={dict.confirmDelete.description}
+        cancelLabel={dict.confirmDelete.cancel}
+        confirmLabel={dict.confirmDelete.confirm}
+        pendingLabel={dict.confirmDelete.confirming}
+        onConfirm={() => onDelete(item.id)}
+      />
 
       {/* Mobile: collapsed ⋯ menu that opens the actions */}
       <DropdownMenu>
@@ -209,7 +229,7 @@ export function ItemActions({
           {!autoAddEnabled && (
             <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => onDelete(item)}>{dict.delete}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => deleteRef.current?.click()}>{dict.delete}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

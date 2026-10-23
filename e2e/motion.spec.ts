@@ -222,13 +222,13 @@ test("adding, ticking and removing shopping items glide, with no layout shift", 
   await resetRecording(page);
   const heldDelete = await holdServerActions(page, path);
   await clickRowAction(page, { button: "Remove motion vim", menu: "More actions for motion vim", item: "Delete" });
-  // UX-49: no confirm; the delete is held back until the Undo toast closes.
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: /motion vim/ })).toHaveCount(0);
   expect((await flips(page)).map((flip) => flip.id)).toContain("flip-exit");
   await page.waitForTimeout(800);
   expect(heldDelete.answered()).toBe(0);
   heldDelete.release();
-  await expect.poll(heldDelete.answered, { timeout: 15_000 }).toBe(1);
+  await expect.poll(heldDelete.answered).toBe(1);
   await page.waitForLoadState("networkidle");
   await expectNoLayoutShift(page);
 
