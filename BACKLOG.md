@@ -725,7 +725,11 @@ route passes. The popup probe found two phone-only size gaps.
       Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
       `npm run check && npm run build` is green.
 
-- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: low, effort: S) —
+- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: med, effort: S) —
+      The `@sentry/nextjs` bump is a security fix: 10.75.1 and older have a
+      critical middleware bypass when a tunnel route is used
+      (GHSA-mchm-gjx6-7h55, fixed in 10.75.2). Check whether
+      `next.config` sets `tunnelRoute`; the audit flags it either way.
       `@base-ui/react` 1.8→1.9, `@sentry/nextjs` 10.73→10.76, `@upstash/redis`
       1.38→1.39, `@vercel/functions` 3.9→3.10, `lucide-react` 1.43→1.57,
       `pg` 8.23.0→8.23.1, `resend` 6.26→6.33, `shadcn` 4.21.0→4.21.5,
@@ -734,7 +738,12 @@ route passes. The popup probe found two phone-only size gaps.
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
 
-- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: med, effort: S) —
+- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: high, effort: S) —
+      `npm audit --omit=dev` (2026-10-23) flags `next` 16.0.0–16.4.0 with two
+      critical unauthenticated RCEs (GHSA-2464-fhr4-w9xw, image optimization
+      with SVG files; GHSA-673q-mjm6-r5xr, `use cache` returning typed
+      arrays) and a high Server Actions DoS (GHSA-p3m5-59mp-jv5r); 16.4.2
+      fixes them. Do this item first and don't wait on DEPS-3.
       DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
       16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
       7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3
