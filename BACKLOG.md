@@ -289,18 +289,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **BUG-6. Red next: `task-anchor-day` fails every time** (medium, S) —
-      `e2e/task-anchor-day.spec.ts:48` ("editing a task to repeat weekly
-      anchors the schedule on the day of the edit"), `desktop` and
-      `mobile`. Failed 2 of 2 in isolation on a clean `origin/next`
-      (`17d0826`, 2026-10-22) and on the UX-138 branch (#591), where it
-      also failed in a full `ci:local` run; it timed out waiting for
-      `getByRole("main").getByText("Next due Oct 29")`. Find whether the
-      app computes the wrong next-due date (a date-boundary bug on the
-      day of the edit) or the spec's expected date is stale, and fix it
-      in the app or the spec, never a skip or a looser assertion.
-      Acceptance: `npx playwright test e2e/task-anchor-day.spec.ts
-      --repeat-each=10` passes on both `desktop` and `mobile`.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -328,27 +316,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
-      `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
-      through the field or the bar"), `mobile` project. Failed in the local
-      `ci:local` gate on PR #499 (`b881bc8`, 2026-10-21), a pixel-equality
-      check on the add bar's screenshot. A locked `--repeat-each=10
-      --workers=1 --project=mobile` run failed 1 of 10 on that branch and
-      1 of 10 on clean `origin/next`, so it flakes at the same rate with
-      nobody's change in it. Likely the screenshot is taken before the bar
-      has settled (caret, focus ring or a late repaint). Fix it in the
-      app or in the test's waiting before the "before" screenshot, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
-      passes 30/30. Went red once more on release run 39571297362
-      (2026-10-21) and passed on retry #1 of the same commit. Failed
-      again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
-      the retry both failed in the GitHub e2e job, and it failed once in
-      the local `ci:local` gate; it passed on a GitHub job re-run and on a
-      local re-run of the same commit. Seen again on release PR #582
-      (`dec00a0`, 2026-10-22): it failed the attempt and the retry of
-      GitHub e2e run 39803999752 and once in the local `ci:local` gate;
-      it passed on a GitHub job re-run and on a local re-run.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
@@ -644,22 +611,6 @@ UX-89.
 #### Meals and recipes
 
 #### Budgets
-
-- [ ] **UX-112. A new member sees their shared costs before setting up a
-      personal budget** (impact: med, effort: M) — breaks Context (never
-      surprise a member) and Consistency. ⚠️ money.
-      - After a partner splits a 940 dinner, the new member's personal
-        Overview and home show only "Let's set up your budget". Their
-        Transactions tab shows "Shared −470.00" and Insights says they owe
-        470, but they'd never find either.
-      - Their only action, "Log a shared expense", is an outline button
-        at the top left.
-      - The household page calls the same action "Add transaction" plus
-        a "Split this expense" checkbox.
-      Acceptance: a member with shared splits sees their share and what
-      they owe or are owed on the personal Overview and home before
-      adding categories. The shared-expense action has one name and
-      placement on both pages.
 
 #### Inventory
 
