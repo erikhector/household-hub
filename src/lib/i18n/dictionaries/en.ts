@@ -225,6 +225,7 @@ export const en = {
     invite: {
       button: "Invite member",
       createFailed: "Could not create invite link",
+      tryAgain: "Try again",
       dialogTitle: "Invite a household member",
       generating: "Generating link…",
       description: "Send this link to whoever should join. It expires in 7 days.",

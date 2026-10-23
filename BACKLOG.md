@@ -737,24 +737,6 @@ route passes. The popup probe found two phone-only size gaps.
       and the projection reads as secondary text.
       Decided 2026-10-20 by owner: option 1. See #397.
 
-### UX (2026-10-22 scout)
-
-Thursday area: tasks, household, members and invites. Found by reading
-the area's components and checking `Button` sizes; the screenshot and
-audit sweeps were not run this time, so confirm the layout in a
-`small-phone` screenshot first.
-
-- [ ] **UX-146. Invite dialog: clear a failed link error on retry, and
-      offer Try again** (impact: low, effort: S) — `src/components/household/invite-button.tsx:29-41,68`:
-      `error` is set when `createInviteAction` fails but is never reset,
-      so closing and reopening the dialog after a failure that then
-      succeeds shows the red error above the working link. While it is
-      failed the only way to retry is to close and reopen (nothing says
-      so). Breaks "Error recovery" (UX principle) and M5.
-      Acceptance: with the action failing once and then succeeding
-      (`mobile` project, route-level mock), the dialog shows the error
-      with a "Try again" button; pressing it shows the link and no error.
-
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
