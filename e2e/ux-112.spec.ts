@@ -37,7 +37,7 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Villa Vinga')`, [householdId]);
     await client.query(
       `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role)
-       VALUES ($1, $3, $4, 'OWNER'), ($2, $3, $5, 'MEMBER')`,
+       VALUES ($1, $3, $4, 'OWNER'), ($2, $3, $5, 'CONTRIBUTOR')`,
       [payerMember, newcomerMember, householdId, payerId, newcomerId],
     );
     await client.query(
@@ -88,7 +88,7 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     // The link lands on the Transactions tab, where the share is listed.
     await main.getByRole("link", { name: "See the shared expenses →" }).click();
     await expect(page).toHaveURL(/tab=transactions/);
-    await expect(main.getByText("Shared", { exact: true }).first()).toBeVisible();
+    await expect(main.getByText("Shared", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   } finally {
     await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
     await client.query(`DELETE FROM "User" WHERE id = ANY($1)`, [[payerId, newcomerId]]);
