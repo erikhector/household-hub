@@ -6485,7 +6485,24 @@ components directly.
   `/login?reset=success&email=…`; `/login` reads `?email=` and pre-fills
   the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
   signup card's "Log in" link carries the address too. Covered by
-  `e2e/ux-61.spec.ts`. Signing in straight from the link is UX-135.
+  `e2e/ux-61.spec.ts`.
+- **Signing in from the verification link (UX-135).** ⚠️ Auth. A visitor
+  with no session who opens `/verify-email/<token>` is signed in by it and
+  lands on `/dashboard?welcome=1`, where `WelcomeToast` shows "Welcome to
+  Squirrel, {name}" once and drops the flag from the address (no new
+  cookie). `verifyEmailAction` does the usual checks (rate limit, unknown,
+  used, expired, already verified, all unchanged) and then calls
+  `signIn("verification-link", …)`. That second Credentials provider in
+  `src/lib/auth.ts` takes the raw token as its credential: it must be
+  unused, unexpired and belong to a still-unverified account, and it is
+  spent in one transaction (`redeemEmailVerificationToken` in
+  `src/lib/email-verification.ts`, shared with the plain verify path), so
+  a replay gets nothing. It has its own per-token rate limit because Auth.js
+  also exposes it at `POST /api/auth/callback/verification-link`. A
+  visitor who is already signed in (the dashboard banner's link) keeps the
+  plain verify, with no session swap. An expired, used or unknown token
+  behaves as before. Covered by `e2e/verify-link-sign-in.spec.ts` and the
+  unit tests in `src/lib/auth.test.ts` and `src/lib/actions/auth.test.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;

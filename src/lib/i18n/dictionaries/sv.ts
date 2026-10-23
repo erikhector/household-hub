@@ -388,6 +388,7 @@ export const sv = {
   dashboard: {
     title: "Översikt",
     subtitle: "Det som behöver din uppmärksamhet just nu.",
+    welcome: "Välkommen till Squirrel, {name}",
     greeting: {
       hello: "Hej, {name}",
       morning: "God morgon, {name}",
