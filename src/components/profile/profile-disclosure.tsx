@@ -10,15 +10,23 @@ import { ChevronDown } from "lucide-react";
 export function ProfileDisclosure({
   title,
   tone = "default",
+  id,
+  defaultOpen = false,
   children,
 }: {
   title: string;
+  // Anchor target, and (with defaultOpen) how a link from another page
+  // lands with the disclosure already expanded (UX-77).
+  id?: string;
+  defaultOpen?: boolean;
   tone?: "default" | "destructive";
   children: ReactNode;
 }) {
   return (
     <details
-      className={`group list-bleed rounded-md border ${
+      id={id}
+      open={defaultOpen}
+      className={`group list-bleed scroll-mt-4 rounded-md border ${
         tone === "destructive" ? "border-destructive/30 bg-destructive/5" : ""
       }`}
     >

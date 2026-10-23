@@ -369,6 +369,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #588 (`673a16e`, 2026-10-22): the GitHub
       e2e job failed the attempt (the 'Put everything away' button stayed
       disabled and kept detaching) and passed on the retry.
+      Seen again on release PR #622 (`49a1fc8`, 2026-10-23) in the local
+      `ci:local` run, this time in the `mobile` project; it passed on a
+      same-commit re-run.
 
 - [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
       `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
@@ -414,6 +417,18 @@ then MAINT-7 per feature, to avoid churn.
       spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
       --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-51. Flaky: `item-aliases` a name linked once in a recipe doesn't arrive linked in the pasted shopping list under load** (low, S) —
+      `e2e/item-aliases.spec.ts:50` ("a name linked once in a recipe
+      arrives linked in a pasted shopping list", `mobile`) failed once in
+      a local `ci:local` run on release PR #622 (`49a1fc8`, 2026-10-23)
+      and passed on a same-commit re-run; the GitHub e2e job on the same
+      commit was green. Find out whether the pasted list is checked before
+      the alias lookup has settled (data load, hydration) or the link
+      really is dropped, and fix it in the app or the spec's waiting,
+      never a loosened assertion, a skip or a retry. Acceptance: `npx
+      playwright test e2e/item-aliases.spec.ts:50 --project=mobile
+      --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -560,18 +575,6 @@ UX-89.
 
 
 #### Profile and household settings
-
-- [ ] **UX-77. Deleting your only household: explain instead of a button
-      that refuses** (impact: low, effort: S) — breaks User control.
-      ⚠️ Touches user-data deletion (human-only area). The red "Delete
-      household" button is active, but tapping it opens "You can't
-      delete your only household. Create another one first." The data
-      export is named `household-hub-my-data-<date>.json`
-      (`profile/export-data/route.ts:271`), after the repo, not the
-      product.
-      Acceptance: with one household the danger zone explains the rule
-      inline and points to "Delete account". The export is named
-      `squirrel-my-data-<date>.json`.
 
 #### Shopping
 
