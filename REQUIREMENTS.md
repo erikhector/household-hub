@@ -266,6 +266,16 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     owner removing them can still leave them with none; see "Users with no
     household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
+    The Household page's danger zone (UX-77) doesn't offer the button to
+    someone with only one household: it explains the rule inline. As the
+    sole member it links to "Delete account" on the profile page
+    (`/dashboard/profile?open=danger#profile-danger`, which opens that
+    page's collapsed Danger zone), because `deleteAccountAction` removes a
+    household only for its sole member. With other members it says the
+    household can't be deleted while they're in it and links to the member
+    list (`#household-members`) instead, since deleting the account is
+    blocked for an owner until ownership is transferred. The server-side
+    guard stays.
   - Managing the calendar feed (`enableCalendarFeedAction`,
     `regenerateCalendarFeedAction`, `disableCalendarFeedAction`, GAP-3):
     it publishes the household's meal plan and bill names at a link that
@@ -3564,7 +3574,7 @@ needs no loading state and degrades to a plain link with JS disabled.
 CSV-specific despite this section's name — the Profile page also has its
 own "export my data" button (`src/app/dashboard/profile/export-data/route.ts`)
 that reuses the same component for a `.json` (not `.csv`) download of just
-the signed-in user's own data (profile fields, household memberships, and
+the signed-in user's own data, downloaded as `squirrel-my-data-<date>.json` (UX-77) (profile fields, household memberships, and
 personal-budget data — deliberately excluding household-*shared* data like
 `InventoryItem`/`Transaction`, which the three CSV exports below already
 make reachable to anyone with household access).
