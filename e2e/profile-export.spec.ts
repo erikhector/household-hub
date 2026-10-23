@@ -19,7 +19,7 @@ test("export my data includes a note I wrote and isn't cached", async ({ page })
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Export my data" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/^household-hub-my-data-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(download.suggestedFilename()).toMatch(/^squirrel-my-data-\d{4}-\d{2}-\d{2}\.json$/);
 
   const data = JSON.parse(await readFile(await download.path(), "utf8"));
   expect(data.householdNotes.map((n: { body: string }) => n.body)).toContain(note);

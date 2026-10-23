@@ -1,4 +1,5 @@
 import { cache } from "react";
+import Link from "next/link";
 import { Users } from "lucide-react";
 import { absoluteAppUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
@@ -112,7 +113,7 @@ async function HouseholdNotesSection({
 }
 
 export default async function HouseholdPage() {
-  const [{ household, userId, role }, dict, locale] = await Promise.all([
+  const [{ household, userId, role, households }, dict, locale] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
@@ -189,9 +190,25 @@ export default async function HouseholdPage() {
             <h2 className="font-heading text-base font-semibold">{dict.household.dangerZoneTitle}</h2>
             <p className="text-sm text-muted-foreground">{dict.household.dangerZoneDescription}</p>
           </div>
-          <div>
-            <DeleteHouseholdDialog householdName={household.name} dict={dict.household.delete} />
-          </div>
+          {/* The server refuses to delete a user's only household (see
+              deleteHouseholdAction), so with one household we say so and
+              point at the way out instead of offering a button that opens a
+              refusal (UX-77, User control). */}
+          {households.length <= 1 ? (
+            <p className="text-sm">
+              {dict.household.delete.onlyHousehold}{" "}
+              <Link
+                href="/dashboard/profile#profile-data"
+                className="touch-target font-medium text-primary underline-offset-4 hover:underline"
+              >
+                {dict.household.delete.onlyHouseholdLink}
+              </Link>
+            </p>
+          ) : (
+            <div>
+              <DeleteHouseholdDialog householdName={household.name} dict={dict.household.delete} />
+            </div>
+          )}
         </div>
       )}
     </div>

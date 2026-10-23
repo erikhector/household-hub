@@ -387,6 +387,9 @@ export const en = {
     delete: {
       trigger: "Delete household",
       checking: "Checking…",
+      onlyHousehold:
+        "This is your only household, so it can't be deleted on its own. To remove it, delete your account instead.",
+      onlyHouseholdLink: "Go to Delete account",
       blockedTitle: "Can't delete household",
       blockedClose: "OK",
       cancel: "Cancel",

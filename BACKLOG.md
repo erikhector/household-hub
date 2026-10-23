@@ -539,18 +539,6 @@ UX-89.
 
 #### Profile and household settings
 
-- [ ] **UX-77. Deleting your only household: explain instead of a button
-      that refuses** (impact: low, effort: S) — breaks User control.
-      ⚠️ Touches user-data deletion (human-only area). The red "Delete
-      household" button is active, but tapping it opens "You can't
-      delete your only household. Create another one first." The data
-      export is named `household-hub-my-data-<date>.json`
-      (`profile/export-data/route.ts:271`), after the repo, not the
-      product.
-      Acceptance: with one household the danger zone explains the rule
-      inline and points to "Delete account". The export is named
-      `squirrel-my-data-<date>.json`.
-
 #### Shopping
 
 - [ ] **BUG-3. A scanned receipt price isn't divided by its quantity**

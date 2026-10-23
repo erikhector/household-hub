@@ -355,6 +355,9 @@ export const sv = {
     delete: {
       trigger: "Ta bort hushåll",
       checking: "Kontrollerar…",
+      onlyHousehold:
+        "Det här är ditt enda hushåll, så det kan inte tas bort för sig. Vill du ta bort det, ta bort ditt konto i stället.",
+      onlyHouseholdLink: "Gå till Ta bort konto",
       blockedTitle: "Kan inte ta bort hushållet",
       blockedClose: "OK",
       cancel: "Avbryt",
