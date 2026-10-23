@@ -419,6 +419,19 @@ then MAINT-7 per feature, to avoid churn.
       playwright test e2e/item-aliases.spec.ts:50 --project=mobile
       --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
+      `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
+      3 of 40 runs (all `desktop`) with `--repeat-each=20` on clean `next`
+      (`051d294`, 2026-10-23), and 1 of 40 on the UX-133 branch
+      (`e8332a5`, `mobile`), so nobody's change is in it. The failure
+      snapshot at spec line 92 shows the page reloaded before the
+      optimistic tick (UX-14) had saved, so the row isn't shown done
+      after the reload. Wait for the toggle's POST to answer before the
+      reload (in the spec), never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/task-anchor-day.spec.ts:60 --repeat-each=30` passes 30/30 on
+      both projects.
+
 
 ### UX (2026-09-26 scout)
 
