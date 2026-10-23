@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
+import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
+import { summarizeSharedCosts } from "@/lib/shared-costs-summary";
 import { TodayBlock, type TodayTask } from "@/components/dashboard/today-block";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
@@ -208,6 +210,11 @@ export default async function DashboardOverviewPage() {
     // optional feature were one too many on the first screen.
   ];
 
+  const sharedCostsSummary = summarizeSharedCosts(
+    personalPosition.sharedPostedRows,
+    personalPosition.householdDebts,
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -263,28 +270,41 @@ export default async function DashboardOverviewPage() {
             locale={locale}
           />
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2">
-                  <PiggyBank className="size-4 shrink-0" />
-                </span>
-                {dict.dashboard.yourBudgetTitle}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-3">
-              <p className="text-sm text-muted-foreground">{dict.personalBudget.onboarding.body}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className={CARD_LINK_BUTTON}
-                render={<Link href="/dashboard/personal-budget" />}
-              >
-                {dict.dashboard.setUpPersonalBudgetCta}
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col gap-4">
+            {/* UX-112: shares and balances come before "set up". */}
+            {sharedCostsSummary.hasAny && (
+              <SharedCostsCard
+                summary={sharedCostsSummary}
+                debts={personalPosition.householdDebts}
+                showHouseholdName={personalPosition.showHouseholdName}
+                transactionsHref="/dashboard/personal-budget?tab=transactions"
+                dict={dict.personalBudget}
+                locale={locale}
+              />
+            )}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2">
+                    <PiggyBank className="size-4 shrink-0" />
+                  </span>
+                  {dict.dashboard.yourBudgetTitle}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-3">
+                <p className="text-sm text-muted-foreground">{dict.personalBudget.onboarding.body}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={CARD_LINK_BUTTON}
+                  render={<Link href="/dashboard/personal-budget" />}
+                >
+                  {dict.dashboard.setUpPersonalBudgetCta}
+                  <ChevronRight className="size-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 
