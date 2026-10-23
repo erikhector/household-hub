@@ -289,18 +289,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **BUG-6. Red next: `task-anchor-day` fails every time** (medium, S) —
-      `e2e/task-anchor-day.spec.ts:48` ("editing a task to repeat weekly
-      anchors the schedule on the day of the edit"), `desktop` and
-      `mobile`. Failed 2 of 2 in isolation on a clean `origin/next`
-      (`17d0826`, 2026-10-22) and on the UX-138 branch (#591), where it
-      also failed in a full `ci:local` run; it timed out waiting for
-      `getByRole("main").getByText("Next due Oct 29")`. Find whether the
-      app computes the wrong next-due date (a date-boundary bug on the
-      day of the edit) or the spec's expected date is stale, and fix it
-      in the app or the spec, never a skip or a looser assertion.
-      Acceptance: `npx playwright test e2e/task-anchor-day.spec.ts
-      --repeat-each=10` passes on both `desktop` and `mobile`.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
