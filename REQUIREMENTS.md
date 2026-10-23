@@ -3390,7 +3390,8 @@ with the other members) sees a "Shared with your household" card above the
 "Let's set up your budget" prompt, on the personal Overview and on Home. It
 shows their share of this month's split expenses (`summarizeSharedCosts`,
 `src/lib/shared-costs-summary.ts`: expenses only, their own share, never the
-whole bill) and the same "Your household balance" lines Safe to spend uses
+whole bill; on the personal page's past months the row is labelled "Your
+share in {month}" rather than "this month") and the same "Your household balance" lines Safe to spend uses
 (`HouseholdDebtsList`, extracted from `SafeToSpend` so the two can't drift),
 with a link to the Transactions tab. Once they have categories the card goes
 and Safe to spend carries the balance as before. The shared-expense action is
