@@ -358,6 +358,9 @@ export const sv = {
       onlyHousehold:
         "Det här är ditt enda hushåll, så det kan inte tas bort för sig. Vill du ta bort det, ta bort ditt konto i stället.",
       onlyHouseholdLink: "Gå till Ta bort konto",
+      onlyHouseholdWithMembers:
+        "Det här är ditt enda hushåll och det har fler medlemmar, så det kan inte tas bort så länge de är med. Överför ägarskapet till någon av dem, eller ta bort dem, först.",
+      onlyHouseholdWithMembersLink: "Gå till medlemmarna",
       blockedTitle: "Kan inte ta bort hushållet",
       blockedClose: "OK",
       cancel: "Avbryt",

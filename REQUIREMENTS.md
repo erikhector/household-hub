@@ -267,9 +267,15 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
     The Household page's danger zone (UX-77) doesn't offer the button to
-    someone with only one household: it explains the rule inline and links
-    to "Delete account" on the profile page (the way to remove that
-    household). The server-side guard stays.
+    someone with only one household: it explains the rule inline. As the
+    sole member it links to "Delete account" on the profile page
+    (`/dashboard/profile?open=danger#profile-danger`, which opens that
+    page's collapsed Danger zone), because `deleteAccountAction` removes a
+    household only for its sole member. With other members it says the
+    household can't be deleted while they're in it and links to the member
+    list (`#household-members`) instead, since deleting the account is
+    blocked for an owner until ownership is transferred. The server-side
+    guard stays.
   - Managing the calendar feed (`enableCalendarFeedAction`,
     `regenerateCalendarFeedAction`, `disableCalendarFeedAction`, GAP-3):
     it publishes the household's meal plan and bill names at a link that
