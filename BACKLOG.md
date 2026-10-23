@@ -362,6 +362,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
       failed the attempt and the retry of the GitHub e2e job and in the
       local `ci:local` gate; it passed on the job re-run and on a local re-run.
+      Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
+      (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
+      still there after 5 s) and passed on retry #1.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
