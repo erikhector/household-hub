@@ -493,8 +493,8 @@ build them first: UX-47,
 UX-89.
 
 **Built elsewhere.** Three items sit in other sections of this file:
-- Phase 2, because they need a migration: UX-133 (task due dates) and
-  UX-134 (budget month starting on payday).
+- Phase 2, because they need a migration: UX-134 (budget month starting
+  on payday).
 - Needs a decision before building: UX-136.
 
 **File conflicts.** Don't build these in parallel:
@@ -812,20 +812,6 @@ order below is a suggestion, not a dependency, unless noted.
       Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
       Why: the item's own recommendation; opt-in keeps the Guardrails on
       noisy positive alerts. See PRODUCT.md.
-
-- [ ] **UX-133. Optional due dates on tasks, sorted by urgency** (impact:
-      high, effort: L) — from the 2026-10-15 UI review. `HouseholdTask`
-      has no due field and `tasks/page.tsx:23` orders by `createdAt`.
-      Nothing is ever "overdue": "Water the plants" (every 3 days, done 8
-      days ago) looks the same as a task that reopened a minute ago. A
-      one-off like "Book the car service" can't get a date, and the
-      overview's "Today" block (UX-70) has nothing to say about lateness.
-      One migration: a nullable `dueDate`. Recurring tasks derive it from
-      the rule UX-137 settled (REQUIREMENTS.md, Recurrence).
-      Acceptance: a task can carry an optional due date. Open tasks sort
-      overdue, then today, then later. An overdue row shows a
-      `warning`-tinted "Overdue · 5 days" with an icon on the tasks page
-      and the overview. Unit tests cover the sort and the derived date.
 
 - [ ] **UX-134. A budget month that starts on payday** (impact: med,
       effort: L) — from the 2026-10-15 UI review. ⚠️ Money (human-only

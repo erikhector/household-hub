@@ -129,6 +129,7 @@ describe("createTaskAction", () => {
         recurrenceAnchorAt: null,
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
+        dueDate: null,
       },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
@@ -154,6 +155,7 @@ describe("createTaskAction", () => {
         recurrenceAnchorAt: null,
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
+        dueDate: null,
       },
     });
   });
@@ -177,6 +179,7 @@ describe("createTaskAction", () => {
         recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
+        dueDate: null,
       },
     });
   });
@@ -248,6 +251,7 @@ describe("updateTaskAction", () => {
         recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
+        dueDate: null,
       },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
@@ -306,6 +310,7 @@ describe("updateTaskAction", () => {
         recurrenceAnchorAt: null,
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
+        dueDate: null,
       },
     });
   });
@@ -560,6 +565,7 @@ describe("task rotation (GAP-38)", () => {
         recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: ["member-2", "member-1"],
         rotationPreviousAssigneeId: "member-2",
+        dueDate: null,
       },
     });
   });
@@ -653,6 +659,7 @@ describe("task rotation (GAP-38)", () => {
         recurrenceAnchorAt: expect.any(Date),
         rotationMemberIds: ["member-1", "member-2"],
         rotationPreviousAssigneeId: "member-2",
+        dueDate: null,
       },
     });
   });
@@ -842,5 +849,64 @@ describe("deleteTaskAction", () => {
 
     expect(result.error).toBeUndefined();
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
+  });
+});
+
+describe("task due dates (UX-133)", () => {
+  it("stores a one-off's due date as that calendar day", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+    householdTaskCreateMock.mockResolvedValue({ id: "task-1" });
+
+    const result = await createTaskAction({}, formData({ title: "Book the car service", dueDate: "2026-11-02" }));
+
+    expect(result.error).toBeUndefined();
+    expect(householdTaskCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ dueDate: new Date("2026-11-02T00:00:00.000Z") }),
+    });
+  });
+
+  it("rejects a due date that isn't a real date", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+
+    const result = await createTaskAction({}, formData({ title: "Book the car service", dueDate: "2026-02-30" }));
+
+    expect(result.error).toBe("Due date must be a real date");
+    expect(householdTaskCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("drops the date on a repeating task, whose due day is derived from its schedule", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+    householdTaskCreateMock.mockResolvedValue({ id: "task-1" });
+
+    await createTaskAction(
+      {},
+      formData({ title: "Water the plants", recurrenceIntervalDays: "3", dueDate: "2026-11-02" }),
+    );
+
+    expect(householdTaskCreateMock).toHaveBeenCalledWith({ data: expect.objectContaining({ dueDate: null }) });
+  });
+
+  it("sets, changes and clears the date on edit", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+    householdTaskFindFirstMock.mockResolvedValue({ id: "task-1", recurrenceIntervalDays: null });
+    const base = { assignedToMemberId: null, recurrenceIntervalDays: null, rotationMemberIds: [] };
+
+    await updateTaskAction("task-1", { ...base, dueDate: "2026-11-02" });
+    expect(householdTaskUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "task-1" },
+      data: expect.objectContaining({ dueDate: new Date("2026-11-02T00:00:00.000Z") }),
+    });
+
+    await updateTaskAction("task-1", { ...base, dueDate: "" });
+    expect(householdTaskUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "task-1" },
+      data: expect.objectContaining({ dueDate: null }),
+    });
+
+    await updateTaskAction("task-1", { ...base, recurrenceIntervalDays: 7, dueDate: "2026-11-02" });
+    expect(householdTaskUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "task-1" },
+      data: expect.objectContaining({ dueDate: null }),
+    });
   });
 });

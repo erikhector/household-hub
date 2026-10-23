@@ -21,6 +21,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CalendarDays, ChevronRight, Snowflake, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
@@ -34,6 +35,8 @@ export type TodayTask = {
   title: string;
   /** Nobody is assigned: shown with a hint, since it's the household's. */
   unassigned: boolean;
+  /** UX-133: whole days past due; 0 when it is not late. */
+  overdueDays: number;
 };
 
 const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
@@ -67,6 +70,7 @@ export function TodayBlock({
   taskDict: Pick<Dictionary["tasks"], "toggleCompleteAriaLabel" | "toggleIncompleteAriaLabel" | "doneToast"> & {
     undo: string;
     saveFailedToast: string;
+    overdueLabel: Dictionary["tasks"]["overdueLabel"];
   };
 }) {
   // What this visit has ticked, by task id, with the row's place in the
@@ -150,7 +154,14 @@ export function TodayBlock({
                     >
                       {task.title}
                     </span>
-                    {task.unassigned && <span className="text-xs text-muted-foreground">{dict.unassigned}</span>}
+                    {(task.overdueDays > 0 || task.unassigned) && (
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        {task.overdueDays > 0 && !done && (
+                          <TaskOverdueBadge days={task.overdueDays} label={taskDict.overdueLabel} />
+                        )}
+                        {task.unassigned && <span>{dict.unassigned}</span>}
+                      </span>
+                    )}
                   </span>
                 </li>
               );

@@ -100,6 +100,7 @@ export const en = {
     repeatWhole: "Repeat interval must be a whole number of days",
     repeatMin: "Repeat interval must be at least 1 day",
     repeatMax: "Repeat interval must be 90 days or fewer",
+    dueDateInvalid: "Due date must be a real date",
     eachPersonOnce: "Each person can only take turns once",
     plannedBillNotFound: "Planned bill not found",
     plannedBillAlreadyPaid: "This planned bill is already paid",
@@ -2206,6 +2207,16 @@ export const en = {
     completedByLabel: "Completed by {name}",
     lastCompletedByLabel: "Last done by {name}",
     nextDueLabel: "Next due {date}",
+    // UX-133: an optional due date, and the urgency it gives an open task.
+    dueDateLabel: "Due date",
+    dueDateHint: "Optional. Leave it empty for no deadline.",
+    clearDueDate: "Clear due date",
+    dueTodayLabel: "Due today",
+    dueLabel: "Due {date}",
+    overdueLabel: {
+      one: "Overdue · {count} day",
+      other: "Overdue · {count} days",
+    },
     deleteTaskAriaLabel: "Delete {title}",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only

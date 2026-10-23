@@ -14,6 +14,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { getTimeZone } from "@/lib/get-time-zone";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { parseDueDateInput } from "@/app/dashboard/tasks/task-due";
 import {
   MAX_ROTATION_MEMBERS,
   MIN_ROTATION_MEMBERS,
@@ -29,6 +30,21 @@ const recurrenceIntervalDaysSchema = z.coerce
   .nullable()
   .optional();
 
+// UX-133: an optional due day, sent as the date field's `YYYY-MM-DD`. Empty
+// or missing means no date. Only a one-off keeps it (see dueDateFor).
+const dueDateSchema = z
+  .string()
+  .trim()
+  .refine((value) => value === "" || parseDueDateInput(value) !== null, v("dueDateInvalid"))
+  .nullable()
+  .optional();
+
+/** The `dueDate` column value for a parsed form value: null for no date, and for a repeating task (its due day is derived, not stored). */
+function dueDateFor(value: string | null | undefined, recurrenceIntervalDays: number | null): Date | null {
+  if (!value || recurrenceIntervalDays !== null) return null;
+  return parseDueDateInput(value);
+}
+
 // GAP-38: the ordered "take turns" list. Empty means no rotation. Shape is
 // checked here; the cross-field rules (needs a repeat, needs ≥2 people,
 // everyone must belong to this household) live in resolveTaskAssignment
@@ -43,6 +59,7 @@ const createTaskSchema = z.object({
   title: z.string().trim().min(1, v("titleRequired")).max(120, v("titleTooLong")),
   assignedToMemberId: z.string().trim().min(1).optional(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
+  dueDate: dueDateSchema,
   rotationMemberIds: rotationMemberIdsSchema,
 });
 
@@ -52,6 +69,7 @@ const updateTaskSchema = z.object({
   title: createTaskSchema.shape.title.optional(),
   assignedToMemberId: z.string().trim().min(1).nullable(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
+  dueDate: dueDateSchema,
   rotationMemberIds: rotationMemberIdsSchema,
 });
 
@@ -128,6 +146,7 @@ export async function createTaskAction(
     title: formData.get("title"),
     assignedToMemberId: formData.get("assignedToMemberId") || undefined,
     recurrenceIntervalDays: formData.get("recurrenceIntervalDays") || undefined,
+    dueDate: formData.get("dueDate") || undefined,
     // One hidden input per person, in turn order — getAll keeps that order.
     rotationMemberIds: formData.getAll("rotationMemberIds"),
   });
@@ -148,6 +167,7 @@ export async function createTaskAction(
         householdId: household.id,
         title: parsed.data.title,
         ...resolved.data,
+        dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
         // UX-144: a repeating task's anchor day starts as the day it is made.
         recurrenceAnchorAt: resolved.data.recurrenceIntervalDays === null ? null : new Date(),
       },
@@ -162,7 +182,13 @@ export async function createTaskAction(
 
 export async function updateTaskAction(
   taskId: string,
-  input: { title?: string; assignedToMemberId: string | null; recurrenceIntervalDays: number | null; rotationMemberIds: string[] },
+  input: {
+    title?: string;
+    assignedToMemberId: string | null;
+    recurrenceIntervalDays: number | null;
+    dueDate?: string | null;
+    rotationMemberIds: string[];
+  },
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
@@ -189,6 +215,7 @@ export async function updateTaskAction(
       where: { id: task.id },
       data: {
         ...resolved.data,
+        dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
         ...(parsed.data.title !== undefined && { title: parsed.data.title }),
         // UX-144: editing the interval re-anchors the schedule on today, which
         // is how "every Thursday" is set (edit on a Thursday). Saving the same

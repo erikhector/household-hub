@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { TasksClient } from "@/components/tasks/tasks-client";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { formatDueDateInput, getTaskDueDay } from "@/app/dashboard/tasks/task-due";
 import { activeRotationMembers, isRotating, nextAssigneeInRotation } from "@/lib/task-rotation";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
@@ -67,6 +68,10 @@ const getTasksData = cache(async (householdId: string) => {
         recurrenceIntervalDays: t.recurrenceIntervalDays,
         completedAt: t.completedAt,
         recurrenceAnchorAt: t.recurrenceAnchorAt,
+        // UX-133: the local day it is due (stored for a one-off, derived from
+        // the schedule for a repeat), and the one-off's date for the edit form.
+        dueDay: getTaskDueDay(t, timeZone),
+        dueDate: t.recurrenceIntervalDays === null && t.dueDate ? formatDueDateInput(t.dueDate) : null,
         createdAt: t.createdAt,
         // Current members only, so the edit dialog never offers (or
         // re-saves) someone who has left the household.
