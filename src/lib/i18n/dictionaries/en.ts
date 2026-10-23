@@ -2969,19 +2969,12 @@ export const en = {
       paidBy: "Paid by {name}",
       viewInHouseholdBudget: "View in {household} Budget →",
       leftDue: "{amount} left due",
-      // UX-112: the card a member sees before they've set up a budget.
-      costsTitle: "Shared with your household",
-      costsBody: "Expenses split with other members count here before you set up your own budget.",
-      monthShare: "Your share this month",
-      viewShared: "See the shared expenses →",
     },
     logShared: {
       logPayment: "Log payment",
       paymentDialogTitle: "Log payment for {name}",
-      // UX-112: "Add" like the household page's "Add transaction", which is
-      // where the same action lives next to a "Split this expense" checkbox.
-      button: "Add shared expense",
-      dialogTitle: "Add shared expense",
+      button: "Log a shared expense",
+      dialogTitle: "Log a shared expense",
       subtitle:
         "This creates a real transaction in the household's budget, split the way you choose below — it isn't a separate personal entry.",
       householdLabel: "Household",
