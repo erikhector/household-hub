@@ -42,7 +42,6 @@ import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
 import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
-import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { getStockStatus } from "@/lib/stock-status";
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { quantityStep } from "@/lib/inventory/quantity-step";
@@ -541,9 +540,7 @@ export function InventoryTable({
                   item={item}
                   disabled={isPending}
                   dict={dict}
-                  onRemove={() => {
-                    if (selected.has(item.id)) toggleItem(item.id);
-                  }}
+                  onDelete={handleDelete}
                 >
                   {/* The selected tint and accent sit on this row, inside
                       SwipeRow's opaque sliding layer, not on the <li> under
@@ -620,46 +617,32 @@ export function InventoryTable({
 }
 
 // UX-35: the phone card's swipe actions: left for Edit and a Delete with
-// Undo (the ⋯ menu and trash do the same, UX-49). No right swipe: its
-// +1 sat right next to the card's own + button, an easier tap than a 40%
-// swipe, and a swipe that adds stock by accident is worse than one that
-// does nothing. Its own
-// component so each card gets its own useUndoableDelete. Phones only: the
-// desktop table is for a mouse, where SwipeRow does nothing anyway.
-// A hidden card also leaves the bulk selection (onRemove): the bulk bar must
-// not count an item the user can't see, and a bulk delete inside the Undo
-// window would race the deferred one.
+// Undo (the ⋯ menu and trash do the same, UX-49, through handleDelete). No
+// right swipe: its +1 sat right next to the card's own + button, an easier
+// tap than a 40% swipe, and a swipe that adds stock by accident is worse
+// than one that does nothing. Phones only: the desktop table is for a
+// mouse, where SwipeRow does nothing anyway.
 function SwipeableItemCard({
   item,
   disabled,
   dict,
-  onRemove,
+  onDelete,
   children,
 }: {
   item: InventoryItemRow;
   disabled: boolean;
   dict: Dictionary["inventory"];
-  onRemove: () => void;
+  onDelete: (item: InventoryItemRow) => void;
   children: ReactNode;
 }) {
-  const { hidden, remove } = useUndoableDelete({
-    run: async () =>
-      (await settleOptimisticAction(() => deleteInventoryItemAction(item.id), dict.saveFailedToast)) !== null,
-    message: format(dict.swipe.deletedToast, { name: item.name }),
-    undoLabel: dict.swipe.undo,
-  });
   // The <li> lives here, not in the list, so a deleted row leaves no empty
   // item behind for the list's divide-y to draw a border around.
-  if (hidden) return null;
   return (
     <li data-flip-key={`card:${item.id}`}>
       <SwipeRow
         editLabel={dict.swipe.edit}
         deleteLabel={dict.swipe.delete}
-        onDelete={() => {
-          onRemove();
-          remove();
-        }}
+        onDelete={() => onDelete(item)}
         disabled={disabled}
       >
         {children}

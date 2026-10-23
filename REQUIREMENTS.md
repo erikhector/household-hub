@@ -7398,12 +7398,15 @@ Todoist-style. Built as one shared wrapper,
   at once and shows the same Undo toast, never a "This can't be undone"
   confirm: the swipe, the desktop trash icon, the ⋯ menu's Delete, and the
   Delete in a task's, meal's, recipe's or transaction's sheet (which closes
-  first). The inventory item page's Delete leaves the page at once. Rows
-  with a component of their own use `useUndoableDelete`; the inventory
-  table, the transaction list and the item page, which delete from a shared
-  handler, use `startUndoableDelete`
-  (`src/components/shared/start-undoable-delete.ts`), which behaves the same
-  and survives the row unmounting. A meal's toast reads "Removed "…""; the
+  first). The inventory item page's Delete leaves the page at once. Tasks,
+  shopping items, inventory items and transactions leave the list at tap
+  time (`local-row-changes`, or the transaction list's own removed set), so
+  aisle headers, section counts and the "Next up" dock follow at once, and
+  the delete is sent through `startUndoableDelete`
+  (`src/components/shared/start-undoable-delete.ts`) when the toast closes;
+  meals and recipes hide their own row with `useUndoableDelete`. Undo
+  just brings the row back. The inventory item page's Delete uses
+  `startUndoableDelete` too. A meal's toast reads "Removed "…""; the
   other deletes read "Deleted "…"". Household, budget category, recurring
   template, planned bill, shopping list and account deletes keep their
   confirms.

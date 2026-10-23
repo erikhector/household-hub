@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useActionState, useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { Fragment, useActionState, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -75,7 +75,7 @@ import { settleOptimisticAction } from "@/components/shared/settle-optimistic-ac
 import { SwipeRow } from "@/components/shared/swipe-row";
 import { RowActionsMenu } from "@/components/shared/row-actions-menu";
 import { archiveListWithUndo } from "@/components/shopping/archive-list";
-import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
@@ -96,7 +96,7 @@ import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway, withLocalTick } from "@/lib/shopping/put-away-calc";
-import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
@@ -279,6 +279,25 @@ export function ShoppingListClient({
     local.changes,
     (item) => item,
   );
+  // UX-49: every delete (the swipe, the trash icon, the ⋯ menu) takes the
+  // row out at tap time, like a tick, and the server hears of it when the
+  // Undo toast closes. Out of the list's own items rather than hidden in the
+  // row, so the aisle header and the "Next up" dock go with it at once; a
+  // dock that changed five seconds later would shift the layout with no tap
+  // behind it. Undo drops the mark and the row is back.
+  const deleteItem = (item: ShoppingListItemRow) => {
+    const settle = local.markDeleted(item.id);
+    startUndoableDelete({
+      run: async () => {
+        const result = await settleDelete(settle, deleteShoppingListItemAction(item.id), dict.saveFailedToast);
+        if (result.error) toast.error(result.error);
+        return !result.error;
+      },
+      restore: () => settle(false),
+      message: format(dict.swipe.deletedToast, { name: item.name }),
+      undoLabel: dict.swipe.undo,
+    });
+  };
   // UX-33: rows glide when they move (use-flip-list.ts). A row leaving its
   // aisle (`leaving` below) has its own drop-out animation instead.
   const listRef = useFlipList<HTMLDivElement>();
@@ -359,17 +378,6 @@ export function ShoppingListClient({
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder, locale);
-  // UX-84: rows currently hidden by a swipe-delete's Undo window.
-  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
-  const trackHidden = useCallback((id: string, hidden: boolean) => {
-    setHiddenIds((prev) => {
-      if (prev.has(id) === hidden) return prev;
-      const next = new Set(prev);
-      if (hidden) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }, []);
   const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder, locale);
   // GAP-53: the open items as plain text, on the clipboard or (a phone, via
   // the system share sheet) sent on. Nothing is stored or shared through the
@@ -1014,24 +1022,19 @@ export function ShoppingListClient({
                 a single flat "Purchased" section, unchanged. */}
             {shownPendingGroups.map((group) => (
               <Fragment key={group.key ?? ""}>
-                {/* UX-84: an aisle whose rows are all swipe-deleted (Undo
-                    window) hides its header too; the rows stay mounted so
-                    Undo can bring them back. */}
-                {group.items.some((item) => !hiddenIds.has(item.id)) && (
-                  <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
-                    {group.label}
-                  </p>
-                )}
+                <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
+                  {group.label}
+                </p>
                 {group.items.map((item) => (
                   <ShoppingRow
                     key={item.id}
                     item={item}
                     onToggle={() => toggleItem(item)}
+                    onDelete={deleteItem}
                     leaving={leaving.has(item.id)}
                     highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
                     groupedByCategory
-                    onHiddenChange={trackHidden}
                     isPending={isPending}
                     startTransition={startTransition}
                     inventoryItems={inventoryItems}
@@ -1087,6 +1090,7 @@ export function ShoppingListClient({
                   key={item.id}
                   item={item}
                   onToggle={() => toggleItem(item)}
+                  onDelete={deleteItem}
                   editable={isActive}
                   isPending={isPending}
                   startTransition={startTransition}
@@ -1303,6 +1307,7 @@ function CompletedActions({
 function ShoppingRow({
   item,
   onToggle,
+  onDelete,
   leaving = false,
   highlighted = false,
   editable,
@@ -1315,12 +1320,13 @@ function ShoppingRow({
   numberFormat,
   awaitingPutAway = false,
   groupedByCategory = false,
-  onHiddenChange,
 }: {
   /** `purchased` is already the optimistic value (see ShoppingListClient). */
   item: ShoppingListItemRow;
   /** The optimistic tick, owned by ShoppingListClient. */
   onToggle: () => void;
+  /** UX-49: removes the item with an Undo toast, owned by ShoppingListClient. */
+  onDelete: (item: ShoppingListItemRow) => void;
   /** UX-37: just ticked, animating out of its aisle towards "In the cart". */
   leaving?: boolean;
   /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
@@ -1374,21 +1380,6 @@ function ShoppingRow({
     (row?.closest<HTMLElement>("[data-swipe-row]") ?? row)?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
-  // UX-35: swipe left → Delete hides the row with an Undo toast; the trash
-  // button below does the same (UX-49).
-  const { hidden, remove } = useUndoableDelete({
-    run: async () =>
-      (await settleOptimisticAction(() => deleteShoppingListItemAction(item.id), dict.saveFailedToast)) !== null,
-    message: format(dict.swipe.deletedToast, { name: item.name }),
-    undoLabel: dict.swipe.undo,
-  });
-
-  useEffect(() => {
-    onHiddenChange?.(item.id, hidden);
-  }, [hidden, item.id, onHiddenChange]);
-
-  if (hidden) return null;
-
   return (
     <SwipeRow
       className={cn(
@@ -1419,7 +1410,7 @@ function ShoppingRow({
       primaryIcon={<Check className="size-4" />}
       editLabel={editable ? dict.swipe.edit : undefined}
       deleteLabel={dict.swipe.delete}
-      onDelete={editable ? remove : undefined}
+      onDelete={editable ? () => onDelete(item) : undefined}
       disabled={isPending}
     >
       <div
@@ -1559,7 +1550,7 @@ function ShoppingRow({
                   className="size-7 text-muted-foreground hover:text-destructive max-sm:hidden"
                   disabled={isPending}
                   aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-                  onClick={remove}
+                  onClick={() => onDelete(item)}
                 >
                   <Trash2 className="size-3.5" />
                 </Button>

@@ -22,9 +22,9 @@ import { SwipeRow } from "@/components/shared/swipe-row";
 import { useLocalPreference } from "@/components/shared/use-local-preference";
 import { filterTasks, parseTaskFilter, type TaskFilter } from "@/app/dashboard/tasks/task-filter";
 import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
-import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
-import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
 import { withLocalCompletion } from "@/lib/task-rotation";
@@ -108,6 +108,23 @@ export function TasksClient({
       settle(result !== null);
     })();
   };
+  // UX-49: every delete (the swipe, the trash icon, the sheet's Delete)
+  // takes the row out at tap time, like a tick, and the server hears of it
+  // when the Undo toast closes. Out of the list rather than hidden in the
+  // row, so the section counts follow at once instead of five seconds later.
+  const deleteTask = (task: TaskRow) => {
+    const settle = local.markDeleted(task.id);
+    startUndoableDelete({
+      run: async () => {
+        const result = await settleDelete(settle, deleteTaskAction(task.id), dict.saveFailedToast);
+        if (result.error) toast.error(result.error);
+        return !result.error;
+      },
+      restore: () => settle(false),
+      message: format(dict.swipe.deletedToast, { name: task.title }),
+      undoLabel: dict.swipe.undo,
+    });
+  };
   const containerRef = useFlipList<HTMLDivElement>();
 
   const openTasks = tasks.filter((t) => !t.completed);
@@ -171,6 +188,7 @@ export function TasksClient({
                 members={members}
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
+                onDelete={deleteTask}
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
@@ -207,6 +225,7 @@ export function TasksClient({
                 members={members}
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
+                onDelete={deleteTask}
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
@@ -235,6 +254,7 @@ function TaskItemRow({
   members,
   memberNameById,
   onToggleCompleted,
+  onDelete,
   dict,
   locale,
   timeZone,
@@ -243,6 +263,7 @@ function TaskItemRow({
   members: MemberOption[];
   memberNameById: Map<string, string>;
   onToggleCompleted: (task: TaskRow) => void;
+  onDelete: (task: TaskRow) => void;
   dict: TasksDict;
   locale: Locale;
   timeZone: string;
@@ -258,12 +279,6 @@ function TaskItemRow({
     if (task.completed) run();
     else tick(run);
   };
-  // UX-35: swipe left → Delete hides the row with an Undo toast.
-  const { hidden, remove } = useUndoableDelete({
-    run: async () => (await settleOptimisticAction(() => deleteTaskAction(task.id), dict.saveFailedToast)) !== null,
-    message: format(dict.swipe.deletedToast, { name: task.title }),
-    undoLabel: dict.swipe.undo,
-  });
 
   const assigneeName = task.assignedToMemberId ? memberNameById.get(task.assignedToMemberId) : undefined;
   const completerName = task.completedByMemberId ? memberNameById.get(task.completedByMemberId) : undefined;
@@ -292,8 +307,6 @@ function TaskItemRow({
     completerName !== undefined;
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
-  if (hidden) return null;
-
   return (
     <SwipeRow
       className="list-bleed rounded-md"
@@ -302,7 +315,7 @@ function TaskItemRow({
       primaryIcon={<Check className="size-4" />}
       editLabel={dict.swipe.edit}
       deleteLabel={dict.swipe.delete}
-      onDelete={remove}
+      onDelete={() => onDelete(task)}
     >
       <div className="flex items-center gap-3 rounded-md border px-3 py-1 sm:py-2">
         {/* UX-106: a phone row is one line, checkbox, title, assignee, so
@@ -403,7 +416,7 @@ function TaskItemRow({
             data-row-delete
             className="size-7 shrink-0 text-muted-foreground hover:text-destructive max-sm:hidden"
             aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
-            onClick={remove}
+            onClick={() => onDelete(task)}
           >
             <Trash2 className="size-3.5" />
           </Button>
