@@ -636,8 +636,6 @@ UX-89.
 
 #### Meals and recipes
 
-#### Budgets
-
 #### Inventory
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
