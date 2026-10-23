@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
+import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
+import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
@@ -45,6 +47,10 @@ type TaskRow = {
   completedAt: Date | null;
   createdAt: Date;
   recurrenceAnchorAt: Date | null;
+  /** UX-133: the local day it is due (days since 1970-01-01), or null. */
+  dueDay: number | null;
+  /** UX-133: a one-off's chosen date as YYYY-MM-DD, for the edit form. */
+  dueDate: string | null;
   rotationMemberIds: string[];
   /** GAP-38: who's up after the current turn; null unless the task rotates. */
   nextInRotationMemberId: string | null;
@@ -115,7 +121,13 @@ export function TasksClient({
   };
   const containerRef = useFlipList<HTMLDivElement>();
 
-  const openTasks = tasks.filter((t) => !t.completed);
+  // UX-133: overdue, then today, then later, then undated. Each tier keeps
+  // its oldest-first order, so a list with no dates reads as before.
+  const today = todayDayNumber(now, timeZone);
+  const openTasks = sortByUrgency(
+    tasks.filter((t) => !t.completed),
+    today,
+  );
   // UX-105: a one-off ticked over a week ago collapses behind "Show N older".
   const completedTasks = tasks.filter((t) => t.completed);
   const olderTasks = completedTasks.filter((t) => isOlderCompletedOneOff(t, now));
@@ -180,6 +192,7 @@ export function TasksClient({
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
+                today={today}
               />
             ))}
             {openTasks.length === 0 && (
@@ -217,6 +230,7 @@ export function TasksClient({
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
+                today={today}
               />
             ))}
             {olderTasks.length > 0 && (
@@ -246,6 +260,7 @@ function TaskItemRow({
   dict,
   locale,
   timeZone,
+  today,
 }: {
   task: TaskRow;
   members: MemberOption[];
@@ -255,6 +270,8 @@ function TaskItemRow({
   dict: TasksDict;
   locale: Locale;
   timeZone: string;
+  /** Today's local day number, for how late a task is. */
+  today: number;
 }) {
   // UX-14 and UX-33: the tick shows, and the row moves to "Completed", at
   // tap time; TasksClient owns the save (toggleCompleted).
@@ -293,7 +310,26 @@ function TaskItemRow({
       })
     : null;
 
+  // UX-133: a late open task says how late; a one-off with a date says when
+  // it is due. A repeat's own due day is its schedule, which the Repeat badge
+  // already names, so it only ever shows as overdue.
+  const urgency = task.completed ? "none" : getTaskUrgency(task.dueDay, today);
+  const overdueDays = urgency === "overdue" ? daysOverdue(task.dueDay, today) : 0;
+  const dueLabel =
+    task.completed || urgency === "overdue" || task.dueDate === null || task.dueDay === null
+      ? null
+      : urgency === "today"
+        ? dict.dueTodayLabel
+        : format(dict.dueLabel, {
+            // A calendar day, not an instant: format it in UTC so no zone shifts it.
+            date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
+              new Date(task.dueDay * 24 * 60 * 60 * 1000),
+            ),
+          });
+
   const hasDetails =
+    overdueDays > 0 ||
+    dueLabel !== null ||
     recurrenceLabel !== null ||
     nextDueLabel !== null ||
     nextInRotationName !== undefined ||
@@ -346,6 +382,8 @@ function TaskItemRow({
           </button>
           {hasDetails && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pb-1 text-xs text-muted-foreground sm:pb-0">
+              {overdueDays > 0 && <TaskOverdueBadge days={overdueDays} label={dict.overdueLabel} />}
+              {dueLabel && <span>{dueLabel}</span>}
               {recurrenceLabel && (
                 <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
                   <Repeat className="size-3" />

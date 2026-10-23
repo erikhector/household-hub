@@ -49,6 +49,8 @@ type EditableTask = {
   title: string;
   assignedToMemberId: string | null;
   recurrenceIntervalDays: number | null;
+  /** UX-133: a one-off's due date as YYYY-MM-DD. */
+  dueDate: string | null;
   rotationMemberIds: string[];
 };
 
@@ -94,6 +96,7 @@ export function TaskFormDialog({
     mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
   );
   const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
+  const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -104,6 +107,7 @@ export function TaskFormDialog({
         mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
       );
       setRotation(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
+      setDueDate(mode === "edit" ? (task?.dueDate ?? "") : "");
     }
   };
 
@@ -159,6 +163,7 @@ export function TaskFormDialog({
             recurrenceIntervalDays: formData.has("recurrenceIntervalDays")
               ? Number(formData.get("recurrenceIntervalDays"))
               : null,
+            dueDate: String(formData.get("dueDate") ?? ""),
             rotationMemberIds: formData.getAll("rotationMemberIds").map(String),
           });
         };
@@ -272,6 +277,35 @@ export function TaskFormDialog({
               </SelectContent>
             </Select>
           </div>
+          {/* UX-133: a one-off can carry a due date. A repeat is due when its
+              schedule comes round, so the field steps aside rather than
+              taking a date the server would drop. */}
+          {!repeats && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-due-date">{dict.dueDateLabel}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="task-due-date"
+                  type="date"
+                  name="dueDate"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="min-w-0 flex-1 max-sm:min-h-11"
+                />
+                {dueDate !== "" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="shrink-0 max-sm:min-h-11 pointer-coarse:min-h-11"
+                    onClick={() => setDueDate("")}
+                  >
+                    {dict.clearDueDate}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">{dict.dueDateHint}</p>
+            </div>
+          )}
           {canRotate && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-rotation-add">{dict.rotationLabel}</Label>

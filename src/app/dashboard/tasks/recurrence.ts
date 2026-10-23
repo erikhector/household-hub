@@ -45,7 +45,7 @@ const ANCHORED_FROM_DAYS = 7;
 const safeTimeZone = (timeZone: string) => (isTimeZone(timeZone) ? timeZone : "UTC");
 
 /** The calendar day `instant` falls on in `timeZone`, as days since 1970-01-01. */
-function localDayNumber(instant: Date, timeZone: string): number {
+export function localDayNumber(instant: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
