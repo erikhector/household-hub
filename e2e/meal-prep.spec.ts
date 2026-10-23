@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory, waitForUndoableDelete } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory } from "./ui";
 
 // GAP-49 meal prep, end to end: record a batch on the Prep tab, spread its
 // portions over the planner, give one back, eat one, discard the rest; and
@@ -265,9 +265,8 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
 
   // Removing one planned meal gives its portion back to the batch.
   await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Remove meal" }).click();
-  // UX-49: no confirm; the portion goes back once the Undo toast closes.
+  await page.getByRole("dialog", { name: `Remove ${recipeName}?` }).getByRole("button", { name: "Remove" }).click();
   await expect(plannedNames(page, recipeName)).toHaveCount(1);
-  await waitForUndoableDelete(page, `Removed "${recipeName}"`);
   await page.goto("/dashboard/meal-planning?tab=prep");
   await expect(batchCard(page, recipeName)).toContainText("3 of 4 portions left");
 

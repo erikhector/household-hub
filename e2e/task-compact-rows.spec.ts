@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV } from "./seed";
 import { E2E_WORKER, e2eWorkerData } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, waitForUndoableDelete } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-106: a task row is one line on a phone (at most 56 px with an assignee
 // badge), with Edit and Delete in the swipe tray and the edit sheet rather
@@ -82,9 +82,8 @@ test("a phone task row with an assignee is one line of at most 56 px, with Delet
   const sheet = page.getByRole("dialog", { name: `Edit "${title}"` });
   await expect(sheet.getByRole("button", { name: "Save", exact: true })).toBeVisible();
   await sheet.getByRole("button", { name: "Delete", exact: true }).click();
-  // UX-49: no confirm; the row goes at once with an Undo toast.
+  await page.getByRole("dialog", { name: `Delete ${title}?` }).getByRole("button", { name: "Delete", exact: true }).click();
   await expect(box).toBeHidden();
-  await waitForUndoableDelete(page, `Deleted "${title}"`);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Tasks" }).first()).toBeVisible();
   await expect(page.getByText(title, { exact: true })).toHaveCount(0);

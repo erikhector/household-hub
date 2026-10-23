@@ -286,17 +286,15 @@ test("a task delete that can't reach the server brings the row back", async ({ p
   );
 
   // UX-106: a phone task row has no trash icon or ⋯; the edit sheet (a tap
-  // on the title) carries Delete, which removes the row with the same Undo toast as the icon.
+  // on the title) carries Delete, which hands over to the same confirm.
   if ((page.viewportSize()?.width ?? 1280) >= 640) {
     await page.getByRole("button", { name: `Delete ${title}`, exact: true }).click();
   } else {
     await page.getByRole("main").getByRole("button", { name: title, exact: true }).click();
     await page.getByRole("dialog", { name: `Edit "${title}"` }).getByRole("button", { name: "Delete", exact: true }).click();
   }
-  // UX-49: no confirm; the delete goes out when the Undo toast closes.
-  await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible({
-    timeout: 15_000,
-  });
+  await page.getByRole("dialog", { name: `Delete ${title}?` }).getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();

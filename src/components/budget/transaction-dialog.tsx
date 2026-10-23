@@ -4,6 +4,7 @@ import { useActionState, useMemo, useRef, useState, type ReactElement } from "re
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -203,7 +204,7 @@ export function TransactionDialog({
    * to its id). Shown as "Delete transaction" at the end of the form —
    * on phones the row itself opens this sheet, so this is the row's named
    * Delete (the swipe is the quick path, DESIGN.md M7). */
-  onDelete?: () => void;
+  onDelete?: () => Promise<ActionState>;
   /** The caller's createMoneyFormat(locale, currencyCode) — only read by
    * SplitEditor's warnings (UX-15). */
   numberFormat: Intl.NumberFormat;
@@ -534,20 +535,24 @@ export function TransactionDialog({
           {/* In the form body rather than the footer, so it sits a whole
               footer away from Save (DESIGN.md M2) instead of beside it. */}
           {isEdit && onDelete && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="self-start text-destructive hover:text-destructive"
-              onClick={() => {
-                // UX-49: the sheet closes and the row goes with an Undo
-                // toast, instead of a second "can't be undone" sheet on top.
-                setOpen(false);
-                requestAnimationFrame(onDelete);
+            <ConfirmDialog
+              trigger={
+                <Button type="button" variant="ghost" className="self-start text-destructive hover:text-destructive">
+                  <Trash2 className="size-4" />
+                  {dict.deleteAriaLabel}
+                </Button>
+              }
+              title={dict.confirmDeleteTransaction.title}
+              description={dict.confirmDeleteTransaction.description}
+              cancelLabel={dict.confirmDeleteTransaction.cancel}
+              confirmLabel={dict.confirmDeleteTransaction.confirm}
+              pendingLabel={dict.confirmDeleteTransaction.confirming}
+              onConfirm={async () => {
+                const result = await onDelete();
+                if (!result.error) setOpen(false);
+                return result;
               }}
-            >
-              <Trash2 className="size-4" />
-              {dict.deleteAriaLabel}
-            </Button>
+            />
           )}
           <DialogFooter>
             <Button type="submit" disabled={pending || splitInvalid}>
