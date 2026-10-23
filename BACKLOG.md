@@ -362,6 +362,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
       failed the attempt and the retry of the GitHub e2e job and in the
       local `ci:local` gate; it passed on the job re-run and on a local re-run.
+      Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
+      (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
+      still there after 5 s) and passed on retry #1.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
@@ -400,6 +403,27 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/optimistic-ticking.spec.ts:169 --project=mobile
       --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-49. Flaky: recipe pages time out finding their first control under full-suite load** (low, S) —
+      `mobile` project, local `ci:local` gate runs, 2026-10-23. Different
+      recipe specs fail on different runs with the same symptom, a 30 s
+      timeout on the first control of the recipes page: (a)
+      `e2e/recipe-last-cooked.spec.ts:60` (`search.fill`, PR #603 gate on
+      `f7ac260`; also failed once in PR #602's first full run); (b)
+      `e2e/recipe-form-order.spec.ts:11` ("New recipe" button not found,
+      PR #611 gate on `672015a`); (c) `e2e/sheet-keyboard.mobile.spec.ts`
+      and `e2e/recipe-dialog.spec.ts:43` ("New recipe" button not found),
+      PR #611 / MAINT-44 gate runs. Each passed on its own (`--repeat-each=3`)
+      and in the next full run, so the page or the spec isn't ready when
+      the first click or fill lands, probably hydration of the recipes
+      list, or its data load, under a 13 minute full run. Find out
+      which, and fix it in the app or in the specs' waiting, never a
+      loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/recipe-last-cooked.spec.ts:60
+      e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
+      --project=mobile --repeat-each=30` passes 30/30, and two full
+      `ci:local` runs show none of these specs failing.
+
 
 ### UX (2026-09-26 scout)
 
