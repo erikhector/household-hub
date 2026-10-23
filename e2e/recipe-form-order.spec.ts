@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRecipesTab } from "./ui";
 
 // UX-98: the recipe form follows the order a recipe is written in (name and
 // servings, ingredients, then method and tags), says what an instruction line
@@ -10,7 +10,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 test("the recipe form is in recipe order, labelled, with 44 px tag chips", async ({ page }) => {
   await page.goto("/dashboard/meal-planning");
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   await page.getByRole("button", { name: "New recipe" }).click();
   const dialog = page.getByRole("dialog", { name: "New recipe" });
   await expect(dialog).toBeVisible();

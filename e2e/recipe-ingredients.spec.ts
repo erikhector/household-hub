@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, gotoRevealed, openRowSheet } from "./ui";
+import { dismissCookieNotice, gotoRevealed, openRecipesTab, openRowSheet } from "./ui";
 
 // MATCH-1: saving a recipe no longer creates inventory items behind the
 // user's back. Rows the matcher is sure about save straight away; anything
@@ -108,7 +108,7 @@ test("an uncertain ingredient is reviewed, linked to the suggestion, and never b
   // After a reload the link is kept: editing the recipe and saving again
   // doesn't ask about "Tomater" a second time.
   await page.reload();
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Edit recipe" }).click();
   await page.getByRole("dialog", { name: "Edit recipe" }).getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -354,7 +354,7 @@ test("a single recipe can use its own amount in the pantry's unit instead", asyn
 
   // After a reload, the row reads 0.2 pcs.
   await page.reload();
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Edit recipe" }).click();
   const edit = page.getByRole("dialog", { name: "Edit recipe" });
   await expect(edit.getByPlaceholder("Qty")).toHaveValue("0.2");

@@ -297,6 +297,20 @@ export async function expectHydrated(target: Locator) {
     .toBe(true);
 }
 
+/** Opens the meal planner's Recipes tab and waits until it is the open one.
+ * The tab bar is server-rendered before it is interactive: under a loaded run
+ * goto() returns before React has hydrated it, and a click that lands then
+ * does nothing, so the recipes panel stays `hidden` and the next control
+ * ("New recipe", the search box) is never found, a 30 s timeout. Wait for
+ * hydration, click, then assert the tab took, before reaching for anything
+ * inside the panel. */
+export async function openRecipesTab(page: Page) {
+  const tab = page.getByRole("tab", { name: "Recipes" });
+  await expectHydrated(tab);
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
