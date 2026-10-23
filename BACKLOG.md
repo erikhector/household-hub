@@ -419,6 +419,30 @@ then MAINT-7 per feature, to avoid churn.
       playwright test e2e/item-aliases.spec.ts:50 --project=mobile
       --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
+      `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
+      3 of 40 runs (all `desktop`) with `--repeat-each=20` on clean `next`
+      (`051d294`, 2026-10-23), and 1 of 40 on the UX-133 branch
+      (`e8332a5`, `mobile`), so nobody's change is in it. The failure
+      snapshot at spec line 92 shows the page reloaded before the
+      optimistic tick (UX-14) had saved, so the row isn't shown done
+      after the reload. Wait for the toggle's POST to answer before the
+      reload (in the spec), never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/task-anchor-day.spec.ts:60 --repeat-each=30` passes 30/30 on
+      both projects.
+
+- [ ] **MAINT-53. Flaky: `task-compact-rows` fails now and then under full-suite load** (low, S) —
+      `e2e/task-compact-rows.spec.ts:58` (`mobile`). Failed once in 82
+      runs with `--repeat-each=20` on clean `next` (`26df2a2`,
+      2026-10-23), and once in the full `ci:local` gate on the UX-112
+      branch (`8b0197e`), where it passed on a solo rerun. Nobody's change
+      is in it. The failing assertion wasn't recorded: reproduce with the
+      repeat run, read the snapshot, and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
+      --project=mobile --repeat-each=30` passes 30/30.
+
 
 ### UX (2026-09-26 scout)
 
@@ -482,8 +506,8 @@ build them first: UX-47,
 UX-89.
 
 **Built elsewhere.** Three items sit in other sections of this file:
-- Phase 2, because they need a migration: UX-133 (task due dates) and
-  UX-134 (budget month starting on payday).
+- Phase 2, because they need a migration: UX-134 (budget month starting
+  on payday).
 - Needs a decision before building: UX-136.
 
 #### Shell and cross-cutting
@@ -774,20 +798,6 @@ order below is a suggestion, not a dependency, unless noted.
       Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
       Why: the item's own recommendation; opt-in keeps the Guardrails on
       noisy positive alerts. See PRODUCT.md.
-
-- [ ] **UX-133. Optional due dates on tasks, sorted by urgency** (impact:
-      high, effort: L) — from the 2026-10-15 UI review. `HouseholdTask`
-      has no due field and `tasks/page.tsx:23` orders by `createdAt`.
-      Nothing is ever "overdue": "Water the plants" (every 3 days, done 8
-      days ago) looks the same as a task that reopened a minute ago. A
-      one-off like "Book the car service" can't get a date, and the
-      overview's "Today" block (UX-70) has nothing to say about lateness.
-      One migration: a nullable `dueDate`. Recurring tasks derive it from
-      the rule UX-137 settled (REQUIREMENTS.md, Recurrence).
-      Acceptance: a task can carry an optional due date. Open tasks sort
-      overdue, then today, then later. An overdue row shows a
-      `warning`-tinted "Overdue · 5 days" with an icon on the tasks page
-      and the overview. Unit tests cover the sort and the derived date.
 
 - [ ] **UX-134. A budget month that starts on payday** (impact: med,
       effort: L) — from the 2026-10-15 UI review. ⚠️ Money (human-only

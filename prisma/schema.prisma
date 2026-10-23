@@ -1500,6 +1500,10 @@ model HouseholdTask {
   recurrenceIntervalDays Int?
   // UX-144: the anchor day of a weekly-or-longer repeat; null reads as createdAt.
   recurrenceAnchorAt     DateTime?
+  // UX-133: the optional due *day* of a one-off task (a calendar date, no time
+  // or zone). A repeating task ignores it: its due day is derived from the
+  // schedule (src/app/dashboard/tasks/task-due.ts).
+  dueDate                DateTime? @db.Date
   rotationMemberIds          String[]  @default([])
   rotationPreviousAssigneeId String?
   createdAt              DateTime  @default(now())

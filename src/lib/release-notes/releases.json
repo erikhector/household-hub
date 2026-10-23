@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.103.0",
+    "date": "2026-10-23",
+    "pr": 637,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Tasks can now have a due date. Late tasks show how many days overdue they are and move to the top of your list and the overview.",
+      "sv": "Uppgifter kan nu ha ett förfallodatum. Försenade uppgifter visar hur många dagar de är sena och hamnar överst i listan och på översikten."
+    }
+  },
+  {
     "version": "0.102.0",
     "date": "2026-10-23",
     "pr": 626,
