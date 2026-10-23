@@ -432,6 +432,17 @@ then MAINT-7 per feature, to avoid churn.
       e2e/task-anchor-day.spec.ts:60 --repeat-each=30` passes 30/30 on
       both projects.
 
+- [ ] **MAINT-53. Flaky: `task-compact-rows` fails now and then under full-suite load** (low, S) —
+      `e2e/task-compact-rows.spec.ts:58` (`mobile`). Failed once in 82
+      runs with `--repeat-each=20` on clean `next` (`26df2a2`,
+      2026-10-23), and once in the full `ci:local` gate on the UX-112
+      branch (`8b0197e`), where it passed on a solo rerun. Nobody's change
+      is in it. The failing assertion wasn't recorded: reproduce with the
+      repeat run, read the snapshot, and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
+      --project=mobile --repeat-each=30` passes 30/30.
+
 
 ### UX (2026-09-26 scout)
 
