@@ -75,13 +75,15 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     await expect(page).toHaveURL(/\/dashboard$/);
 
     const amount470 = /470[\s  ,.]?00/;
+    // The balance is all-time: this month's 470 plus last month's 100.
+    const amount570 = /570[\s  ,.]?00/;
     const main = page.getByRole("main");
 
     // Home: the card sits above the "set up" prompt.
     const homeCard = main.getByText("Shared with your household");
     await expect(homeCard).toBeVisible();
     await expect(main.getByText("Your share this month").locator("..")).toContainText(amount470);
-    await expect(main.getByText("You owe other members").locator("..")).toContainText(amount470);
+    await expect(main.getByText("You owe other members").locator("..")).toContainText(amount570);
     await expect(main.getByRole("link", { name: "Settle up →" })).toBeVisible();
     await expect(main.getByRole("link", { name: "Set up your personal budget" })).toBeVisible();
 
@@ -89,7 +91,7 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     await page.goto("/dashboard/personal-budget");
     await expect(main.getByText("Shared with your household")).toBeVisible();
     await expect(main.getByText("Your share this month").locator("..")).toContainText(amount470);
-    await expect(main.getByText("You owe other members").locator("..")).toContainText(amount470);
+    await expect(main.getByText("You owe other members").locator("..")).toContainText(amount570);
     await expect(main.getByText("Let's set up your budget")).toBeVisible();
 
     // A past month names itself instead of claiming "this month".
