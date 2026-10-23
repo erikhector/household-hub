@@ -667,23 +667,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
 
-- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: high, effort: S) —
-      `npm audit --omit=dev` (2026-10-23) flags `next` 16.0.0–16.4.0 with two
-      critical unauthenticated RCEs (GHSA-2464-fhr4-w9xw, image optimization
-      with SVG files; GHSA-673q-mjm6-r5xr, `use cache` returning typed
-      arrays) and a high Server Actions DoS (GHSA-p3m5-59mp-jv5r); 16.4.2
-      fixes them. Do this item first and don't wait on DEPS-3.
-      DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
-      16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
-      7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3
-      so a regression bisects to the framework. Read the Next 16.4 notes in
-      `node_modules/next/dist/docs/` for changed APIs, and regenerate the
-      client (`postinstall`). Playwright finds its browsers through
-      `PLAYWRIGHT_BROWSERS_PATH` (the web image ships the Chromium build
-      that matches 1.56, and `playwright install` is not allowed there), so
-      check 1.64 still launches against it, or pin `executablePath` in
-      `playwright.config.ts` if it doesn't.
-      Acceptance: `npm outdated` no longer lists these; `npm run ci:local`
       is green on desktop and mobile.
 
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
