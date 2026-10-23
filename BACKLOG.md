@@ -328,27 +328,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
-      `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
-      through the field or the bar"), `mobile` project. Failed in the local
-      `ci:local` gate on PR #499 (`b881bc8`, 2026-10-21), a pixel-equality
-      check on the add bar's screenshot. A locked `--repeat-each=10
-      --workers=1 --project=mobile` run failed 1 of 10 on that branch and
-      1 of 10 on clean `origin/next`, so it flakes at the same rate with
-      nobody's change in it. Likely the screenshot is taken before the bar
-      has settled (caret, focus ring or a late repaint). Fix it in the
-      app or in the test's waiting before the "before" screenshot, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
-      passes 30/30. Went red once more on release run 39571297362
-      (2026-10-21) and passed on retry #1 of the same commit. Failed
-      again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
-      the retry both failed in the GitHub e2e job, and it failed once in
-      the local `ci:local` gate; it passed on a GitHub job re-run and on a
-      local re-run of the same commit. Seen again on release PR #582
-      (`dec00a0`, 2026-10-22): it failed the attempt and the retry of
-      GitHub e2e run 39803999752 and once in the local `ci:local` gate;
-      it passed on a GitHub job re-run and on a local re-run.
 - [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
       `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
       2026-10-21. Two specs, same symptom: the click on a "More" trigger
