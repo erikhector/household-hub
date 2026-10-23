@@ -344,17 +344,6 @@ then MAINT-7 per feature, to avoid churn.
       load): `native-sheets.spec.ts:54` (mobile) failed once and passed
       on a same-commit re-run.
 
-- [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
-      `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
-      above the dock, each 56-64 px", `mobile`). Failed on the first
-      attempt in the GitHub `End-to-end (Playwright)` job on release PR
-      #537 (`4f04e69`, 2026-10-21): "sixth row clear of the dock",
-      expected <= 531, received 705, and passed on the CI retry. Find
-      what leaves the list at the wrong size on the first attempt (a late
-      layout settle) and fix it in the app or the spec's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-47. Flaky: "Done shopping" after a carry-over completion and Undo sometimes leaves the late pending row out of place** (low, S) —
       `e2e/shopping-finish-carry-over.spec.ts:170` ("Done shopping after
       an earlier carry-over completion and Undo leaves a late pending row
@@ -385,28 +374,6 @@ then MAINT-7 per feature, to avoid churn.
       e2e/optimistic-ticking.spec.ts:169 --project=mobile
       --repeat-each=30` passes 30/30.
 
-- [ ] **MAINT-49. Flaky: recipe pages time out finding their first control under full-suite load** (low, S) —
-      `mobile` project, local `ci:local` gate runs, 2026-10-23. Different
-      recipe specs fail on different runs with the same symptom, a 30 s
-      timeout on the first control of the recipes page: (a)
-      `e2e/recipe-last-cooked.spec.ts:60` (`search.fill`, PR #603 gate on
-      `f7ac260`; also failed once in PR #602's first full run); (b)
-      `e2e/recipe-form-order.spec.ts:11` ("New recipe" button not found,
-      PR #611 gate on `672015a`); (c) `e2e/sheet-keyboard.mobile.spec.ts`
-      and `e2e/recipe-dialog.spec.ts:43` ("New recipe" button not found),
-      PR #611 / MAINT-44 gate runs. Each passed on its own (`--repeat-each=3`)
-      and in the next full run, so the page or the spec isn't ready when
-      the first click or fill lands, probably hydration of the recipes
-      list, or its data load, under a 13 minute full run. Find out
-      which, and fix it in the app or in the specs' waiting, never a
-      loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/recipe-last-cooked.spec.ts:60
-      e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
-      --project=mobile --repeat-each=30` passes 30/30, and two full
-      `ci:local` runs show none of these specs failing.
-      Seen again on PR #611 (2026-10-23): the merge sub-agent saw
-      `recipe-form-order` (mobile) fail once locally.
-
 - [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed", `mobile`) failed once
@@ -429,6 +396,30 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry. Acceptance: `npx
       playwright test e2e/item-aliases.spec.ts:50 --project=mobile
       --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
+      `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
+      3 of 40 runs (all `desktop`) with `--repeat-each=20` on clean `next`
+      (`051d294`, 2026-10-23), and 1 of 40 on the UX-133 branch
+      (`e8332a5`, `mobile`), so nobody's change is in it. The failure
+      snapshot at spec line 92 shows the page reloaded before the
+      optimistic tick (UX-14) had saved, so the row isn't shown done
+      after the reload. Wait for the toggle's POST to answer before the
+      reload (in the spec), never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/task-anchor-day.spec.ts:60 --repeat-each=30` passes 30/30 on
+      both projects.
+
+- [ ] **MAINT-53. Flaky: `task-compact-rows` fails now and then under full-suite load** (low, S) —
+      `e2e/task-compact-rows.spec.ts:58` (`mobile`). Failed once in 82
+      runs with `--repeat-each=20` on clean `next` (`26df2a2`,
+      2026-10-23), and once in the full `ci:local` gate on the UX-112
+      branch (`8b0197e`), where it passed on a solo rerun. Nobody's change
+      is in it. The failing assertion wasn't recorded: reproduce with the
+      repeat run, read the snapshot, and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
+      --project=mobile --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -493,38 +484,11 @@ build them first: UX-47,
 UX-89.
 
 **Built elsewhere.** Three items sit in other sections of this file:
-- Phase 2, because they need a migration: UX-133 (task due dates) and
-  UX-134 (budget month starting on payday).
+- Phase 2, because they need a migration: UX-134 (budget month starting
+  on payday).
 - Needs a decision before building: UX-136.
 
-**File conflicts.** Don't build these in parallel:
-- `src/components/shopping/shopping-list-client.tsx`: UX-49.
-- `src/components/tasks/tasks-client.tsx`: UX-49.
-- `src/components/meal-planning/week-planner.tsx`: UX-49.
-
 #### Shell and cross-cutting
-
-- [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
-      (impact: med, effort: M) — breaks Consistency and User control
-      (DESIGN.md: "prefer undo for frequent, low-stakes actions"). On
-      the same row, swipe → Delete removes the row with an Undo toast,
-      while the visible trash or menu Delete opens a confirm saying the
-      delete is permanent. Where:
-      - tasks: `tasks-client.tsx:278-298`;
-      - shopping items: `shopping-list-client.tsx:1301-1330`;
-      - inventory ⋯ → Delete: `inventory-table.tsx:605-607`;
-      - "Remove meal": `week-planner.tsx:581-585`;
-      - Edit transaction → Delete stacks a second sheet;
-      - deleting a recipe gives no toast at all.
-      Archiving a shopping list is silent, with no toast and no undo
-      (`shopping-lists-overview.tsx:139-170`), and its icon sits right
-      next to the trash icon on every row.
-      Acceptance: every delete path for a task, shopping item, inventory
-      item, planned meal and transaction removes at once and shows the
-      same Undo toast. Archiving a list shows "List archived · Undo".
-      Archive and delete are no longer adjacent lookalike icons (for
-      example, both behind a row ⋯ menu). Household, budget and account
-      deletes keep their confirms.
 
 - [ ] **UX-50. One empty-state pattern, with the next step inside it**
       (impact: med, effort: M) — breaks Consistency, Usability ("empty:
@@ -794,20 +758,6 @@ order below is a suggestion, not a dependency, unless noted.
       Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
       Why: the item's own recommendation; opt-in keeps the Guardrails on
       noisy positive alerts. See PRODUCT.md.
-
-- [ ] **UX-133. Optional due dates on tasks, sorted by urgency** (impact:
-      high, effort: L) — from the 2026-10-15 UI review. `HouseholdTask`
-      has no due field and `tasks/page.tsx:23` orders by `createdAt`.
-      Nothing is ever "overdue": "Water the plants" (every 3 days, done 8
-      days ago) looks the same as a task that reopened a minute ago. A
-      one-off like "Book the car service" can't get a date, and the
-      overview's "Today" block (UX-70) has nothing to say about lateness.
-      One migration: a nullable `dueDate`. Recurring tasks derive it from
-      the rule UX-137 settled (REQUIREMENTS.md, Recurrence).
-      Acceptance: a task can carry an optional due date. Open tasks sort
-      overdue, then today, then later. An overdue row shows a
-      `warning`-tinted "Overdue · 5 days" with an icon on the tasks page
-      and the overview. Unit tests cover the sort and the derived date.
 
 - [ ] **UX-134. A budget month that starts on payday** (impact: med,
       effort: L) — from the 2026-10-15 UI review. ⚠️ Money (human-only

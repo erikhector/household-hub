@@ -100,6 +100,7 @@ export const en = {
     repeatWhole: "Repeat interval must be a whole number of days",
     repeatMin: "Repeat interval must be at least 1 day",
     repeatMax: "Repeat interval must be 90 days or fewer",
+    dueDateInvalid: "Due date must be a real date",
     eachPersonOnce: "Each person can only take turns once",
     plannedBillNotFound: "Planned bill not found",
     plannedBillAlreadyPaid: "This planned bill is already paid",
@@ -568,8 +569,8 @@ export const en = {
     },
     statusCompleted: "Completed",
     statusArchived: "Archived",
-    archiveAriaLabel: "Archive list",
-    unarchiveAriaLabel: "Unarchive list",
+    // UX-49: archiving shows this with an Undo.
+    listArchivedToast: "List archived",
     deleteAriaLabel: "Delete list",
     confirmDeleteList: {
       title: "Delete {name}?",
@@ -639,13 +640,6 @@ export const en = {
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
-    },
-    confirmDeleteItem: {
-      title: "Remove {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
     },
     editItemAriaLabel: "Edit {name}",
     // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
@@ -1125,13 +1119,6 @@ export const en = {
     moreInventoryActions: "More inventory actions",
     edit: "Edit",
     delete: "Delete",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     nameLabel: "Name",
     categoryLabel: "Category",
     categoryPlaceholder: "e.g. Dairy",
@@ -1756,15 +1743,9 @@ export const en = {
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
-    confirmDeleteMeal: {
-      title: "Remove {meal}?",
-      description: "This can't be undone.",
-      descriptionCooked:
-        "This meal was already marked as cooked — the inventory it used won't be restored automatically.",
-      cancel: "Cancel",
-      confirm: "Remove",
-      confirming: "Removing…",
-    },
+    // UX-49: Remove goes at once; the toast carries the way back.
+    mealRemovedToast: 'Removed "{meal}"',
+    undoDelete: "Undo",
     adding: "Adding…",
     add: "Add",
     recipesTitle: "Recipes",
@@ -1934,13 +1915,8 @@ export const en = {
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
     favoriteAriaLabel: "Favorite {name}",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
+    // UX-49: Delete goes at once; the toast carries the way back.
+    recipeDeletedToast: 'Deleted "{name}"',
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",
     mascotAlt: "Squirrel mascot",
     searchRecipesPlaceholder: "Search recipes…",
@@ -2206,6 +2182,16 @@ export const en = {
     completedByLabel: "Completed by {name}",
     lastCompletedByLabel: "Last done by {name}",
     nextDueLabel: "Next due {date}",
+    // UX-133: an optional due date, and the urgency it gives an open task.
+    dueDateLabel: "Due date",
+    dueDateHint: "Optional. Leave it empty for no deadline.",
+    clearDueDate: "Clear due date",
+    dueTodayLabel: "Due today",
+    dueLabel: "Due {date}",
+    overdueLabel: {
+      one: "Overdue · {count} day",
+      other: "Overdue · {count} days",
+    },
     deleteTaskAriaLabel: "Delete {title}",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
@@ -2217,13 +2203,6 @@ export const en = {
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
-    },
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
     // UX-106: the "Mine / Everyone" filter above the list.
@@ -2316,13 +2295,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -2816,13 +2788,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",

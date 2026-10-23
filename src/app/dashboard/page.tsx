@@ -16,6 +16,7 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { daysOverdue, getTaskDueDay, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { getStockStatus } from "@/lib/stock-status";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
@@ -90,6 +91,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         completedAt: true,
         recurrenceIntervalDays: true,
         recurrenceAnchorAt: true,
+        dueDate: true,
         createdAt: true,
       },
       orderBy: { createdAt: "asc" },
@@ -151,12 +153,24 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
   const budgetCategoryCount = householdBudget.count;
 
   // Open tasks first, yours before the household's unassigned ones (stable,
-  // so each group keeps its oldest-first order).
+  // so each group keeps its oldest-first order), then by urgency (UX-133):
+  // overdue, due today, due later, undated. The sort is stable too, so the
+  // order above breaks ties, and the overdue ones are never cut off by the
+  // "N more" limit.
   const timeZone = await getTimeZone();
-  const openTasks = todayTasks
-    .filter((t) => isTaskOpen(t, now, timeZone))
-    .map((t) => ({ id: t.id, title: t.title, unassigned: t.assignedToMemberId === null }))
-    .sort((a, b) => Number(a.unassigned) - Number(b.unassigned));
+  const today = todayDayNumber(now, timeZone);
+  const openTasks = sortByUrgency(
+    todayTasks
+      .filter((t) => isTaskOpen(t, now, timeZone))
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        unassigned: t.assignedToMemberId === null,
+        dueDay: getTaskDueDay(t, timeZone),
+      }))
+      .sort((a, b) => Number(a.unassigned) - Number(b.unassigned)),
+    today,
+  ).map(({ dueDay, ...task }) => ({ ...task, overdueDays: daysOverdue(dueDay, today) }));
   const shownTasks: TodayTask[] = openTasks.slice(0, TODAY_TASK_LIMIT);
   const tonight = tonightEntries
     .map((entry) => entry.recipe?.name ?? entry.freeformName)
@@ -244,6 +258,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
           doneToast: dict.tasks.doneToast,
           undo: dict.tasks.swipe.undo,
           saveFailedToast: dict.tasks.saveFailedToast,
+          overdueLabel: dict.tasks.overdueLabel,
         }}
       />
 

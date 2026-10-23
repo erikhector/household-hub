@@ -5757,7 +5757,8 @@ co-managers, not kids earning rewards.
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
   `completedByMemberId`, nullable `recurrenceIntervalDays`, nullable `recurrenceAnchorAt`,
-  `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`). `completedAt` is a nullable-timestamp-as-status
+  `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`,
+  nullable `dueDate`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
   `assignedToMemberId`/`completedByMemberId` are two independent, both-
   nullable fields — a task can be completed by someone other than whoever
@@ -5805,6 +5806,26 @@ co-managers, not kids earning rewards.
   UTC before the first visit has set it. `recurring-task-day.spec.ts`
   covers it (the day rolling over is back-dated in Postgres, since the
   server clock can't be moved).
+- **Due dates and overdue (UX-133)**: a one-off task can carry an optional
+  due date, `HouseholdTask.dueDate` (`@db.Date`: a calendar day with no time
+  or zone), set in the Add/Edit dialog's "Due date" field (with "Clear due
+  date"). A repeating task stores none (`createTaskAction`/`updateTaskAction`
+  write null once an interval is set, and the dialog hides the field):
+  its due day is derived from the UX-137 schedule, the local day it
+  (re)opens, which is `getNextDueDate` after the last tick, or the anchor day
+  (`recurrenceAnchorAt`, else `createdAt`) while it has never been ticked.
+  So a 3-day chore last done 8 days ago is due 5 days ago.
+  `src/app/dashboard/tasks/task-due.ts` holds it all (`getTaskDueDay`,
+  `getTaskUrgency`, `daysOverdue`, `sortByUrgency`), in local day numbers so
+  the time of day never matters; `task-due.test.ts` covers the sort and the
+  derived date. Open tasks sort overdue (the longest overdue first), then
+  due today, then due later (soonest first), then undated, each tier keeping
+  its oldest-first order, on the tasks page and in the overview's Today
+  block (overdue rows are never cut off by its "N more" limit). An overdue
+  open row shows `TaskOverdueBadge`, a `warning`-tinted "Overdue · 5 days"
+  with an icon, on both; a one-off with a future date also reads "Due 2 Nov"
+  or "Due today". Completed rows show neither. `task-due-dates.spec.ts`
+  covers the date round trip, the badges and the order.
 - **Taking turns (GAP-38)**: an opt-in round-robin on a *repeating* task,
   like Grocy's chores or OurHome. `rotationMemberIds` is the ordered list of
   people taking turns; empty = no rotation. Valid only with a recurrence and
@@ -7408,9 +7429,30 @@ Todoist-style. Built as one shared wrapper,
 - **Every swipe duplicates a tap path** (DESIGN.md M7), and the swipe
   works by clicking the row's own button: the elements marked
   `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same
-  optimistic update, rollback toast and disabled state as a tap. The
-  trash button keeps its confirm dialog: swipe-delete is the quick path,
-  the button the deliberate one.
+  optimistic update, rollback toast and disabled state as a tap.
+- **One delete, one Undo (UX-49).** Every way to delete a task, shopping
+  item, inventory item, planned meal, recipe or transaction hides the row
+  at once and shows the same Undo toast, never a "This can't be undone"
+  confirm: the swipe, the desktop trash icon, the ⋯ menu's Delete, and the
+  Delete in a task's, meal's, recipe's or transaction's sheet (which closes
+  first). The inventory item page's Delete leaves the page at once. Tasks,
+  shopping items, inventory items and transactions leave the list at tap
+  time (`local-row-changes`, or the transaction list's own removed set), so
+  aisle headers, section counts and the "Next up" dock follow at once, and
+  the delete is sent through `startUndoableDelete`
+  (`src/components/shared/start-undoable-delete.ts`) when the toast closes;
+  meals and recipes hide their own row with `useUndoableDelete`. Undo
+  just brings the row back. The inventory item page's Delete uses
+  `startUndoableDelete` too. A meal's toast reads "Removed "…""; the
+  other deletes read "Deleted "…"". Household, budget category, recurring
+  template, planned bill, shopping list and account deletes keep their
+  confirms.
+- **Archiving a shopping list (UX-49)** shows "List archived" with Undo
+  (`archiveListWithUndo`, `src/components/shopping/archive-list.ts`; Undo is
+  the ordinary unarchive, which doesn't make the list the default again).
+  On the lists overview Archive/Unarchive and Delete sit together in each
+  card's ⋯ menu instead of two adjacent icons; Delete there keeps its
+  confirm because it takes the list's items with it.
 - **No action shows twice on a phone.** Below `sm`, a swipeable row
   doesn't also show Edit and Delete icons: they sit behind the row's ⋯
   menu instead. Shopping rows get `RowActionsMenu`
