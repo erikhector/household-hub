@@ -179,6 +179,7 @@ export function categoryEnvelopes({
   transactions,
   monthStart,
   monthEnd,
+  startDay = 1,
 }: {
   categories: {
     id: string;
@@ -190,6 +191,8 @@ export function categoryEnvelopes({
   transactions: { categoryId: string; type: "INCOME" | "EXPENSE" | "SAVINGS"; amount: number; date: Date }[];
   monthStart: Date;
   monthEnd: Date;
+  /** UX-134: the household's budget month start day, for the rollover. */
+  startDay?: number;
 }): CategoryEnvelope[] {
   const spentById = new Map<string, number>();
   for (const t of transactions) {
@@ -204,6 +207,7 @@ export function categoryEnvelopes({
       category: { ...category, monthlyLimit: limit },
       transactions,
       monthStart,
+      startDay,
     });
     envelopes.push({
       id: category.id,

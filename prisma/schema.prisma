@@ -163,6 +163,15 @@ model Household {
   // Null (the default) keeps the original symbol-free two-decimal display,
   // so existing households see no change until the owner picks one.
   currencyCode          String?
+  // UX-134: the day of the month the household's budget month starts on, 1
+  // to 28 (28 so every month has the day; checked by
+  // setBudgetMonthStartDayAction). 1 is the calendar month. Swedish salaries
+  // land on the 25th, so most households budget "lönemånad", the 25th to the
+  // 24th. A period is named for the month it *ends* in (day 25: "October" is
+  // 25 Sep to 24 Oct), since that is the pay that funds the bills due in it.
+  // Only the household budget, its safe to spend and the recurring and
+  // planned statuses read it; the Personal Budget stays on calendar months.
+  budgetMonthStartDay   Int     @default(1)
   // When ticking a shopping-list row updates inventory. ON_PUT_AWAY (the
   // default for new households) treats a tick as "in the cart" only — stock
   // moves when the row is confirmed via the list's "Put away" step

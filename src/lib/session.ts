@@ -104,6 +104,9 @@ export const requireHousehold = cache(async () => {
       // one (F1's read-only view), whose amounts must carry *that*
       // household's currency label. Already loaded by the include above.
       currencyCode: m.household.currencyCode,
+      // UX-134: likewise, the budget page's month boundaries are the viewed
+      // household's own.
+      budgetMonthStartDay: m.household.budgetMonthStartDay,
     })),
   };
 });

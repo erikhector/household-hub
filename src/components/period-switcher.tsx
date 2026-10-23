@@ -26,6 +26,7 @@ export type PeriodSwitcherDict = {
 
 export function PeriodSwitcher({
   label,
+  sublabel,
   prevHref,
   nextHref,
   currentHref,
@@ -35,6 +36,9 @@ export function PeriodSwitcher({
 }: {
   /** The period being looked at, already formatted in the viewer's locale. */
   label: string;
+  /** UX-134: the period's dates, when its name alone doesn't say them (a
+   * budget month that starts on payday). */
+  sublabel?: string | null;
   prevHref: string;
   nextHref: string;
   /** Where "This month" / "This week" goes: the page without its period param. */
@@ -56,6 +60,7 @@ export function PeriodSwitcher({
       </Link>
       <div className="flex min-w-0 flex-col items-center">
         <p className="truncate font-heading text-lg font-semibold">{label}</p>
+        {sublabel && <p className="truncate text-sm text-muted-foreground">{sublabel}</p>}
         {!isCurrent && (
           <Link
             href={currentHref}

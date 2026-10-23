@@ -8,7 +8,7 @@
 // src/app/dashboard/budget/page.tsx, change them here too.
 
 import { prisma } from "@/lib/prisma";
-import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
+import { addMonths, normalizeStartDay, parseMonthKey, periodBounds, periodKeyOf, toMonthKey } from "@/lib/budget-date-utils";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
 import { categoryEnvelopes } from "@/lib/budget-category-limit";
@@ -18,13 +18,23 @@ import { computeSafeToSpend, type SafeToSpendStatus } from "@/lib/safe-to-spend-
 // the calculator looks for a category's latest recurring transaction.
 const RECURRING_LOOKBACK_MONTHS = 12;
 
+/**
+ * `budgetMonthStartDay` is the household's (UX-134): the number is for the
+ * budget period `now` falls in, 25 Sep to 24 Oct when the month starts on the
+ * 25th. Left out it is the calendar month.
+ */
 export async function loadHouseholdSafeToSpend(
   householdId: string,
   now: Date = new Date(),
+  budgetMonthStartDay?: number,
 ): Promise<{ amount: number; status: SafeToSpendStatus }> {
-  const monthStart = getMonthStart(now);
-  const monthEnd = getMonthEnd(monthStart);
-  const lookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
+  const startDay = normalizeStartDay(budgetMonthStartDay);
+  const monthKey = periodKeyOf(now, startDay);
+  const { start: monthStart, end: monthEnd } = periodBounds(monthKey, startDay);
+  const lookbackStart = periodBounds(
+    toMonthKey(addMonths(parseMonthKey(monthKey), -RECURRING_LOOKBACK_MONTHS)),
+    startDay,
+  ).start;
 
   const [transactions, templates, acks, plannedExpenses, categories] = await Promise.all([
     prisma.transaction.findMany({
@@ -74,6 +84,7 @@ export async function loadHouseholdSafeToSpend(
     acks,
     referenceDate: monthStart,
     monthEnd,
+    startDay,
   });
 
   const { safeToSpend, status } = computeSafeToSpend({
@@ -87,7 +98,7 @@ export async function loadHouseholdSafeToSpend(
     })),
     monthStart,
     monthEnd,
-    categoryLimits: categoryEnvelopes({ categories, transactions, monthStart, monthEnd }),
+    categoryLimits: categoryEnvelopes({ categories, transactions, monthStart, monthEnd, startDay }),
     incomeSoFar: sumThisMonth("INCOME"),
     expenseSoFar: sumThisMonth("EXPENSE"),
     savingsSoFar: sumThisMonth("SAVINGS"),

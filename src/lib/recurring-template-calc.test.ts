@@ -461,3 +461,98 @@ describe("expandMonthlyDueDates (GAP-3 calendar feed)", () => {
     expect(date.toISOString()).toBe("2026-07-07T00:00:00.000Z");
   });
 });
+
+// UX-134: payday-month periods. With start day 25, "2026-10" is 25 Sep to 24 Oct.
+describe("budget month start day (UX-134)", () => {
+  const template = {
+    id: "rent",
+    frequency: "MONTHLY" as const,
+    active: true,
+    createdAt: new Date(2026, 0, 1),
+  };
+
+  it("keys a MONTHLY period by the month it ends in", () => {
+    expect(getPeriodKey(new Date(2026, 8, 28), "MONTHLY", 25)).toBe("2026-10");
+    expect(getPeriodKey(new Date(2026, 9, 1), "MONTHLY", 25)).toBe("2026-10");
+    expect(getPeriodKey(new Date(2026, 8, 24), "MONTHLY", 25)).toBe("2026-09");
+    expect(getPeriodKey(new Date(2026, 8, 28), "MONTHLY")).toBe("2026-09");
+  });
+
+  it("leaves WEEKLY and YEARLY periods alone", () => {
+    expect(getPeriodKey(new Date(2026, 8, 28), "WEEKLY", 25)).toBe(getPeriodKey(new Date(2026, 8, 28), "WEEKLY"));
+    expect(getPeriodKey(new Date(2026, 8, 28), "YEARLY", 25)).toBe("2026");
+  });
+
+  it("bounds a MONTHLY period 25th to 25th", () => {
+    expect(getPeriodBounds(new Date(2026, 8, 28), "MONTHLY", 25)).toEqual({
+      start: new Date(2026, 8, 25),
+      end: new Date(2026, 9, 25),
+    });
+    expect(getPeriodBounds(new Date(2026, 9, 3), "MONTHLY", 25)).toEqual({
+      start: new Date(2026, 8, 25),
+      end: new Date(2026, 9, 25),
+    });
+  });
+
+  it("reads October's rent logged on 28 September as posted for October, and September's as due", () => {
+    const transactions = [{ recurringTemplateId: "rent", date: new Date(2026, 8, 28) }];
+    const october = computeTemplateStatuses({
+      templates: [template],
+      transactions,
+      acks: [],
+      referenceDate: new Date(2026, 8, 25),
+      monthEnd: new Date(2026, 9, 25),
+      startDay: 25,
+    });
+    const september = computeTemplateStatuses({
+      templates: [template],
+      transactions,
+      acks: [],
+      referenceDate: new Date(2026, 7, 25),
+      monthEnd: new Date(2026, 8, 25),
+      startDay: 25,
+    });
+    expect(october[0]).toMatchObject({ periodKey: "2026-10", status: "posted" });
+    expect(september[0]).toMatchObject({ periodKey: "2026-09", status: "due" });
+  });
+
+  it("without a start day the same row is September's and October stays due", () => {
+    const rows = computeTemplateStatuses({
+      templates: [template],
+      transactions: [{ recurringTemplateId: "rent", date: new Date(2026, 8, 28) }],
+      acks: [],
+      referenceDate: new Date(2026, 9, 1),
+      monthEnd: new Date(2026, 10, 1),
+    });
+    expect(rows[0].status).toBe("due");
+  });
+
+  it("matches an acknowledgement by the period key", () => {
+    const rows = computeTemplateStatuses({
+      templates: [template],
+      transactions: [],
+      acks: [{ recurringTemplateId: "rent", periodKey: "2026-10" }],
+      referenceDate: new Date(2026, 8, 25),
+      monthEnd: new Date(2026, 9, 25),
+      startDay: 25,
+    });
+    expect(rows[0].status).toBe("acknowledged");
+  });
+
+  it("buckets the fixed-cost trend by period", () => {
+    const totals = computeRecurringMonthlyTotals({
+      transactions: [
+        { type: "EXPENSE", amount: 100, date: new Date(2026, 8, 24), recurringTemplateId: "a" },
+        { type: "EXPENSE", amount: 200, date: new Date(2026, 8, 25), recurringTemplateId: "a" },
+        { type: "EXPENSE", amount: 300, date: new Date(2026, 9, 10), recurringTemplateId: "a" },
+      ],
+      referenceDate: new Date(2026, 9, 10),
+      monthsBack: 2,
+      startDay: 25,
+    });
+    expect(totals.map((t) => [t.month, t.expense])).toEqual([
+      ["2026-09", 100],
+      ["2026-10", 500],
+    ]);
+  });
+});

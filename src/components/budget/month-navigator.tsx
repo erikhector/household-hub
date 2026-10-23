@@ -8,7 +8,7 @@
 // (`params`), so paging months from Transactions stays on Transactions.
 
 import { PeriodSwitcher } from "@/components/period-switcher";
-import { addMonths, parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
+import { addMonths, parseMonthKey, periodRangeLabel, toMonthKey } from "@/lib/budget-date-utils";
 import { budgetHref, type BudgetTab } from "@/lib/budget-url";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -21,6 +21,7 @@ export function MonthNavigator({
   basePath,
   monthKey,
   currentMonthKey,
+  startDay = 1,
   locale,
   dict,
   params = {},
@@ -31,6 +32,10 @@ export function MonthNavigator({
    * worth showing. From the server rather than `new Date()` here, so the
    * server render and hydration can't disagree around midnight. */
   currentMonthKey: string;
+  /** UX-134: the household's budget month start day. Above 1 the month is a
+   * period named for the month it ends in, and its first and last day are
+   * shown under the name. */
+  startDay?: number;
   /** UX-15: the month is named in the viewer's language ("oktober 2026"),
    * not the runtime's default locale. */
   locale: Locale;
@@ -46,6 +51,7 @@ export function MonthNavigator({
   return (
     <PeriodSwitcher
       label={monthStart.toLocaleDateString(locale, { month: "long", year: "numeric" })}
+      sublabel={periodRangeLabel(monthKey, startDay, locale)}
       prevHref={budgetHref(basePath, { ...params, month: toMonthKey(addMonths(monthStart, -1)) })}
       nextHref={budgetHref(basePath, { ...params, month: toMonthKey(addMonths(monthStart, 1)) })}
       currentHref={budgetHref(basePath, params)}
