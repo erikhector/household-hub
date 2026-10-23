@@ -28,7 +28,7 @@ function emptyInput(overrides: Partial<WeeklyDigestInput> = {}): WeeklyDigestInp
   };
 }
 
-const zeroBreakdown = { income: 0, dueIncome: 0, expense: 0, savings: 0, owedFromEarlier: 0, duePayments: 0, dueSavings: 0 };
+const zeroBreakdown = { income: 0, dueIncome: 0, expense: 0, savings: 0, owedFromEarlier: 0, duePayments: 0, dueSavings: 0, stillBudgeted: 0 };
 
 describe("summarizeWeeklyDigest", () => {
   it("returns null when every section would be empty", () => {

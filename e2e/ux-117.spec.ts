@@ -18,6 +18,10 @@ test("the card shows an amount per day for the days left, and the chart labels c
     await client.query(`DELETE FROM "RecurringTemplate" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
     await client.query(`DELETE FROM "PlannedExpense" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
     await client.query(`DELETE FROM "Transaction" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
+    // UX-138: a limit left behind by another spec would hold money back.
+    await client.query(`UPDATE "BudgetCategory" SET "monthlyLimit" = NULL, "rolloverEnabled" = false WHERE "householdId" = $1`, [
+      E2E_HOUSEHOLD.id,
+    ]);
     await insertHouseholdCategory(client, { id: `e2e-u117-inc-${tag}`, name: `Salary ${tag}`, type: "INCOME" });
     await insertHouseholdCategory(client, { id: `e2e-u117-cat-${tag}`, name: `Groceries ${tag}` });
     await insertHouseholdTransaction(client, {

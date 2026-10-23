@@ -18,6 +18,7 @@ const {
   templateFindManyMock,
   plannedSplitFindManyMock,
   personalPlannedFindManyMock,
+  personalCategoryFindManyMock,
 } = vi.hoisted(() => ({
   personalTransactionFindManyMock: vi.fn(),
   personalTemplateFindManyMock: vi.fn(),
@@ -30,6 +31,7 @@ const {
   templateFindManyMock: vi.fn(),
   plannedSplitFindManyMock: vi.fn(),
   personalPlannedFindManyMock: vi.fn(),
+  personalCategoryFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -45,6 +47,7 @@ vi.mock("@/lib/prisma", () => ({
     recurringTemplate: { findMany: templateFindManyMock },
     plannedExpenseSplit: { findMany: plannedSplitFindManyMock },
     personalPlannedExpense: { findMany: personalPlannedFindManyMock },
+    personalBudgetCategory: { findMany: personalCategoryFindManyMock },
   },
 }));
 
@@ -99,6 +102,7 @@ function split(memberId: string, name: string, amountOwed: number, amountPaid: n
 beforeEach(() => {
   plannedSplitFindManyMock.mockResolvedValue([]);
   personalPlannedFindManyMock.mockResolvedValue([]);
+  personalCategoryFindManyMock.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -167,6 +171,7 @@ describe("loadPersonalBudgetPosition", () => {
       owedFromEarlier: 1000,
       duePayments: 300,
       dueSavings: 1000,
+      stillBudgeted: 0,
     });
     expect(position.safeToSpend).toBe(30000 - 8000 - 3000 - 1000 - 300 - 1000);
     expect(position.expectedRecurring.map((e) => e.categoryName).sort()).toEqual(["Gym", "Holiday"]);
@@ -432,6 +437,34 @@ describe("loadPersonalBudgetPosition", () => {
     expect(position.safeToSpendProjection?.dailyPace).toBe(15);
     expect(position.safeToSpendProjection?.projected).toBe(2450 - 15 * 20);
   });
+  it("holds back what is still unspent of a category's monthly limit (UX-138)", async () => {
+    personalTransactionFindManyMock.mockResolvedValue([
+      personalTx("Salary", "INCOME", 10000, 1),
+      // 1200 of the 3000 food limit spent, so 1800 stays held back.
+      { ...personalTx("Food", "EXPENSE", 1200, 2), categoryId: "cat-food" },
+    ]);
+    personalCategoryFindManyMock.mockResolvedValue([
+      { id: "cat-food", type: "EXPENSE", monthlyLimit: 3000, rolloverEnabled: false, createdAt: new Date(2026, 0, 1) },
+    ]);
+    personalTemplateFindManyMock.mockResolvedValue([]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart,
+      monthEnd,
+      sharedLabel: "Shared",
+      now: new Date(2026, 8, 10, 12),
+    });
+
+    expect(position.safeToSpendBreakdown.stillBudgeted).toBe(1800);
+    expect(position.safeToSpend).toBe(10000 - 1200 - 1800);
+    // The food is already reserved, so it isn't everyday pace.
+    expect(position.safeToSpendProjection).toBeNull();
+  });
+
   describe("planned bills (BUDGET-8)", () => {
     function setup(plannedSplits: unknown[]) {
       personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 30000, 5)]);

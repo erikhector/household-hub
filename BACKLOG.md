@@ -461,10 +461,10 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** Six items sit in other sections of this file:
+**Built elsewhere.** Three items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-136 and UX-138.
+- Needs a decision before building: UX-136.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49.
@@ -672,25 +672,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
       (or a small spec) opens Add category, Add recurring and Add
       transaction and asserts every text field has `autocomplete="off"` and
       the last field of each form has an `enterkeyhint`.
-
-### UX (2026-10-20 scout)
-
-Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
-`tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
-route passes. The popup probe found two phone-only size gaps.
-
-- [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
-      (impact: high, effort: M) — ⚠️ money (human-only area).
-      `src/lib/safe-to-spend-calc.ts` also subtracts the unspent
-      remainder of limited categories, shown as its own "Still budgeted"
-      breakdown line. The pace projection ("At this pace …") becomes a
-      qualifier under the headline, not a second equally weighted "left"
-      figure. Unit-test the calculator (day 1, partly spent, overspent
-      category counts as zero remainder).
-      Acceptance: with a seeded limited category and no spending, the
-      headline excludes its limit, the breakdown shows "Still budgeted",
-      and the projection reads as secondary text.
-      Decided 2026-10-20 by owner: option 1. See #397.
 
 ### Dependencies
 

@@ -27,7 +27,7 @@ import {
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
-import { categoriesNearLimit, withCategoryLimits } from "@/lib/budget-category-limit";
+import { categoriesNearLimit, categoryEnvelopes, withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import {
   RecurringTemplatesPanel,
@@ -678,6 +678,12 @@ async function BudgetTabsSection({
   // needs to look further back than the viewed month to find a category's
   // most recent recurring transaction — see RECURRING_LOOKBACK_MONTHS's doc
   // comment above.
+  const limitEnvelopes = categoryEnvelopes({
+    categories,
+    transactions: recurringLookbackTransactions,
+    monthStart,
+    monthEnd,
+  });
   const {
     safeToSpend,
     breakdown: safeToSpendBreakdown,
@@ -705,13 +711,16 @@ async function BudgetTabsSection({
       amount: row.template.amount,
       status: row.status,
     })),
-    plannedExpenses: plannedExpenseRows.map(({ id, name, amount, status, type }) => ({
+    plannedExpenses: plannedExpenseRows.map(({ id, name, amount, status, type, categoryId }) => ({
       id,
       name,
       amount,
       status,
       type,
+      categoryId,
     })),
+    // UX-138: what is still unspent of each limit is held back too.
+    categoryLimits: limitEnvelopes,
   });
   // UX-39: where that number lands at month end at this month's everyday
   // pace — null unless the viewed month is the current one.
@@ -720,6 +729,7 @@ async function BudgetTabsSection({
     transactions: monthTransactions,
     monthStart,
     today: now,
+    excludeCategoryIds: new Set(limitEnvelopes.map((e) => e.id)),
   });
   const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, today: now });
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => {

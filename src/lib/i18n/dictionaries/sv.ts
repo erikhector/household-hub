@@ -2324,6 +2324,8 @@ export const sv = {
       lineOwedFromEarlier: "Skulder från tidigare månader",
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Ännu budgeterat",
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
@@ -2811,6 +2813,8 @@ export const sv = {
       lineOwedFromEarlier: "Skulder från tidigare månader",
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Ännu budgeterat",
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).

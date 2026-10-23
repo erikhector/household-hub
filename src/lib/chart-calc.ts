@@ -79,6 +79,7 @@ export function historyMonthLabels(
 /** What projectMonthEnd needs from a transaction: the discretionary filter
  * reads the type and the two "is this a recurring bill" flags. */
 export type ProjectionTransaction = {
+  categoryId?: string;
   type: "INCOME" | "EXPENSE" | "SAVINGS";
   amount: number;
   date: Date;
@@ -120,11 +121,16 @@ export function projectMonthEnd({
   transactions,
   monthStart,
   today,
+  excludeCategoryIds,
 }: {
   safeToSpend: number;
   transactions: ProjectionTransaction[];
   monthStart: Date;
   today: Date;
+  /** UX-138: categories with a monthly limit. Their money is already held
+   * back as "still budgeted", so buying food from a limited food budget
+   * doesn't lower the headline and must not set the pace either. */
+  excludeCategoryIds?: ReadonlySet<string>;
 }): MonthProjection | null {
   if (
     today.getFullYear() !== monthStart.getFullYear() ||
@@ -139,6 +145,7 @@ export function projectMonthEnd({
   let spent = 0;
   for (const t of transactions) {
     if (t.type !== "EXPENSE" || t.isRecurring || t.recurringTemplateId) continue;
+    if (excludeCategoryIds && t.categoryId && excludeCategoryIds.has(t.categoryId)) continue;
     if (
       t.date.getFullYear() !== monthStart.getFullYear() ||
       t.date.getMonth() !== monthStart.getMonth()

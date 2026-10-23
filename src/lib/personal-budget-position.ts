@@ -31,6 +31,7 @@ import type { SharedDueRow } from "@/components/budget/due-recurring-widget";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import {
   computeSafeToSpend,
+  computeStillBudgeted,
   deriveSafeToSpend,
   type ExpectedRecurringExpense,
   type HouseholdDebt,
@@ -42,6 +43,7 @@ import {
   isPlannedExpenseOutstanding,
   plannedItemType,
 } from "@/lib/planned-expense-calc";
+import { categoryEnvelopes } from "@/lib/budget-category-limit";
 import { dailyAllowance, projectMonthEnd } from "@/lib/chart-calc";
 import {
   computeMemberPosition,
@@ -67,7 +69,7 @@ export async function loadPersonalBudgetPosition({
    * shared "Rent" don't merge into one row. */
   sharedLabel: string;
 }) {
-  const [transactions, recurringTemplates, recurringTemplateAcks, memberships, ownPlannedExpenses] = await Promise.all([
+  const [transactions, recurringTemplates, recurringTemplateAcks, memberships, ownPlannedExpenses, limitedCategories] = await Promise.all([
     prisma.personalTransaction.findMany({
       where: { userId },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -99,6 +101,11 @@ export async function loadPersonalBudgetPosition({
       },
       include: { category: { select: { name: true, type: true } }, transaction: { select: { date: true } } },
       orderBy: { dueDate: "asc" },
+    }),
+    // UX-138: the limited categories, whose unspent remainder is held back.
+    prisma.personalBudgetCategory.findMany({
+      where: { userId, type: "EXPENSE", monthlyLimit: { not: null } },
+      select: { id: true, type: true, monthlyLimit: true, rolloverEnabled: true, createdAt: true },
     }),
   ]);
 
@@ -568,6 +575,12 @@ export async function loadPersonalBudgetPosition({
     })),
   ].sort((a, b) => b.amount - a.amount);
 
+  const limitEnvelopes = categoryEnvelopes({
+    categories: limitedCategories,
+    transactions,
+    monthStart,
+    monthEnd,
+  });
   const {
     safeToSpend,
     status: safeToSpendStatus,
@@ -578,6 +591,7 @@ export async function loadPersonalBudgetPosition({
       expenseSoFar: expense,
       savingsSoFar: savings,
       owedFromEarlier,
+      stillBudgeted: computeStillBudgeted(limitEnvelopes, expectedRecurring),
       expectedRecurring,
     });
 
@@ -589,6 +603,7 @@ export async function loadPersonalBudgetPosition({
     transactions: monthTransactions,
     monthStart,
     today: now,
+    excludeCategoryIds: new Set(limitEnvelopes.map((e) => e.id)),
   });
 
   const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, today: now });

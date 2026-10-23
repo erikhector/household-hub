@@ -124,6 +124,9 @@ export function SafeToSpend({
     { label: dict.lineOwedFromEarlier, value: breakdown.owedFromEarlier, sign: "–" },
     { label: dict.lineDuePayments, value: breakdown.duePayments, sign: "–" },
     { label: dict.lineDueSavings, value: breakdown.dueSavings, sign: "→" },
+    // UX-138: what is left of the monthly limits. Earmarked, so it comes off
+    // the number even though it isn't spent yet.
+    { label: dict.lineStillBudgeted, value: breakdown.stillBudgeted, sign: "–" },
   ];
 
   const arithmetic = (
