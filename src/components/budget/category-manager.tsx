@@ -281,6 +281,8 @@ function EditCategoryDialog({
               name="name"
               required
               maxLength={60}
+              autoComplete="off"
+              enterKeyHint={category.type === "EXPENSE" || category.type === "SAVINGS" ? "next" : "done"}
               defaultValue={category.name}
               placeholder={dict.categories.namePlaceholder}
             />
@@ -382,6 +384,8 @@ export function AddCategoryDialog({
               name="name"
               required
               maxLength={60}
+              autoComplete="off"
+              enterKeyHint={type === "INCOME" ? "done" : "next"}
               placeholder={dict.categories.namePlaceholder}
             />
           </div>
@@ -464,6 +468,8 @@ function MonthlyLimitField({
           min={0.01}
           step="any"
           inputMode="decimal"
+          autoComplete="off"
+          enterKeyHint="done"
           defaultValue={defaultValue ?? undefined}
           placeholder={dict.categories.limitPlaceholder}
           aria-describedby={`${id}-hint`}
@@ -525,6 +531,8 @@ function SavingsGoalField({
           min={0.01}
           step="any"
           inputMode="decimal"
+          autoComplete="off"
+          enterKeyHint="next"
           defaultValue={defaultAmount ?? undefined}
           placeholder={dict.categories.goalPlaceholder}
           aria-describedby={`${id}-hint`}
@@ -539,6 +547,8 @@ function SavingsGoalField({
           id={dateId}
           name="goalDate"
           type="date"
+          autoComplete="off"
+          enterKeyHint="done"
           // Stored as UTC midnight of the picked day, so its UTC ISO date is
           // that same day whatever the viewer's time zone.
           defaultValue={defaultDate ? defaultDate.toISOString().slice(0, 10) : undefined}
