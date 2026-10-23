@@ -7,7 +7,8 @@ import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import {
   createDialogHandle,
   Dialog,
@@ -419,12 +420,19 @@ function MealEntryRow({
   const router = useRouter();
   const [unassignPending, startUnassign] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // UX-49: Remove meal hides the row at once with an Undo toast (the delete
+  // goes out when it closes), not a "can't be undone" confirm.
+  const { hidden, remove } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteMealEntryAction(entry.id), dict.prepConnectionError)) !== null,
+    message: format(dict.mealRemovedToast, { meal: label }),
+    undoLabel: dict.undoDelete,
+  });
   const [dialogs] = useState(() => ({
     cook: createDialogHandle(),
     markCooked: createDialogHandle(),
     edit: createDialogHandle(),
     move: createDialogHandle(),
-    remove: createDialogHandle(),
   }));
 
   // The sheet closes as the chosen action's dialog opens over the page, so
@@ -457,6 +465,8 @@ function MealEntryRow({
       router.refresh();
     });
   }
+
+  if (hidden) return null;
 
   return (
     <>
@@ -570,7 +580,11 @@ function MealEntryRow({
               type="button"
               variant="destructive"
               className="w-full justify-start"
-              onClick={() => openFromSheet(dialogs.remove)}
+              onClick={() => {
+                setSheetOpen(false);
+                // After the sheet has closed, so it unmounts shut.
+                requestAnimationFrame(remove);
+              }}
             >
               <Trash2 className="size-4" />
               {dict.removeMealAriaLabel}
@@ -604,15 +618,6 @@ function MealEntryRow({
           />
         </>
       )}
-      <ConfirmDialog
-        handle={dialogs.remove}
-        title={format(dict.confirmDeleteMeal.title, { meal: label })}
-        description={cooked ? dict.confirmDeleteMeal.descriptionCooked : dict.confirmDeleteMeal.description}
-        cancelLabel={dict.confirmDeleteMeal.cancel}
-        confirmLabel={dict.confirmDeleteMeal.confirm}
-        pendingLabel={dict.confirmDeleteMeal.confirming}
-        onConfirm={() => deleteMealEntryAction(entry.id)}
-      />
     </>
   );
 }

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, waitForUndoableDelete } from "./ui";
 
 // Planned bills (BUDGET-8): a one-off bill with a due date, added on the
 // Budget page's Manage tab, counted in Safe to spend until it's paid, and
@@ -185,12 +185,10 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
       .getByRole("button", { name: "Delete transaction" })
       .click();
   }
-  const confirm = page.getByRole("dialog", { name: "Delete this transaction?" });
-  await confirm.getByRole("button", { name: "Delete" }).click();
-  // The dialog closes once the server has answered (the row itself can go
-  // sooner, optimistically).
-  await expect(confirm).toBeHidden();
+  // UX-49: no confirm; the row goes at once and the delete reaches the
+  // server when the Undo toast closes.
   await expect(main.getByText(name, { exact: true }).filter({ visible: true })).toHaveCount(0);
+  await waitForUndoableDelete(page, `Deleted "${name}"`);
 
   // Closing the sheets steps back over their history entries, and a reload
   // racing that back() is aborted (see budget-transaction-rows.spec.ts).

@@ -569,8 +569,8 @@ export const en = {
     },
     statusCompleted: "Completed",
     statusArchived: "Archived",
-    archiveAriaLabel: "Archive list",
-    unarchiveAriaLabel: "Unarchive list",
+    // UX-49: archiving shows this with an Undo.
+    listArchivedToast: "List archived",
     deleteAriaLabel: "Delete list",
     confirmDeleteList: {
       title: "Delete {name}?",
@@ -640,13 +640,6 @@ export const en = {
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
-    },
-    confirmDeleteItem: {
-      title: "Remove {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
     },
     editItemAriaLabel: "Edit {name}",
     // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
@@ -1126,13 +1119,6 @@ export const en = {
     moreInventoryActions: "More inventory actions",
     edit: "Edit",
     delete: "Delete",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     nameLabel: "Name",
     categoryLabel: "Category",
     categoryPlaceholder: "e.g. Dairy",
@@ -1757,15 +1743,9 @@ export const en = {
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
-    confirmDeleteMeal: {
-      title: "Remove {meal}?",
-      description: "This can't be undone.",
-      descriptionCooked:
-        "This meal was already marked as cooked — the inventory it used won't be restored automatically.",
-      cancel: "Cancel",
-      confirm: "Remove",
-      confirming: "Removing…",
-    },
+    // UX-49: Remove goes at once; the toast carries the way back.
+    mealRemovedToast: 'Removed "{meal}"',
+    undoDelete: "Undo",
     adding: "Adding…",
     add: "Add",
     recipesTitle: "Recipes",
@@ -1935,13 +1915,8 @@ export const en = {
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
     favoriteAriaLabel: "Favorite {name}",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
+    // UX-49: Delete goes at once; the toast carries the way back.
+    recipeDeletedToast: 'Deleted "{name}"',
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",
     mascotAlt: "Squirrel mascot",
     searchRecipesPlaceholder: "Search recipes…",
@@ -2229,13 +2204,6 @@ export const en = {
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
     },
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     editTaskAriaLabel: "Edit {title}",
     // UX-106: the "Mine / Everyone" filter above the list.
     filterLabel: "Show",
@@ -2327,13 +2295,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -2827,13 +2788,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",

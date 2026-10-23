@@ -3,12 +3,19 @@
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Archive, ArchiveRestore, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Ellipsis, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { archiveListWithUndo } from "@/components/shopping/archive-list";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -16,9 +23,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  createDialogHandle,
 } from "@/components/ui/dialog";
 import {
-  archiveShoppingListAction,
   createShoppingListAction,
   deleteShoppingListAction,
   unarchiveShoppingListAction,
@@ -203,6 +210,7 @@ export function NewListDialog({
 
 function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict }) {
   const [isPending, startTransition] = useTransition();
+  const [deleteHandle] = useState(() => createDialogHandle());
 
   return (
     <div data-flip-key={list.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
@@ -239,49 +247,51 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
         </div>
       </Link>
       <div className="flex shrink-0 items-center gap-1">
-        {list.status !== "ARCHIVED" ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            disabled={isPending}
-            aria-label={dict.archiveAriaLabel}
-            onClick={() =>
-              startTransition(async () => {
-                const result = await archiveShoppingListAction(list.id);
-                if (result.error) toast.error(result.error);
-              })
+        {/* UX-49: Archive and Delete behind one ⋯ menu, no longer two
+            lookalike icons side by side. Archive is undoable from its
+            toast; Delete keeps its confirm, since it takes the list's
+            items with it. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-sm" disabled={isPending} aria-label={dict.moreActions}>
+                <Ellipsis className="size-4" />
+              </Button>
             }
-          >
-            <Archive className="size-3.5" />
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            disabled={isPending}
-            aria-label={dict.unarchiveAriaLabel}
-            onClick={() =>
-              startTransition(async () => {
-                const result = await unarchiveShoppingListAction(list.id);
-                if (result.error) toast.error(result.error);
-              })
-            }
-          >
-            <ArchiveRestore className="size-3.5" />
-          </Button>
-        )}
+          />
+          <DropdownMenuContent align="end">
+            {list.status !== "ARCHIVED" ? (
+              <DropdownMenuItem
+                onClick={() =>
+                  startTransition(async () => {
+                    await archiveListWithUndo(list.id, dict);
+                  })
+                }
+              >
+                <Archive />
+                {dict.archive}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() =>
+                  startTransition(async () => {
+                    const result = await unarchiveShoppingListAction(list.id);
+                    if (result.error) toast.error(result.error);
+                  })
+                }
+              >
+                <ArchiveRestore />
+                {dict.unarchive}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem variant="destructive" onClick={() => deleteHandle.open(null)}>
+              <Trash2 />
+              {dict.delete}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ConfirmDialog
-          trigger={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground hover:text-destructive"
-              disabled={isPending}
-              aria-label={dict.deleteAriaLabel}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-          }
+          handle={deleteHandle}
           title={format(dict.confirmDeleteList.title, { name: list.name })}
           description={dict.confirmDeleteList.description}
           cancelLabel={dict.confirmDeleteList.cancel}
