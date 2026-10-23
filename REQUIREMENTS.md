@@ -7307,7 +7307,9 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   (UX-147) The budget dialogs follow suit: every text and number field in
   the category add/edit, recurring-item and transaction dialogs sets
   `autoComplete="off"`, and the last field of each form sets
-  `enterKeyHint` (`done`; earlier fields `next`). Covered by
+  `enterKeyHint` (`done`; earlier fields `next`). In the recurring dialog
+  Due day is `next` while "Split this bill" is on and each member's share is
+  `next` except the last. Covered by
   `e2e/budget-form-autofill.spec.ts`.
 - **`src/app/dashboard/error.tsx`** is a segment boundary below the dashboard
   layout: a feature crash replaces only the page content, so the sidebar or

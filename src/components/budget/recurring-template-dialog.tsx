@@ -224,7 +224,8 @@ export function RecurringTemplateDialog({
                 type="number"
                 inputMode="numeric"
                 autoComplete="off"
-                enterKeyHint="done"
+                // The split shares follow this field when splitting is on.
+                enterKeyHint={splitEnabled ? "next" : "done"}
                 min={1}
                 max={31}
                 step={1}
@@ -278,7 +279,7 @@ export function RecurringTemplateDialog({
                     </Button>
                   </div>
                   <div className="flex flex-col gap-2">
-                    {memberOptions.map((m) => (
+                    {memberOptions.map((m, i) => (
                       <div key={m.id} className="flex items-center gap-2">
                         <input type="hidden" name="splitMemberId" value={m.id} />
                         <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
@@ -287,7 +288,7 @@ export function RecurringTemplateDialog({
                           type="number"
                           inputMode="decimal"
                           autoComplete="off"
-                          enterKeyHint="done"
+                          enterKeyHint={i === memberOptions.length - 1 ? "done" : "next"}
                           min={0}
                           step="any"
                           className="w-24 shrink-0"

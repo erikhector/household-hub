@@ -51,6 +51,15 @@ test("budget dialogs turn autofill off and set the Enter key on the last field",
     dialog = page.getByRole("dialog");
     await expectNoAutofill(dialog);
     await expect(dialog.getByLabel("Due day")).toHaveAttribute("enterkeyhint", "done");
+    // Splitting the bill adds one amount field per member after Due day, so
+    // the Enter key moves on from Due day and only the last share ends the form.
+    await dialog.getByLabel("Split this bill").check();
+    await expectNoAutofill(dialog);
+    await expect(dialog.getByLabel("Due day")).toHaveAttribute("enterkeyhint", "next");
+    const shares = dialog.locator('input[name="splitAmount"]');
+    expect(await shares.count()).toBeGreaterThan(1);
+    await expect(shares.first()).toHaveAttribute("enterkeyhint", "next");
+    await expect(shares.last()).toHaveAttribute("enterkeyhint", "done");
     await page.keyboard.press("Escape");
 
     await page.goto("/dashboard/budget");
