@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.101.0",
+    "date": "2026-10-23",
+    "pr": 622,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If a receipt photo can't be read, you can now type the prices in by hand, and Register receipt lets you add receipt lines yourself.\n\nSafe to spend now sets aside what is still left of your category limits. A \"Still budgeted\" line in the breakdown shows how much, so the number no longer drops as you spend within a limit. The end-of-month estimate is now a muted note under the number.\n\nBudget forms no longer suggest your own name or contacts when you name a category, bill or transaction, and the keyboard's action key now shows \"Next\" or \"Done\".",
+      "sv": "Om kvittofotot inte kan läsas kan du nu skriva in priserna för hand, och i Registrera kvitto kan du lägga till kvittorader själv.\n\nSäkert att spendera räknar nu bort det som återstår av dina kategorigränser. En rad \"Ännu budgeterat\" i uppdelningen visar hur mycket, så att summan inte sjunker när du handlar inom en gräns. Månadsslutsprognosen är nu en dämpad notering under summan.\n\nBudgetformulär föreslår inte längre ditt eget namn eller dina kontakter när du namnger en kategori, räkning eller transaktion, och tangentbordets åtgärdsknapp visar nu \"Nästa\" eller \"Klar\"."
+    }
+  },
+  {
     "version": "0.100.0",
     "date": "2026-10-23",
     "pr": 615,
