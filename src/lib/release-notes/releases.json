@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.102.0",
+    "date": "2026-10-23",
+    "pr": 626,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If your household is the only one you have, the Household page now explains why it can't be deleted on its own, and points you to \"Delete account\" or, if others are in it, to the member list. The file from \"Export my data\" is now named squirrel-my-data.",
+      "sv": "Om du bara har ett hushåll förklarar sidan Hushåll nu varför det inte kan tas bort för sig, och pekar dig till \"Ta bort konto\" eller, om fler är med, till medlemslistan. Filen från \"Exportera mina data\" heter nu squirrel-my-data."
+    }
+  },
+  {
     "version": "0.101.0",
     "date": "2026-10-23",
     "pr": 622,
