@@ -232,6 +232,7 @@ export async function GET() {
       completedByMe: task.completedByMember?.userId === userId,
       completedAt: task.completedAt,
       recurrenceIntervalDays: task.recurrenceIntervalDays,
+      dueDate: task.dueDate,
       createdAt: task.createdAt,
     })),
     // This user's share of split household bills, with the bill it belongs
