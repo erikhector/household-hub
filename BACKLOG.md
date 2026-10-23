@@ -316,52 +316,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
-      `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
-      through the field or the bar"), `mobile` project. Failed in the local
-      `ci:local` gate on PR #499 (`b881bc8`, 2026-10-21), a pixel-equality
-      check on the add bar's screenshot. A locked `--repeat-each=10
-      --workers=1 --project=mobile` run failed 1 of 10 on that branch and
-      1 of 10 on clean `origin/next`, so it flakes at the same rate with
-      nobody's change in it. Likely the screenshot is taken before the bar
-      has settled (caret, focus ring or a late repaint). Fix it in the
-      app or in the test's waiting before the "before" screenshot, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
-      passes 30/30. Went red once more on release run 39571297362
-      (2026-10-21) and passed on retry #1 of the same commit. Failed
-      again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
-      the retry both failed in the GitHub e2e job, and it failed once in
-      the local `ci:local` gate; it passed on a GitHub job re-run and on a
-      local re-run of the same commit. Seen again on release PR #582
-      (`dec00a0`, 2026-10-22): it failed the attempt and the retry of
-      GitHub e2e run 39803999752 and once in the local `ci:local` gate;
-      it passed on a GitHub job re-run and on a local re-run.
-- [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
-      `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
-      2026-10-21. Two specs, same symptom: the click on a "More" trigger
-      does not open its menu, so the next `getByRole("menuitem")` never
-      appears. (a) `e2e/ux-51.spec.ts:114` ("the shortcut shows the current
-      theme and language") failed on the attempt and the retry of release
-      run 39571297362, menuitem "Theme: System" not found after clicking
-      the bottom bar's More; it passed on the job re-run and 10/10
-      locally. (b) `e2e/meal-planner-empty-slots.spec.ts:76` failed on the
-      attempt and the retry of release run 39580857482, menuitem "Copy
-      last week" not found after clicking the planner's More; it passed on
-      the job re-run. Likely the click lands before the trigger is wired
-      up (hydration, or the menu's open/close race) even after
-      `expectHydrated`. Find out whether the menu opened and closed again
-      or never opened, and fix it in the app or in the tests' waiting,
-      never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/ux-51.spec.ts:114
-      e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
-      --repeat-each=30` passes 30/30.
-      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
-      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
-      System" not found within 5s; passed on a re-run on the same commit.
-      Seen again in the `ci:local` gate on release PR #582 (`dec00a0`,
-      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
-      System" not found; passed in two focused re-runs.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
@@ -383,6 +337,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
       failed the attempt and the retry of the GitHub e2e job and in the
       local `ci:local` gate; it passed on the job re-run and on a local re-run.
+      Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
+      (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
+      still there after 5 s) and passed on retry #1.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
@@ -421,6 +378,27 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/optimistic-ticking.spec.ts:169 --project=mobile
       --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-49. Flaky: recipe pages time out finding their first control under full-suite load** (low, S) —
+      `mobile` project, local `ci:local` gate runs, 2026-10-23. Different
+      recipe specs fail on different runs with the same symptom, a 30 s
+      timeout on the first control of the recipes page: (a)
+      `e2e/recipe-last-cooked.spec.ts:60` (`search.fill`, PR #603 gate on
+      `f7ac260`; also failed once in PR #602's first full run); (b)
+      `e2e/recipe-form-order.spec.ts:11` ("New recipe" button not found,
+      PR #611 gate on `672015a`); (c) `e2e/sheet-keyboard.mobile.spec.ts`
+      and `e2e/recipe-dialog.spec.ts:43` ("New recipe" button not found),
+      PR #611 / MAINT-44 gate runs. Each passed on its own (`--repeat-each=3`)
+      and in the next full run, so the page or the spec isn't ready when
+      the first click or fill lands, probably hydration of the recipes
+      list, or its data load, under a 13 minute full run. Find out
+      which, and fix it in the app or in the specs' waiting, never a
+      loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/recipe-last-cooked.spec.ts:60
+      e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
+      --project=mobile --repeat-each=30` passes 30/30, and two full
+      `ci:local` runs show none of these specs failing.
+
 
 ### UX (2026-09-26 scout)
 
@@ -483,10 +461,10 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** Four items sit in other sections of this file:
+**Built elsewhere.** Three items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135 and UX-136.
+- Needs a decision before building: UX-136.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49.
@@ -692,43 +670,31 @@ UX-89.
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
 
-### UX (2026-10-20 scout)
+### UX (2026-10-23 scout)
 
-Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
-`tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
-route passes. The popup probe found two phone-only size gaps.
+Friday area: household and personal budgets. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; every route passes and the popup probe has no phone-size or
+off-screen hits in the budget dialogs. WebKit was not run.
 
-- [ ] **UX-135. Sign in straight from the verification link**
-      (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
-      blocked until the email is verified (`src/lib/auth.ts`) and signup
-      deliberately doesn't sign in, so a new user taps the mail link and
-      then types email and password again. A valid, unused verification
-      token signs the user in (single use, short-lived, same trust as a
-      reset link) and lands on the dashboard with "Welcome to Squirrel,
-      {name}". An expired, used or unknown token keeps today's behaviour.
-      Both `en.ts` and `sv.ts`; no new cookie.
-      Acceptance: in an e2e spec, sign up, open the verification link
-      (read the token from the DB), and land on `/dashboard` signed in
-      with the welcome text; opening the same link again does not sign in.
-      Decided 2026-10-20 by owner: option 1. See #395.
-
-### UX (2026-10-22 scout)
-
-Thursday area: tasks, household, members and invites. Found by reading
-the area's components and checking `Button` sizes; the screenshot and
-audit sweeps were not run this time, so confirm the layout in a
-`small-phone` screenshot first.
-
-- [ ] **UX-146. Invite dialog: clear a failed link error on retry, and
-      offer Try again** (impact: low, effort: S) — `src/components/household/invite-button.tsx:29-41,68`:
-      `error` is set when `createInviteAction` fails but is never reset,
-      so closing and reopening the dialog after a failure that then
-      succeeds shows the red error above the working link. While it is
-      failed the only way to retry is to close and reopen (nothing says
-      so). Breaks "Error recovery" (UX principle) and M5.
-      Acceptance: with the action failing once and then succeeding
-      (`mobile` project, route-level mock), the dialog shows the error
-      with a "Try again" button; pressing it shows the link and no error.
+- [ ] **UX-147. Budget forms: stop name autofill, set the Enter key**
+      (impact: low, effort: S) — DESIGN.md's "right keyboard and autofill"
+      rule: `autoComplete="off"` for household data and `enterKeyHint` on
+      the last field. The budget dialogs set neither (`dialogs-mobile.json`:
+      `/dashboard/budget` and `/dashboard/personal-budget` "Add category",
+      `autoComplete: ""`, `enterKeyHint: ""`). A field called `name` makes
+      Chrome and Android offer the user's own name and contacts for a
+      category such as "Groceries", and the keyboard's action key stays a
+      generic Return. Affected: `src/components/budget/category-manager.tsx`
+      (add and edit name at ~281 and ~382; the limit and goal fields below
+      them), `recurring-template-dialog.tsx` (4 inputs, none set) and
+      `transaction-dialog.tsx` (`autoComplete` on the description and amount
+      fields; its `enterKeyHint` is already set). The other budget and
+      shopping dialogs already do this (`planned-expense-dialog.tsx:194-199`).
+      Acceptance: in the `mobile` project, `e2e/dialog-audit` style check
+      (or a small spec) opens Add category, Add recurring and Add
+      transaction and asserts every text field has `autocomplete="off"` and
+      the last field of each form has an `enterkeyhint`.
 
 ### Dependencies
 
@@ -740,7 +706,11 @@ audit sweeps were not run this time, so confirm the layout in a
       Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
       `npm run check && npm run build` is green.
 
-- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: low, effort: S) —
+- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: med, effort: S) —
+      The `@sentry/nextjs` bump is a security fix: 10.75.1 and older have a
+      critical middleware bypass when a tunnel route is used
+      (GHSA-mchm-gjx6-7h55, fixed in 10.75.2). Check whether
+      `next.config` sets `tunnelRoute`; the audit flags it either way.
       `@base-ui/react` 1.8→1.9, `@sentry/nextjs` 10.73→10.76, `@upstash/redis`
       1.38→1.39, `@vercel/functions` 3.9→3.10, `lucide-react` 1.43→1.57,
       `pg` 8.23.0→8.23.1, `resend` 6.26→6.33, `shadcn` 4.21.0→4.21.5,
@@ -749,7 +719,12 @@ audit sweeps were not run this time, so confirm the layout in a
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
 
-- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: med, effort: S) —
+- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: high, effort: S) —
+      `npm audit --omit=dev` (2026-10-23) flags `next` 16.0.0–16.4.0 with two
+      critical unauthenticated RCEs (GHSA-2464-fhr4-w9xw, image optimization
+      with SVG files; GHSA-673q-mjm6-r5xr, `use cache` returning typed
+      arrays) and a high Server Actions DoS (GHSA-p3m5-59mp-jv5r); 16.4.2
+      fixes them. Do this item first and don't wait on DEPS-3.
       DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
       16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
       7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3

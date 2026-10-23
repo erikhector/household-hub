@@ -26,10 +26,14 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
   const [email, setEmail] = useState("");
   const [isSending, startSendTransition] = useTransition();
 
-  function handleOpenChange(next: boolean) {
-    setOpen(next);
-    if (next && !link) {
-      startTransition(async () => {
+  // Also the "Try again" handler. The error is cleared up front so a retry
+  // that works never shows the old failure above the new link, and a thrown
+  // action (offline, dropped request) lands in the same recoverable state
+  // as a returned { error } instead of reaching the error boundary.
+  function createLink() {
+    setError(null);
+    startTransition(async () => {
+      try {
         const result = await createInviteAction();
         if (result.url && result.token) {
           setLink(`${window.location.origin}${result.url}`);
@@ -37,8 +41,15 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
         } else {
           setError(result.error ?? dict.createFailed);
         }
-      });
-    }
+      } catch {
+        setError(dict.createFailed);
+      }
+    });
+  }
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next && !link) createLink();
   }
 
   function handleSend() {
@@ -65,7 +76,16 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
         {isPending && !link && (
           <p className="text-sm text-muted-foreground">{dict.generating}</p>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <div className="flex flex-col gap-3">
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+            <Button type="button" onClick={createLink} disabled={isPending}>
+              {dict.tryAgain}
+            </Button>
+          </div>
+        )}
         {link && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">

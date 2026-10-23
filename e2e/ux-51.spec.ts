@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { en } from "../src/lib/i18n/dictionaries/en";
 import { sv } from "../src/lib/i18n/dictionaries/sv";
-import { dismissCookieNotice, expectNoHorizontalOverflow, setLocaleCookie } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, setLocaleCookie } from "./ui";
 
 // UX-51: a first visit follows the system theme, logged-out pages have a
 // theme control, the shortcuts name the setting in use, and the Profile has
@@ -16,6 +16,21 @@ function themeColors(page: import("@playwright/test").Page) {
   return page.evaluate(() =>
     [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')].map((m) => m.content),
   );
+}
+
+// A theme tap saves the choice to the account in the background
+// (setThemeAction), and the account's theme is what the next visit opens
+// with. The signed-in user is shared by every spec in the worker, so a test
+// that ends, and closes its browser, with the last save unsent leaves a stale
+// "light" or "dark" behind and the next run's "Theme: System" never appears
+// (MAINT-44). Wait for each save to come back.
+async function clickAndWaitForSave(page: Page, target: Locator) {
+  const saved = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && "next-action" in request.headers();
+  });
+  await target.click();
+  await saved;
 }
 
 test.describe("logged out", () => {
@@ -117,17 +132,21 @@ test.describe("signed in", () => {
     await context.addCookies([{ name: SIDEBAR_COOKIE, value: "1", url: baseURL! }]);
     await page.goto("/dashboard");
     if (testInfo.project.name.startsWith("mobile")) {
-      await page.getByRole("navigation").getByRole("button", { name: en.nav.more }).click();
+      // The menu opens through React handlers, so a tap before hydration does
+      // nothing and the menu never appears (MAINT-44, as MAINT-27 and MAINT-34).
+      const more = page.getByRole("navigation").getByRole("button", { name: en.nav.more });
+      await expectHydrated(more);
+      await more.click();
       const theme = page.getByRole("menuitem", { name: "Theme: System" });
       await expect(theme).toBeVisible();
       await expect(page.getByRole("menuitem", { name: "Language: English" })).toBeVisible();
       // The menu stays open, so the next step is one tap away.
-      await theme.click();
+      await clickAndWaitForSave(page, theme);
       await expect(page.getByRole("menuitem", { name: "Theme: Light" })).toBeVisible();
-      await page.getByRole("menuitem", { name: "Theme: Light" }).click();
+      await clickAndWaitForSave(page, page.getByRole("menuitem", { name: "Theme: Light" }));
       await expect(page.getByRole("menuitem", { name: "Theme: Dark" })).toBeVisible();
       await expect(page.locator("html")).toHaveClass(/dark/);
-      await page.getByRole("menuitem", { name: "Theme: Dark" }).click(); // back to system
+      await clickAndWaitForSave(page, page.getByRole("menuitem", { name: "Theme: Dark" })); // back to system
     } else {
       const sidebar = page.getByRole("complementary");
       await expect(sidebar.getByRole("button", { name: "Theme: System", exact: true })).toBeVisible();
@@ -173,7 +192,7 @@ test.describe("signed in", () => {
     // Put the worker's account back for the specs that follow.
     await svPreferences.getByRole("group", { name: sv.language.heading }).getByText(sv.language.english, { exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
-    await appearance.getByText(en.theme.system, { exact: true }).click();
+    await clickAndWaitForSave(page, appearance.getByText(en.theme.system, { exact: true }));
     await expect(appearance.getByRole("radio", { name: en.theme.system })).toBeChecked();
   });
 });

@@ -202,6 +202,7 @@ export const sv = {
     invite: {
       button: "Bjud in medlem",
       createFailed: "Det gick inte att skapa en inbjudningslänk",
+      tryAgain: "Försök igen",
       dialogTitle: "Bjud in till hushållet",
       generating: "Skapar länk…",
       description: "Skicka den här länken till den som ska gå med. Den slutar gälla om 7 dagar.",
@@ -387,6 +388,7 @@ export const sv = {
   dashboard: {
     title: "Översikt",
     subtitle: "Det som behöver din uppmärksamhet just nu.",
+    welcome: "Välkommen till Squirrel, {name}",
     greeting: {
       hello: "Hej, {name}",
       morning: "God morgon, {name}",
