@@ -2958,6 +2958,7 @@ export const en = {
       costsTitle: "Shared with your household",
       costsBody: "Expenses split with other members count here before you set up your own budget.",
       monthShare: "Your share this month",
+      monthShareIn: "Your share in {month}",
       viewShared: "See the shared expenses →",
     },
     logShared: {

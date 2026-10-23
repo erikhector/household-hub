@@ -499,6 +499,11 @@ async function PersonalBudgetTabsSection({
             debts={householdDebts}
             showHouseholdName={showHouseholdName}
             transactionsHref={budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions" })}
+            monthLabel={
+              monthKey === toMonthKey(now)
+                ? undefined
+                : parseMonthKey(monthKey).toLocaleDateString(locale, { month: "long", year: "numeric" })
+            }
             dict={dict.personalBudget}
             locale={locale}
           />

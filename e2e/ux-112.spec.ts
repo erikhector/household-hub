@@ -56,6 +56,18 @@ test("a new member sees what they owe from a split dinner before setting up a bu
       [`e2e-sc-sa-${tag}`, `e2e-sc-sb-${tag}`, `e2e-sc-tx-${tag}`, payerMember, newcomerMember],
     );
 
+    // A 200 dinner from last month, to browse back to.
+    await client.query(
+      `INSERT INTO "Transaction" (id, "householdId", "categoryId", amount, type, description, date)
+       VALUES ($1, $2, $3, 200, 'EXPENSE', 'Old dinner', date_trunc('month', now()) - interval '10 days')`,
+      [`e2e-sc-tp-${tag}`, householdId, `e2e-sc-cat-${tag}`],
+    );
+    await client.query(
+      `INSERT INTO "TransactionSplit" (id, "transactionId", "householdMemberId", "amountOwed", "amountPaid")
+       VALUES ($1, $3, $4, 100, 200), ($2, $3, $5, 100, 0)`,
+      [`e2e-sc-pa-${tag}`, `e2e-sc-pb-${tag}`, `e2e-sc-tp-${tag}`, payerMember, newcomerMember],
+    );
+
     await page.goto("/login");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password", { exact: true }).fill(password);
@@ -79,6 +91,17 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     await expect(main.getByText("Your share this month").locator("..")).toContainText(amount470);
     await expect(main.getByText("You owe other members").locator("..")).toContainText(amount470);
     await expect(main.getByText("Let's set up your budget")).toBeVisible();
+
+    // A past month names itself instead of claiming "this month".
+    const prev = new Date();
+    prev.setDate(1);
+    prev.setMonth(prev.getMonth() - 1);
+    const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+    const prevLabel = prev.toLocaleDateString("en", { month: "long", year: "numeric" });
+    await page.goto(`/dashboard/personal-budget?month=${prevKey}`);
+    await expect(main.getByText(`Your share in ${prevLabel}`).locator("..")).toContainText(/100[\s  ,.]?00/);
+    await expect(main.getByText("Your share this month")).toHaveCount(0);
+    await page.goto("/dashboard/personal-budget");
 
     // The shared-expense action is the primary one, named like "Add transaction".
     await expect(main.getByRole("button", { name: "Add shared expense" })).toBeVisible();

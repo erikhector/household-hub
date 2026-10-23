@@ -2824,6 +2824,7 @@ export const sv = {
       costsTitle: "Delat med ditt hushåll",
       costsBody: "Utgifter som delats med andra medlemmar räknas här innan du har satt upp din egen budget.",
       monthShare: "Din andel den här månaden",
+      monthShareIn: "Din andel i {month}",
       viewShared: "Se de delade utgifterna →",
     },
     logShared: {

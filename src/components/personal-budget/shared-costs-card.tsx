@@ -13,6 +13,7 @@ import { Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HouseholdDebtsList } from "@/components/budget/household-debts-list";
 import { createMoneyFormat } from "@/lib/currency";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { HouseholdDebt } from "@/lib/safe-to-spend-calc";
 import type { SharedCostsSummary } from "@/lib/shared-costs-summary";
@@ -22,6 +23,7 @@ export function SharedCostsCard({
   debts,
   showHouseholdName,
   transactionsHref,
+  monthLabel,
   dict,
   locale,
 }: {
@@ -30,6 +32,8 @@ export function SharedCostsCard({
   showHouseholdName: boolean;
   /** The personal budget's Transactions tab, where the shared rows are listed. */
   transactionsHref: string;
+  /** Set when the page shows a month other than the current one (e.g. "September 2026"), so the share row names the month it sums instead of claiming "this month". */
+  monthLabel?: string;
   dict: Dictionary["personalBudget"];
   locale: Locale;
 }) {
@@ -48,7 +52,7 @@ export function SharedCostsCard({
         <p className="text-sm text-muted-foreground">{dict.shared.costsBody}</p>
         {summary.monthShare > 0 && (
           <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="min-w-0">{dict.shared.monthShare}</span>
+            <span className="min-w-0">{monthLabel ? format(dict.shared.monthShareIn, { month: monthLabel }) : dict.shared.monthShare}</span>
             <span className="shrink-0 font-medium tabular-nums">{numberFormat.format(summary.monthShare)}</span>
           </div>
         )}
