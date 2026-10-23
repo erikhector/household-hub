@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -39,23 +39,9 @@ export function MealPlanningView({
   // server, since a browser back restores Next's cached render of the URL
   // as first loaded (see item-catalog.tsx).
   const tabParam = useSearchParams().get("tab");
-  const paramTab: Tab =
+  const tab: Tab =
     tabParam === "recipes" || tabParam === "cook" || tabParam === "prep" ? tabParam : "planner";
-  // A tap shows its tab at once instead of waiting for the router. Next
-  // follows history.replaceState by restoring its state, which spawns a
-  // request and only then updates useSearchParams, so on a loaded server the
-  // tap could seem dead for seconds (MAINT-49). The tapped tab is kept
-  // until the URL's own tab changes (the replaceState landing, or a browser
-  // back/forward), when the URL is the truth again.
-  const [tapped, setTapped] = useState<Tab | null>(null);
-  const [seenParam, setSeenParam] = useState(tabParam);
-  if (seenParam !== tabParam) {
-    setSeenParam(tabParam);
-    setTapped(null);
-  }
-  const tab = tapped ?? paramTab;
   const selectTab = (next: Tab) => {
-    setTapped(next);
     const url = new URL(window.location.href);
     if (next === "planner") url.searchParams.delete("tab");
     else url.searchParams.set("tab", next);
@@ -69,8 +55,16 @@ export function MealPlanningView({
     { value: "prep", label: dict.tabPrep },
   ];
 
+  // Set once this view has committed on the client, which is when its tabs
+  // start answering taps. React hands an element its props while it renders
+  // the hydrating tree, before that commit, and a tap in between is dropped,
+  // so nothing earlier (the element's props, the router's history patch)
+  // says the tab bar is live. A test waits on this instead (MAINT-49).
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => rootRef.current?.setAttribute("data-interactive", ""), []);
+
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={rootRef} className="flex flex-col gap-6">
       <Tabs tabs={tabItems} value={tab} onChange={selectTab} />
 
       <div hidden={tab !== "planner"}>{plannerTab}</div>

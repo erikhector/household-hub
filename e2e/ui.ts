@@ -301,13 +301,16 @@ export async function expectHydrated(target: Locator) {
  * The tab bar is server-rendered before it is interactive: under a loaded run
  * goto() returns before React has hydrated it, and a click that lands then
  * does nothing, so the recipes panel stays `hidden` and the next control
- * ("New recipe", the search box) is never found, a 30 s timeout. Wait for
- * hydration, click, then assert the tab took, before reaching for anything
- * inside the panel. (The view shows a tapped tab at once rather than after
- * the router has followed the URL change, see MealPlanningView.) */
+ * ("New recipe", the search box) is never found, a 30 s timeout.
+ *
+ * expectHydrated is not enough here: React hands an element its props while
+ * rendering the hydrating tree, before that tree commits, and a tap in
+ * between is dropped. MealPlanningView sets `data-interactive` from an
+ * effect, which runs after its commit, so wait for that, click, then assert
+ * the tab took, before reaching for anything inside the panel. */
 export async function openRecipesTab(page: Page) {
   const tab = page.getByRole("tab", { name: "Recipes" });
-  await expectHydrated(tab);
+  await expect(page.locator("[data-interactive]")).toHaveCount(1);
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }
