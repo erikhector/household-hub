@@ -377,7 +377,7 @@ email is built server-side from request headers (`x-forwarded-host`/
 Action is a POST endpoint reachable by anyone, not just through the UI that
 renders it. `InviteButton` (`src/components/household/invite-button.tsx`)
 adds an email input + send button below the existing link/copy UI, reusing
-the same invitation token the link already points at. `sendInviteEmailAction`
+the same invitation token the link already points at. If creating the link fails (a returned error or a dropped request), the dialog shows the error with a "Try again" button; every attempt clears the previous error first, so a retry that works never shows the old failure above the link (UX-146). `sendInviteEmailAction`
 is rate-limited (`checkRateLimit`, 10/hour) keyed on the *sending* household
 member (`invite-email:<userId>`), returning `{ error }` past the limit —
 without it, any authenticated household member could trigger unlimited
@@ -6485,7 +6485,24 @@ components directly.
   `/login?reset=success&email=…`; `/login` reads `?email=` and pre-fills
   the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
   signup card's "Log in" link carries the address too. Covered by
-  `e2e/ux-61.spec.ts`. Signing in straight from the link is UX-135.
+  `e2e/ux-61.spec.ts`.
+- **Signing in from the verification link (UX-135).** ⚠️ Auth. A visitor
+  with no session who opens `/verify-email/<token>` is signed in by it and
+  lands on `/dashboard?welcome=1`, where `WelcomeToast` shows "Welcome to
+  Squirrel, {name}" once and drops the flag from the address (no new
+  cookie). `verifyEmailAction` does the usual checks (rate limit, unknown,
+  used, expired, already verified, all unchanged) and then calls
+  `signIn("verification-link", …)`. That second Credentials provider in
+  `src/lib/auth.ts` takes the raw token as its credential: it must be
+  unused, unexpired and belong to a still-unverified account, and it is
+  spent in one transaction (`redeemEmailVerificationToken` in
+  `src/lib/email-verification.ts`, shared with the plain verify path), so
+  a replay gets nothing. It has its own per-token rate limit because Auth.js
+  also exposes it at `POST /api/auth/callback/verification-link`. A
+  visitor who is already signed in (the dashboard banner's link) keeps the
+  plain verify, with no session swap. An expired, used or unknown token
+  behaves as before. Covered by `e2e/verify-link-sign-in.spec.ts` and the
+  unit tests in `src/lib/auth.test.ts` and `src/lib/actions/auth.test.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -7752,8 +7769,12 @@ guard keeps its length. Covered by `e2e/tick-moment.spec.ts`.
 
 A shopping row leaving its aisle (UX-37's 250 ms drop towards "In the
 cart") carries no flip key meanwhile, so it has one animation, not two.
-It then arrives in "In the cart" as a new row and rises in there, and the
-aisle closes up with a glide. Since it animates the real element and not
+It then arrives in "In the cart" as a new row and rises in there. The
+leaving row takes no room in the aisle from the tap on (zero height, drawn
+at its own place, with the rows rising into it painted over it), so the
+aisle closes up with a
+glide at tap time, inside the 500 ms the layout-shift metric forgives;
+dropping the row from the DOM after the 250 ms moves nothing (MAINT-39). Since it animates the real element and not
 a snapshot, a row stays tappable at the place it's drawn while it moves. A view transition, which
 this first used, makes an animating element untappable, and that's the row
 the thumb goes to next. Used on the shopping list, the shopping lists

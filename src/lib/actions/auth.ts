@@ -9,7 +9,8 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { signIn, signOut, EmailNotVerifiedSignin, RateLimitedSignin } from "@/lib/auth";
+import { auth, signIn, signOut, EmailNotVerifiedSignin, RateLimitedSignin } from "@/lib/auth";
+import { redeemEmailVerificationToken } from "@/lib/email-verification";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -275,6 +276,10 @@ export async function signupAction(
 export type LoginState = { error?: string; unverifiedEmail?: string };
 
 const DEFAULT_POST_LOGIN_PATH = "/dashboard";
+
+// UX-135: where the verification link lands a new user; the overview shows
+// its one-time welcome line for this flag.
+const WELCOME_PATH = "/dashboard?welcome=1";
 
 // A deep link followed while logged out (e.g. proxy.ts redirecting a
 // protected page to /login?next=..., or the join page's "log in" link
@@ -578,30 +583,37 @@ export async function verifyEmailAction(
     return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
   }
 
+  // UX-135: a visitor with no session who follows the mailed link is signed
+  // in by it (same trust as a reset link: single use, 36 h, hashed at rest),
+  // so a new user lands on the dashboard instead of typing the credentials
+  // they just chose. The `verification-link` provider (src/lib/auth.ts)
+  // redeems the token itself, atomically, so one link can't both sign in
+  // and be reused. Someone already signed in (the dashboard banner's link)
+  // keeps the plain verify below: there is no session to start, and a
+  // signed-in account must not be swapped by opening another link.
+  if (!(await auth())?.user) {
+    try {
+      await signIn("verification-link", { token, redirectTo: WELCOME_PATH });
+    } catch (error) {
+      // Only AuthError is ours to turn into a message; the redirect that
+      // signIn throws on success has to keep propagating (AGENTS.md).
+      if (error instanceof RateLimitedSignin) {
+        return {
+          error: "Too many attempts. Please wait a few minutes and try again.",
+          code: "rateLimited",
+        };
+      }
+      if (error instanceof AuthError) {
+        return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
+      }
+      throw error;
+    }
+  }
+
   try {
-    const redeemed = await prisma.$transaction(async (tx) => {
-      // SEC-8: claim the token atomically (see resetPasswordAction).
-      const claimed = await tx.emailVerificationToken.updateMany({
-        where: { id: verificationToken.id, usedAt: null },
-        data: { usedAt: new Date() },
-      });
-      if (claimed.count === 0) return false;
-      await tx.user.update({
-        where: { id: verificationToken.userId },
-        data: { emailVerifiedAt: new Date() },
-      });
-      // Same reasoning as resetPasswordAction invalidating other reset
-      // tokens on success: an older leaked/unused link for this user should
-      // stop working once verification has actually gone through.
-      await tx.emailVerificationToken.deleteMany({
-        where: {
-          userId: verificationToken.userId,
-          usedAt: null,
-          id: { not: verificationToken.id },
-        },
-      });
-      return true;
-    });
+    const redeemed = await prisma.$transaction((tx) =>
+      redeemEmailVerificationToken(tx, verificationToken),
+    );
     if (!redeemed) return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
   } catch (error) {
     return { ...(await toFriendlyError(error)), code: "generic" };

@@ -225,6 +225,7 @@ export const en = {
     invite: {
       button: "Invite member",
       createFailed: "Could not create invite link",
+      tryAgain: "Try again",
       dialogTitle: "Invite a household member",
       generating: "Generating link…",
       description: "Send this link to whoever should join. It expires in 7 days.",
@@ -419,6 +420,8 @@ export const en = {
   dashboard: {
     title: "Overview",
     subtitle: "What needs your attention right now.",
+    // UX-135: toast after the verification link signs a new user in.
+    welcome: "Welcome to Squirrel, {name}",
     greeting: {
       // Server render, before the browser knows the local hour (UX-72).
       hello: "Hello, {name}",
