@@ -120,6 +120,17 @@ test.describe("signed in", () => {
       // The menu opens through React handlers, so a tap before hydration does
       // nothing and the menu never appears (MAINT-44, as MAINT-27 and MAINT-34).
       const more = page.getByRole("navigation").getByRole("button", { name: en.nav.more });
+      // Every theme tap saves the choice to the account in the background
+      // (setThemeAction), and the account's theme is what the next visit
+      // opens with. Count the saves so the test doesn't end, and close its
+      // browser, with the last one unsent: the signed-in user is shared by
+      // every spec in the worker, so a stale "light" there makes the next
+      // run's "Theme: System" menu item never appear (MAINT-44).
+      let themeSaves = 0;
+      page.on("response", (response) => {
+        const request = response.request();
+        if (request.method() === "POST" && "next-action" in request.headers()) themeSaves++;
+      });
       await expectHydrated(more);
       await more.click();
       const theme = page.getByRole("menuitem", { name: "Theme: System" });
@@ -132,6 +143,9 @@ test.describe("signed in", () => {
       await expect(page.getByRole("menuitem", { name: "Theme: Dark" })).toBeVisible();
       await expect(page.locator("html")).toHaveClass(/dark/);
       await page.getByRole("menuitem", { name: "Theme: Dark" }).click(); // back to system
+      await expect(page.getByRole("menuitem", { name: "Theme: System" })).toBeVisible();
+      // Light, dark, then system: three saves, and Next sends them in order.
+      await expect.poll(() => themeSaves).toBeGreaterThanOrEqual(3);
     } else {
       const sidebar = page.getByRole("complementary");
       await expect(sidebar.getByRole("button", { name: "Theme: System", exact: true })).toBeVisible();
