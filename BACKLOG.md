@@ -488,30 +488,6 @@ UX-89.
   on payday).
 - Needs a decision before building: UX-136.
 
-#### Shell and cross-cutting
-
-- [ ] **UX-50. One empty-state pattern, with the next step inside it**
-      (impact: med, effort: M) — breaks Consistency, Usability ("empty:
-      explain and offer the next step") and M6. On a new household
-      every section's empty state looks different:
-      - Shopping ("No shopping lists yet. Create one to get started.")
-        and Tasks ("No tasks yet — use Add task to add one",
-        `tasks-client.tsx:106-108`) have no button inside them.
-      - The planner shows seven identical "+ Add meal" cards, with no
-        hint to add recipes first or use "Copy last week" / "Fill".
-      - Cook now has no mascot and no action.
-      - Meal prep's primary is an inline full-width bar, where the
-        sibling tabs use the floating `PrimaryAction`.
-      - The empty inventory offers five ways to add, three of them
-        purple primaries, and the FAB covers its "Paste a list" link.
-      - A new empty shopping list leads with a disabled full-width
-        "Register receipt" above the add bar.
-      Acceptance: every section and tab uses `MascotEmptyState` with one
-      line on why it's worth using and exactly one primary action, placed
-      through `PrimaryAction`. An empty week shows one empty state
-      ("Add your first dinner" / "Fill the week") instead of seven
-      slots. Nothing sits under the FAB at 412 px.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an

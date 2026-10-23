@@ -715,7 +715,10 @@ export function ShoppingListClient({
               {format(dict.putAway.button, { count: awaitingPutAway.length })}
             </Button>
           )}
-          {isActive && (
+          {/* UX-50: a brand-new list has nothing to match a receipt against, so
+              the button waits for the first row instead of leading the page
+              as a disabled bar above the add line. */}
+          {isActive && items.length > 0 && (
             <ReceiptScanDialog
               listId={list.id}
               pendingItems={receiptMatchable.map((item) => ({

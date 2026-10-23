@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
-// UX-5 / UX-21: a day with nothing planned in the weekly planner is one
-// "+ Add meal" button that asks for the slot, not four "<slot> + Add meal"
-// rows, a "Nothing planned" line and a tiny "+" button, so an empty week isn't
-// a wall of identical text on a phone. The household is shared by the desktop
+// UX-5 / UX-21 / UX-50: a day with nothing planned is one "+ Add meal" button
+// that asks for the slot, not four "<slot> + Add meal" rows, and a week with
+// nothing planned at all is a single empty state with "Add your first dinner"
+// instead of seven of those buttons, so an empty week isn't a wall of
+// identical text on a phone. The household is shared by the desktop
 // and mobile runs, so each test uses a far-future week nobody else plans in;
 // the add test picks its own per project, since a meal added by the first run
 // would make its day non-empty for the second.
@@ -15,21 +16,23 @@ test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-test("an empty week shows one add button per day and no repeated placeholder", async ({ page }, testInfo) => {
+test("an empty week is one empty state with one primary, not seven add cards", async ({ page }, testInfo) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
 
-  const addButtons = page.getByRole("button", { name: /^Add meal, / });
-  // One affordance per empty day, no per-slot rows.
-  await expect(addButtons).toHaveCount(7);
+  // UX-50: no per-day cards and no repeated placeholder at all.
+  await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^(Breakfast|Lunch|Dinner|Snack) Add meal$/ })).toHaveCount(0);
   await expect(page.getByText("Nothing planned")).toHaveCount(0);
 
+  const main = page.getByRole("main");
+  await expect(main.getByRole("img", { name: "Squirrel mascot" })).toBeVisible();
+  // One line on why it is worth using, and exactly one primary button.
+  await expect(main.getByText("Squirrel works out what you still need to buy")).toBeVisible();
+  const first = main.getByRole("button", { name: "Add your first dinner" });
+  await expect(first).toBeVisible();
+  await expect(first).toHaveClass(/(^|\s)bg-primary(\s|$)/);
+
   if (testInfo.project.name === "mobile") {
-    // The empty week used to be ~7,200 px tall, then ~3,600 px with one row
-    // per slot; with one button per day it must be under a third of that.
-    const first = await addButtons.first().boundingBox();
-    const last = await addButtons.last().boundingBox();
-    expect(last!.y + last!.height - first!.y).toBeLessThan(1200);
     await expectNoHorizontalOverflow(page);
   }
 });
@@ -38,7 +41,9 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
   const name = `Pancakes ${Date.now().toString(36)}`;
   await page.goto(`/dashboard/meal-planning?week=${addWeek(testInfo.project.name)}`);
 
-  await page.getByRole("button", { name: /^Add meal, / }).first().click();
+  // UX-50: an empty week has no per-day cards; its one button opens the same
+  // dialog, for the first open day.
+  await page.getByRole("button", { name: "Add your first dinner" }).click();
   const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
   await dialog.getByRole("combobox", { name: "Meal" }).click();
   await page.getByRole("option", { name: "Lunch" }).click();

@@ -170,3 +170,26 @@ export function QuickAddBar({
     </div>
   );
 }
+
+/**
+ * UX-50: the empty inventory's one primary is "Add item"; typing a shelf's
+ * worth in one go is the second way in, so it waits behind a text button
+ * instead of sitting open beside the primary as a second purple "+".
+ */
+export function QuickAddDisclosure({
+  dict,
+  categories,
+  units,
+}: {
+  dict: Dictionary["inventory"];
+  categories: string[];
+  units: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  if (open) return <QuickAddBar dict={dict} categories={categories} units={units} />;
+  return (
+    <Button type="button" variant="link" size="sm" onClick={() => setOpen(true)}>
+      {dict.quickAddToggle}
+    </Button>
+  );
+}

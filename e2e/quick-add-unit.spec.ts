@@ -15,9 +15,9 @@ test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], o
 
 const PASSWORD = "e2e-password-123";
 
-for (const [locale, unitLabel] of [
-  ["en", "Unit"],
-  ["sv", "Enhet"],
+for (const [locale, unitLabel, toggleLabel] of [
+  ["en", "Unit", "Or type several in a row"],
+  ["sv", "Enhet", "Eller skriv in flera i rad"],
 ] as const) {
   test(`quick-add's unit field shows its whole value (${locale})`, async ({ page, context, baseURL }, testInfo) => {
     await dismissCookieNotice(context, baseURL!);
@@ -48,6 +48,9 @@ for (const [locale, unitLabel] of [
       await expect(page).toHaveURL(/\/dashboard/);
 
       await page.goto("/dashboard/inventory");
+      // UX-50: the row waits behind a text button under the empty state's one
+      // primary, instead of sitting open beside it.
+      await page.getByRole("button", { name: toggleLabel }).click();
       const unit = page.getByLabel(unitLabel, { exact: true });
       await expect(unit).toBeVisible();
 
@@ -107,6 +110,7 @@ test("quick-add's Enter moves to the next field and only the last one adds", asy
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
     await page.goto("/dashboard/inventory");
+    await page.getByRole("button", { name: "Or type several in a row" }).click();
 
     const name = page.getByLabel("Name", { exact: true });
     const quantity = page.getByLabel("Quantity", { exact: true });

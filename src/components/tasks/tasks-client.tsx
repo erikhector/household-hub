@@ -6,7 +6,7 @@
 // editing a task both go through the shared TaskFormDialog (see
 // task-form-dialog.tsx) rather than delete-and-re-add.
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Check, Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,8 +65,13 @@ export function TasksClient({
   now,
   timeZone,
   locale,
+  emptyAction,
 }: {
   dict: TasksDict;
+  /** UX-50: the page's "Add task" trigger, passed only while the household
+   * has no tasks so the empty state can hold it (the header leaves its own
+   * out then). */
+  emptyAction?: ReactNode;
   members: MemberOption[];
   /** Who's ticking, for a completion shown before the server answers. */
   currentMemberId: string | null;
@@ -184,7 +189,7 @@ export function TasksClient({
       {/* Keyed too, so the list glides down when the recap above grows. */}
       <div data-flip-key="tasks" className="relative flex flex-col gap-2">
         {allTasks.length === 0 ? (
-          <MascotEmptyState alt={dict.mascotAlt}>
+          <MascotEmptyState alt={dict.mascotAlt} action={emptyAction}>
             <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
           </MascotEmptyState>
         ) : tasks.length === 0 ? (

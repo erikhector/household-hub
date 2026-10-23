@@ -40,7 +40,8 @@ async function grabberPoint(dialog: Locator) {
 // opens on an empty plan.
 async function openAddMeal(page: Page, open: "tap" | "click" = "click") {
   await page.goto("/dashboard/meal-planning?week=2031-03-03");
-  const trigger = page.getByRole("button", { name: /^Add meal, / }).first();
+  // UX-50: an empty week holds one "Add your first dinner" in place of the day cards.
+  const trigger = page.getByRole("button", { name: "Add your first dinner" });
   if (open === "tap") await trigger.tap();
   else await trigger.click();
   const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
