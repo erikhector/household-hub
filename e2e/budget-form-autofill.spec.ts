@@ -9,8 +9,10 @@ import { dismissCookieNotice } from "./ui";
 // and the last field of each form gives the phone's action key a label.
 
 async function expectNoAutofill(dialog: Locator) {
+  // Base UI's Select and Combobox keep an aria-hidden input for form
+  // submission; the user never types in it, so it is not a field here.
   const fields = dialog.locator(
-    'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])',
+    'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([aria-hidden="true"])',
   );
   const count = await fields.count();
   expect(count).toBeGreaterThan(0);
