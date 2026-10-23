@@ -29,7 +29,7 @@
 // exclusive, since two lines for the same product on one receipt are
 // normal here. Nothing is written until Apply.
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Camera, ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
@@ -88,8 +88,10 @@ type ReviewRow = {
    * the rows are built, so editing a row never makes it jump sections. */
   autoAccepted: boolean;
   byBarcode: boolean;
-  /** UX-140: typed by hand, so the price is the total paid for the quantity
-   * (see ReceiptRegistrationItem.typed). */
+  /** UX-140: typed by hand ("Enter receipt by hand" or "Add line"). Its
+   * price is the total paid for the quantity, as on any receipt line, so the
+   * action treats it like a scanned one; the flag lets an unused blank line
+   * be dropped on Apply and picks the review step's subtitle. */
   typed?: boolean;
 };
 
@@ -197,8 +199,21 @@ export function RegisterReceiptDialog({
     setPhase("review");
   }
 
+  // "Add line" moves focus (and so the scroll position) to the new row's
+  // name field: on a phone with a few rows already, the new one lands below
+  // the fold and the tap would otherwise look like it did nothing (M4).
+  const focusRowKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = focusRowKeyRef.current;
+    if (!key) return;
+    focusRowKeyRef.current = null;
+    document.getElementById(`${key}-name`)?.focus();
+  }, [rows]);
+
   function addLine() {
-    setRows((prev) => [...prev, blankRow()]);
+    const row = blankRow();
+    focusRowKeyRef.current = row.key;
+    setRows((prev) => [...prev, row]);
   }
 
   function errorMessageFor(code: string | undefined): string {
@@ -309,7 +324,6 @@ export function RegisterReceiptDialog({
 
     const items = live
       .map((row) => ({
-        ...(row.typed ? { typed: true } : {}),
         name: row.name.trim(),
         quantity: Number(row.quantity),
         unit: row.unit.trim() || "pcs",
@@ -618,7 +632,7 @@ export function RegisterReceiptDialog({
           {(phase === "review" || phase === "applying") && (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                {rows.some((row) => row.typed) ? dict.manualSubtitle : dict.reviewSubtitle}
+                {rows.length > 0 && rows.every((row) => row.typed) ? dict.manualSubtitle : dict.reviewSubtitle}
               </p>
 
               <div className="flex flex-col gap-2">

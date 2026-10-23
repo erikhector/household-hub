@@ -1437,23 +1437,7 @@ export async function putAwayItemsAction(
   return { putAway, notBought, ...(autoAdded.length > 0 ? { autoAdded } : {}) };
 }
 
-export type ReceiptScanMatch = {
-  shoppingListItemId: string;
-  price: number;
-  /**
-   * UX-140: the price was typed in by hand ("Enter prices by hand" after a
-   * failed scan) rather than read off a photo. A typed price is what was paid
-   * for the whole row (its quantity), so the unit price that becomes the
-   * item's `lastKnownPrice` is that ÷ the row's quantity. Scanned lines keep
-   * their current behaviour until BUG-3 fixes them separately.
-   */
-  typed?: boolean;
-};
-
-/** A typed line's price per unit: what was paid ÷ the quantity it bought. */
-function typedUnitPrice(total: number, quantity: number): number {
-  return Math.round((total / (quantity > 0 ? quantity : 1)) * 100) / 100;
-}
+export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
 
 /**
  * Applies a reviewed receipt scan (see ReceiptScanDialog) to a shopping
@@ -1554,10 +1538,6 @@ export async function applyReceiptScanAction(
     for (const match of validMatches) {
       const item = itemsById.get(match.shoppingListItemId)!;
       const convertedPrice = Math.round(match.price * rate * 100) / 100;
-      // UX-140: a typed price is the row's total, so the item's remembered
-      // price is the per-unit one; PriceHistory keeps the total and the
-      // row's quantity (unit price = price ÷ quantity, GAP-9).
-      const lastKnownPrice = match.typed ? typedUnitPrice(convertedPrice, item.quantity) : convertedPrice;
 
       // Claimed only while it's still waiting for a price (the
       // transactional twin of awaitsReceiptPrice), so a put-away or a
@@ -1602,7 +1582,7 @@ export async function applyReceiptScanAction(
         // itself is put away.
         await tx.inventoryItem.update({
           where: { id: row.inventoryItem.id },
-          data: { lastKnownPrice },
+          data: { lastKnownPrice: convertedPrice },
         });
         const history = await tx.priceHistory.create({
           data: {
@@ -1634,7 +1614,6 @@ export async function applyReceiptScanAction(
         quantity: row.quantity,
         unit: row.unit,
         price: convertedPrice,
-        lastKnownPrice,
         store: trimmedStore,
       });
       if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
@@ -1655,11 +1634,6 @@ export type ReceiptRegistrationItem = {
   quantity: number;
   unit?: string;
   price: number;
-  /** UX-140: typed by hand (an "Add line" row or "Enter by hand" after a
-   * failed scan). The price is what was paid for the whole quantity, so the
-   * item's `lastKnownPrice` becomes price ÷ quantity. Scanned lines keep
-   * their current behaviour until BUG-3 fixes them separately. */
-  typed?: boolean;
   /** Inventory item the user explicitly matched this line to in the review
    * step (RegisterReceiptDialog's "Use existing" mode) — takes priority
    * over the exact/fuzzy auto-match fallback below. */
@@ -1677,7 +1651,6 @@ const registerReceiptItemSchema = z.object({
   quantity: z.coerce.number().min(0.01).max(100_000),
   unit: z.string().trim().max(20).optional(),
   price: z.coerce.number().min(0.01).max(1_000_000, v("priceTooLarge")),
-  typed: z.boolean().optional(),
   inventoryItemId: z.string().trim().min(1).optional(),
   newItemCategory: z.string().trim().max(60).optional(),
 });
@@ -1802,9 +1775,6 @@ export async function registerReceiptAction(
     quantity: number;
     unit: string;
     convertedPrice: number;
-    /** What becomes the inventory item's lastKnownPrice (UX-140: ÷ quantity
-     * for a typed line). */
-    rememberedPrice: number;
     // Widened to the full row (not just id/quantity/unit) so the AUTO-7
     // shelf-life estimate below has the category/shelfLifeDays/expiresAt it
     // needs, without a second fetch per item.
@@ -1870,7 +1840,6 @@ export async function registerReceiptAction(
       quantity: line.quantity,
       unit: line.unit || inventoryItem?.unit || "pcs",
       convertedPrice,
-      rememberedPrice: line.typed ? typedUnitPrice(convertedPrice, line.quantity) : convertedPrice,
       inventoryItem,
     });
   }
@@ -1894,11 +1863,11 @@ export async function registerReceiptAction(
     const existing = inventoryDeltas.get(item.inventoryItem.id) ?? {
       currentQuantity: item.inventoryItem.quantity,
       delta: 0,
-      lastKnownPrice: item.rememberedPrice,
+      lastKnownPrice: item.convertedPrice,
       item: item.inventoryItem,
     };
     existing.delta += item.quantity;
-    existing.lastKnownPrice = item.rememberedPrice;
+    existing.lastKnownPrice = item.convertedPrice;
     inventoryDeltas.set(item.inventoryItem.id, existing);
   }
 

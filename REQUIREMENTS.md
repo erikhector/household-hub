@@ -3894,15 +3894,16 @@ below.
   put-away mode), matched to itself with its quantity and an empty price;
   rows left empty are dropped on Apply. Register receipt starts with one
   blank line, and its review step has an "Add line" button (also on a
-  scanned receipt, for a line the photo missed). A typed price is what was
-  paid for the line's whole quantity, and both actions get `typed: true`
-  for those rows: PriceHistory and `estimatedPrice` keep the total (unit
-  price = price ÷ quantity, as GAP-9 compares), and the item's
-  `lastKnownPrice` becomes total ÷ quantity, so a typed price counts the
-  same as a scanned one (PriceHistory, `lastKnownPrice`, `priceRecordedAt`).
-  Scanned lines are unchanged (BUG-3 fixes their quantity handling
-  separately). Covered by `e2e/manual-receipt-prices.spec.ts`, with the
-  vision call mocked to fail.
+  scanned receipt, for a line the photo missed; tapping it focuses the new
+  line's name). A typed price is what was paid for the line's whole
+  quantity, which is what a receipt line's price already means, so typed
+  rows go through `applyReceiptScanAction` / `registerReceiptAction`
+  exactly like scanned ones: `estimatedPrice`, PriceHistory (with the
+  quantity), `lastKnownPrice` (the line price, as every writer stores it;
+  see `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
+  shows only when every row was typed, not when "Add line" joins a scanned
+  receipt. Covered by `e2e/manual-receipt-prices.spec.ts`, with the vision
+  call mocked to fail.
 - **Confident matches start accepted (AUTO-11)**: reviewing every line of
   a long receipt when most matches are obvious was the slow part, so both
   dialogs sort lines by confidence with `matchReceiptLines`

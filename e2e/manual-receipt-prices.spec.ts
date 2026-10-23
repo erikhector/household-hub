@@ -109,11 +109,14 @@ test("a failed scan lets you type the price, and it's recorded like a scanned on
   await expect(page.getByRole("heading", { name: "Put away your shopping" })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
 
-  // 45 paid for 3: the item remembers 15 each and PriceHistory has the line.
+  // 45 paid for 3, stored like a scanned line: lastKnownPrice is the line's
+  // price, the same number as its estimatedPrice (recipe-cost.ts finds the
+  // line by that match and divides by its quantity), and PriceHistory keeps
+  // the price with the quantity it bought.
   await page.reload();
   await expect(page.getByRole("main").getByText("≈ 45.00").first()).toBeVisible();
   const [item] = await sql(`SELECT "lastKnownPrice" FROM "InventoryItem" WHERE id = $1`, [invId]);
-  expect(item.lastKnownPrice).toBe(15);
+  expect(item.lastKnownPrice).toBe(45);
   const [row] = await sql(`SELECT "estimatedPrice", purchased, "priceRecordedAt" FROM "ShoppingListItem" WHERE id = $1`, [
     `e2e-ux140-item-${t}`,
   ]);
@@ -136,9 +139,13 @@ test("Register receipt can be typed in line by line when the scan fails", async 
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Enter receipt by hand" }).click();
 
+  await expect(dialog.getByText(/Type each item with what you paid/)).toBeVisible();
   await dialog.locator("#register-receipt-name").fill(name);
   await dialog.getByRole("button", { name: "Add line" }).click();
   await expect(dialog.getByRole("spinbutton", { name: "Price" })).toHaveCount(2);
+  // The new line's name field takes focus, so on a phone it scrolls into
+  // view and the tap visibly did something.
+  await expect(dialog.locator('input[name="name"]').nth(1)).toBeFocused();
 
   // Two lines: both created as new items (no inventory match to pick).
   for (const [i, [line, amount]] of [

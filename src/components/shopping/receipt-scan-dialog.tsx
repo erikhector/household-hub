@@ -83,9 +83,10 @@ type ReviewRow = {
    * finger. */
   autoAccepted: boolean;
   byBarcode: boolean;
-  /** UX-140: a row of the hand-typed review. Its price is the total paid for
-   * the row's quantity, which applyReceiptScanAction turns into a per-unit
-   * lastKnownPrice. */
+  /** UX-140: a row of the hand-typed review (no photo). Its price is the
+   * total paid for the row's quantity, which is what every receipt line's
+   * price already means, so the action treats it exactly like a scanned
+   * one; the flag only picks the review step's subtitle. */
   typed?: boolean;
 };
 
@@ -335,11 +336,7 @@ export function ReceiptScanDialog({
   function handleApply() {
     const matches = rows
       .filter((row) => row.matchId !== SKIP_VALUE)
-      .map((row) => ({
-        shoppingListItemId: row.matchId,
-        price: Number(row.price),
-        ...(row.typed ? { typed: true } : {}),
-      }))
+      .map((row) => ({ shoppingListItemId: row.matchId, price: Number(row.price) }))
       .filter((m) => Number.isFinite(m.price) && m.price > 0);
 
     if (matches.length === 0) {
@@ -640,7 +637,7 @@ export function ReceiptScanDialog({
           {(phase === "review" || phase === "applying") && (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                {rows.some((row) => row.typed) ? dict.manualSubtitle : dict.reviewSubtitle}
+                {rows.length > 0 && rows.every((row) => row.typed) ? dict.manualSubtitle : dict.reviewSubtitle}
               </p>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
