@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { en } from "../src/lib/i18n/dictionaries/en";
 import { sv } from "../src/lib/i18n/dictionaries/sv";
-import { dismissCookieNotice, expectNoHorizontalOverflow, setLocaleCookie } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, setLocaleCookie } from "./ui";
 
 // UX-51: a first visit follows the system theme, logged-out pages have a
 // theme control, the shortcuts name the setting in use, and the Profile has
@@ -117,7 +117,11 @@ test.describe("signed in", () => {
     await context.addCookies([{ name: SIDEBAR_COOKIE, value: "1", url: baseURL! }]);
     await page.goto("/dashboard");
     if (testInfo.project.name.startsWith("mobile")) {
-      await page.getByRole("navigation").getByRole("button", { name: en.nav.more }).click();
+      // The menu opens through React handlers, so a tap before hydration does
+      // nothing and the menu never appears (MAINT-44, as MAINT-27 and MAINT-34).
+      const more = page.getByRole("navigation").getByRole("button", { name: en.nav.more });
+      await expectHydrated(more);
+      await more.click();
       const theme = page.getByRole("menuitem", { name: "Theme: System" });
       await expect(theme).toBeVisible();
       await expect(page.getByRole("menuitem", { name: "Language: English" })).toBeVisible();
