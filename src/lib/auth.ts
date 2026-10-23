@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/lib/auth.config";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { hashToken } from "@/lib/token-hash";
+import { redeemEmailVerificationToken } from "@/lib/email-verification";
 
 // Thrown from `authorize` below once the password checks out but the
 // account's email is still unverified — lets loginAction (src/lib/actions/
@@ -40,6 +42,13 @@ export class RateLimitedSignin extends CredentialsSignin {
 // that endpoint free to guess passwords without limit.
 const LOGIN_RATE_LIMIT = 10;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+// UX-135: the verification link signs the new user in. Same ceiling as
+// VERIFY_EMAIL_RATE_LIMIT in src/lib/actions/auth.ts, but enforced here for
+// the reason LOGIN_RATE_LIMIT is: Auth.js accepts
+// `POST /api/auth/callback/verification-link` directly.
+const VERIFICATION_LINK_RATE_LIMIT = 10;
+const VERIFICATION_LINK_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -84,6 +93,48 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.displayName,
           passwordChangedAt: user.passwordChangedAt,
+        };
+      },
+    }),
+    // UX-135: the emailed verification token is the credential. It is the
+    // same secret that already lets its holder mark the address verified, so
+    // signing in with it adds no new trust: it must be unused and unexpired,
+    // and is spent here in one transaction (a replay finds it used and gets
+    // null). Only a never-verified account qualifies, so a leftover link
+    // can't become a password-free way back in later.
+    Credentials({
+      id: "verification-link",
+      credentials: { token: { label: "Token", type: "text" } },
+      authorize: async (credentials) => {
+        const token = credentials?.token;
+        if (typeof token !== "string" || token === "") return null;
+        const hashed = hashToken(token);
+
+        if (
+          !(await checkRateLimit(
+            `verification-link:${hashed}`,
+            VERIFICATION_LINK_RATE_LIMIT,
+            VERIFICATION_LINK_RATE_LIMIT_WINDOW_MS,
+          ))
+        ) {
+          throw new RateLimitedSignin();
+        }
+
+        const record = await prisma.emailVerificationToken.findUnique({
+          where: { token: hashed },
+          include: { user: true },
+        });
+        if (!record || record.usedAt || record.expiresAt < new Date()) return null;
+        if (record.user.emailVerifiedAt) return null;
+
+        const redeemed = await prisma.$transaction((tx) => redeemEmailVerificationToken(tx, record));
+        if (!redeemed) return null;
+
+        return {
+          id: record.user.id,
+          email: record.user.email,
+          name: record.user.displayName,
+          passwordChangedAt: record.user.passwordChangedAt,
         };
       },
     }),

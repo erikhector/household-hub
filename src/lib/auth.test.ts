@@ -20,7 +20,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // RateLimitedSignin extend.
 class CredentialsSignin extends Error {}
 
-const { nextAuthMock, findUniqueMock, compareMock } = vi.hoisted(() => ({
+const { nextAuthMock, findUniqueMock, compareMock, tokenFindUniqueMock, transactionMock } = vi.hoisted(() => ({
+  tokenFindUniqueMock: vi.fn(),
+  transactionMock: vi.fn(),
   nextAuthMock: vi.fn(),
   findUniqueMock: vi.fn(),
   compareMock: vi.fn(),
@@ -33,7 +35,13 @@ vi.mock("next-auth", () => ({ default: nextAuthMock, CredentialsSignin }));
 vi.mock("next-auth/providers/credentials", () => ({
   default: (config: unknown) => config,
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: findUniqueMock } } }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: { findUnique: findUniqueMock },
+    emailVerificationToken: { findUnique: tokenFindUniqueMock },
+    $transaction: transactionMock,
+  },
+}));
 vi.mock("bcryptjs", () => ({ default: { compare: compareMock } }));
 
 nextAuthMock.mockImplementation(() => ({
@@ -45,6 +53,7 @@ nextAuthMock.mockImplementation(() => ({
 
 const { EmailNotVerifiedSignin, RateLimitedSignin } = await import("@/lib/auth");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
+const { hashToken } = await import("@/lib/token-hash");
 
 // The config NextAuth() was called with — providers[0] is the object
 // "next-auth/providers/credentials"'s mock above returned unchanged, so
@@ -175,5 +184,93 @@ describe("authorize", () => {
     const result = await authorize({ email: "erik@example.com", password: "supersecret" });
 
     expect(result).not.toBeNull();
+  });
+});
+
+// UX-135: the second provider, which signs a new user in from the emailed
+// verification token instead of a password.
+describe("verification-link authorize", () => {
+  const verifyLink = nextAuthConfig.providers[1] as unknown as {
+    id: string;
+    authorize: (credentials: unknown) => Promise<unknown>;
+  };
+  const tokenRow = (over: Record<string, unknown> = {}) => ({
+    id: "tok-1",
+    userId: "user-1",
+    usedAt: null,
+    expiresAt: new Date(Date.now() + 60_000),
+    user: { ...VALID_USER, emailVerifiedAt: null },
+    ...over,
+  });
+  const txUserUpdate = vi.fn(async () => ({}));
+  const txUpdateMany = vi.fn(async () => ({ count: 1 }));
+
+  it("is its own provider, so a password can't be skipped on the credentials one", () => {
+    expect(verifyLink.id).toBe("verification-link");
+  });
+
+  it("looks the token up by hash, spends it, verifies the user and returns them", async () => {
+    tokenFindUniqueMock.mockResolvedValue(tokenRow());
+    transactionMock.mockImplementation(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        user: { update: txUserUpdate },
+        emailVerificationToken: { updateMany: txUpdateMany, deleteMany: vi.fn() },
+      }),
+    );
+
+    const result = await verifyLink.authorize({ token: "raw-token" });
+
+    expect(tokenFindUniqueMock).toHaveBeenCalledWith({
+      where: { token: hashToken("raw-token") },
+      include: { user: true },
+    });
+    expect(txUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "tok-1", usedAt: null } }),
+    );
+    expect(txUserUpdate).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ id: "user-1", email: "erik@example.com", name: "Erik" });
+  });
+
+  it.each([
+    ["an unknown token", null],
+    ["a used token", tokenRow({ usedAt: new Date() })],
+    ["an expired token", tokenRow({ expiresAt: new Date(Date.now() - 1) })],
+    ["an already verified account", tokenRow({ user: VALID_USER })],
+  ])("returns null for %s without touching the account", async (_label, row) => {
+    tokenFindUniqueMock.mockResolvedValue(row);
+
+    expect(await verifyLink.authorize({ token: "raw-token" })).toBeNull();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("returns null when a concurrent request spends the token first", async () => {
+    tokenFindUniqueMock.mockResolvedValue(tokenRow());
+    transactionMock.mockImplementation(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        user: { update: txUserUpdate },
+        emailVerificationToken: {
+          updateMany: vi.fn(async () => ({ count: 0 })),
+          deleteMany: vi.fn(),
+        },
+      }),
+    );
+
+    expect(await verifyLink.authorize({ token: "raw-token" })).toBeNull();
+    expect(txUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns null for a missing or empty token without touching Prisma", async () => {
+    expect(await verifyLink.authorize({})).toBeNull();
+    expect(await verifyLink.authorize({ token: "" })).toBeNull();
+    expect(tokenFindUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("throws RateLimitedSignin after 10 attempts on one token", async () => {
+    tokenFindUniqueMock.mockResolvedValue(null);
+    for (let i = 0; i < 10; i++) await verifyLink.authorize({ token: "guessed" });
+    tokenFindUniqueMock.mockClear();
+
+    await expect(verifyLink.authorize({ token: "guessed" })).rejects.toBeInstanceOf(RateLimitedSignin);
+    expect(tokenFindUniqueMock).not.toHaveBeenCalled();
   });
 });

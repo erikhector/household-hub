@@ -420,6 +420,8 @@ export const en = {
   dashboard: {
     title: "Overview",
     subtitle: "What needs your attention right now.",
+    // UX-135: toast after the verification link signs a new user in.
+    welcome: "Welcome to Squirrel, {name}",
     greeting: {
       // Server render, before the browser knows the local hour (UX-72).
       hello: "Hello, {name}",

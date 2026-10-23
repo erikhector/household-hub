@@ -18,6 +18,7 @@
 // *.actions.test.ts file already uses.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import bcrypt from "bcryptjs";
+import { hashToken } from "@/lib/token-hash";
 
 // The real "next-auth" package's index imports "next/server", which Vitest's
 // Node environment can't resolve outside a Next.js build — mock it with a
@@ -258,6 +259,8 @@ const {
 
 vi.mock("@/lib/prisma", () => ({ prisma: fakePrisma }));
 vi.mock("@/lib/auth", () => ({
+  // Nobody is signed in when the emailed link is opened (UX-135).
+  auth: vi.fn(async () => null),
   signIn: signInMock,
   signOut: signOutMock,
   EmailNotVerifiedSignin,
@@ -295,7 +298,18 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 // the password against the *real* bcrypt hash signupAction produced —
 // resolving unconditionally here would prove nothing about whether login
 // actually checks the account created in step 1 (see task brief).
-signInMock.mockImplementation(async (_provider: string, options: { email: string; password: string }) => {
+signInMock.mockImplementation(async (provider: string, options: { email: string; password: string; token?: string }) => {
+  if (provider === "verification-link") {
+    // UX-135: the real provider spends the token, verifies the account and
+    // signs in; signIn then throws Next's redirect to the welcome path.
+    const row = store.emailVerificationTokens.find((t) => t.token === hashToken(options.token as string));
+    if (!row) throw new AuthError("CredentialsSignin");
+    row.usedAt = new Date();
+    const verifying = store.users.find((u) => u.id === row.userId)!;
+    verifying.emailVerifiedAt = new Date();
+    store.currentUserId = verifying.id;
+    throw new Error("NEXT_REDIRECT");
+  }
   const user = store.users.find((u) => u.email === options.email);
   if (!user || !(await bcrypt.compare(options.password, user.passwordHash as string))) {
     throw new AuthError("CredentialsSignin");
@@ -388,8 +402,10 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
     const { verifyUrl } = (sendVerificationEmailMock.mock.calls as unknown as Array<[{ verifyUrl: string }]>)[0][0];
     const rawToken = verifyUrl.slice(verifyUrl.lastIndexOf("/") + 1);
     expect(verificationToken.token).not.toBe(rawToken);
-    const verifyResult = await verifyEmailAction({}, formData({ token: rawToken }));
-    expect(verifyResult).toEqual({ status: "verified", email: "erik@example.com" });
+    // UX-135: the link signs the new user in (signIn's redirect propagates).
+    await expect(verifyEmailAction({}, formData({ token: rawToken }))).rejects.toThrow("NEXT_REDIRECT");
+    expect(store.currentUserId).toBe(user.id);
+    store.currentUserId = null;
 
     const verifiedUser = store.users.find((u) => u.id === user.id)!;
     expect(verifiedUser.emailVerifiedAt).toBeInstanceOf(Date);
