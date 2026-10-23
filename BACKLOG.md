@@ -340,6 +340,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
       (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
       still there after 5 s) and passed on retry #1.
+      Seen again in a `ci:local` run on `cccc1d5` (2026-10-23, heavy
+      load): `native-sheets.spec.ts:54` (mobile) failed once and passed
+      on a same-commit re-run.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
@@ -398,6 +401,19 @@ then MAINT-7 per feature, to avoid churn.
       e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
       --project=mobile --repeat-each=30` passes 30/30, and two full
       `ci:local` runs show none of these specs failing.
+      Seen again on PR #611 (2026-10-23): the merge sub-agent saw
+      `recipe-form-order` (mobile) fail once locally.
+
+- [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
+      shows the all-caught-up card above Completed", `mobile`) failed once
+      in a local `ci:local` run on `cccc1d5` (2026-10-23, heavy load) and
+      passed on a same-commit re-run; it doesn't fail in GitHub CI. Find
+      out whether the card renders late (data load, hydration) or the
+      spec asserts before the page settles, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=mobile --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
