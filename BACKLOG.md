@@ -344,17 +344,6 @@ then MAINT-7 per feature, to avoid churn.
       load): `native-sheets.spec.ts:54` (mobile) failed once and passed
       on a same-commit re-run.
 
-- [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
-      `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
-      above the dock, each 56-64 px", `mobile`). Failed on the first
-      attempt in the GitHub `End-to-end (Playwright)` job on release PR
-      #537 (`4f04e69`, 2026-10-21): "sixth row clear of the dock",
-      expected <= 531, received 705, and passed on the CI retry. Find
-      what leaves the list at the wrong size on the first attempt (a late
-      layout settle) and fix it in the app or the spec's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
-      passes 30/30.
 - [ ] **MAINT-47. Flaky: "Done shopping" after a carry-over completion and Undo sometimes leaves the late pending row out of place** (low, S) —
       `e2e/shopping-finish-carry-over.spec.ts:170` ("Done shopping after
       an earlier carry-over completion and Undo leaves a late pending row
