@@ -2694,8 +2694,9 @@ Component page function can't itself be unit-tested.
   from the remainder, since it is already in due payments and would
   otherwise be held back twice. Due savings and income never reduce it.
   The household page, `loadHouseholdSafeToSpend` (Today block) and
-  `loadPersonalBudgetPosition` (Personal Budget and the dashboard card) all
-  pass the limited categories in, so the numbers agree; without any limit
+  `loadPersonalBudgetPosition` (Personal Budget and the dashboard card) and
+  the weekly digest (`src/lib/weekly-digest.ts`) all pass the limited
+  categories in, so the numbers agree; without any limit
   nothing changes. A limit alone does not count as data for the empty
   state (`needsSafeToSpendSetup`), so a fresh budget still asks for income
   instead of showing a negative number. Decided in #397 (option 1).
