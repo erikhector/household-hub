@@ -316,31 +316,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
-      `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
-      2026-10-21. Two specs, same symptom: the click on a "More" trigger
-      does not open its menu, so the next `getByRole("menuitem")` never
-      appears. (a) `e2e/ux-51.spec.ts:114` ("the shortcut shows the current
-      theme and language") failed on the attempt and the retry of release
-      run 39571297362, menuitem "Theme: System" not found after clicking
-      the bottom bar's More; it passed on the job re-run and 10/10
-      locally. (b) `e2e/meal-planner-empty-slots.spec.ts:76` failed on the
-      attempt and the retry of release run 39580857482, menuitem "Copy
-      last week" not found after clicking the planner's More; it passed on
-      the job re-run. Likely the click lands before the trigger is wired
-      up (hydration, or the menu's open/close race) even after
-      `expectHydrated`. Find out whether the menu opened and closed again
-      or never opened, and fix it in the app or in the tests' waiting,
-      never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/ux-51.spec.ts:114
-      e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
-      --repeat-each=30` passes 30/30.
-      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
-      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
-      System" not found within 5s; passed on a re-run on the same commit.
-      Seen again in the `ci:local` gate on release PR #582 (`dec00a0`,
-      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
-      System" not found; passed in two focused re-runs.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
