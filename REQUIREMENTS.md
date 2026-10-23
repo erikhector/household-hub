@@ -3884,6 +3884,26 @@ below.
   not just inventory items) when its similarity score clears a threshold,
   else defaulting to "— Skip —" rather than guessing wrong. The user can
   fix any price, change any match, or skip any line before confirming.
+- **Typing prices in by hand (UX-140)**: a scan that can't be read (no
+  lines found, an OCR error, a provider error or rate limit) no longer
+  dead-ends in "Try another photo". Both error states also offer a primary
+  "Enter prices by hand" (`ReceiptScanDialog`) / "Enter receipt by hand"
+  (`RegisterReceiptDialog`) button that opens the same review step without
+  a photo. On a list, it has one row per receipt-matchable list item
+  (`pendingItems`: unticked rows, plus ticked ones no receipt has priced in
+  put-away mode), matched to itself with its quantity and an empty price;
+  rows left empty are dropped on Apply. Register receipt starts with one
+  blank line, and its review step has an "Add line" button (also on a
+  scanned receipt, for a line the photo missed; tapping it focuses the new
+  line's name). A typed price is what was paid for the line's whole
+  quantity, which is what a receipt line's price already means, so typed
+  rows go through `applyReceiptScanAction` / `registerReceiptAction`
+  exactly like scanned ones: `estimatedPrice`, PriceHistory (with the
+  quantity), `lastKnownPrice` (the line price, as every writer stores it;
+  see `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
+  shows only when every row was typed, not when "Add line" joins a scanned
+  receipt. Covered by `e2e/manual-receipt-prices.spec.ts`, with the vision
+  call mocked to fail.
 - **Confident matches start accepted (AUTO-11)**: reviewing every line of
   a long receipt when most matches are obvious was the slow part, so both
   dialogs sort lines by confidence with `matchReceiptLines`

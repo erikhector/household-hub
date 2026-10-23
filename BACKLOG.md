@@ -582,29 +582,6 @@ UX-89.
       `registerReceiptAction`) fails without the fix, and the receipt e2e
       spec covers a ×3 line.
 
-- [ ] **UX-140. Type prices in by hand when the receipt scan fails**
-      (impact: medium, effort: M) — reported by the owner, 2026-10-18.
-      Breaks User control and Error recovery.
-      - When the photo can't be read (`noLinesFound`, `ocrError`, a
-        provider error), `ReceiptScanDialog`'s only way forward is "Try
-        again" with another photo (`receipt-scan-dialog.tsx:578-590`).
-        Register receipt dead-ends the same way.
-      - The per-row "Add price" on the list exists, but on a row already
-        ticked as bought it only changes the row's estimate
-        (`updateShoppingListItemPriceAction`,
-        `src/app/dashboard/shopping-list/actions.ts:459`): it never
-        becomes `lastKnownPrice` or a PriceHistory row, so a typed price
-        counts for less than a scanned one.
-      Acceptance: the scan's error state offers "Enter prices by hand"
-      next to "Try again". It opens the same review step with one row per
-      receipt-matchable list item (name, quantity, an empty price), and
-      Apply records them exactly like scanned lines (PriceHistory,
-      `lastKnownPrice`, `priceRecordedAt`, divided by quantity per BUG-3).
-      Register receipt gets an "Add line" so a receipt can be typed in
-      without a photo. New strings in `en.ts` and `sv.ts`; an e2e flow
-      (AI mocked to fail) types a price and checks it after a reload, on
-      desktop and mobile.
-
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) `[!]` — breaks User-centricity
       ("automation suggests, the user decides"). Needs a schema change and

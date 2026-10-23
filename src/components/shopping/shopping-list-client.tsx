@@ -718,6 +718,7 @@ export function ShoppingListClient({
               pendingItems={receiptMatchable.map((item) => ({
                 id: item.id,
                 name: item.name,
+                quantity: item.quantity,
                 barcode: item.barcode,
                 inventoryItemId: item.inventoryItemId,
               }))}
