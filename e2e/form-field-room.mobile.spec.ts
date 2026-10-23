@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRecipesTab } from "./ui";
 
 // UX-10 follow-up (DESIGN.md M1): on a 412 px phone, a combobox squeezed into
 // a two- or three-column row lost its text to its own 44 px buttons — the
@@ -90,7 +90,7 @@ test("the shopping edit item dialog gives every combobox room on a phone", async
 test("the new recipe dialog gives the ingredient row room on a phone", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await page.goto("/dashboard/meal-planning");
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   await page.getByRole("button", { name: "New recipe" }).click();
   const dialog = page.getByRole("dialog", { name: "New recipe" });
   await dialog.getByPlaceholder("Ingredient").fill("Krossade tomater");
