@@ -67,11 +67,17 @@ test("after signup the card stops saying 'Create your household'", async ({ page
   );
 });
 
-test("a good verify link says 'Email verified' and Log in pre-fills the email", async ({ page }) => {
+// UX-135: a first-time visit to a good link now signs the user in (see
+// verify-link-sign-in.spec.ts), so this card is what a signed-out visitor
+// sees when the account is already verified, e.g. by a newer resent link.
+test("a verify link for a verified account says 'Email verified' and Log in pre-fills the email", async ({
+  page,
+}) => {
   await signUp(page);
   await expect(page.getByRole("heading", { name: SENT_TITLE })).toBeVisible();
   const raw = `ux61-verify-${stamp}`;
   await insertToken("EmailVerificationToken", raw);
+  await withDb((c) => c.query(`UPDATE "User" SET "emailVerifiedAt" = now() WHERE "email" = $1`, [email]));
 
   await page.goto(`/verify-email/${raw}`);
   await expect(page.getByRole("heading", { name: en.auth.verifyEmail.verifiedTitle })).toBeVisible();

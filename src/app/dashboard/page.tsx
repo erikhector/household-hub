@@ -22,6 +22,7 @@ import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
 import { createMoneyFormat } from "@/lib/currency";
 import { parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { Greeting } from "@/components/dashboard/greeting";
+import { WelcomeToast } from "@/components/dashboard/welcome-toast";
 import { firstName } from "@/lib/greeting";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
@@ -39,12 +40,15 @@ const TODAY_TASK_LIMIT = 5;
 // onto the card's border.
 const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto pointer-coarse:h-auto max-sm:min-h-11 pointer-coarse:min-h-11";
 
-export default async function DashboardOverviewPage() {
-  const [{ household, userId }, dict, locale] = await Promise.all([
+export default async function DashboardOverviewPage(props: PageProps<"/dashboard">) {
+  const [{ household, userId }, dict, locale, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
+    props.searchParams,
   ]);
+  // UX-135: set by the verification link's sign-in (verifyEmailAction).
+  const showWelcome = searchParams.welcome === "1";
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -217,6 +221,9 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {showWelcome && (
+        <WelcomeToast message={format(dict.dashboard.welcome, { name: firstName(user.displayName) })} />
+      )}
       <div>
         <PageTitle>
           <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />

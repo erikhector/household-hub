@@ -40,9 +40,21 @@ async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
   }
 }
 
+// Counts calendar days in the zone, not 24 h spans: the app schedules on local
+// days, and Europe/Stockholm falls back on 25 Oct 2026, so "now + 7 x 24 h"
+// lands a day early when the run is in the first local hour after midnight
+// (and a day late in the last hour before it across a spring-forward).
 const dayLabel = (offsetDays: number) => {
-  const at = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short", timeZone: ZONE }).format(at);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: ZONE,
+  }).formatToParts(new Date());
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  // Noon UTC keeps the shifted date on the same calendar day in UTC.
+  const shifted = new Date(Date.UTC(part("year"), part("month") - 1, part("day") + offsetDays, 12));
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short", timeZone: "UTC" }).format(shifted);
 };
 
 test("editing a task to repeat weekly anchors the schedule on the day of the edit", async ({ page, context }) => {

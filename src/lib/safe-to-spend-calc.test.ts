@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeSafeToSpend,
+  computeStillBudgeted,
   deriveSafeToSpend,
   needsSafeToSpendSetup,
   type SafeToSpendTransaction,
@@ -73,7 +74,7 @@ describe("computeSafeToSpend", () => {
       savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([
-      { categoryId: "cat-1", categoryName: "Rent", amount: 1200 },
+      { categoryId: "cat-1", categoryName: "Rent", amount: 1200, budgetCategoryId: "cat-1" },
     ]);
     expect(result.safeToSpend).toBe(3000 - 500 - 1200);
   });
@@ -138,7 +139,7 @@ describe("computeSafeToSpend", () => {
       savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([
-      { categoryId: "cat-1", categoryName: "Rent", amount: 1200 },
+      { categoryId: "cat-1", categoryName: "Rent", amount: 1200, budgetCategoryId: "cat-1" },
     ]);
   });
 
@@ -156,8 +157,8 @@ describe("computeSafeToSpend", () => {
       savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([
-      { categoryId: "cat-1", categoryName: "Rent", amount: 1200 },
-      { categoryId: "cat-2", categoryName: "Internet", amount: 60 },
+      { categoryId: "cat-1", categoryName: "Rent", amount: 1200, budgetCategoryId: "cat-1" },
+      { categoryId: "cat-2", categoryName: "Internet", amount: 60, budgetCategoryId: "cat-2" },
     ]);
     expect(result.safeToSpend).toBe(3000 - 1260);
   });
@@ -232,8 +233,8 @@ describe("computeSafeToSpend", () => {
     });
     expect(result.expectedRecurring).toEqual(
       expect.arrayContaining([
-        { categoryId: "cat-zero", categoryName: "Zero Fee", amount: 0 },
-        { categoryId: "cat-negative", categoryName: "Rebate", amount: -50 },
+        { categoryId: "cat-zero", categoryName: "Zero Fee", amount: 0, budgetCategoryId: "cat-zero" },
+        { categoryId: "cat-negative", categoryName: "Rebate", amount: -50, budgetCategoryId: "cat-negative" },
       ]),
     );
     expect(result.expectedRecurring).toHaveLength(2);
@@ -399,6 +400,7 @@ describe("computeSafeToSpend with recurring items", () => {
       categoryName: "Salary",
       amount: 30000,
       type: "INCOME",
+      budgetCategoryId: "sal",
     });
   });
 
@@ -476,7 +478,7 @@ describe("computeSafeToSpend with recurring items", () => {
         { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 8000, status: "posted" },
       ],
     });
-    expect(result.expectedRecurring).toEqual([{ categoryId: "gym", categoryName: "Gym", amount: 300 }]);
+    expect(result.expectedRecurring).toEqual([{ categoryId: "gym", categoryName: "Gym", amount: 300, budgetCategoryId: "gym" }]);
     expect(result.safeToSpend).toBe(29700);
   });
 
@@ -538,6 +540,7 @@ describe("computeSafeToSpend with planned bills", () => {
       categoryId: "c1",
       categoryName: "Gym",
       amount: 500,
+      budgetCategoryId: "c1",
     });
     expect(result.breakdown.duePayments).toBe(500 + 3000);
   });
@@ -609,7 +612,7 @@ describe("computeSafeToSpend with planned income", () => {
 });
 
 describe("needsSafeToSpendSetup", () => {
-  const empty = { income: 0, dueIncome: 0, expense: 0, savings: 0, owedFromEarlier: 0, duePayments: 0, dueSavings: 0 };
+  const empty = { income: 0, dueIncome: 0, expense: 0, savings: 0, owedFromEarlier: 0, duePayments: 0, dueSavings: 0, stillBudgeted: 0 };
 
   it("is true with no income and nothing recurring or due", () => {
     expect(needsSafeToSpendSetup(empty, [])).toBe(true);
@@ -627,6 +630,10 @@ describe("needsSafeToSpendSetup", () => {
     }
   });
 
+  it("still asks for setup when only a category limit is held back (UX-138)", () => {
+    expect(needsSafeToSpendSetup({ ...empty, stillBudgeted: 3000 }, [])).toBe(true);
+  });
+
   it("keeps logged spending visible when there is no income", () => {
     expect(needsSafeToSpendSetup({ ...empty, expense: 200 }, [])).toBe(false);
   });
@@ -638,5 +645,118 @@ describe("needsSafeToSpendSetup", () => {
 
   it("is false when a recurring item is expected", () => {
     expect(needsSafeToSpendSetup(empty, [{ categoryId: "c" }])).toBe(false);
+  });
+});
+
+// UX-138: what is left of a category's monthly limit is earmarked, so it
+// comes off the headline before anything is spent in it.
+describe("computeStillBudgeted", () => {
+  it("holds back the whole limit on day 1, with nothing spent", () => {
+    expect(computeStillBudgeted([{ id: "food", spent: 0, available: 3000 }], [])).toBe(3000);
+  });
+
+  it("holds back only what is left once partly spent", () => {
+    expect(computeStillBudgeted([{ id: "food", spent: 1200, available: 3000 }], [])).toBe(1800);
+  });
+
+  it("counts an overspent category as a zero remainder, never negative", () => {
+    expect(computeStillBudgeted([{ id: "food", spent: 3500, available: 3000 }], [])).toBe(0);
+    // …and it doesn't cancel another category's remainder.
+    expect(
+      computeStillBudgeted(
+        [
+          { id: "food", spent: 3500, available: 3000 },
+          { id: "fun", spent: 100, available: 500 },
+        ],
+        [],
+      ),
+    ).toBe(400);
+  });
+
+  it("counts a category spent exactly to its limit as zero", () => {
+    expect(computeStillBudgeted([{ id: "food", spent: 3000, available: 3000 }], [])).toBe(0);
+  });
+
+  it("does not hold back a due bill's amount twice", () => {
+    const due = [{ categoryId: "t1", categoryName: "Phone", amount: 400, budgetCategoryId: "phone" }];
+    expect(computeStillBudgeted([{ id: "phone", spent: 0, available: 1000 }], due)).toBe(600);
+    // A bill bigger than what is left leaves nothing to hold back.
+    expect(computeStillBudgeted([{ id: "phone", spent: 800, available: 1000 }], due)).toBe(0);
+  });
+
+  it("ignores due savings and income, and due items in other categories", () => {
+    const due = [
+      { categoryId: "s", categoryName: "Buffer", amount: 500, type: "SAVINGS" as const, budgetCategoryId: "food" },
+      { categoryId: "i", categoryName: "Bonus", amount: 500, type: "INCOME" as const, budgetCategoryId: "food" },
+      { categoryId: "o", categoryName: "Other", amount: 500, budgetCategoryId: "other" },
+      { categoryId: "n", categoryName: "No category", amount: 500 },
+    ];
+    expect(computeStillBudgeted([{ id: "food", spent: 0, available: 3000 }], due)).toBe(3000);
+  });
+
+  it("is zero with no limited categories", () => {
+    expect(computeStillBudgeted([], [])).toBe(0);
+  });
+});
+
+describe("computeSafeToSpend with category limits (UX-138)", () => {
+  const base = {
+    transactions: [],
+    monthStart,
+    monthEnd,
+    incomeSoFar: 10000,
+    expenseSoFar: 0,
+    savingsSoFar: 0,
+  };
+
+  it("excludes the unspent limit from the headline and shows it in the breakdown", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      categoryLimits: [{ id: "food", spent: 0, available: 3000 }],
+    });
+    expect(result.safeToSpend).toBe(7000);
+    expect(result.breakdown.stillBudgeted).toBe(3000);
+  });
+
+  it("does not drop the headline when money is spent inside the limit", () => {
+    const untouched = computeSafeToSpend({
+      ...base,
+      categoryLimits: [{ id: "food", spent: 0, available: 3000 }],
+    });
+    const spent = computeSafeToSpend({
+      ...base,
+      expenseSoFar: 1200,
+      categoryLimits: [{ id: "food", spent: 1200, available: 3000 }],
+    });
+    expect(spent.safeToSpend).toBe(untouched.safeToSpend);
+  });
+
+  it("lowers the headline by the overspend only, once past the limit", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      expenseSoFar: 3500,
+      categoryLimits: [{ id: "food", spent: 3500, available: 3000 }],
+    });
+    expect(result.breakdown.stillBudgeted).toBe(0);
+    expect(result.safeToSpend).toBe(10000 - 3500);
+  });
+
+  it("counts a due bill in a limited category once", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      templates: [
+        { id: "t1", name: "Phone", categoryId: "phone", type: "EXPENSE", amount: 400, status: "due" },
+      ],
+      categoryLimits: [{ id: "phone", spent: 0, available: 1000 }],
+    });
+    expect(result.breakdown.duePayments).toBe(400);
+    expect(result.breakdown.stillBudgeted).toBe(600);
+    expect(result.safeToSpend).toBe(10000 - 1000);
+  });
+
+  it("is unchanged without any limits", () => {
+    const result = computeSafeToSpend(base);
+    expect(result.safeToSpend).toBe(10000);
+    expect(result.breakdown.stillBudgeted).toBe(0);
   });
 });

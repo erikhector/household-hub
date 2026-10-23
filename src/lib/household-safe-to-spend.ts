@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
+import { categoryEnvelopes } from "@/lib/budget-category-limit";
 import { computeSafeToSpend, type SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 
 // Same window as RECURRING_LOOKBACK_MONTHS in the budget page: how far back
@@ -25,7 +26,7 @@ export async function loadHouseholdSafeToSpend(
   const monthEnd = getMonthEnd(monthStart);
   const lookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
 
-  const [transactions, templates, acks, plannedExpenses] = await Promise.all([
+  const [transactions, templates, acks, plannedExpenses, categories] = await Promise.all([
     prisma.transaction.findMany({
       where: { householdId, date: { gte: lookbackStart, lt: monthEnd } },
       select: {
@@ -50,9 +51,15 @@ export async function loadHouseholdSafeToSpend(
         name: true,
         amount: true,
         dueDate: true,
+        categoryId: true,
         category: { select: { type: true } },
         transaction: { select: { date: true } },
       },
+    }),
+    // UX-138: the limited categories, whose unspent remainder is held back.
+    prisma.budgetCategory.findMany({
+      where: { householdId, type: "EXPENSE", monthlyLimit: { not: null } },
+      select: { id: true, type: true, monthlyLimit: true, rolloverEnabled: true, createdAt: true },
     }),
   ]);
 
@@ -80,6 +87,7 @@ export async function loadHouseholdSafeToSpend(
     })),
     monthStart,
     monthEnd,
+    categoryLimits: categoryEnvelopes({ categories, transactions, monthStart, monthEnd }),
     incomeSoFar: sumThisMonth("INCOME"),
     expenseSoFar: sumThisMonth("EXPENSE"),
     savingsSoFar: sumThisMonth("SAVINGS"),
@@ -95,6 +103,7 @@ export async function loadHouseholdSafeToSpend(
       id: p.id,
       name: p.name,
       amount: p.amount,
+      categoryId: p.categoryId,
       type: plannedItemType(p.category.type),
       status: getPlannedExpenseStatus(
         { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },

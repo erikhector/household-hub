@@ -289,18 +289,6 @@ then MAINT-7 per feature, to avoid churn.
       full `npm run test:e2e` passes with the re-landed
       `e2e/split-remainder.spec.ts`, and `npx playwright test
       e2e/split-remainder.spec.ts --repeat-each=10` passes.
-- [ ] **BUG-6. Red next: `task-anchor-day` fails every time** (medium, S) —
-      `e2e/task-anchor-day.spec.ts:48` ("editing a task to repeat weekly
-      anchors the schedule on the day of the edit"), `desktop` and
-      `mobile`. Failed 2 of 2 in isolation on a clean `origin/next`
-      (`17d0826`, 2026-10-22) and on the UX-138 branch (#591), where it
-      also failed in a full `ci:local` run; it timed out waiting for
-      `getByRole("main").getByText("Next due Oct 29")`. Find whether the
-      app computes the wrong next-due date (a date-boundary bug on the
-      day of the edit) or the spec's expected date is stale, and fix it
-      in the app or the spec, never a skip or a looser assertion.
-      Acceptance: `npx playwright test e2e/task-anchor-day.spec.ts
-      --repeat-each=10` passes on both `desktop` and `mobile`.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -328,52 +316,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-43. Flaky: ux-82 add-bar screenshot changes under load** (low, S) —
-      `e2e/ux-82.mobile.spec.ts:43` ("a row under the add bar does not show
-      through the field or the bar"), `mobile` project. Failed in the local
-      `ci:local` gate on PR #499 (`b881bc8`, 2026-10-21), a pixel-equality
-      check on the add bar's screenshot. A locked `--repeat-each=10
-      --workers=1 --project=mobile` run failed 1 of 10 on that branch and
-      1 of 10 on clean `origin/next`, so it flakes at the same rate with
-      nobody's change in it. Likely the screenshot is taken before the bar
-      has settled (caret, focus ring or a late repaint). Fix it in the
-      app or in the test's waiting before the "before" screenshot, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-82.mobile.spec.ts:43 --project=mobile --repeat-each=30`
-      passes 30/30. Went red once more on release run 39571297362
-      (2026-10-21) and passed on retry #1 of the same commit. Failed
-      again on release PR #576 (`e585c70`, 2026-10-22): the attempt and
-      the retry both failed in the GitHub e2e job, and it failed once in
-      the local `ci:local` gate; it passed on a GitHub job re-run and on a
-      local re-run of the same commit. Seen again on release PR #582
-      (`dec00a0`, 2026-10-22): it failed the attempt and the retry of
-      GitHub e2e run 39803999752 and once in the local `ci:local` gate;
-      it passed on a GitHub job re-run and on a local re-run.
-- [ ] **MAINT-44. Flaky: a mobile menu trigger click does not open its menu (menuitem not found)** (low, S) —
-      `mobile` project, GitHub "End-to-end (Playwright)" on release PRs,
-      2026-10-21. Two specs, same symptom: the click on a "More" trigger
-      does not open its menu, so the next `getByRole("menuitem")` never
-      appears. (a) `e2e/ux-51.spec.ts:114` ("the shortcut shows the current
-      theme and language") failed on the attempt and the retry of release
-      run 39571297362, menuitem "Theme: System" not found after clicking
-      the bottom bar's More; it passed on the job re-run and 10/10
-      locally. (b) `e2e/meal-planner-empty-slots.spec.ts:76` failed on the
-      attempt and the retry of release run 39580857482, menuitem "Copy
-      last week" not found after clicking the planner's More; it passed on
-      the job re-run. Likely the click lands before the trigger is wired
-      up (hydration, or the menu's open/close race) even after
-      `expectHydrated`. Find out whether the menu opened and closed again
-      or never opened, and fix it in the app or in the tests' waiting,
-      never a loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/ux-51.spec.ts:114
-      e2e/meal-planner-empty-slots.spec.ts:76 --project=mobile
-      --repeat-each=30` passes 30/30.
-      Seen again in the `ci:local` gate on release PR #564 (`05b97a7`,
-      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
-      System" not found within 5s; passed on a re-run on the same commit.
-      Seen again in the `ci:local` gate on release PR #582 (`dec00a0`,
-      2026-10-22): `e2e/ux-51.spec.ts:114` on `mobile`, menuitem "Theme:
-      System" not found; passed in two focused re-runs.
 - [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
       `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
       grabber dismisses the sheet and leaves no back step", `mobile`)
@@ -395,6 +337,12 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
       failed the attempt and the retry of the GitHub e2e job and in the
       local `ci:local` gate; it passed on the job re-run and on a local re-run.
+      Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
+      (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
+      still there after 5 s) and passed on retry #1.
+      Seen again in a `ci:local` run on `cccc1d5` (2026-10-23, heavy
+      load): `native-sheets.spec.ts:54` (mobile) failed once and passed
+      on a same-commit re-run.
 
 - [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
       `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
@@ -421,6 +369,9 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #588 (`673a16e`, 2026-10-22): the GitHub
       e2e job failed the attempt (the 'Put everything away' button stayed
       disabled and kept detaching) and passed on the retry.
+      Seen again on release PR #622 (`49a1fc8`, 2026-10-23) in the local
+      `ci:local` run, this time in the `mobile` project; it passed on a
+      same-commit re-run.
 
 - [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
       `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
@@ -433,6 +384,52 @@ then MAINT-7 per feature, to avoid churn.
       retry. Acceptance: `npx playwright test
       e2e/optimistic-ticking.spec.ts:169 --project=mobile
       --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-49. Flaky: recipe pages time out finding their first control under full-suite load** (low, S) —
+      `mobile` project, local `ci:local` gate runs, 2026-10-23. Different
+      recipe specs fail on different runs with the same symptom, a 30 s
+      timeout on the first control of the recipes page: (a)
+      `e2e/recipe-last-cooked.spec.ts:60` (`search.fill`, PR #603 gate on
+      `f7ac260`; also failed once in PR #602's first full run); (b)
+      `e2e/recipe-form-order.spec.ts:11` ("New recipe" button not found,
+      PR #611 gate on `672015a`); (c) `e2e/sheet-keyboard.mobile.spec.ts`
+      and `e2e/recipe-dialog.spec.ts:43` ("New recipe" button not found),
+      PR #611 / MAINT-44 gate runs. Each passed on its own (`--repeat-each=3`)
+      and in the next full run, so the page or the spec isn't ready when
+      the first click or fill lands, probably hydration of the recipes
+      list, or its data load, under a 13 minute full run. Find out
+      which, and fix it in the app or in the specs' waiting, never a
+      loosened assertion, a skip or a retry. Acceptance:
+      `npx playwright test e2e/recipe-last-cooked.spec.ts:60
+      e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
+      --project=mobile --repeat-each=30` passes 30/30, and two full
+      `ci:local` runs show none of these specs failing.
+      Seen again on PR #611 (2026-10-23): the merge sub-agent saw
+      `recipe-form-order` (mobile) fail once locally.
+
+- [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
+      shows the all-caught-up card above Completed", `mobile`) failed once
+      in a local `ci:local` run on `cccc1d5` (2026-10-23, heavy load) and
+      passed on a same-commit re-run; it doesn't fail in GitHub CI. Find
+      out whether the card renders late (data load, hydration) or the
+      spec asserts before the page settles, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-51. Flaky: `item-aliases` a name linked once in a recipe doesn't arrive linked in the pasted shopping list under load** (low, S) —
+      `e2e/item-aliases.spec.ts:50` ("a name linked once in a recipe
+      arrives linked in a pasted shopping list", `mobile`) failed once in
+      a local `ci:local` run on release PR #622 (`49a1fc8`, 2026-10-23)
+      and passed on a same-commit re-run; the GitHub e2e job on the same
+      commit was green. Find out whether the pasted list is checked before
+      the alias lookup has settled (data load, hydration) or the link
+      really is dropped, and fix it in the app or the spec's waiting,
+      never a loosened assertion, a skip or a retry. Acceptance: `npx
+      playwright test e2e/item-aliases.spec.ts:50 --project=mobile
+      --repeat-each=30` passes 30/30.
+
 
 ### UX (2026-09-26 scout)
 
@@ -495,10 +492,10 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** Six items sit in other sections of this file:
+**Built elsewhere.** Three items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-135, UX-136 and UX-138.
+- Needs a decision before building: UX-136.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49.
@@ -554,8 +551,14 @@ UX-89.
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) — breaks Context
+      accurate "who we are"** (impact: med, effort: M) `[!]` — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).
+      Blocked: needs the owner. Rewriting "who we are" and any Swedish
+      legal text is privacy-policy wording (AUTOPILOT.md `never_decide`).
+      Question: (1) Swedish translation of the policy, or (2) keep it
+      English with `lang="en"` and an "Only available in English" note?
+      And what is the accurate "who we are" sentence for how Squirrel is
+      offered? Once decided, the jump list and `lang` markup are buildable.
       - The sv cookie notice's "Läs mer" opens an English-only policy
         inside `<html lang="sv">`, so screen readers read English with a
         Swedish voice.
@@ -572,18 +575,6 @@ UX-89.
 
 
 #### Profile and household settings
-
-- [ ] **UX-77. Deleting your only household: explain instead of a button
-      that refuses** (impact: low, effort: S) — breaks User control.
-      ⚠️ Touches user-data deletion (human-only area). The red "Delete
-      household" button is active, but tapping it opens "You can't
-      delete your only household. Create another one first." The data
-      export is named `household-hub-my-data-<date>.json`
-      (`profile/export-data/route.ts:271`), after the repo, not the
-      product.
-      Acceptance: with one household the danger zone explains the rule
-      inline and points to "Delete account". The export is named
-      `squirrel-my-data-<date>.json`.
 
 #### Shopping
 
@@ -615,29 +606,6 @@ UX-89.
       as today. A unit test on `applyReceiptScanAction` (and one on
       `registerReceiptAction`) fails without the fix, and the receipt e2e
       spec covers a ×3 line.
-
-- [ ] **UX-140. Type prices in by hand when the receipt scan fails**
-      (impact: medium, effort: M) — reported by the owner, 2026-10-18.
-      Breaks User control and Error recovery.
-      - When the photo can't be read (`noLinesFound`, `ocrError`, a
-        provider error), `ReceiptScanDialog`'s only way forward is "Try
-        again" with another photo (`receipt-scan-dialog.tsx:578-590`).
-        Register receipt dead-ends the same way.
-      - The per-row "Add price" on the list exists, but on a row already
-        ticked as bought it only changes the row's estimate
-        (`updateShoppingListItemPriceAction`,
-        `src/app/dashboard/shopping-list/actions.ts:459`): it never
-        becomes `lastKnownPrice` or a PriceHistory row, so a typed price
-        counts for less than a scanned one.
-      Acceptance: the scan's error state offers "Enter prices by hand"
-      next to "Try again". It opens the same review step with one row per
-      receipt-matchable list item (name, quantity, an empty price), and
-      Apply records them exactly like scanned lines (PriceHistory,
-      `lastKnownPrice`, `priceRecordedAt`, divided by quantity per BUG-3).
-      Register receipt gets an "Add line" so a receipt can be typed in
-      without a photo. New strings in `en.ts` and `sv.ts`; an e2e flow
-      (AI mocked to fail) types a price and checks it after a reload, on
-      desktop and mobile.
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) `[!]` — breaks User-centricity
@@ -688,38 +656,13 @@ UX-89.
       Acceptance: an item ever saved with quantity > 0 is never listed
       under "Never stocked", with a unit test.
 
-### UX (2026-10-20 scout)
+### UX (2026-10-23 scout)
 
-Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
-`tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
-route passes. The popup probe found two phone-only size gaps.
+Friday area: household and personal budgets. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; every route passes and the popup probe has no phone-size or
+off-screen hits in the budget dialogs. WebKit was not run.
 
-- [ ] **UX-135. Sign in straight from the verification link**
-      (impact: high, effort: M) — ⚠️ auth (human-only area). Login is
-      blocked until the email is verified (`src/lib/auth.ts`) and signup
-      deliberately doesn't sign in, so a new user taps the mail link and
-      then types email and password again. A valid, unused verification
-      token signs the user in (single use, short-lived, same trust as a
-      reset link) and lands on the dashboard with "Welcome to Squirrel,
-      {name}". An expired, used or unknown token keeps today's behaviour.
-      Both `en.ts` and `sv.ts`; no new cookie.
-      Acceptance: in an e2e spec, sign up, open the verification link
-      (read the token from the DB), and land on `/dashboard` signed in
-      with the welcome text; opening the same link again does not sign in.
-      Decided 2026-10-20 by owner: option 1. See #395.
-
-- [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
-      (impact: high, effort: M) — ⚠️ money (human-only area).
-      `src/lib/safe-to-spend-calc.ts` also subtracts the unspent
-      remainder of limited categories, shown as its own "Still budgeted"
-      breakdown line. The pace projection ("At this pace …") becomes a
-      qualifier under the headline, not a second equally weighted "left"
-      figure. Unit-test the calculator (day 1, partly spent, overspent
-      category counts as zero remainder).
-      Acceptance: with a seeded limited category and no spending, the
-      headline excludes its limit, the breakdown shows "Still budgeted",
-      and the projection reads as secondary text.
-      Decided 2026-10-20 by owner: option 1. See #397.
 
 ### Dependencies
 
@@ -731,7 +674,11 @@ route passes. The popup probe found two phone-only size gaps.
       Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
       `npm run check && npm run build` is green.
 
-- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: low, effort: S) —
+- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: med, effort: S) —
+      The `@sentry/nextjs` bump is a security fix: 10.75.1 and older have a
+      critical middleware bypass when a tunnel route is used
+      (GHSA-mchm-gjx6-7h55, fixed in 10.75.2). Check whether
+      `next.config` sets `tunnelRoute`; the audit flags it either way.
       `@base-ui/react` 1.8→1.9, `@sentry/nextjs` 10.73→10.76, `@upstash/redis`
       1.38→1.39, `@vercel/functions` 3.9→3.10, `lucide-react` 1.43→1.57,
       `pg` 8.23.0→8.23.1, `resend` 6.26→6.33, `shadcn` 4.21.0→4.21.5,
@@ -740,7 +687,12 @@ route passes. The popup probe found two phone-only size gaps.
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
 
-- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: med, effort: S) —
+- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: high, effort: S) —
+      `npm audit --omit=dev` (2026-10-23) flags `next` 16.0.0–16.4.0 with two
+      critical unauthenticated RCEs (GHSA-2464-fhr4-w9xw, image optimization
+      with SVG files; GHSA-673q-mjm6-r5xr, `use cache` returning typed
+      arrays) and a high Server Actions DoS (GHSA-p3m5-59mp-jv5r); 16.4.2
+      fixes them. Do this item first and don't wait on DEPS-3.
       DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
       16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
       7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3

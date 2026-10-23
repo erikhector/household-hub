@@ -22,6 +22,7 @@ type FakeSend = { userId: string; householdId: string; weekKey: string; sentAt: 
 type HouseholdData = {
   inventoryItems?: { name: string; expiresAt: Date | null; expiresAtEstimated: boolean }[];
   budgetCategoryCount?: number;
+  limitedCategories?: unknown[];
   transactions?: unknown[];
   plannedExpenses?: unknown[];
 };
@@ -93,6 +94,7 @@ vi.mock("@/lib/prisma", () => ({
     inventoryItem: { findMany: inventoryItemFindManyMock },
     budgetCategory: {
       count: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.budgetCategoryCount ?? 0),
+      findMany: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.limitedCategories ?? []),
     },
     transaction: {
       findMany: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.transactions ?? []),
@@ -310,6 +312,45 @@ describe("empty digests", () => {
     expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(1);
     expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
       "Remaining after expenses and savings this month: 750.00",
+    );
+  });
+
+  // UX-138: the digest holds back what's left of a limit, like the Budget page.
+  it("holds back the unspent remainder of a category limit", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], {
+      inventoryItems: [],
+      budgetCategoryCount: 2,
+      limitedCategories: [
+        { id: "c2", type: "EXPENSE", monthlyLimit: 400, rolloverEnabled: false, createdAt: new Date(2020, 0, 1) },
+      ],
+      transactions: [
+        {
+          categoryId: "c1",
+          category: { name: "Salary" },
+          type: "INCOME",
+          amount: 1000,
+          date: new Date(NOW.getTime() - DAY),
+          isRecurring: false,
+          recurringTemplateId: null,
+        },
+        {
+          categoryId: "c2",
+          category: { name: "Food" },
+          type: "EXPENSE",
+          amount: 250,
+          date: new Date(NOW.getTime() - DAY),
+          isRecurring: false,
+          recurringTemplateId: null,
+        },
+      ],
+    });
+
+    await run();
+
+    // 1000 - 250 spent - 150 still budgeted in Food's 400 limit.
+    expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
+      "Remaining after expenses and savings this month: 600.00",
     );
   });
 });

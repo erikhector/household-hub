@@ -387,6 +387,12 @@ export const en = {
     delete: {
       trigger: "Delete household",
       checking: "Checking…",
+      onlyHousehold:
+        "This is your only household, so it can't be deleted on its own. To remove it, delete your account instead.",
+      onlyHouseholdLink: "Go to Delete account",
+      onlyHouseholdWithMembers:
+        "This is your only household and it has other members, so it can't be deleted while they're in it. Transfer ownership to one of them, or remove them, first.",
+      onlyHouseholdWithMembersLink: "Go to the members",
       blockedTitle: "Can't delete household",
       blockedClose: "OK",
       cancel: "Cancel",
@@ -420,6 +426,8 @@ export const en = {
   dashboard: {
     title: "Overview",
     subtitle: "What needs your attention right now.",
+    // UX-135: toast after the verification link signs a new user in.
+    welcome: "Welcome to Squirrel, {name}",
     greeting: {
       // Server render, before the browser knows the local hour (UX-72).
       hello: "Hello, {name}",
@@ -930,6 +938,10 @@ export const en = {
       noLinesFound:
         "Couldn't find any priced items on this receipt. Try a clearer, well-lit photo.",
       tryAgain: "Try another photo",
+      // UX-140: the way forward when the photo can't be read.
+      enterByHand: "Enter prices by hand",
+      manualSubtitle:
+        "Type what you paid for each item (the total for its quantity). Leave a price empty to skip that item.",
       analysisFailedError: "Something went wrong reading that receipt. Try again.",
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
       providerBusyError: "The AI service is busy right now — wait a moment and try again.",
@@ -990,6 +1002,10 @@ export const en = {
       noLinesFound:
         "Couldn't find any priced items on this receipt. Try a clearer, well-lit photo.",
       tryAgain: "Try another photo",
+      enterByHand: "Enter receipt by hand",
+      addLine: "Add line",
+      manualSubtitle:
+        "Type each item with what you paid for it (the total for its quantity). Lines without a price are skipped.",
       analysisFailedError: "Something went wrong reading that receipt. Try again.",
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
       providerBusyError: "The AI service is busy right now — wait a moment and try again.",
@@ -2433,6 +2449,8 @@ export const en = {
       lineOwedFromEarlier: "Owed from earlier months",
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Still budgeted",
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
@@ -2930,6 +2948,8 @@ export const en = {
       lineOwedFromEarlier: "Owed from earlier months",
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Still budgeted",
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",

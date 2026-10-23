@@ -26,7 +26,12 @@ const sectionHeading = "font-heading text-lg font-semibold";
 // the rare items (the version, deleting the account) behind disclosures and
 // Log out as the last thing on the page. One column on phones; two from `lg`
 // up, filling row by row so the DOM order is the phone order.
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ open?: string }>;
+}) {
+  const { open } = await searchParams;
   const [{ userId }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
   const [user, pushSubscriptions] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
@@ -115,7 +120,7 @@ export default async function ProfilePage() {
               {dict.profile.about.whatsNewLink}
             </Link>
           </ProfileDisclosure>
-          <ProfileDisclosure title={dict.profile.dangerZoneTitle} tone="destructive">
+          <ProfileDisclosure id="profile-danger" defaultOpen={open === "danger"} title={dict.profile.dangerZoneTitle} tone="destructive">
             <p className="text-sm text-muted-foreground">{dict.profile.dangerZoneDescription}</p>
             <div>
               <DeleteAccountDialog dict={dict.profile.deleteAccount} />

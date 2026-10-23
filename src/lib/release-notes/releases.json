@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.102.0",
+    "date": "2026-10-23",
+    "pr": 626,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If your household is the only one you have, the Household page now explains why it can't be deleted on its own, and points you to \"Delete account\" or, if others are in it, to the member list. The file from \"Export my data\" is now named squirrel-my-data.",
+      "sv": "Om du bara har ett hushåll förklarar sidan Hushåll nu varför det inte kan tas bort för sig, och pekar dig till \"Ta bort konto\" eller, om fler är med, till medlemslistan. Filen från \"Exportera mina data\" heter nu squirrel-my-data."
+    }
+  },
+  {
+    "version": "0.101.0",
+    "date": "2026-10-23",
+    "pr": 622,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If a receipt photo can't be read, you can now type the prices in by hand, and Register receipt lets you add receipt lines yourself.\n\nSafe to spend now sets aside what is still left of your category limits. A \"Still budgeted\" line in the breakdown shows how much, so the number no longer drops as you spend within a limit. The end-of-month estimate is now a muted note under the number.\n\nBudget forms no longer suggest your own name or contacts when you name a category, bill or transaction, and the keyboard's action key now shows \"Next\" or \"Done\".",
+      "sv": "Om kvittofotot inte kan läsas kan du nu skriva in priserna för hand, och i Registrera kvitto kan du lägga till kvittorader själv.\n\nSäkert att spendera räknar nu bort det som återstår av dina kategorigränser. En rad \"Ännu budgeterat\" i uppdelningen visar hur mycket, så att summan inte sjunker när du handlar inom en gräns. Månadsslutsprognosen är nu en dämpad notering under summan.\n\nBudgetformulär föreslår inte längre ditt eget namn eller dina kontakter när du namnger en kategori, räkning eller transaktion, och tangentbordets åtgärdsknapp visar nu \"Nästa\" eller \"Klar\"."
+    }
+  },
+  {
+    "version": "0.100.0",
+    "date": "2026-10-23",
+    "pr": 615,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Tapping the link in your verification email now signs you in right away and takes you to your dashboard, so there is no need to type your email and password again.\n\nTicking an item on the shopping list now closes the gap in its aisle right away, so the list no longer jumps on a slow phone.\n\nNot user-facing (undoes an unreleased change).\n\nIf creating an invite link fails, the invite dialog now shows a \"Try again\" button, and the old error no longer lingers once the link works.\n\nIf a partner splits a bill with you before you've set up your personal budget, you now see your share and what you owe (or are owed) right on Home and your personal budget. The shared-expense button is now called \"Add shared expense\".\n\nShow a new member their shared costs before they set up a budget (UX-112)\n\nAfter you verify your email, the link signs you straight in and takes you to your dashboard, so you no longer have to type your email and password again.",
+      "sv": "När du trycker på länken i verifieringsmejlet loggas du nu in direkt och kommer till din översikt, så du slipper skriva in e-post och lösenord igen.\n\nNär du bockar av en vara i inköpslistan stängs luckan i gången direkt, så listan hoppar inte längre på en långsam telefon.\n\nInte synligt för användare (ångrar en ännu inte släppt ändring).\n\nOm det misslyckas att skapa en inbjudningslänk visar dialogen nu en knapp \"Försök igen\", och det gamla felet ligger inte kvar när länken fungerar.\n\nOm någon delar en räkning med dig innan du har satt upp din personliga budget ser du nu din andel och vad du är skyldig (eller har att få) direkt på Hem och i din personliga budget. Knappen för delade utgifter heter nu \"Lägg till delad utgift\".\n\nShow a new member their shared costs before they set up a budget (UX-112)\n\nNär du har bekräftat din e-postadress loggar länken in dig direkt och tar dig till din översikt, så du slipper skriva e-post och lösenord igen."
+    }
+  },
+  {
     "version": "0.99.1",
     "date": "2026-10-22",
     "pr": 582,
