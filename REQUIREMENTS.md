@@ -3345,22 +3345,6 @@ names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
 categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
 
-**Shared costs before a personal budget exists (UX-112).** A member with no
-personal categories but a share of a split household expense (or a balance
-with the other members) sees a "Shared with your household" card above the
-"Let's set up your budget" prompt, on the personal Overview and on Home. It
-shows their share of this month's split expenses (`summarizeSharedCosts`,
-`src/lib/shared-costs-summary.ts`: expenses only, their own share, never the
-whole bill) and the same "Your household balance" lines Safe to spend uses
-(`HouseholdDebtsList`, extracted from `SafeToSpend` so the two can't drift),
-with a link to the Transactions tab. Once they have categories the card goes
-and Safe to spend carries the balance as before. The shared-expense action is
-named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
-the household page's "Add transaction", and with no categories it is the
-page's primary action in the `PrimaryAction` slot (floating on phones); once
-Add transaction exists it stays the outline second action. Tested in
-`e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
-
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
 had already moved cost analyzer and balances into the `insights` node the

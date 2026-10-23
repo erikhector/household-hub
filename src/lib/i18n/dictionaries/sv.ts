@@ -2838,16 +2838,12 @@ export const sv = {
       paidBy: "Betalad av {name}",
       viewInHouseholdBudget: "Visa i {household}s budget →",
       leftDue: "{amount} kvar att betala",
-      costsTitle: "Delat med ditt hushåll",
-      costsBody: "Utgifter som delats med andra medlemmar räknas här innan du har satt upp din egen budget.",
-      monthShare: "Din andel den här månaden",
-      viewShared: "Se de delade utgifterna →",
     },
     logShared: {
       logPayment: "Logga betalning",
       paymentDialogTitle: "Logga betalning för {name}",
-      button: "Lägg till delad utgift",
-      dialogTitle: "Lägg till delad utgift",
+      button: "Registrera en delad utgift",
+      dialogTitle: "Registrera en delad utgift",
       subtitle:
         "Det här skapar en riktig transaktion i hushållets budget, delad som du väljer nedan — det är inte en separat personlig post.",
       householdLabel: "Hushåll",
