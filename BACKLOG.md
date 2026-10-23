@@ -520,8 +520,14 @@ UX-89.
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) — breaks Context
+      accurate "who we are"** (impact: med, effort: M) `[!]` — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).
+      Blocked: needs the owner. Rewriting "who we are" and any Swedish
+      legal text is privacy-policy wording (AUTOPILOT.md `never_decide`).
+      Question: (1) Swedish translation of the policy, or (2) keep it
+      English with `lang="en"` and an "Only available in English" note?
+      And what is the accurate "who we are" sentence for how Squirrel is
+      offered? Once decided, the jump list and `lang` markup are buildable.
       - The sv cookie notice's "Läs mer" opens an English-only policy
         inside `<html lang="sv">`, so screen readers read English with a
         Swedish voice.
