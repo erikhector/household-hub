@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const {
   requireHouseholdMock,
   findManyMock,
-  updateMock,
   updateManyMock,
   deleteManyMock,
   planUpsertMock,
@@ -17,7 +16,6 @@ const {
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   findManyMock: vi.fn(),
-  updateMock: vi.fn(),
   updateManyMock: vi.fn(),
   deleteManyMock: vi.fn(),
   planUpsertMock: vi.fn(),
@@ -31,7 +29,6 @@ const {
 const prismaMock = {
   mealPlanEntry: {
     findMany: findManyMock,
-    update: updateMock,
     updateMany: updateManyMock,
     deleteMany: deleteManyMock,
   },
@@ -53,9 +50,11 @@ const { bulkEditMealEntriesAction, undoBulkMealEditAction } = await import(
 );
 
 const household = { id: "household-1" };
+updateManyMock.mockResolvedValue({ count: 1 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  updateManyMock.mockResolvedValue({ count: 1 });
   requireHouseholdMock.mockResolvedValue({ household });
 });
 requireHouseholdMock.mockResolvedValue({ household });
@@ -92,12 +91,12 @@ describe("bulkEditMealEntriesAction: move", () => {
     expect(result.error).toBeUndefined();
     expect(result.changed).toBe(2);
     expect(transactionMock).toHaveBeenCalledTimes(1);
-    expect(updateMock).toHaveBeenCalledWith({
-      where: { id: "a" },
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "a", consumedAt: null },
       data: { mealPlanId: "plan-2026-01-05", date: new Date("2026-01-11T00:00:00.000Z"), mealType: "DINNER" },
     });
-    expect(updateMock).toHaveBeenCalledWith({
-      where: { id: "b" },
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "b", consumedAt: null },
       data: { mealPlanId: "plan-2026-01-12", date: new Date("2026-01-12T00:00:00.000Z"), mealType: "DINNER" },
     });
     expect(planUpsertMock).toHaveBeenCalledTimes(2);
@@ -123,8 +122,19 @@ describe("bulkEditMealEntriesAction: move", () => {
 
     expect(result.changed).toBe(1);
     expect(result.skipped).toBe(1);
-    expect(updateMock).toHaveBeenCalledTimes(1);
-    expect(updateMock.mock.calls[0][0].where).toEqual({ id: "a" });
+    expect(updateManyMock).toHaveBeenCalledTimes(1);
+    expect(updateManyMock.mock.calls[0][0].where).toEqual({ id: "a", consumedAt: null });
+  });
+
+  it("fails the whole batch when a meal is cooked after the read", async () => {
+    findManyMock.mockResolvedValue([row("a", "2026-01-05"), row("b", "2026-01-06")]);
+    planUpsertMock.mockResolvedValue({ id: "plan" });
+    updateManyMock.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+
+    const result = await bulkEditMealEntriesAction({ op: "move", entryIds: ["a", "b"], date: "2026-01-07", mealType: null });
+
+    expect(result.error).toBe("Something went wrong. Please try again.");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("errors when every selected meal is cooked", async () => {
@@ -147,7 +157,7 @@ describe("bulkEditMealEntriesAction: move", () => {
 
     expect(result.error).toBe("Meal not found");
     expect(transactionMock).not.toHaveBeenCalled();
-    expect(updateMock).not.toHaveBeenCalled();
+    expect(updateManyMock).not.toHaveBeenCalled();
     expect(planUpsertMock).not.toHaveBeenCalled();
   });
 
@@ -264,8 +274,8 @@ describe("undoBulkMealEditAction", () => {
     const result = await undoBulkMealEditAction([{ id: "a", date: "2026-01-05", mealType: "LUNCH" }]);
 
     expect(result).toEqual({});
-    expect(updateMock).toHaveBeenCalledWith({
-      where: { id: "a" },
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "a", consumedAt: null },
       data: { date: new Date("2026-01-05T00:00:00.000Z"), mealPlanId: "plan-old", mealType: "LUNCH" },
     });
   });
@@ -273,7 +283,15 @@ describe("undoBulkMealEditAction", () => {
   it("restores portions", async () => {
     findManyMock.mockResolvedValue([{ id: "a", consumedAt: null }]);
     await undoBulkMealEditAction([{ id: "a", portions: 4 }]);
-    expect(updateMock).toHaveBeenCalledWith({ where: { id: "a" }, data: { portions: 4 } });
+    expect(updateManyMock).toHaveBeenCalledWith({ where: { id: "a", consumedAt: null }, data: { portions: 4 } });
+  });
+
+  it("fails the batch when a meal is cooked after the read", async () => {
+    findManyMock.mockResolvedValue([{ id: "a", consumedAt: null }]);
+    updateManyMock.mockResolvedValueOnce({ count: 0 });
+    const result = await undoBulkMealEditAction([{ id: "a", portions: 4 }]);
+    expect(result.error).toBe("Something went wrong. Please try again.");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("leaves a meal cooked since the edit alone", async () => {
@@ -285,8 +303,8 @@ describe("undoBulkMealEditAction", () => {
       { id: "a", portions: 4 },
       { id: "b", portions: 4 },
     ]);
-    expect(updateMock).toHaveBeenCalledTimes(1);
-    expect(updateMock.mock.calls[0][0].where).toEqual({ id: "a" });
+    expect(updateManyMock).toHaveBeenCalledTimes(1);
+    expect(updateManyMock.mock.calls[0][0].where).toEqual({ id: "a", consumedAt: null });
   });
 
   it("rejects a foreign id for the whole batch", async () => {

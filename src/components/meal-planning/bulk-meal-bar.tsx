@@ -22,6 +22,7 @@ import {
   undoBulkMealEditAction,
   type BulkMealEdit,
   type BulkMealResult,
+  type BulkMealRestore,
 } from "@/app/dashboard/meal-planning/bulk-meal-actions";
 import { canRePortion } from "@/app/dashboard/meal-planning/bulk-meal-calc";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
@@ -68,6 +69,19 @@ export function BulkMealBar({
   const count = selected.length;
   const none = count === 0;
 
+  // Undo is tapped on the same flaky links as the edit, so a rejected call
+  // gets the same toast instead of an unhandled rejection (M8).
+  async function undo(restore: BulkMealRestore[]) {
+    try {
+      const undone = await undoBulkMealEditAction(restore);
+      if (undone.error) toast.error(undone.error);
+      else toast.success(dict.bulkUndoneToast);
+    } catch (error) {
+      unstable_rethrow(error);
+      toast.error(dict.prepConnectionError);
+    }
+  }
+
   // One call that runs a bulk edit, toasts the outcome with an Undo, and
   // returns whether it went through. A dropped connection rejects the call;
   // say so rather than hitting the error boundary (M8).
@@ -92,10 +106,7 @@ export function BulkMealBar({
       action: {
         label: dict.undoDelete,
         onClick: () => {
-          void undoBulkMealEditAction(restore).then((undone) => {
-            if (undone.error) toast.error(undone.error);
-            else toast.success(dict.bulkUndoneToast);
-          });
+          void undo(restore);
         },
       },
     });

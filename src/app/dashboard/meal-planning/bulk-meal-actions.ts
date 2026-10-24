@@ -112,14 +112,17 @@ export async function bulkEditMealEntriesAction(input: BulkMealEdit): Promise<Bu
         }
         for (const move of moves) {
           const date = parseDateKey(move.date);
-          await tx.mealPlanEntry.update({
-            where: { id: move.id },
+          // Guarded like the remove path: a meal cooked since the read
+          // above keeps the day it was eaten, and fails the batch.
+          const moved = await tx.mealPlanEntry.updateMany({
+            where: { id: move.id, consumedAt: null },
             data: {
               mealPlanId: planIds.get(toDateKey(getWeekStart(date)))!,
               date,
               mealType: move.mealType,
             },
           });
+          if (moved.count === 0) throw new BatchChangedError();
         }
         // A moved meal answers its "Meal not logged" reminder, as in
         // moveMealEntryAction.
@@ -134,6 +137,7 @@ export async function bulkEditMealEntriesAction(input: BulkMealEdit): Promise<Bu
         });
       });
     } catch (error) {
+      if (error instanceof BatchChangedError) return await fail("generic");
       return toFriendlyError(error);
     }
     revalidatePath(MEAL_PLANNING_PATH);
@@ -251,10 +255,14 @@ export async function undoBulkMealEditAction(restore: BulkMealRestore[]): Promis
         }
         if (item.mealType) data.mealType = item.mealType;
         if (item.portions !== undefined) data.portions = item.portions;
-        await tx.mealPlanEntry.update({ where: { id: item.id }, data });
+        // Re-checked in the write itself: a meal cooked after the read
+        // above must not have its eaten date rewritten.
+        const restored = await tx.mealPlanEntry.updateMany({ where: { id: item.id, consumedAt: null }, data });
+        if (restored.count === 0) throw new BatchChangedError();
       }
     });
   } catch (error) {
+    if (error instanceof BatchChangedError) return await fail("generic");
     return toFriendlyError(error);
   }
 
