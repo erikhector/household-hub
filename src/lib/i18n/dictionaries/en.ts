@@ -1923,6 +1923,11 @@ export const en = {
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
     favoriteAriaLabel: "Favorite {name}",
+    cookSoonTitle: "Cook soon",
+    cookSoonAdd: "Cook soon",
+    cookSoonRemove: "Remove from Cook soon",
+    cookSoonAddedToast: "{name} added to Cook soon",
+    cookSoonRemovedToast: "{name} removed from Cook soon",
     // UX-49: Delete goes at once; the toast carries the way back.
     recipeDeletedToast: 'Deleted "{name}"',
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",

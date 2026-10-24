@@ -20,6 +20,7 @@ const {
   mealPlanEntryFindManyMock,
   mealPlanEntryFindFirstMock,
   mealPlanEntryUpdateMock,
+  recipeUpdateManyMock,
   shoppingListCreateMock,
   shoppingListFindFirstMock,
   shoppingListItemFindManyMock,
@@ -49,6 +50,7 @@ const {
   mealPlanEntryFindManyMock: vi.fn(),
   mealPlanEntryFindFirstMock: vi.fn(),
   mealPlanEntryUpdateMock: vi.fn(),
+  recipeUpdateManyMock: vi.fn(),
   shoppingListCreateMock: vi.fn(),
   shoppingListFindFirstMock: vi.fn(),
   shoppingListItemFindManyMock: vi.fn(),
@@ -68,6 +70,7 @@ const txClient = {
     deleteMany: inventoryItemDeleteManyMock,
   },
   mealPlanEntry: { update: mealPlanEntryUpdateMock, count: mealPlanEntryCountMock },
+  recipe: { updateMany: recipeUpdateManyMock },
   preparedBatch: { create: preparedBatchCreateMock, deleteMany: preparedBatchDeleteManyMock },
   householdMember: { findUnique: householdMemberFindUniqueMock },
 };
@@ -679,6 +682,43 @@ describe("markMealEntryCookedAction → low-stock auto-add (AUTO-8)", () => {
 
     expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(txClient, "household-1", "inv-1", 5, 2);
     expect(result).toEqual({ autoAdded: [autoAdded] });
+  });
+});
+
+describe("markMealEntryCookedAction → Cook soon shelf (GAP-51)", () => {
+  it("takes the cooked recipe off the shelf inside the cook's transaction", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      recipeId: "recipe-1",
+      portions: 2,
+      consumedAt: null,
+      recipe: { servings: 2 },
+    });
+
+    const fd = new FormData();
+    fd.set("entryId", "entry-1");
+    await markMealEntryCookedAction({}, fd);
+
+    expect(recipeUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "recipe-1", householdId: "household-1", cookSoonAt: { not: null } },
+      data: { cookSoonAt: null },
+    });
+  });
+
+  it("does not touch the shelf for an already-cooked entry", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      recipeId: "recipe-1",
+      portions: 2,
+      consumedAt: new Date(),
+      recipe: { servings: 2 },
+    });
+
+    const fd = new FormData();
+    fd.set("entryId", "entry-1");
+    await markMealEntryCookedAction({}, fd);
+
+    expect(recipeUpdateManyMock).not.toHaveBeenCalled();
   });
 });
 

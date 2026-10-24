@@ -130,6 +130,7 @@ const {
   updateRecipeAction,
   deleteRecipeAction,
   toggleRecipeFavoriteAction,
+  toggleRecipeCookSoonAction,
   duplicateRecipeAction,
   importRecipeFromUrlAction,
 } = await import("@/app/dashboard/meal-planning/recipe-actions");
@@ -1501,6 +1502,54 @@ describe("toggleRecipeFavoriteAction", () => {
     requireHouseholdMock.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
 
     await expect(toggleRecipeFavoriteAction("recipe-1")).rejects.toThrow("NEXT_REDIRECT");
+    expect(recipeFindFirstMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleRecipeCookSoonAction", () => {
+  it("no-ops for a recipe outside the caller's household (IDOR guard)", async () => {
+    recipeFindFirstMock.mockResolvedValue(null);
+
+    const result = await toggleRecipeCookSoonAction("someone-elses-recipe");
+
+    expect(result).toEqual({});
+    expect(recipeFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "someone-elses-recipe", householdId: "household-1" },
+      select: { id: true, cookSoonAt: true },
+    });
+    expect(recipeUpdateMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("queues a recipe that is not on the shelf, stamping the time", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", cookSoonAt: null });
+    recipeUpdateMock.mockResolvedValue({});
+
+    await toggleRecipeCookSoonAction("recipe-1");
+
+    expect(recipeUpdateMock).toHaveBeenCalledWith({
+      where: { id: "recipe-1" },
+      data: { cookSoonAt: expect.any(Date) },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
+  });
+
+  it("takes a queued recipe off the shelf", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", cookSoonAt: new Date() });
+    recipeUpdateMock.mockResolvedValue({});
+
+    await toggleRecipeCookSoonAction("recipe-1");
+
+    expect(recipeUpdateMock).toHaveBeenCalledWith({
+      where: { id: "recipe-1" },
+      data: { cookSoonAt: null },
+    });
+  });
+
+  it("requires a household session", async () => {
+    requireHouseholdMock.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+
+    await expect(toggleRecipeCookSoonAction("recipe-1")).rejects.toThrow("NEXT_REDIRECT");
     expect(recipeFindFirstMock).not.toHaveBeenCalled();
   });
 });

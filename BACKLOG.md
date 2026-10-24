@@ -421,6 +421,26 @@ then MAINT-7 per feature, to avoid churn.
       Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
       --project=mobile --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
+      release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
+      2026-10-24) and passed on a solo rerun of the same commit. Nobody's
+      change is in it. The failing assertion wasn't recorded: reproduce
+      with the repeat run, read the snapshot, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:194
+      --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
+      `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
+      full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
+      `toHaveCSS` assertion) and passed on a solo rerun of the same
+      commit. Nobody's change is in it. Reproduce with the repeat run and
+      fix it in the app or the spec's waiting, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
+      --project=mobile --repeat-each=30` passes 30/30.
+
 
 ### UX (2026-09-26 scout)
 
@@ -1044,22 +1064,6 @@ out to be a product-scope question rather than a scoped task should move to
       per-item assignment replaces or layers on top of the existing
       share/paid model — a schema and UX design question, not a routine
       slice.
-
-### 2026-10-12 scan
-
-- [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —
-      AnyList's v6 meal planning has a queue of recipes you intend to make
-      soon without giving them a date. Squirrel has favorites (permanent)
-      and the planner (dated) but nothing in between, so "that chili I
-      want this week" gets lost or is planned on an arbitrary day. Add a
-      per-recipe "Cook soon" toggle (a nullable `Recipe.cookSoonAt`
-      timestamp `[schema]`, Phase 2) shown as a pinned "Cook soon" group
-      at the top of the Recipes tab, ordered by when it was added; it
-      clears itself when that recipe is marked cooked or placed on the
-      planner. Suggest, don't mutate: nothing else changes.
-      Acceptance: toggling a seeded recipe moves it into the group and
-      survives reload; marking it cooked removes it; unit test for the
-      auto-clear rule; e2e on desktop and mobile.
 
 ### 2026-10-13 scan
 
