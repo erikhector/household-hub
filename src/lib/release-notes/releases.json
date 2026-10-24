@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.107.0",
+    "date": "2026-10-24",
+    "pr": 666,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Search your meal plan: type a recipe or meal name on the Planner tab to find every day you planned it, up to a year back or ahead, and jump straight to that week.",
+      "sv": "Sök i måltidsplanen: skriv ett recept- eller måltidsnamn på fliken Planerare för att hitta alla dagar du planerat det, upp till ett år bakåt eller framåt, och hoppa direkt till den veckan."
+    }
+  },
+  {
     "version": "0.106.0",
     "date": "2026-10-24",
     "pr": 660,
