@@ -44,6 +44,9 @@ export type RecipeData = {
   // Recipe.isFavorite (GAP-18) — the star on each RecipeManager row. Only a
   // ranking tiebreaker elsewhere, never a filter.
   isFavorite: boolean;
+  // Recipe.cookSoonAt (GAP-51) as an ISO string: set while the recipe is on
+  // the Recipes tab's "Cook soon" shelf, null otherwise.
+  cookSoonAt: string | null;
   // Recipe.tags (GAP-29), already run through parseRecipeTags in page.tsx
   // so only known keys in canonical order ever reach the client.
   tags: RecipeTag[];

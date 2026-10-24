@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const {
   requireHouseholdMock,
   recipeFindFirstMock,
+  recipeUpdateManyMock,
   mealPlanEntryFindFirstMock,
   mealPlanEntryCreateMock,
   mealPlanEntryUpdateMock,
@@ -35,6 +36,7 @@ const {
   preparedBatchUpdateManyMock: vi.fn(),
   requireHouseholdMock: vi.fn(),
   recipeFindFirstMock: vi.fn(),
+  recipeUpdateManyMock: vi.fn(),
   mealPlanEntryFindFirstMock: vi.fn(),
   mealPlanEntryCreateMock: vi.fn(),
   mealPlanEntryUpdateMock: vi.fn(),
@@ -48,7 +50,11 @@ const {
 }));
 
 const prismaMock = {
-  recipe: { findFirst: recipeFindFirstMock, findMany: recipeFindManyMock },
+  recipe: {
+    findFirst: recipeFindFirstMock,
+    findMany: recipeFindManyMock,
+    updateMany: recipeUpdateManyMock,
+  },
   mealPlanEntry: {
     findFirst: mealPlanEntryFindFirstMock,
     findMany: mealPlanEntryFindManyMock,
@@ -164,6 +170,49 @@ describe("addMealEntryAction", () => {
     expect(mealPlanEntryCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ portions: 2 }) }),
     );
+  });
+});
+
+describe("Cook soon auto-clear (GAP-51)", () => {
+  it("takes a recipe off the shelf when it is put on the planner", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", servings: 4 });
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+    mealPlanEntryCreateMock.mockResolvedValue({});
+
+    await addMealEntryAction(
+      {},
+      formData({ weekStartDate: "2026-01-05", date: "2026-01-06", mealType: "DINNER", recipeId: "recipe-1" }),
+    );
+
+    expect(recipeUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "recipe-1", householdId: "household-1", cookSoonAt: { not: null } },
+      data: { cookSoonAt: null },
+    });
+  });
+
+  it("leaves the shelf alone for a freeform meal", async () => {
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+    mealPlanEntryCreateMock.mockResolvedValue({});
+
+    await addMealEntryAction(
+      {},
+      formData({ weekStartDate: "2026-01-05", date: "2026-01-06", mealType: "DINNER", freeformName: "Takeaway" }),
+    );
+
+    expect(recipeUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("takes the recipe off the shelf when an entry is edited to use it", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", recipeId: null, portions: 4 });
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-2", servings: 4 });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    await updateMealEntryAction({}, formData({ entryId: "entry-1", recipeId: "recipe-2" }));
+
+    expect(recipeUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "recipe-2", householdId: "household-1", cookSoonAt: { not: null } },
+      data: { cookSoonAt: null },
+    });
   });
 });
 

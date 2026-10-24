@@ -1045,22 +1045,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-12 scan
-
-- [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —
-      AnyList's v6 meal planning has a queue of recipes you intend to make
-      soon without giving them a date. Squirrel has favorites (permanent)
-      and the planner (dated) but nothing in between, so "that chili I
-      want this week" gets lost or is planned on an arbitrary day. Add a
-      per-recipe "Cook soon" toggle (a nullable `Recipe.cookSoonAt`
-      timestamp `[schema]`, Phase 2) shown as a pinned "Cook soon" group
-      at the top of the Recipes tab, ordered by when it was added; it
-      clears itself when that recipe is marked cooked or placed on the
-      planner. Suggest, don't mutate: nothing else changes.
-      Acceptance: toggling a seeded recipe moves it into the group and
-      survives reload; marking it cooked removes it; unit test for the
-      auto-clear rule; e2e on desktop and mobile.
-
 ### 2026-10-13 scan
 
 - [ ] **GAP-52. Save a week of meals as a named, reusable template** (impact: med, effort: M) `[schema]` —

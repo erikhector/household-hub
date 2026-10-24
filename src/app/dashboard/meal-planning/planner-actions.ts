@@ -16,6 +16,7 @@ import {
   returnEntryPortionsInTx,
 } from "@/app/dashboard/meal-planning/prep-assign";
 import { weekKeySchema } from "@/app/dashboard/meal-planning/prepared-batch-calc";
+import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -121,6 +122,8 @@ export async function addMealEntryAction(
       portions,
     },
   });
+  // GAP-51: a recipe with a day no longer belongs on the Cook soon shelf.
+  await clearCookSoon(prisma, household.id, linkedRecipeId);
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
@@ -186,6 +189,7 @@ export async function updateMealEntryAction(
     !!entry.preparedBatchId && (linkedRecipeId !== entry.recipeId || portions !== entry.portions);
   if (!unlink) {
     await prisma.mealPlanEntry.update(edit);
+    await clearCookSoon(prisma, household.id, linkedRecipeId);
     revalidatePath(MEAL_PLANNING_PATH);
     return {};
   }
@@ -207,6 +211,7 @@ export async function updateMealEntryAction(
       if (reset.count === 0) throw new BatchChangedError();
       if (!entry.consumedAt) await returnEntryPortionsInTx(tx, household.id, entry);
       await tx.mealPlanEntry.update(edit);
+      await clearCookSoon(tx, household.id, linkedRecipeId);
     });
   } catch (error) {
     if (error instanceof BatchChangedError) return await fail("generic");

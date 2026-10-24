@@ -1821,6 +1821,11 @@ export const sv = {
     duplicateRecipeFailedToast: "Det gick inte att duplicera receptet",
     deleteAriaLabel: "Ta bort recept",
     favoriteAriaLabel: "Favorit {name}",
+    cookSoonTitle: "Laga snart",
+    cookSoonAdd: "Laga snart",
+    cookSoonRemove: "Ta bort från Laga snart",
+    cookSoonAddedToast: "{name} lades till i Laga snart",
+    cookSoonRemovedToast: "{name} togs bort från Laga snart",
     // UX-49: Ta bort sker direkt; toasten har vägen tillbaka.
     recipeDeletedToast: 'Tog bort "{name}"',
     emptyRecipes: "Inga recept än. Lägg till ditt första recept för att börja planera måltider.",

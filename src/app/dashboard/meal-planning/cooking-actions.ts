@@ -31,6 +31,7 @@ import {
 } from "@/app/dashboard/meal-planning/leftovers";
 import { defaultBatchExpiry } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { findSessionMemberId } from "@/app/dashboard/meal-planning/prep-assign";
+import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -330,6 +331,8 @@ export async function markMealEntryCookedAction(
         where: { id: entry.id },
         data: { consumedAt: new Date() },
       });
+      // GAP-51: cooked, so it's off the Cook soon shelf.
+      await clearCookSoon(tx, household.id, entry.recipeId);
     });
   } catch (error) {
     return toFriendlyError(error);
