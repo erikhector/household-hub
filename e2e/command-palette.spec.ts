@@ -1,14 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { dismissCookieNotice, gotoRevealed } from "./ui";
 
 // UX-41a: the ⌘K / Ctrl+K command palette. Open, filter, run.
 const SHORTCUT = "ControlOrMeta+k";
 
+// The shortcut listener attaches on hydration, which a press right after
+// page.goto can beat. Press again only while the palette isn't up, so a slow
+// hydration doesn't toggle it open and shut.
+async function openPalette(page: Page) {
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await expect(async () => {
+    if (!(await palette.isVisible())) await page.keyboard.press(SHORTCUT);
+    await expect(palette).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  return palette;
+}
+
 test("Ctrl+K opens the palette, typing filters it and Enter runs the command", async ({ page }) => {
   await gotoRevealed(page, "/dashboard");
-  await page.keyboard.press(SHORTCUT);
-
-  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const palette = await openPalette(page);
   const input = palette.getByRole("combobox", { name: "Type a command" });
   await expect(input).toBeFocused();
   await expect(palette.getByRole("option", { name: "Add task" })).toBeVisible();
@@ -24,8 +34,7 @@ test("Ctrl+K opens the palette, typing filters it and Enter runs the command", a
 
 test("arrow keys move the highlight and Escape closes", async ({ page }) => {
   await gotoRevealed(page, "/dashboard");
-  await page.keyboard.press(SHORTCUT);
-  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const palette = await openPalette(page);
   const input = palette.getByRole("combobox", { name: "Type a command" });
 
   await expect(palette.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
@@ -45,8 +54,7 @@ test("arrow keys move the highlight and Escape closes", async ({ page }) => {
 test("Add task opens the add-task dialog on the tasks page", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await gotoRevealed(page, "/dashboard");
-  await page.keyboard.press(SHORTCUT);
-  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const palette = await openPalette(page);
   await palette.getByRole("combobox", { name: "Type a command" }).fill("add task");
   await page.keyboard.press("Enter");
 
@@ -57,8 +65,7 @@ test("Add task opens the add-task dialog on the tasks page", async ({ page, cont
 test("Add to shopping list focuses the add box of the list in use", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await gotoRevealed(page, "/dashboard");
-  await page.keyboard.press(SHORTCUT);
-  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const palette = await openPalette(page);
   await palette.getByRole("combobox", { name: "Type a command" }).fill("shopping list");
   await page.keyboard.press("Enter");
 
