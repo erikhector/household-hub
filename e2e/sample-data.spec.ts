@@ -39,9 +39,9 @@ async function withEmptyHousehold(
       [`e2e-sd-member-${tag}`, householdId, userId],
     );
     await page.goto("/login");
-    await page.getByLabel(locale === "sv" ? "E-post" : "Email").fill(email);
-    await page.getByLabel(locale === "sv" ? "Lösenord" : "Password", { exact: true }).fill(PASSWORD);
-    await page.getByRole("button", { name: locale === "sv" ? "Logga in" : "Log in" }).click();
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await page.getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
     await run(client, householdId);
   } finally {
@@ -78,7 +78,7 @@ test("an empty household tries the sample data, sees rows, and clears only the s
     expect(await count("ShoppingList")).toBe(1);
     expect(await count("HouseholdTask")).toBe(3);
     await page.goto("/dashboard/inventory");
-    await expect(page.getByText(en.dashboard.sampleData.content.itemCoffee).first()).toBeVisible();
+    await expect(page.getByText(en.dashboard.sampleData.content.itemCoffee).filter({ visible: true }).first()).toBeVisible();
 
     // The person adds their own pantry row and their own task in the meantime.
     await client.query(
@@ -103,7 +103,7 @@ test("an empty household tries the sample data, sees rows, and clears only the s
     expect(await count("HouseholdTask")).toBe(1);
     expect(await count("MealPlan")).toBe(0);
     await page.goto("/dashboard/inventory");
-    await expect(page.getByText("My own oats").first()).toBeVisible();
+    await expect(page.getByText("My own oats").filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByText(en.dashboard.sampleData.content.itemCoffee)).toHaveCount(0);
   });
 });
@@ -135,6 +135,6 @@ test("the sample data is offered and seeded in Swedish", async ({ page, context,
     await main.getByRole("button", { name: d.tryButton }).click();
     await expect(main.getByRole("heading", { name: d.clearTitle })).toBeVisible();
     await page.goto("/dashboard/inventory");
-    await expect(page.getByText(d.content.itemTomatoes).first()).toBeVisible();
+    await expect(page.getByText(d.content.itemTomatoes).filter({ visible: true }).first()).toBeVisible();
   });
 });
