@@ -49,7 +49,7 @@ test("a month starting on the 25th counts an early payment in the month it is du
   const main = page.getByRole("main");
   await expect(main.getByText("October 2031")).toBeVisible();
   await expect(main.getByText("Sep 25 – Oct 24")).toBeVisible();
-  const row = main.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
+  const row = main.getByRole("button", { name: `More actions for ${name}` }).locator("xpath=..");
   await expect(row).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
@@ -57,18 +57,18 @@ test("a month starting on the 25th counts an early payment in the month it is du
   await row.getByRole("button", { name: "Log", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Date")).toHaveValue("2031-09-28");
-  await dialog.getByRole("button", { name: "Save" }).click();
+  await dialog.getByRole("button", { name: "Add transaction", exact: true }).click();
   await expect(dialog).toBeHidden();
   await waitForDialogHistory(page);
 
   // --- ...so October is settled, and September (25 Aug to 24 Sep) is not ----
   await page.reload();
-  await expect(main.getByText(name, { exact: true })).toHaveCount(0);
+  await expect(main.getByRole("button", { name: `More actions for ${name}` })).toHaveCount(0);
   await page.goto("/dashboard/budget?month=2031-10&tab=transactions");
-  await expect(main.getByText(`Housing ${tag}`).first()).toBeVisible();
+  await expect(main.getByText(`Housing ${tag}`).filter({ visible: true }).first()).toBeVisible();
   await page.goto("/dashboard/budget?month=2031-09&tab=transactions");
   await expect(main.getByText("Aug 25 – Sep 24")).toBeVisible();
-  await expect(main.getByText(`Housing ${tag}`)).toHaveCount(0);
+  await expect(main.getByText(`Housing ${tag}`).filter({ visible: true })).toHaveCount(0);
 
   await withDb(async (client) => {
     await client.query(`DELETE FROM "Transaction" WHERE "recurringTemplateId" = $1`, [templateId]);
