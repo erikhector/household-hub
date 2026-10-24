@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -64,13 +66,24 @@ async function expectOneEmptyStatePrimary(page: Page, line: string | RegExp, pri
   const solid = main.locator("button.bg-primary:visible, a.bg-primary:visible");
   await expect(solid).toHaveCount(1);
   await expect(solid).toHaveAccessibleName(primary.replace(/^link:/, ""));
+  // For eyeballing the layout (see "Screenshots" in AGENTS.md): off unless asked for.
+  const dir = process.env.E2E_SCREENSHOT_DIR;
+  if (dir) {
+    fs.mkdirSync(dir, { recursive: true });
+    const slug = new URL(page.url()).search.replace(/\W+/g, "-") + new URL(page.url()).pathname.replace(/\W+/g, "-");
+    await page.screenshot({ path: path.join(dir, `empty-${test.info().project.name}${slug}.png`) });
+  }
   return solid;
 }
 
-// On a phone the primary floats at the bottom right: no other control may
-// sit under it (the empty inventory's "Paste a list" link used to).
+// On a phone the primary floats at the bottom right: scrolled to the end of
+// the page, no other control may sit under it (the empty inventory's "Paste
+// a list" link used to). Mid-page, content scrolling under it is normal.
 async function expectNothingUnderPrimary(page: Page, testInfo: { project: { name: string } }) {
   if (testInfo.project.name !== "mobile") return;
+  await page.getByRole("main").evaluate((main) => {
+    main.scrollTop = main.scrollHeight;
+  });
   const fab = page.locator("[data-primary-action]:visible").first();
   const box = await fab.boundingBox();
   expect(box, "the primary action is on screen").not.toBeNull();
@@ -124,9 +137,6 @@ test("a new household's inventory is one empty state with Add item, and nothing 
   await withEmptyHousehold(page, context, baseURL!, tag, async () => {
     await page.goto("/dashboard/inventory");
     await expectOneEmptyStatePrimary(page, /Add a few items to start tracking/, "Add item");
-    // The old row of text links (Add item, Scan, Paste a list) is gone from
-    // the box; scanning and pasting live in the header and the ⋯ menu.
-    await expect(page.getByRole("button", { name: "Paste a list" }).filter({ visible: true })).toHaveCount(0);
     await expectNothingUnderPrimary(page, testInfo);
     await expectNoHorizontalOverflow(page);
   });

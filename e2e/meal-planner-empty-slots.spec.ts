@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { withCurrentWeekMeal } from "./current-week-meal";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
 // UX-5 / UX-21 / UX-50: a day with nothing planned is one "+ Add meal" button
@@ -109,7 +110,11 @@ test("the planner has one control row with the rare actions in a menu", async ({
 });
 
 test("the current week opens with today in view", async ({ page }) => {
-  await page.goto("/dashboard/meal-planning");
+  // UX-50: an empty week is one empty state with no day cards, so plan one
+  // meal today first.
+  await withCurrentWeekMeal(`view-${Date.now().toString(36)}`, async () => {
+    await page.goto("/dashboard/meal-planning");
 
-  await expect(page.locator("#meal-planner-today-card:visible")).toBeInViewport();
+    await expect(page.locator("#meal-planner-today-card:visible")).toBeInViewport();
+  });
 });
