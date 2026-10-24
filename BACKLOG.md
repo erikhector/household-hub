@@ -1177,22 +1177,6 @@ out to be a product-scope question rather than a scoped task should move to
       and asserts it in the bridge preview and on the list after "Add",
       on desktop and mobile.
 
-- [ ] **GAP-59. Search the meal plan** (impact: low-med, effort: S) —
-      AnyList's same update added search across the whole meal-plan
-      calendar. Squirrel's planner shows one week at a time
-      (`?week=yyyy-mm-dd`), so "when did we last have lasagna?" or "which
-      night is taco night?" means paging week by week; GAP-46 covers only
-      saved recipes' last-cooked date, not custom meals or future dates.
-      Add a search field in the planner header that, after two characters,
-      lists up to 20 matching entries (recipe title or `freeformName`,
-      case-insensitive, within a year either side of today) as "Tue 21 Oct
-      · Dinner · Lasagna", newest first, each linking to its `?week=`.
-      Read-only, one household-scoped query, no schema change.
-      Acceptance: a loader test covers household scoping, the date window,
-      the 20 cap and freeform names; an e2e step plans a uniquely named
-      custom meal two weeks ahead, searches it and follows the link to the
-      right week, on desktop and mobile (field has a visible label, 44 px).
-
 ### 2026-10-18 scan
 
 - [ ] **GAP-60. "Skip this time" on a recurring task** (impact: low-med, effort: S) `[schema]` —

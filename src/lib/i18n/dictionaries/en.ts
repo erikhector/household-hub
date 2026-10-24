@@ -1727,6 +1727,12 @@ export const en = {
     mealTypeLunch: "Lunch",
     mealTypeDinner: "Dinner",
     mealTypeSnack: "Snack",
+    // GAP-59: search across the whole plan (a year either side of today).
+    searchPlanLabel: "Search the meal plan",
+    searchPlanPlaceholder: "Recipe or meal name",
+    searchPlanResults: "Planned meals matching your search",
+    searchPlanNoResults: "Nothing planned matches that.",
+    searchPlanError: "Couldn't search the meal plan. Try again.",
     // UX-99: each day's button names its day ("Add meal, Mon 12"), so seven
     // identical "Add meal" buttons are tellable apart by a screen reader.
     addMeal: "Add meal",
