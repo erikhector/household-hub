@@ -78,7 +78,7 @@ describe("addRepurchaseSuggestionAction", () => {
         name: "Coffee",
         quantity: 2,
         unit: "pkt",
-        estimatedPrice: 59,
+        estimatedPrice: 118,
       },
       select: { id: true },
     });

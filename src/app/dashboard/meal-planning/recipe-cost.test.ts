@@ -52,6 +52,17 @@ describe("unitPriceFromLastPurchase", () => {
     expect(unitPriceFromLastPurchase({ unit: "g", lastKnownPrice: 24, purchases })).toBeCloseTo(0.048);
   });
 
+  // BUG-3: lastKnownPrice is per unit of the line's quantity now, so a line
+  // of 1000 g for 48 stores 0.048 and is recognised by price = unit x quantity.
+  it("reads a per-unit lastKnownPrice against the line whose price is unit x quantity (BUG-3)", () => {
+    const purchases: RecipeCostPurchase[] = [{ quantity: 1000, unit: "g", price: 48 }];
+    expect(unitPriceFromLastPurchase({ unit: "g", lastKnownPrice: 0.048, purchases })).toBeCloseTo(0.048);
+    // Converted too: 0.5 kg for 24 is 48 per kg, 0.048 per g.
+    expect(
+      unitPriceFromLastPurchase({ unit: "g", lastKnownPrice: 48, purchases: [{ quantity: 0.5, unit: "kg", price: 24 }] }),
+    ).toBeCloseTo(0.048);
+  });
+
   it("returns null when the purchase can't be recovered or converted", () => {
     // Never priced.
     expect(unitPriceFromLastPurchase({ unit: "g", lastKnownPrice: null, purchases: [] })).toBeNull();

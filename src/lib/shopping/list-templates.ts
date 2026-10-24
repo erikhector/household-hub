@@ -4,6 +4,7 @@
 // unit-tested without mocking Prisma.
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { createInventoryLinker } from "@/lib/shopping/inventory-link";
+import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 
 // Same cap importShoppingListItemsAction puts on a pasted list — a template
 // is just a saved paste, and anything bigger than this is far more likely
@@ -79,7 +80,7 @@ export function resolveTemplateRows(
       name: item.name,
       quantity: item.quantity,
       unit: item.unit || inventoryItem?.unit || "pcs",
-      estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
+      estimatedPrice: defaultLineEstimate(inventoryItem?.lastKnownPrice, item.quantity),
     };
   });
 }

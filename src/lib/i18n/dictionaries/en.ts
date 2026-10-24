@@ -976,6 +976,7 @@ export const en = {
       matchLabel: "Matches",
       matchNoResults: "No matching items",
       qtyLabel: "qty {qty}",
+      qtyAtUnitPrice: "{qty} × {unitPrice}",
       noMatchHint: "No match found",
       addAsNewItem: "Add \"{name}\" as a new item",
       addButton: "Add",

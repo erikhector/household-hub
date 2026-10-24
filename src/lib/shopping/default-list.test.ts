@@ -85,7 +85,8 @@ describe("addItemToDefaultList", () => {
         quantity: 2,
         unit: "l",
         addedAutomatically: true,
-        estimatedPrice: 15,
+        // BUG-3: 15 a unit × the row's quantity of 2.
+        estimatedPrice: 30,
       },
       select: { id: true },
     });

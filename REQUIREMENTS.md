@@ -2282,9 +2282,17 @@ non-null `lastKnownPrice` now defaults the new row's `estimatedPrice` to it
 low-stock items" (`generateFromLowStockAction`), pasted/CSV import
 (`importShoppingListItemsAction`), and the smart add line
 (`smartAddShoppingListItemsAction`, for a row that resolves to an *existing*
-inventory item — a brand-new one has no price yet). The default is
-per-unit, unmultiplied by `quantity` — matching how `completeShoppingListAction`
-sums `estimatedPrice` above, so a 2-pack priced at "24" books as 24, not 48.
+inventory item — a brand-new one has no price yet). `lastKnownPrice` is the
+price of **one unit of a line's quantity** and a row's `estimatedPrice` is the
+whole line (`completeShoppingListAction` sums it as is, so a row priced "24"
+books as 24 whatever its quantity), so every writer divides and every create
+path multiplies (`src/lib/shopping/unit-price.ts`: `unitPriceOf`,
+`defaultLineEstimate`): after 3 cartons for 45 the item's `lastKnownPrice` is
+15, and the next "Milk ×1" starts at 15 and a "Milk ×2" at 30 (BUG-3). The
+writers are `applyStockArrival` (tick, share-link tick, put-away: the price
+over `priceQuantity`, the quantity it was paid for), the put-away-mode branch
+of `applyReceiptScanAction` and `registerReceiptAction`. Older rows hold the
+line price, which is the same number for a ×1 line; there was no backfill.
 This only ever runs once, at creation: a receipt-driven create
 (`registerReceiptAction`) keeps setting `estimatedPrice` from the receipt's
 own (real) price instead, and once a user corrects a row's price nothing
@@ -4018,8 +4026,8 @@ below.
   quantity, which is what a receipt line's price already means, so typed
   rows go through `applyReceiptScanAction` / `registerReceiptAction`
   exactly like scanned ones: `estimatedPrice`, PriceHistory (with the
-  quantity), `lastKnownPrice` (the line price, as every writer stores it;
-  see `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
+  quantity), `lastKnownPrice` (the price per unit of that quantity, 45 for
+  3 is 15; see AUTO-4 and `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
   shows only when every row was typed, not when "Add line" joins a scanned
   receipt. Covered by `e2e/manual-receipt-prices.spec.ts`, with the vision
   call mocked to fail.
@@ -4100,6 +4108,18 @@ below.
   its own rows). De-dupes by `shoppingListItemId` server-side (in case two
   OCR'd lines were ever matched to the same item) so nothing is
   double-counted.
+  **Quantity (BUG-3)**: a receipt line's quantity rides along in
+  `ReceiptScanMatch.quantity` (the receipt may say 3 where the row says
+  ×1; omitted or not positive falls back to the row's). The price is what
+  was paid, so the row is booked at it (`estimatedPrice` 45), but
+  `PriceHistory` records it with the line's quantity (45 for 3, so the
+  price-spike check compares 15) and `lastKnownPrice` is the unit price
+  (15). Stock still counts the row's own quantity. The review row shows
+  "3 × 15.00" (quantity × unit price, from the editable price) under the
+  name when the quantity isn't 1, so a misread count or price is visible
+  before applying. `registerReceiptAction` stores `lastKnownPrice` the
+  same way. Covered by `e2e/manual-receipt-prices.spec.ts` (a ×3 line, then
+  the next ×2 row estimating 30).
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
   this flow has no existing shopping list to match against, each reviewed
   line instead gets matched against the household's *inventory* catalog —
@@ -4713,7 +4733,10 @@ by AUTO-4, above) and the purchased shopping-list line that set it — through
 the same unit table (`src/lib/units.ts`) the
 meal-plan → shopping-list bridge uses.
 
-- **Per-unit price**: `lastKnownPrice` is the price of one purchased
+- **Per-unit price** (BUG-3: lines saved since then store `lastKnownPrice`
+  per unit of the line's quantity, so the line that set it has `price =
+  lastKnownPrice × quantity`, and `unitPriceFromLastPurchase` reads both
+  that and the older form below): `lastKnownPrice` was the price of one purchased
   shopping-list *line*, whatever quantity that line was for (a 500 g pack
   of flour for 24 records 24), not the price of one of the item's unit. So
   `unitPriceFromLastPurchase` recovers the line that set it — the newest

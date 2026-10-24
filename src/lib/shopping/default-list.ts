@@ -22,6 +22,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getStockStatus } from "@/lib/stock-status";
 import { coveredQuantity, loadIncomingByItem, loadIncomingQuantity } from "@/lib/incoming-stock";
+import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
 
@@ -110,7 +111,7 @@ export async function addItemToDefaultList(
       unit: item.unit,
       addedAutomatically,
       // AUTO-4: same last-known-price default as every other add path.
-      estimatedPrice: item.lastKnownPrice ?? undefined,
+      estimatedPrice: defaultLineEstimate(item.lastKnownPrice, Math.max(1, item.lowStockThreshold - item.quantity)),
     },
     select: { id: true },
   });
@@ -235,7 +236,7 @@ export async function addToDefaultListOnLowStockBatch(
       quantity: Math.max(1, item.lowStockThreshold - nextQuantity),
       unit: item.unit,
       addedAutomatically: true,
-      estimatedPrice: item.lastKnownPrice ?? undefined,
+      estimatedPrice: defaultLineEstimate(item.lastKnownPrice, Math.max(1, item.lowStockThreshold - nextQuantity)),
     })),
     select: { id: true, inventoryItemId: true },
   });

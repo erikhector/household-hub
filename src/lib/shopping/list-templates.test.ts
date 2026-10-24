@@ -42,7 +42,7 @@ describe("resolveTemplateRows", () => {
   it("keeps a saved link that still exists and picks up its lastKnownPrice", () => {
     expect(
       resolveTemplateRows([{ name: "Mjölk", quantity: 2, unit: "l", inventoryItemId: "milk" }], inventory),
-    ).toEqual([{ inventoryItemId: "milk", name: "Mjölk", quantity: 2, unit: "l", estimatedPrice: 12.5 }]);
+    ).toEqual([{ inventoryItemId: "milk", name: "Mjölk", quantity: 2, unit: "l", estimatedPrice: 25 }]);
   });
 
   it("re-resolves by name when the saved link is gone or was never set", () => {
