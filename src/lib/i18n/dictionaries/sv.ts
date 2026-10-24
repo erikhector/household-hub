@@ -133,6 +133,18 @@ export const sv = {
     whatsNew: "Nyheter",
     whatsNewUnseen: "Ny uppdatering",
   },
+  commandPalette: {
+    title: "Kommandopalett",
+    inputLabel: "Skriv ett kommando",
+    placeholder: "Gå till eller gör något…",
+    listLabel: "Kommandon",
+    goTo: "Gå till {section}",
+    addTask: "Lägg till syssla",
+    addToShoppingList: "Lägg till i inköpslistan",
+    empty: "Inga matchande kommandon.",
+    hint: "Piltangenter för att flytta, Retur för att köra, Esc för att stänga",
+    results: { one: "{count} kommando", other: "{count} kommandon" },
+  },
   whatsNew: {
     title: "Nyheter",
     subtitle: "Alla uppdateringar av Squirrel och vad de ändrade.",

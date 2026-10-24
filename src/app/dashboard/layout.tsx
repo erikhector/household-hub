@@ -8,6 +8,7 @@ import {
   EmailVerificationBanner,
   EMAIL_VERIFICATION_DISMISSED_COOKIE,
 } from "@/components/dashboard/email-verification-banner";
+import { CommandPalette } from "@/components/dashboard/command-palette";
 import { UnitsProvider } from "@/components/units-provider";
 import { requireHousehold } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
@@ -162,6 +163,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>{children}</UnitsProvider>
         </main>
       </div>
+      <CommandPalette dict={dict.commandPalette} nav={dict.nav} />
       <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} />
     </div>
   );

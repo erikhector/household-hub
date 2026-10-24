@@ -1,5 +1,6 @@
 import { withCommonUnits } from "@/lib/units";
 import { Suspense, type ReactNode } from "react";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -8,6 +9,7 @@ import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-di
 import { ListTemplatesSection } from "@/components/shopping/list-templates";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
+import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 
 // Same reasoning as inventory/page.tsx's maxDuration: RegisterReceiptDialog
 // can call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which
@@ -76,8 +78,27 @@ async function ShoppingListsSection({
   );
 }
 
-export default async function ShoppingListPage() {
-  const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
+export default async function ShoppingListPage(props: PageProps<"/dashboard/shopping-list">) {
+  const [{ household }, dict, locale, searchParams] = await Promise.all([
+    requireHousehold(),
+    getDictionary(),
+    getLocale(),
+    props.searchParams,
+  ]);
+
+  // UX-41a: the command palette's "Add to shopping list" can't name a list,
+  // so it lands here with `?add=1` and goes on to the one the household is
+  // filling (the default "Next shop" leads the active lists, as in the
+  // overview below), where SmartAddBar takes focus. With no active list it
+  // falls through to the overview, whose "New list" is the next step.
+  if (searchParams[ADD_PARAM] === "1") {
+    const target = await prisma.shoppingList.findFirst({
+      where: { householdId: household.id, status: "ACTIVE" },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      select: { id: true },
+    });
+    if (target) redirect(`/dashboard/shopping-list/${target.id}?${ADD_PARAM}=1`);
+  }
 
   // UX-85: what the New list sheet can start from: saved templates, and the
   // latest few lists (any status, the default "Next shop" included: repeating

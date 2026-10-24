@@ -761,16 +761,6 @@ gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) needs an owner decision and sits under
 "Needs a decision before building".
 
-- [ ] **UX-41a. Command palette: go-to and quick actions** (M) — Split
-      from UX-41 (too big for one PR). ⌘K / Ctrl-K opens a Base UI dialog
-      palette on desktop, mounted once in the dashboard layout. Static
-      commands first ("Go to budget", "Add task", "Add to Groceries"),
-      filtered as you type, arrow keys + Enter, Esc closes. The palette
-      stores nothing in the browser, so cookie-inventory.ts stays
-      unchanged. Needs dict entries in en/sv, and
-      an e2e spec for open, filter, run. No data search yet (UX-41b).
-      Builds on: nothing.
-
 - [ ] **UX-41b. Command palette: household search** (M) — Split from
       UX-41. A `searchHousehold(query)` Server Action (in
       `src/lib/actions/`) behind `requireHousehold()` that returns the top
@@ -778,7 +768,7 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       categories by name, every query scoped by householdId, Zod-validated,
       rate-limited like other read actions, with a unit test for the
       tenancy scoping. The palette from UX-41a shows them as grouped,
-      debounced results that navigate to the row. Needs UX-41a.
+      debounced results that navigate to the row. Builds on UX-41a (shipped).
 
 - [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
       UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`

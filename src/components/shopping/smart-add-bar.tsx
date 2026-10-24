@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useRef, useState, useTransition, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type KeyboardEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mic, Plus, Square } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { smartAddShoppingListItemsAction } from "@/app/dashboard/shopping-list/a
 import { findItemByBarcodeAction } from "@/lib/actions/barcode";
 import { BarcodeScannerButton } from "@/components/shared/barcode-scanner";
 import { format, plural } from "@/lib/i18n/format";
+import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 import { cn } from "@/lib/utils";
 import {
   parseSmartAddInput,
@@ -73,6 +75,18 @@ export function SmartAddBar({
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
+
+  // UX-41a: the command palette's "Add to shopping list" lands here with
+  // `?add=1`: focus the bar so the user can type straight away, then strip
+  // the param so a reload doesn't steal focus again.
+  const router = useRouter();
+  const pathname = usePathname();
+  const addParam = useSearchParams().get(ADD_PARAM);
+  useEffect(() => {
+    if (addParam !== "1") return;
+    inputRef.current?.focus();
+    router.replace(pathname, { scroll: false });
+  }, [addParam, pathname, router]);
 
   const query = splitSmartAddInput(value).current?.name ?? "";
   const suggestions = rankSmartAddSuggestions(query, candidates, {
