@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.106.0",
+    "date": "2026-10-24",
+    "pr": 660,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Households can now start their budget month on payday. In Household settings, choose the day your pay lands (for example the 25th), and each budget month runs from that day to the day before, with Safe to spend, recurring bills and planned bills following it. Paying a bill early now counts it in the month it is due.\n\nA recipe now shows the next days it is on your meal plan, so you can see at a glance if you have already planned it. Tap a date to open that week.",
+      "sv": "Hushåll kan nu låta budgetmånaden börja på löningsdagen. Välj dagen då lönen kommer (till exempel den 25:e) i hushållets inställningar, så löper varje budgetmånad från den dagen till dagen före, och Säkert att spendera, återkommande räkningar och planerade räkningar följer med. Betalar du en räkning i förväg räknas den i den månad den förfaller.\n\nEtt recept visar nu de närmaste dagarna det står på måltidsplanen, så att du direkt ser om det redan är planerat. Tryck på ett datum för att öppna veckan."
+    }
+  },
+  {
     "version": "0.105.0",
     "date": "2026-10-24",
     "pr": 656,
