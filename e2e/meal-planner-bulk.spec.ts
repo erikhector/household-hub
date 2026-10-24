@@ -167,17 +167,17 @@ test("select several planned meals, move them a day, re-portion them, then remov
     await waitForUndoableDelete(page, "Removed 2 meals");
     await page.reload();
     await expect(page.getByRole("button", { name: "More planner actions" })).toBeVisible();
-    await expect(page.getByText(names.a)).toHaveCount(0);
-    await expect(page.getByText(names.b)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: new RegExp(names.a) })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: new RegExp(names.b) })).toHaveCount(0);
     // The cooked meal is untouched.
-    await expect(page.getByText(names.cooked)).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(names.cooked) })).toBeVisible();
   } finally {
     await cleanup(recipeIds);
   }
 });
 
 test("Undo on a bulk move puts the meals back", async ({ page }) => {
-  const names = { a: unique("Undo A"), b: unique("Undo B"), cooked: unique("Undo Cooked") };
+  const names = { a: unique("Restore A"), b: unique("Restore B"), cooked: unique("Restore Cooked") };
   const wednesday = farWednesday();
   const recipeIds = await seed(names, wednesday);
   try {
