@@ -5543,6 +5543,34 @@ any member's star is everyone's star.
   Recipes list itself stays alphabetical. The star is visible there, and
   search already narrows the list.
 
+### Cook soon shelf (GAP-51)
+
+BACKLOG GAP-51, from the competitor scan of AnyList's meal-planning queue.
+Favorites are permanent and the planner is dated; "that chili I want this
+week" sat in between and got lost or was planned on an arbitrary day.
+`Recipe.cookSoonAt DateTime?` (migration `recipe_cook_soon`) is null for a
+recipe that isn't queued and the time it was queued otherwise.
+
+- **Toggle**: a "Cook soon" / "Remove from Cook soon" button in the recipe's
+  sheet, under "Add to plan" (the row itself stays two lines, M6). A click
+  action, `toggleRecipeCookSoonAction(recipeId)` in `recipe-actions.ts`,
+  with `useOptimistic` and a toast saying which way it went. The action
+  flips the stored value and scopes its lookup to `requireHousehold()`'s
+  household, so a foreign id is a silent no-op (same as the favorite star).
+- **Shelf**: queued recipes show in a "Cook soon" group above the list on
+  the Recipes tab, oldest first (`splitCookSoon`, `cook-soon.ts`). The
+  search and tag filter apply to it too, and the group is absent when
+  nothing is queued. The rest of the list stays alphabetical.
+- **Clears itself**: `clearCookSoon` (`cook-soon.ts`) runs when the recipe
+  is put on the planner (`addMealEntryAction`, and `updateMealEntryAction`
+  when an entry is switched to it) and when a meal of it is marked cooked
+  (`markMealEntryCookedAction`, inside its transaction). Undoing a cook
+  doesn't re-queue it. Copy week and Fill empty days don't clear it: they
+  re-plan or auto-pick, they aren't the household deciding the day.
+- **Suggest, don't mutate**: nothing else reads `cookSoonAt`. It doesn't
+  change the Cook tab's ranking, "use it up", the shopping list or the
+  planner.
+
 ### Recipe sheet: Add to plan and instructions (UX-92)
 
 A recipe's sheet on the Recipes tab (`RecipeRow` in `recipe-manager.tsx`)
