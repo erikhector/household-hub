@@ -116,6 +116,24 @@ export function RecipeManager({
     [recipes, query, tagFilter],
   );
 
+  // UX-50: "New recipe" is the tab's one primary; with no recipes yet the
+  // empty state holds it instead of the header.
+  const newRecipeDialog = (
+    <RecipeFormDialog
+      dict={dict}
+      mode="create"
+      allRecipes={recipes}
+      ingredientNames={ingredientNames}
+      ingredientUnits={ingredientUnits}
+      trigger={
+        <Button type="button">
+          <Plus className="size-4" />
+          {dict.newRecipe}
+        </Button>
+      }
+    />
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
@@ -126,25 +144,11 @@ export function RecipeManager({
         {/* M2: on a phone the tab's one primary action floats in thumb
             reach above the bottom bar, like every other page's (UX-40);
             from `sm` it stays here in the header. */}
-        <PrimaryAction>
-          <RecipeFormDialog
-            dict={dict}
-            mode="create"
-            allRecipes={recipes}
-            ingredientNames={ingredientNames}
-            ingredientUnits={ingredientUnits}
-            trigger={
-              <Button type="button">
-                <Plus className="size-4" />
-                {dict.newRecipe}
-              </Button>
-            }
-          />
-        </PrimaryAction>
+        {recipes.length > 0 && <PrimaryAction>{newRecipeDialog}</PrimaryAction>}
       </div>
 
       {recipes.length === 0 ? (
-        <MascotEmptyState alt={dict.mascotAlt}>
+        <MascotEmptyState alt={dict.mascotAlt} action={newRecipeDialog}>
           <p className="text-sm text-muted-foreground">{dict.emptyRecipes}</p>
         </MascotEmptyState>
       ) : (

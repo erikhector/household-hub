@@ -73,7 +73,7 @@ export function StarterKitPicker({ dict }: { dict: Dictionary["inventory"] }) {
             key={kit.id}
             type="button"
             size="sm"
-            variant={kit.id === active.id ? "default" : "outline"}
+            variant={kit.id === active.id ? "secondary" : "outline"}
             onClick={() => switchKit(kit.id)}
           >
             {kit.label}
@@ -105,7 +105,7 @@ export function StarterKitPicker({ dict }: { dict: Dictionary["inventory"] }) {
           );
         })}
       </div>
-      <Button type="button" size="sm" onClick={handleAdd} disabled={isPending}>
+      <Button type="button" size="sm" variant="outline" onClick={handleAdd} disabled={isPending}>
         {isPending ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (

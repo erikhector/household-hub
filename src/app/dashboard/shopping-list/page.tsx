@@ -1,5 +1,5 @@
 import { withCommonUnits } from "@/lib/units";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -28,9 +28,12 @@ function ShoppingListsSkeleton({ label }: { label: string }) {
 async function ShoppingListsSection({
   householdId,
   dict,
+  newListDialog,
 }: {
   householdId: string;
   dict: Awaited<ReturnType<typeof getDictionary>>["shoppingList"];
+  /** UX-50: "New list", for the empty state to hold while there are no lists. */
+  newListDialog: ReactNode;
 }) {
   const [lists, templates] = await Promise.all([
     prisma.shoppingList.findMany({
@@ -60,6 +63,7 @@ async function ShoppingListsSection({
     <div className="flex flex-col gap-6">
       <ShoppingListsOverview
         dict={dict}
+        emptyAction={newListDialog}
         active={lists.filter((l) => l.status === "ACTIVE").map(toSummary)}
         completed={lists.filter((l) => l.status === "COMPLETED").map(toSummary)}
         archived={lists.filter((l) => l.status === "ARCHIVED").map(toSummary)}
@@ -80,7 +84,7 @@ export default async function ShoppingListPage() {
   // last week's shop is the common case). A list with no rows has nothing to
   // copy, so it isn't offered; the unbought count lets the sheet default a
   // finished trip, where every row is ticked, to "All items".
-  const [inventoryItems, aliases, startTemplates, recentLists] = await Promise.all([
+  const [inventoryItems, aliases, startTemplates, recentLists, listCount] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
       // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
@@ -105,11 +109,17 @@ export default async function ShoppingListPage() {
       take: 10,
       select: { id: true, name: true, _count: { select: { items: { where: { purchased: false } } } } },
     }),
+    // UX-50: with no lists at all "New list" lives in the empty state.
+    prisma.shoppingList.count({ where: { householdId: household.id } }),
   ]);
   const startLists = recentLists.map((list) => ({ id: list.id, name: list.name, unbought: list._count.items }));
 
   const units = withCommonUnits([...new Set(inventoryItems.map((item) => item.unit))].sort());
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
+
+  const newListDialog = (
+    <NewListDialog dict={dict.shoppingList} locale={locale} templates={startTemplates} recentLists={startLists} />
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -127,18 +137,11 @@ export default async function ShoppingListPage() {
             locale={locale}
             aliases={aliases}
           />
-          <PrimaryAction>
-            <NewListDialog
-              dict={dict.shoppingList}
-              locale={locale}
-              templates={startTemplates}
-              recentLists={startLists}
-            />
-          </PrimaryAction>
+          {listCount > 0 && <PrimaryAction>{newListDialog}</PrimaryAction>}
         </div>
       </div>
       <Suspense fallback={<ShoppingListsSkeleton label={dict.common.loading} />}>
-        <ShoppingListsSection householdId={household.id} dict={dict.shoppingList} />
+        <ShoppingListsSection householdId={household.id} dict={dict.shoppingList} newListDialog={newListDialog} />
       </Suspense>
     </div>
   );

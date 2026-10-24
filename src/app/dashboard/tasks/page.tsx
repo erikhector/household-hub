@@ -82,8 +82,7 @@ const getTasksData = cache(async (householdId: string) => {
   };
 });
 
-async function AddTaskButton({ householdId, dict }: { householdId: string; dict: Dictionary["tasks"] }) {
-  const { memberOptions } = await getTasksData(householdId);
+function addTaskDialog(memberOptions: { id: string; displayName: string }[],dict: Dictionary["tasks"]) {
   return (
     <TaskFormDialog
       mode="create"
@@ -99,6 +98,14 @@ async function AddTaskButton({ householdId, dict }: { householdId: string; dict:
       }
     />
   );
+}
+
+// UX-50: with no tasks at all the empty state below holds "Add task" (see
+// TasksClient), so the header leaves it out: one primary on screen, not two.
+async function AddTaskButton({ householdId, dict }: { householdId: string; dict: Dictionary["tasks"] }) {
+  const { memberOptions, tasks } = await getTasksData(householdId);
+  if (tasks.length === 0) return null;
+  return <PrimaryAction>{addTaskDialog(memberOptions, dict)}</PrimaryAction>;
 }
 
 function TasksListSkeleton({ label }: { label: string }) {
@@ -132,6 +139,7 @@ async function TasksSection({
       now={now}
       timeZone={timeZone}
       locale={locale}
+      emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, dict) : undefined}
     />
   );
 }
@@ -146,11 +154,15 @@ export default async function TasksPage() {
           <PageTitle>{dict.tasks.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.tasks.subtitle}</p>
         </div>
-        <PrimaryAction>
-          <Suspense fallback={<div className="h-9 w-28 animate-pulse rounded-md bg-muted max-sm:h-12 max-sm:rounded-full" aria-hidden="true" />}>
-            <AddTaskButton householdId={household.id} dict={dict.tasks} />
-          </Suspense>
-        </PrimaryAction>
+        <Suspense
+          fallback={
+            <PrimaryAction>
+              <div className="h-9 w-28 animate-pulse rounded-md bg-muted max-sm:h-12 max-sm:rounded-full" aria-hidden="true" />
+            </PrimaryAction>
+          }
+        >
+          <AddTaskButton householdId={household.id} dict={dict.tasks} />
+        </Suspense>
       </div>
       <Suspense fallback={<TasksListSkeleton label={dict.common.loading} />}>
         <TasksSection householdId={household.id} userId={userId} dict={dict.tasks} locale={locale} />

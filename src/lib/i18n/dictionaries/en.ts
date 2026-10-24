@@ -559,7 +559,7 @@ export const en = {
     nameLabel: "Name",
     creating: "Creating…",
     create: "Create list",
-    empty: "No shopping lists yet. Create one to get started.",
+    empty: "One shared list for the whole household, so nobody buys the milk twice.",
     sectionActive: "Active",
     sectionCompleted: "Completed",
     sectionArchived: "Archived",
@@ -1195,7 +1195,8 @@ export const en = {
     emptyNoItems: "No items yet. Add your first item to start tracking inventory.",
     emptyNoMatches: "No items match your filters.",
     emptyTitle: "No items yet",
-    emptyLead: "Add a few items to start tracking what's in stock.",
+    emptyLead: "Add a few items to start tracking what's in stock, and Squirrel tells you what to buy before it runs out.",
+    quickAddToggle: "Or type several in a row",
     mascotAlt: "Squirrel mascot",
     quickAdd: {
       label: "Quick add",
@@ -1694,6 +1695,13 @@ export const en = {
     // "Fill empty days" (BACKLOG GAP-45) — a preview of one favorite dinner
     // per empty day; nothing is saved until "Add dinners" (fillEmptyDaysAction).
     fillEmptyDays: "Fill empty days",
+    // UX-50: an empty week is one empty state with one primary, not seven
+    // "Add meal" cards; the ⋯ menu keeps Copy last week and Fill empty days.
+    plannerEmpty:
+      "Plan the week's meals and Squirrel works out what you still need to buy. Copy last week or fill the empty days from the ⋯ menu.",
+    plannerEmptyNoRecipes:
+      "Plan the week's meals and Squirrel works out what you still need to buy. Add a few recipes first and planning gets quicker.",
+    addFirstDinner: "Add your first dinner",
     fillEmptyDaysDescription: "Dinners picked for the days with nothing planned, favorites first and then your other recipes. Nothing is saved until you add them.",
     fillEmptyDaysNoRecipes: "No recipes to pick from yet. Add a few in the Recipes tab and they will show up here.",
     fillEmptyDaysNoneLeft: "Every recipe is already planned this week, so there is nothing new to propose.",
@@ -2052,6 +2060,10 @@ export const en = {
     cookNowTitle: "Cook now",
     cookNowSubtitle: "Recipes you already have everything (or almost everything) for.",
     emptyCookNow: "No recipes are close to ready yet — restock a few ingredients or add more recipes.",
+    // UX-50: Cook now's empty state, with its one next step.
+    emptyCookNowNoRecipes: "Add a recipe and this tab shows what you can cook from what's already in stock.",
+    cookNowAddRecipe: "Add a recipe",
+    cookNowOpenInventory: "Update your inventory",
     readyToCookBadge: "Ready to cook",
     addToPlanButton: "Add to plan",
     addToPlanDialogTitle: "Add {recipe} to the plan",
@@ -2175,7 +2187,7 @@ export const en = {
     unassignedOption: "Unassigned",
     add: "Add",
     adding: "Adding…",
-    emptyState: "No tasks yet — use Add task to add one.",
+    emptyState: "Add the chores that keep coming back, and everyone can see what's open and who has it.",
     mascotAlt: "Squirrel mascot",
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",

@@ -7795,6 +7795,32 @@ the bell dropdown, the catalog, scan queues and every budget surface stay
 text-only: small inline empties would be noise, and money surfaces get no
 mascot or celebration (PRODUCT.md Guardrails).
 
+**One empty-state pattern, with the next step inside it (UX-50).** On a new
+household every section and tab is the same thing: `MascotEmptyState`, one
+line on why the section is worth using, and exactly one primary action
+passed as its `action` prop, which places it through `PrimaryAction` (inline
+under the copy from `sm`, floating at the bottom right on a phone, so
+nothing may sit under it at 412 px). The page's own header `PrimaryAction`
+is left out while the section is empty, so there is never a second primary:
+Tasks (`AddTaskButton` renders nothing with no tasks; `TasksClient` gets
+`emptyAction`), Shopping (the page counts lists; `ShoppingListsOverview`
+gets `emptyAction`), Recipes ("New recipe"), Meal prep ("Record prep", which
+is now a `PrimaryAction` like its siblings instead of a full-width sticky
+bar) and the empty inventory ("Add item"; the quick-add row waits behind
+"Or type several in a row", starter kits stay below the box, and the
+header's own Add item and FAB only appear once there are items). Cook now
+gets the mascot and a link button: "Add a recipe" (to the Recipes tab) with
+no recipes, "Update your inventory" with recipes but none close to ready
+(`PrimaryAction` styles links as the phone pill too). An empty planner week
+is one empty state with "Add your first dinner" (the same `MealEntryDialog`,
+opened for today or the week's first day) instead of seven "+ Add meal"
+cards; its copy names "Copy last week" and "Fill empty days" in the ⋯ menu
+and, with no recipes yet, says to add a few first. A brand-new shopping
+list hides "Register receipt" until it has a row (the add line is its one
+action). Covered by `e2e/empty-states.spec.ts` (fresh empty household,
+desktop and mobile, including a check that no control sits under the
+floating button) and the planner specs that start from an empty week.
+
 **The one celebration.** Ticking the last pending item on an `ACTIVE`
 shopping list swaps the "All done" ring's tick for the mark, which rises
 in once (motion-safe, so a still image under `prefers-reduced-motion`)

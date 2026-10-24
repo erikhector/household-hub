@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
+import { withCurrentWeekMeal } from "./current-week-meal";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-99: today's card in the weekly planner says "Today" in words and carries
@@ -35,21 +36,24 @@ test.afterEach(async () => {
 });
 
 test("today's card says Today and is the current date; day buttons are named by day", async ({ page }) => {
-  await page.goto("/dashboard/meal-planning");
+  // UX-50: an empty week has no day cards, so plan one meal today first.
+  await withCurrentWeekMeal(`names-${suffix}`, async () => {
+    await page.goto("/dashboard/meal-planning");
 
-  const today = page.locator('[aria-current="date"]').filter({ visible: true });
-  await expect(today).toHaveCount(1);
-  await expect(today.getByText("Today", { exact: true })).toBeVisible();
-  // Only today's card has the badge.
-  await expect(page.getByText("Today", { exact: true }).filter({ visible: true })).toHaveCount(1);
+    const today = page.locator('[aria-current="date"]').filter({ visible: true });
+    await expect(today).toHaveCount(1);
+    await expect(today.getByText("Today", { exact: true })).toBeVisible();
+    // Only today's card has the badge.
+    await expect(page.getByText("Today", { exact: true }).filter({ visible: true })).toHaveCount(1);
 
-  const adds = page.getByRole("button", { name: /^Add meal, (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+$/ });
-  await expect(adds).toHaveCount(7);
-  const names = await adds.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label")));
-  expect(new Set(names).size).toBe(7);
-  // The button inside today's card is named for today's date.
-  await expect(today.getByRole("button", { name: /^Add meal, / })).toHaveCount(1);
-  await expectNoHorizontalOverflow(page);
+    const adds = page.getByRole("button", { name: /^Add meal, (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+$/ });
+    await expect(adds).toHaveCount(7);
+    const names = await adds.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label")));
+    expect(new Set(names).size).toBe(7);
+    // The button inside today's card is named for today's date.
+    await expect(today.getByRole("button", { name: /^Add meal, / })).toHaveCount(1);
+    await expectNoHorizontalOverflow(page);
+  });
 });
 
 test("a recipe's star is named for the recipe", async ({ page }) => {

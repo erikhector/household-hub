@@ -15,6 +15,7 @@ import { discardBatchAction, undoDiscardBatchAction } from "@/app/dashboard/meal
 import { format, plural } from "@/lib/i18n/format";
 import type { PreparedBatchData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -57,30 +58,27 @@ export function PrepTab({
   });
   const formatDay = (iso: string) => dayFormat.format(new Date(iso));
 
+  // UX-50, M2: Record prep is this tab's one primary, placed through
+  // PrimaryAction like the Recipes tab's "New recipe": floating above the
+  // bottom bar on a phone, in the header from `sm`. With no batches yet the
+  // empty state holds it instead, so it is never on screen twice. (It used to
+  // be a full-width bar of its own, sticky above the bottom bar.)
+  const recordPrep = (
+    <RecordPrepDialog dict={dict} recipes={recipes} maxDishes={maxDishes} onPlanPortions={openPlanning} />
+  );
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="font-heading text-lg font-semibold">{dict.prepTitle}</h2>
-        <p className="text-sm text-muted-foreground">{dict.prepSubtitle}</p>
-      </div>
-
-      {/* M2 (thumb zone): on phones Record prep moves below the cards and
-          sticks to the bottom of `main`'s scrollport, just above the bottom
-          bar, on an opaque strip so the cards scroll under it — the same
-          max-sm:sticky strip as the inventory table's bulk bar. Flex order
-          (not DOM order) moves it, so from `sm` it stays inline at the top
-          where the DOM puts it. It keeps its own space in the flow, so the
-          last card scrolls clear of it rather than hiding behind it.
-          The stick offset is -4px (padding grown to match): `main`'s bottom
-          reservation is 2px taller than the bar, and the bar's top border
-          is translucent, so a strip ending flush at the reservation left a
-          sliver of card showing between the button and the bar. */}
-      <div className="max-sm:sticky max-sm:-bottom-1 max-sm:z-10 max-sm:order-last max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-2 max-sm:pb-3">
-        <RecordPrepDialog dict={dict} recipes={recipes} maxDishes={maxDishes} onPlanPortions={openPlanning} />
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h2 className="font-heading text-lg font-semibold">{dict.prepTitle}</h2>
+          <p className="text-sm text-muted-foreground">{dict.prepSubtitle}</p>
+        </div>
+        {batches.length > 0 && <PrimaryAction>{recordPrep}</PrimaryAction>}
       </div>
 
       {batches.length === 0 ? (
-        <MascotEmptyState alt={dict.mascotAlt}>
+        <MascotEmptyState alt={dict.mascotAlt} action={recordPrep}>
           <div className="flex flex-col gap-1">
             <p className="font-semibold">{dict.prepEmptyTitle}</p>
             <p className="text-sm text-muted-foreground">{dict.prepEmptyBody}</p>

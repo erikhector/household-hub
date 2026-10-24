@@ -219,7 +219,7 @@ export function RecordPrepDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
-          <Button type="button" className="w-full">
+          <Button type="button">
             <Plus />
             {dict.prepRecordButton}
           </Button>

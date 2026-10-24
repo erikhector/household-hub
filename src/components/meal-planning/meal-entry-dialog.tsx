@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useRef, useState, type ReactElement } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +73,9 @@ type CreateProps = CommonProps & {
   // GAP-49: the household's active meal-prep batches. Those with portions
   // left are offered as "From meal prep"; none left, no such option.
   batches?: PreparedBatchData[];
+  // UX-50: an empty week's "Add your first dinner" opens this same dialog
+  // from its own button, in place of the day's "+ Add meal" row.
+  trigger?: ReactElement;
 };
 
 type MealTypeLabelKey = "mealTypeBreakfast" | "mealTypeLunch" | "mealTypeDinner" | "mealTypeSnack";
@@ -184,10 +187,12 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
       {!isEdit && (
         <DialogTrigger
           render={
-            <Button type="button" variant="ghost" aria-label={format(dict.addMealAriaLabel, { day: props.dayLabel })} className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11">
-              <Plus className="size-3.5" aria-hidden="true" />
-              {dict.addMeal}
-            </Button>
+            props.trigger ?? (
+              <Button type="button" variant="ghost" aria-label={format(dict.addMealAriaLabel, { day: props.dayLabel })} className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11">
+                <Plus className="size-3.5" aria-hidden="true" />
+                {dict.addMeal}
+              </Button>
+            )
           }
         />
       )}

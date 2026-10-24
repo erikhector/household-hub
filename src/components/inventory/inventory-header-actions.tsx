@@ -94,23 +94,27 @@ export function InventoryHeaderActionsClient({
             <span className="sr-only sm:not-sr-only">{dict.aiShelfScan.triggerLabel}</span>
           </Button>
         } />
-      <ItemFormDialog mode="create" existingItems={existingItems} categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiCategoryFallbackEnabled} trigger={
+      {/* UX-50: with no items the empty state holds "Add item" (one primary
+          on screen), so it only joins the header once there is a list. */}
+      {items.length > 0 && <ItemFormDialog mode="create" existingItems={existingItems} categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiCategoryFallbackEnabled} trigger={
           <Button className="gap-1.5">
             <Plus className="size-4" />
             <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
           </Button>
-        } />
+        } />}
       </div>
 
       {/* Mobile: labelled Add item (floating in the thumb zone, UX-40) +
           a labelled ⋯ menu that stays in the header */}
       <div className="flex flex-wrap items-center gap-2 sm:hidden">
-        <PrimaryAction>
-          <Button className="gap-1.5" onClick={() => addRef.current?.click()}>
-            <Plus className="size-4" />
-            {dict.addItem}
-          </Button>
-        </PrimaryAction>
+        {items.length > 0 && (
+          <PrimaryAction>
+            <Button className="gap-1.5" onClick={() => addRef.current?.click()}>
+              <Plus className="size-4" />
+              {dict.addItem}
+            </Button>
+          </PrimaryAction>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-8 max-sm:min-h-11 pointer-coarse:min-h-11 gap-1.5 py-1 whitespace-normal"><Ellipsis className="size-4" /> {dict.moreInventoryActions}</Button>} />
           <DropdownMenuContent align="end">
