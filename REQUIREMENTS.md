@@ -5507,6 +5507,28 @@ what has dropped out of rotation. No schema change: it reads back
 - **Not in scope**: no sort or filter by last cooked; the list stays
   alphabetical.
 
+### Recipe planned dates
+
+BACKLOG GAP-55: the recipe's sheet on the Recipes tab shows when the recipe is
+next on the plan, e.g. "Planned: Tue 21 Oct, Sat 25 Oct", so a household
+doesn't plan the same dish twice unawares. The upcoming side of "Recipe last
+cooked". No schema change.
+
+- **Query**: `getRecipePlannedDates(householdId)` in
+  `src/app/dashboard/meal-planning/recipe-planned-dates.ts` is one `findMany`
+  over the household's `MealPlanEntry` rows (`mealPlan: { householdId }`) with
+  a recipe and `date >= today` (UTC midnight, so today counts), ordered by
+  date. It keeps the first 3 distinct days per recipe. It runs only for the
+  Recipes tab, with the household from `requireHousehold()`; covered by the
+  colocated unit test (scoping, past dates excluded, the limit).
+- **Label**: `mealPlanning.recipePlannedLabel` ("Planned:" / "Planerad:")
+  then the weekday, day and month in the user's locale (UTC day, like the
+  planner). Each date links to `/dashboard/meal-planning?week=<monday>`. A
+  recipe with no upcoming entry has no key and shows no line. The row's meta
+  line is unchanged (M6); the line is only in the sheet.
+- **Not in scope**: past dates (see "Recipe last cooked"), and whether an
+  upcoming entry is already cooked.
+
 ### Recipe favorites
 
 BACKLOG GAP-18, from the same competitive gap scan: AnyList and Paprika let

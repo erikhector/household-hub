@@ -1798,6 +1798,7 @@ export const en = {
       one: "Cooked {count} time, last {date}",
       other: "Cooked {count} times, last {date}",
     },
+    recipePlannedLabel: "Planned:",
     recipeCostHint: "Estimated from what you last paid for each ingredient",
     ingredientsLabel: "Ingredients",
     ingredientNamePlaceholder: "Ingredient",
