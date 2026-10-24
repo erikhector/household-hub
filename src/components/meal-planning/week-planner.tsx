@@ -35,6 +35,7 @@ import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog, type PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
 import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
+import { MealPlanSearch } from "@/components/meal-planning/meal-plan-search";
 import { MoveMealDialog } from "@/components/meal-planning/move-meal-dialog";
 import {
   copyWeekAction,
@@ -270,6 +271,9 @@ export function WeekPlanner({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {/* GAP-59: below the sticky week bar, not in it, so the bar stays one
+          row on a phone. */}
+      <MealPlanSearch dict={dict} locale={locale} />
       {fillOpen && (
         <FillEmptyDaysDialog
           dict={dict}

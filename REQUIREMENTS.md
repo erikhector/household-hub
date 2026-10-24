@@ -2469,6 +2469,16 @@ moves back only those still unticked in the household. The checkbox label
 names the target list (page query for the active default). Flow spec:
 `e2e/shopping-finish-carry-over.spec.ts`.
 
+The "Done shopping after Undo leaves a late pending row" spec (MAINT-47) waits
+for each server action's answer before it inserts the late row, because the
+database changes before the action's revalidated list reaches the page: after
+Undo it waits for the "Completed" badge to go, and after the tick for the
+save's own POST, for every fetch the page made (counted by a small `fetch`
+wrapper) to be read to the end, and two frames. `waitForLoadState("networkidle")`
+fires once per navigation and can't be used for this, and an action response's
+body can't be read from the test. A late row inserted earlier ends up in that
+list and replaces the "Put everything away" button under the click.
+
 #### Printing a list (GAP-24)
 
 For households that still shop from paper, or want a big-text copy on the
@@ -5645,6 +5655,33 @@ recipe that isn't queued and the time it was queued otherwise.
 - **Suggest, don't mutate**: nothing else reads `cookSoonAt`. It doesn't
   change the Cook tab's ranking, "use it up", the shopping list or the
   planner.
+
+### Meal-plan search (GAP-59)
+
+BACKLOG GAP-59, from AnyList's search across the meal-plan calendar. The
+planner shows one week at a time, so "when did we last have lasagna?" meant
+paging back week by week. Read-only, no schema change.
+
+- **Field**: `MealPlanSearch` (`src/components/meal-planning/meal-plan-search.tsx`)
+  sits under the week bar on the Planner tab, with a visible "Search the
+  meal plan" label (a 44 px field on phones, M3). After two characters
+  (`MEAL_SEARCH_MIN_CHARS`) it waits 250 ms for a pause in typing, then calls
+  `searchMealPlanAction` (`search-actions.ts`), a click-style action that
+  takes the household from `requireHousehold()` and only the text from the
+  client (capped at 100 characters).
+- **Loader**: `searchMealPlan` (`meal-plan-search.ts`) is one
+  household-scoped `MealPlanEntry` query: recipe name or `freeformName`
+  contains the text (case-insensitive), the entry's date within 365 days
+  either side of today (UTC), newest first (dinner before lunch within a
+  day), at most 20.
+- **Results**: a list of links "Tue, Oct 21 · Dinner · Lasagna" (date in the
+  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. An
+  empty answer says "Nothing planned matches that." and a failed call says so
+  inline; a slow reply for older text never shows under newer text.
+- **Tests**: `meal-plan-search.test.ts` (household scoping, window, cap,
+  freeform names, week key), `search-actions.test.ts`, and
+  `e2e/meal-plan-search.spec.ts` (plans a custom meal two weeks ahead,
+  searches it, follows the link; desktop and mobile).
 
 ### Recipe sheet: Add to plan and instructions (UX-92)
 

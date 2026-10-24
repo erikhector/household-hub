@@ -344,24 +344,6 @@ then MAINT-7 per feature, to avoid churn.
       load): `native-sheets.spec.ts:54` (mobile) failed once and passed
       on a same-commit re-run.
 
-- [ ] **MAINT-47. Flaky: "Done shopping" after a carry-over completion and Undo sometimes leaves the late pending row out of place** (low, S) —
-      `e2e/shopping-finish-carry-over.spec.ts:170` ("Done shopping after
-      an earlier carry-over completion and Undo leaves a late pending row
-      where it is", `desktop`). Failed in the local `ci:local` gate on
-      release PR #576 (`e585c70`, 2026-10-22) and passed on a local re-run
-      of the same commit. Find what lets the row move or the assertion run
-      before the list has settled after Undo, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test
-      e2e/shopping-finish-carry-over.spec.ts:170 --project=desktop
-      --repeat-each=30` passes 30/30.
-      Seen again on release PR #588 (`673a16e`, 2026-10-22): the GitHub
-      e2e job failed the attempt (the 'Put everything away' button stayed
-      disabled and kept detaching) and passed on the retry.
-      Seen again on release PR #622 (`49a1fc8`, 2026-10-23) in the local
-      `ci:local` run, this time in the `mobile` project; it passed on a
-      same-commit re-run.
-
 - [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
       `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
       three done before any save answers", `mobile`). Failed the attempt
@@ -440,6 +422,20 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
       --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-56. Flaky: `undo-deletes` inventory delete finds two identical "Deleted …" toasts** (low, S) —
+      `e2e/undo-deletes.spec.ts:110` (`desktop`). Failed once and passed
+      on the retry in the GitHub `End-to-end (Playwright)` job of release
+      PR #660 on `1d492e1` (2026-10-24). Nobody's change is in it. The
+      failing assertion: `waitForUndoableDelete` (`e2e/ui.ts:282`) runs
+      `expect(page.getByText('Deleted "…"')).toBeVisible()` and hit a
+      strict-mode violation, because the locator matched two identical
+      toast `<div data-title>` elements at once. Find out whether the app
+      shows the toast twice (a real bug) or the spec's locator needs to
+      be scoped to one toast, and fix it there, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/undo-deletes.spec.ts:110
+      --project=desktop --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -1146,22 +1142,6 @@ out to be a product-scope question rather than a scoped task should move to
       meal still skipped; an e2e step adds a custom meal with "2 tortillas"
       and asserts it in the bridge preview and on the list after "Add",
       on desktop and mobile.
-
-- [ ] **GAP-59. Search the meal plan** (impact: low-med, effort: S) —
-      AnyList's same update added search across the whole meal-plan
-      calendar. Squirrel's planner shows one week at a time
-      (`?week=yyyy-mm-dd`), so "when did we last have lasagna?" or "which
-      night is taco night?" means paging week by week; GAP-46 covers only
-      saved recipes' last-cooked date, not custom meals or future dates.
-      Add a search field in the planner header that, after two characters,
-      lists up to 20 matching entries (recipe title or `freeformName`,
-      case-insensitive, within a year either side of today) as "Tue 21 Oct
-      · Dinner · Lasagna", newest first, each linking to its `?week=`.
-      Read-only, one household-scoped query, no schema change.
-      Acceptance: a loader test covers household scoping, the date window,
-      the 20 cap and freeform names; an e2e step plans a uniquely named
-      custom meal two weeks ahead, searches it and follows the link to the
-      right week, on desktop and mobile (field has a visible label, 44 px).
 
 ### 2026-10-18 scan
 

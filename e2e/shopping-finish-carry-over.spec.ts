@@ -185,19 +185,51 @@ test("Done shopping after an earlier carry-over completion and Undo leaves a lat
   await expect(page.getByText(/1 item moved to /).first()).toBeVisible();
   await page.getByRole("button", { name: en.shoppingList.undo, exact: true }).click();
   await expect.poll(() => listOf(`Milk ${t}`)).toBe(listId);
+  // The DB is back before the Undo action's response is. Wait for the page to
+  // take the reopened list (the "Completed" badge goes) so that response's
+  // revalidated list isn't still on its way when the late row is inserted
+  // below: it would carry that row and replace the button under the click.
+  await expect(page.getByText(en.shoppingList.statusCompleted, { exact: true })).toHaveCount(0);
 
   // Tick the last row: "All done" offers to put everything away, which also
-  // finishes the list (UX-81).
+  // finishes the list (UX-81). The tick's save answers with the revalidated
+  // list, and that answer arrives after the row is already ticked in the
+  // database: a late row inserted before it lands is in that list, the page
+  // shows it (so "All done" goes away and the button is replaced under the
+  // click) instead of not knowing it. So wait for the save's own response
+  // (waitForLoadState("networkidle") can't: it fires once per navigation and
+  // has long since passed).
+  await page.evaluate(() => {
+    const w = window as unknown as { __open?: number; fetch: typeof fetch };
+    if (w.__open !== undefined) return;
+    w.__open = 0;
+    const real = w.fetch.bind(window);
+    w.fetch = async (...args) => {
+      w.__open!++;
+      try {
+        const res = await real(...args);
+        void res.clone().arrayBuffer().then(
+          () => w.__open!--,
+          () => w.__open!--,
+        );
+        return res;
+      } catch (error) {
+        w.__open!--;
+        throw error;
+      }
+    };
+  });
+  const tickSaved = page.waitForResponse((res) => res.request().method() === "POST" && res.url().includes(`/dashboard/shopping-list/${listId}`));
   await page.getByRole("checkbox", { name: new RegExp(`^Milk ${t}\\b`) }).click();
   const done = page.getByRole("button", { name: en.shoppingList.putAway.everything, exact: true });
   await expect(done).toBeVisible();
-
-  // Let the tick's own save land and its revalidated list arrive first: a
-  // late row inserted while that is still on its way is in that list, and
-  // the page then shows it (so "All done" goes away and the button is
-  // replaced under the click) instead of not knowing it.
-  await expect.poll(async () => (await sql<{ purchased: boolean }>(`SELECT purchased FROM "ShoppingListItem" WHERE "shoppingListId" = $1 AND name = $2`, [listId, `Milk ${t}`]))[0]?.purchased).toBe(true);
-  await page.waitForLoadState("networkidle");
+  // The response's headers come first and the revalidated list streams in
+  // after them (its body can't be read from the test), so also wait until
+  // every fetch the page made has been read to the end, then two frames for
+  // React to commit what it read.
+  await tickSaved;
+  await page.waitForFunction(() => (window as unknown as { __open: number }).__open === 0);
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
 
   // A row shows up unticked from another device (this page doesn't know it).
   const late = `Late ${t}`;
