@@ -540,6 +540,42 @@ export const en = {
         },
       },
     },
+    // UX-136: opt-in sample data. The card offers it on an empty household and,
+    // once it's there, the way out; `content` is the made-up home itself, in
+    // the viewer's language at the moment they seed it.
+    sampleData: {
+      tryTitle: "Not sure where to start?",
+      tryBody:
+        "Fill Squirrel with a small example home: a pantry, a shopping list, three recipes, a planned week and a few tasks. You can clear it with one tap.",
+      tryButton: "Try with sample data",
+      clearTitle: "You're looking at sample data",
+      clearBody:
+        "The rows marked as sample are made up. Clearing removes only those and keeps everything you've added yourself.",
+      clearButton: "Clear sample data",
+      content: {
+        categoryPantry: "Pantry",
+        categoryDairy: "Dairy and eggs",
+        categoryBakery: "Bakery",
+        itemPasta: "Pasta",
+        itemRice: "Rice",
+        itemTomatoes: "Canned tomatoes",
+        itemMilk: "Milk",
+        itemEggs: "Eggs",
+        itemCoffee: "Coffee",
+        itemBread: "Bread",
+        listName: "Weekly shop",
+        recipeTomatoPasta: "Tomato pasta",
+        recipeTomatoPastaSteps: "Boil the pasta. Simmer the tomatoes with salt and pepper for ten minutes, then toss together.",
+        recipePancakes: "Pancakes",
+        recipePancakesSteps: "Whisk milk, eggs and flour into a smooth batter. Fry thin pancakes in butter on both sides.",
+        recipeFriedRice: "Egg fried rice",
+        recipeFriedRiceSteps: "Fry the cooked rice hot, push it aside, scramble the eggs and mix everything with soy sauce.",
+        mealLeftovers: "Leftovers",
+        taskRecycling: "Take out the recycling",
+        taskPlants: "Water the plants",
+        taskDentist: "Book a dentist appointment",
+      },
+    },
   },
   shoppingList: {
     title: "Shopping lists",

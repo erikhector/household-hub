@@ -499,9 +499,6 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** One item sits in another section of this file:
-- Needs a decision before building: UX-136.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
@@ -729,18 +726,6 @@ order below is a suggestion, not a dependency, unless noted.
       Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
       Why: the item's own recommendation; opt-in keeps the Guardrails on
       noisy positive alerts. See PRODUCT.md.
-
-- [ ] **UX-136. Opt-in sample data for a new household** (impact: med,
-      effort: L) — one migration (a nullable `sample` tag/batch column on
-      the seeded models). "Try with sample data" on the first overview
-      seeds a small pantry, one list, a planned week, three recipes and a
-      few tasks, all tagged; "Clear sample data" removes exactly the
-      tagged rows and nothing else. Restore the landing page's "example
-      data" line only once this ships. Both languages.
-      Acceptance: an empty household taps "Try with sample data" and sees
-      rows on the overview; "Clear sample data" returns it to empty while
-      a row the user added meanwhile survives.
-      Decided 2026-10-20 by owner: option 1. See #396.
 
 ## Phase 3 — larger items, own PR each
 
