@@ -5656,6 +5656,33 @@ recipe that isn't queued and the time it was queued otherwise.
   change the Cook tab's ranking, "use it up", the shopping list or the
   planner.
 
+### Meal-plan search (GAP-59)
+
+BACKLOG GAP-59, from AnyList's search across the meal-plan calendar. The
+planner shows one week at a time, so "when did we last have lasagna?" meant
+paging back week by week. Read-only, no schema change.
+
+- **Field**: `MealPlanSearch` (`src/components/meal-planning/meal-plan-search.tsx`)
+  sits under the week bar on the Planner tab, with a visible "Search the
+  meal plan" label (a 44 px field on phones, M3). After two characters
+  (`MEAL_SEARCH_MIN_CHARS`) it waits 250 ms for a pause in typing, then calls
+  `searchMealPlanAction` (`search-actions.ts`), a click-style action that
+  takes the household from `requireHousehold()` and only the text from the
+  client (capped at 100 characters).
+- **Loader**: `searchMealPlan` (`meal-plan-search.ts`) is one
+  household-scoped `MealPlanEntry` query: recipe name or `freeformName`
+  contains the text (case-insensitive), the entry's date within 365 days
+  either side of today (UTC), newest first (dinner before lunch within a
+  day), at most 20.
+- **Results**: a list of links "Tue, Oct 21 · Dinner · Lasagna" (date in the
+  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. An
+  empty answer says "Nothing planned matches that." and a failed call says so
+  inline; a slow reply for older text never shows under newer text.
+- **Tests**: `meal-plan-search.test.ts` (household scoping, window, cap,
+  freeform names, week key), `search-actions.test.ts`, and
+  `e2e/meal-plan-search.spec.ts` (plans a custom meal two weeks ahead,
+  searches it, follows the link; desktop and mobile).
+
 ### Recipe sheet: Add to plan and instructions (UX-92)
 
 A recipe's sheet on the Recipes tab (`RecipeRow` in `recipe-manager.tsx`)

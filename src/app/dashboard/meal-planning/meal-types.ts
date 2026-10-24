@@ -16,3 +16,8 @@ export const CUSTOM_RECIPE_SENTINEL = "__custom__";
 // target-list <Select> to mean "create a new shopping list" instead of
 // picking an existing active one.
 export const NEW_SHOPPING_LIST_SENTINEL = "__new_list__";
+
+// GAP-59: the meal-plan search waits for this many characters, in the field
+// (to know when to ask) and the loader (to refuse), since a one-letter query
+// matches half the plan.
+export const MEAL_SEARCH_MIN_CHARS = 2;
