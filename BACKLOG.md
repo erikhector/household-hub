@@ -343,6 +343,8 @@ then MAINT-7 per feature, to avoid churn.
       Seen again in a `ci:local` run on `cccc1d5` (2026-10-23, heavy
       load): `native-sheets.spec.ts:54` (mobile) failed once and passed
       on a same-commit re-run.
+      Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
+      (mobile) failed once and passed on the retry in the GitHub e2e job.
 
 - [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
       `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
@@ -436,6 +438,21 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/undo-deletes.spec.ts:110
       --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
+      `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
+      (`mobile`). Both failed once and passed on the retry in the GitHub
+      `End-to-end (Playwright)` job of release PR #666 on `8d2e088`
+      (2026-10-24). Nobody's change is in them. Same failure at
+      `e2e/ui.ts:330`: after `tab.click()`, `expect(tab).toHaveAttribute(
+      "aria-selected", "true")` still reads `false` after 5 s, although
+      the helper already waits for hydration and a patched `replaceState`.
+      Find out what the click races with (a re-render that resets the
+      tab, the `?tab=` URL sync) and fix it in the app or in the helper's
+      waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-dialog.spec.ts:43
+      e2e/recipe-planned-dates.spec.ts:55 --project=mobile
+      --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
