@@ -128,7 +128,7 @@ export function CommandPalette({ dict, nav }: { dict: Dictionary["commandPalette
               onClick={() => run(command)}
               onPointerMove={() => setActive(index)}
               className={cn(
-                "flex min-h-10 cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm",
+                "flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm",
                 index === activeIndex && "bg-accent text-accent-foreground",
               )}
             >
