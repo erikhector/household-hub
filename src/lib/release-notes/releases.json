@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.105.0",
+    "date": "2026-10-24",
+    "pr": 656,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Mark a recipe \"Cook soon\" to pin it to the top of your Recipes tab until you plan or cook it.",
+      "sv": "Markera ett recept som \"Laga snart\" så fästs det överst på receptfliken tills du planerar eller lagar det."
+    }
+  },
+  {
     "version": "0.104.0",
     "date": "2026-10-24",
     "pr": 651,
