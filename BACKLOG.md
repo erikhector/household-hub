@@ -343,18 +343,8 @@ then MAINT-7 per feature, to avoid churn.
       Seen again in a `ci:local` run on `cccc1d5` (2026-10-23, heavy
       load): `native-sheets.spec.ts:54` (mobile) failed once and passed
       on a same-commit re-run.
-
-- [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
-      `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
-      three done before any save answers", `mobile`). Failed the attempt
-      in the GitHub `End-to-end (Playwright)` job on release PR #588
-      (`673a16e`, 2026-10-22) and passed on the CI retry. Find what lets
-      the third tick land late (a re-render between taps, or the spec
-      asserting before the optimistic state settles) and fix it in the
-      app or the spec's waiting, never a loosened assertion, a skip or a
-      retry. Acceptance: `npx playwright test
-      e2e/optimistic-ticking.spec.ts:169 --project=mobile
-      --repeat-each=30` passes 30/30.
+      Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
+      (mobile) failed once and passed on the retry in the GitHub e2e job.
 
 - [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
@@ -436,6 +426,21 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/undo-deletes.spec.ts:110
       --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
+      `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
+      (`mobile`). Both failed once and passed on the retry in the GitHub
+      `End-to-end (Playwright)` job of release PR #666 on `8d2e088`
+      (2026-10-24). Nobody's change is in them. Same failure at
+      `e2e/ui.ts:330`: after `tab.click()`, `expect(tab).toHaveAttribute(
+      "aria-selected", "true")` still reads `false` after 5 s, although
+      the helper already waits for hydration and a patched `replaceState`.
+      Find out what the click races with (a re-render that resets the
+      tab, the `?tab=` URL sync) and fix it in the app or in the helper's
+      waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-dialog.spec.ts:43
+      e2e/recipe-planned-dates.spec.ts:55 --project=mobile
+      --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -761,16 +766,6 @@ gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) needs an owner decision and sits under
 "Needs a decision before building".
 
-- [ ] **UX-41a. Command palette: go-to and quick actions** (M) — Split
-      from UX-41 (too big for one PR). ⌘K / Ctrl-K opens a Base UI dialog
-      palette on desktop, mounted once in the dashboard layout. Static
-      commands first ("Go to budget", "Add task", "Add to Groceries"),
-      filtered as you type, arrow keys + Enter, Esc closes. The palette
-      stores nothing in the browser, so cookie-inventory.ts stays
-      unchanged. Needs dict entries in en/sv, and
-      an e2e spec for open, filter, run. No data search yet (UX-41b).
-      Builds on: nothing.
-
 - [ ] **UX-41b. Command palette: household search** (M) — Split from
       UX-41. A `searchHousehold(query)` Server Action (in
       `src/lib/actions/`) behind `requireHousehold()` that returns the top
@@ -778,7 +773,7 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       categories by name, every query scoped by householdId, Zod-validated,
       rate-limited like other read actions, with a unit test for the
       tenancy scoping. The palette from UX-41a shows them as grouped,
-      debounced results that navigate to the row. Needs UX-41a.
+      debounced results that navigate to the row. Builds on UX-41a (shipped).
 
 - [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
       UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`

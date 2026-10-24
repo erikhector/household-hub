@@ -6895,6 +6895,35 @@ components directly.
 
   Covered by `e2e/native-sheets.spec.ts` and `sheet-focus.test.ts`.
 
+### Command palette (UX-41a)
+
+`src/components/dashboard/command-palette.tsx`, mounted once in the
+dashboard layout. `Ctrl+K` / `⌘K` toggles it; there is no button, and it is
+never the only way to anything (every command is also a nav link or a page
+button). It is the shared `Dialog` holding a combobox input over a listbox
+(`aria-activedescendant`, focus stays in the input), so Escape, the focus
+trap and the X work like every other dialog.
+
+- Commands are static (`command-palette-commands.ts`): quick actions first
+  ("Add task", "Add to shopping list"), then "Go to <section>" for each
+  `navItems` entry. Labels come from `dict.commandPalette` and `dict.nav`.
+- Typing filters: every word must appear in the label, any order, case
+  insensitive. Up/Down move the highlight (wrapping), Enter runs it, a
+  click runs it. The count is announced in a live region; no match shows
+  "No matching commands."
+- "Go to" commands navigate. The two quick actions navigate with `?add=1`:
+  on `/dashboard/tasks` the create `TaskFormDialog` opens, and
+  `/dashboard/shopping-list?add=1` redirects to the active list the
+  household is filling (the default "Next shop" first) where
+  `SmartAddBar` takes focus. Both strip the param afterwards. With no
+  active list the shopping command lands on the overview.
+- It stores nothing in the browser (`cookie-inventory.ts` unchanged).
+  No data search yet (UX-41b).
+
+Covered by `e2e/command-palette.spec.ts` and
+`command-palette-commands.test.ts`.
+
+
 ## Releases & What's new
 
 Every change reaches `master` through a pull request, and every release
