@@ -1103,21 +1103,6 @@ out to be a product-scope question rather than a scoped task should move to
       rows are pre-filled and nothing is saved until Save, on desktop
       and mobile.
 
-- [ ] **GAP-55. Show when a recipe is planned on its detail view** (impact: low-med, effort: S) —
-      AnyList's recipe details now list past and upcoming meal-plan dates
-      for a recipe. Squirrel's recipe view says nothing about whether a
-      recipe is already on this week's plan, so a household can plan the
-      same dish twice or not realise a favourite was cooked last week.
-      (GAP-46 covers "last cooked"; this is the upcoming side.) Add a
-      read-only "Planned: Tue 21 Oct, Sat 25 Oct" line to the recipe card
-      or dialog from a household-scoped query of `MealPlanEntry` rows with
-      `date >= today` for that `recipeId` (limit 3), each date linking to
-      `?week=` for its week. Nothing shown when there are none. No schema
-      change.
-      Acceptance: a loader test covers household scoping, past dates
-      excluded and the limit; an e2e step plans a seeded recipe and
-      asserts the date text on the recipe view on desktop and mobile.
-
 ### 2026-10-16 scan
 
 - [ ] **GAP-56. Select several planned meals to move, re-portion or remove at once** (impact: med, effort: M) —

@@ -1711,6 +1711,7 @@ export const sv = {
       one: "Lagad {count} gång, senast {date}",
       other: "Lagad {count} gånger, senast {date}",
     },
+    recipePlannedLabel: "Planerad:",
     recipeCostHint: "Uppskattat utifrån vad ni senast betalade för varje ingrediens",
     ingredientsLabel: "Ingredienser",
     ingredientNamePlaceholder: "Ingrediens",
