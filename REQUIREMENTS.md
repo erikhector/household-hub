@@ -5664,7 +5664,7 @@ paging back week by week. Read-only, no schema change.
   contains the text (case-insensitive), the entry's date within 365 days
   either side of today (UTC), newest first (dinner before lunch within a
   day), at most 20.
-- **Results**: a list of links "Tue 21 Oct · Dinner · Lasagna" (date in the
+- **Results**: a list of links "Tue, Oct 21 · Dinner · Lasagna" (date in the
   viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. An
   empty answer says "Nothing planned matches that." and a failed call says so
   inline; a slow reply for older text never shows under newer text.

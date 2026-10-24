@@ -44,7 +44,8 @@ test("search finds a custom meal planned two weeks ahead and links to its week",
 
     // Case-insensitive, from the middle of the name.
     await field.fill(name.slice(1, 8).toUpperCase());
-    const hit = page.getByRole("link", { name: new RegExp(`^\\w{3} \\d+ \\w+ · \\w+ · ${name}$`) });
+    // "Mon, Nov 2 · Dinner · <name>": the date is in the viewer's language.
+    const hit = page.getByRole("link", { name: new RegExp(`^[^·]+ · \\w+ · ${name}$`) });
     await expect(hit).toBeVisible();
     if (testInfo.project.name === "mobile") {
       expect((await hit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
