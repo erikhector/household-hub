@@ -164,6 +164,7 @@ const {
   regenerateCalendarFeedAction,
   disableCalendarFeedAction,
   setHouseholdCurrencyAction,
+  setBudgetMonthStartDayAction,
   renameHouseholdAction,
   setInventorySyncModeAction,
   setShoppingExpenseCategoryAction,
@@ -1273,6 +1274,51 @@ describe("setHouseholdCurrencyAction (GAP-13)", () => {
     householdUpdateMock.mockRejectedValue(new Error("db down"));
 
     const result = await setHouseholdCurrencyAction("SEK");
+
+    expect(result.error).toBeTruthy();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setBudgetMonthStartDayAction (UX-134)", () => {
+  it("is owner-only", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+
+    const result = await setBudgetMonthStartDayAction(25);
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("stores the day on the session's household and revalidates the dashboard", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setBudgetMonthStartDayAction(25);
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { budgetMonthStartDay: 25 },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard", "layout");
+  });
+
+  it.each([[0], [29], [2.5], [Number.NaN]])("rejects %j without writing", async (value) => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await setBudgetMonthStartDayAction(value);
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly error when the write fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await setBudgetMonthStartDayAction(25);
 
     expect(result.error).toBeTruthy();
     expect(revalidatePathMock).not.toHaveBeenCalled();

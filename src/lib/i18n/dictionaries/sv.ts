@@ -287,6 +287,17 @@ export const sv = {
       ownerOnlyHint: "Bara hushållets ägare kan ändra det här.",
       savedToast: "Valutan har uppdaterats",
     },
+    budgetMonth: {
+      title: "Budgetmånad",
+      label: "Budgetmånaden börjar den",
+      description:
+        "De flesta hushåll budgeterar från den 1:a. Om lönen kommer den 25:e börjar du på dag 25, så löper varje månad från den 25:e till den 24:e och döps efter månaden den slutar i.",
+      hint: "Ändrar hushållsbudgetens månader, Säkert att spendera och återkommande räkningar. Inget du har loggat ändras, och Privat budget behåller kalendermånader. Återkommande poster du markerat som redovisade kan behöva markeras igen.",
+      calendarOption: "{day} (kalendermånad)",
+      dayOption: "{day}",
+      ownerOnlyHint: "Bara hushållets ägare kan ändra det här.",
+      savedToast: "Budgetmånaden har uppdaterats",
+    },
     calendarFeed: {
       title: "Kalenderflöde",
       description:
@@ -1705,6 +1716,7 @@ export const sv = {
       one: "Lagad {count} gång, senast {date}",
       other: "Lagad {count} gånger, senast {date}",
     },
+    recipePlannedLabel: "Planerad:",
     recipeCostHint: "Uppskattat utifrån vad ni senast betalade för varje ingrediens",
     ingredientsLabel: "Ingredienser",
     ingredientNamePlaceholder: "Ingrediens",

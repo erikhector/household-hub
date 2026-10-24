@@ -8,6 +8,8 @@
 // (PersonalRecurringTemplate) — callers just map their Prisma rows into the
 // shapes below first.
 
+import { periodBounds, periodKeyOf, periodLabelDate } from "@/lib/budget-date-utils";
+
 export type TemplateFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
 
 function pad2(n: number): string {
@@ -37,10 +39,16 @@ function getIsoWeek(date: Date): { isoYear: number; week: number } {
  * The period a date falls into for a given frequency, as a stable, sortable
  * string: "YYYY-MM" for MONTHLY, "YYYY" for YEARLY, ISO-week "YYYY-Www" for
  * WEEKLY. Two dates share a period iff this returns the same string.
+ *
+ * UX-134: `startDay` is the household's budget month start day. A MONTHLY
+ * period is then the budget period (25 Sep to 24 Oct is "2026-10" with day
+ * 25, see budget-date-utils.ts). WEEKLY and YEARLY stay on ISO weeks and
+ * calendar years: a payday doesn't move a week, and a yearly bill's year is
+ * the year it is paid in.
  */
-export function getPeriodKey(date: Date, frequency: TemplateFrequency): string {
+export function getPeriodKey(date: Date, frequency: TemplateFrequency, startDay: number = 1): string {
   if (frequency === "YEARLY") return String(date.getFullYear());
-  if (frequency === "MONTHLY") return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+  if (frequency === "MONTHLY") return periodKeyOf(date, startDay);
   const { isoYear, week } = getIsoWeek(date);
   return `${isoYear}-W${pad2(week)}`;
 }
@@ -56,12 +64,13 @@ export function getPeriodKey(date: Date, frequency: TemplateFrequency): string {
 export function getPeriodBounds(
   date: Date,
   frequency: TemplateFrequency,
+  startDay: number = 1,
 ): { start: Date; end: Date } {
   const y = date.getFullYear();
   const m = date.getMonth();
   const day = date.getDate();
   if (frequency === "YEARLY") return { start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1) };
-  if (frequency === "MONTHLY") return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
+  if (frequency === "MONTHLY") return periodBounds(periodKeyOf(date, startDay), startDay);
   // ISO weeks start Monday. Built from calendar components (not +7*24h) so a
   // DST change inside the week doesn't shift the boundary off midnight.
   const daysSinceMonday = (date.getDay() + 6) % 7;
@@ -154,19 +163,25 @@ export type RecurringMonthlyTotals = {
  * x-axis. Transactions not linked to a recurring template (recurringTemplateId
  * null) are ignored: this tracks the planned/fixed side of the budget, not
  * every transaction.
+ *
+ * UX-134: with a `startDay` above 1 the buckets are budget periods, named
+ * for the month they end in, and `referenceDate` is any date in the last one.
  */
 export function computeRecurringMonthlyTotals({
   transactions,
   referenceDate,
   monthsBack,
+  startDay = 1,
 }: {
   transactions: RecurringMonthlyTotalsInput[];
   referenceDate: Date;
   monthsBack: number;
+  startDay?: number;
 }): RecurringMonthlyTotals[] {
   const months: RecurringMonthlyTotals[] = [];
+  const label = periodLabelDate(referenceDate, startDay);
   for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i, 1);
+    const d = new Date(label.getFullYear(), label.getMonth() - i, 1);
     months.push({
       month: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`,
       income: 0,
@@ -178,7 +193,7 @@ export function computeRecurringMonthlyTotals({
   const byMonth = new Map(months.map((m) => [m.month, m]));
   for (const t of transactions) {
     if (!t.recurringTemplateId) continue;
-    const key = `${t.date.getFullYear()}-${pad2(t.date.getMonth() + 1)}`;
+    const key = periodKeyOf(t.date, startDay);
     const bucket = byMonth.get(key);
     if (!bucket) continue;
     if (t.type === "INCOME") bucket.income += t.amount;
@@ -303,6 +318,7 @@ export function computeTemplateStatuses<T extends RecurringTemplateInput>({
   acks,
   referenceDate,
   monthEnd,
+  startDay = 1,
 }: {
   templates: T[];
   transactions: TemplateTransactionInput[];
@@ -312,18 +328,22 @@ export function computeTemplateStatuses<T extends RecurringTemplateInput>({
    * getMonthEnd) — a template created on or after this never shows for this
    * period. */
   monthEnd: Date;
+  /** UX-134: the household's budget month start day, so a MONTHLY template
+   * is "posted" by a transaction in the same budget period. `referenceDate`
+   * is the period's start, which sits in the period either way. */
+  startDay?: number;
 }): TemplateStatusRow<T>[] {
   const ackedPeriods = new Set(acks.map((a) => `${a.recurringTemplateId}:${a.periodKey}`));
 
   return templates
     .filter((template) => template.active && template.createdAt < monthEnd)
     .map((template) => {
-      const periodKey = getPeriodKey(referenceDate, template.frequency);
+      const periodKey = getPeriodKey(referenceDate, template.frequency, startDay);
 
       const posted = transactions.some(
         (t) =>
           t.recurringTemplateId === template.id &&
-          getPeriodKey(t.date, template.frequency) === periodKey,
+          getPeriodKey(t.date, template.frequency, startDay) === periodKey,
       );
 
       const status: TemplateStatus = posted

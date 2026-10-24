@@ -67,12 +67,19 @@ export type CategoryRollover = {
 // Local-time month arithmetic, the same `new Date(year, month, 1)`
 // convention budget-date-utils.ts uses — duplicated rather than imported to
 // keep this file dependency-free.
-function monthStartOf(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+//
+// UX-134: with a household budget month start day above 1 a "month" is a
+// budget period named for the month it ends in (25 Sep to 24 Oct is
+// October), so every date is first mapped to the 1st of its period's month.
+// Start day 1 maps a date to its own calendar month, as before.
+function monthStartOf(date: Date, startDay: number = 1): Date {
+  const shift = startDay > 1 && date.getDate() >= startDay ? 1 : 0;
+  return new Date(date.getFullYear(), date.getMonth() + shift, 1);
 }
 
-function monthIndex(date: Date): number {
-  return date.getFullYear() * 12 + date.getMonth();
+function monthIndex(date: Date, startDay: number = 1): number {
+  const label = monthStartOf(date, startDay);
+  return label.getFullYear() * 12 + label.getMonth();
 }
 
 // Money is stored as Float, so a long run of additions can pick up
@@ -89,9 +96,9 @@ function roundToCents(value: number): number {
  * a month before the category existed), which simply means "no months to
  * carry from".
  */
-export function rolloverStartMonth(monthStart: Date, createdAt: Date): Date {
-  const yearStart = new Date(monthStart.getFullYear(), 0, 1);
-  const createdMonth = monthStartOf(createdAt);
+export function rolloverStartMonth(monthStart: Date, createdAt: Date, startDay: number = 1): Date {
+  const yearStart = new Date(monthStartOf(monthStart, startDay).getFullYear(), 0, 1);
+  const createdMonth = monthStartOf(createdAt, startDay);
   return createdMonth > yearStart ? createdMonth : yearStart;
 }
 
@@ -133,17 +140,20 @@ export function computeCategoryRollover({
   category,
   transactions,
   monthStart,
+  startDay = 1,
 }: {
   category: RolloverCategory;
   transactions: RolloverTransaction[];
   monthStart: Date;
+  /** UX-134: the household's budget month start day. */
+  startDay?: number;
 }): CategoryRollover | null {
   const limit = category.monthlyLimit;
   if (!category.rolloverEnabled) return null;
   if (limit == null || !Number.isFinite(limit) || limit <= 0) return null;
 
-  const viewed = monthStartOf(monthStart);
-  const start = rolloverStartMonth(viewed, category.createdAt);
+  const viewed = monthStartOf(monthStart, startDay);
+  const start = rolloverStartMonth(viewed, category.createdAt, startDay);
   const firstIndex = monthIndex(start);
   const monthCount = monthIndex(viewed) - firstIndex;
   if (monthCount <= 0) {
@@ -153,7 +163,7 @@ export function computeCategoryRollover({
   const spent = new Array<number>(monthCount).fill(0);
   for (const t of transactions) {
     if (t.categoryId !== category.id || t.type !== "EXPENSE") continue;
-    const offset = monthIndex(t.date) - firstIndex;
+    const offset = monthIndex(t.date, startDay) - firstIndex;
     if (offset < 0 || offset >= monthCount) continue;
     spent[offset] += t.amount;
   }
@@ -175,10 +185,11 @@ export function withCategoryRollover<Row extends { id: string }>(
   categories: RolloverCategory[],
   transactions: RolloverTransaction[],
   monthStart: Date,
+  startDay: number = 1,
 ): (Row & { carried?: number | null })[] {
   const carriedById = new Map<string, number>();
   for (const category of categories) {
-    const rollover = computeCategoryRollover({ category, transactions, monthStart });
+    const rollover = computeCategoryRollover({ category, transactions, monthStart, startDay });
     if (rollover) carriedById.set(category.id, rollover.carried);
   }
   if (carriedById.size === 0) return rows;

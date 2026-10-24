@@ -120,7 +120,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     // categories, so the count gates it, inside this one parallel slot.
     prisma.budgetCategory.count({ where: { householdId: household.id } }).then(async (count) => ({
       count,
-      safeToSpend: count > 0 ? await loadHouseholdSafeToSpend(household.id, now) : null,
+      safeToSpend: count > 0 ? await loadHouseholdSafeToSpend(household.id, now, household.budgetMonthStartDay) : null,
     })),
     prisma.personalBudgetCategory.count({ where: { userId } }),
     // The exact same number Personal Budget shows for this month — shared

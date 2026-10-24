@@ -43,6 +43,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 import { createMoneyFormat } from "@/lib/currency";
 import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
+import type { RecipePlannedDate } from "@/app/dashboard/meal-planning/recipe-planned-dates";
 import { formatRecipeText } from "@/lib/recipe-text";
 import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
@@ -73,6 +74,7 @@ export function RecipeManager({
   recipes,
   recipeCosts,
   recipeCooked,
+  recipePlanned,
   useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
@@ -89,6 +91,8 @@ export function RecipeManager({
   // GAP-46: keyed by recipe id; a never-cooked recipe has no entry and
   // shows no line.
   recipeCooked: Record<string, RecipeCookedStats>;
+  // GAP-55: keyed by recipe id; an unplanned recipe has no entry.
+  recipePlanned: Record<string, RecipePlannedDate[]>;
   useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
@@ -128,6 +132,7 @@ export function RecipeManager({
       recipe={recipe}
       cost={recipeCosts[recipe.id] ?? null}
       cooked={recipeCooked[recipe.id] ?? null}
+      planned={recipePlanned[recipe.id] ?? []}
       numberFormat={numberFormat}
       allRecipes={recipes}
       ingredientNames={ingredientNames}
@@ -239,6 +244,7 @@ function RecipeRow({
   recipe,
   cost,
   cooked,
+  planned,
   numberFormat,
   allRecipes,
   ingredientNames,
@@ -253,6 +259,7 @@ function RecipeRow({
   recipe: RecipeData;
   cost: RecipeCost | null;
   cooked: RecipeCookedStats | null;
+  planned: RecipePlannedDate[];
   numberFormat: Intl.NumberFormat;
   allRecipes: RecipeData[];
   ingredientNames: string[];
@@ -311,6 +318,15 @@ function RecipeRow({
         ),
       })
     : "";
+
+  // GAP-55: "Tue 21 Oct". Entry dates are UTC days, formatted in UTC for
+  // the same reason as the cooked date above.
+  const plannedDayFormat = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 
   // GAP-43: plain text on the clipboard, nothing stored or shared. The
   // success toast waits for the write (clipboard.writeText rejects when the
@@ -537,7 +553,7 @@ function RecipeRow({
           {/* Sub-recipes, nutrition (only when filled in — see Recipe's
               doc comment in schema.prisma), the GAP-15 cost estimate and
               GAP-46's cooked count: each line only when it has something. */}
-          {(componentSummary || nutritionSummary || costSummary || cookedSummary) && (
+          {(componentSummary || nutritionSummary || costSummary || cookedSummary || planned.length > 0) && (
             <div className="flex flex-col gap-1 text-sm text-muted-foreground">
               {componentSummary && (
                 <p className="flex items-start gap-1 break-words">
@@ -554,6 +570,25 @@ function RecipeRow({
                 </p>
               )}
               {cookedSummary && <p>{cookedSummary}</p>}
+              {/* GAP-55: each date opens the planner on its week. Links in
+                  a sentence are exempt from the 44px rule (M3). */}
+              {planned.length > 0 && (
+                <p>
+                  {dict.recipePlannedLabel}{" "}
+                  {planned.map((d, i) => (
+                    <span key={d.dateKey}>
+                      {i > 0 && ", "}
+                      <Link
+                        href={`/dashboard/meal-planning?week=${d.weekStartKey}`}
+                        data-running-text
+                        className="underline underline-offset-4"
+                      >
+                        {plannedDayFormat.format(new Date(`${d.dateKey}T00:00:00.000Z`))}
+                      </Link>
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
           )}
           {/* UX-92: the steps are plain text, one per line (splitSteps), the

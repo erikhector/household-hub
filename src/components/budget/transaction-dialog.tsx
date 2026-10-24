@@ -25,7 +25,8 @@ import {
 import { checkSplitForm, evenSplitAmounts } from "@/components/budget/split-amounts";
 import { SplitEditor } from "@/components/budget/split-editor";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
-import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
+import { dateInPeriod, periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
+import { useBudgetStartDay } from "@/components/budget/budget-period-context";
 import { format } from "@/lib/i18n/format";
 import { groupCategoriesForLogging, defaultLoggingCategoryId } from "@/lib/recent-categories";
 import type { ActionState } from "@/lib/actions/auth";
@@ -127,10 +128,34 @@ function toDateInputValue(date: Date) {
  * `monthKey` is optional so callers that don't track a viewed month (there
  * are none left after this fix, but keeps this from being a breaking
  * signature change) still get today's date, unaffected. */
-function defaultDateForMonth(monthKey: string | undefined): Date {
+function defaultDateForMonth(monthKey: string | undefined, startDay: number): Date {
   const now = new Date();
-  if (!monthKey || monthKey === toMonthKey(now)) return now;
-  return parseMonthKey(monthKey);
+  if (!monthKey || monthKey === periodKeyOf(now, startDay)) return now;
+  return periodBounds(monthKey, startDay).start;
+}
+
+/** UX-134: a new transaction's starting date. Logging an item from a Due
+ * list starts on that item's due day, so it counts in the period it is due
+ * in even when you get to it a week early or late; everything else starts
+ * from defaultDateForMonth. A planned bill's due date only counts when it
+ * falls in the viewed period: an overdue bill from an earlier one would
+ * otherwise be logged back there and stay in this period's Due list. */
+function newTransactionDate(
+  monthKey: string | undefined,
+  startDay: number,
+  prefill: TransactionTemplatePrefill | undefined,
+): Date {
+  if (monthKey && prefill?.dayOfMonth) return dateInPeriod(monthKey, startDay, prefill.dayOfMonth);
+  if (monthKey && prefill?.dueDate) {
+    const due = new Date(
+      prefill.dueDate.getUTCFullYear(),
+      prefill.dueDate.getUTCMonth(),
+      prefill.dueDate.getUTCDate(),
+    );
+    const { start, end } = periodBounds(monthKey, startDay);
+    if (due >= start && due < end) return due;
+  }
+  return defaultDateForMonth(monthKey, startDay);
 }
 
 /** Seeds a new transaction's fields from a recurring template's "Log
@@ -155,6 +180,11 @@ export type TransactionTemplatePrefill = {
    * carried forward as this new transaction's default split (F2) instead of
    * opening with the split checkbox unchecked and the shares lost. */
   splits?: TransactionSplitRow[];
+  /** UX-134: where the new transaction's date starts, so logging from a Due
+   * list counts it in that period. A template's due day of the month... */
+  dayOfMonth?: number | null;
+  /** ...or a planned bill's or planned income's due date. */
+  dueDate?: Date;
 };
 
 export function TransactionDialog({
@@ -220,6 +250,7 @@ export function TransactionDialog({
 }) {
   const isEdit = !!transaction;
   const canSplit = members.length > 1;
+  const startDay = useBudgetStartDay();
   const [open, setOpen] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const categoryGroups = useMemo(
@@ -242,7 +273,7 @@ export function TransactionDialog({
     transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
   );
   const [date, setDate] = useState(() =>
-    toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)),
+    toDateInputValue(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)),
   );
   const [splitEnabled, setSplitEnabled] = useState(canSplit && hasSplit(transaction, prefillFromTemplate));
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
@@ -327,7 +358,7 @@ export function TransactionDialog({
     setPaidTouched(false);
     setSharesTouched(hasSplit(transaction, prefillFromTemplate));
     kept.reset();
-    setDate(toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)));
+    setDate(toDateInputValue(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)));
   }
 
   function resetToEvenSplit(total: string) {
