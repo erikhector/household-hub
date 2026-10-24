@@ -2469,6 +2469,16 @@ moves back only those still unticked in the household. The checkbox label
 names the target list (page query for the active default). Flow spec:
 `e2e/shopping-finish-carry-over.spec.ts`.
 
+The "Done shopping after Undo leaves a late pending row" spec (MAINT-47) waits
+for each server action's answer before it inserts the late row, because the
+database changes before the action's revalidated list reaches the page: after
+Undo it waits for the "Completed" badge to go, and after the tick for the
+save's own POST, for every fetch the page made (counted by a small `fetch`
+wrapper) to be read to the end, and two frames. `waitForLoadState("networkidle")`
+fires once per navigation and can't be used for this, and an action response's
+body can't be read from the test. A late row inserted earlier ends up in that
+list and replaces the "Put everything away" button under the click.
+
 #### Printing a list (GAP-24)
 
 For households that still shop from paper, or want a big-text copy on the
