@@ -3,7 +3,7 @@ import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet, waitForDialogHistory } from "./ui";
 
 // GAP-51: a recipe's sheet has a "Cook soon" toggle that pins the recipe to a
 // shelf at the top of the Recipes tab, and the shelf empties itself once the
@@ -63,6 +63,7 @@ test("toggling Cook soon pins the recipe to the shelf, survives a reload, and to
   await expect(shelf.getByText(name, { exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
+  await waitForDialogHistory(page);
   await page.reload();
   await expect(shelf.getByText(name, { exact: true })).toBeVisible();
 
@@ -70,6 +71,7 @@ test("toggling Cook soon pins the recipe to the shelf, survives a reload, and to
   await expect(page.getByText(`${name} removed from Cook soon`)).toBeVisible();
   await expect(shelf).toHaveCount(0);
 
+  await waitForDialogHistory(page);
   await page.reload();
   await expect(page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true })).toHaveCount(1);
   await expect(shelf).toHaveCount(0);
@@ -89,6 +91,7 @@ test("planning a Cook soon recipe takes it off the shelf", async ({ page }) => {
   await dialog.getByRole("button", { name: t.addToPlanSubmit, exact: true }).click();
   await expect(page.getByText(`Added ${name} to the plan`)).toBeVisible();
 
+  await waitForDialogHistory(page);
   await page.reload();
   await expect(page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true })).toHaveCount(1);
   await expect(shelf).toHaveCount(0);
