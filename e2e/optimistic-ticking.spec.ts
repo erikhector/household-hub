@@ -186,9 +186,16 @@ test("ticking three tasks shows all three done before any save answers", async (
   // resets it. Under a loaded run goto() returns early enough for that to
   // eat the first taps, so wait until every row is live before tapping.
   for (const box of open) await expectHydrated(box);
-  for (const box of open) await box.click();
   // The label flips with the tick, so a screen reader hears the new state.
   const done = titles.map((title) => page.getByRole("checkbox", { name: `Mark ${title} as not done` }));
+  // Each tick moves its row (and the rows below it) to the Completed list,
+  // animated. A tap that follows straight away can land on a row that is
+  // still sliding, so a tap is only made once the one before has shown, as
+  // a person taps down a list. No save has answered at any point.
+  for (const [i, box] of open.entries()) {
+    await box.click();
+    await expect(done[i]).toBeChecked();
+  }
   for (const box of done) await expect(box).toBeChecked();
   expect(held.answered()).toBe(0);
 
