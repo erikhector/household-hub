@@ -3384,6 +3384,23 @@ names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
 categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
 
+**Shared costs before a personal budget exists (UX-112).** A member with no
+personal categories but a share of a split household expense (or a balance
+with the other members) sees a "Shared with your household" card above the
+"Let's set up your budget" prompt, on the personal Overview and on Home. It
+shows their share of this month's split expenses (`summarizeSharedCosts`,
+`src/lib/shared-costs-summary.ts`: expenses only, their own share, never the
+whole bill; on the personal page's past months the row is labelled "Your
+share in {month}" rather than "this month") and the same "Your household balance" lines Safe to spend uses
+(`HouseholdDebtsList`, extracted from `SafeToSpend` so the two can't drift),
+with a link to the Transactions tab. Once they have categories the card goes
+and Safe to spend carries the balance as before. The shared-expense action is
+named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
+the household page's "Add transaction", and with no categories it is the
+page's primary action in the `PrimaryAction` slot (floating on phones); once
+Add transaction exists it stays the outline second action. Tested in
+`e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
+
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
 had already moved cost analyzer and balances into the `insights` node the
@@ -7413,9 +7430,30 @@ Todoist-style. Built as one shared wrapper,
 - **Every swipe duplicates a tap path** (DESIGN.md M7), and the swipe
   works by clicking the row's own button: the elements marked
   `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same
-  optimistic update, rollback toast and disabled state as a tap. The
-  trash button keeps its confirm dialog: swipe-delete is the quick path,
-  the button the deliberate one.
+  optimistic update, rollback toast and disabled state as a tap.
+- **One delete, one Undo (UX-49).** Every way to delete a task, shopping
+  item, inventory item, planned meal, recipe or transaction hides the row
+  at once and shows the same Undo toast, never a "This can't be undone"
+  confirm: the swipe, the desktop trash icon, the ⋯ menu's Delete, and the
+  Delete in a task's, meal's, recipe's or transaction's sheet (which closes
+  first). The inventory item page's Delete leaves the page at once. Tasks,
+  shopping items, inventory items and transactions leave the list at tap
+  time (`local-row-changes`, or the transaction list's own removed set), so
+  aisle headers, section counts and the "Next up" dock follow at once, and
+  the delete is sent through `startUndoableDelete`
+  (`src/components/shared/start-undoable-delete.ts`) when the toast closes;
+  meals and recipes hide their own row with `useUndoableDelete`. Undo
+  just brings the row back. The inventory item page's Delete uses
+  `startUndoableDelete` too. A meal's toast reads "Removed "…""; the
+  other deletes read "Deleted "…"". Household, budget category, recurring
+  template, planned bill, shopping list and account deletes keep their
+  confirms.
+- **Archiving a shopping list (UX-49)** shows "List archived" with Undo
+  (`archiveListWithUndo`, `src/components/shopping/archive-list.ts`; Undo is
+  the ordinary unarchive, which doesn't make the list the default again).
+  On the lists overview Archive/Unarchive and Delete sit together in each
+  card's ⋯ menu instead of two adjacent icons; Delete there keeps its
+  confirm because it takes the list's items with it.
 - **No action shows twice on a phone.** Below `sm`, a swipeable row
   doesn't also show Edit and Delete icons: they sit behind the row's ⋯
   menu instead. Shopping rows get `RowActionsMenu`
@@ -7756,6 +7794,32 @@ feature's dict) because nothing beside it names it. Filter "no matches",
 the bell dropdown, the catalog, scan queues and every budget surface stay
 text-only: small inline empties would be noise, and money surfaces get no
 mascot or celebration (PRODUCT.md Guardrails).
+
+**One empty-state pattern, with the next step inside it (UX-50).** On a new
+household every section and tab is the same thing: `MascotEmptyState`, one
+line on why the section is worth using, and exactly one primary action
+passed as its `action` prop, which places it through `PrimaryAction` (inline
+under the copy from `sm`, floating at the bottom right on a phone, so
+nothing may sit under it at 412 px). The page's own header `PrimaryAction`
+is left out while the section is empty, so there is never a second primary:
+Tasks (`AddTaskButton` renders nothing with no tasks; `TasksClient` gets
+`emptyAction`), Shopping (the page counts lists; `ShoppingListsOverview`
+gets `emptyAction`), Recipes ("New recipe"), Meal prep ("Record prep", which
+is now a `PrimaryAction` like its siblings instead of a full-width sticky
+bar) and the empty inventory ("Add item"; the quick-add row waits behind
+"Or type several in a row", starter kits stay below the box, and the
+header's own Add item and FAB only appear once there are items). Cook now
+gets the mascot and a link button: "Add a recipe" (to the Recipes tab) with
+no recipes, "Update your inventory" with recipes but none close to ready
+(`PrimaryAction` styles links as the phone pill too). An empty planner week
+is one empty state with "Add your first dinner" (the same `MealEntryDialog`,
+opened for today or the week's first day) instead of seven "+ Add meal"
+cards; its copy names "Copy last week" and "Fill empty days" in the ⋯ menu
+and, with no recipes yet, says to add a few first. A brand-new shopping
+list hides "Register receipt" until it has a row (the add line is its one
+action). Covered by `e2e/empty-states.spec.ts` (fresh empty household,
+desktop and mobile, including a check that no control sits under the
+floating button) and the planner specs that start from an empty week.
 
 **The one celebration.** Ticking the last pending item on an `ACTIVE`
 shopping list swaps the "All done" ring's tick for the mark, which rises

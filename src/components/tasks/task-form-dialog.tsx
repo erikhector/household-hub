@@ -82,8 +82,8 @@ export function TaskFormDialog({
   dict: TasksDict;
   trigger: ReactElement;
   /** Edit mode only (UX-106): adds a Delete button to the sheet. The row
-   *  hands it to its own trash button, so the confirm dialog is the same one
-   *  the desktop icon opens. */
+   *  hands it to its own trash button, so the Undo toast is the same one
+   *  the desktop icon shows. */
   onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -387,8 +387,8 @@ export function TaskFormDialog({
             {/* UX-106 (M7): a phone row has no trash icon, so the sheet is
                 the visible path to Delete (the swipe tray is the quick one).
                 Last in the stacked footer, away from Save, and quiet: Save
-                stays the one primary action. The sheet closes first so the
-                confirm dialog doesn't open on top of it. */}
+                stays the one primary action. The sheet closes first so it
+                unmounts shut when the row goes. */}
             {mode === "edit" && onDelete && (
               <Button
                 type="button"

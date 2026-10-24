@@ -6,14 +6,13 @@
 // editing a task both go through the shared TaskFormDialog (see
 // task-form-dialog.tsx) rather than delete-and-re-add.
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Check, Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
@@ -25,7 +24,7 @@ import { SwipeRow } from "@/components/shared/swipe-row";
 import { useLocalPreference } from "@/components/shared/use-local-preference";
 import { filterTasks, parseTaskFilter, type TaskFilter } from "@/app/dashboard/tasks/task-filter";
 import { TASKS_FILTER_STORAGE_KEY } from "@/lib/cookie-inventory";
-import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
@@ -66,8 +65,13 @@ export function TasksClient({
   now,
   timeZone,
   locale,
+  emptyAction,
 }: {
   dict: TasksDict;
+  /** UX-50: the page's "Add task" trigger, passed only while the household
+   * has no tasks so the empty state can hold it (the header leaves its own
+   * out then). */
+  emptyAction?: ReactNode;
   members: MemberOption[];
   /** Who's ticking, for a completion shown before the server answers. */
   currentMemberId: string | null;
@@ -115,9 +119,22 @@ export function TasksClient({
       settle(result !== null);
     })();
   };
-  // From the row's confirm dialog, which waits on it and toasts an error.
-  const deleteTask = async (task: TaskRow) => {
-    return settleDelete(local.markDeleted(task.id), deleteTaskAction(task.id), dict.saveFailedToast);
+  // UX-49: every delete (the swipe, the trash icon, the sheet's Delete)
+  // takes the row out at tap time, like a tick, and the server hears of it
+  // when the Undo toast closes. Out of the list rather than hidden in the
+  // row, so the section counts follow at once instead of five seconds later.
+  const deleteTask = (task: TaskRow) => {
+    const settle = local.markDeleted(task.id);
+    startUndoableDelete({
+      run: async () => {
+        const result = await settleDelete(settle, deleteTaskAction(task.id), dict.saveFailedToast);
+        if (result.error) toast.error(result.error);
+        return !result.error;
+      },
+      restore: () => settle(false),
+      message: format(dict.swipe.deletedToast, { name: task.title }),
+      undoLabel: dict.swipe.undo,
+    });
   };
   const containerRef = useFlipList<HTMLDivElement>();
 
@@ -172,7 +189,7 @@ export function TasksClient({
       {/* Keyed too, so the list glides down when the recap above grows. */}
       <div data-flip-key="tasks" className="relative flex flex-col gap-2">
         {allTasks.length === 0 ? (
-          <MascotEmptyState alt={dict.mascotAlt}>
+          <MascotEmptyState alt={dict.mascotAlt} action={emptyAction}>
             <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
           </MascotEmptyState>
         ) : tasks.length === 0 ? (
@@ -266,7 +283,7 @@ function TaskItemRow({
   members: MemberOption[];
   memberNameById: Map<string, string>;
   onToggleCompleted: (task: TaskRow) => void;
-  onDelete: (task: TaskRow) => Promise<{ error?: string }>;
+  onDelete: (task: TaskRow) => void;
   dict: TasksDict;
   locale: Locale;
   timeZone: string;
@@ -284,12 +301,6 @@ function TaskItemRow({
     if (task.completed) run();
     else tick(run);
   };
-  // UX-35: swipe left → Delete hides the row with an Undo toast.
-  const { hidden, remove } = useUndoableDelete({
-    run: async () => (await settleOptimisticAction(() => deleteTaskAction(task.id), dict.saveFailedToast)) !== null,
-    message: format(dict.swipe.deletedToast, { name: task.title }),
-    undoLabel: dict.swipe.undo,
-  });
 
   const assigneeName = task.assignedToMemberId ? memberNameById.get(task.assignedToMemberId) : undefined;
   const completerName = task.completedByMemberId ? memberNameById.get(task.completedByMemberId) : undefined;
@@ -337,8 +348,6 @@ function TaskItemRow({
     completerName !== undefined;
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
-  if (hidden) return null;
-
   return (
     <SwipeRow
       className="list-bleed rounded-md"
@@ -347,7 +356,7 @@ function TaskItemRow({
       primaryIcon={<Check className="size-4" />}
       editLabel={dict.swipe.edit}
       deleteLabel={dict.swipe.delete}
-      onDelete={remove}
+      onDelete={() => onDelete(task)}
     >
       <div className="flex items-center gap-3 rounded-md border px-3 py-1 sm:py-2">
         {/* UX-106: a phone row is one line, checkbox, title, assignee, so
@@ -440,27 +449,20 @@ function TaskItemRow({
               </Button>
             }
           />
-          <ConfirmDialog
-            trigger={
-              <Button
-                ref={deleteButtonRef}
-                variant="ghost"
-                size="icon"
-                data-row-delete
-                className="size-7 shrink-0 text-muted-foreground hover:text-destructive max-sm:hidden"
-                aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            }
-            title={format(dict.confirmDelete.title, { name: task.title })}
-            description={dict.confirmDelete.description}
-            cancelLabel={dict.confirmDelete.cancel}
-            confirmLabel={dict.confirmDelete.confirm}
-            pendingLabel={dict.confirmDelete.confirming}
-            // UX-33: the row goes at once and comes back if the delete fails.
-            onConfirm={() => onDelete(task)}
-          />
+          {/* UX-49: removes at once with the same Undo toast as the swipe,
+              not a "can't be undone" confirm for a task that is one tap to
+              add back. */}
+          <Button
+            ref={deleteButtonRef}
+            variant="ghost"
+            size="icon"
+            data-row-delete
+            className="size-7 shrink-0 text-muted-foreground hover:text-destructive max-sm:hidden"
+            aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
+            onClick={() => onDelete(task)}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
         </div>
       </div>
     </SwipeRow>

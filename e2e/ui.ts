@@ -274,6 +274,16 @@ export async function waitForDialogHistory(page: Page) {
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 }
 
+/** UX-49: a delete that offers Undo only reaches the server once its toast
+ * closes. Waits for that toast to show and go, and for the request it sends
+ * to finish, so a reload after it sees the row gone. */
+export async function waitForUndoableDelete(page: Page, message: string | RegExp) {
+  const toast = page.getByText(message);
+  await expect(toast).toBeVisible();
+  await expect(toast).toBeHidden({ timeout: 15_000 });
+  await page.waitForLoadState("networkidle");
+}
+
 /** page.goto, then waits until React has revealed every streamed Suspense
  * boundary. goto resolves on `load`, but React 19.2 batches the reveals,
  * so on a loaded runner the page can still be showing a loading.tsx
@@ -295,6 +305,29 @@ export async function expectHydrated(target: Locator) {
   await expect
     .poll(() => target.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps"))))
     .toBe(true);
+}
+
+/** Opens the meal planner's Recipes tab and waits until it is the open one.
+ * The tab bar is server-rendered before it is interactive: under a loaded run
+ * goto() returns before React has hydrated it, and a click that lands then
+ * does nothing, so the recipes panel stays `hidden` and the next control
+ * ("New recipe", the search box) is never found, a 30 s timeout.
+ *
+ * Hydrated is not enough. The tab is driven by useSearchParams, and the tab
+ * click changes the URL with history.replaceState, which Next's app router
+ * only patches (so that useSearchParams follows) in a passive effect after
+ * hydration. A click in that gap changes the URL and nothing else, and the
+ * tab stays unselected. So wait for the tab to be hydrated and replaceState
+ * to be patched (no longer native code), click, then assert the tab took,
+ * before reaching for anything inside the panel. */
+export async function openRecipesTab(page: Page) {
+  const tab = page.getByRole("tab", { name: "Recipes" });
+  await expectHydrated(tab);
+  await expect
+    .poll(() => page.evaluate(() => !/\[native code\]/.test(window.history.replaceState.toString())))
+    .toBe(true);
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
 }
 
 function escape(value: string) {

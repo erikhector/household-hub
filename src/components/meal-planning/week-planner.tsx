@@ -3,11 +3,13 @@
 import { useEffect, useState, useTransition } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Trash2, Unlink, Utensils } from "lucide-react";
+import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Unlink, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import {
   createDialogHandle,
   Dialog,
@@ -217,6 +219,9 @@ export function WeekPlanner({
   const emptyDays = days
     .filter((day) => !entriesByDay.has(day.dateKey) && day.dateKey >= todayKey)
     .map((day) => ({ dateKey: day.dateKey, label: `${day.weekdayLabel} ${day.dayOfMonth}` }));
+  // UX-50: where an empty week's "Add your first dinner" lands: today, or
+  // the next day this week, or Monday of a week already over.
+  const firstOpenDay = days.find((day) => day.dateKey >= todayKey) ?? days[0];
   const plannedRecipeIds = [...new Set(entries.flatMap((e) => (e.recipeId ? [e.recipeId] : [])))];
 
   return (
@@ -284,6 +289,39 @@ export function WeekPlanner({
         />
       )}
 
+      {entries.length === 0 ? (
+        // UX-50 / M6: a week with nothing planned is one empty state with
+        // one next step, not seven identical "+ Add meal" cards. The step is
+        // the first dinner (the dialog offers the household's recipes);
+        // "Copy last week" and "Fill empty days" stay in the ⋯ menu, which
+        // the copy names.
+        <MascotEmptyState
+          alt={dict.mascotAlt}
+          action={
+            <MealEntryDialog
+              key="first-dinner"
+              dict={dict}
+              weekStartKey={weekStartKey}
+              dateKey={firstOpenDay.dateKey}
+              dayLabel={`${firstOpenDay.weekdayLabel} ${firstOpenDay.dayOfMonth}`}
+              mealType="DINNER"
+              recipes={recipes}
+              recipeCooked={recipeCooked}
+              batches={batches}
+              trigger={
+                <Button type="button">
+                  <Plus className="size-4" />
+                  {dict.addFirstDinner}
+                </Button>
+              }
+            />
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            {recipes.length > 0 ? dict.plannerEmpty : dict.plannerEmptyNoRecipes}
+          </p>
+        </MascotEmptyState>
+      ) : (
       <div className="list-bleed grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
         {days.map((day) => {
           // A day lists only what's planned, slot by slot, then one
@@ -345,6 +383,7 @@ export function WeekPlanner({
           );
         })}
       </div>
+      )}
       {/* UX-91: turning the week into a shopping list is the planner's
           primary action (DESIGN.md Hierarchy, M2), so it is a labelled
           button at the bottom, floating above the bottom bar on phones,
@@ -419,12 +458,19 @@ function MealEntryRow({
   const router = useRouter();
   const [unassignPending, startUnassign] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // UX-49: Remove meal hides the row at once with an Undo toast (the delete
+  // goes out when it closes), not a "can't be undone" confirm.
+  const { hidden, remove } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteMealEntryAction(entry.id), dict.prepConnectionError)) !== null,
+    message: format(dict.mealRemovedToast, { meal: label }),
+    undoLabel: dict.undoDelete,
+  });
   const [dialogs] = useState(() => ({
     cook: createDialogHandle(),
     markCooked: createDialogHandle(),
     edit: createDialogHandle(),
     move: createDialogHandle(),
-    remove: createDialogHandle(),
   }));
 
   // The sheet closes as the chosen action's dialog opens over the page, so
@@ -457,6 +503,8 @@ function MealEntryRow({
       router.refresh();
     });
   }
+
+  if (hidden) return null;
 
   return (
     <>
@@ -570,7 +618,11 @@ function MealEntryRow({
               type="button"
               variant="destructive"
               className="w-full justify-start"
-              onClick={() => openFromSheet(dialogs.remove)}
+              onClick={() => {
+                setSheetOpen(false);
+                // After the sheet has closed, so it unmounts shut.
+                requestAnimationFrame(remove);
+              }}
             >
               <Trash2 className="size-4" />
               {dict.removeMealAriaLabel}
@@ -604,15 +656,6 @@ function MealEntryRow({
           />
         </>
       )}
-      <ConfirmDialog
-        handle={dialogs.remove}
-        title={format(dict.confirmDeleteMeal.title, { meal: label })}
-        description={cooked ? dict.confirmDeleteMeal.descriptionCooked : dict.confirmDeleteMeal.description}
-        cancelLabel={dict.confirmDeleteMeal.cancel}
-        confirmLabel={dict.confirmDeleteMeal.confirm}
-        pendingLabel={dict.confirmDeleteMeal.confirming}
-        onConfirm={() => deleteMealEntryAction(entry.id)}
-      />
     </>
   );
 }

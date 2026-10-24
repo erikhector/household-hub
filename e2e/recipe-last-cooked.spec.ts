@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, openRowSheet } from "./ui";
+import { dismissCookieNotice, openRecipesTab, openRowSheet } from "./ui";
 
 // GAP-46: each recipe on the Recipes tab says how often it was cooked and
 // when last ("Cooked 3 times, last 12 Sep"), counted from the entries marked
@@ -84,7 +84,7 @@ test("a recipe shows how often it was cooked and when last, and a never-cooked o
 
   // Reload first: the point is that the count is read back from the database.
   await page.goto("/dashboard/meal-planning");
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   const search = page.getByPlaceholder("Search recipes…").filter({ visible: true });
   await search.fill(cookedName);
   await expect(page.getByText(`Cooked 3 times, last ${todayLabel}`)).toBeVisible();

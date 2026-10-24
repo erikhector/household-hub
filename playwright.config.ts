@@ -1,4 +1,6 @@
-import { defineConfig, devices } from "@playwright/test";
+import { existsSync, readdirSync } from "node:fs";
+import path from "node:path";
+import { chromium, defineConfig, devices } from "@playwright/test";
 import { STORAGE_STATE } from "./e2e/seed";
 
 // End-to-end tests against a running app and a real (local or CI service)
@@ -15,6 +17,23 @@ import { STORAGE_STATE } from "./e2e/seed";
 try {
   process.loadEnvFile();
 } catch {}
+
+// DEPS-4: the web sandbox ships one prebuilt Chromium under
+// PLAYWRIGHT_BROWSERS_PATH and `playwright install` isn't allowed there, so
+// after a Playwright bump the build it asks for (chromium_headless_shell-N)
+// can be missing while an older full Chromium sits right beside it. When
+// the expected headless shell isn't installed, launch that Chromium by
+// path instead of failing. Anywhere the expected browser exists (CI, a
+// normal local install) this returns undefined and Playwright finds its own.
+function fallbackChromium(): string | undefined {
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!root || !existsSync(root) || existsSync(chromium.executablePath())) return undefined;
+  const full = readdirSync(root).filter((e) => /^chromium-\d+$/.test(e)).sort().pop();
+  const exe = full && path.join(root, full, "chrome-linux64", "chrome");
+  return exe && existsSync(exe) ? exe : undefined;
+}
+const executablePath = fallbackChromium();
+const launchOptions = executablePath ? { executablePath } : {};
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
@@ -52,6 +71,7 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "line",
   use: {
     baseURL,
+    launchOptions,
     locale: "en-US",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

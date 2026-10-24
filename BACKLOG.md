@@ -374,28 +374,6 @@ then MAINT-7 per feature, to avoid churn.
       e2e/optimistic-ticking.spec.ts:169 --project=mobile
       --repeat-each=30` passes 30/30.
 
-- [ ] **MAINT-49. Flaky: recipe pages time out finding their first control under full-suite load** (low, S) —
-      `mobile` project, local `ci:local` gate runs, 2026-10-23. Different
-      recipe specs fail on different runs with the same symptom, a 30 s
-      timeout on the first control of the recipes page: (a)
-      `e2e/recipe-last-cooked.spec.ts:60` (`search.fill`, PR #603 gate on
-      `f7ac260`; also failed once in PR #602's first full run); (b)
-      `e2e/recipe-form-order.spec.ts:11` ("New recipe" button not found,
-      PR #611 gate on `672015a`); (c) `e2e/sheet-keyboard.mobile.spec.ts`
-      and `e2e/recipe-dialog.spec.ts:43` ("New recipe" button not found),
-      PR #611 / MAINT-44 gate runs. Each passed on its own (`--repeat-each=3`)
-      and in the next full run, so the page or the spec isn't ready when
-      the first click or fill lands, probably hydration of the recipes
-      list, or its data load, under a 13 minute full run. Find out
-      which, and fix it in the app or in the specs' waiting, never a
-      loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/recipe-last-cooked.spec.ts:60
-      e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
-      --project=mobile --repeat-each=30` passes 30/30, and two full
-      `ci:local` runs show none of these specs failing.
-      Seen again on PR #611 (2026-10-23): the merge sub-agent saw
-      `recipe-form-order` (mobile) fail once locally.
-
 - [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
       `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
       shows the all-caught-up card above Completed", `mobile`) failed once
@@ -510,57 +488,6 @@ UX-89.
   on payday).
 - Needs a decision before building: UX-136.
 
-**File conflicts.** Don't build these in parallel:
-- `src/components/shopping/shopping-list-client.tsx`: UX-49.
-- `src/components/tasks/tasks-client.tsx`: UX-49.
-- `src/components/meal-planning/week-planner.tsx`: UX-49.
-
-#### Shell and cross-cutting
-
-- [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
-      (impact: med, effort: M) — breaks Consistency and User control
-      (DESIGN.md: "prefer undo for frequent, low-stakes actions"). On
-      the same row, swipe → Delete removes the row with an Undo toast,
-      while the visible trash or menu Delete opens a confirm saying the
-      delete is permanent. Where:
-      - tasks: `tasks-client.tsx:278-298`;
-      - shopping items: `shopping-list-client.tsx:1301-1330`;
-      - inventory ⋯ → Delete: `inventory-table.tsx:605-607`;
-      - "Remove meal": `week-planner.tsx:581-585`;
-      - Edit transaction → Delete stacks a second sheet;
-      - deleting a recipe gives no toast at all.
-      Archiving a shopping list is silent, with no toast and no undo
-      (`shopping-lists-overview.tsx:139-170`), and its icon sits right
-      next to the trash icon on every row.
-      Acceptance: every delete path for a task, shopping item, inventory
-      item, planned meal and transaction removes at once and shows the
-      same Undo toast. Archiving a list shows "List archived · Undo".
-      Archive and delete are no longer adjacent lookalike icons (for
-      example, both behind a row ⋯ menu). Household, budget and account
-      deletes keep their confirms.
-
-- [ ] **UX-50. One empty-state pattern, with the next step inside it**
-      (impact: med, effort: M) — breaks Consistency, Usability ("empty:
-      explain and offer the next step") and M6. On a new household
-      every section's empty state looks different:
-      - Shopping ("No shopping lists yet. Create one to get started.")
-        and Tasks ("No tasks yet — use Add task to add one",
-        `tasks-client.tsx:106-108`) have no button inside them.
-      - The planner shows seven identical "+ Add meal" cards, with no
-        hint to add recipes first or use "Copy last week" / "Fill".
-      - Cook now has no mascot and no action.
-      - Meal prep's primary is an inline full-width bar, where the
-        sibling tabs use the floating `PrimaryAction`.
-      - The empty inventory offers five ways to add, three of them
-        purple primaries, and the FAB covers its "Paste a list" link.
-      - A new empty shopping list leads with a disabled full-width
-        "Register receipt" above the add bar.
-      Acceptance: every section and tab uses `MascotEmptyState` with one
-      line on why it's worth using and exactly one primary action, placed
-      through `PrimaryAction`. An empty week shows one empty state
-      ("Add your first dinner" / "Fill the week") instead of seven
-      slots. Nothing sits under the FAB at 412 px.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
@@ -649,24 +576,6 @@ UX-89.
 
 #### Meals and recipes
 
-#### Budgets
-
-- [ ] **UX-112. A new member sees their shared costs before setting up a
-      personal budget** (impact: med, effort: M) — breaks Context (never
-      surprise a member) and Consistency. ⚠️ money.
-      - After a partner splits a 940 dinner, the new member's personal
-        Overview and home show only "Let's set up your budget". Their
-        Transactions tab shows "Shared −470.00" and Insights says they owe
-        470, but they'd never find either.
-      - Their only action, "Log a shared expense", is an outline button
-        at the top left.
-      - The household page calls the same action "Add transaction" plus
-        a "Split this expense" checkbox.
-      Acceptance: a member with shared splits sees their share and what
-      they owe or are owed on the personal Overview and home before
-      adding categories. The shared-expense action has one name and
-      placement on both pages.
-
 #### Inventory
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
@@ -715,25 +624,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
       22.20.5. Skip the majors (Sentry 11, ESLint 10, TypeScript 7, React
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
-
-- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: high, effort: S) —
-      `npm audit --omit=dev` (2026-10-23) flags `next` 16.0.0–16.4.0 with two
-      critical unauthenticated RCEs (GHSA-2464-fhr4-w9xw, image optimization
-      with SVG files; GHSA-673q-mjm6-r5xr, `use cache` returning typed
-      arrays) and a high Server Actions DoS (GHSA-p3m5-59mp-jv5r); 16.4.2
-      fixes them. Do this item first and don't wait on DEPS-3.
-      DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
-      16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
-      7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3
-      so a regression bisects to the framework. Read the Next 16.4 notes in
-      `node_modules/next/dist/docs/` for changed APIs, and regenerate the
-      client (`postinstall`). Playwright finds its browsers through
-      `PLAYWRIGHT_BROWSERS_PATH` (the web image ships the Chromium build
-      that matches 1.56, and `playwright install` is not allowed there), so
-      check 1.64 still launches against it, or pin `executablePath` in
-      `playwright.config.ts` if it doesn't.
-      Acceptance: `npm outdated` no longer lists these; `npm run ci:local`
-      is green on desktop and mobile.
 
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
       Major release (10.73 installed, 11.8 latest). Sentry is wired into

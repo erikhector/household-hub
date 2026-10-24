@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, openRowSheet } from "./ui";
+import { dismissCookieNotice, openRecipesTab, openRowSheet } from "./ui";
 
 // MATCH-5: a name the household taught once (ItemAlias) links shopping
 // lists too, and "Review ingredient matches" in a recipe's sheet reopens a
@@ -30,7 +30,7 @@ test.afterEach(forgetAliases);
 
 async function createRecipe(page: Page, name: string, ingredient: { name: string; quantity: string; unit: string }) {
   await page.goto("/dashboard/meal-planning");
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   await page.getByRole("button", { name: "New recipe" }).click();
   const dialog = page.getByRole("dialog", { name: "New recipe" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
@@ -108,7 +108,7 @@ test("“Review ingredient matches” moves a saved link, and the new link is ke
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.reload();
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   const reopened = await openReview();
   await expect(reopened.row.getByRole("combobox", { name: "Pantry item for Egg" })).toHaveValue("Tomatoes · Produce");
 });

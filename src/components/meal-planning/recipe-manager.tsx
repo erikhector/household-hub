@@ -10,7 +10,8 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag } from "@/lib/recipe-tags";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import {
   createDialogHandle,
   Dialog,
@@ -115,6 +116,24 @@ export function RecipeManager({
     [recipes, query, tagFilter],
   );
 
+  // UX-50: "New recipe" is the tab's one primary; with no recipes yet the
+  // empty state holds it instead of the header.
+  const newRecipeDialog = (
+    <RecipeFormDialog
+      dict={dict}
+      mode="create"
+      allRecipes={recipes}
+      ingredientNames={ingredientNames}
+      ingredientUnits={ingredientUnits}
+      trigger={
+        <Button type="button">
+          <Plus className="size-4" />
+          {dict.newRecipe}
+        </Button>
+      }
+    />
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
@@ -125,25 +144,11 @@ export function RecipeManager({
         {/* M2: on a phone the tab's one primary action floats in thumb
             reach above the bottom bar, like every other page's (UX-40);
             from `sm` it stays here in the header. */}
-        <PrimaryAction>
-          <RecipeFormDialog
-            dict={dict}
-            mode="create"
-            allRecipes={recipes}
-            ingredientNames={ingredientNames}
-            ingredientUnits={ingredientUnits}
-            trigger={
-              <Button type="button">
-                <Plus className="size-4" />
-                {dict.newRecipe}
-              </Button>
-            }
-          />
-        </PrimaryAction>
+        {recipes.length > 0 && <PrimaryAction>{newRecipeDialog}</PrimaryAction>}
       </div>
 
       {recipes.length === 0 ? (
-        <MascotEmptyState alt={dict.mascotAlt}>
+        <MascotEmptyState alt={dict.mascotAlt} action={newRecipeDialog}>
           <p className="text-sm text-muted-foreground">{dict.emptyRecipes}</p>
         </MascotEmptyState>
       ) : (
@@ -343,12 +348,14 @@ function RecipeRow({
     });
   };
 
-  const handleDelete = () => {
-    startTransition(async () => {
-      const result = await deleteRecipeAction(recipe.id);
-      if (result.error) toast.error(result.error);
-    });
-  };
+  // UX-49: Delete hides the recipe at once with an Undo toast and sends the
+  // delete when the toast closes, instead of a "can't be undone" confirm.
+  const { hidden, remove: handleDelete } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteRecipeAction(recipe.id), dict.prepConnectionError)) !== null,
+    message: format(dict.recipeDeletedToast, { name: recipe.name }),
+    undoLabel: dict.undoDelete,
+  });
 
   // Star toggle (GAP-18). Its own transition, separate from delete's, so a
   // pending star doesn't grey out the delete button and vice versa. The
@@ -392,7 +399,6 @@ function RecipeRow({
     cook: createDialogHandle(),
     edit: createDialogHandle(),
     review: createDialogHandle(),
-    remove: createDialogHandle(),
   }));
   // Same hand-off as the planner's meal sheet: the sheet closes as the
   // chosen action's dialog opens, so closing that lands back on the list.
@@ -405,6 +411,8 @@ function RecipeRow({
     setSheetOpen(false);
     handle.open(null);
   }
+
+  if (hidden) return null;
 
   return (
     <div className="flex items-center gap-1 px-1 py-1">
@@ -579,7 +587,11 @@ function RecipeRow({
               variant="destructive"
               className="w-full justify-start"
               disabled={isPending}
-              onClick={() => openFromSheet(dialogs.remove)}
+              onClick={() => {
+                setSheetOpen(false);
+                // After the sheet has closed, so it unmounts shut.
+                requestAnimationFrame(handleDelete);
+              }}
             >
               <Trash2 className="size-4" />
               {dict.deleteAriaLabel}
@@ -638,15 +650,6 @@ function RecipeRow({
           handle={dialogs.review}
         />
       )}
-      <ConfirmDialog
-        handle={dialogs.remove}
-        title={format(dict.confirmDelete.title, { name: recipe.name })}
-        description={dict.confirmDelete.description}
-        cancelLabel={dict.confirmDelete.cancel}
-        confirmLabel={dict.confirmDelete.confirm}
-        pendingLabel={dict.confirmDelete.confirming}
-        onConfirm={handleDelete}
-      />
     </div>
   );
 }

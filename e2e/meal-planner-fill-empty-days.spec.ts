@@ -71,7 +71,7 @@ test("a proposal can be cancelled without writing, swapped, accepted, and the en
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
   await page.reload();
-  await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(7);
+  await expect(page.getByRole("button", { name: "Add your first dinner" })).toBeVisible();
 
   // Swap the first day's dinner: it changes and every dinner stays unique.
   await openFill(page);
@@ -103,7 +103,7 @@ test("Undo on the toast removes exactly the dinners that were added", async ({ p
   await expect(page.getByText("Added dinners removed")).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(7);
+  await expect(page.getByRole("button", { name: "Add your first dinner" })).toBeVisible();
 });
 
 // UX-97: favorites come first, then other recipes fill the remaining days, so

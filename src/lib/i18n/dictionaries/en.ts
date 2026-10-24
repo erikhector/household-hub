@@ -559,7 +559,7 @@ export const en = {
     nameLabel: "Name",
     creating: "Creating…",
     create: "Create list",
-    empty: "No shopping lists yet. Create one to get started.",
+    empty: "One shared list for the whole household, so nobody buys the milk twice.",
     sectionActive: "Active",
     sectionCompleted: "Completed",
     sectionArchived: "Archived",
@@ -569,8 +569,8 @@ export const en = {
     },
     statusCompleted: "Completed",
     statusArchived: "Archived",
-    archiveAriaLabel: "Archive list",
-    unarchiveAriaLabel: "Unarchive list",
+    // UX-49: archiving shows this with an Undo.
+    listArchivedToast: "List archived",
     deleteAriaLabel: "Delete list",
     confirmDeleteList: {
       title: "Delete {name}?",
@@ -640,13 +640,6 @@ export const en = {
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
-    },
-    confirmDeleteItem: {
-      title: "Remove {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
     },
     editItemAriaLabel: "Edit {name}",
     // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
@@ -1126,13 +1119,6 @@ export const en = {
     moreInventoryActions: "More inventory actions",
     edit: "Edit",
     delete: "Delete",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     nameLabel: "Name",
     categoryLabel: "Category",
     categoryPlaceholder: "e.g. Dairy",
@@ -1209,7 +1195,8 @@ export const en = {
     emptyNoItems: "No items yet. Add your first item to start tracking inventory.",
     emptyNoMatches: "No items match your filters.",
     emptyTitle: "No items yet",
-    emptyLead: "Add a few items to start tracking what's in stock.",
+    emptyLead: "Add a few items to start tracking what's in stock, and Squirrel tells you what to buy before it runs out.",
+    quickAddToggle: "Or type several in a row",
     mascotAlt: "Squirrel mascot",
     quickAdd: {
       label: "Quick add",
@@ -1708,6 +1695,13 @@ export const en = {
     // "Fill empty days" (BACKLOG GAP-45) — a preview of one favorite dinner
     // per empty day; nothing is saved until "Add dinners" (fillEmptyDaysAction).
     fillEmptyDays: "Fill empty days",
+    // UX-50: an empty week is one empty state with one primary, not seven
+    // "Add meal" cards; the ⋯ menu keeps Copy last week and Fill empty days.
+    plannerEmpty:
+      "Plan the week's meals and Squirrel works out what you still need to buy. Copy last week or fill the empty days from the ⋯ menu.",
+    plannerEmptyNoRecipes:
+      "Plan the week's meals and Squirrel works out what you still need to buy. Add a few recipes first and planning gets quicker.",
+    addFirstDinner: "Add your first dinner",
     fillEmptyDaysDescription: "Dinners picked for the days with nothing planned, favorites first and then your other recipes. Nothing is saved until you add them.",
     fillEmptyDaysNoRecipes: "No recipes to pick from yet. Add a few in the Recipes tab and they will show up here.",
     fillEmptyDaysNoneLeft: "Every recipe is already planned this week, so there is nothing new to propose.",
@@ -1757,15 +1751,9 @@ export const en = {
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
-    confirmDeleteMeal: {
-      title: "Remove {meal}?",
-      description: "This can't be undone.",
-      descriptionCooked:
-        "This meal was already marked as cooked — the inventory it used won't be restored automatically.",
-      cancel: "Cancel",
-      confirm: "Remove",
-      confirming: "Removing…",
-    },
+    // UX-49: Remove goes at once; the toast carries the way back.
+    mealRemovedToast: 'Removed "{meal}"',
+    undoDelete: "Undo",
     adding: "Adding…",
     add: "Add",
     recipesTitle: "Recipes",
@@ -1935,13 +1923,8 @@ export const en = {
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
     favoriteAriaLabel: "Favorite {name}",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
+    // UX-49: Delete goes at once; the toast carries the way back.
+    recipeDeletedToast: 'Deleted "{name}"',
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",
     mascotAlt: "Squirrel mascot",
     searchRecipesPlaceholder: "Search recipes…",
@@ -2077,6 +2060,10 @@ export const en = {
     cookNowTitle: "Cook now",
     cookNowSubtitle: "Recipes you already have everything (or almost everything) for.",
     emptyCookNow: "No recipes are close to ready yet — restock a few ingredients or add more recipes.",
+    // UX-50: Cook now's empty state, with its one next step.
+    emptyCookNowNoRecipes: "Add a recipe and this tab shows what you can cook from what's already in stock.",
+    cookNowAddRecipe: "Add a recipe",
+    cookNowOpenInventory: "Update your inventory",
     readyToCookBadge: "Ready to cook",
     addToPlanButton: "Add to plan",
     addToPlanDialogTitle: "Add {recipe} to the plan",
@@ -2200,7 +2187,7 @@ export const en = {
     unassignedOption: "Unassigned",
     add: "Add",
     adding: "Adding…",
-    emptyState: "No tasks yet — use Add task to add one.",
+    emptyState: "Add the chores that keep coming back, and everyone can see what's open and who has it.",
     mascotAlt: "Squirrel mascot",
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",
@@ -2228,13 +2215,6 @@ export const en = {
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
-    },
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
     // UX-106: the "Mine / Everyone" filter above the list.
@@ -2327,13 +2307,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -2827,13 +2800,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -3000,12 +2966,20 @@ export const en = {
       paidBy: "Paid by {name}",
       viewInHouseholdBudget: "View in {household} Budget →",
       leftDue: "{amount} left due",
+      // UX-112: the card a member sees before they've set up a budget.
+      costsTitle: "Shared with your household",
+      costsBody: "Expenses split with other members count here before you set up your own budget.",
+      monthShare: "Your share this month",
+      monthShareIn: "Your share in {month}",
+      viewShared: "See the shared expenses →",
     },
     logShared: {
       logPayment: "Log payment",
       paymentDialogTitle: "Log payment for {name}",
-      button: "Log a shared expense",
-      dialogTitle: "Log a shared expense",
+      // UX-112: "Add" like the household page's "Add transaction", which is
+      // where the same action lives next to a "Split this expense" checkbox.
+      button: "Add shared expense",
+      dialogTitle: "Add shared expense",
       subtitle:
         "This creates a real transaction in the household's budget, split the way you choose below — it isn't a separate personal entry.",
       householdLabel: "Household",
