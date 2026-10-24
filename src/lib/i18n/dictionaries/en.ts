@@ -140,6 +140,19 @@ export const en = {
     whatsNew: "What's new",
     whatsNewUnseen: "New update",
   },
+  // UX-41a: the ⌘K / Ctrl+K command palette (command-palette.tsx).
+  commandPalette: {
+    title: "Command palette",
+    inputLabel: "Type a command",
+    placeholder: "Go to or do something…",
+    listLabel: "Commands",
+    goTo: "Go to {section}",
+    addTask: "Add task",
+    addToShoppingList: "Add to shopping list",
+    empty: "No matching commands.",
+    hint: "Arrow keys to move, Enter to run, Esc to close",
+    results: { one: "{count} command", other: "{count} commands" },
+  },
   whatsNew: {
     title: "What's new",
     subtitle: "Every Squirrel update and what it changed.",

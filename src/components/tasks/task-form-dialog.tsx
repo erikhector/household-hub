@@ -22,7 +22,8 @@
 // rotation is set, "Assign to" becomes "whose turn it is now" and only
 // offers the people taking turns, matching what the server enforces.
 
-import { useActionState, useState, type ReactElement } from "react";
+import { useActionState, useEffect, useState, type ReactElement } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 import { createTaskAction, updateTaskAction } from "@/app/dashboard/tasks/actions";
 import type { ActionState } from "@/lib/actions/auth";
 import { MIN_ROTATION_MEMBERS } from "@/lib/task-rotation";
@@ -97,6 +99,23 @@ export function TaskFormDialog({
   );
   const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
   const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");
+
+  // UX-41a: the command palette's "Add task" lands here with `?add=1`. Only
+  // the create form listens (the edit dialogs share this component). The
+  // param is stripped again in an effect so a reload doesn't reopen it, and
+  // watched as it changes (adjust-state-during-render, like the shopping
+  // list's `putAway`) so a second palette run on this page opens it again.
+  const router = useRouter();
+  const pathname = usePathname();
+  const addParam = useSearchParams().get(ADD_PARAM);
+  const [seenAddParam, setSeenAddParam] = useState<string | null>(null);
+  if (addParam !== seenAddParam) {
+    setSeenAddParam(addParam);
+    if (addParam === "1" && mode === "create") setOpen(true);
+  }
+  useEffect(() => {
+    if (addParam === "1" && mode === "create") router.replace(pathname, { scroll: false });
+  }, [addParam, mode, pathname, router]);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
