@@ -503,6 +503,42 @@ export const sv = {
         },
       },
     },
+    // UX-136: valfri exempeldata. Kortet erbjuder den för ett tomt hushåll och,
+    // när den väl finns där, vägen ut; `content` är själva påhittade hemmet, på
+    // betraktarens språk när hen lägger in det.
+    sampleData: {
+      tryTitle: "Osäker på var du ska börja?",
+      tryBody:
+        "Fyll Squirrel med ett litet exempelhem: ett skafferi, en inköpslista, tre recept, en planerad vecka och några sysslor. Du rensar bort allt med ett tryck.",
+      tryButton: "Prova med exempeldata",
+      clearTitle: "Du tittar på exempeldata",
+      clearBody:
+        "Raderna som är markerade som exempel är påhittade. Rensningen tar bara bort dem och behåller allt du lagt till själv.",
+      clearButton: "Rensa exempeldata",
+      content: {
+        categoryPantry: "Skafferi",
+        categoryDairy: "Mejeri och ägg",
+        categoryBakery: "Bröd",
+        itemPasta: "Pasta",
+        itemRice: "Ris",
+        itemTomatoes: "Krossade tomater",
+        itemMilk: "Mjölk",
+        itemEggs: "Ägg",
+        itemCoffee: "Kaffe",
+        itemBread: "Bröd",
+        listName: "Veckohandlingen",
+        recipeTomatoPasta: "Pasta med tomatsås",
+        recipeTomatoPastaSteps: "Koka pastan. Låt tomaterna sjuda med salt och peppar i tio minuter och blanda sedan ihop.",
+        recipePancakes: "Pannkakor",
+        recipePancakesSteps: "Vispa ihop mjölk, ägg och mjöl till en slät smet. Stek tunna pannkakor i smör på båda sidor.",
+        recipeFriedRice: "Stekt ris med ägg",
+        recipeFriedRiceSteps: "Stek det kokta riset hett, skjut det åt sidan, rör ägg och blanda ihop allt med sojasås.",
+        mealLeftovers: "Rester",
+        taskRecycling: "Lämna ut återvinningen",
+        taskPlants: "Vattna blommorna",
+        taskDentist: "Boka tid hos tandläkaren",
+      },
+    },
   },
   shoppingList: {
     title: "Inköpslistor",

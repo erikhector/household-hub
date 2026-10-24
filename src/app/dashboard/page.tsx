@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ChevronRight, CircleCheck, PiggyBank, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SampleDataCard } from "@/components/dashboard/sample-data-card";
+import { loadSampleDataState } from "@/lib/sample-data-state";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
@@ -71,6 +73,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     gettingStartedCelebrated,
     plannedMealCount,
     prepBatches,
+    sampleState,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
     // UX-70: the tasks that need *you*: yours and the unassigned ones
@@ -149,6 +152,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     // UX-69: the "Plan this week's meals" step is done once anything is planned.
     prisma.mealPlanEntry.count({ where: { mealPlan: { householdId: household.id } } }),
     getActiveBatches(household.id),
+    loadSampleDataState(household.id),
   ]);
   const budgetCategoryCount = householdBudget.count;
 
@@ -261,6 +265,11 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
           overdueLabel: dict.tasks.overdueLabel,
         }}
       />
+
+      {/* UX-136: opt-in sample data for an empty household, and the way out. */}
+      {(sampleState.hasSample || sampleState.isEmpty) && (
+        <SampleDataCard mode={sampleState.hasSample ? "clear" : "offer"} dict={dict.dashboard.sampleData} />
+      )}
 
       {!gettingStartedDismissed && (
         <GettingStarted
