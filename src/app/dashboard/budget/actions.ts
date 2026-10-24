@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold, requireUserId } from "@/lib/session";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
+import { normalizeStartDay } from "@/lib/budget-date-utils";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
@@ -348,22 +349,26 @@ async function resolveRecurringTemplateId(
  * know about each other within one request — e.g. two household members
  * racing each other, or Personal Budget's due-row widget being a request
  * behind the household budget's own revalidation.
+ *
+ * UX-134: `startDay` is the household's budget month start day, which
+ * decides what a MONTHLY template's period is.
  */
 async function assertNoDuplicateTemplatePeriod(
   recurringTemplateId: string,
   frequency: TemplateFrequency,
   date: Date,
+  startDay: number,
 ): Promise<{ error: string } | null> {
-  const periodKey = getPeriodKey(date, frequency);
+  const periodKey = getPeriodKey(date, frequency, startDay);
   // Bounded to the period's date range so the read doesn't grow with every
   // period the template has ever been logged in (PERF-17). The key check
   // below stays as the exact definition of "same period".
-  const { start, end } = getPeriodBounds(date, frequency);
+  const { start, end } = getPeriodBounds(date, frequency, startDay);
   const existing = await prisma.transaction.findMany({
     where: { recurringTemplateId, date: { gte: start, lt: end } },
     select: { date: true },
   });
-  const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency) === periodKey);
+  const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency, startDay) === periodKey);
   return alreadyLogged
     ? { error: "A transaction for this recurring item already exists for this period" }
     : null;
@@ -477,6 +482,7 @@ export async function createTransactionAction(
       recurringTemplate.id,
       recurringTemplate.frequency,
       new Date(parsed.data.date),
+      normalizeStartDay(household.budgetMonthStartDay),
     );
     if (dup) return dup;
   }
@@ -547,7 +553,10 @@ export async function createSharedExpenseFromPersonalBudgetAction(
 
   const householdId = String(formData.get("householdId") || "");
   const member = householdId
-    ? await prisma.householdMember.findFirst({ where: { userId, householdId } })
+    ? await prisma.householdMember.findFirst({
+        where: { userId, householdId },
+        include: { household: { select: { budgetMonthStartDay: true } } },
+      })
     : null;
   if (!member) return { error: "Choose a household you belong to" };
 
@@ -578,6 +587,7 @@ export async function createSharedExpenseFromPersonalBudgetAction(
       recurringTemplate.id,
       recurringTemplate.frequency,
       new Date(parsed.data.date),
+      normalizeStartDay(member.household.budgetMonthStartDay),
     );
     if (dup) return dup;
   }
@@ -897,7 +907,7 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
   });
   if (!template) return { error: "Recurring template not found" };
 
-  const periodKey = getPeriodKey(new Date(), template.frequency);
+  const periodKey = getPeriodKey(new Date(), template.frequency, normalizeStartDay(household.budgetMonthStartDay));
   try {
     await prisma.recurringTemplateAck.upsert({
       where: { recurringTemplateId_periodKey: { recurringTemplateId: template.id, periodKey } },
@@ -956,7 +966,12 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
   });
   if (!template) return { error: "Recurring template not found" };
 
-  const dup = await assertNoDuplicateTemplatePeriod(template.id, template.frequency, new Date());
+  const dup = await assertNoDuplicateTemplatePeriod(
+    template.id,
+    template.frequency,
+    new Date(),
+    normalizeStartDay(household.budgetMonthStartDay),
+  );
   if (dup) return dup;
 
   // A template has no "paid" concept of its own (see
@@ -1008,7 +1023,7 @@ export async function unacknowledgeTemplatePeriodAction(templateId: string): Pro
   });
   if (!template) return { error: "Recurring template not found" };
 
-  const periodKey = getPeriodKey(new Date(), template.frequency);
+  const periodKey = getPeriodKey(new Date(), template.frequency, normalizeStartDay(household.budgetMonthStartDay));
   try {
     await prisma.recurringTemplateAck.deleteMany({
       where: { recurringTemplateId: template.id, periodKey },

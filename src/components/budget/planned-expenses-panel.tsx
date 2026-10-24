@@ -410,6 +410,7 @@ export function PlannedBillLogPayment({
         amount: bill.amount,
         description: bill.name,
         splits: bill.splits,
+        dueDate: bill.dueDate,
       }}
       createAction={createTransactionAction}
       updateAction={updateTransactionAction}

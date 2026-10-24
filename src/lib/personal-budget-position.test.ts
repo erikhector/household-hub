@@ -279,6 +279,73 @@ describe("loadPersonalBudgetPosition", () => {
     ]);
   });
 
+  it("judges a shared bill on its household's budget periods (start day 25)", async () => {
+    // UX-134: rent logged on 28 Sep belongs to the household's October
+    // (25 Sep to 24 Oct). The personal October view must not keep it Due,
+    // or "Log payment" on that row would hit the duplicate guard and the
+    // user could never clear it.
+    const octoberStart = new Date(2026, 9, 1);
+    const octoberEnd = new Date(2026, 10, 1);
+    const setup = () => {
+      personalTransactionFindManyMock.mockResolvedValue([]);
+      personalTemplateFindManyMock.mockResolvedValue([]);
+      personalAckFindManyMock.mockResolvedValue([]);
+      householdMemberFindManyMock.mockResolvedValue([
+        { id: "m-me", household: { id: "h1", name: "Home", budgetMonthStartDay: 25 } },
+      ]);
+      transactionFindManyMock.mockResolvedValue([
+        {
+          id: "sep-rent",
+          amount: 12000,
+          type: "EXPENSE",
+          date: new Date(2026, 8, 28),
+          recurringTemplateId: "tpl-rent",
+          category: { name: "Rent" },
+          splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
+        },
+      ]);
+      settlementFindManyMock.mockResolvedValue([]);
+      templateSplitFindManyMock.mockResolvedValue([]);
+      templateAckFindManyMock.mockResolvedValue([]);
+      templateFindManyMock.mockResolvedValue([
+        {
+          id: "tpl-rent",
+          householdId: "h1",
+          categoryId: "cat-rent",
+          category: { name: "Rent" },
+          name: "Rent",
+          amount: 12000,
+          type: "EXPENSE",
+          frequency: "MONTHLY",
+          active: true,
+          createdAt: new Date(2026, 0, 1),
+          transactions: [{ id: "sep-rent" }],
+        },
+      ]);
+    };
+
+    setup();
+    const early = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: octoberStart,
+      monthEnd: octoberEnd,
+      now: new Date(2026, 9, 3),
+      sharedLabel: "Shared",
+    });
+    expect(early.sharedDueRows).toEqual([]);
+
+    // From the 25th the household's next period has begun: due again.
+    setup();
+    const late = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: octoberStart,
+      monthEnd: octoberEnd,
+      now: new Date(2026, 9, 28),
+      sharedLabel: "Shared",
+    });
+    expect(late.sharedDueRows).toEqual([expect.objectContaining({ id: "tpl-rent" })]);
+  });
+
   it("drops a hand-split bill once a later one is logged without the user", async () => {
     // Rent was split with me in August, but September's was logged unsplit
     // (it never reaches the split-bill query). October must not show it.

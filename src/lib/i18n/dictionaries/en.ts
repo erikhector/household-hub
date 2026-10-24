@@ -316,6 +316,18 @@ export const en = {
       ownerOnlyHint: "Only the household owner can change this.",
       savedToast: "Currency updated",
     },
+    // UX-134: the day the household budget's month starts on.
+    budgetMonth: {
+      title: "Budget month",
+      label: "Budget month starts on day",
+      description:
+        "Most households budget from the 1st. If your pay lands on the 25th, start on day 25 and each month runs from the 25th to the 24th, named after the month it ends in.",
+      hint: "Changes the household budget's months, Safe to spend and recurring bills. Nothing you've logged changes, and Personal Budget stays on calendar months. Recurring items you marked as accounted for may need marking again.",
+      calendarOption: "{day} (calendar month)",
+      dayOption: "{day}",
+      ownerOnlyHint: "Only the household owner can change this.",
+      savedToast: "Budget month updated",
+    },
     // GAP-3: the read-only calendar feed (CalendarFeedSetting). `feed` holds
     // the strings written into the .ics itself; the route picks the locale
     // from the URL's ?lang=, since calendar apps send no cookie.

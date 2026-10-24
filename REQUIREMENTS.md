@@ -2533,6 +2533,59 @@ and confirms with a toast.
   adds two items, copies on desktop and mobile, asserts the toast and
   clipboard text, then ticks one and asserts it drops out.
 
+### Budget month start day (UX-134)
+
+`Household.budgetMonthStartDay` (1 to 28, default 1, migration
+`household_budget_month_start_day`) moves the household budget's month
+boundary to payday. Swedish salaries land on the 25th, so with 25 a month
+runs from the 25th to the 24th. The owner sets it on the Household page
+(`BudgetMonthSetting`, `setBudgetMonthStartDayAction`, owner-only, saves on
+change); everyone sees the current value.
+
+- **Naming**: a period is keyed and named by the month it *ends* in. With
+  day 25, `?month=2026-10` ("October") is 25 Sep to 24 Oct, since the pay
+  that lands on 25 Sep funds October's bills. With day 1 every period is the
+  calendar month, exactly as before. The month bar shows the dates under the
+  name ("Sep 25 – Oct 24") whenever the day is above 1.
+- **What uses it**: the Budget page's month tabs and every number on them
+  (income, expenses, Safe to spend and its projection and daily allowance,
+  category limits and rollover, spend sparklines, the fixed-cost trend), the
+  recurring templates' Due/posted/accounted-for statuses (a MONTHLY
+  template's period key is the period's), planned bills' due/overdue/paid
+  statuses, the overview's Safe to spend and the weekly digest. All of it
+  goes through the helpers in `src/lib/budget-date-utils.ts`
+  (`periodKeyOf`, `periodBounds`, `dateInPeriod`, `normalizeStartDay`),
+  which the calculators take as `startDay` (default 1).
+- **Not affected**: WEEKLY and YEARLY templates keep ISO weeks and calendar
+  years; the Personal Budget stays on calendar months (its own transactions
+  and templates); the cost analyzer and waste recap (shopping data) too. The
+  one exception is the shared-bill Due rows on the Personal Budget: each is
+  judged on its own household's periods, so a rent logged on 28 Sep under day
+  25 doesn't stay Due in the personal October view and the duplicate guard
+  never blocks clearing a row (`loadPersonalBudgetPosition` runs
+  `computeTemplateStatuses` per household start day, with today as the
+  reference date when it falls in the viewed month). Changing the day moves no transaction:
+  they keep their dates and only which period they fall in changes.
+- **Logging from a Due list**: the Log dialog starts on the item's due day
+  in the viewed period (a template's `dayOfMonth`, or a planned item's due
+  date when it falls in the period), so logging October's rent early on 28
+  Sep counts it in October and removes it from October's Due list. Without a
+  due day, a new transaction starts on today in the current period and on
+  the period's first day in any other. "Log as-is" and "Mark as accounted
+  for" still act on the current period.
+- **Duplicate guard**: `assertNoDuplicateTemplatePeriod` and the
+  acknowledgement actions use the household's start day, so the same
+  template can't be logged twice in one period.
+- **Accounted-for marks**: `RecurringTemplateAck.periodKey` stays
+  "YYYY-MM", so when the owner changes the day, an existing mark means the new
+  date range of that key (for "2026-10", 1 to 31 Oct becomes 25 Sep to 24
+  Oct). Accepted: recurring items marked as accounted for may need marking
+  again, and the Household card hint says so.
+- Tests: `budget-period.test.ts` (the helpers), the `startDay` cases in
+  `recurring-template-calc`, `chart-calc`, `budget-rollover-calc` and
+  `household-safe-to-spend` tests, the budget and household action tests,
+  and `e2e/ux-134.spec.ts`.
+
 ### Safe to spend
 
 A hero stat card at the top of the Budget page's Overview tab, directly

@@ -503,9 +503,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** Three items sit in other sections of this file:
-- Phase 2, because they need a migration: UX-134 (budget month starting
-  on payday).
+**Built elsewhere.** One item sits in another section of this file:
 - Needs a decision before building: UX-136.
 
 #### Logged out, signup and invites
@@ -735,19 +733,6 @@ order below is a suggestion, not a dependency, unless noted.
       Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
       Why: the item's own recommendation; opt-in keeps the Guardrails on
       noisy positive alerts. See PRODUCT.md.
-
-- [ ] **UX-134. A budget month that starts on payday** (impact: med,
-      effort: L) — from the 2026-10-15 UI review. ⚠️ Money (human-only
-      area). Swedish salaries land on the 25th, so most households budget
-      "lönemånad", the 25th to the 24th. With calendar months, logging
-      October's rent on 28 September put September (before the household
-      existed) at a red "−12,500.00" and left October's rent "Due". The
-      Log dialog also defaults to today, not the item's due day. One
-      migration: `Household.budgetMonthStartDay` (1–28, default 1).
-      Acceptance: with the start day set to 25, the month tabs, safe to
-      spend and recurring statuses use 25th–24th periods. Logging an
-      item from a period's Due list counts it in that period and
-      defaults its date to the due day. The calculator has unit tests.
 
 - [ ] **UX-136. Opt-in sample data for a new household** (impact: med,
       effort: L) — one migration (a nullable `sample` tag/batch column on

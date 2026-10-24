@@ -13,6 +13,7 @@ import { AutoAddSetting } from "@/components/household/auto-add-setting";
 import { HouseholdNotes } from "@/components/household/household-notes";
 import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
 import { RenameHousehold } from "@/components/household/rename-household";
+import { BudgetMonthSetting } from "@/components/household/budget-month-setting";
 import { CurrencySetting } from "@/components/household/currency-setting";
 import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
 import { ShoppingExpenseSetting } from "@/components/household/shopping-expense-setting";
@@ -182,6 +183,12 @@ export default async function HouseholdPage() {
         isOwner={isOwner}
         locale={locale}
         dict={dict.household.currency}
+      />
+      {/* Owner-gated inside (see setBudgetMonthStartDayAction). */}
+      <BudgetMonthSetting
+        startDay={household.budgetMonthStartDay}
+        isOwner={isOwner}
+        dict={dict.household.budgetMonth}
       />
       <CalendarFeedSetting
         feedUrl={feedUrl}
