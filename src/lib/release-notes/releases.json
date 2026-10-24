@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.105.0",
+    "date": "2026-10-24",
+    "pr": 656,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Mark a recipe \"Cook soon\" to pin it to the top of your Recipes tab until you plan or cook it.",
+      "sv": "Markera ett recept som \"Laga snart\" så fästs det överst på receptfliken tills du planerar eller lagar det."
+    }
+  },
+  {
+    "version": "0.104.0",
+    "date": "2026-10-24",
+    "pr": 651,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Deleting a task, shopping item, inventory item, planned meal, recipe or transaction now takes it away at once with an Undo, instead of asking you to confirm. Archiving a shopping list also offers Undo, and Archive and Delete now live together in each list's ⋯ menu.\n\nSecurity update: Squirrel now runs on a patched version of its web framework that closes several serious vulnerabilities.\n\nIf you've been included in a shared expense before setting up your own budget, you now see your share and what you owe or are owed right on your Personal Budget and Home. The shared-expense button is now called \"Add shared expense\".\n\nEmpty sections now look alike and show the next step right inside them: add your first task, shopping list, recipe, meal prep or item with one button. An empty week in the planner is one clear \"Add your first dinner\" instead of seven add cards, and Cook now points you to what to do next.",
+      "sv": "Att ta bort en uppgift, shoppingvara, lagervara, planerad måltid, ett recept eller en transaktion sker nu direkt med en Ångra-knapp, i stället för att du behöver bekräfta. Arkivering av en inköpslista går också att ångra, och Arkivera och Ta bort ligger nu tillsammans i varje listas ⋯-meny.\n\nSäkerhetsuppdatering: Squirrel körs nu på en uppdaterad version av ramverket som täpper till flera allvarliga sårbarheter.\n\nOm du har delat en utgift med hushållet innan du satt upp din egen budget ser du nu din andel och vad du är skyldig eller har att få direkt i Personlig budget och på Hem. Knappen för delad utgift heter nu \"Lägg till delad utgift\".\n\nTomma sidor ser nu likadana ut och visar nästa steg direkt i rutan: lägg till din första uppgift, inköpslista, recept, matlåda eller vara med en knapp. En tom vecka i planeraren är nu en tydlig \"Lägg till din första middag\" i stället för sju kort, och Laga nu visar vad du kan göra härnäst."
+    }
+  },
+  {
     "version": "0.103.0",
     "date": "2026-10-23",
     "pr": 637,

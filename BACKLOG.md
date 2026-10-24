@@ -421,6 +421,26 @@ then MAINT-7 per feature, to avoid churn.
       Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
       --project=mobile --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
+      release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
+      2026-10-24) and passed on a solo rerun of the same commit. Nobody's
+      change is in it. The failing assertion wasn't recorded: reproduce
+      with the repeat run, read the snapshot, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:194
+      --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
+      `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
+      full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
+      `toHaveCSS` assertion) and passed on a solo rerun of the same
+      commit. Nobody's change is in it. Reproduce with the repeat run and
+      fix it in the app or the spec's waiting, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
+      --project=mobile --repeat-each=30` passes 30/30.
+
 
 ### UX (2026-09-26 scout)
 
@@ -485,30 +505,6 @@ UX-89.
 
 **Built elsewhere.** One item sits in another section of this file:
 - Needs a decision before building: UX-136.
-
-#### Shell and cross-cutting
-
-- [ ] **UX-50. One empty-state pattern, with the next step inside it**
-      (impact: med, effort: M) — breaks Consistency, Usability ("empty:
-      explain and offer the next step") and M6. On a new household
-      every section's empty state looks different:
-      - Shopping ("No shopping lists yet. Create one to get started.")
-        and Tasks ("No tasks yet — use Add task to add one",
-        `tasks-client.tsx:106-108`) have no button inside them.
-      - The planner shows seven identical "+ Add meal" cards, with no
-        hint to add recipes first or use "Copy last week" / "Fill".
-      - Cook now has no mascot and no action.
-      - Meal prep's primary is an inline full-width bar, where the
-        sibling tabs use the floating `PrimaryAction`.
-      - The empty inventory offers five ways to add, three of them
-        purple primaries, and the FAB covers its "Paste a list" link.
-      - A new empty shopping list leads with a disabled full-width
-        "Register receipt" above the add bar.
-      Acceptance: every section and tab uses `MascotEmptyState` with one
-      line on why it's worth using and exactly one primary action, placed
-      through `PrimaryAction`. An empty week shows one empty state
-      ("Add your first dinner" / "Fill the week") instead of seven
-      slots. Nothing sits under the FAB at 412 px.
 
 #### Logged out, signup and invites
 
@@ -597,24 +593,6 @@ UX-89.
       inventory item it created removes that item too.
 
 #### Meals and recipes
-
-#### Budgets
-
-- [ ] **UX-112. A new member sees their shared costs before setting up a
-      personal budget** (impact: med, effort: M) — breaks Context (never
-      surprise a member) and Consistency. ⚠️ money.
-      - After a partner splits a 940 dinner, the new member's personal
-        Overview and home show only "Let's set up your budget". Their
-        Transactions tab shows "Shared −470.00" and Insights says they owe
-        470, but they'd never find either.
-      - Their only action, "Log a shared expense", is an outline button
-        at the top left.
-      - The household page calls the same action "Add transaction" plus
-        a "Split this expense" checkbox.
-      Acceptance: a member with shared splits sees their share and what
-      they owe or are owed on the personal Overview and home before
-      adding categories. The shared-expense action has one name and
-      placement on both pages.
 
 #### Inventory
 
@@ -1071,22 +1049,6 @@ out to be a product-scope question rather than a scoped task should move to
       per-item assignment replaces or layers on top of the existing
       share/paid model — a schema and UX design question, not a routine
       slice.
-
-### 2026-10-12 scan
-
-- [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —
-      AnyList's v6 meal planning has a queue of recipes you intend to make
-      soon without giving them a date. Squirrel has favorites (permanent)
-      and the planner (dated) but nothing in between, so "that chili I
-      want this week" gets lost or is planned on an arbitrary day. Add a
-      per-recipe "Cook soon" toggle (a nullable `Recipe.cookSoonAt`
-      timestamp `[schema]`, Phase 2) shown as a pinned "Cook soon" group
-      at the top of the Recipes tab, ordered by when it was added; it
-      clears itself when that recipe is marked cooked or placed on the
-      planner. Suggest, don't mutate: nothing else changes.
-      Acceptance: toggling a seeded recipe moves it into the group and
-      survives reload; marking it cooked removes it; unit test for the
-      auto-clear rule; e2e on desktop and mobile.
 
 ### 2026-10-13 scan
 

@@ -330,7 +330,7 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
 
     // Add a meal on the planner from the batch.
     await page.goto(`/dashboard/meal-planning?week=${key(week)}`);
-    await page.getByRole("button", { name: /^Add meal, / }).filter({ visible: true }).first().click();
+    await page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true }).click();
     const add = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
     await add.getByRole("combobox", { name: "Recipe" }).click();
     await page.getByRole("option", { name: "From meal prep" }).click();

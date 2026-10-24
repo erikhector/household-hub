@@ -3426,6 +3426,23 @@ names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
 categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
 
+**Shared costs before a personal budget exists (UX-112).** A member with no
+personal categories but a share of a split household expense (or a balance
+with the other members) sees a "Shared with your household" card above the
+"Let's set up your budget" prompt, on the personal Overview and on Home. It
+shows their share of this month's split expenses (`summarizeSharedCosts`,
+`src/lib/shared-costs-summary.ts`: expenses only, their own share, never the
+whole bill; on the personal page's past months the row is labelled "Your
+share in {month}" rather than "this month") and the same "Your household balance" lines Safe to spend uses
+(`HouseholdDebtsList`, extracted from `SafeToSpend` so the two can't drift),
+with a link to the Transactions tab. Once they have categories the card goes
+and Safe to spend carries the balance as before. The shared-expense action is
+named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
+the household page's "Add transaction", and with no categories it is the
+page's primary action in the `PrimaryAction` slot (floating on phones); once
+Add transaction exists it stays the outline second action. Tested in
+`e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
+
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
 had already moved cost analyzer and balances into the `insights` node the
@@ -5567,6 +5584,34 @@ any member's star is everyone's star.
 - **Not in scope**: no favorites-only filter or separate page, and the
   Recipes list itself stays alphabetical. The star is visible there, and
   search already narrows the list.
+
+### Cook soon shelf (GAP-51)
+
+BACKLOG GAP-51, from the competitor scan of AnyList's meal-planning queue.
+Favorites are permanent and the planner is dated; "that chili I want this
+week" sat in between and got lost or was planned on an arbitrary day.
+`Recipe.cookSoonAt DateTime?` (migration `recipe_cook_soon`) is null for a
+recipe that isn't queued and the time it was queued otherwise.
+
+- **Toggle**: a "Cook soon" / "Remove from Cook soon" button in the recipe's
+  sheet, under "Add to plan" (the row itself stays two lines, M6). A click
+  action, `toggleRecipeCookSoonAction(recipeId)` in `recipe-actions.ts`,
+  with `useOptimistic` and a toast saying which way it went. The action
+  flips the stored value and scopes its lookup to `requireHousehold()`'s
+  household, so a foreign id is a silent no-op (same as the favorite star).
+- **Shelf**: queued recipes show in a "Cook soon" group above the list on
+  the Recipes tab, oldest first (`splitCookSoon`, `cook-soon.ts`). The
+  search and tag filter apply to it too, and the group is absent when
+  nothing is queued. The rest of the list stays alphabetical.
+- **Clears itself**: `clearCookSoon` (`cook-soon.ts`) runs when the recipe
+  is put on the planner (`addMealEntryAction`, and `updateMealEntryAction`
+  when an entry is switched to it) and when a meal of it is marked cooked
+  (`markMealEntryCookedAction`, inside its transaction). Undoing a cook
+  doesn't re-queue it. Copy week and Fill empty days don't clear it: they
+  re-plan or auto-pick, they aren't the household deciding the day.
+- **Suggest, don't mutate**: nothing else reads `cookSoonAt`. It doesn't
+  change the Cook tab's ranking, "use it up", the shopping list or the
+  planner.
 
 ### Recipe sheet: Add to plan and instructions (UX-92)
 
@@ -7819,6 +7864,32 @@ feature's dict) because nothing beside it names it. Filter "no matches",
 the bell dropdown, the catalog, scan queues and every budget surface stay
 text-only: small inline empties would be noise, and money surfaces get no
 mascot or celebration (PRODUCT.md Guardrails).
+
+**One empty-state pattern, with the next step inside it (UX-50).** On a new
+household every section and tab is the same thing: `MascotEmptyState`, one
+line on why the section is worth using, and exactly one primary action
+passed as its `action` prop, which places it through `PrimaryAction` (inline
+under the copy from `sm`, floating at the bottom right on a phone, so
+nothing may sit under it at 412 px). The page's own header `PrimaryAction`
+is left out while the section is empty, so there is never a second primary:
+Tasks (`AddTaskButton` renders nothing with no tasks; `TasksClient` gets
+`emptyAction`), Shopping (the page counts lists; `ShoppingListsOverview`
+gets `emptyAction`), Recipes ("New recipe"), Meal prep ("Record prep", which
+is now a `PrimaryAction` like its siblings instead of a full-width sticky
+bar) and the empty inventory ("Add item"; the quick-add row waits behind
+"Or type several in a row", starter kits stay below the box, and the
+header's own Add item and FAB only appear once there are items). Cook now
+gets the mascot and a link button: "Add a recipe" (to the Recipes tab) with
+no recipes, "Update your inventory" with recipes but none close to ready
+(`PrimaryAction` styles links as the phone pill too). An empty planner week
+is one empty state with "Add your first dinner" (the same `MealEntryDialog`,
+opened for today or the week's first day) instead of seven "+ Add meal"
+cards; its copy names "Copy last week" and "Fill empty days" in the ⋯ menu
+and, with no recipes yet, says to add a few first. A brand-new shopping
+list hides "Register receipt" until it has a row (the add line is its one
+action). Covered by `e2e/empty-states.spec.ts` (fresh empty household,
+desktop and mobile, including a check that no control sits under the
+floating button) and the planner specs that start from an empty week.
 
 **The one celebration.** Ticking the last pending item on an `ACTIVE`
 shopping list swaps the "All done" ring's tick for the mark, which rises

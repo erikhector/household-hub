@@ -751,6 +751,13 @@ model Recipe {
   // every write goes through parseRecipeTags, and so does every read, so a
   // key later removed from the set is silently ignored rather than shown.
   tags                   String[] @default([])
+  // GAP-51 "Cook soon": when the household queued this recipe for the pinned
+  // shelf at the top of the Recipes tab. Null means not queued. A timestamp
+  // rather than a boolean so the shelf can list recipes in the order they
+  // were added. It clears itself when the recipe is cooked or put on the
+  // planner (cook-soon.ts), so the shelf only ever holds recipes that still
+  // have no date. Nothing else reads it: ranking and suggestions ignore it.
+  cookSoonAt             DateTime?
 
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]

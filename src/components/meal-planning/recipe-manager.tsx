@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { Bookmark, CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -33,6 +33,7 @@ import {
   deleteRecipeAction,
   duplicateRecipeAction,
   toggleRecipeFavoriteAction,
+  toggleRecipeCookSoonAction,
 } from "@/app/dashboard/meal-planning/recipe-actions";
 import { cn } from "@/lib/utils";
 import { format, plural } from "@/lib/i18n/format";
@@ -46,6 +47,8 @@ import { formatRecipeText } from "@/lib/recipe-text";
 import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
+
+import { splitCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -115,6 +118,44 @@ export function RecipeManager({
       ),
     [recipes, query, tagFilter],
   );
+  // GAP-51: queued recipes pin to a "Cook soon" shelf above the list.
+  const { shelf, rest } = useMemo(() => splitCookSoon(filteredRecipes), [filteredRecipes]);
+  const renderRow = (recipe: RecipeData) => (
+    <RecipeRow
+      key={recipe.id}
+      dict={dict}
+      locale={locale}
+      recipe={recipe}
+      cost={recipeCosts[recipe.id] ?? null}
+      cooked={recipeCooked[recipe.id] ?? null}
+      numberFormat={numberFormat}
+      allRecipes={recipes}
+      ingredientNames={ingredientNames}
+      ingredientUnits={ingredientUnits}
+      plannerWeekStartKey={plannerWeekStartKey}
+      openEditOnMount={editNewId === recipe.id}
+      onEditOpened={() => setEditNewId(null)}
+      onDuplicated={setEditNewId}
+    />
+  );
+
+  // UX-50: "New recipe" is the tab's one primary; with no recipes yet the
+  // empty state holds it instead of the header.
+  const newRecipeDialog = (
+    <RecipeFormDialog
+      dict={dict}
+      mode="create"
+      allRecipes={recipes}
+      ingredientNames={ingredientNames}
+      ingredientUnits={ingredientUnits}
+      trigger={
+        <Button type="button">
+          <Plus className="size-4" />
+          {dict.newRecipe}
+        </Button>
+      }
+    />
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -126,25 +167,11 @@ export function RecipeManager({
         {/* M2: on a phone the tab's one primary action floats in thumb
             reach above the bottom bar, like every other page's (UX-40);
             from `sm` it stays here in the header. */}
-        <PrimaryAction>
-          <RecipeFormDialog
-            dict={dict}
-            mode="create"
-            allRecipes={recipes}
-            ingredientNames={ingredientNames}
-            ingredientUnits={ingredientUnits}
-            trigger={
-              <Button type="button">
-                <Plus className="size-4" />
-                {dict.newRecipe}
-              </Button>
-            }
-          />
-        </PrimaryAction>
+        {recipes.length > 0 && <PrimaryAction>{newRecipeDialog}</PrimaryAction>}
       </div>
 
       {recipes.length === 0 ? (
-        <MascotEmptyState alt={dict.mascotAlt}>
+        <MascotEmptyState alt={dict.mascotAlt} action={newRecipeDialog}>
           <p className="text-sm text-muted-foreground">{dict.emptyRecipes}</p>
         </MascotEmptyState>
       ) : (
@@ -186,26 +213,19 @@ export function RecipeManager({
               {dict.noRecipeSearchResults}
             </p>
           ) : (
-            <div className="list-bleed flex flex-col divide-y rounded-md border">
-              {filteredRecipes.map((recipe) => (
-                <RecipeRow
-                  key={recipe.id}
-                  dict={dict}
-                  locale={locale}
-                  recipe={recipe}
-                  cost={recipeCosts[recipe.id] ?? null}
-                  cooked={recipeCooked[recipe.id] ?? null}
-                  numberFormat={numberFormat}
-                  allRecipes={recipes}
-                  ingredientNames={ingredientNames}
-                  ingredientUnits={ingredientUnits}
-                  plannerWeekStartKey={plannerWeekStartKey}
-                  openEditOnMount={editNewId === recipe.id}
-                  onEditOpened={() => setEditNewId(null)}
-                  onDuplicated={setEditNewId}
-                />
-              ))}
-            </div>
+            <>
+              {shelf.length > 0 && (
+                <section className="flex flex-col gap-2" aria-labelledby="cook-soon-title">
+                  <h3 id="cook-soon-title" className="font-heading text-base font-semibold">
+                    {dict.cookSoonTitle}
+                  </h3>
+                  <div className="list-bleed flex flex-col divide-y rounded-md border">
+                    {shelf.map(renderRow)}
+                  </div>
+                </section>
+              )}
+              {rest.length > 0 && <div className="list-bleed flex flex-col divide-y rounded-md border">{rest.map(renderRow)}</div>}
+            </>
           )}
         </>
       )}
@@ -366,6 +386,22 @@ function RecipeRow({
       setOptimisticFavorite(!optimisticFavorite);
       const result = await toggleRecipeFavoriteAction(recipe.id);
       if (result.error) toast.error(result.error);
+    });
+  };
+
+  // Cook soon (GAP-51), same optimistic pattern as the star. The button sits
+  // in the sheet, so the row stays two lines (M6); toggling moves the row
+  // between the shelf and the list, and the toast says which way.
+  const [isCookSoonPending, startCookSoonTransition] = useTransition();
+  const [optimisticCookSoon, setOptimisticCookSoon] = useOptimistic(recipe.cookSoonAt !== null);
+  const handleToggleCookSoon = () => {
+    const adding = !optimisticCookSoon;
+    startCookSoonTransition(async () => {
+      setOptimisticCookSoon(adding);
+      const result = await toggleRecipeCookSoonAction(recipe.id);
+      if (result.error) toast.error(result.error);
+      else
+        toast.success(format(adding ? dict.cookSoonAddedToast : dict.cookSoonRemovedToast, { name: recipe.name }));
     });
   };
 
@@ -547,6 +583,16 @@ function RecipeRow({
             >
               <CalendarPlus className="size-4" />
               {dict.addToPlanButton}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start"
+              disabled={isCookSoonPending}
+              onClick={handleToggleCookSoon}
+            >
+              <Bookmark className={cn("size-4", optimisticCookSoon && "fill-current")} />
+              {optimisticCookSoon ? dict.cookSoonRemove : dict.cookSoonAdd}
             </Button>
             {recipe.ingredients.length > 0 && (
               <Button

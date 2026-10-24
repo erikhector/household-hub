@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Archive, ArchiveRestore, Ellipsis, Plus, ShoppingCart, Trash2 } from "lucide-react";
@@ -331,7 +331,10 @@ export function ShoppingListsOverview({
   completed,
   archived,
   dict,
+  emptyAction,
 }: {
+  /** UX-50: the "New list" trigger the empty state holds. */
+  emptyAction?: ReactNode;
   active: ListSummary[];
   completed: ListSummary[];
   archived: ListSummary[];
@@ -343,7 +346,7 @@ export function ShoppingListsOverview({
   const containerRef = useFlipList<HTMLDivElement>();
 
   return isEmpty ? (
-    <MascotEmptyState alt={dict.mascotAlt}>
+    <MascotEmptyState alt={dict.mascotAlt} action={emptyAction}>
       <p className="text-sm text-muted-foreground">{dict.empty}</p>
     </MascotEmptyState>
   ) : (

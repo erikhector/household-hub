@@ -146,7 +146,7 @@ test("adding a meal starts on the picker, not on typing a name", async ({ page }
   const recipeId = await seed(recipeName);
   try {
     await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
-    await page.getByRole("button", { name: /^Add meal, / }).filter({ visible: true }).first().click();
+    await page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true }).click();
     const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
     const picker = dialog.getByRole("combobox", { name: "Recipe" });
     // Nothing chosen and no name field: there's something to pick (M4).
@@ -274,7 +274,7 @@ test("the add-meal sheet names the day, filters recipes as you type and lists fa
       await client.query(`UPDATE "MealPlanEntry" SET "consumedAt" = now() WHERE "recipeId" = $1`, [ids[2]]);
     });
     await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
-    await page.getByRole("button", { name: /^Add meal, / }).filter({ visible: true }).first().click();
+    await page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true }).click();
     // "Add dinner · Wed 12": the slot and the day, not just "Add a meal".
     const dialog = page.getByRole("dialog", { name: /^Add dinner · \w+ \d+$/ });
     await expect(dialog).toBeVisible();
