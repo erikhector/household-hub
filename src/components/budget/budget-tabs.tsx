@@ -85,6 +85,7 @@ import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { BudgetStartDayProvider } from "@/components/budget/budget-period-context";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { parseBudgetTab, type BudgetTab } from "@/lib/budget-url";
 
@@ -118,6 +119,7 @@ export function BudgetTabs({
   currencyCode = null,
   monthKey,
   currentMonthKey,
+  budgetMonthStartDay = 1,
   basePath,
   householdParam,
   readOnly = false,
@@ -165,6 +167,11 @@ export function BudgetTabs({
   monthKey: string;
   /** The server's "YYYY-MM" for today — see MonthNavigator's prop. */
   currentMonthKey: string;
+  /** UX-134: the household's budget month start day (1 = calendar months).
+   * Names the period's dates in the month bar and sets new transactions'
+   * default date. Left unset by the personal budget, whose months stay
+   * calendar months. */
+  budgetMonthStartDay?: number;
   /** "/dashboard/budget" or "/dashboard/personal-budget" — passed straight
    * through to MonthNavigator, which builds every prev/next/"this month"
    * link from it. */
@@ -285,6 +292,7 @@ export function BudgetTabs({
   ];
 
   return (
+    <BudgetStartDayProvider startDay={budgetMonthStartDay}>
     <div className="flex flex-col gap-6">
       {/* The month bar and the tab bar are one block of chrome: closer
           together than the sections below them, so they cost less of a
@@ -294,6 +302,7 @@ export function BudgetTabs({
           basePath={basePath}
           monthKey={monthKey}
           currentMonthKey={currentMonthKey}
+          startDay={budgetMonthStartDay}
           locale={locale}
           dict={dict}
           params={{
@@ -422,5 +431,6 @@ export function BudgetTabs({
         <div hidden={tab !== "insights"}>{insights}</div>
       </fieldset>
     </div>
+    </BudgetStartDayProvider>
   );
 }

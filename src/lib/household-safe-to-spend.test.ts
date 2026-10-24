@@ -126,3 +126,78 @@ describe("loadHouseholdSafeToSpend", () => {
     expect(result.amount).toBe(1400);
   });
 });
+
+// UX-134: with the budget month starting on the 25th, 28 September is in
+// "October" (25 Sep to 24 Oct), so October's rent logged then belongs to it.
+describe("loadHouseholdSafeToSpend with a budget month starting on the 25th (UX-134)", () => {
+  const START_DAY = 25;
+  const TODAY = new Date(2026, 8, 30, 12);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.transactions.mockResolvedValue([]);
+    mocks.templates.mockResolvedValue([]);
+    mocks.acks.mockResolvedValue([]);
+    mocks.planned.mockResolvedValue([]);
+    mocks.categories.mockResolvedValue([]);
+  });
+
+  it("queries and sums the 25th-to-24th period", async () => {
+    mocks.transactions.mockResolvedValue([
+      tx("INCOME", 30000, new Date(2026, 8, 25), "salary"),
+      tx("EXPENSE", 12500, new Date(2026, 8, 28), "rent"),
+      // Before the period starts: September's, not this one's.
+      tx("EXPENSE", 999, new Date(2026, 8, 24), "food"),
+    ]);
+
+    const result = await loadHouseholdSafeToSpend("h1", TODAY, START_DAY);
+
+    expect(result.amount).toBe(30000 - 12500);
+    expect(mocks.transactions.mock.calls[0][0].where.date.lt).toEqual(new Date(2026, 9, 25));
+  });
+
+  it("counts a rent logged on 28 September against the period, so its template is no longer due", async () => {
+    mocks.templates.mockResolvedValue([
+      {
+        id: "rent",
+        name: "Rent",
+        categoryId: "rent",
+        type: "EXPENSE",
+        amount: 12500,
+        frequency: "MONTHLY",
+        active: true,
+        createdAt: new Date(2026, 0, 1),
+      },
+    ]);
+    mocks.transactions.mockResolvedValue([
+      { ...tx("EXPENSE", 12500, new Date(2026, 8, 28), "rent"), recurringTemplateId: "rent" },
+    ]);
+
+    const result = await loadHouseholdSafeToSpend("h1", TODAY, START_DAY);
+
+    // Spent once (-12,500), not again as a bill still due.
+    expect(result.amount).toBe(-12500);
+  });
+
+  it("still counts that rent as due under calendar months", async () => {
+    mocks.templates.mockResolvedValue([
+      {
+        id: "rent",
+        name: "Rent",
+        categoryId: "rent",
+        type: "EXPENSE",
+        amount: 12500,
+        frequency: "MONTHLY",
+        active: true,
+        createdAt: new Date(2026, 0, 1),
+      },
+    ]);
+    mocks.transactions.mockResolvedValue([
+      { ...tx("EXPENSE", 12500, new Date(2026, 8, 28), "rent"), recurringTemplateId: "rent" },
+    ]);
+
+    const result = await loadHouseholdSafeToSpend("h1", TODAY);
+
+    expect(result.amount).toBe(-12500);
+  });
+});

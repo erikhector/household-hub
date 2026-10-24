@@ -6,7 +6,13 @@
 // that draw these live in src/components/charts/. See REQUIREMENTS.md,
 // "Budget charts".
 
-import { addMonths } from "@/lib/budget-date-utils";
+import { addMonths, periodLabelDate } from "@/lib/budget-date-utils";
+
+/** Whole days since the epoch for a date's local calendar day, so two dates'
+ * difference counts calendar days whatever DST did in between. */
+function dayNumber(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000;
+}
 
 /** How many months a category's sparkline covers, the viewed month last.
  * Six is enough to see a trend at a glance and still fits beside the bar on
@@ -32,6 +38,10 @@ export type HistoryTransaction = {
  * Counts every transaction of the row's own type — expense rows sum
  * EXPENSE transactions, savings rows SAVINGS — so the line always matches
  * what the bar beside it measures.
+ *
+ * UX-134: with a `startDay` above 1 the "months" are budget periods, and
+ * `monthStart` is any date in the viewed one or the 1st of the month it is
+ * named for.
  */
 export function withSpendHistory<Row extends { id: string }>(
   rows: Row[],
@@ -39,17 +49,18 @@ export function withSpendHistory<Row extends { id: string }>(
   monthStart: Date,
   type: HistoryTransaction["type"] = "EXPENSE",
   months: number = SPEND_HISTORY_MONTHS,
+  startDay: number = 1,
 ): (Row & { history?: number[] })[] {
-  const windowStart = addMonths(monthStart, -(months - 1));
-  const windowEnd = addMonths(monthStart, 1);
+  const viewed = periodLabelDate(monthStart, startDay);
+  const windowStart = addMonths(viewed, -(months - 1));
   const ids = new Set(rows.map((r) => r.id));
   const byId = new Map<string, number[]>();
   for (const t of transactions) {
     if (t.type !== type || !ids.has(t.categoryId)) continue;
-    if (t.date < windowStart || t.date >= windowEnd) continue;
+    const label = periodLabelDate(t.date, startDay);
     const index =
-      (t.date.getFullYear() - windowStart.getFullYear()) * 12 +
-      (t.date.getMonth() - windowStart.getMonth());
+      (label.getFullYear() - windowStart.getFullYear()) * 12 + (label.getMonth() - windowStart.getMonth());
+    if (index < 0 || index >= months) continue;
     let history = byId.get(t.categoryId);
     if (!history) {
       history = new Array<number>(months).fill(0);
@@ -120,41 +131,36 @@ export function projectMonthEnd({
   safeToSpend,
   transactions,
   monthStart,
+  monthEnd,
   today,
   excludeCategoryIds,
 }: {
   safeToSpend: number;
   transactions: ProjectionTransaction[];
   monthStart: Date;
+  /** Exclusive end of the period (UX-134: a budget period needn't be a
+   * calendar month). Defaults to the 1st of the month after `monthStart`. */
+  monthEnd?: Date;
   today: Date;
   /** UX-138: categories with a monthly limit. Their money is already held
    * back as "still budgeted", so buying food from a limited food budget
    * doesn't lower the headline and must not set the pace either. */
   excludeCategoryIds?: ReadonlySet<string>;
 }): MonthProjection | null {
-  if (
-    today.getFullYear() !== monthStart.getFullYear() ||
-    today.getMonth() !== monthStart.getMonth()
-  ) {
-    return null;
-  }
-  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
-  const daysElapsed = today.getDate();
+  const end = monthEnd ?? new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+  if (dayNumber(today) < dayNumber(monthStart) || dayNumber(today) >= dayNumber(end)) return null;
+  const daysInMonth = dayNumber(end) - dayNumber(monthStart);
+  const daysElapsed = dayNumber(today) - dayNumber(monthStart) + 1;
 
   const perDay = new Array<number>(daysElapsed).fill(0);
   let spent = 0;
   for (const t of transactions) {
     if (t.type !== "EXPENSE" || t.isRecurring || t.recurringTemplateId) continue;
     if (excludeCategoryIds && t.categoryId && excludeCategoryIds.has(t.categoryId)) continue;
-    if (
-      t.date.getFullYear() !== monthStart.getFullYear() ||
-      t.date.getMonth() !== monthStart.getMonth()
-    ) {
-      continue;
-    }
+    if (dayNumber(t.date) < dayNumber(monthStart) || dayNumber(t.date) >= dayNumber(end)) continue;
     // Something dated later this month is already in the headline number,
     // so it's drawn as spent today rather than dropped from the line.
-    perDay[Math.min(t.date.getDate(), daysElapsed) - 1] += t.amount;
+    perDay[Math.min(dayNumber(t.date) - dayNumber(monthStart) + 1, daysElapsed) - 1] += t.amount;
     spent += t.amount;
   }
   if (spent <= 0) return null;
@@ -201,22 +207,20 @@ export type DailyAllowance = {
 export function dailyAllowance({
   safeToSpend,
   monthStart,
+  monthEnd,
   today,
 }: {
   safeToSpend: number;
   monthStart: Date;
+  /** Exclusive end of the period; see projectMonthEnd. */
+  monthEnd?: Date;
   today: Date;
 }): DailyAllowance | null {
-  if (
-    today.getFullYear() !== monthStart.getFullYear() ||
-    today.getMonth() !== monthStart.getMonth()
-  ) {
-    return null;
-  }
+  const end = monthEnd ?? new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+  if (dayNumber(today) < dayNumber(monthStart) || dayNumber(today) >= dayNumber(end)) return null;
   // Under half a cent formats as zero, so it's "nothing left" too.
   if (!Number.isFinite(safeToSpend) || safeToSpend < 0.005) return null;
-  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
-  const daysLeft = daysInMonth - today.getDate() + 1;
+  const daysLeft = dayNumber(end) - dayNumber(today);
   return { perDay: safeToSpend / daysLeft, daysLeft };
 }
 

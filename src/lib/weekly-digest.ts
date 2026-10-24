@@ -11,7 +11,7 @@ import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
 import { categoryEnvelopes } from "@/lib/budget-category-limit";
-import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
+import { addMonths, normalizeStartDay, periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { createDigestUnsubscribeToken } from "@/lib/digest-unsubscribe-token";
 import {
@@ -59,14 +59,20 @@ type Recipient = { userId: string; email: string; locale: string };
  * `householdId`, which only ever comes from the household table itself
  * (never from a request).
  */
-export async function loadHouseholdDigestInput(householdId: string, now: Date): Promise<WeeklyDigestInput> {
+export async function loadHouseholdDigestInput(
+  householdId: string,
+  now: Date,
+  budgetMonthStartDay?: number,
+): Promise<WeeklyDigestInput> {
   const weekStart = getWeekStart(now);
   const mealWindowStart = new Date(now.getTime() - DIGEST_MEAL_WINDOW_DAYS * MS_PER_DAY);
   // One day of slack past the warning threshold so the pure classifier
   // (getExpiryStatus) makes the actual call rather than this query.
   const expiryHorizon = new Date(now.getTime() + (EXPIRY_WARNING_DAYS + 1) * MS_PER_DAY);
-  const monthStart = getMonthStart(now);
-  const monthEnd = getMonthEnd(now);
+  // UX-134: the budget period the household is in today, which is its
+  // calendar month unless the owner moved the month start to payday.
+  const startDay = normalizeStartDay(budgetMonthStartDay);
+  const { start: monthStart, end: monthEnd } = periodBounds(periodKeyOf(now, startDay), startDay);
 
   const [members, mealEntries, completedTasks, inventoryItems, budgetCategoryCount] = await Promise.all([
     prisma.householdMember.findMany({
@@ -97,14 +103,14 @@ export async function loadHouseholdDigestInput(householdId: string, now: Date): 
     memberNames: new Map(members.map((m) => [m.id, m.user.displayName])),
     inventoryItems,
     budget:
-      budgetCategoryCount > 0 ? await loadHouseholdSafeToSpend(householdId, monthStart, monthEnd) : null,
+      budgetCategoryCount > 0 ? await loadHouseholdSafeToSpend(householdId, monthStart, monthEnd, startDay) : null,
   };
 }
 
 // The household Budget page's SafeToSpend computation (BudgetTabsSection in
 // src/app/dashboard/budget/page.tsx), narrowed to just the queries that
 // feed it.
-async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, monthEnd: Date) {
+async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, monthEnd: Date, startDay: number) {
   const lookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
   const [transactions, templates, acks, plannedExpenses, limitedCategories] = await Promise.all([
     prisma.transaction.findMany({
@@ -183,6 +189,7 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
     acks,
     referenceDate: monthStart,
     monthEnd,
+    startDay,
   });
 
   return computeSafeToSpend({
@@ -196,7 +203,7 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
     })),
     monthStart,
     monthEnd,
-    categoryLimits: categoryEnvelopes({ categories: limitedCategories, transactions, monthStart, monthEnd }),
+    categoryLimits: categoryEnvelopes({ categories: limitedCategories, transactions, monthStart, monthEnd, startDay }),
     incomeSoFar: income,
     expenseSoFar: expense,
     savingsSoFar: savings,
@@ -241,7 +248,7 @@ export async function sendHouseholdDigest({
   appUrl,
   secret,
 }: {
-  household: { id: string; name: string };
+  household: { id: string; name: string; budgetMonthStartDay?: number };
   now: Date;
   appUrl: string;
   secret: string;
@@ -269,7 +276,7 @@ export async function sendHouseholdDigest({
   }));
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
-  const summary = summarizeWeeklyDigest(await loadHouseholdDigestInput(household.id, now));
+  const summary = summarizeWeeklyDigest(await loadHouseholdDigestInput(household.id, now, household.budgetMonthStartDay));
   // Nothing to say this week: no email, and no claim either — a later run
   // in the same week (e.g. a manual re-trigger) is free to send once there
   // is something.
@@ -352,7 +359,7 @@ export async function runWeeklyDigest({
   // feature default-off, that's a small fraction of the table.
   const households = await prisma.household.findMany({
     where: { members: { some: { user: { weeklyDigestEnabled: true, emailVerifiedAt: { not: null } } } } },
-    select: { id: true, name: true },
+    select: { id: true, name: true, budgetMonthStartDay: true },
     orderBy: { id: "asc" },
   });
 

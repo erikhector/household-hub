@@ -256,3 +256,22 @@ describe("withCategoryRollover", () => {
     expect(result).toBe(rows);
   });
 });
+
+describe("computeCategoryRollover with a budget month start day (UX-134)", () => {
+  it("measures months as periods named for the month they end in", () => {
+    const result = computeCategoryRollover({
+      category: category(),
+      transactions: [
+        // 25 Aug to 24 Sep is September's period; 25 Sep to 24 Oct is October's.
+        spend(month(2026, 9, 3), 300),
+        spend(month(2026, 9, 28), 900),
+      ],
+      // Viewing October (25 Sep to 24 Oct).
+      monthStart: month(2026, 9, 25),
+      startDay: 25,
+    });
+    // January to August carried a full limit each, September kept 700 after
+    // the 3 Sep spend, and the 28 Sep spend belongs to the viewed month.
+    expect(result?.carried).toBe(8 * 1000 + 700);
+  });
+});
