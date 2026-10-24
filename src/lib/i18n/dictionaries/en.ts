@@ -322,7 +322,7 @@ export const en = {
       label: "Budget month starts on day",
       description:
         "Most households budget from the 1st. If your pay lands on the 25th, start on day 25 and each month runs from the 25th to the 24th, named after the month it ends in.",
-      hint: "Changes the household budget's months, Safe to spend and recurring bills. Nothing you've logged changes, and Personal Budget stays on calendar months.",
+      hint: "Changes the household budget's months, Safe to spend and recurring bills. Nothing you've logged changes, and Personal Budget stays on calendar months. Recurring items you marked as accounted for may need marking again.",
       calendarOption: "{day} (calendar month)",
       dayOption: "{day}",
       ownerOnlyHint: "Only the household owner can change this.",
