@@ -600,24 +600,6 @@ UX-89.
 
 #### Meals and recipes
 
-#### Budgets
-
-- [ ] **UX-112. A new member sees their shared costs before setting up a
-      personal budget** (impact: med, effort: M) — breaks Context (never
-      surprise a member) and Consistency. ⚠️ money.
-      - After a partner splits a 940 dinner, the new member's personal
-        Overview and home show only "Let's set up your budget". Their
-        Transactions tab shows "Shared −470.00" and Insights says they owe
-        470, but they'd never find either.
-      - Their only action, "Log a shared expense", is an outline button
-        at the top left.
-      - The household page calls the same action "Add transaction" plus
-        a "Split this expense" checkbox.
-      Acceptance: a member with shared splits sees their share and what
-      they owe or are owed on the personal Overview and home before
-      adding categories. The shared-expense action has one name and
-      placement on both pages.
-
 #### Inventory
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:

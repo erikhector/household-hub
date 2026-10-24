@@ -148,6 +148,7 @@ export function BudgetTabs({
   onLogTemplateAsIs,
   savingsGoals,
   onboarding,
+  sharedCosts,
   manage,
   transactions,
   insights,
@@ -242,6 +243,9 @@ export function BudgetTabs({
   /** BudgetOnboarding or PersonalBudgetOnboarding, prebuilt by the page —
    * see this file's doc comment on why these stay separate components. */
   onboarding: ReactNode;
+  /** UX-112, personal budget only: the shared-costs card, prebuilt by the
+   * page and shown above `onboarding` while there are no categories. */
+  sharedCosts?: ReactNode;
   // Recurring items + categories — see this file's doc comment.
   manage: ReactNode;
   transactions: ReactNode;
@@ -302,15 +306,27 @@ export function BudgetTabs({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Tabs tabs={tabItems} value={tab} onChange={setTab} />
           <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
-            {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (
-              <LogSharedExpenseDialog
-                numberFormat={numberFormat}
-                dict={logSharedDialogDict}
-                households={sharedExpenseHouseholds}
-                monthKey={monthKey}
-                trigger={<Button variant="outline">{logSharedDialogDict.logShared.button}</Button>}
-              />
-            )}
+            {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (() => {
+              const dialog = (
+                <LogSharedExpenseDialog
+                  numberFormat={numberFormat}
+                  dict={logSharedDialogDict}
+                  households={sharedExpenseHouseholds}
+                  monthKey={monthKey}
+                  trigger={
+                    <Button variant={hasCategories ? "outline" : "default"}>
+                      {logSharedDialogDict.logShared.button}
+                    </Button>
+                  }
+                />
+              );
+              // UX-112: with no category yet, adding a shared expense is the
+              // page's one action, so it takes the primary slot (the floating
+              // button on phones, DESIGN.md M2) exactly where the household
+              // page's "Add transaction" sits. Once Add transaction exists it
+              // is the primary and this stays the quieter second action.
+              return hasCategories ? dialog : <PrimaryAction>{dialog}</PrimaryAction>;
+            })()}
             {/* UX-23: with no category yet there is nothing to log against, and
                 a disabled primary read as broken. The onboarding card on
                 Overview is the next step, so the button appears once it is
@@ -393,7 +409,11 @@ export function BudgetTabs({
               {savingsGoals}
             </>
           ) : (
-            onboarding
+            <>
+              {/* UX-112: what they owe or are owed comes before "set up". */}
+              {sharedCosts}
+              {onboarding}
+            </>
           )}
         </div>
 
