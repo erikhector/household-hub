@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, openRecipesTab, openRowSheet } from "./ui";
+import { dismissCookieNotice, openRecipesTab, openRowSheet, waitForDialogHistory } from "./ui";
 
 // MATCH-5: a name the household taught once (ItemAlias) links shopping
 // lists too, and "Review ingredient matches" in a recipe's sheet reopens a
@@ -73,7 +73,10 @@ test("a name linked once in a recipe arrives linked in a pasted shopping list", 
   // The dialog retitles itself for the review step.
   const reviewDialog = page.getByRole("dialog", { name: "Review before importing" });
   await reviewDialog.getByRole("button", { name: "Import 1 item" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // The dialog's history.back() lands asynchronously after it closes; a
+  // reload before then races it and can land on the wrong history entry
+  // (MAINT-51).
+  await waitForDialogHistory(page);
 
   // Linked: the row sits under Egg's category, with no "needs mapping" hint.
   await page.reload();
@@ -105,7 +108,7 @@ test("“Review ingredient matches” moves a saved link, and the new link is ke
   await expect(picker).toHaveValue("Egg · Dairy & eggs");
   await pickItem(page, picker, "Tomatoes · Produce");
   await review.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await waitForDialogHistory(page);
 
   await page.reload();
   await openRecipesTab(page);
