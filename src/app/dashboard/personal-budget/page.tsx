@@ -28,7 +28,7 @@ import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
 import { categoriesNearLimit, withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
-import { withSpendHistory } from "@/lib/chart-calc";
+import { SPEND_HISTORY_MONTHS, withSpendHistory } from "@/lib/chart-calc";
 import {
   acknowledgePersonalTemplatePeriodAction,
   createPersonalRecurringTemplateAction,
@@ -36,6 +36,7 @@ import {
   deletePersonalRecurringTemplateAction,
   deletePersonalTransactionAction,
   logPersonalRecurringTemplateAction,
+  setPersonalBudgetMonthStartDayAction,
   setPersonalRecurringTemplateActiveAction,
   unacknowledgePersonalTemplatePeriodAction,
   updatePersonalRecurringTemplateAction,
@@ -50,12 +51,15 @@ import { isPlannedItemCounted } from "@/lib/planned-expense-calc";
 import { computePersonalFixedInsights } from "@/lib/personal-fixed-insights";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import {
-  getMonthEnd,
-  getMonthStart,
+  addMonths,
   isMonthKey,
   parseMonthKey,
+  periodBounds,
+  periodKeyOf,
   toMonthKey,
 } from "@/lib/budget-date-utils";
+import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
+import { BudgetMonthSetting } from "@/components/budget/budget-month-setting";
 import {
   createPersonalCategoryAction,
   deletePersonalCategoryAction,
@@ -83,6 +87,8 @@ async function PersonalBudgetTabsSection({
   monthStart,
   monthEnd,
   monthKey,
+  currentMonthKey,
+  startDay,
   now,
 }: {
   userId: string;
@@ -91,8 +97,17 @@ async function PersonalBudgetTabsSection({
   monthStart: Date;
   monthEnd: Date;
   monthKey: string;
+  /** Today's period key, and the user's Personal Budget month start day
+   * (User.personalBudgetMonthStartDay) the periods are cut by. */
+  currentMonthKey: string;
+  startDay: number;
   now: Date;
 }) {
+  // The fixed trend's first period, MAX_FIXED_TREND_MONTHS back from today's.
+  const fixedTrendStart = periodBounds(
+    toMonthKey(addMonths(parseMonthKey(currentMonthKey), -(MAX_FIXED_TREND_MONTHS - 1))),
+    startDay,
+  ).start;
   // Transactions, the shared-with-your-household mirror, totals and the
   // headline number all come from one loader shared with the dashboard's
   // "Your budget" card, so the two can't drift apart — see
@@ -106,6 +121,7 @@ async function PersonalBudgetTabsSection({
       userId,
       monthStart,
       monthEnd,
+      startDay,
       sharedLabel: dict.personalBudget.shared.sharedBadge,
     }),
     // BUDGET-7: the user's share of split household bills logged from a
@@ -121,7 +137,7 @@ async function PersonalBudgetTabsSection({
         amountOwed: { gt: 0 },
         transaction: {
           recurringTemplateId: { not: null },
-          date: { gte: new Date(now.getFullYear(), now.getMonth() - (MAX_FIXED_TREND_MONTHS - 1), 1) },
+          date: { gte: fixedTrendStart },
         },
       },
       select: {
@@ -287,6 +303,7 @@ async function PersonalBudgetTabsSection({
     monthEnd,
     referenceDate: now,
     monthsBack: MAX_FIXED_TREND_MONTHS,
+    startDay,
     sharedLabel: dict.personalBudget.shared.sharedBadge,
   });
 
@@ -336,6 +353,15 @@ async function PersonalBudgetTabsSection({
         updateAction={updatePersonalCategoryAction}
         deleteAction={deletePersonalCategoryAction}
       />
+      {/* Last: set once, rarely touched again. The personal budget is the
+          user's alone, so anyone can change it (no owner gate). */}
+      <BudgetMonthSetting
+        id="personal-budget-month-start"
+        startDay={startDay}
+        canEdit
+        action={setPersonalBudgetMonthStartDayAction}
+        dict={dict.personalBudget.budgetMonth}
+      />
     </div>
   );
 
@@ -379,9 +405,13 @@ async function PersonalBudgetTabsSection({
       categories,
       transactions,
       monthStart,
+      startDay,
     ),
     transactions,
     monthStart,
+    "EXPENSE",
+    SPEND_HISTORY_MONTHS,
+    startDay,
   );
   const limitAlerts = categoriesNearLimit(expenseRows).map((alert) => ({
     ...alert,
@@ -405,7 +435,10 @@ async function PersonalBudgetTabsSection({
       // src/lib/budget-rollover-calc.ts) needs no extra query either.
       // UX-39: each row's sparkline, from the same whole history.
       expenseByCategory={expenseRows}
-      monthStart={monthStart}
+      // Its label month (the 1st of the month the period is named for),
+      // like the household page's: with a payday start day the period's
+      // own start is in the month before.
+      monthStart={parseMonthKey(monthKey)}
       savingsByCategory={savingsByCategory}
       // P3: each of the viewer's own categories drills into Transactions,
       // filtered to it, for the same month.
@@ -460,7 +493,8 @@ async function PersonalBudgetTabsSection({
       dict={dict.personalBudget}
       locale={locale}
       monthKey={monthKey}
-      currentMonthKey={toMonthKey(now)}
+      currentMonthKey={currentMonthKey}
+      budgetMonthStartDay={startDay}
       basePath="/dashboard/personal-budget"
       categories={categoryRows}
       safeToSpendAmount={safeToSpend}
@@ -500,7 +534,7 @@ async function PersonalBudgetTabsSection({
             showHouseholdName={showHouseholdName}
             transactionsHref={budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions" })}
             monthLabel={
-              monthKey === toMonthKey(now)
+              monthKey === currentMonthKey
                 ? undefined
                 : parseMonthKey(monthKey).toLocaleDateString(locale, { month: "long", year: "numeric" })
             }
@@ -550,9 +584,14 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   const monthParam = searchParams.month;
   const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
   const now = new Date();
-  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
-  const monthEnd = getMonthEnd(monthStart);
-  const monthKey = toMonthKey(monthStart);
+  // The user's own budget month start day: same period rules as the
+  // household budget's (UX-134), named for the month a period ends in (day
+  // 25: "October" is 25 Sep to 24 Oct), but the user's choice, not any
+  // household's.
+  const startDay = await getPersonalBudgetStartDay(userId);
+  const currentMonthKey = periodKeyOf(now, startDay);
+  const monthKey = isMonthKey(monthParamValue) ? monthParamValue : currentMonthKey;
+  const { start: monthStart, end: monthEnd } = periodBounds(monthKey, startDay);
 
   return (
     <div className="flex flex-col gap-6">
@@ -574,6 +613,8 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
           monthStart={monthStart}
           monthEnd={monthEnd}
           monthKey={monthKey}
+          currentMonthKey={currentMonthKey}
+          startDay={startDay}
           now={now}
         />
       </Suspense>

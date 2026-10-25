@@ -261,40 +261,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
-      `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
-      grabber dismisses the sheet and leaves no back step", `mobile`)
-      failed in a `ci:local` run on a clean `origin/next` (`995cb99`,
-      2026-10-21). `--repeat-each=30` of the file on `mobile` fails it
-      3-6 times in 30 (2026-10-22): the dialog is still there after the
-      flick (`toHaveCount(0)` received 1). Waiting for the open
-      animation to finish first, as the slow-pull test does, didn't
-      change the rate, so suspect the flick's velocity: four CDP moves
-      with no delay, spread out by a loaded machine, may read as a slow
-      260 px pull that springs back. (The desktop half of this item,
-      `:152` "the centred dialog doesn't drag", was fixed separately: it
-      now asserts the dialog stays centred rather than that its top
-      didn't move, since the dialog re-centres as its content grows.)
-      Fix it in the app or the spec's driving, never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on both
-      projects.
-      Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
-      failed the attempt and the retry of the GitHub e2e job and in the
-      local `ci:local` gate; it passed on the job re-run and on a local re-run.
-      Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
-      (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
-      still there after 5 s) and passed on retry #1.
-      Seen again in a `ci:local` run on `cccc1d5` (2026-10-23, heavy
-      load): `native-sheets.spec.ts:54` (mobile) failed once and passed
-      on a same-commit re-run.
-      Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
-      (mobile) failed once and passed on the retry in the GitHub e2e job.
-      Seen again 2026-10-25 (autopilot-build): `native-sheets.spec.ts:55`
-      (mobile) failed 5 of 5 runs (`--repeat-each=5`) on clean `next`
-      (`18e4bfe`, under the shared lock) and in the full `ci:local` gate of
-      #694, #696 and #697, so it no longer only flakes under load.
-
 - [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
       `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
       3 of 40 runs (all `desktop`) with `--repeat-each=20` on clean `next`
@@ -338,20 +304,6 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
       --project=mobile --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-56. Flaky: `undo-deletes` inventory delete finds two identical "Deleted …" toasts** (low, S) —
-      `e2e/undo-deletes.spec.ts:110` (`desktop`). Failed once and passed
-      on the retry in the GitHub `End-to-end (Playwright)` job of release
-      PR #660 on `1d492e1` (2026-10-24). Nobody's change is in it. The
-      failing assertion: `waitForUndoableDelete` (`e2e/ui.ts:282`) runs
-      `expect(page.getByText('Deleted "…"')).toBeVisible()` and hit a
-      strict-mode violation, because the locator matched two identical
-      toast `<div data-title>` elements at once. Find out whether the app
-      shows the toast twice (a real bug) or the spec's locator needs to
-      be scoped to one toast, and fix it there, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/undo-deletes.spec.ts:110
-      --project=desktop --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
       `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
@@ -421,6 +373,21 @@ then MAINT-7 per feature, to avoid churn.
       skip or a retry. Acceptance: `npx playwright test
       e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
       passes 30/30.
+
+- [ ] **MAINT-62. Flaky: `inventory-status-summary` Status filter doesn't offer Expiring and Expired** (low, S) —
+      `e2e/inventory-status-summary.spec.ts:130` ("the Status filter offers
+      Expiring and Expired", `desktop`) failed once in a full local
+      `ci:local` run on release commit `1b8abde` (2026-10-25). It passed on
+      a solo re-run and in the GitHub e2e job of the same commit, so it
+      only fails under full-suite load. Not yet re-run with repeats. Get
+      the failing assertion with `--repeat-each=30` (the log of the
+      original run wasn't kept), find what the filter control's open or
+      option check races with (a popup still animating, or the search
+      box's debounced filter re-rendering the list) and fix it in the app
+      or the spec's waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/inventory-status-summary.spec.ts:130 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -1150,6 +1117,29 @@ out to be a product-scope question rather than a scoped task should move to
       two uniquely named expenses, types one name in Search, sees only that
       row, reloads and still sees the filter, clears it and sees both, on
       desktop and mobile, in `en` and `sv`.
+
+### 2026-10-23 scan
+
+- [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —
+      Grocy tracks when a product was opened and applies a "days until
+      due after opening" so a jar of pesto or a carton of milk shows the
+      real deadline once the seal is broken. Squirrel only has the
+      sealed best-before date (`InventoryItem.expiresAt`,
+      `prisma/schema.prisma:335`), so an opened item reads "fine for
+      2 weeks" when it's good for 3 days, and the expiring-soon count and
+      digest miss it. Add a nullable `openedAt` and an optional per-item
+      "days good after opening" (`shelfLifeOpenedDays`); an "Opened" row
+      action stamps today, and `getExpiryStatus` (`src/lib/stock-status.ts`)
+      uses the earlier of `expiresAt` and `openedAt + shelfLifeOpenedDays`.
+      Nothing changes for items that never use it. Reuse the existing
+      expiring/expired filters, counts and notifications; no new
+      screen. Edge cases: undo within the toast, restocking clears
+      `openedAt`, a typed date is never overwritten (as with
+      `expiresAtEstimated`).
+      Acceptance: unit tests for the effective-date maths (sealed only,
+      opened earlier, opened later than sealed, no shelf-life set); an e2e
+      step on `mobile` marks a uniquely named item Opened with 3 days,
+      sees it under "expiring", reloads and still sees it, in `en` and `sv`.
 
 ## Needs a decision before building
 

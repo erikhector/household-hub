@@ -59,10 +59,18 @@ export async function loadPersonalBudgetPosition({
   monthEnd,
   sharedLabel,
   now = new Date(),
+  startDay = 1,
 }: {
   userId: string;
+  /** `[monthStart, monthEnd)` is the viewed period: a calendar month, or
+   * with `startDay` above 1 the user's payday period (periodBounds). */
   monthStart: Date;
   monthEnd: Date;
+  /** The user's Personal Budget month start day
+   * (User.personalBudgetMonthStartDay): the periods their own recurring
+   * items, category limits and the projection run on. Defaults to 1, the
+   * calendar month. Shared household bills keep their own household's. */
+  startDay?: number;
   /** "Today", for the projected end-of-month line (UX-39). */
   now?: Date;
   /** dict.personalBudget.shared.sharedBadge — appended to a shared
@@ -363,24 +371,24 @@ export async function loadPersonalBudgetPosition({
   // the same ones `assertNoDuplicateTemplatePeriod` guards on when the bill
   // is logged from the due row. Otherwise, with start day 25, a rent logged
   // on 28 Sep (the household's October) would leave a Due row here that the
-  // guard then refuses to clear. The personal view itself stays on calendar
-  // months, so the reference date is today when it falls in the viewed month
-  // (matching the date "Log payment" pre-fills) and the month's start
-  // otherwise.
+  // guard then refuses to clear. The personal view runs on the user's own
+  // periods, which needn't match the household's, so the reference date is
+  // today when it falls in the viewed period (matching the date "Log
+  // payment" pre-fills) and the period's start otherwise.
   const startDayByHousehold = new Map(
     memberships.map((m) => [m.household.id, normalizeStartDay(m.household.budgetMonthStartDay)]),
   );
   const statusReferenceDate = now >= monthStart && now < monthEnd ? now : monthStart;
-  const sharedTemplateStatusRows = [...new Set(startDayByHousehold.values())].flatMap((startDay) =>
+  const sharedTemplateStatusRows = [...new Set(startDayByHousehold.values())].flatMap((householdStartDay) =>
     computeTemplateStatuses({
       templates: sharedTemplates
         .map((s) => s.template)
-        .filter((t) => (startDayByHousehold.get(t.householdId) ?? 1) === startDay),
+        .filter((t) => (startDayByHousehold.get(t.householdId) ?? 1) === householdStartDay),
       transactions: sharedTemplateTransactions,
       acks: sharedTemplateAcks,
       referenceDate: statusReferenceDate,
       monthEnd,
-      startDay,
+      startDay: householdStartDay,
     }),
   );
   const sharedDueRows: SharedDueRow[] = sharedTemplateStatusRows
@@ -540,6 +548,7 @@ export async function loadPersonalBudgetPosition({
     })),
     referenceDate: monthStart,
     monthEnd,
+    startDay,
   });
 
   // --- Remaining after expenses and savings ---------------------------------
@@ -599,6 +608,7 @@ export async function loadPersonalBudgetPosition({
     transactions,
     monthStart,
     monthEnd,
+    startDay,
   });
   const {
     safeToSpend,
@@ -621,11 +631,12 @@ export async function loadPersonalBudgetPosition({
     safeToSpend,
     transactions: monthTransactions,
     monthStart,
+    monthEnd,
     today: now,
     excludeCategoryIds: new Set(limitEnvelopes.map((e) => e.id)),
   });
 
-  const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, today: now });
+  const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, monthEnd, today: now });
 
   return {
     transactions,
