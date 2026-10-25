@@ -2578,14 +2578,28 @@ change); everyone sees the current value.
   (`periodKeyOf`, `periodBounds`, `dateInPeriod`, `normalizeStartDay`),
   which the calculators take as `startDay` (default 1).
 - **Not affected**: WEEKLY and YEARLY templates keep ISO weeks and calendar
-  years; the Personal Budget stays on calendar months (its own transactions
-  and templates); the cost analyzer and waste recap (shopping data) too. The
-  one exception is the shared-bill Due rows on the Personal Budget: each is
-  judged on its own household's periods, so a rent logged on 28 Sep under day
-  25 doesn't stay Due in the personal October view and the duplicate guard
-  never blocks clearing a row (`loadPersonalBudgetPosition` runs
-  `computeTemplateStatuses` per household start day, with today as the
-  reference date when it falls in the viewed month). Changing the day moves no transaction:
+  years; the Personal Budget, which has its own start day (below); the cost
+  analyzer, waste recap (shopping data) and the CSV exports (the current
+  calendar month) too. The one exception is the shared-bill Due rows on the
+  Personal Budget: each is judged on its own household's periods, so a rent
+  logged on 28 Sep under day 25 doesn't stay Due in the personal October
+  view and the duplicate guard never blocks clearing a row
+  (`loadPersonalBudgetPosition` runs `computeTemplateStatuses` per household
+  start day, with today as the reference date when it falls in the viewed
+  period).
+- **Personal Budget's own start day**: `User.personalBudgetMonthStartDay`
+  (1 to 28, default 1, migration `personal_budget_month_start_day`) is the
+  same setting for the user's personal budget, independent of any
+  household's. The user sets it at the bottom of the Personal Budget's
+  Manage tab (the shared `BudgetMonthSetting` card,
+  `setPersonalBudgetMonthStartDayAction`, no owner gate since the budget is
+  theirs alone). Read through `getPersonalBudgetStartDay`
+  (`src/lib/personal-budget-period.ts`), it drives the same things as the
+  household's day does on the Budget page: the month tabs and their dates,
+  Safe to spend (also on the overview's "Your budget" card) with its
+  projection and daily allowance, category limits and rollover, sparklines,
+  the fixed-cost trend, recurring and planned statuses, the Log dialog's
+  default date, and the personal duplicate guard and accounted-for marks. Changing the day moves no transaction:
   they keep their dates and only which period they fall in changes.
 - **Logging from a Due list**: the Log dialog starts on the item's due day
   in the viewed period (a template's `dayOfMonth`, or a planned item's due
@@ -2604,8 +2618,9 @@ change); everyone sees the current value.
   again, and the Household card hint says so.
 - Tests: `budget-period.test.ts` (the helpers), the `startDay` cases in
   `recurring-template-calc`, `chart-calc`, `budget-rollover-calc` and
-  `household-safe-to-spend` tests, the budget and household action tests,
-  and `e2e/ux-134.spec.ts`.
+  `household-safe-to-spend` tests, the budget, personal budget and household
+  action tests, `personal-budget-position.test.ts`, and
+  `e2e/ux-134.spec.ts` plus `e2e/personal-budget-month.spec.ts`.
 
 ### Safe to spend
 

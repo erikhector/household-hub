@@ -5,9 +5,9 @@ import { CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { setBudgetMonthStartDayAction } from "@/lib/actions/household";
 import { MAX_BUDGET_MONTH_START_DAY, MIN_BUDGET_MONTH_START_DAY } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
+import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const DAYS = Array.from(
@@ -15,19 +15,27 @@ const DAYS = Array.from(
   (_, i) => MIN_BUDGET_MONTH_START_DAY + i,
 );
 
-// UX-134's Household page card: which day the household budget's month
-// starts on. Saves on change like CurrencySetting (a click action, shown
-// straight away via useOptimistic, which snaps back if the save fails).
-// Everyone sees the current value; only the owner can change it
-// (setBudgetMonthStartDayAction enforces that server-side too).
+// UX-134's card: which day a budget's month starts on. Saves on change like
+// CurrencySetting (a click action, shown straight away via useOptimistic,
+// which snaps back if the save fails). Shared by the Household page (the
+// household budget's day: everyone sees it, only the owner can change it,
+// which setBudgetMonthStartDayAction enforces server-side too) and the
+// Personal Budget's Manage tab (the user's own day, always editable).
 export function BudgetMonthSetting({
+  id,
   startDay,
-  isOwner,
+  canEdit,
+  action,
   dict,
 }: {
+  /** The select's id, unique per page. */
+  id: string;
   startDay: number;
-  isOwner: boolean;
-  dict: Dictionary["household"]["budgetMonth"];
+  canEdit: boolean;
+  action: (day: number) => Promise<ActionState>;
+  /** `ownerOnlyHint` shows under a disabled select; only the household's
+   * card has one. */
+  dict: Omit<Dictionary["household"]["budgetMonth"], "ownerOnlyHint"> & { ownerOnlyHint?: string };
 }) {
   const [isPending, startTransition] = useTransition();
   const [optimisticDay, setOptimisticDay] = useOptimistic(startDay);
@@ -39,7 +47,7 @@ export function BudgetMonthSetting({
     if (next === optimisticDay) return;
     startTransition(async () => {
       setOptimisticDay(next);
-      const result = await setBudgetMonthStartDayAction(next);
+      const result = await action(next);
       if (result.error) toast.error(result.error);
       else toast.success(dict.savedToast);
     });
@@ -55,13 +63,13 @@ export function BudgetMonthSetting({
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="household-budget-month-start">{dict.label}</Label>
+        <Label htmlFor={id}>{dict.label}</Label>
         <Select
           value={optimisticDay}
           onValueChange={(v) => v != null && handleChange(Number(v))}
-          disabled={!isOwner || isPending}
+          disabled={!canEdit || isPending}
         >
-          <SelectTrigger id="household-budget-month-start" className="w-full sm:w-72">
+          <SelectTrigger id={id} className="w-full sm:w-72">
             <SelectValue>{(v: number) => label(v)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -72,7 +80,7 @@ export function BudgetMonthSetting({
             ))}
           </SelectContent>
         </Select>
-        {!isOwner && <p className="text-sm text-muted-foreground">{dict.ownerOnlyHint}</p>}
+        {!canEdit && dict.ownerOnlyHint && <p className="text-sm text-muted-foreground">{dict.ownerOnlyHint}</p>}
       </div>
       <p className="text-sm text-muted-foreground">{dict.hint}</p>
     </div>

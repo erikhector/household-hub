@@ -38,6 +38,9 @@ export type PersonalFixedInsightsInput = {
   /** The trend's last month — today, like the household budget's. */
   referenceDate: Date;
   monthsBack: number;
+  /** The user's Personal Budget month start day: the trend's buckets are
+   * its periods (see computeRecurringMonthlyTotals). Defaults to 1. */
+  startDay?: number;
   /** dict.personalBudget.shared.sharedBadge, same label PeriodSummary uses. */
   sharedLabel: string;
 };
@@ -58,6 +61,7 @@ export function computePersonalFixedInsights({
   monthEnd,
   referenceDate,
   monthsBack,
+  startDay = 1,
   sharedLabel,
 }: PersonalFixedInsightsInput): PersonalFixedInsights {
   // Keyed and labelled apart from the user's own items, the same way the
@@ -80,6 +84,7 @@ export function computePersonalFixedInsights({
       transactions: [...transactions, ...sharedTransactions],
       referenceDate,
       monthsBack,
+      startDay,
     }),
     incomeBreakdown: breakdown("INCOME"),
     expenseBreakdown: breakdown("EXPENSE"),

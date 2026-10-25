@@ -146,6 +146,7 @@ export async function GET() {
       theme: user.theme,
       weeklyDigestEnabled: user.weeklyDigestEnabled,
       inventoryViewPrefs: user.inventoryViewPrefs,
+      personalBudgetMonthStartDay: user.personalBudgetMonthStartDay,
     },
     // Just the membership record — household name, role, joined date. Not
     // the household's inventory/shopping/budget contents (see doc comment

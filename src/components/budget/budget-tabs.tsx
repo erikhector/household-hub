@@ -167,10 +167,10 @@ export function BudgetTabs({
   monthKey: string;
   /** The server's "YYYY-MM" for today — see MonthNavigator's prop. */
   currentMonthKey: string;
-  /** UX-134: the household's budget month start day (1 = calendar months).
-   * Names the period's dates in the month bar and sets new transactions'
-   * default date. Left unset by the personal budget, whose months stay
-   * calendar months. */
+  /** UX-134: the budget month start day (1 = calendar months): the
+   * household's, or on the personal budget the user's own. Names the
+   * period's dates in the month bar and sets new transactions' default
+   * date. */
   budgetMonthStartDay?: number;
   /** "/dashboard/budget" or "/dashboard/personal-budget" — passed straight
    * through to MonthNavigator, which builds every prev/next/"this month"
