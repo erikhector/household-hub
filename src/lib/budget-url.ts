@@ -2,7 +2,7 @@
 // one tab shell (src/components/budget/budget-tabs.tsx). No "use server",
 // safe from Server and Client Components alike.
 //
-// The open tab and the transaction list's category filter live in the
+// The open tab and the transaction list's category filter and search term (`?q=`) live in the
 // query string next to `?month=` (and the household page's `?household=`
 // override), so paging months, a reload or a link from Insights all land
 // on the same view. Before this, the tab was client state and every month
@@ -23,13 +23,14 @@ export function parseBudgetTab(value: string | string[] | null | undefined): Bud
  * default Overview tab. */
 export function budgetHref(
   basePath: string,
-  params: { month?: string; household?: string; tab?: BudgetTab; category?: string },
+  params: { month?: string; household?: string; tab?: BudgetTab; category?: string; q?: string },
 ): string {
   const query = new URLSearchParams();
   if (params.month) query.set("month", params.month);
   if (params.household) query.set("household", params.household);
   if (params.tab && params.tab !== "overview") query.set("tab", params.tab);
   if (params.category) query.set("category", params.category);
+  if (params.q) query.set("q", params.q);
   const search = query.toString().replaceAll("+", "%20");
   return search ? `${basePath}?${search}` : basePath;
 }
