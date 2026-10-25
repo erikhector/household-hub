@@ -579,15 +579,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
       Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
       `npm run check && npm run build` is green.
 
-- [ ] **DEPS-6. Move `@base-ui/react` 1.8 → 1.9** (impact: low, effort: S) —
-      DEPS-3 held it at an exact 1.8.0: with 1.9.0, the mobile spec
-      `e2e/native-sheets.spec.ts` "a flick down on the grabber dismisses the
-      sheet and leaves no back step" fails (the dialog stays open after the
-      touch drag in `src/components/ui/dialog.tsx`); it passes on 1.8.0.
-      Find what 1.9 changed in the dialog's drag/dismiss handling, adapt the
-      sheet, then loosen the pin back to a caret range.
-      Acceptance: `npm run ci:local` green on 1.9.x.
-
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
       Major release (10.73 installed, 11.8 latest). Sentry is wired into
       the client, server and edge configs plus `instrumentation`; check the
