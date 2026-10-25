@@ -28,6 +28,8 @@ const {
   recurringTemplateAckUpsertMock,
   recurringTemplateAckDeleteManyMock,
   plannedExpenseFindFirstMock,
+  userFindUniqueMock,
+  userUpdateMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireUserIdMock: vi.fn(),
@@ -48,6 +50,8 @@ const {
   recurringTemplateAckUpsertMock: vi.fn(),
   recurringTemplateAckDeleteManyMock: vi.fn(),
   plannedExpenseFindFirstMock: vi.fn(),
+  userFindUniqueMock: vi.fn(),
+  userUpdateMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
 
@@ -78,6 +82,8 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: recurringTemplateAckDeleteManyMock,
     },
     personalPlannedExpense: { findFirst: plannedExpenseFindFirstMock },
+    // The user's Personal Budget month start day (getPersonalBudgetStartDay).
+    user: { findUnique: userFindUniqueMock, update: userUpdateMock },
   },
 }));
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
@@ -100,6 +106,7 @@ const {
   acknowledgePersonalTemplatePeriodAction,
   unacknowledgePersonalTemplatePeriodAction,
   logPersonalRecurringTemplateAction,
+  setPersonalBudgetMonthStartDayAction,
 } = await import("@/app/dashboard/personal-budget/actions");
 
 function formData(fields: Record<string, string>) {
@@ -114,9 +121,11 @@ afterEach(() => {
   vi.clearAllMocks();
   requireUserIdMock.mockResolvedValue(userId);
   transactionFindManyMock.mockResolvedValue([]);
+  userFindUniqueMock.mockResolvedValue({ personalBudgetMonthStartDay: 1 });
 });
 requireUserIdMock.mockResolvedValue(userId);
 transactionFindManyMock.mockResolvedValue([]);
+userFindUniqueMock.mockResolvedValue({ personalBudgetMonthStartDay: 1 });
 
 describe("createPersonalCategoryAction", () => {
   it("rejects a duplicate name for this user (case-insensitive)", async () => {
@@ -707,5 +716,77 @@ describe("personal recurring templates", () => {
         vi.useRealTimers();
       }
     });
+
+    it("guards the user's own payday period when their start day is 25", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        // 26 Sep with day 25 is in "October" (25 Sep to 24 Oct), so a row
+        // logged on 3 Sep (September's period) doesn't block it.
+        vi.setSystemTime(new Date(2026, 8, 26, 12));
+        userFindUniqueMock.mockResolvedValue({ personalBudgetMonthStartDay: 25 });
+        recurringTemplateFindFirstMock.mockResolvedValue({ id: "template-1", categoryId: "cat-1", amount: 300, type: "EXPENSE", name: "Gym", frequency: "MONTHLY" });
+        transactionFindManyMock.mockResolvedValue([]);
+        transactionCreateMock.mockResolvedValue({});
+
+        const result = await logPersonalRecurringTemplateAction("template-1");
+
+        expect(result).toEqual({});
+        expect(userFindUniqueMock).toHaveBeenCalledWith({
+          where: { id: userId },
+          select: { personalBudgetMonthStartDay: true },
+        });
+        expect(transactionFindManyMock).toHaveBeenCalledWith({
+          where: {
+            recurringTemplateId: "template-1",
+            date: { gte: new Date(2026, 8, 25), lt: new Date(2026, 9, 25) },
+          },
+          select: { date: true },
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  it("acknowledgePersonalTemplatePeriodAction marks the user's payday period, named for the month it ends in", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date(2026, 8, 26, 12));
+      userFindUniqueMock.mockResolvedValue({ personalBudgetMonthStartDay: 25 });
+      recurringTemplateFindFirstMock.mockResolvedValue({ id: "template-1", frequency: "MONTHLY" });
+      recurringTemplateAckUpsertMock.mockResolvedValue({});
+
+      const result = await acknowledgePersonalTemplatePeriodAction("template-1");
+
+      expect(result).toEqual({});
+      expect(recurringTemplateAckUpsertMock).toHaveBeenCalledWith(
+        expect.objectContaining({ create: { personalRecurringTemplateId: "template-1", periodKey: "2026-10" } }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("setPersonalBudgetMonthStartDayAction", () => {
+  it("saves the day on the session's own user", async () => {
+    userUpdateMock.mockResolvedValue({});
+
+    const result = await setPersonalBudgetMonthStartDayAction(25);
+
+    expect(result).toEqual({});
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: { personalBudgetMonthStartDay: 25 },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/personal-budget");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it.each([0, 29, 12.5, Number.NaN])("rejects %s, outside 1 to 28", async (day) => {
+    const result = await setPersonalBudgetMonthStartDayAction(day);
+
+    expect(result.error).toBe("Choose a day from 1 to 28");
+    expect(userUpdateMock).not.toHaveBeenCalled();
   });
 });

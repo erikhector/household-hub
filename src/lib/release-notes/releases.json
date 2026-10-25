@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.111.0",
+    "date": "2026-10-25",
+    "pr": 704,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now choose which day your personal budget month starts on, for example the 25th when your pay lands, under Manage in Personal budget. It's separate from the household budget's setting.",
+      "sv": "Nu kan du välja vilken dag din personliga budgetmånad börjar, till exempel den 25:e när lönen kommer, under Hantera i Personlig budget. Inställningen är skild från hushållsbudgetens."
+    }
+  },
+  {
     "version": "0.110.0",
     "date": "2026-10-25",
     "pr": 700,

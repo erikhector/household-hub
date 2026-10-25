@@ -16,6 +16,8 @@ import {
   rolloverForLimit,
 } from "@/lib/budget-category-limit";
 import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
+import { MAX_BUDGET_MONTH_START_DAY, MIN_BUDGET_MONTH_START_DAY } from "@/lib/budget-date-utils";
+import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
 
 // --- Categories --------------------------------------------------------
 
@@ -252,20 +254,23 @@ async function resolvePersonalRecurringTemplateId(
 /** Mirrors budget/actions.ts's assertNoDuplicateTemplatePeriod for
  * PersonalTransaction/PersonalRecurringTemplate — see its doc comment. Only
  * two entry points here (personal budget has no "Log payment" equivalent),
- * but the same race is possible between them. */
+ * but the same race is possible between them. `startDay` is the user's
+ * Personal Budget month start day, which decides what a MONTHLY template's
+ * period is — the same one the page's statuses use. */
 async function assertNoDuplicatePersonalTemplatePeriod(
   recurringTemplateId: string,
   frequency: TemplateFrequency,
   date: Date,
+  startDay: number,
 ): Promise<{ error: string } | null> {
-  const periodKey = getPeriodKey(date, frequency);
+  const periodKey = getPeriodKey(date, frequency, startDay);
   // Bounded to the period's date range — see budget/actions.ts (PERF-17).
-  const { start, end } = getPeriodBounds(date, frequency);
+  const { start, end } = getPeriodBounds(date, frequency, startDay);
   const existing = await prisma.personalTransaction.findMany({
     where: { recurringTemplateId, date: { gte: start, lt: end } },
     select: { date: true },
   });
-  const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency) === periodKey);
+  const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency, startDay) === periodKey);
   return alreadyLogged
     ? { error: "A transaction for this recurring item already exists for this period" }
     : null;
@@ -300,6 +305,7 @@ export async function createPersonalTransactionAction(
       recurringTemplate.id,
       recurringTemplate.frequency,
       new Date(parsed.data.date),
+      await getPersonalBudgetStartDay(userId),
     );
     if (dup) return dup;
   }
@@ -583,7 +589,12 @@ export async function logPersonalRecurringTemplateAction(templateId: string): Pr
   });
   if (!template) return { error: "Recurring template not found" };
 
-  const dup = await assertNoDuplicatePersonalTemplatePeriod(template.id, template.frequency, new Date());
+  const dup = await assertNoDuplicatePersonalTemplatePeriod(
+    template.id,
+    template.frequency,
+    new Date(),
+    await getPersonalBudgetStartDay(userId),
+  );
   if (dup) return dup;
 
   try {
@@ -619,7 +630,7 @@ export async function acknowledgePersonalTemplatePeriodAction(
   if (!template) return { error: "Recurring template not found" };
 
   try {
-    const periodKey = getPeriodKey(new Date(), template.frequency);
+    const periodKey = getPeriodKey(new Date(), template.frequency, await getPersonalBudgetStartDay(userId));
     await prisma.personalRecurringTemplateAck.upsert({
       where: {
         personalRecurringTemplateId_periodKey: {
@@ -649,7 +660,7 @@ export async function unacknowledgePersonalTemplatePeriodAction(
   if (!template) return { error: "Recurring template not found" };
 
   try {
-    const periodKey = getPeriodKey(new Date(), template.frequency);
+    const periodKey = getPeriodKey(new Date(), template.frequency, await getPersonalBudgetStartDay(userId));
     await prisma.personalRecurringTemplateAck.deleteMany({
       where: { personalRecurringTemplateId: template.id, periodKey },
     });
@@ -658,5 +669,43 @@ export async function unacknowledgePersonalTemplatePeriodAction(
   }
 
   revalidatePath("/dashboard/personal-budget");
+  return {};
+}
+
+// --- Budget month start day ------------------------------------------------
+
+/**
+ * Sets the day the user's Personal Budget month starts on (1 to 28; 25 for a
+ * payday month, the 25th to the 24th) — the personal counterpart of
+ * setBudgetMonthStartDayAction (src/lib/actions/household.ts). The personal
+ * budget is the user's alone, so there's no owner check: it's scoped to the
+ * session's user and moves nobody else's months. Nothing stored changes,
+ * since transactions keep their dates and only which period each falls in
+ * does. A click action (the Manage tab's select saves on change), so it takes
+ * the value directly.
+ */
+export async function setPersonalBudgetMonthStartDayAction(day: number): Promise<ActionState> {
+  const userId = await requireUserId();
+
+  const parsed = z
+    .number()
+    .int()
+    .min(MIN_BUDGET_MONTH_START_DAY)
+    .max(MAX_BUDGET_MONTH_START_DAY)
+    .safeParse(day);
+  if (!parsed.success) return { error: "Choose a day from 1 to 28" };
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { personalBudgetMonthStartDay: parsed.data },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  // The Personal Budget page and the overview's "Your budget" card read it.
+  revalidatePath("/dashboard/personal-budget");
+  revalidatePath("/dashboard");
   return {};
 }

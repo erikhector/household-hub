@@ -96,6 +96,10 @@ test("deleting a shopping item removes it at once with an Undo", async ({ page }
   await expect(page.getByText("This can't be undone.")).toHaveCount(0);
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(row).toBeVisible();
+  // MAINT-56: the Undo'd toast stays in the DOM while Sonner animates it
+  // out, so a second delete straight away would show two identical
+  // "Deleted …" toasts at once. Wait for the first to go.
+  await expect(page.getByText(`Deleted "${name}"`)).toHaveCount(0);
 
   await clickRowAction(page, { button: `Remove ${name}`, menu: `More actions for ${name}`, item: "Delete" });
   await waitForUndoableDelete(page, `Deleted "${name}"`);
@@ -137,6 +141,8 @@ test("deleting an inventory item removes it at once with an Undo", async ({ page
   await expect(page.getByText("This can't be undone.")).toHaveCount(0);
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(visibleName).toBeVisible();
+  // MAINT-56: as in the shopping test, let the Undo'd toast leave first.
+  await expect(page.getByText(`Deleted "${name}"`)).toHaveCount(0);
 
   await remove();
   await waitForUndoableDelete(page, `Deleted "${name}"`);

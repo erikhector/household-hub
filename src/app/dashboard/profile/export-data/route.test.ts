@@ -214,6 +214,7 @@ describe("GET /dashboard/profile/export-data", () => {
         theme: "light",
         weeklyDigestEnabled: true,
         inventoryViewPrefs: { groupBy: "location" },
+        personalBudgetMonthStartDay: 25,
       });
       householdMemberFindManyMock.mockResolvedValue([
         { id: "m-1", role: "OWNER", createdAt: fixedNow, household: { name: "The Hectors" } },
@@ -396,6 +397,7 @@ describe("GET /dashboard/profile/export-data", () => {
           "preferences.theme",
           "preferences.weeklyDigestEnabled",
           "preferences.inventoryViewPrefs",
+          "preferences.personalBudgetMonthStartDay",
           "householdMemberships",
           "householdMemberships[].householdName",
           "householdMemberships[].role",
@@ -522,6 +524,7 @@ describe("GET /dashboard/profile/export-data", () => {
         theme: "light",
         weeklyDigestEnabled: true,
         inventoryViewPrefs: { groupBy: "location" },
+        personalBudgetMonthStartDay: 25,
       });
       expect(body.personalTransactions[0].categoryId).toBe(body.personalBudgetCategories[0].id);
       expect(body.personalTransactions[0].recurringTemplateId).toBe(body.personalRecurringTemplates[0].id);
