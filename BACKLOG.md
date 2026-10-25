@@ -1282,3 +1282,17 @@ credentials only the product owner can provision, or an architecture call.
       decision on what's safe to serve stale (e.g. inventory counts, a
       shopping list in a store with bad signal — the strongest use case)
       vs. what must always be fresh (auth, money).
+
+- [ ] **MAINT-63. Flaky: `recipe-form-order` recipe form order and 44 px tag chips check fails once, then passes on retry** (low, S) —
+      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe
+      order, labelled, with 44 px tag chips", `mobile`) failed and then
+      passed on the one retry of the GitHub `End-to-end (Playwright)` job
+      of release commit `e1e5230` (2026-10-25). It passed in the full
+      local `ci:local` run of the same commit. Not yet re-run with
+      repeats. Get the failing assertion with `--repeat-each=30`, find
+      what the position or chip-height measurement races with (the sheet
+      still animating in, or the Recipes tab not selected yet) and fix it
+      in the app or the spec's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/recipe-form-order.spec.ts:11 --project=mobile --repeat-each=30`
+      passes 30/30.
