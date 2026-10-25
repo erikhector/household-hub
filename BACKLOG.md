@@ -305,20 +305,6 @@ then MAINT-7 per feature, to avoid churn.
       Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
       --project=mobile --repeat-each=30` passes 30/30.
 
-- [ ] **MAINT-56. Flaky: `undo-deletes` inventory delete finds two identical "Deleted …" toasts** (low, S) —
-      `e2e/undo-deletes.spec.ts:110` (`desktop`). Failed once and passed
-      on the retry in the GitHub `End-to-end (Playwright)` job of release
-      PR #660 on `1d492e1` (2026-10-24). Nobody's change is in it. The
-      failing assertion: `waitForUndoableDelete` (`e2e/ui.ts:282`) runs
-      `expect(page.getByText('Deleted "…"')).toBeVisible()` and hit a
-      strict-mode violation, because the locator matched two identical
-      toast `<div data-title>` elements at once. Find out whether the app
-      shows the toast twice (a real bug) or the spec's locator needs to
-      be scoped to one toast, and fix it there, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/undo-deletes.spec.ts:110
-      --project=desktop --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
       `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
       (`mobile`). Both failed once and passed on the retry in the GitHub
