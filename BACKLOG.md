@@ -261,43 +261,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-45. Flaky: `native-sheets` flick-to-dismiss leaves the sheet open under load** (low, S) —
-      `e2e/native-sheets.spec.ts:54` ("on a phone: a flick down on the
-      grabber dismisses the sheet and leaves no back step", `mobile`)
-      failed in a `ci:local` run on a clean `origin/next` (`995cb99`,
-      2026-10-21). `--repeat-each=30` of the file on `mobile` fails it
-      3-6 times in 30 (2026-10-22): the dialog is still there after the
-      flick (`toHaveCount(0)` received 1). Waiting for the open
-      animation to finish first, as the slow-pull test does, didn't
-      change the rate, so suspect the flick's velocity: four CDP moves
-      with no delay, spread out by a loaded machine, may read as a slow
-      260 px pull that springs back. (The desktop half of this item,
-      `:152` "the centred dialog doesn't drag", was fixed separately: it
-      now asserts the dialog stays centred rather than that its top
-      didn't move, since the dialog re-centres as its content grows.)
-      Fix it in the app or the spec's driving, never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/native-sheets.spec.ts --repeat-each=30` passes 30/30 on both
-      projects.
-      Seen again on release PR #564 (`05b97a7`, 2026-10-22): `native-sheets.spec.ts:152`
-      failed the attempt and the retry of the GitHub e2e job and in the
-      local `ci:local` gate; it passed on the job re-run and on a local re-run.
-      Seen again on release PR #605 (`61f7d41`, 2026-10-23): `native-sheets.spec.ts:54`
-      (mobile) failed the attempt (`getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })`
-      still there after 5 s) and passed on retry #1.
-      Seen again in a `ci:local` run on `cccc1d5` (2026-10-23, heavy
-      load): `native-sheets.spec.ts:54` (mobile) failed once and passed
-      on a same-commit re-run.
-      Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
-      (mobile) failed once and passed on the retry in the GitHub e2e job.
-      Seen again 2026-10-25 (autopilot-build): `native-sheets.spec.ts:55`
-      (mobile) failed 5 of 5 runs (`--repeat-each=5`) on clean `next`
-      (`18e4bfe`, under the shared lock) and in the full `ci:local` gate of
-      #694, #696 and #697, so it no longer only flakes under load.
-      Seen again on release PR #700 (`1b8abde`, 2026-10-25):
-      `native-sheets.spec.ts:55` (mobile) failed twice in the GitHub e2e
-      job (attempt and retry) and passed on a job re-run.
-
 - [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
       `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
       3 of 40 runs (all `desktop`) with `--repeat-each=20` on clean `next`

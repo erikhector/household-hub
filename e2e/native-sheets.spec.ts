@@ -14,19 +14,28 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 // A drag with real touch input (Chromium's CDP; Playwright's own touchscreen
-// only taps). `stepDelay` paces it: 0 is a flick, a few dozen ms per step a
-// slow, deliberate pull.
-async function touchDrag(page: Page, from: { x: number; y: number }, dy: number, steps: number, stepDelay: number) {
+// only taps). `stepDelay` paces it: a flick is a few ms per step, a slow,
+// deliberate pull a few dozen. MAINT-45: the pace is stamped on the events
+// (CDP's `timestamp`, which becomes the DOM event's `timeStamp`) rather than
+// left to however fast a CDP round trip happens to be. Base UI reads the
+// release velocity off those timestamps (>= 0.5 px/ms dismisses), and on a
+// loaded machine four un-stamped moves smeared over hundreds of ms read as a
+// slow pull that springs back. Slow pulls also really wait, so the sheet has
+// the time to follow the finger.
+async function touchDrag(page: Page, from: { x: number; y: number }, dy: number, steps: number, stepDelay: number, realDelay = false) {
   const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [from] });
+  let t = Date.now() / 1000;
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [from], timestamp: t });
   for (let i = 1; i <= steps; i++) {
-    if (stepDelay) await page.waitForTimeout(stepDelay);
+    if (realDelay) await page.waitForTimeout(stepDelay);
+    t += stepDelay / 1000;
     await cdp.send("Input.dispatchTouchEvent", {
       type: "touchMove",
       touchPoints: [{ x: from.x, y: from.y + (dy * i) / steps }],
+      timestamp: t,
     });
   }
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp: t });
   await cdp.detach();
 }
 
@@ -55,7 +64,10 @@ test.describe("on a phone", () => {
   test("a flick down on the grabber dismisses the sheet and leaves no back step", async ({ page }) => {
     await page.goto("/dashboard");
     const dialog = await openAddMeal(page);
-    await touchDrag(page, await grabberPoint(dialog), 260, 4, 0);
+    // Let the sheet finish sliding in: the grabber is measured where it
+    // is now, and a touch there must land on it, not on where it was.
+    await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+    await touchDrag(page, await grabberPoint(dialog), 260, 4, 8);
     await expect(dialog).toHaveCount(0);
     await expect(page).toHaveURL(/\/dashboard\/meal-planning/);
     // The dialog's history entry went with it (UX-11): the next back is a
@@ -69,7 +81,7 @@ test.describe("on a phone", () => {
     // Let the open animation finish before measuring where the sheet rests.
     await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
     const before = await dialog.boundingBox();
-    await touchDrag(page, await grabberPoint(dialog), 40, 8, 40);
+    await touchDrag(page, await grabberPoint(dialog), 40, 8, 40, true);
     // Still open, and settled back where it was.
     await expect(dialog).toBeVisible();
     await expect.poll(async () => Math.round((await dialog.boundingBox())!.y)).toBe(Math.round(before!.y));

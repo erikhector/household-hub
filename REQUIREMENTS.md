@@ -7012,7 +7012,10 @@ components directly.
   - Under `prefers-reduced-motion` the sheet jumps to rest instead of
     animating and the page behind doesn't scale.
 
-  Covered by `e2e/native-sheets.spec.ts` and `sheet-focus.test.ts`.
+  Covered by `e2e/native-sheets.spec.ts` and `sheet-focus.test.ts`. The
+  spec's `touchDrag` stamps CDP timestamps on its touch events so a
+  flick's release velocity (Base UI dismisses at >= 0.5 px/ms) doesn't
+  depend on how loaded the machine is.
 
 ### Command palette (UX-41a)
 
