@@ -1169,6 +1169,29 @@ out to be a product-scope question rather than a scoped task should move to
       row, reloads and still sees the filter, clears it and sees both, on
       desktop and mobile, in `en` and `sv`.
 
+### 2026-10-23 scan
+
+- [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —
+      Grocy tracks when a product was opened and applies a "days until
+      due after opening" so a jar of pesto or a carton of milk shows the
+      real deadline once the seal is broken. Squirrel only has the
+      sealed best-before date (`InventoryItem.expiresAt`,
+      `prisma/schema.prisma:335`), so an opened item reads "fine for
+      2 weeks" when it's good for 3 days, and the expiring-soon count and
+      digest miss it. Add a nullable `openedAt` and an optional per-item
+      "days good after opening" (`shelfLifeOpenedDays`); an "Opened" row
+      action stamps today, and `getExpiryStatus` (`src/lib/stock-status.ts`)
+      uses the earlier of `expiresAt` and `openedAt + shelfLifeOpenedDays`.
+      Nothing changes for items that never use it. Reuse the existing
+      expiring/expired filters, counts and notifications; no new
+      screen. Edge cases: undo within the toast, restocking clears
+      `openedAt`, a typed date is never overwritten (as with
+      `expiresAtEstimated`).
+      Acceptance: unit tests for the effective-date maths (sealed only,
+      opened earlier, opened later than sealed, no shelf-life set); an e2e
+      step on `mobile` marks a uniquely named item Opened with 3 days,
+      sees it under "expiring", reloads and still sees it, in `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
