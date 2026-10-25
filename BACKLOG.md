@@ -124,21 +124,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
-- [ ] **PERF-18. Batch "Add to shopping list" from inventory** (low, S) —
-      `addToShoppingListAction` (`src/app/dashboard/inventory/actions.ts:671-683`)
-      accepts up to 200 ids (`addToListSchema`, line 652) and loops
-      `addItemToDefaultList` (`src/lib/shopping/default-list.ts:90-122`),
-      which does `getOrCreateDefaultShoppingList` + `findFirst` + `create`
-      per item: up to ~600 sequential round trips for a select-all bulk add,
-      against a remote Postgres. PERF-15 already built the fixed-query
-      pattern in `addToDefaultListOnLowStockBatch` (`default-list.ts:198`).
-      Resolve the list once, read the already-pending `inventoryItemId`s in
-      one query, `createMany` the rest, keep the same
-      `{ listName, added, alreadyOnList }` result and the single-item path.
-      Acceptance: a unit test asserts the query count is constant for 1 vs
-      200 items, plus the existing dedupe (item already pending is counted
-      in `alreadyOnList`); the existing inventory bulk-add e2e still passes.
-
 - [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
       a Server Action that calls `revalidatePath` already returns the
       re-rendered page with its response, so a `router.refresh()` after it
@@ -157,18 +142,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       Acceptance: an e2e check per flow that the change shows without a
       reload (extend `e2e/meal-prep.spec.ts` and
       `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
-
-- [ ] **PERF-20. Cache Open Food Facts barcode lookups** (low, S) —
-      `lookupBarcodeAction`'s `fetch` (`src/lib/actions/barcode.ts:69`) goes to
-      Open Food Facts on every scan, even for a barcode scanned a minute
-      ago. The response is public product data with no household in it, so
-      it's safe to share across households: pass
-      `next: { revalidate: 86400 }` like `src/lib/exchange-rate.ts:19`
-      does (the URL already keys it by barcode). Cache only the raw
-      response, not the mapped result: the category label comes from the
-      caller's dictionary, which differs by locale. Don't cache failures or
-      timeouts. Acceptance: a unit test asserts the fetch options; existing
-      barcode tests still pass.
 
 ### Maintainability (2026-09-26 audit)
 
@@ -261,22 +234,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
-      #336 (`feat: show what's left to split as shares are typed`) turned
-      `next` red and was reverted by #340, which also deleted
-      `e2e/split-remainder.spec.ts`. Its spec failed at `:31` and `:57`
-      (`mobile`, a `locator.fill` timeout; also `desktop` on a feature
-      branch) in the local `ci:local` gate on a clean `0444ce1` (2026-10-18,
-      780 passed, 3 failed) and in 3 of 3 full runs on the UX-82 branch
-      (#343), yet passed alone (`--repeat-each=3`, 14/14), so it depended on
-      something earlier specs leave in the worker's household or on a field
-      it didn't wait for. Re-apply #336 (revert #340), find why the share
-      field can't be filled in the full run and fix the spec's setup
-      (AGENTS.md "Parallel workers") or the app, never a skip or looser
-      assertion, and restore #336's REQUIREMENTS.md text. Acceptance: the
-      full `npm run test:e2e` passes with the re-landed
-      `e2e/split-remainder.spec.ts`, and `npx playwright test
-      e2e/split-remainder.spec.ts --repeat-each=10` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -333,18 +290,10 @@ then MAINT-7 per feature, to avoid churn.
       on a same-commit re-run.
       Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
       (mobile) failed once and passed on the retry in the GitHub e2e job.
-
-- [ ] **MAINT-51. Flaky: `item-aliases` a name linked once in a recipe doesn't arrive linked in the pasted shopping list under load** (low, S) —
-      `e2e/item-aliases.spec.ts:50` ("a name linked once in a recipe
-      arrives linked in a pasted shopping list", `mobile`) failed once in
-      a local `ci:local` run on release PR #622 (`49a1fc8`, 2026-10-23)
-      and passed on a same-commit re-run; the GitHub e2e job on the same
-      commit was green. Find out whether the pasted list is checked before
-      the alias lookup has settled (data load, hydration) or the link
-      really is dropped, and fix it in the app or the spec's waiting,
-      never a loosened assertion, a skip or a retry. Acceptance: `npx
-      playwright test e2e/item-aliases.spec.ts:50 --project=mobile
-      --repeat-each=30` passes 30/30.
+      Seen again 2026-10-25 (autopilot-build): `native-sheets.spec.ts:55`
+      (mobile) failed 5 of 5 runs (`--repeat-each=5`) on clean `next`
+      (`18e4bfe`, under the shared lock) and in the full `ci:local` gate of
+      #694, #696 and #697, so it no longer only flakes under load.
 
 - [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
       `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
@@ -419,6 +368,60 @@ then MAINT-7 per feature, to avoid churn.
       e2e/recipe-planned-dates.spec.ts:55 --project=mobile
       --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
+      shows the all-caught-up card above Completed" (`mobile`). Failed once
+      and passed on the retry in the GitHub `End-to-end (Playwright)` job
+      of release PR #689 (run 40184348720, 2026-10-25). Nobody's change is
+      in it. The failing assertion is the Postgres poll near line 111,
+      `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
+      for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
+      spec was already touched by MAINT-40 (#585, wait for each tick's
+      save) and MAINT-50 (#679, wait for hydration), so those fixes were
+      probably incomplete. Find out where the open row comes from: a tick
+      whose Server Action response was another action's (the
+      `waitForResponse` matches any `next-action` POST, so a different
+      action can satisfy it before the tick's save lands), a row another
+      spec in the same worker inserts while this one runs, or a save the
+      app drops. Fix it in the app or in the spec's waiting (match the
+      tick's own response), never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-59. Flaky: `planned-expenses` spec times out under full-suite load** (low, S) —
+      `e2e/planned-expenses.spec.ts:82` (`mobile`) hit the 30 s test
+      timeout once in the `ci:local` gate of #694 (`7adc31c`, 2026-10-25)
+      and passed 3 of 3 on a re-run on the same commit; it passed 5 of 5 on
+      clean `next` (`18e4bfe`), so it needs load to show. Nobody's change is
+      in it. Find what the test is waiting on (hydration, a dialog, a
+      response) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/planned-expenses.spec.ts:82 --project=mobile
+      --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
+      `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
+      gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
+      left", got "2 of 4". Only `e2e/item-aliases.spec.ts` changed in that
+      PR, so nobody's change is in it. Not yet re-run on clean `next`.
+      Find out whether a portion is taken twice (a double tap or a repeated
+      action), or a row another spec in the same worker leaves behind, and
+      fix it in the app or the spec's setup, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-prep.spec.ts:145 --project=desktop --repeat-each=30`
+      passes 30/30.
+
+- [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
+      `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
+      `ci:local` gate of #696 (`6de6c89`, 2026-10-25), a PR that touches
+      only the budget split dialogs. Not yet re-run on clean `next`. Look at
+      the failing assertion in the gate log's first failure output (re-run
+      with `--repeat-each=30` to get it), find what the click races with and
+      fix it in the app or the spec's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
+      passes 30/30.
+
 
 ### UX (2026-09-26 scout)
 
@@ -481,9 +484,6 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** One item sits in another section of this file:
-- Needs a decision before building: UX-136.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
@@ -513,35 +513,6 @@ UX-89.
 #### Profile and household settings
 
 #### Shopping
-
-- [ ] **BUG-3. A scanned receipt price isn't divided by its quantity**
-      (impact: high, effort: M) — reported by the owner, 2026-10-18.
-      A receipt line "3 x Mjölk 45,00" matched to a list row "Mjölk ×1"
-      is saved as if one carton cost 45:
-      - The scan reads the line's quantity (`ScannedReceiptLine.quantity`,
-        `lib/actions/receipt-scan.ts:65`), but the review step drops it
-        when building matches (`receipt-scan-dialog.tsx:306`), and
-        `ReceiptScanMatch` has no quantity
-        (`src/app/dashboard/shopping-list/actions.ts:1328`, the `actions.ts`
-        cited below).
-      - `applyReceiptScanAction` then writes PriceHistory with the list
-        row's quantity (`actions.ts:1475-1480`, and via `applyStockArrival`),
-        so the unit price is 45, not 15. GAP-9's price-spike check
-        compares that inflated unit price.
-      - `lastKnownPrice` becomes the line total (45), and every create
-        path copies it into a new row's `estimatedPrice` without regard to
-        quantity (`actions.ts:197,282,721,845`), so next week's "Mjölk ×1"
-        is estimated at 45. `registerReceiptAction` has the same
-        line-total problem (`actions.ts:1740-1760`).
-      Acceptance: scanning "3 x Mjölk 45,00" against "Mjölk ×1" prices
-      that row at 45 (what was paid) and records PriceHistory at 45 for 3
-      (unit 15). The item's next estimate is 15 for ×1 and 30 for ×2, and
-      no price-spike notification fires. Register receipt behaves the same.
-      The review row shows the quantity and unit price ("3 × 15,00") so a
-      misread can be caught. Stock still counts the list row's quantity,
-      as today. A unit test on `applyReceiptScanAction` (and one on
-      `registerReceiptAction`) fails without the fix, and the receipt e2e
-      spec covers a ×3 line.
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) `[!]` — breaks User-centricity
@@ -711,18 +682,6 @@ order below is a suggestion, not a dependency, unless noted.
       Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
       Why: the item's own recommendation; opt-in keeps the Guardrails on
       noisy positive alerts. See PRODUCT.md.
-
-- [ ] **UX-136. Opt-in sample data for a new household** (impact: med,
-      effort: L) — one migration (a nullable `sample` tag/batch column on
-      the seeded models). "Try with sample data" on the first overview
-      seeds a small pantry, one list, a planned week, three recipes and a
-      few tasks, all tagged; "Clear sample data" removes exactly the
-      tagged rows and nothing else. Restore the landing page's "example
-      data" line only once this ships. Both languages.
-      Acceptance: an empty household taps "Try with sample data" and sees
-      rows on the overview; "Clear sample data" returns it to empty while
-      a row the user added meanwhile survives.
-      Decided 2026-10-20 by owner: option 1. See #396.
 
 ## Phase 3 — larger items, own PR each
 

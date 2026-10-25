@@ -27,6 +27,7 @@ const {
   addToDefaultListOnLowStockMock,
   addToDefaultListOnLowStockBatchMock,
   addItemToDefaultListMock,
+  addItemsToDefaultListMock,
   unitConversionCountMock,
   executeRawMock,
   notificationFindManyMock,
@@ -52,6 +53,7 @@ const {
   addToDefaultListOnLowStockMock: vi.fn(),
   addToDefaultListOnLowStockBatchMock: vi.fn(),
   addItemToDefaultListMock: vi.fn(),
+  addItemsToDefaultListMock: vi.fn(),
   unitConversionCountMock: vi.fn(),
   executeRawMock: vi.fn(),
   notificationFindManyMock: vi.fn(),
@@ -118,6 +120,7 @@ vi.mock("@/lib/shopping/default-list", () => ({
   addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
   addToDefaultListOnLowStockBatch: addToDefaultListOnLowStockBatchMock,
   addItemToDefaultList: addItemToDefaultListMock,
+  addItemsToDefaultList: addItemsToDefaultListMock,
   revalidateAutoAdded: vi.fn(),
 }));
 
@@ -1176,17 +1179,15 @@ describe("addInventoryItemsToShoppingListAction (UX-122)", () => {
     const a = { id: "item-1", name: "Spaghetti", quantity: 1, lowStockThreshold: 2 };
     const b = { id: "item-2", name: "Rice", quantity: 5, lowStockThreshold: 1 };
     findManyMock.mockResolvedValue([a, b]);
-    addItemToDefaultListMock
-      .mockResolvedValueOnce({ list: { id: "default-list", name: "Next shop" }, created: { shoppingListItemId: "r1" } })
-      .mockResolvedValueOnce({ list: { id: "default-list", name: "Next shop" }, created: null });
+    addItemsToDefaultListMock.mockResolvedValue({ list: { id: "default-list", name: "Next shop" }, added: 1 });
 
     const result = await addInventoryItemsToShoppingListAction(["item-1", "item-2", "item-1"]);
 
     expect(findManyMock).toHaveBeenCalledWith({
       where: { id: { in: ["item-1", "item-2"] }, householdId: "household-1" },
     });
-    expect(addItemToDefaultListMock).toHaveBeenCalledTimes(2);
-    expect(addItemToDefaultListMock).toHaveBeenCalledWith(expect.anything(), "household-1", a, false);
+    expect(addItemsToDefaultListMock).toHaveBeenCalledTimes(1);
+    expect(addItemsToDefaultListMock).toHaveBeenCalledWith(expect.anything(), "household-1", [a, b], false);
     expect(updateMock).not.toHaveBeenCalled();
     expect(result).toEqual({ listName: "Next shop", added: 1, alreadyOnList: 1 });
   });
@@ -1197,7 +1198,7 @@ describe("addInventoryItemsToShoppingListAction (UX-122)", () => {
     const result = await addInventoryItemsToShoppingListAction(["other-households-item"]);
 
     expect(result.error).toBe("Item not found");
-    expect(addItemToDefaultListMock).not.toHaveBeenCalled();
+    expect(addItemsToDefaultListMock).not.toHaveBeenCalled();
   });
 
   it("rejects an empty selection", async () => {

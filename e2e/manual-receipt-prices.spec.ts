@@ -103,20 +103,22 @@ test("a failed scan lets you type the price, and it's recorded like a scanned on
   const price = dialog.getByRole("spinbutton", { name: "Price" });
   await expect(price).toHaveValue("");
   await price.fill("45");
+  // BUG-3: the row says "3" and the unit price, so a misread count or price
+  // shows before anything is saved.
+  await expect(dialog.getByText("3 × 15.00")).toBeVisible();
   await dialog.getByRole("button", { name: "Apply to list" }).click();
   // Put-away mode follows a receipt that only priced the rows: leave the
   // stock for later, the price is already recorded.
   await expect(page.getByRole("heading", { name: "Put away your shopping" })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
 
-  // 45 paid for 3, stored like a scanned line: lastKnownPrice is the line's
-  // price, the same number as its estimatedPrice (recipe-cost.ts finds the
-  // line by that match and divides by its quantity), and PriceHistory keeps
-  // the price with the quantity it bought.
+  // 45 paid for 3: the row is booked at what was paid, but lastKnownPrice is
+  // per unit (15) and PriceHistory keeps the price with the quantity it
+  // bought, so the unit price it compares is 15, not 45 (BUG-3).
   await page.reload();
   await expect(page.getByRole("main").getByText("≈ 45.00").first()).toBeVisible();
   const [item] = await sql(`SELECT "lastKnownPrice" FROM "InventoryItem" WHERE id = $1`, [invId]);
-  expect(item.lastKnownPrice).toBe(45);
+  expect(item.lastKnownPrice).toBe(15);
   const [row] = await sql(`SELECT "estimatedPrice", purchased, "priceRecordedAt" FROM "ShoppingListItem" WHERE id = $1`, [
     `e2e-ux140-item-${t}`,
   ]);
@@ -125,6 +127,12 @@ test("a failed scan lets you type the price, and it's recorded like a scanned on
   expect(row.priceRecordedAt).not.toBeNull();
   const history = await sql(`SELECT price, quantity FROM "PriceHistory" WHERE "inventoryItemId" = $1`, [invId]);
   expect(history).toEqual([{ price: 45, quantity: 3 }]);
+
+  // And the next estimate scales with the quantity: x2 is 30, not 45.
+  const addBox = page.getByRole("combobox", { name: "Add to the list" });
+  await addBox.fill(`2 ${name}`);
+  await addBox.press("Enter");
+  await expect(page.getByRole("main").getByText("≈ 30.00").first()).toBeVisible();
 });
 
 test("Register receipt can be typed in line by line when the scan fails", async ({ page }) => {

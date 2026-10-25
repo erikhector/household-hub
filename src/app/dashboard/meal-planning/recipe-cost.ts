@@ -14,6 +14,11 @@
 // last 500 g pack cost 24, `lastKnownPrice` is 24, and multiplying it by a
 // recipe's 200 g would claim the recipe costs 4800.
 //
+// BUG-3 refined that: new writers store the price per unit of the line's
+// quantity (3 cartons for 45 is 15), so "one 500 g pack for 24" is still 24
+// but "2 packs for 48" is 24 too, not 48. Lines saved before that kept the
+// line price; unitPriceFromLastPurchase reads both.
+//
 // There's no quantity on PriceHistory or InventoryItem to divide by, but
 // every writer of `lastKnownPrice` leaves behind the purchased,
 // inventory-linked ShoppingListItem the price came from, with its
@@ -102,15 +107,26 @@ export function unitPriceFromLastPurchase(item: NonNullable<RecipeCostIngredient
   const price = item.lastKnownPrice;
   if (price == null) return null;
 
-  const purchase = item.purchases.find((p) => p.price === price);
-  if (!purchase) return null;
-
-  const purchasedInItemUnit = toItemUnit(purchase.quantity, purchase.unit, item);
-  // A zero/negative quantity would divide into Infinity or a negative
-  // price; treat it as unrecoverable like any other bad row.
-  if (purchasedInItemUnit === null || !(purchasedInItemUnit > 0)) return null;
-
-  return price / purchasedInItemUnit;
+  // BUG-3: lastKnownPrice is now per unit of the line's quantity, so the
+  // line that set it has `price === lastKnownPrice × quantity` (to the
+  // cent: the unit price is stored unrounded, so this is float noise only). Lines recorded before
+  // that stored the line price as is (`price === lastKnownPrice`); for a
+  // quantity of 1 the two readings are the same number.
+  for (const p of item.purchases) {
+    if (Math.abs(p.price - price * p.quantity) < 0.01) {
+      const oneInItemUnit = toItemUnit(1, p.unit, item);
+      if (oneInItemUnit === null || !(oneInItemUnit > 0)) return null;
+      return price / oneInItemUnit;
+    }
+    if (p.price === price) {
+      const purchasedInItemUnit = toItemUnit(p.quantity, p.unit, item);
+      // A zero/negative quantity would divide into Infinity or a negative
+      // price; treat it as unrecoverable like any other bad row.
+      if (purchasedInItemUnit === null || !(purchasedInItemUnit > 0)) return null;
+      return price / purchasedInItemUnit;
+    }
+  }
+  return null;
 }
 
 // Converts each ingredient's quantity into its linked item's unit and

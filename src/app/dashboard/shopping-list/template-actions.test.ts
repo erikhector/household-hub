@@ -205,7 +205,7 @@ describe("createListFromTemplateAction", () => {
     expect(data.status).toBeUndefined();
     expect(data.isDefault).toBeUndefined();
     expect(data.items.create).toEqual([
-      { inventoryItemId: "inv-9", name: "Sausages", quantity: 3, unit: "pcs", estimatedPrice: 40 },
+      { inventoryItemId: "inv-9", name: "Sausages", quantity: 3, unit: "pcs", estimatedPrice: 120 },
       { inventoryItemId: "inv-coal", name: "Charcoal", quantity: 1, unit: "bag", estimatedPrice: undefined },
       { inventoryItemId: null, name: "Lighter fluid", quantity: 1, unit: "bottle", estimatedPrice: undefined },
     ]);

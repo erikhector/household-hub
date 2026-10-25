@@ -345,7 +345,7 @@ async function RecipesTabSection({
   // lastKnownPrice, joined in memory against the same cached inventory fetch
   // rather than a nested include on the recipe query (which the Planner and
   // Cook tabs would pay for too). lastKnownPrice is the price of one
-  // purchased shopping-list line, not of one unit, so computeRecipeCost
+  // unit of a purchased line's quantity (BUG-3), not of one inventory unit, so computeRecipeCost
   // also needs the purchased lines themselves to divide it by the quantity
   // it bought — see its doc comment. That's the one extra query here, only
   // run on this tab, and narrowed to the inventory items some recipe
