@@ -122,6 +122,44 @@ export async function addItemToDefaultList(
 }
 
 /**
+ * Batch sibling of addItemToDefaultList for the inventory bulk "Add to
+ * shopping list" (PERF-18): the default list (get-or-create), one read of
+ * what's already pending and one createMany, so up to 200 items cost the same
+ * handful of round trips as one. Same dedupe and sizing as the single-item
+ * version. `added` counts the rows created; the rest were already pending.
+ */
+export async function addItemsToDefaultList(
+  db: DbClient,
+  householdId: string,
+  items: readonly ListableItem[],
+  addedAutomatically: boolean,
+): Promise<{ list: { id: string; name: string }; added: number }> {
+  const list = await getOrCreateDefaultShoppingList(db, householdId);
+  if (items.length === 0) return { list, added: 0 };
+
+  const pending = await db.shoppingListItem.findMany({
+    where: { shoppingListId: list.id, purchased: false, inventoryItemId: { in: items.map((i) => i.id) } },
+    select: { inventoryItemId: true },
+  });
+  const alreadyPending = new Set(pending.map((row) => row.inventoryItemId));
+  const toAdd = items.filter((item) => !alreadyPending.has(item.id));
+  if (toAdd.length === 0) return { list, added: 0 };
+
+  await db.shoppingListItem.createMany({
+    data: toAdd.map((item) => ({
+      shoppingListId: list.id,
+      inventoryItemId: item.id,
+      name: item.name,
+      quantity: Math.max(1, item.lowStockThreshold - item.quantity),
+      unit: item.unit,
+      addedAutomatically,
+      estimatedPrice: item.lastKnownPrice ?? undefined,
+    })),
+  });
+  return { list, added: toAdd.length };
+}
+
+/**
  * Sibling of recordOutOfStockTransition, called from exactly the same call
  * sites (every action that can decrease an existing item's quantity, right
  * after writing the new value) so every path — +/- tap, mark empty, edit

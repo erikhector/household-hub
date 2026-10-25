@@ -124,21 +124,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
-- [ ] **PERF-18. Batch "Add to shopping list" from inventory** (low, S) —
-      `addToShoppingListAction` (`src/app/dashboard/inventory/actions.ts:671-683`)
-      accepts up to 200 ids (`addToListSchema`, line 652) and loops
-      `addItemToDefaultList` (`src/lib/shopping/default-list.ts:90-122`),
-      which does `getOrCreateDefaultShoppingList` + `findFirst` + `create`
-      per item: up to ~600 sequential round trips for a select-all bulk add,
-      against a remote Postgres. PERF-15 already built the fixed-query
-      pattern in `addToDefaultListOnLowStockBatch` (`default-list.ts:198`).
-      Resolve the list once, read the already-pending `inventoryItemId`s in
-      one query, `createMany` the rest, keep the same
-      `{ listName, added, alreadyOnList }` result and the single-item path.
-      Acceptance: a unit test asserts the query count is constant for 1 vs
-      200 items, plus the existing dedupe (item already pending is counted
-      in `alreadyOnList`); the existing inventory bulk-add e2e still passes.
-
 - [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
       a Server Action that calls `revalidatePath` already returns the
       re-rendered page with its response, so a `router.refresh()` after it
