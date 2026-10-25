@@ -1341,7 +1341,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     list. The bulk add runs in a fixed number of queries (PERF-18) via
     `addItemsToDefaultList` (src/lib/shopping/default-list.ts): the default
     list, one read of what's pending, one `createMany`, for 1 or 200 items.
-    list. A row with an unpurchased line on any active list shows an "On
+    A row with an unpurchased line on any active list shows an "On
     list" tag. With auto-add on, the row menu drops "Mark as empty & add to
     shopping list" (plain "Mark as empty" already does it); with it off,
     both entries show.
