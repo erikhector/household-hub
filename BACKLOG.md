@@ -579,19 +579,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
       Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
       `npm run check && npm run build` is green.
 
-- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: med, effort: S) —
-      The `@sentry/nextjs` bump is a security fix: 10.75.1 and older have a
-      critical middleware bypass when a tunnel route is used
-      (GHSA-mchm-gjx6-7h55, fixed in 10.75.2). Check whether
-      `next.config` sets `tunnelRoute`; the audit flags it either way.
-      `@base-ui/react` 1.8→1.9, `@sentry/nextjs` 10.73→10.76, `@upstash/redis`
-      1.38→1.39, `@vercel/functions` 3.9→3.10, `lucide-react` 1.43→1.57,
-      `pg` 8.23.0→8.23.1, `resend` 6.26→6.33, `shadcn` 4.21.0→4.21.5,
-      `vitest` 5.0.0→5.0.4, `zod` 4.5→4.6, `@types/react(-dom)` 19.3, `@types/node`
-      22.20.5. Skip the majors (Sentry 11, ESLint 10, TypeScript 7, React
-      19.3 is fine to include if `check` passes); each needs its own item.
-      Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
-
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
       Major release (10.73 installed, 11.8 latest). Sentry is wired into
       the client, server and edge configs plus `instrumentation`; check the
