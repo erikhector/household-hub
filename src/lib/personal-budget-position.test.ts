@@ -531,6 +531,39 @@ describe("loadPersonalBudgetPosition", () => {
     expect(position.safeToSpendProjection?.dailyPace).toBe(15);
     expect(position.safeToSpendProjection?.projected).toBe(2450 - 15 * 20);
   });
+
+  it("paces the projection and daily allowance over a payday period (start day 25)", async () => {
+    // "October" with day 25 is 25 Sep to 24 Oct: 30 days. On 3 Oct, 9 of
+    // them have gone and 22 are left, today included. Measured against the
+    // calendar month instead, 3 Oct would be outside a period starting
+    // 25 Sep and both figures would vanish.
+    personalTransactionFindManyMock.mockResolvedValue([
+      personalTx("Salary", "INCOME", 3000, 26),
+      { ...personalTx("Food", "EXPENSE", 90, 1), date: new Date(2026, 9, 2) },
+    ]);
+    personalTemplateFindManyMock.mockResolvedValue([]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: new Date(2026, 8, 25),
+      monthEnd: new Date(2026, 9, 25),
+      startDay: 25,
+      sharedLabel: "Shared",
+      now: new Date(2026, 9, 3, 12),
+    });
+
+    expect(position.safeToSpend).toBe(2910);
+    expect(position.safeToSpendProjection).toMatchObject({
+      daysInMonth: 30,
+      daysElapsed: 9,
+      dailyPace: 10,
+      projected: 2910 - 10 * 21,
+    });
+    expect(position.safeToSpendDaily).toEqual({ perDay: 2910 / 22, daysLeft: 22 });
+  });
   it("holds back what is still unspent of a category's monthly limit (UX-138)", async () => {
     personalTransactionFindManyMock.mockResolvedValue([
       personalTx("Salary", "INCOME", 10000, 1),
