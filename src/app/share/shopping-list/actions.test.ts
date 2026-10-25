@@ -280,10 +280,10 @@ describe("toggleItemViaShareTokenAction", () => {
     // list's own household (never anything from the visitor).
     expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "inv-1", 2, 5);
     // AUTO-4: this purchase's price also becomes the item's lastKnownPrice,
-    // per unit (BUG-3): 25 for the row's 3 is 8.3333 each.
+    // per unit (BUG-3): 25 for the row's 3 is 25 / 3 each.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 5, lastKnownPrice: 8.3333 },
+      data: { quantity: 5, lastKnownPrice: 25 / 3 },
     });
     // No acting user to exclude from the push — no account behind a link.
     expect(recordOutOfStockTransitionMock).toHaveBeenCalledWith(
