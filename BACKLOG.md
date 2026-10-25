@@ -294,6 +294,9 @@ then MAINT-7 per feature, to avoid churn.
       (mobile) failed 5 of 5 runs (`--repeat-each=5`) on clean `next`
       (`18e4bfe`, under the shared lock) and in the full `ci:local` gate of
       #694, #696 and #697, so it no longer only flakes under load.
+      Seen again on release PR #700 (`1b8abde`, 2026-10-25):
+      `native-sheets.spec.ts:55` (mobile) failed twice in the GitHub e2e
+      job (attempt and retry) and passed on a job re-run.
 
 - [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
       `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
@@ -421,6 +424,21 @@ then MAINT-7 per feature, to avoid churn.
       skip or a retry. Acceptance: `npx playwright test
       e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
       passes 30/30.
+
+- [ ] **MAINT-62. Flaky: `inventory-status-summary` Status filter doesn't offer Expiring and Expired** (low, S) —
+      `e2e/inventory-status-summary.spec.ts:130` ("the Status filter offers
+      Expiring and Expired", `desktop`) failed once in a full local
+      `ci:local` run on release commit `1b8abde` (2026-10-25). It passed on
+      a solo re-run and in the GitHub e2e job of the same commit, so it
+      only fails under full-suite load. Not yet re-run with repeats. Get
+      the failing assertion with `--repeat-each=30` (the log of the
+      original run wasn't kept), find what the filter control's open or
+      option check races with (a popup still animating, or the search
+      box's debounced filter re-rendering the list) and fix it in the app
+      or the spec's waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/inventory-status-summary.spec.ts:130 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
