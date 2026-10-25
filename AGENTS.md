@@ -333,7 +333,12 @@ loop".
   `dismissCookieNotice` for specs where the cookie notice would get in
   the way, `clickRowAction` for a row's Edit/Delete at any width, and
   `waitForDialogHistory` before a reload that follows a dialog closing).
-  Reuse them in new specs rather than re-implementing.
+  Reuse them in new specs rather than re-implementing. Under a loaded
+  runner `goto()` returns before React has hydrated, so a click on a
+  React-driven control (menu, tab, tick) first needs `expectHydrated`,
+  a layout measurement needs `gotoRevealed`, and a reload after an
+  Undo-able delete needs `waitForUndoableDelete`. Twelve of the last
+  fourteen `test:` PRs were fixes for specs that skipped one of these.
 - **Screenshots**: `npm run test:e2e:screenshots` (or
   `E2E_SCREENSHOT_DIR=<dir> npx playwright test smoke public`) saves
   `<desktop|mobile>-<en|sv>-<route>.png` for every page. The UX scout
