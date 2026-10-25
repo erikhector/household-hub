@@ -27,10 +27,10 @@
 // kind of wrong.
 //
 // Valuation: one `lastKnownPrice` per item, never `lastKnownPrice ×
-// quantity`. `lastKnownPrice` is the price of one shopping-list *line*
-// (AUTO-4's "a 2-pack priced at 24 books as 24" convention), not a price
-// per inventory unit, so multiplying it by a quantity measured in, say,
-// grams would produce nonsense. "Roughly what you paid last time you bought
+// quantity`. `lastKnownPrice` is the price of one *unit of a shopping
+// line's quantity* (BUG-3: a receipt line "3 x Milk 45,00" stores 15), not a
+// price per inventory unit, so multiplying it by a quantity measured in,
+// say, grams would produce nonsense. "Roughly what you paid last time you bought
 // it" is the honest unit. Items with no known price are counted
 // (`unpricedCount`) but add nothing to the money figure.
 //

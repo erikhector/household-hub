@@ -30,6 +30,23 @@ const priced = (
 });
 
 describe("unitPriceFromLastPurchase", () => {
+  it("still finds the purchase for a large quantity whose unit price is 17.35 / 700", () => {
+    expect(
+      unitPriceFromLastPurchase({
+        unit: "g",
+        lastKnownPrice: 17.35 / 700,
+        purchases: [{ quantity: 700, unit: "g", price: 17.35 }],
+      }),
+    ).toBeCloseTo(17.35 / 700, 10);
+    expect(
+      unitPriceFromLastPurchase({
+        unit: "g",
+        lastKnownPrice: 12.99 / 1500,
+        purchases: [{ quantity: 1500, unit: "g", price: 12.99 }],
+      }),
+    ).toBeCloseTo(12.99 / 1500, 10);
+  });
+
   it("divides the line price by the quantity that line bought", () => {
     expect(
       unitPriceFromLastPurchase({ unit: "g", lastKnownPrice: 24, purchases: [{ quantity: 500, unit: "g", price: 24 }] }),

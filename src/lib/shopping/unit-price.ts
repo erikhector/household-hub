@@ -12,12 +12,15 @@
 import { round2 } from "@/lib/math";
 
 /** The price of one unit of a line's quantity: `linePrice` ÷ `quantity`.
- * Kept to four decimals (a 10.00 line for 3 is 3.3333, not 3.33) so scaling
- * it back up by the same quantity round-trips to the cent. A missing or
- * non-positive quantity can't divide, so the price is taken as-is. */
+ * Deliberately not rounded: `lastKnownPrice` is a Float, and any fixed
+ * number of decimals loses cents once the quantity is large (17.35 for
+ * 700 g at 4 decimals is 0.0248, which scales back to 17.36). Full
+ * precision scales back up to the line price; `defaultLineEstimate` rounds
+ * the result to the cent. A missing or non-positive quantity can't divide,
+ * so the price is taken as-is. */
 export function unitPriceOf(linePrice: number, quantity: number): number {
   if (!Number.isFinite(quantity) || quantity <= 0) return linePrice;
-  return Math.round((linePrice / quantity) * 10_000) / 10_000;
+  return linePrice / quantity;
 }
 
 /** A new row's default estimate from the item's last known unit price:

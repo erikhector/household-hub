@@ -2193,8 +2193,8 @@ item is marked purchased with an estimated price
     judged better than dropping emptied items, which would make throwing
     something out erase it from the recap.
   - **Value.** One `lastKnownPrice` per item, never `lastKnownPrice ×
-    quantity`: `lastKnownPrice` is the price of one shopping-list line
-    (AUTO-4's per-line convention), not a price per inventory unit, so
+    quantity`: `lastKnownPrice` is the price of one unit of a shopping
+    line's quantity (BUG-3), not a price per inventory unit, so
     multiplying it by a quantity in grams or millilitres would be nonsense.
     The figure is shown with "≈". Items with no known price are listed and
     counted ("N of them have no known price yet") but add nothing to the
@@ -2226,8 +2226,8 @@ item is marked purchased with an estimated price
     are counted — they're physically there, and whether they were wasted
     is GAP-17's question.
   - **Value.** Same rule as GAP-17: one `lastKnownPrice` per item, never
-    `lastKnownPrice × quantity` (it's a per-shopping-line price, not a
-    per-unit one), so a half-used bag counts at its full last price and the
+    `lastKnownPrice × quantity` (it's a price per unit of a shopping
+    line's quantity, not per inventory unit), so a half-used bag counts at its full last price and the
     figure is shown with "≈". Items with no known price (null or 0) add
     nothing but are counted, and the card always says what the figure is
     built from: "Based on N of M items with a known price."

@@ -11,6 +11,11 @@ describe("unitPriceOf", () => {
     expect(defaultLineEstimate(unitPriceOf(10, 3), 3)).toBe(10);
   });
 
+  it("round-trips large quantities (g/ml rows) to the original line price", () => {
+    expect(defaultLineEstimate(unitPriceOf(17.35, 700), 700)).toBe(17.35);
+    expect(defaultLineEstimate(unitPriceOf(12.99, 1500), 1500)).toBe(12.99);
+  });
+
   it("returns the price untouched for an unusable quantity", () => {
     expect(unitPriceOf(45, 0)).toBe(45);
     expect(unitPriceOf(45, Number.NaN)).toBe(45);

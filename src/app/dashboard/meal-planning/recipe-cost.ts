@@ -109,7 +109,7 @@ export function unitPriceFromLastPurchase(item: NonNullable<RecipeCostIngredient
 
   // BUG-3: lastKnownPrice is now per unit of the line's quantity, so the
   // line that set it has `price === lastKnownPrice × quantity` (to the
-  // cent: the unit price is stored to four decimals). Lines recorded before
+  // cent: the unit price is stored unrounded, so this is float noise only). Lines recorded before
   // that stored the line price as is (`price === lastKnownPrice`); for a
   // quantity of 1 the two readings are the same number.
   for (const p of item.purchases) {
