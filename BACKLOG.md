@@ -262,17 +262,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-53. Flaky: `task-compact-rows` fails now and then under full-suite load** (low, S) —
-      `e2e/task-compact-rows.spec.ts:58` (`mobile`). Failed once in 82
-      runs with `--repeat-each=20` on clean `next` (`26df2a2`,
-      2026-10-23), and once in the full `ci:local` gate on the UX-112
-      branch (`8b0197e`), where it passed on a solo rerun. Nobody's change
-      is in it. The failing assertion wasn't recorded: reproduce with the
-      repeat run, read the snapshot, and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
       `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
       release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
