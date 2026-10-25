@@ -534,19 +534,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
       Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
       `npm run check && npm run build` is green.
 
-- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: med, effort: S) —
-      The `@sentry/nextjs` bump is a security fix: 10.75.1 and older have a
-      critical middleware bypass when a tunnel route is used
-      (GHSA-mchm-gjx6-7h55, fixed in 10.75.2). Check whether
-      `next.config` sets `tunnelRoute`; the audit flags it either way.
-      `@base-ui/react` 1.8→1.9, `@sentry/nextjs` 10.73→10.76, `@upstash/redis`
-      1.38→1.39, `@vercel/functions` 3.9→3.10, `lucide-react` 1.43→1.57,
-      `pg` 8.23.0→8.23.1, `resend` 6.26→6.33, `shadcn` 4.21.0→4.21.5,
-      `vitest` 5.0.0→5.0.4, `zod` 4.5→4.6, `@types/react(-dom)` 19.3, `@types/node`
-      22.20.5. Skip the majors (Sentry 11, ESLint 10, TypeScript 7, React
-      19.3 is fine to include if `check` passes); each needs its own item.
-      Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
-
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
       Major release (10.73 installed, 11.8 latest). Sentry is wired into
       the client, server and edge configs plus `instrumentation`; check the
@@ -1282,3 +1269,17 @@ credentials only the product owner can provision, or an architecture call.
       decision on what's safe to serve stale (e.g. inventory counts, a
       shopping list in a store with bad signal — the strongest use case)
       vs. what must always be fresh (auth, money).
+
+- [ ] **MAINT-63. Flaky: `recipe-form-order` recipe form order and 44 px tag chips check fails once, then passes on retry** (low, S) —
+      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe
+      order, labelled, with 44 px tag chips", `mobile`) failed and then
+      passed on the one retry of the GitHub `End-to-end (Playwright)` job
+      of release commit `e1e5230` (2026-10-25). It passed in the full
+      local `ci:local` run of the same commit. Not yet re-run with
+      repeats. Get the failing assertion with `--repeat-each=30`, find
+      what the position or chip-height measurement races with (the sheet
+      still animating in, or the Recipes tab not selected yet) and fix it
+      in the app or the spec's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/recipe-form-order.spec.ts:11 --project=mobile --repeat-each=30`
+      passes 30/30.
