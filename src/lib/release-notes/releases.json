@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.111.1",
+    "date": "2026-10-25",
+    "pr": 714,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Behind-the-scenes update of the libraries Squirrel is built on, including a security fix in error reporting. Nothing changes in how the app looks or works.",
+      "sv": "Uppdatering av de bibliotek Squirrel bygger på, bland annat en säkerhetsfix i felrapporteringen. Inget ändras i hur appen ser ut eller fungerar."
+    }
+  },
+  {
     "version": "0.111.0",
     "date": "2026-10-25",
     "pr": 704,
