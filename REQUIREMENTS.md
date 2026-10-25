@@ -4634,6 +4634,42 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   - The success toast names the meal. When the new date is in a different
     week than the one on screen, the meal disappears from view, so the toast
     says so and offers "View that week", the same as "Add to plan".
+- **Editing several meals at once (GAP-56)**: the planner's ⋯ menu has
+  "Select meals" (shown when the week has an uncooked meal). In Select mode
+  each uncooked row becomes a checkbox row (the whole row is the 44 px
+  target), the "+ Add meal" buttons and the shopping-list primary action are
+  hidden, and a bar (`BulkMealBar`, `src/components/meal-planning/bulk-meal-bar.tsx`)
+  shows the count with **Move to…**, **Portions…**, **Remove** and **Done**.
+  On a phone the bar sticks just above the bottom nav. Cooked rows stay
+  visible but have no checkbox and say "Cooked, can't be changed" (the same
+  rule as single move and edit).
+  - **Move to…** asks for a date and a slot ("Keep each meal's slot" by
+    default, or one meal type for all). The earliest selected meal lands on
+    that date and every other one keeps its distance from it
+    (`mapBulkMove`, `bulk-meal-calc.ts`: a day offset, so Mon/Tue/Thu moved to
+    start Wed becomes Wed/Thu/Sat). Target weeks are derived on the server
+    and their `MealPlan` rows upserted; open "Meal not logged" reminders for
+    the moved entries are dismissed, as in `moveMealEntryAction`.
+  - **Portions…** uses `PortionStepper` and sets the count on every selected
+    meal that has a recipe and isn't eating from a prep batch. Custom meals
+    and batch meals are left alone and counted as skipped.
+  - **Remove** hides the rows at once and sends the delete when its Undo
+    toast closes (like a single Remove, UX-49); a meal eating from a batch
+    gives its portions back, in the same transaction.
+  - All three are one Server Action, `bulkEditMealEntriesAction`
+    (`bulk-meal-actions.ts`), taking entry ids and the edit (never a
+    household id). It is all-or-nothing: an id that isn't in the session's
+    household rejects the whole batch with "Meal not found" before anything
+    is written, and the writes share one transaction. Cooked entries
+    selected before they were cooked are skipped (reported in the toast), and
+    if nothing is left the action answers "None of the selected meals can be
+    changed".
+  - Move and Portions toast "Moved N meals" / "Changed portions for N meals"
+    with **Undo**, backed by `undoBulkMealEditAction`, which restores the
+    previous date, slot, week or portions the action returned (also
+    household-scoped and all-or-nothing; a meal cooked since is left alone).
+    No schema change. Covered by `bulk-meal-calc.test.ts`,
+    `bulk-meal-actions.test.ts` and `e2e/meal-planner-bulk.spec.ts`.
 - **Scaling a recipe to how many it's feeding (GAP-11)**: every recipe
   entry carries `MealPlanEntry.portions`, the number of people that slot
   is cooking for. The meal entry dialog's "Portions" field sets it. Picking
