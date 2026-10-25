@@ -560,12 +560,18 @@ export const en = {
     sampleData: {
       tryTitle: "Not sure where to start?",
       tryBody:
-        "Fill Squirrel with a small example home: a pantry, a shopping list, three recipes, a planned week and a few tasks. You can clear it with one tap.",
+        "Fill Squirrel with a small example home: a pantry, a shopping list, three recipes, a planned week and a few tasks. You can clear it again whenever you like.",
       tryButton: "Try with sample data",
       clearTitle: "You're looking at sample data",
       clearBody:
-        "The rows marked as sample are made up. Clearing removes only those and keeps everything you've added yourself.",
+        "The rows marked as sample are made up. Clearing removes those, including any you've edited, and keeps everything you've added yourself.",
       clearButton: "Clear sample data",
+      confirmTitle: "Clear the sample data?",
+      confirmDescription:
+        "This deletes the example pantry items, shopping list, recipes, planned meals and tasks. Examples you've edited or completed go too. Anything you added yourself stays. This can't be undone.",
+      confirmCancel: "Keep it",
+      confirmConfirm: "Clear sample data",
+      confirmPending: "Clearing…",
       content: {
         categoryPantry: "Pantry",
         categoryDairy: "Dairy and eggs",

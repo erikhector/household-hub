@@ -522,12 +522,18 @@ export const sv = {
     sampleData: {
       tryTitle: "Osäker på var du ska börja?",
       tryBody:
-        "Fyll Squirrel med ett litet exempelhem: ett skafferi, en inköpslista, tre recept, en planerad vecka och några sysslor. Du rensar bort allt med ett tryck.",
+        "Fyll Squirrel med ett litet exempelhem: ett skafferi, en inköpslista, tre recept, en planerad vecka och några sysslor. Du kan rensa bort det igen när du vill.",
       tryButton: "Prova med exempeldata",
       clearTitle: "Du tittar på exempeldata",
       clearBody:
-        "Raderna som är markerade som exempel är påhittade. Rensningen tar bara bort dem och behåller allt du lagt till själv.",
+        "Raderna som är markerade som exempel är påhittade. Rensningen tar bort dem, även de du har ändrat, och behåller allt du lagt till själv.",
       clearButton: "Rensa exempeldata",
+      confirmTitle: "Rensa exempeldata?",
+      confirmDescription:
+        "Det här tar bort exempelvarorna i skafferiet, inköpslistan, recepten, de planerade måltiderna och sysslorna. Exempel du har ändrat eller bockat av försvinner också. Allt du lagt till själv finns kvar. Det går inte att ångra.",
+      confirmCancel: "Behåll",
+      confirmConfirm: "Rensa exempeldata",
+      confirmPending: "Rensar…",
       content: {
         categoryPantry: "Skafferi",
         categoryDairy: "Mejeri och ägg",

@@ -6681,7 +6681,10 @@ components directly.
   `ShoppingList`, `ShoppingListItem`, `Recipe`, `MealPlan`, `MealPlanEntry`
   and `HouseholdTask`; null for everything a person makes). While any tagged
   row exists the card turns into "You're looking at sample data" with
-  "Clear sample data" (`clearSampleDataAction`), which deletes by that column
+  "Clear sample data" (`clearSampleDataAction`), which opens a confirm dialog
+  first (`clear-sample-data-button.tsx`, the shared `ConfirmDialog`) saying
+  that sample rows the person has edited or completed go too and that it
+  can't be undone, then deletes by that column
   alone, scoped to the session household, children first. A sample list or
   week plan that has since gained a row of the person's own is kept and
   untagged instead of deleted; a pre-existing empty `MealPlan` for the week

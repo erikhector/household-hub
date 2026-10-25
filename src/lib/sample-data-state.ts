@@ -6,24 +6,27 @@ import { prisma } from "@/lib/prisma";
 //
 // `hasSample`: any seeded row is still there. Otherwise `isEmpty`: the
 // household has none of the kinds of data the sample seeds, so offering it
-// can't bury real rows. Counts only, all scoped to the household.
+// can't bury real rows. Existence probes only (`findFirst` selecting the id,
+// which stops at the first hit, unlike a `count` that walks every row), all
+// scoped to the household.
 export async function loadSampleDataState(householdId: string): Promise<{ hasSample: boolean; isEmpty: boolean }> {
   const tagged = { not: null } as const;
-  const sampleCounts = await Promise.all([
-    prisma.inventoryItem.count({ where: { householdId, sample: tagged } }),
-    prisma.shoppingList.count({ where: { householdId, sample: tagged } }),
-    prisma.recipe.count({ where: { householdId, sample: tagged } }),
-    prisma.mealPlanEntry.count({ where: { sample: tagged, mealPlan: { householdId } } }),
-    prisma.householdTask.count({ where: { householdId, sample: tagged } }),
+  const select = { id: true } as const;
+  const sampleRows = await Promise.all([
+    prisma.inventoryItem.findFirst({ where: { householdId, sample: tagged }, select }),
+    prisma.shoppingList.findFirst({ where: { householdId, sample: tagged }, select }),
+    prisma.recipe.findFirst({ where: { householdId, sample: tagged }, select }),
+    prisma.mealPlanEntry.findFirst({ where: { sample: tagged, mealPlan: { householdId } }, select }),
+    prisma.householdTask.findFirst({ where: { householdId, sample: tagged }, select }),
   ]);
-  if (sampleCounts.some((n) => n > 0)) return { hasSample: true, isEmpty: false };
+  if (sampleRows.some(Boolean)) return { hasSample: true, isEmpty: false };
 
-  const totals = await Promise.all([
-    prisma.inventoryItem.count({ where: { householdId } }),
-    prisma.shoppingList.count({ where: { householdId } }),
-    prisma.recipe.count({ where: { householdId } }),
-    prisma.mealPlanEntry.count({ where: { mealPlan: { householdId } } }),
-    prisma.householdTask.count({ where: { householdId } }),
+  const anyRows = await Promise.all([
+    prisma.inventoryItem.findFirst({ where: { householdId }, select }),
+    prisma.shoppingList.findFirst({ where: { householdId }, select }),
+    prisma.recipe.findFirst({ where: { householdId }, select }),
+    prisma.mealPlanEntry.findFirst({ where: { mealPlan: { householdId } }, select }),
+    prisma.householdTask.findFirst({ where: { householdId }, select }),
   ]);
-  return { hasSample: false, isEmpty: totals.every((n) => n === 0) };
+  return { hasSample: false, isEmpty: anyRows.every((row) => !row) };
 }

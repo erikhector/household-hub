@@ -94,6 +94,20 @@ test("an empty household tries the sample data, sees rows, and clears only the s
     await page.goto("/dashboard");
     await main.getByRole("button", { name: d.clearButton }).click();
 
+    // Cancelling the confirm leaves the sample exactly as it was.
+    const dialog = page.getByRole("dialog", { name: d.confirmTitle });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: d.confirmCancel }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(await count("InventoryItem")).toBe(7);
+    expect(await count("Recipe")).toBe(3);
+    expect(await count("HouseholdTask")).toBe(4);
+    await expect(main.getByRole("heading", { name: d.clearTitle })).toBeVisible();
+
+    // Confirming clears.
+    await main.getByRole("button", { name: d.clearButton }).click();
+    await page.getByRole("dialog", { name: d.confirmTitle }).getByRole("button", { name: d.confirmConfirm }).click();
+
     // Cleared: the offer is gone too (the household is no longer empty), and
     // exactly the person's own rows are left.
     await expect(main.getByRole("heading", { name: d.clearTitle })).toHaveCount(0);
@@ -120,6 +134,7 @@ test("clearing returns an untouched sample household to empty, and the offer com
     await main.getByRole("button", { name: d.tryButton }).click();
     await expect(main.getByRole("heading", { name: d.clearTitle })).toBeVisible();
     await main.getByRole("button", { name: d.clearButton }).click();
+    await page.getByRole("dialog", { name: d.confirmTitle }).getByRole("button", { name: d.confirmConfirm }).click();
     await expect(main.getByRole("heading", { name: d.tryTitle })).toBeVisible();
     await page.reload();
     await expect(main.getByRole("heading", { name: d.tryTitle })).toBeVisible();
