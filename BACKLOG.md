@@ -523,6 +523,26 @@ Friday area: household and personal budgets. Swept `desktop`, `mobile`,
 sweeps; every route passes and the popup probe has no phone-size or
 off-screen hits in the budget dialogs. WebKit was not run.
 
+### UX (2026-10-25 scout)
+
+Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
+hits. Signup error paths at 320 px keep input and put errors beside the
+field. WebKit was not run.
+
+- [ ] **UX-138. Cookie notice's "Läs mer" link stretches its line**
+      (impact: low, effort: S) — `src/components/legal/cookie-notice.tsx:103`
+      puts a `touch-target` (inline-flex, min-h-11) link inside the
+      paragraph, so the line holding it grows to 44 px and the two text
+      lines sit far apart (`small-phone` `/signup` sv, bottom notice). Looks
+      like a rendering glitch on the first screen every visitor sees. Move the
+      44 px target to the notice's own row (or pad the link with a negative
+      margin instead of `min-h`) so the paragraph keeps `leading-snug`.
+      Acceptance: in the `mobile` project the notice's paragraph height is
+      under 3 × its line-height, and "Läs mer" and "Uppfattat" both have
+      ≥ 44 px tap targets.
+
 
 ### Dependencies
 
