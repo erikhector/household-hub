@@ -318,6 +318,10 @@ then MAINT-7 per feature, to avoid churn.
       on a same-commit re-run.
       Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
       (mobile) failed once and passed on the retry in the GitHub e2e job.
+      Seen again 2026-10-25 (autopilot-build): `native-sheets.spec.ts:55`
+      (mobile) failed 5 of 5 runs (`--repeat-each=5`) on clean `next`
+      (`18e4bfe`, under the shared lock) and in the full `ci:local` gate of
+      #694, #696 and #697, so it no longer only flakes under load.
 
 - [ ] **MAINT-51. Flaky: `item-aliases` a name linked once in a recipe doesn't arrive linked in the pasted shopping list under load** (low, S) —
       `e2e/item-aliases.spec.ts:50` ("a name linked once in a recipe
@@ -423,6 +427,40 @@ then MAINT-7 per feature, to avoid churn.
       tick's own response), never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
       --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-59. Flaky: `planned-expenses` spec times out under full-suite load** (low, S) —
+      `e2e/planned-expenses.spec.ts:82` (`mobile`) hit the 30 s test
+      timeout once in the `ci:local` gate of #694 (`7adc31c`, 2026-10-25)
+      and passed 3 of 3 on a re-run on the same commit; it passed 5 of 5 on
+      clean `next` (`18e4bfe`), so it needs load to show. Nobody's change is
+      in it. Find what the test is waiting on (hydration, a dialog, a
+      response) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/planned-expenses.spec.ts:82 --project=mobile
+      --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
+      `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
+      gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
+      left", got "2 of 4". Only `e2e/item-aliases.spec.ts` changed in that
+      PR, so nobody's change is in it. Not yet re-run on clean `next`.
+      Find out whether a portion is taken twice (a double tap or a repeated
+      action), or a row another spec in the same worker leaves behind, and
+      fix it in the app or the spec's setup, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-prep.spec.ts:145 --project=desktop --repeat-each=30`
+      passes 30/30.
+
+- [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
+      `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
+      `ci:local` gate of #696 (`6de6c89`, 2026-10-25), a PR that touches
+      only the budget split dialogs. Not yet re-run on clean `next`. Look at
+      the failing assertion in the gate log's first failure output (re-run
+      with `--repeat-each=30` to get it), find what the click races with and
+      fix it in the app or the spec's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
+      passes 30/30.
 
 
 ### UX (2026-09-26 scout)
