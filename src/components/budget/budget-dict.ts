@@ -20,7 +20,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { PlannedItemType } from "@/lib/planned-expense-calc";
 
 type HouseholdPlannedDict = Dictionary["budget"]["planned"];
-type PlannedSplitKey = "splitWays" | "splitLabel" | "sharesLabel" | "splitEvenly" | "shareAriaLabel" | "splitMismatch";
+type PlannedSplitKey = "splitWays" | "splitLabel" | "sharesLabel" | "splitEvenly" | "shareAriaLabel" | "sharesLeftHint" | "sharesOverWarning";
 
 /** Planned bills' texts on either budget (budget.planned or
  * personalBudget.planned). The split texts are household-only, the same

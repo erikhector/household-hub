@@ -297,13 +297,15 @@ export function PlannedExpenseDialog({
                       </div>
                     ))}
                   </div>
-                  <ShareRemainderNote
-                    amount={amount}
-                    remainder={splitRemainder}
-                    numberFormat={numberFormat}
-                    leftHint={t.sharesLeftHint}
-                    overWarning={t.sharesOverWarning}
-                  />
+                  {t.sharesLeftHint && t.sharesOverWarning && (
+                    <ShareRemainderNote
+                      amount={amount}
+                      remainder={splitRemainder}
+                      numberFormat={numberFormat}
+                      leftHint={t.sharesLeftHint}
+                      overWarning={t.sharesOverWarning}
+                    />
+                  )}
                 </div>
               )}
             </div>
