@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
 // UX-105: with no open task the page says "You're all caught up!" above
 // Completed even on a fresh visit, and one-offs ticked over a week ago sit
@@ -82,6 +82,11 @@ test("with nothing open, a fresh visit shows the all-caught-up card above Comple
   const open = page.getByRole("checkbox", { name: /^Mark .* as done$/ });
   while ((await open.count()) > 0) {
     const before = await open.count();
+    // goto() returns on the server-rendered page. Under a loaded run a tap
+    // that lands before React has hydrated the row is a bare browser toggle
+    // with no handler: no save is sent, hydration resets the box, and the
+    // task stays open.
+    await expectHydrated(open.first());
     // A tick moves the row at tap time (UX-33), before the save lands. Wait
     // for the Server Action's response, or the reload below can abort a save
     // still in flight and bring that task back open.
@@ -90,6 +95,20 @@ test("with nothing open, a fresh visit shows the all-caught-up card above Comple
     await saved;
     await expect(open).toHaveCount(before - 1);
   }
+
+  // The response above may be any Server Action's, so confirm in Postgres that
+  // every tick landed before the reload can abort one still in flight.
+  await expect
+    .poll(() =>
+      withClient(async (client) => {
+        const { rows } = await client.query(
+          `SELECT count(*)::int AS n FROM "HouseholdTask" WHERE "householdId" = $1 AND "completedAt" IS NULL`,
+          [E2E_HOUSEHOLD.id],
+        );
+        return rows[0].n as number;
+      }),
+    )
+    .toBe(0);
 
   // Reload: no tick happens in this visit, and the card is still there.
   await page.reload();

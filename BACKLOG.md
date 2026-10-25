@@ -346,17 +346,6 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
       (mobile) failed once and passed on the retry in the GitHub e2e job.
 
-- [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
-      shows the all-caught-up card above Completed", `mobile`) failed once
-      in a local `ci:local` run on `cccc1d5` (2026-10-23, heavy load) and
-      passed on a same-commit re-run; it doesn't fail in GitHub CI. Find
-      out whether the card renders late (data load, hydration) or the
-      spec asserts before the page settles, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-51. Flaky: `item-aliases` a name linked once in a recipe doesn't arrive linked in the pasted shopping list under load** (low, S) —
       `e2e/item-aliases.spec.ts:50` ("a name linked once in a recipe
       arrives linked in a pasted shopping list", `mobile`) failed once in
