@@ -1338,7 +1338,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     the same explicit, person-added row on the default list as above,
     deduped against a row already pending there, with the stock untouched.
     The toast says how many were added, or that they were already on the
-    list. A row with an unpurchased line on any active list shows an "On
+    list. The bulk add runs in a fixed number of queries (PERF-18) via
+    `addItemsToDefaultList` (src/lib/shopping/default-list.ts): the default
+    list, one read of what's pending, one `createMany`, for 1 or 200 items.
+    A row with an unpurchased line on any active list shows an "On
     list" tag. With auto-add on, the row menu drops "Mark as empty & add to
     shopping list" (plain "Mark as empty" already does it); with it off,
     both entries show.
