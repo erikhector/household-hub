@@ -6029,7 +6029,8 @@ co-managers, not kids earning rewards.
   changes (cleared when the repeat is removed; saving the same interval
   leaves it), so "every Thursday" is a matter of editing the task on a
   Thursday. Null (rows from before the column) reads `createdAt`.
-  `task-anchor-day.spec.ts` covers the edit. "Local" is the
+  `task-anchor-day.spec.ts` covers the edit (it waits for the tick's
+  POST to answer before it reloads, since the tick is optimistic, MAINT-52). "Local" is the
   visitor's browser zone: `TimeZoneCookie` (dashboard layout) keeps the
   `time_zone` cookie equal to it and refreshes once when it changes;
   `getTimeZone()` (`src/lib/get-time-zone.ts`) reads it, falling back to
