@@ -960,6 +960,7 @@ export const sv = {
       matchLabel: "Matchar",
       matchNoResults: "Inga träffar",
       qtyLabel: "antal {qty}",
+      qtyAtUnitPrice: "{qty} × {unitPrice}",
       noMatchHint: "Ingen matchning hittades",
       addAsNewItem: "Lägg till \"{name}\" som ny vara",
       addButton: "Lägg till",

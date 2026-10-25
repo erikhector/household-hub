@@ -511,35 +511,6 @@ UX-89.
 
 #### Shopping
 
-- [ ] **BUG-3. A scanned receipt price isn't divided by its quantity**
-      (impact: high, effort: M) — reported by the owner, 2026-10-18.
-      A receipt line "3 x Mjölk 45,00" matched to a list row "Mjölk ×1"
-      is saved as if one carton cost 45:
-      - The scan reads the line's quantity (`ScannedReceiptLine.quantity`,
-        `lib/actions/receipt-scan.ts:65`), but the review step drops it
-        when building matches (`receipt-scan-dialog.tsx:306`), and
-        `ReceiptScanMatch` has no quantity
-        (`src/app/dashboard/shopping-list/actions.ts:1328`, the `actions.ts`
-        cited below).
-      - `applyReceiptScanAction` then writes PriceHistory with the list
-        row's quantity (`actions.ts:1475-1480`, and via `applyStockArrival`),
-        so the unit price is 45, not 15. GAP-9's price-spike check
-        compares that inflated unit price.
-      - `lastKnownPrice` becomes the line total (45), and every create
-        path copies it into a new row's `estimatedPrice` without regard to
-        quantity (`actions.ts:197,282,721,845`), so next week's "Mjölk ×1"
-        is estimated at 45. `registerReceiptAction` has the same
-        line-total problem (`actions.ts:1740-1760`).
-      Acceptance: scanning "3 x Mjölk 45,00" against "Mjölk ×1" prices
-      that row at 45 (what was paid) and records PriceHistory at 45 for 3
-      (unit 15). The item's next estimate is 15 for ×1 and 30 for ×2, and
-      no price-spike notification fires. Register receipt behaves the same.
-      The review row shows the quantity and unit price ("3 × 15,00") so a
-      misread can be caught. Stock still counts the list row's quantity,
-      as today. A unit test on `applyReceiptScanAction` (and one on
-      `registerReceiptAction`) fails without the fix, and the receipt e2e
-      spec covers a ×3 line.
-
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) `[!]` — breaks User-centricity
       ("automation suggests, the user decides"). Needs a schema change and
