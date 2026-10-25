@@ -6664,6 +6664,36 @@ components directly.
   `mt-auto` so cards side by side line them up, and their labels wrap rather
   than push the chevron outside the card on narrow (tablet) columns.
   Covered by `e2e/overview.spec.ts`.
+- **Opt-in sample data (UX-136)**: a household with no inventory, shopping
+  lists, recipes, meal plan entries or tasks sees a "Not sure where to
+  start?" card on the overview (`src/components/dashboard/sample-data-card.tsx`,
+  above the setup card, outline button so the page keeps one primary) with
+  "Try with sample data". `seedSampleDataAction`
+  (`src/lib/actions/sample-data.ts`) then inserts, in one transaction and in
+  the viewer's language (`dashboard.sampleData.content` in both
+  dictionaries): six pantry items (one low, one out, one expiring), one
+  default shopping list of three items, three recipes whose ingredients link
+  to the pantry rows, four dinners in a single planner week (from today when
+  four days of the week remain, otherwise next week) and three tasks (two
+  repeating, one dated). It refuses when the household already has any of
+  those kinds of data. Everything seeded carries one batch id in a nullable
+  `sample` text column (migration `sample_data_tag`, on `InventoryItem`,
+  `ShoppingList`, `ShoppingListItem`, `Recipe`, `MealPlan`, `MealPlanEntry`
+  and `HouseholdTask`; null for everything a person makes). While any tagged
+  row exists the card turns into "You're looking at sample data" with
+  "Clear sample data" (`clearSampleDataAction`), which opens a confirm dialog
+  first (`clear-sample-data-button.tsx`, the shared `ConfirmDialog`) saying
+  that sample rows the person has edited or completed go too and that it
+  can't be undone, then deletes by that column
+  alone, scoped to the session household, children first. A sample list or
+  week plan that has since gained a row of the person's own is kept and
+  untagged instead of deleted; a pre-existing empty `MealPlan` for the week
+  is reused, never tagged, and keeps existing when cleared. What the card
+  shows is decided by `loadSampleDataState` (`src/lib/sample-data-state.ts`);
+  the rows are built by the pure `buildSampleData` (`src/lib/sample-data.ts`).
+  Covered by `src/lib/sample-data.test.ts`,
+  `src/lib/actions/sample-data.test.ts` and `e2e/sample-data.spec.ts`. The
+  landing page's "example data" claim is not restored by this item.
 - **Overview "Today" block (UX-70)**: the first thing on the overview,
   above the setup card, answers "what needs me now?"
   (`src/components/dashboard/today-block.tsx`, fed by
@@ -6729,7 +6759,7 @@ components directly.
   (household, splitting, personal), so the grid fills evenly at two and
   three columns; their icon tiles use the `chart-*` tokens. The copy
   claims only what's true: no "example data" (a new household starts
-  empty, see UX-136 in BACKLOG.md) and no "less than a minute" (signup
+  empty; sample data is an opt-in on the overview, UX-136) and no "less than a minute" (signup
   waits on email verification). Covered by `e2e/landing.spec.ts` (the
   preview at least 40% on screen without scrolling, every feature named,
   no empty grid cell at 1280 px, Swedish preview).

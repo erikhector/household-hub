@@ -405,6 +405,10 @@ model InventoryItem {
   // moves it rather than sharing it. Never sent anywhere — only the scanned
   // digits of an *unknown* code go to Open Food Facts.
   barcode            String?
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   shoppingListItems ShoppingListItem[]
@@ -553,6 +557,10 @@ model ShoppingList {
   // on the list rather than per row because the reminder is per trip, and
   // the default list lives across many trips.
   putAwayRemindedAt DateTime?
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household     Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items         ShoppingListItem[]
@@ -633,6 +641,10 @@ model ShoppingListItem {
   priceRecordedAt    DateTime?
   addedAutomatically Boolean  @default(false)
   createdAt          DateTime @default(now())
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   shoppingList  ShoppingList   @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
@@ -758,6 +770,10 @@ model Recipe {
   // planner (cook-soon.ts), so the shelf only ever holds recipes that still
   // have no date. Nothing else reads it: ranking and suggestions ignore it.
   cookSoonAt             DateTime?
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
@@ -907,6 +923,10 @@ model MealPlan {
   householdId   String
   weekStartDate DateTime
   createdAt     DateTime @default(now())
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
   entries   MealPlanEntry[]
@@ -960,6 +980,10 @@ model MealPlanEntry {
   // preparedBatchId is set; the assign/unassign actions keep the pair in
   // step (and reset this to 0 when they clear the link).
   preparedPortionsUsed Int       @default(0)
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   mealPlan      MealPlan       @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipe        Recipe?        @relation(fields: [recipeId], references: [id], onDelete: SetNull)
@@ -1523,6 +1547,10 @@ model HouseholdTask {
   rotationMemberIds          String[]  @default([])
   rotationPreviousAssigneeId String?
   createdAt              DateTime  @default(now())
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   assignedToMember  HouseholdMember? @relation("TaskAssignedTo", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
