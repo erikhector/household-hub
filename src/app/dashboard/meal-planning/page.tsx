@@ -14,6 +14,7 @@ import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-vari
 import { computeNutritionRecap } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
 import { getRecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
+import { getRecipePlannedDates } from "@/app/dashboard/meal-planning/recipe-planned-dates";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 import { MAX_PREP_DISHES } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
@@ -110,6 +111,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     carbsGramsPerServing: recipe.carbsGramsPerServing,
     fatGramsPerServing: recipe.fatGramsPerServing,
     isFavorite: recipe.isFavorite,
+    cookSoonAt: recipe.cookSoonAt ? recipe.cookSoonAt.toISOString() : null,
     // GAP-29: re-parsed on read too, so a key since removed from
     // RECIPE_TAGS is dropped here instead of rendering as a raw key.
     tags: parseRecipeTags(recipe.tags),
@@ -278,10 +280,12 @@ async function RecipesTabSection({
   weekStartKey: string;
 }) {
   // GAP-46: its own groupBy, only run on this tab, like the cost inputs below.
-  const [{ recipes, recipeRows, inventoryItems }, locale, recipeCooked] = await Promise.all([
+  // GAP-55: and one query for the upcoming plan dates, for the same reason.
+  const [{ recipes, recipeRows, inventoryItems }, locale, recipeCooked, recipePlanned] = await Promise.all([
     getMealPlanningCoreData(householdId, weekStartKey),
     getLocale(),
     getRecipeCookedStats(householdId),
+    getRecipePlannedDates(householdId),
   ]);
 
   const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
@@ -341,7 +345,7 @@ async function RecipesTabSection({
   // lastKnownPrice, joined in memory against the same cached inventory fetch
   // rather than a nested include on the recipe query (which the Planner and
   // Cook tabs would pay for too). lastKnownPrice is the price of one
-  // purchased shopping-list line, not of one unit, so computeRecipeCost
+  // unit of a purchased line's quantity (BUG-3), not of one inventory unit, so computeRecipeCost
   // also needs the purchased lines themselves to divide it by the quantity
   // it bought — see its doc comment. That's the one extra query here, only
   // run on this tab, and narrowed to the inventory items some recipe
@@ -429,6 +433,7 @@ async function RecipesTabSection({
       recipes={recipeRows}
       recipeCosts={recipeCosts}
       recipeCooked={recipeCooked}
+      recipePlanned={recipePlanned}
       useItUpSuggestions={useItUpSuggestions}
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}

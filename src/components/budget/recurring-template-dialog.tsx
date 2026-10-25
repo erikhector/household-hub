@@ -29,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { evenSplitAmounts, shareRemainder } from "@/components/budget/split-amounts";
+import { ShareRemainderNote } from "@/components/budget/split-editor";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
@@ -150,8 +151,8 @@ export function RecurringTemplateDialog({
     setSplitAmounts(buildInitialSplitAmounts(template, memberOptions));
   }
 
-  const splitTotal = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
-  const splitMismatch = splitEnabled && Math.abs(splitTotal - (Number(amount) || 0)) > 0.01;
+  const splitRemainder = shareRemainder(amount, splitAmounts);
+  const splitMismatch = splitEnabled && splitRemainder !== 0;
 
   return (
     <Dialog
@@ -177,6 +178,8 @@ export function RecurringTemplateDialog({
               name="name"
               required
               maxLength={120}
+              autoComplete="off"
+              enterKeyHint="next"
               placeholder={dict.recurring.namePlaceholder}
               defaultValue={template?.name}
             />
@@ -185,7 +188,7 @@ export function RecurringTemplateDialog({
             <Label htmlFor="rt-category">{dict.categoryLabel}</Label>
             <Combobox items={categoryItems} name="categoryId" defaultValue={template?.categoryId}>
               <ComboboxInputGroup>
-                <ComboboxInput id="rt-category" placeholder={dict.categoryPlaceholder} />
+                <ComboboxInput id="rt-category" autoComplete="off" placeholder={dict.categoryPlaceholder} />
                 <ComboboxTrigger aria-label={dict.categoryToggleLabel} />
               </ComboboxInputGroup>
               <ComboboxContent emptyMessage={dict.categoryNoResults}>
@@ -205,6 +208,8 @@ export function RecurringTemplateDialog({
                 name="amount"
                 type="number"
                 inputMode="decimal"
+                autoComplete="off"
+                enterKeyHint="next"
                 min={0.01}
                 step="any"
                 value={amount}
@@ -219,6 +224,9 @@ export function RecurringTemplateDialog({
                 name="dayOfMonth"
                 type="number"
                 inputMode="numeric"
+                autoComplete="off"
+                // The split shares follow this field when splitting is on.
+                enterKeyHint={splitEnabled ? "next" : "done"}
                 min={1}
                 max={31}
                 step={1}
@@ -272,7 +280,7 @@ export function RecurringTemplateDialog({
                     </Button>
                   </div>
                   <div className="flex flex-col gap-2">
-                    {memberOptions.map((m) => (
+                    {memberOptions.map((m, i) => (
                       <div key={m.id} className="flex items-center gap-2">
                         <input type="hidden" name="splitMemberId" value={m.id} />
                         <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
@@ -280,6 +288,8 @@ export function RecurringTemplateDialog({
                           name="splitAmount"
                           type="number"
                           inputMode="decimal"
+                          autoComplete="off"
+                          enterKeyHint={i === memberOptions.length - 1 ? "done" : "next"}
                           min={0}
                           step="any"
                           className="w-24 shrink-0"
@@ -292,14 +302,13 @@ export function RecurringTemplateDialog({
                       </div>
                     ))}
                   </div>
-                  {splitMismatch && (
-                    <p className="text-xs text-destructive">
-                      {format(dict.recurring.split?.mismatchWarning ?? "", {
-                        total: numberFormat.format(splitTotal),
-                        amount: numberFormat.format(Number(amount) || 0),
-                      })}
-                    </p>
-                  )}
+                  <ShareRemainderNote
+                    amount={amount}
+                    remainder={splitRemainder}
+                    numberFormat={numberFormat}
+                    leftHint={dict.recurring.split?.sharesLeftHint ?? ""}
+                    overWarning={dict.recurring.split?.sharesOverWarning ?? ""}
+                  />
                 </div>
               )}
             </div>

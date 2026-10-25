@@ -8,24 +8,35 @@
 // src/app/dashboard/budget/page.tsx, change them here too.
 
 import { prisma } from "@/lib/prisma";
-import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
+import { addMonths, normalizeStartDay, parseMonthKey, periodBounds, periodKeyOf, toMonthKey } from "@/lib/budget-date-utils";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
+import { categoryEnvelopes } from "@/lib/budget-category-limit";
 import { computeSafeToSpend, type SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 
 // Same window as RECURRING_LOOKBACK_MONTHS in the budget page: how far back
 // the calculator looks for a category's latest recurring transaction.
 const RECURRING_LOOKBACK_MONTHS = 12;
 
+/**
+ * `budgetMonthStartDay` is the household's (UX-134): the number is for the
+ * budget period `now` falls in, 25 Sep to 24 Oct when the month starts on the
+ * 25th. Left out it is the calendar month.
+ */
 export async function loadHouseholdSafeToSpend(
   householdId: string,
   now: Date = new Date(),
+  budgetMonthStartDay?: number,
 ): Promise<{ amount: number; status: SafeToSpendStatus }> {
-  const monthStart = getMonthStart(now);
-  const monthEnd = getMonthEnd(monthStart);
-  const lookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
+  const startDay = normalizeStartDay(budgetMonthStartDay);
+  const monthKey = periodKeyOf(now, startDay);
+  const { start: monthStart, end: monthEnd } = periodBounds(monthKey, startDay);
+  const lookbackStart = periodBounds(
+    toMonthKey(addMonths(parseMonthKey(monthKey), -RECURRING_LOOKBACK_MONTHS)),
+    startDay,
+  ).start;
 
-  const [transactions, templates, acks, plannedExpenses] = await Promise.all([
+  const [transactions, templates, acks, plannedExpenses, categories] = await Promise.all([
     prisma.transaction.findMany({
       where: { householdId, date: { gte: lookbackStart, lt: monthEnd } },
       select: {
@@ -50,9 +61,15 @@ export async function loadHouseholdSafeToSpend(
         name: true,
         amount: true,
         dueDate: true,
+        categoryId: true,
         category: { select: { type: true } },
         transaction: { select: { date: true } },
       },
+    }),
+    // UX-138: the limited categories, whose unspent remainder is held back.
+    prisma.budgetCategory.findMany({
+      where: { householdId, type: "EXPENSE", monthlyLimit: { not: null } },
+      select: { id: true, type: true, monthlyLimit: true, rolloverEnabled: true, createdAt: true },
     }),
   ]);
 
@@ -67,6 +84,7 @@ export async function loadHouseholdSafeToSpend(
     acks,
     referenceDate: monthStart,
     monthEnd,
+    startDay,
   });
 
   const { safeToSpend, status } = computeSafeToSpend({
@@ -80,6 +98,7 @@ export async function loadHouseholdSafeToSpend(
     })),
     monthStart,
     monthEnd,
+    categoryLimits: categoryEnvelopes({ categories, transactions, monthStart, monthEnd, startDay }),
     incomeSoFar: sumThisMonth("INCOME"),
     expenseSoFar: sumThisMonth("EXPENSE"),
     savingsSoFar: sumThisMonth("SAVINGS"),
@@ -95,6 +114,7 @@ export async function loadHouseholdSafeToSpend(
       id: p.id,
       name: p.name,
       amount: p.amount,
+      categoryId: p.categoryId,
       type: plannedItemType(p.category.type),
       status: getPlannedExpenseStatus(
         { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },

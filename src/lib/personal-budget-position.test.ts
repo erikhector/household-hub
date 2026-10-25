@@ -18,6 +18,7 @@ const {
   templateFindManyMock,
   plannedSplitFindManyMock,
   personalPlannedFindManyMock,
+  personalCategoryFindManyMock,
 } = vi.hoisted(() => ({
   personalTransactionFindManyMock: vi.fn(),
   personalTemplateFindManyMock: vi.fn(),
@@ -30,6 +31,7 @@ const {
   templateFindManyMock: vi.fn(),
   plannedSplitFindManyMock: vi.fn(),
   personalPlannedFindManyMock: vi.fn(),
+  personalCategoryFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -45,6 +47,7 @@ vi.mock("@/lib/prisma", () => ({
     recurringTemplate: { findMany: templateFindManyMock },
     plannedExpenseSplit: { findMany: plannedSplitFindManyMock },
     personalPlannedExpense: { findMany: personalPlannedFindManyMock },
+    personalBudgetCategory: { findMany: personalCategoryFindManyMock },
   },
 }));
 
@@ -99,6 +102,7 @@ function split(memberId: string, name: string, amountOwed: number, amountPaid: n
 beforeEach(() => {
   plannedSplitFindManyMock.mockResolvedValue([]);
   personalPlannedFindManyMock.mockResolvedValue([]);
+  personalCategoryFindManyMock.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -167,6 +171,7 @@ describe("loadPersonalBudgetPosition", () => {
       owedFromEarlier: 1000,
       duePayments: 300,
       dueSavings: 1000,
+      stillBudgeted: 0,
     });
     expect(position.safeToSpend).toBe(30000 - 8000 - 3000 - 1000 - 300 - 1000);
     expect(position.expectedRecurring.map((e) => e.categoryName).sort()).toEqual(["Gym", "Holiday"]);
@@ -272,6 +277,73 @@ describe("loadPersonalBudgetPosition", () => {
     expect(position.sharedFixedTemplates).toEqual([
       expect.objectContaining({ id: "tpl-rent", name: "Rent", amount: 6500, type: "EXPENSE", active: true }),
     ]);
+  });
+
+  it("judges a shared bill on its household's budget periods (start day 25)", async () => {
+    // UX-134: rent logged on 28 Sep belongs to the household's October
+    // (25 Sep to 24 Oct). The personal October view must not keep it Due,
+    // or "Log payment" on that row would hit the duplicate guard and the
+    // user could never clear it.
+    const octoberStart = new Date(2026, 9, 1);
+    const octoberEnd = new Date(2026, 10, 1);
+    const setup = () => {
+      personalTransactionFindManyMock.mockResolvedValue([]);
+      personalTemplateFindManyMock.mockResolvedValue([]);
+      personalAckFindManyMock.mockResolvedValue([]);
+      householdMemberFindManyMock.mockResolvedValue([
+        { id: "m-me", household: { id: "h1", name: "Home", budgetMonthStartDay: 25 } },
+      ]);
+      transactionFindManyMock.mockResolvedValue([
+        {
+          id: "sep-rent",
+          amount: 12000,
+          type: "EXPENSE",
+          date: new Date(2026, 8, 28),
+          recurringTemplateId: "tpl-rent",
+          category: { name: "Rent" },
+          splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
+        },
+      ]);
+      settlementFindManyMock.mockResolvedValue([]);
+      templateSplitFindManyMock.mockResolvedValue([]);
+      templateAckFindManyMock.mockResolvedValue([]);
+      templateFindManyMock.mockResolvedValue([
+        {
+          id: "tpl-rent",
+          householdId: "h1",
+          categoryId: "cat-rent",
+          category: { name: "Rent" },
+          name: "Rent",
+          amount: 12000,
+          type: "EXPENSE",
+          frequency: "MONTHLY",
+          active: true,
+          createdAt: new Date(2026, 0, 1),
+          transactions: [{ id: "sep-rent" }],
+        },
+      ]);
+    };
+
+    setup();
+    const early = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: octoberStart,
+      monthEnd: octoberEnd,
+      now: new Date(2026, 9, 3),
+      sharedLabel: "Shared",
+    });
+    expect(early.sharedDueRows).toEqual([]);
+
+    // From the 25th the household's next period has begun: due again.
+    setup();
+    const late = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: octoberStart,
+      monthEnd: octoberEnd,
+      now: new Date(2026, 9, 28),
+      sharedLabel: "Shared",
+    });
+    expect(late.sharedDueRows).toEqual([expect.objectContaining({ id: "tpl-rent" })]);
   });
 
   it("drops a hand-split bill once a later one is logged without the user", async () => {
@@ -432,6 +504,34 @@ describe("loadPersonalBudgetPosition", () => {
     expect(position.safeToSpendProjection?.dailyPace).toBe(15);
     expect(position.safeToSpendProjection?.projected).toBe(2450 - 15 * 20);
   });
+  it("holds back what is still unspent of a category's monthly limit (UX-138)", async () => {
+    personalTransactionFindManyMock.mockResolvedValue([
+      personalTx("Salary", "INCOME", 10000, 1),
+      // 1200 of the 3000 food limit spent, so 1800 stays held back.
+      { ...personalTx("Food", "EXPENSE", 1200, 2), categoryId: "cat-food" },
+    ]);
+    personalCategoryFindManyMock.mockResolvedValue([
+      { id: "cat-food", type: "EXPENSE", monthlyLimit: 3000, rolloverEnabled: false, createdAt: new Date(2026, 0, 1) },
+    ]);
+    personalTemplateFindManyMock.mockResolvedValue([]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart,
+      monthEnd,
+      sharedLabel: "Shared",
+      now: new Date(2026, 8, 10, 12),
+    });
+
+    expect(position.safeToSpendBreakdown.stillBudgeted).toBe(1800);
+    expect(position.safeToSpend).toBe(10000 - 1200 - 1800);
+    // The food is already reserved, so it isn't everyday pace.
+    expect(position.safeToSpendProjection).toBeNull();
+  });
+
   describe("planned bills (BUDGET-8)", () => {
     function setup(plannedSplits: unknown[]) {
       personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 30000, 5)]);

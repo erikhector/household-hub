@@ -861,6 +861,29 @@ export async function toggleRecipeFavoriteAction(recipeId: string): Promise<Acti
   return {};
 }
 
+// GAP-51: puts a recipe on, or takes it off, the "Cook soon" shelf. A click
+// action like the favorite toggle: the flip is computed here from the stored
+// value, and the lookup is scoped to the caller's household so a foreign id
+// is a silent no-op. Queuing stamps the time so the shelf keeps the order
+// recipes were added in.
+export async function toggleRecipeCookSoonAction(recipeId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const recipe = await prisma.recipe.findFirst({
+    where: { id: recipeId, householdId: household.id },
+    select: { id: true, cookSoonAt: true },
+  });
+  if (!recipe) return {};
+
+  await prisma.recipe.update({
+    where: { id: recipe.id },
+    data: { cookSoonAt: recipe.cookSoonAt ? null : new Date() },
+  });
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return {};
+}
+
 // GAP-48: copies a recipe into a new row of the same household so a variant
 // (vegetarian lasagne, half batch) doesn't mean retyping ingredients and
 // steps. A click action. The source is looked up scoped to the caller's

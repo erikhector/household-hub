@@ -14,7 +14,7 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const { addItemToDefaultList, addToDefaultListOnLowStock, addToDefaultListOnLowStockBatch, getOrCreateDefaultShoppingList, revalidateAutoAdded } =
+const { addItemToDefaultList, addItemsToDefaultList, addToDefaultListOnLowStock, addToDefaultListOnLowStockBatch, getOrCreateDefaultShoppingList, revalidateAutoAdded } =
   await import("@/lib/shopping/default-list");
 
 const defaultList = { id: "default-list", name: "Next shop" };
@@ -22,7 +22,7 @@ const defaultList = { id: "default-list", name: "Next shop" };
 function makeDb() {
   return {
     shoppingList: { findFirst: vi.fn(), createMany: vi.fn() },
-    shoppingListItem: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn(), createManyAndReturn: vi.fn() },
+    shoppingListItem: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn(), createMany: vi.fn(), createManyAndReturn: vi.fn() },
     inventoryItem: { findFirst: vi.fn() },
     household: { findUnique: vi.fn() },
   };
@@ -85,7 +85,8 @@ describe("addItemToDefaultList", () => {
         quantity: 2,
         unit: "l",
         addedAutomatically: true,
-        estimatedPrice: 15,
+        // BUG-3: 15 a unit × the row's quantity of 2.
+        estimatedPrice: 30,
       },
       select: { id: true },
     });
@@ -114,6 +115,63 @@ describe("addItemToDefaultList", () => {
     });
     expect(db.shoppingListItem.create).not.toHaveBeenCalled();
     expect(result.created).toBeNull();
+  });
+});
+
+describe("addItemsToDefaultList (PERF-18)", () => {
+  const listable = (id: string) => ({
+    id,
+    name: `Item ${id}`,
+    unit: "pcs",
+    quantity: 1,
+    lowStockThreshold: 3,
+    lastKnownPrice: null,
+  });
+  const queryCount = () =>
+    Object.values(db).reduce(
+      (n, model) => n + Object.values(model).reduce((m, fn) => m + fn.mock.calls.length, 0),
+      0,
+    );
+
+  it("runs the same number of queries for 1 item as for 200", async () => {
+    await addItemsToDefaultList(asDb(), "household-1", [listable("i0")], false);
+    const one = queryCount();
+    vi.clearAllMocks();
+
+    const many = Array.from({ length: 200 }, (_, i) => listable(`i${i}`));
+    const result = await addItemsToDefaultList(asDb(), "household-1", many, false);
+
+    expect(queryCount()).toBe(one);
+    expect(result.added).toBe(200);
+    expect(db.shoppingListItem.createMany).toHaveBeenCalledTimes(1);
+    expect(db.shoppingListItem.create).not.toHaveBeenCalled();
+  });
+
+  it("skips items already pending on the list and counts only the created rows", async () => {
+    db.shoppingListItem.findMany.mockResolvedValue([{ inventoryItemId: "b" }]);
+
+    const result = await addItemsToDefaultList(asDb(), "household-1", [listable("a"), listable("b")], false);
+
+    expect(result).toEqual({ list: defaultList, added: 1 });
+    expect(db.shoppingListItem.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          shoppingListId: "default-list",
+          inventoryItemId: "a",
+          quantity: 2,
+          addedAutomatically: false,
+        }),
+      ],
+    });
+  });
+
+  it("creates nothing when every item is already pending", async () => {
+    db.shoppingListItem.findMany.mockResolvedValue([{ inventoryItemId: "a" }]);
+
+    const result = await addItemsToDefaultList(asDb(), "household-1", [listable("a")], false);
+
+    expect(result.added).toBe(0);
+    expect(db.shoppingListItem.createMany).not.toHaveBeenCalled();
   });
 });
 

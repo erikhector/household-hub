@@ -1,5 +1,115 @@
 [
   {
+    "version": "0.110.0",
+    "date": "2026-10-25",
+    "pr": 700,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "New here? Tap \"Try with sample data\" on the overview to fill Squirrel with a small example home: a pantry, a shopping list, recipes, a planned week and a few tasks. \"Clear sample data\" removes only the examples and keeps everything you've added.\n\nScanning a receipt line like \"3 × Milk 45.00\" now records the price per carton (15.00) instead of treating 45.00 as the price of one. Next time you add Milk, its estimate follows the quantity, and the review step shows \"3 × 15.00\" so you can catch a misread.\n\nAdding many items to your shopping list from the inventory at once is now much faster.\n\nScanning a barcode you or someone else scanned recently is now faster.\n\nWhen you split a bill by hand, Squirrel now shows how much is still left to split as you type each share, or how far over the total the shares are.",
+      "sv": "Ny här? Tryck på \"Prova med exempeldata\" på översikten för att fylla Squirrel med ett litet exempelhem: ett skafferi, en inköpslista, recept, en planerad vecka och några sysslor. \"Rensa exempeldata\" tar bara bort exemplen och behåller allt du lagt till själv.\n\nNär du skannar en kvittorad som \"3 × Mjölk 45,00\" sparas nu priset per förpackning (15,00) i stället för att 45,00 räknas som priset för en. Nästa gång du lägger till Mjölk följer prisuppskattningen antalet, och granskningssteget visar \"3 × 15,00\" så att du kan se om något lästs fel.\n\nAtt lägga många varor på inköpslistan från lagret samtidigt går nu mycket snabbare.\n\nDet går nu snabbare att skanna en streckkod som har skannats nyligen.\n\nNär du delar en räkning för hand visar Squirrel nu hur mycket som återstår att dela medan du skriver varje andel, eller hur mycket andelarna överstiger totalen."
+    }
+  },
+  {
+    "version": "0.109.0",
+    "date": "2026-10-25",
+    "pr": 683,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now select several planned meals in the planner and move them to another day, change their portions or remove them all at once, with Undo.",
+      "sv": "Du kan nu markera flera planerade måltider i planeraren och flytta dem till en annan dag, ändra portionerna eller ta bort dem på en gång, med Ångra."
+    }
+  },
+  {
+    "version": "0.108.0",
+    "date": "2026-10-24",
+    "pr": 676,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Press Ctrl+K (or ⌘K on a Mac) anywhere in Squirrel to open a command palette. Type to jump to a page, add a task or start adding to your shopping list.",
+      "sv": "Tryck Ctrl+K (eller ⌘K på Mac) var som helst i Squirrel för att öppna en kommandopalett. Skriv för att hoppa till en sida, lägga till en uppgift eller börja lägga till i inköpslistan."
+    }
+  },
+  {
+    "version": "0.107.0",
+    "date": "2026-10-24",
+    "pr": 666,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Search your meal plan: type a recipe or meal name on the Planner tab to find every day you planned it, up to a year back or ahead, and jump straight to that week.",
+      "sv": "Sök i måltidsplanen: skriv ett recept- eller måltidsnamn på fliken Planerare för att hitta alla dagar du planerat det, upp till ett år bakåt eller framåt, och hoppa direkt till den veckan."
+    }
+  },
+  {
+    "version": "0.106.0",
+    "date": "2026-10-24",
+    "pr": 660,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Households can now start their budget month on payday. In Household settings, choose the day your pay lands (for example the 25th), and each budget month runs from that day to the day before, with Safe to spend, recurring bills and planned bills following it. Paying a bill early now counts it in the month it is due.\n\nA recipe now shows the next days it is on your meal plan, so you can see at a glance if you have already planned it. Tap a date to open that week.",
+      "sv": "Hushåll kan nu låta budgetmånaden börja på löningsdagen. Välj dagen då lönen kommer (till exempel den 25:e) i hushållets inställningar, så löper varje budgetmånad från den dagen till dagen före, och Säkert att spendera, återkommande räkningar och planerade räkningar följer med. Betalar du en räkning i förväg räknas den i den månad den förfaller.\n\nEtt recept visar nu de närmaste dagarna det står på måltidsplanen, så att du direkt ser om det redan är planerat. Tryck på ett datum för att öppna veckan."
+    }
+  },
+  {
+    "version": "0.105.0",
+    "date": "2026-10-24",
+    "pr": 656,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Mark a recipe \"Cook soon\" to pin it to the top of your Recipes tab until you plan or cook it.",
+      "sv": "Markera ett recept som \"Laga snart\" så fästs det överst på receptfliken tills du planerar eller lagar det."
+    }
+  },
+  {
+    "version": "0.104.0",
+    "date": "2026-10-24",
+    "pr": 651,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Deleting a task, shopping item, inventory item, planned meal, recipe or transaction now takes it away at once with an Undo, instead of asking you to confirm. Archiving a shopping list also offers Undo, and Archive and Delete now live together in each list's ⋯ menu.\n\nSecurity update: Squirrel now runs on a patched version of its web framework that closes several serious vulnerabilities.\n\nIf you've been included in a shared expense before setting up your own budget, you now see your share and what you owe or are owed right on your Personal Budget and Home. The shared-expense button is now called \"Add shared expense\".\n\nEmpty sections now look alike and show the next step right inside them: add your first task, shopping list, recipe, meal prep or item with one button. An empty week in the planner is one clear \"Add your first dinner\" instead of seven add cards, and Cook now points you to what to do next.",
+      "sv": "Att ta bort en uppgift, shoppingvara, lagervara, planerad måltid, ett recept eller en transaktion sker nu direkt med en Ångra-knapp, i stället för att du behöver bekräfta. Arkivering av en inköpslista går också att ångra, och Arkivera och Ta bort ligger nu tillsammans i varje listas ⋯-meny.\n\nSäkerhetsuppdatering: Squirrel körs nu på en uppdaterad version av ramverket som täpper till flera allvarliga sårbarheter.\n\nOm du har delat en utgift med hushållet innan du satt upp din egen budget ser du nu din andel och vad du är skyldig eller har att få direkt i Personlig budget och på Hem. Knappen för delad utgift heter nu \"Lägg till delad utgift\".\n\nTomma sidor ser nu likadana ut och visar nästa steg direkt i rutan: lägg till din första uppgift, inköpslista, recept, matlåda eller vara med en knapp. En tom vecka i planeraren är nu en tydlig \"Lägg till din första middag\" i stället för sju kort, och Laga nu visar vad du kan göra härnäst."
+    }
+  },
+  {
+    "version": "0.103.0",
+    "date": "2026-10-23",
+    "pr": 637,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Tasks can now have a due date. Late tasks show how many days overdue they are and move to the top of your list and the overview.",
+      "sv": "Uppgifter kan nu ha ett förfallodatum. Försenade uppgifter visar hur många dagar de är sena och hamnar överst i listan och på översikten."
+    }
+  },
+  {
+    "version": "0.102.0",
+    "date": "2026-10-23",
+    "pr": 626,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If your household is the only one you have, the Household page now explains why it can't be deleted on its own, and points you to \"Delete account\" or, if others are in it, to the member list. The file from \"Export my data\" is now named squirrel-my-data.",
+      "sv": "Om du bara har ett hushåll förklarar sidan Hushåll nu varför det inte kan tas bort för sig, och pekar dig till \"Ta bort konto\" eller, om fler är med, till medlemslistan. Filen från \"Exportera mina data\" heter nu squirrel-my-data."
+    }
+  },
+  {
+    "version": "0.101.0",
+    "date": "2026-10-23",
+    "pr": 622,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If a receipt photo can't be read, you can now type the prices in by hand, and Register receipt lets you add receipt lines yourself.\n\nSafe to spend now sets aside what is still left of your category limits. A \"Still budgeted\" line in the breakdown shows how much, so the number no longer drops as you spend within a limit. The end-of-month estimate is now a muted note under the number.\n\nBudget forms no longer suggest your own name or contacts when you name a category, bill or transaction, and the keyboard's action key now shows \"Next\" or \"Done\".",
+      "sv": "Om kvittofotot inte kan läsas kan du nu skriva in priserna för hand, och i Registrera kvitto kan du lägga till kvittorader själv.\n\nSäkert att spendera räknar nu bort det som återstår av dina kategorigränser. En rad \"Ännu budgeterat\" i uppdelningen visar hur mycket, så att summan inte sjunker när du handlar inom en gräns. Månadsslutsprognosen är nu en dämpad notering under summan.\n\nBudgetformulär föreslår inte längre ditt eget namn eller dina kontakter när du namnger en kategori, räkning eller transaktion, och tangentbordets åtgärdsknapp visar nu \"Nästa\" eller \"Klar\"."
+    }
+  },
+  {
     "version": "0.100.0",
     "date": "2026-10-23",
     "pr": 615,

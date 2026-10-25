@@ -266,6 +266,16 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     owner removing them can still leave them with none; see "Users with no
     household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
+    The Household page's danger zone (UX-77) doesn't offer the button to
+    someone with only one household: it explains the rule inline. As the
+    sole member it links to "Delete account" on the profile page
+    (`/dashboard/profile?open=danger#profile-danger`, which opens that
+    page's collapsed Danger zone), because `deleteAccountAction` removes a
+    household only for its sole member. With other members it says the
+    household can't be deleted while they're in it and links to the member
+    list (`#household-members`) instead, since deleting the account is
+    blocked for an owner until ownership is transferred. The server-side
+    guard stays.
   - Managing the calendar feed (`enableCalendarFeedAction`,
     `regenerateCalendarFeedAction`, `disableCalendarFeedAction`, GAP-3):
     it publishes the household's meal plan and bill names at a link that
@@ -1328,7 +1338,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     the same explicit, person-added row on the default list as above,
     deduped against a row already pending there, with the stock untouched.
     The toast says how many were added, or that they were already on the
-    list. A row with an unpurchased line on any active list shows an "On
+    list. The bulk add runs in a fixed number of queries (PERF-18) via
+    `addItemsToDefaultList` (src/lib/shopping/default-list.ts): the default
+    list, one read of what's pending, one `createMany`, for 1 or 200 items.
+    A row with an unpurchased line on any active list shows an "On
     list" tag. With auto-add on, the row menu drops "Mark as empty & add to
     shopping list" (plain "Mark as empty" already does it); with it off,
     both entries show.
@@ -1827,7 +1840,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   match). `CategoryBreakdown` then draws the bar, the "spent / X" figure and
   the "X over" note against limit + carried and adds an "incl. X carried over"
   line under the bar when anything was carried. Like the limit itself it's
-  purely visual: safe to spend and every total ignore it.
+  purely visual for the totals, but not for safe to spend: the carried amount
+  is part of the envelope that safe to spend holds back (UX-138, see "Safe to
+  spend").
 - **Savings goals (GAP-22)**: a savings category can carry an optional
   target amount and date, the way YNAB's and Qapital's goals do.
   `goalAmount Float?` and `goalDate DateTime?` sit on both `BudgetCategory`
@@ -2181,8 +2196,8 @@ item is marked purchased with an estimated price
     judged better than dropping emptied items, which would make throwing
     something out erase it from the recap.
   - **Value.** One `lastKnownPrice` per item, never `lastKnownPrice ×
-    quantity`: `lastKnownPrice` is the price of one shopping-list line
-    (AUTO-4's per-line convention), not a price per inventory unit, so
+    quantity`: `lastKnownPrice` is the price of one unit of a shopping
+    line's quantity (BUG-3), not a price per inventory unit, so
     multiplying it by a quantity in grams or millilitres would be nonsense.
     The figure is shown with "≈". Items with no known price are listed and
     counted ("N of them have no known price yet") but add nothing to the
@@ -2214,8 +2229,8 @@ item is marked purchased with an estimated price
     are counted — they're physically there, and whether they were wasted
     is GAP-17's question.
   - **Value.** Same rule as GAP-17: one `lastKnownPrice` per item, never
-    `lastKnownPrice × quantity` (it's a per-shopping-line price, not a
-    per-unit one), so a half-used bag counts at its full last price and the
+    `lastKnownPrice × quantity` (it's a price per unit of a shopping
+    line's quantity, not per inventory unit), so a half-used bag counts at its full last price and the
     figure is shown with "≈". Items with no known price (null or 0) add
     nothing but are counted, and the card always says what the figure is
     built from: "Based on N of M items with a known price."
@@ -2270,9 +2285,17 @@ non-null `lastKnownPrice` now defaults the new row's `estimatedPrice` to it
 low-stock items" (`generateFromLowStockAction`), pasted/CSV import
 (`importShoppingListItemsAction`), and the smart add line
 (`smartAddShoppingListItemsAction`, for a row that resolves to an *existing*
-inventory item — a brand-new one has no price yet). The default is
-per-unit, unmultiplied by `quantity` — matching how `completeShoppingListAction`
-sums `estimatedPrice` above, so a 2-pack priced at "24" books as 24, not 48.
+inventory item — a brand-new one has no price yet). `lastKnownPrice` is the
+price of **one unit of a line's quantity** and a row's `estimatedPrice` is the
+whole line (`completeShoppingListAction` sums it as is, so a row priced "24"
+books as 24 whatever its quantity), so every writer divides and every create
+path multiplies (`src/lib/shopping/unit-price.ts`: `unitPriceOf`,
+`defaultLineEstimate`): after 3 cartons for 45 the item's `lastKnownPrice` is
+15, and the next "Milk ×1" starts at 15 and a "Milk ×2" at 30 (BUG-3). The
+writers are `applyStockArrival` (tick, share-link tick, put-away: the price
+over `priceQuantity`, the quantity it was paid for), the put-away-mode branch
+of `applyReceiptScanAction` and `registerReceiptAction`. Older rows hold the
+line price, which is the same number for a ×1 line; there was no backfill.
 This only ever runs once, at creation: a receipt-driven create
 (`registerReceiptAction`) keeps setting `estimatedPrice` from the receipt's
 own (real) price instead, and once a user corrects a row's price nothing
@@ -2457,6 +2480,16 @@ moves back only those still unticked in the household. The checkbox label
 names the target list (page query for the active default). Flow spec:
 `e2e/shopping-finish-carry-over.spec.ts`.
 
+The "Done shopping after Undo leaves a late pending row" spec (MAINT-47) waits
+for each server action's answer before it inserts the late row, because the
+database changes before the action's revalidated list reaches the page: after
+Undo it waits for the "Completed" badge to go, and after the tick for the
+save's own POST, for every fetch the page made (counted by a small `fetch`
+wrapper) to be read to the end, and two frames. `waitForLoadState("networkidle")`
+fires once per navigation and can't be used for this, and an action response's
+body can't be read from the test. A late row inserted earlier ends up in that
+list and replaces the "Put everything away" button under the click.
+
 #### Printing a list (GAP-24)
 
 For households that still shop from paper, or want a big-text copy on the
@@ -2520,6 +2553,59 @@ and confirms with a toast.
   grouped vs flat, ticked items left out); `e2e/copy-shopping-list-text.spec.ts`
   adds two items, copies on desktop and mobile, asserts the toast and
   clipboard text, then ticks one and asserts it drops out.
+
+### Budget month start day (UX-134)
+
+`Household.budgetMonthStartDay` (1 to 28, default 1, migration
+`household_budget_month_start_day`) moves the household budget's month
+boundary to payday. Swedish salaries land on the 25th, so with 25 a month
+runs from the 25th to the 24th. The owner sets it on the Household page
+(`BudgetMonthSetting`, `setBudgetMonthStartDayAction`, owner-only, saves on
+change); everyone sees the current value.
+
+- **Naming**: a period is keyed and named by the month it *ends* in. With
+  day 25, `?month=2026-10` ("October") is 25 Sep to 24 Oct, since the pay
+  that lands on 25 Sep funds October's bills. With day 1 every period is the
+  calendar month, exactly as before. The month bar shows the dates under the
+  name ("Sep 25 – Oct 24") whenever the day is above 1.
+- **What uses it**: the Budget page's month tabs and every number on them
+  (income, expenses, Safe to spend and its projection and daily allowance,
+  category limits and rollover, spend sparklines, the fixed-cost trend), the
+  recurring templates' Due/posted/accounted-for statuses (a MONTHLY
+  template's period key is the period's), planned bills' due/overdue/paid
+  statuses, the overview's Safe to spend and the weekly digest. All of it
+  goes through the helpers in `src/lib/budget-date-utils.ts`
+  (`periodKeyOf`, `periodBounds`, `dateInPeriod`, `normalizeStartDay`),
+  which the calculators take as `startDay` (default 1).
+- **Not affected**: WEEKLY and YEARLY templates keep ISO weeks and calendar
+  years; the Personal Budget stays on calendar months (its own transactions
+  and templates); the cost analyzer and waste recap (shopping data) too. The
+  one exception is the shared-bill Due rows on the Personal Budget: each is
+  judged on its own household's periods, so a rent logged on 28 Sep under day
+  25 doesn't stay Due in the personal October view and the duplicate guard
+  never blocks clearing a row (`loadPersonalBudgetPosition` runs
+  `computeTemplateStatuses` per household start day, with today as the
+  reference date when it falls in the viewed month). Changing the day moves no transaction:
+  they keep their dates and only which period they fall in changes.
+- **Logging from a Due list**: the Log dialog starts on the item's due day
+  in the viewed period (a template's `dayOfMonth`, or a planned item's due
+  date when it falls in the period), so logging October's rent early on 28
+  Sep counts it in October and removes it from October's Due list. Without a
+  due day, a new transaction starts on today in the current period and on
+  the period's first day in any other. "Log as-is" and "Mark as accounted
+  for" still act on the current period.
+- **Duplicate guard**: `assertNoDuplicateTemplatePeriod` and the
+  acknowledgement actions use the household's start day, so the same
+  template can't be logged twice in one period.
+- **Accounted-for marks**: `RecurringTemplateAck.periodKey` stays
+  "YYYY-MM", so when the owner changes the day, an existing mark means the new
+  date range of that key (for "2026-10", 1 to 31 Oct becomes 25 Sep to 24
+  Oct). Accepted: recurring items marked as accounted for may need marking
+  again, and the Household card hint says so.
+- Tests: `budget-period.test.ts` (the helpers), the `startDay` cases in
+  `recurring-template-calc`, `chart-calc`, `budget-rollover-calc` and
+  `household-safe-to-spend` tests, the budget and household action tests,
+  and `e2e/ux-134.spec.ts`.
 
 ### Safe to spend
 
@@ -2676,6 +2762,28 @@ Component page function can't itself be unit-tested.
   Budgeting (GAP-13); the headline number is colored `text-success` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
+- **Still budgeted (UX-138)**: the unspent remainder of every expense
+  category with a monthly limit also comes off the headline, as its own
+  "Still budgeted" breakdown line (`breakdown.stillBudgeted`), because that
+  money is earmarked. Before this a 3 000 food limit with nothing logged on
+  the 1st left all 3 000 in the number, and the number then fell as the food
+  was bought. `computeStillBudgeted` (`src/lib/safe-to-spend-calc.ts`) takes
+  one envelope per limited category (`categoryEnvelopes` in
+  `src/lib/budget-category-limit.ts`: limit plus any GAP-21 rollover carried
+  in, the same envelope Insights and "Near or over their limit" use, and what
+  is spent in it this month) and sums `max(0, available − spent − due)`.
+  An overspent category counts as a zero remainder, never a negative one (the
+  overspend is already in the expenses total). A due bill or planned bill in
+  the same category (`budgetCategoryId` on the expected row) is subtracted
+  from the remainder, since it is already in due payments and would
+  otherwise be held back twice. Due savings and income never reduce it.
+  The household page, `loadHouseholdSafeToSpend` (Today block) and
+  `loadPersonalBudgetPosition` (Personal Budget and the dashboard card) and
+  the weekly digest (`src/lib/weekly-digest.ts`) all pass the limited
+  categories in, so the numbers agree; without any limit
+  nothing changes. A limit alone does not count as data for the empty
+  state (`needsSafeToSpendSetup`), so a fresh budget still asks for income
+  instead of showing a negative number. Decided in #397 (option 1).
 - **Projected end of month (UX-39)**: in the current month, under the
   number, a small line chart ("At this pace"): solid for what was safe to
   spend at the end of each day so far, dashed from today to the last day at
@@ -2688,7 +2796,12 @@ Component page function can't itself be unit-tested.
   past or future month, or before any everyday spending. The household page
   computes it from the month's transactions; `loadPersonalBudgetPosition`
   returns it as `safeToSpendProjection`, so Personal Budget and the
-  dashboard card show the same line.
+  dashboard card show the same line. Since UX-138 it is a qualifier on the
+  headline, not a second figure of the same weight: the sentence keeps
+  body size (`text-sm`, Mobile UX rule M9) and is muted, red only when the month ends over, and spending in
+  limited categories is left out of the pace (`excludeCategoryIds`), since
+  that money is already held back as "Still budgeted" and doesn't lower the
+  number.
 - **Daily allowance and labelled chart (UX-117)**: in the current month a
   line under the headline answers "how much can I spend today?": "≈ N per
   day for the D days left" (`dailyAllowance` in `src/lib/chart-calc.ts`:
@@ -2772,9 +2885,15 @@ following. The even split is
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
 total instead of drifting from naive floating-point division), individually
-adjustable afterward. The dialog shows
-a live warning and disables submit whenever the shares don't (yet) sum to
-the transaction total or the payments add up to more than it
+adjustable afterward. As shares are
+typed, the dialog shows what's still left to split ("176.00 of 476.00 left
+to split." for a 476 bill with a 300 share, muted since it's the normal
+state mid-typing) or, in red, how far the shares are over the total
+(`shareRemainder`, summed in whole cents so the shares must match to the
+cent, and `ShareRemainderNote` in
+`split-editor.tsx`, which the recurring-item and planned-bill dialogs'
+share grids use too). Submit stays disabled while the shares don't (yet)
+sum to the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
 `updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
 re-validate the same invariants server-side (`parseSplitFormData`, ±0.01
@@ -3345,6 +3464,23 @@ names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
 categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
 
+**Shared costs before a personal budget exists (UX-112).** A member with no
+personal categories but a share of a split household expense (or a balance
+with the other members) sees a "Shared with your household" card above the
+"Let's set up your budget" prompt, on the personal Overview and on Home. It
+shows their share of this month's split expenses (`summarizeSharedCosts`,
+`src/lib/shared-costs-summary.ts`: expenses only, their own share, never the
+whole bill; on the personal page's past months the row is labelled "Your
+share in {month}" rather than "this month") and the same "Your household balance" lines Safe to spend uses
+(`HouseholdDebtsList`, extracted from `SafeToSpend` so the two can't drift),
+with a link to the Transactions tab. Once they have categories the card goes
+and Safe to spend carries the balance as before. The shared-expense action is
+named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
+the household page's "Add transaction", and with no categories it is the
+page's primary action in the `PrimaryAction` slot (floating on phones); once
+Add transaction exists it stays the outline second action. Tested in
+`e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
+
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
 had already moved cost analyzer and balances into the `insights` node the
@@ -3535,7 +3671,7 @@ needs no loading state and degrades to a plain link with JS disabled.
 CSV-specific despite this section's name — the Profile page also has its
 own "export my data" button (`src/app/dashboard/profile/export-data/route.ts`)
 that reuses the same component for a `.json` (not `.csv`) download of just
-the signed-in user's own data (profile fields, household memberships, and
+the signed-in user's own data, downloaded as `squirrel-my-data-<date>.json` (UX-77) (profile fields, household memberships, and
 personal-budget data — deliberately excluding household-*shared* data like
 `InventoryItem`/`Transaction`, which the three CSV exports below already
 make reachable to anyone with household access).
@@ -3667,6 +3803,12 @@ never blocks or breaks manual entry, at any failure point.
   (`https://world.openfoodfacts.org/api/v2/product/<barcode>.json`, no API
   key) with a short timeout (5s, via `AbortController`) and identifies the
   app via a `User-Agent` header, per Open Food Facts's own API etiquette.
+  The raw response is cached in Next's data cache for 24 hours
+  (`next: { revalidate: 86400 }`, keyed by the barcode in the URL), shared
+  across households since it is public product data. The mapped result is
+  not cached, because the category label comes from the caller's locale
+  dictionary; a timeout or network error throws before any response exists,
+  so failures are never cached.
   Any failure — invalid barcode shape, network error, timeout, a 4xx/5xx
   response, no matching product, or a product with no `product_name` — is
   swallowed and reported back as `{ name: null }` rather than an error;
@@ -3899,8 +4041,8 @@ below.
   quantity, which is what a receipt line's price already means, so typed
   rows go through `applyReceiptScanAction` / `registerReceiptAction`
   exactly like scanned ones: `estimatedPrice`, PriceHistory (with the
-  quantity), `lastKnownPrice` (the line price, as every writer stores it;
-  see `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
+  quantity), `lastKnownPrice` (the price per unit of that quantity, 45 for
+  3 is 15; see AUTO-4 and `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
   shows only when every row was typed, not when "Add line" joins a scanned
   receipt. Covered by `e2e/manual-receipt-prices.spec.ts`, with the vision
   call mocked to fail.
@@ -3981,6 +4123,18 @@ below.
   its own rows). De-dupes by `shoppingListItemId` server-side (in case two
   OCR'd lines were ever matched to the same item) so nothing is
   double-counted.
+  **Quantity (BUG-3)**: a receipt line's quantity rides along in
+  `ReceiptScanMatch.quantity` (the receipt may say 3 where the row says
+  ×1; omitted or not positive falls back to the row's). The price is what
+  was paid, so the row is booked at it (`estimatedPrice` 45), but
+  `PriceHistory` records it with the line's quantity (45 for 3, so the
+  price-spike check compares 15) and `lastKnownPrice` is the unit price
+  (15). Stock still counts the row's own quantity. The review row shows
+  "3 × 15.00" (quantity × unit price, from the editable price) under the
+  name when the quantity isn't 1, so a misread count or price is visible
+  before applying. `registerReceiptAction` stores `lastKnownPrice` the
+  same way. Covered by `e2e/manual-receipt-prices.spec.ts` (a ×3 line, then
+  the next ×2 row estimating 30).
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
   this flow has no existing shopping list to match against, each reviewed
   line instead gets matched against the household's *inventory* catalog —
@@ -4495,6 +4649,42 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   - The success toast names the meal. When the new date is in a different
     week than the one on screen, the meal disappears from view, so the toast
     says so and offers "View that week", the same as "Add to plan".
+- **Editing several meals at once (GAP-56)**: the planner's ⋯ menu has
+  "Select meals" (shown when the week has an uncooked meal). In Select mode
+  each uncooked row becomes a checkbox row (the whole row is the 44 px
+  target), the "+ Add meal" buttons and the shopping-list primary action are
+  hidden, and a bar (`BulkMealBar`, `src/components/meal-planning/bulk-meal-bar.tsx`)
+  shows the count with **Move to…**, **Portions…**, **Remove** and **Done**.
+  On a phone the bar sticks just above the bottom nav. Cooked rows stay
+  visible but have no checkbox and say "Cooked, can't be changed" (the same
+  rule as single move and edit).
+  - **Move to…** asks for a date and a slot ("Keep each meal's slot" by
+    default, or one meal type for all). The earliest selected meal lands on
+    that date and every other one keeps its distance from it
+    (`mapBulkMove`, `bulk-meal-calc.ts`: a day offset, so Mon/Tue/Thu moved to
+    start Wed becomes Wed/Thu/Sat). Target weeks are derived on the server
+    and their `MealPlan` rows upserted; open "Meal not logged" reminders for
+    the moved entries are dismissed, as in `moveMealEntryAction`.
+  - **Portions…** uses `PortionStepper` and sets the count on every selected
+    meal that has a recipe and isn't eating from a prep batch. Custom meals
+    and batch meals are left alone and counted as skipped.
+  - **Remove** hides the rows at once and sends the delete when its Undo
+    toast closes (like a single Remove, UX-49); a meal eating from a batch
+    gives its portions back, in the same transaction.
+  - All three are one Server Action, `bulkEditMealEntriesAction`
+    (`bulk-meal-actions.ts`), taking entry ids and the edit (never a
+    household id). It is all-or-nothing: an id that isn't in the session's
+    household rejects the whole batch with "Meal not found" before anything
+    is written, and the writes share one transaction. Cooked entries
+    selected before they were cooked are skipped (reported in the toast), and
+    if nothing is left the action answers "None of the selected meals can be
+    changed".
+  - Move and Portions toast "Moved N meals" / "Changed portions for N meals"
+    with **Undo**, backed by `undoBulkMealEditAction`, which restores the
+    previous date, slot, week or portions the action returned (also
+    household-scoped and all-or-nothing; a meal cooked since is left alone).
+    No schema change. Covered by `bulk-meal-calc.test.ts`,
+    `bulk-meal-actions.test.ts` and `e2e/meal-planner-bulk.spec.ts`.
 - **Scaling a recipe to how many it's feeding (GAP-11)**: every recipe
   entry carries `MealPlanEntry.portions`, the number of people that slot
   is cooking for. The meal entry dialog's "Portions" field sets it. Picking
@@ -4594,7 +4784,10 @@ by AUTO-4, above) and the purchased shopping-list line that set it — through
 the same unit table (`src/lib/units.ts`) the
 meal-plan → shopping-list bridge uses.
 
-- **Per-unit price**: `lastKnownPrice` is the price of one purchased
+- **Per-unit price** (BUG-3: lines saved since then store `lastKnownPrice`
+  per unit of the line's quantity, so the line that set it has `price =
+  lastKnownPrice × quantity`, and `unitPriceFromLastPurchase` reads both
+  that and the older form below): `lastKnownPrice` was the price of one purchased
   shopping-list *line*, whatever quantity that line was for (a 500 g pack
   of flour for 24 records 24), not the price of one of the item's unit. So
   `unitPriceFromLastPurchase` recovers the line that set it — the newest
@@ -5451,6 +5644,28 @@ what has dropped out of rotation. No schema change: it reads back
 - **Not in scope**: no sort or filter by last cooked; the list stays
   alphabetical.
 
+### Recipe planned dates
+
+BACKLOG GAP-55: the recipe's sheet on the Recipes tab shows when the recipe is
+next on the plan, e.g. "Planned: Tue 21 Oct, Sat 25 Oct", so a household
+doesn't plan the same dish twice unawares. The upcoming side of "Recipe last
+cooked". No schema change.
+
+- **Query**: `getRecipePlannedDates(householdId)` in
+  `src/app/dashboard/meal-planning/recipe-planned-dates.ts` is one `findMany`
+  over the household's `MealPlanEntry` rows (`mealPlan: { householdId }`) with
+  a recipe and `date >= today` (UTC midnight, so today counts), ordered by
+  date. It keeps the first 3 distinct days per recipe. It runs only for the
+  Recipes tab, with the household from `requireHousehold()`; covered by the
+  colocated unit test (scoping, past dates excluded, the limit).
+- **Label**: `mealPlanning.recipePlannedLabel` ("Planned:" / "Planerad:")
+  then the weekday, day and month in the user's locale (UTC day, like the
+  planner). Each date links to `/dashboard/meal-planning?week=<monday>`. A
+  recipe with no upcoming entry has no key and shows no line. The row's meta
+  line is unchanged (M6); the line is only in the sheet.
+- **Not in scope**: past dates (see "Recipe last cooked"), and whether an
+  upcoming entry is already cooked.
+
 ### Recipe favorites
 
 BACKLOG GAP-18, from the same competitive gap scan: AnyList and Paprika let
@@ -5486,6 +5701,61 @@ any member's star is everyone's star.
 - **Not in scope**: no favorites-only filter or separate page, and the
   Recipes list itself stays alphabetical. The star is visible there, and
   search already narrows the list.
+
+### Cook soon shelf (GAP-51)
+
+BACKLOG GAP-51, from the competitor scan of AnyList's meal-planning queue.
+Favorites are permanent and the planner is dated; "that chili I want this
+week" sat in between and got lost or was planned on an arbitrary day.
+`Recipe.cookSoonAt DateTime?` (migration `recipe_cook_soon`) is null for a
+recipe that isn't queued and the time it was queued otherwise.
+
+- **Toggle**: a "Cook soon" / "Remove from Cook soon" button in the recipe's
+  sheet, under "Add to plan" (the row itself stays two lines, M6). A click
+  action, `toggleRecipeCookSoonAction(recipeId)` in `recipe-actions.ts`,
+  with `useOptimistic` and a toast saying which way it went. The action
+  flips the stored value and scopes its lookup to `requireHousehold()`'s
+  household, so a foreign id is a silent no-op (same as the favorite star).
+- **Shelf**: queued recipes show in a "Cook soon" group above the list on
+  the Recipes tab, oldest first (`splitCookSoon`, `cook-soon.ts`). The
+  search and tag filter apply to it too, and the group is absent when
+  nothing is queued. The rest of the list stays alphabetical.
+- **Clears itself**: `clearCookSoon` (`cook-soon.ts`) runs when the recipe
+  is put on the planner (`addMealEntryAction`, and `updateMealEntryAction`
+  when an entry is switched to it) and when a meal of it is marked cooked
+  (`markMealEntryCookedAction`, inside its transaction). Undoing a cook
+  doesn't re-queue it. Copy week and Fill empty days don't clear it: they
+  re-plan or auto-pick, they aren't the household deciding the day.
+- **Suggest, don't mutate**: nothing else reads `cookSoonAt`. It doesn't
+  change the Cook tab's ranking, "use it up", the shopping list or the
+  planner.
+
+### Meal-plan search (GAP-59)
+
+BACKLOG GAP-59, from AnyList's search across the meal-plan calendar. The
+planner shows one week at a time, so "when did we last have lasagna?" meant
+paging back week by week. Read-only, no schema change.
+
+- **Field**: `MealPlanSearch` (`src/components/meal-planning/meal-plan-search.tsx`)
+  sits under the week bar on the Planner tab, with a visible "Search the
+  meal plan" label (a 44 px field on phones, M3). After two characters
+  (`MEAL_SEARCH_MIN_CHARS`) it waits 250 ms for a pause in typing, then calls
+  `searchMealPlanAction` (`search-actions.ts`), a click-style action that
+  takes the household from `requireHousehold()` and only the text from the
+  client (capped at 100 characters).
+- **Loader**: `searchMealPlan` (`meal-plan-search.ts`) is one
+  household-scoped `MealPlanEntry` query: recipe name or `freeformName`
+  contains the text (case-insensitive), the entry's date within 365 days
+  either side of today (UTC), newest first (dinner before lunch within a
+  day), at most 20.
+- **Results**: a list of links "Tue, Oct 21 · Dinner · Lasagna" (date in the
+  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. An
+  empty answer says "Nothing planned matches that." and a failed call says so
+  inline; a slow reply for older text never shows under newer text.
+- **Tests**: `meal-plan-search.test.ts` (household scoping, window, cap,
+  freeform names, week key), `search-actions.test.ts`, and
+  `e2e/meal-plan-search.spec.ts` (plans a custom meal two weeks ahead,
+  searches it, follows the link; desktop and mobile).
 
 ### Recipe sheet: Add to plan and instructions (UX-92)
 
@@ -5702,7 +5972,8 @@ co-managers, not kids earning rewards.
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
   `completedByMemberId`, nullable `recurrenceIntervalDays`, nullable `recurrenceAnchorAt`,
-  `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`). `completedAt` is a nullable-timestamp-as-status
+  `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`,
+  nullable `dueDate`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
   `assignedToMemberId`/`completedByMemberId` are two independent, both-
   nullable fields — a task can be completed by someone other than whoever
@@ -5750,6 +6021,26 @@ co-managers, not kids earning rewards.
   UTC before the first visit has set it. `recurring-task-day.spec.ts`
   covers it (the day rolling over is back-dated in Postgres, since the
   server clock can't be moved).
+- **Due dates and overdue (UX-133)**: a one-off task can carry an optional
+  due date, `HouseholdTask.dueDate` (`@db.Date`: a calendar day with no time
+  or zone), set in the Add/Edit dialog's "Due date" field (with "Clear due
+  date"). A repeating task stores none (`createTaskAction`/`updateTaskAction`
+  write null once an interval is set, and the dialog hides the field):
+  its due day is derived from the UX-137 schedule, the local day it
+  (re)opens, which is `getNextDueDate` after the last tick, or the anchor day
+  (`recurrenceAnchorAt`, else `createdAt`) while it has never been ticked.
+  So a 3-day chore last done 8 days ago is due 5 days ago.
+  `src/app/dashboard/tasks/task-due.ts` holds it all (`getTaskDueDay`,
+  `getTaskUrgency`, `daysOverdue`, `sortByUrgency`), in local day numbers so
+  the time of day never matters; `task-due.test.ts` covers the sort and the
+  derived date. Open tasks sort overdue (the longest overdue first), then
+  due today, then due later (soonest first), then undated, each tier keeping
+  its oldest-first order, on the tasks page and in the overview's Today
+  block (overdue rows are never cut off by its "N more" limit). An overdue
+  open row shows `TaskOverdueBadge`, a `warning`-tinted "Overdue · 5 days"
+  with an icon, on both; a one-off with a future date also reads "Due 2 Nov"
+  or "Due today". Completed rows show neither. `task-due-dates.spec.ts`
+  covers the date round trip, the badges and the order.
 - **Taking turns (GAP-38)**: an opt-in round-robin on a *repeating* task,
   like Grocy's chores or OurHome. `rotationMemberIds` is the ordered list of
   people taking turns; empty = no rotation. Valid only with a recurrence and
@@ -6411,6 +6702,36 @@ components directly.
   `mt-auto` so cards side by side line them up, and their labels wrap rather
   than push the chevron outside the card on narrow (tablet) columns.
   Covered by `e2e/overview.spec.ts`.
+- **Opt-in sample data (UX-136)**: a household with no inventory, shopping
+  lists, recipes, meal plan entries or tasks sees a "Not sure where to
+  start?" card on the overview (`src/components/dashboard/sample-data-card.tsx`,
+  above the setup card, outline button so the page keeps one primary) with
+  "Try with sample data". `seedSampleDataAction`
+  (`src/lib/actions/sample-data.ts`) then inserts, in one transaction and in
+  the viewer's language (`dashboard.sampleData.content` in both
+  dictionaries): six pantry items (one low, one out, one expiring), one
+  default shopping list of three items, three recipes whose ingredients link
+  to the pantry rows, four dinners in a single planner week (from today when
+  four days of the week remain, otherwise next week) and three tasks (two
+  repeating, one dated). It refuses when the household already has any of
+  those kinds of data. Everything seeded carries one batch id in a nullable
+  `sample` text column (migration `sample_data_tag`, on `InventoryItem`,
+  `ShoppingList`, `ShoppingListItem`, `Recipe`, `MealPlan`, `MealPlanEntry`
+  and `HouseholdTask`; null for everything a person makes). While any tagged
+  row exists the card turns into "You're looking at sample data" with
+  "Clear sample data" (`clearSampleDataAction`), which opens a confirm dialog
+  first (`clear-sample-data-button.tsx`, the shared `ConfirmDialog`) saying
+  that sample rows the person has edited or completed go too and that it
+  can't be undone, then deletes by that column
+  alone, scoped to the session household, children first. A sample list or
+  week plan that has since gained a row of the person's own is kept and
+  untagged instead of deleted; a pre-existing empty `MealPlan` for the week
+  is reused, never tagged, and keeps existing when cleared. What the card
+  shows is decided by `loadSampleDataState` (`src/lib/sample-data-state.ts`);
+  the rows are built by the pure `buildSampleData` (`src/lib/sample-data.ts`).
+  Covered by `src/lib/sample-data.test.ts`,
+  `src/lib/actions/sample-data.test.ts` and `e2e/sample-data.spec.ts`. The
+  landing page's "example data" claim is not restored by this item.
 - **Overview "Today" block (UX-70)**: the first thing on the overview,
   above the setup card, answers "what needs me now?"
   (`src/components/dashboard/today-block.tsx`, fed by
@@ -6476,7 +6797,7 @@ components directly.
   (household, splitting, personal), so the grid fills evenly at two and
   three columns; their icon tiles use the `chart-*` tokens. The copy
   claims only what's true: no "example data" (a new household starts
-  empty, see UX-136 in BACKLOG.md) and no "less than a minute" (signup
+  empty; sample data is an opt-in on the overview, UX-136) and no "less than a minute" (signup
   waits on email verification). Covered by `e2e/landing.spec.ts` (the
   preview at least 40% on screen without scrolling, every feature named,
   no empty grid cell at 1280 px, Swedish preview).
@@ -6680,6 +7001,35 @@ components directly.
   spec's `touchDrag` stamps CDP timestamps on its touch events so a
   flick's release velocity (Base UI dismisses at >= 0.5 px/ms) doesn't
   depend on how loaded the machine is.
+
+### Command palette (UX-41a)
+
+`src/components/dashboard/command-palette.tsx`, mounted once in the
+dashboard layout. `Ctrl+K` / `⌘K` toggles it; there is no button, and it is
+never the only way to anything (every command is also a nav link or a page
+button). It is the shared `Dialog` holding a combobox input over a listbox
+(`aria-activedescendant`, focus stays in the input), so Escape, the focus
+trap and the X work like every other dialog.
+
+- Commands are static (`command-palette-commands.ts`): quick actions first
+  ("Add task", "Add to shopping list"), then "Go to <section>" for each
+  `navItems` entry. Labels come from `dict.commandPalette` and `dict.nav`.
+- Typing filters: every word must appear in the label, any order, case
+  insensitive. Up/Down move the highlight (wrapping), Enter runs it, a
+  click runs it. The count is announced in a live region; no match shows
+  "No matching commands."
+- "Go to" commands navigate. The two quick actions navigate with `?add=1`:
+  on `/dashboard/tasks` the create `TaskFormDialog` opens, and
+  `/dashboard/shopping-list?add=1` redirects to the active list the
+  household is filling (the default "Next shop" first) where
+  `SmartAddBar` takes focus. Both strip the param afterwards. With no
+  active list the shopping command lands on the overview.
+- It stores nothing in the browser (`cookie-inventory.ts` unchanged).
+  No data search yet (UX-41b).
+
+Covered by `e2e/command-palette.spec.ts` and
+`command-palette-commands.test.ts`.
+
 
 ## Releases & What's new
 
@@ -7307,6 +7657,13 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   "New list" name no longer autofills the user's own name. `enterKeyHint` is
   set on the last field of the recipe-import, add-category and stock-scan
   "new item" inputs.
+  (UX-147) The budget dialogs follow suit: every text and number field in
+  the category add/edit, recurring-item and transaction dialogs sets
+  `autoComplete="off"`, and the last field of each form sets
+  `enterKeyHint` (`done`; earlier fields `next`). In the recurring dialog
+  Due day is `next` while "Split this bill" is on and each member's share is
+  `next` except the last. Covered by
+  `e2e/budget-form-autofill.spec.ts`.
 - **`src/app/dashboard/error.tsx`** is a segment boundary below the dashboard
   layout: a feature crash replaces only the page content, so the sidebar or
   bottom bar stay usable. When `navigator.onLine` is false it says the page
@@ -7349,9 +7706,30 @@ Todoist-style. Built as one shared wrapper,
 - **Every swipe duplicates a tap path** (DESIGN.md M7), and the swipe
   works by clicking the row's own button: the elements marked
   `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same
-  optimistic update, rollback toast and disabled state as a tap. The
-  trash button keeps its confirm dialog: swipe-delete is the quick path,
-  the button the deliberate one.
+  optimistic update, rollback toast and disabled state as a tap.
+- **One delete, one Undo (UX-49).** Every way to delete a task, shopping
+  item, inventory item, planned meal, recipe or transaction hides the row
+  at once and shows the same Undo toast, never a "This can't be undone"
+  confirm: the swipe, the desktop trash icon, the ⋯ menu's Delete, and the
+  Delete in a task's, meal's, recipe's or transaction's sheet (which closes
+  first). The inventory item page's Delete leaves the page at once. Tasks,
+  shopping items, inventory items and transactions leave the list at tap
+  time (`local-row-changes`, or the transaction list's own removed set), so
+  aisle headers, section counts and the "Next up" dock follow at once, and
+  the delete is sent through `startUndoableDelete`
+  (`src/components/shared/start-undoable-delete.ts`) when the toast closes;
+  meals and recipes hide their own row with `useUndoableDelete`. Undo
+  just brings the row back. The inventory item page's Delete uses
+  `startUndoableDelete` too. A meal's toast reads "Removed "…""; the
+  other deletes read "Deleted "…"". Household, budget category, recurring
+  template, planned bill, shopping list and account deletes keep their
+  confirms.
+- **Archiving a shopping list (UX-49)** shows "List archived" with Undo
+  (`archiveListWithUndo`, `src/components/shopping/archive-list.ts`; Undo is
+  the ordinary unarchive, which doesn't make the list the default again).
+  On the lists overview Archive/Unarchive and Delete sit together in each
+  card's ⋯ menu instead of two adjacent icons; Delete there keeps its
+  confirm because it takes the list's items with it.
 - **No action shows twice on a phone.** Below `sm`, a swipeable row
   doesn't also show Edit and Delete icons: they sit behind the row's ⋯
   menu instead. Shopping rows get `RowActionsMenu`
@@ -7692,6 +8070,32 @@ feature's dict) because nothing beside it names it. Filter "no matches",
 the bell dropdown, the catalog, scan queues and every budget surface stay
 text-only: small inline empties would be noise, and money surfaces get no
 mascot or celebration (PRODUCT.md Guardrails).
+
+**One empty-state pattern, with the next step inside it (UX-50).** On a new
+household every section and tab is the same thing: `MascotEmptyState`, one
+line on why the section is worth using, and exactly one primary action
+passed as its `action` prop, which places it through `PrimaryAction` (inline
+under the copy from `sm`, floating at the bottom right on a phone, so
+nothing may sit under it at 412 px). The page's own header `PrimaryAction`
+is left out while the section is empty, so there is never a second primary:
+Tasks (`AddTaskButton` renders nothing with no tasks; `TasksClient` gets
+`emptyAction`), Shopping (the page counts lists; `ShoppingListsOverview`
+gets `emptyAction`), Recipes ("New recipe"), Meal prep ("Record prep", which
+is now a `PrimaryAction` like its siblings instead of a full-width sticky
+bar) and the empty inventory ("Add item"; the quick-add row waits behind
+"Or type several in a row", starter kits stay below the box, and the
+header's own Add item and FAB only appear once there are items). Cook now
+gets the mascot and a link button: "Add a recipe" (to the Recipes tab) with
+no recipes, "Update your inventory" with recipes but none close to ready
+(`PrimaryAction` styles links as the phone pill too). An empty planner week
+is one empty state with "Add your first dinner" (the same `MealEntryDialog`,
+opened for today or the week's first day) instead of seven "+ Add meal"
+cards; its copy names "Copy last week" and "Fill empty days" in the ⋯ menu
+and, with no recipes yet, says to add a few first. A brand-new shopping
+list hides "Register receipt" until it has a row (the add line is its one
+action). Covered by `e2e/empty-states.spec.ts` (fresh empty household,
+desktop and mobile, including a check that no control sits under the
+floating button) and the planner specs that start from an empty week.
 
 **The one celebration.** Ticking the last pending item on an `ACTIVE`
 shopping list swaps the "All done" ring's tick for the mark, which rises

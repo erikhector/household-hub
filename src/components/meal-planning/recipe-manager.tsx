@@ -3,14 +3,15 @@
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { Bookmark, CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag } from "@/lib/recipe-tags";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import {
   createDialogHandle,
   Dialog,
@@ -32,6 +33,7 @@ import {
   deleteRecipeAction,
   duplicateRecipeAction,
   toggleRecipeFavoriteAction,
+  toggleRecipeCookSoonAction,
 } from "@/app/dashboard/meal-planning/recipe-actions";
 import { cn } from "@/lib/utils";
 import { format, plural } from "@/lib/i18n/format";
@@ -41,10 +43,13 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 import { createMoneyFormat } from "@/lib/currency";
 import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
+import type { RecipePlannedDate } from "@/app/dashboard/meal-planning/recipe-planned-dates";
 import { formatRecipeText } from "@/lib/recipe-text";
 import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
+
+import { splitCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -69,6 +74,7 @@ export function RecipeManager({
   recipes,
   recipeCosts,
   recipeCooked,
+  recipePlanned,
   useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
@@ -85,6 +91,8 @@ export function RecipeManager({
   // GAP-46: keyed by recipe id; a never-cooked recipe has no entry and
   // shows no line.
   recipeCooked: Record<string, RecipeCookedStats>;
+  // GAP-55: keyed by recipe id; an unplanned recipe has no entry.
+  recipePlanned: Record<string, RecipePlannedDate[]>;
   useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
@@ -114,6 +122,45 @@ export function RecipeManager({
       ),
     [recipes, query, tagFilter],
   );
+  // GAP-51: queued recipes pin to a "Cook soon" shelf above the list.
+  const { shelf, rest } = useMemo(() => splitCookSoon(filteredRecipes), [filteredRecipes]);
+  const renderRow = (recipe: RecipeData) => (
+    <RecipeRow
+      key={recipe.id}
+      dict={dict}
+      locale={locale}
+      recipe={recipe}
+      cost={recipeCosts[recipe.id] ?? null}
+      cooked={recipeCooked[recipe.id] ?? null}
+      planned={recipePlanned[recipe.id] ?? []}
+      numberFormat={numberFormat}
+      allRecipes={recipes}
+      ingredientNames={ingredientNames}
+      ingredientUnits={ingredientUnits}
+      plannerWeekStartKey={plannerWeekStartKey}
+      openEditOnMount={editNewId === recipe.id}
+      onEditOpened={() => setEditNewId(null)}
+      onDuplicated={setEditNewId}
+    />
+  );
+
+  // UX-50: "New recipe" is the tab's one primary; with no recipes yet the
+  // empty state holds it instead of the header.
+  const newRecipeDialog = (
+    <RecipeFormDialog
+      dict={dict}
+      mode="create"
+      allRecipes={recipes}
+      ingredientNames={ingredientNames}
+      ingredientUnits={ingredientUnits}
+      trigger={
+        <Button type="button">
+          <Plus className="size-4" />
+          {dict.newRecipe}
+        </Button>
+      }
+    />
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -125,25 +172,11 @@ export function RecipeManager({
         {/* M2: on a phone the tab's one primary action floats in thumb
             reach above the bottom bar, like every other page's (UX-40);
             from `sm` it stays here in the header. */}
-        <PrimaryAction>
-          <RecipeFormDialog
-            dict={dict}
-            mode="create"
-            allRecipes={recipes}
-            ingredientNames={ingredientNames}
-            ingredientUnits={ingredientUnits}
-            trigger={
-              <Button type="button">
-                <Plus className="size-4" />
-                {dict.newRecipe}
-              </Button>
-            }
-          />
-        </PrimaryAction>
+        {recipes.length > 0 && <PrimaryAction>{newRecipeDialog}</PrimaryAction>}
       </div>
 
       {recipes.length === 0 ? (
-        <MascotEmptyState alt={dict.mascotAlt}>
+        <MascotEmptyState alt={dict.mascotAlt} action={newRecipeDialog}>
           <p className="text-sm text-muted-foreground">{dict.emptyRecipes}</p>
         </MascotEmptyState>
       ) : (
@@ -185,26 +218,19 @@ export function RecipeManager({
               {dict.noRecipeSearchResults}
             </p>
           ) : (
-            <div className="list-bleed flex flex-col divide-y rounded-md border">
-              {filteredRecipes.map((recipe) => (
-                <RecipeRow
-                  key={recipe.id}
-                  dict={dict}
-                  locale={locale}
-                  recipe={recipe}
-                  cost={recipeCosts[recipe.id] ?? null}
-                  cooked={recipeCooked[recipe.id] ?? null}
-                  numberFormat={numberFormat}
-                  allRecipes={recipes}
-                  ingredientNames={ingredientNames}
-                  ingredientUnits={ingredientUnits}
-                  plannerWeekStartKey={plannerWeekStartKey}
-                  openEditOnMount={editNewId === recipe.id}
-                  onEditOpened={() => setEditNewId(null)}
-                  onDuplicated={setEditNewId}
-                />
-              ))}
-            </div>
+            <>
+              {shelf.length > 0 && (
+                <section className="flex flex-col gap-2" aria-labelledby="cook-soon-title">
+                  <h3 id="cook-soon-title" className="font-heading text-base font-semibold">
+                    {dict.cookSoonTitle}
+                  </h3>
+                  <div className="list-bleed flex flex-col divide-y rounded-md border">
+                    {shelf.map(renderRow)}
+                  </div>
+                </section>
+              )}
+              {rest.length > 0 && <div className="list-bleed flex flex-col divide-y rounded-md border">{rest.map(renderRow)}</div>}
+            </>
           )}
         </>
       )}
@@ -218,6 +244,7 @@ function RecipeRow({
   recipe,
   cost,
   cooked,
+  planned,
   numberFormat,
   allRecipes,
   ingredientNames,
@@ -232,6 +259,7 @@ function RecipeRow({
   recipe: RecipeData;
   cost: RecipeCost | null;
   cooked: RecipeCookedStats | null;
+  planned: RecipePlannedDate[];
   numberFormat: Intl.NumberFormat;
   allRecipes: RecipeData[];
   ingredientNames: string[];
@@ -291,6 +319,15 @@ function RecipeRow({
       })
     : "";
 
+  // GAP-55: "Tue 21 Oct". Entry dates are UTC days, formatted in UTC for
+  // the same reason as the cooked date above.
+  const plannedDayFormat = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+
   // GAP-43: plain text on the clipboard, nothing stored or shared. The
   // success toast waits for the write (clipboard.writeText rejects when the
   // page is unfocused or permission is denied), same as CopyLinkButton.
@@ -343,12 +380,14 @@ function RecipeRow({
     });
   };
 
-  const handleDelete = () => {
-    startTransition(async () => {
-      const result = await deleteRecipeAction(recipe.id);
-      if (result.error) toast.error(result.error);
-    });
-  };
+  // UX-49: Delete hides the recipe at once with an Undo toast and sends the
+  // delete when the toast closes, instead of a "can't be undone" confirm.
+  const { hidden, remove: handleDelete } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteRecipeAction(recipe.id), dict.prepConnectionError)) !== null,
+    message: format(dict.recipeDeletedToast, { name: recipe.name }),
+    undoLabel: dict.undoDelete,
+  });
 
   // Star toggle (GAP-18). Its own transition, separate from delete's, so a
   // pending star doesn't grey out the delete button and vice versa. The
@@ -363,6 +402,22 @@ function RecipeRow({
       setOptimisticFavorite(!optimisticFavorite);
       const result = await toggleRecipeFavoriteAction(recipe.id);
       if (result.error) toast.error(result.error);
+    });
+  };
+
+  // Cook soon (GAP-51), same optimistic pattern as the star. The button sits
+  // in the sheet, so the row stays two lines (M6); toggling moves the row
+  // between the shelf and the list, and the toast says which way.
+  const [isCookSoonPending, startCookSoonTransition] = useTransition();
+  const [optimisticCookSoon, setOptimisticCookSoon] = useOptimistic(recipe.cookSoonAt !== null);
+  const handleToggleCookSoon = () => {
+    const adding = !optimisticCookSoon;
+    startCookSoonTransition(async () => {
+      setOptimisticCookSoon(adding);
+      const result = await toggleRecipeCookSoonAction(recipe.id);
+      if (result.error) toast.error(result.error);
+      else
+        toast.success(format(adding ? dict.cookSoonAddedToast : dict.cookSoonRemovedToast, { name: recipe.name }));
     });
   };
 
@@ -392,7 +447,6 @@ function RecipeRow({
     cook: createDialogHandle(),
     edit: createDialogHandle(),
     review: createDialogHandle(),
-    remove: createDialogHandle(),
   }));
   // Same hand-off as the planner's meal sheet: the sheet closes as the
   // chosen action's dialog opens, so closing that lands back on the list.
@@ -405,6 +459,8 @@ function RecipeRow({
     setSheetOpen(false);
     handle.open(null);
   }
+
+  if (hidden) return null;
 
   return (
     <div className="flex items-center gap-1 px-1 py-1">
@@ -497,7 +553,7 @@ function RecipeRow({
           {/* Sub-recipes, nutrition (only when filled in — see Recipe's
               doc comment in schema.prisma), the GAP-15 cost estimate and
               GAP-46's cooked count: each line only when it has something. */}
-          {(componentSummary || nutritionSummary || costSummary || cookedSummary) && (
+          {(componentSummary || nutritionSummary || costSummary || cookedSummary || planned.length > 0) && (
             <div className="flex flex-col gap-1 text-sm text-muted-foreground">
               {componentSummary && (
                 <p className="flex items-start gap-1 break-words">
@@ -514,6 +570,25 @@ function RecipeRow({
                 </p>
               )}
               {cookedSummary && <p>{cookedSummary}</p>}
+              {/* GAP-55: each date opens the planner on its week. Links in
+                  a sentence are exempt from the 44px rule (M3). */}
+              {planned.length > 0 && (
+                <p>
+                  {dict.recipePlannedLabel}{" "}
+                  {planned.map((d, i) => (
+                    <span key={d.dateKey}>
+                      {i > 0 && ", "}
+                      <Link
+                        href={`/dashboard/meal-planning?week=${d.weekStartKey}`}
+                        data-running-text
+                        className="underline underline-offset-4"
+                      >
+                        {plannedDayFormat.format(new Date(`${d.dateKey}T00:00:00.000Z`))}
+                      </Link>
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
           )}
           {/* UX-92: the steps are plain text, one per line (splitSteps), the
@@ -543,6 +618,16 @@ function RecipeRow({
             >
               <CalendarPlus className="size-4" />
               {dict.addToPlanButton}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start"
+              disabled={isCookSoonPending}
+              onClick={handleToggleCookSoon}
+            >
+              <Bookmark className={cn("size-4", optimisticCookSoon && "fill-current")} />
+              {optimisticCookSoon ? dict.cookSoonRemove : dict.cookSoonAdd}
             </Button>
             {recipe.ingredients.length > 0 && (
               <Button
@@ -579,7 +664,11 @@ function RecipeRow({
               variant="destructive"
               className="w-full justify-start"
               disabled={isPending}
-              onClick={() => openFromSheet(dialogs.remove)}
+              onClick={() => {
+                setSheetOpen(false);
+                // After the sheet has closed, so it unmounts shut.
+                requestAnimationFrame(handleDelete);
+              }}
             >
               <Trash2 className="size-4" />
               {dict.deleteAriaLabel}
@@ -638,15 +727,6 @@ function RecipeRow({
           handle={dialogs.review}
         />
       )}
-      <ConfirmDialog
-        handle={dialogs.remove}
-        title={format(dict.confirmDelete.title, { name: recipe.name })}
-        description={dict.confirmDelete.description}
-        cancelLabel={dict.confirmDelete.cancel}
-        confirmLabel={dict.confirmDelete.confirm}
-        pendingLabel={dict.confirmDelete.confirming}
-        onConfirm={handleDelete}
-      />
     </div>
   );
 }

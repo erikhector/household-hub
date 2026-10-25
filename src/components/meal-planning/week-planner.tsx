@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Trash2, Unlink, Utensils } from "lucide-react";
+import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Unlink, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
+import { createDeferredDelete, type DeferredDelete } from "@/components/shared/deferred-delete";
+import { Checkbox } from "@/components/ui/checkbox";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import {
   createDialogHandle,
   Dialog,
@@ -33,7 +37,10 @@ import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog, type PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
 import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
+import { MealPlanSearch } from "@/components/meal-planning/meal-plan-search";
 import { MoveMealDialog } from "@/components/meal-planning/move-meal-dialog";
+import { BulkMealBar } from "@/components/meal-planning/bulk-meal-bar";
+import { bulkEditMealEntriesAction } from "@/app/dashboard/meal-planning/bulk-meal-actions";
 import {
   copyWeekAction,
   deleteMealEntryAction,
@@ -123,7 +130,7 @@ export function WeekPlanner({
   weekStartKey,
   recipes,
   recipeCooked,
-  entries,
+  entries: allEntries,
   activeShoppingLists,
   batches,
   missingCount,
@@ -148,6 +155,16 @@ export function WeekPlanner({
   // cooked row, because that row stops rendering MarkCookedDialog the moment
   // the meal counts as cooked.
   const [leftoversPlan, setLeftoversPlan] = useState<PlanLeftoversRequest | null>(null);
+  // GAP-56: Select mode. The selection is ids, resolved against what's on
+  // screen below, so a week change or a meal cooked elsewhere can't leave a
+  // stale row selected. A bulk Remove hides its rows at once (hiddenIds) and
+  // sends the delete when its Undo toast closes, like a single Remove meal.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
+  const pendingRemovals = useRef<DeferredDelete[]>([]);
+  const entries = allEntries.filter((entry) => !hiddenIds.has(entry.id));
+  const selectedEntries = entries.filter((entry) => selectedIds.has(entry.id) && !entry.consumedAt);
   const weekStart = parseDateKey(weekStartKey);
   const weekEnd = addDays(weekStart, 6);
   // UX-15: "28 sep.–4 okt. 2026" in sv, "Sep 28 – Oct 4, 2026" in en —
@@ -177,6 +194,65 @@ export function WeekPlanner({
   // inside the ⋯ menu would unmount with the menu, so it lives beside it.
   const [missingOpen, setMissingOpen] = useState(false);
   const [fillOpen, setFillOpen] = useState(false);
+
+  // Leaving the page ends a bulk Remove's Undo window: send the delete now
+  // rather than lose it (same as useUndoableDelete).
+  useEffect(() => {
+    // The array is only ever pushed to, never replaced, so this is the one
+    // the cleanup needs too.
+    const pending = pendingRemovals.current;
+    const flush = () => {
+      if (document.visibilityState === "hidden") pending.forEach((d) => d.commit());
+    };
+    document.addEventListener("visibilitychange", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", flush);
+      pending.forEach((d) => d.commit());
+    };
+  }, []);
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function removeSelected() {
+    const ids = selectedEntries.map((entry) => entry.id);
+    if (ids.length === 0) return;
+    setHiddenIds((prev) => new Set([...prev, ...ids]));
+    exitSelectMode();
+    const deferred = createDeferredDelete({
+      run: async () => {
+        const result = await settleOptimisticAction(
+          () => bulkEditMealEntriesAction({ op: "remove", entryIds: ids }),
+          dict.prepConnectionError,
+        );
+        return result !== null;
+      },
+      restore: () =>
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          ids.forEach((id) => next.delete(id));
+          return next;
+        }),
+    });
+    pendingRemovals.current.push(deferred);
+    toast(format(plural(ids.length, dict.bulkRemovedToast), { count: ids.length }), {
+      duration: 5000,
+      action: { label: dict.undoDelete, onClick: deferred.undo },
+      onAutoClose: deferred.commit,
+      onDismiss: deferred.commit,
+    });
+  }
 
   // UX-21: on a phone the week is one column and today can be several
   // screens down, so bring it into view on load. Only when it isn't already
@@ -217,6 +293,9 @@ export function WeekPlanner({
   const emptyDays = days
     .filter((day) => !entriesByDay.has(day.dateKey) && day.dateKey >= todayKey)
     .map((day) => ({ dateKey: day.dateKey, label: `${day.weekdayLabel} ${day.dayOfMonth}` }));
+  // UX-50: where an empty week's "Add your first dinner" lands: today, or
+  // the next day this week, or Monday of a week already over.
+  const firstOpenDay = days.find((day) => day.dateKey >= todayKey) ?? days[0];
   const plannedRecipeIds = [...new Set(entries.flatMap((e) => (e.recipeId ? [e.recipeId] : [])))];
 
   return (
@@ -262,9 +341,18 @@ export function WeekPlanner({
               <ListPlus className="size-4" />
               {dict.addMissingIngredients}
             </DropdownMenuItem>
+            {entries.some((entry) => !entry.consumedAt) && !selectMode && (
+              <DropdownMenuItem onClick={() => setSelectMode(true)}>
+                <ListChecks className="size-4" />
+                {dict.bulkSelectAction}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {/* GAP-59: below the sticky week bar, not in it, so the bar stays one
+          row on a phone. */}
+      <MealPlanSearch dict={dict} locale={locale} />
       {fillOpen && (
         <FillEmptyDaysDialog
           dict={dict}
@@ -284,6 +372,39 @@ export function WeekPlanner({
         />
       )}
 
+      {entries.length === 0 ? (
+        // UX-50 / M6: a week with nothing planned is one empty state with
+        // one next step, not seven identical "+ Add meal" cards. The step is
+        // the first dinner (the dialog offers the household's recipes);
+        // "Copy last week" and "Fill empty days" stay in the ⋯ menu, which
+        // the copy names.
+        <MascotEmptyState
+          alt={dict.mascotAlt}
+          action={
+            <MealEntryDialog
+              key="first-dinner"
+              dict={dict}
+              weekStartKey={weekStartKey}
+              dateKey={firstOpenDay.dateKey}
+              dayLabel={`${firstOpenDay.weekdayLabel} ${firstOpenDay.dayOfMonth}`}
+              mealType="DINNER"
+              recipes={recipes}
+              recipeCooked={recipeCooked}
+              batches={batches}
+              trigger={
+                <Button type="button">
+                  <Plus className="size-4" />
+                  {dict.addFirstDinner}
+                </Button>
+              }
+            />
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            {recipes.length > 0 ? dict.plannerEmpty : dict.plannerEmptyNoRecipes}
+          </p>
+        </MascotEmptyState>
+      ) : (
       <div className="list-bleed grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
         {days.map((day) => {
           // A day lists only what's planned, slot by slot, then one
@@ -327,37 +448,52 @@ export function WeekPlanner({
                     recipes={recipes}
                     weekStartKey={weekStartKey}
                     onPlanLeftovers={setLeftoversPlan}
+                    selectMode={selectMode}
+                    selected={selectedIds.has(entry.id)}
+                    onToggleSelected={toggleSelected}
                   />
                 ))}
-                <MealEntryDialog
-                  key={openSlot}
-                  dict={dict}
-                  weekStartKey={weekStartKey}
-                  dateKey={day.dateKey}
-                  dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
-                  mealType={openSlot}
-                  recipes={recipes}
-                  recipeCooked={recipeCooked}
-                  batches={batches}
-                />
+                {!selectMode && (
+                  <MealEntryDialog
+                    key={openSlot}
+                    dict={dict}
+                    weekStartKey={weekStartKey}
+                    dateKey={day.dateKey}
+                    dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
+                    mealType={openSlot}
+                    recipes={recipes}
+                    recipeCooked={recipeCooked}
+                    batches={batches}
+                  />
+                )}
               </CardContent>
             </Card>
           );
         })}
       </div>
+      )}
       {/* UX-91: turning the week into a shopping list is the planner's
           primary action (DESIGN.md Hierarchy, M2), so it is a labelled
           button at the bottom, floating above the bottom bar on phones,
           not just the ⋯ menu's last item. It opens the same review dialog,
           so nothing lands on a list unseen. Hidden when there is nothing
           to add. */}
-      {entries.length > 0 && missingCount > 0 && (
+      {entries.length > 0 && missingCount > 0 && !selectMode && (
         <PrimaryAction>
           <Button type="button" onClick={() => setMissingOpen(true)}>
             <ListPlus className="size-4" />
             {format(dict.addMissingToShoppingList, { count: missingCount })}
           </Button>
         </PrimaryAction>
+      )}
+      {selectMode && (
+        <BulkMealBar
+          dict={dict}
+          selected={selectedEntries}
+          onDone={exitSelectMode}
+          onRemove={removeSelected}
+          onChanged={exitSelectMode}
+        />
       )}
       {leftoversPlan && (
         <AddToPlanDialog
@@ -396,6 +532,9 @@ function MealEntryRow({
   recipes,
   weekStartKey,
   onPlanLeftovers,
+  selectMode,
+  selected,
+  onToggleSelected,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -404,6 +543,10 @@ function MealEntryRow({
   recipes: RecipeData[];
   weekStartKey: string;
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
+  // GAP-56: in Select mode the row is a checkbox instead of a sheet opener.
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelected: (id: string) => void;
 }) {
   const label = entry.recipeName ?? entry.freeformName ?? "";
   const slotLabel = dict[mealTypeDictKey[entry.mealType]];
@@ -419,12 +562,19 @@ function MealEntryRow({
   const router = useRouter();
   const [unassignPending, startUnassign] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // UX-49: Remove meal hides the row at once with an Undo toast (the delete
+  // goes out when it closes), not a "can't be undone" confirm.
+  const { hidden, remove } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteMealEntryAction(entry.id), dict.prepConnectionError)) !== null,
+    message: format(dict.mealRemovedToast, { meal: label }),
+    undoLabel: dict.undoDelete,
+  });
   const [dialogs] = useState(() => ({
     cook: createDialogHandle(),
     markCooked: createDialogHandle(),
     edit: createDialogHandle(),
     move: createDialogHandle(),
-    remove: createDialogHandle(),
   }));
 
   // The sheet closes as the chosen action's dialog opens over the page, so
@@ -458,6 +608,53 @@ function MealEntryRow({
     });
   }
 
+  if (hidden) return null;
+
+  const rowBody = (
+    <>
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span className="text-xs font-medium uppercase text-muted-foreground">{slotLabel}</span>{" "}
+      <span className="break-words">
+        <span>{label}</span>
+        {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
+      </span>
+    </span>
+    {/* Words, not just a colour or an icon, so the state reads the
+        same to everyone (GAP-49's badge, the cooked tick). */}
+    {prepped && (
+      <Badge variant="outline" className="shrink-0">
+        {dict.prepPreppedBadge}
+      </Badge>
+    )}
+    {cooked && (
+      <span className="flex shrink-0 items-center gap-1 text-xs text-success">
+        <CheckCircle2 className="size-3.5" aria-hidden="true" />
+        {dict.mealCookedBadgeLabel}
+      </span>
+    )}
+    </>
+  );
+
+  if (selectMode) {
+    if (cooked) {
+      // Cooked meals aren't selectable: their day, slot and portions record
+      // what was eaten (see bulk-meal-actions.ts). Said in words, not only
+      // by being dimmed.
+      return (
+        <div className="flex min-h-11 w-full items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-sm text-muted-foreground">
+          {rowBody}
+          <span className="sr-only">{dict.bulkCookedLocked}</span>
+        </div>
+      );
+    }
+    return (
+      <label className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md bg-muted px-2 py-1.5 text-sm transition-colors has-[:checked]:bg-accent has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
+        <Checkbox checked={selected} onChange={() => onToggleSelected(entry.id)} />
+        {rowBody}
+      </label>
+    );
+  }
+
   return (
     <>
       <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -469,26 +666,7 @@ function MealEntryRow({
             />
           }
         >
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-xs font-medium uppercase text-muted-foreground">{slotLabel}</span>{" "}
-            <span className="break-words">
-              <span>{label}</span>
-              {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
-            </span>
-          </span>
-          {/* Words, not just a colour or an icon, so the state reads the
-              same to everyone (GAP-49's badge, the cooked tick). */}
-          {prepped && (
-            <Badge variant="outline" className="shrink-0">
-              {dict.prepPreppedBadge}
-            </Badge>
-          )}
-          {cooked && (
-            <span className="flex shrink-0 items-center gap-1 text-xs text-success">
-              <CheckCircle2 className="size-3.5" aria-hidden="true" />
-              {dict.mealCookedBadgeLabel}
-            </span>
-          )}
+          {rowBody}
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </DialogTrigger>
         <DialogContent>
@@ -570,7 +748,11 @@ function MealEntryRow({
               type="button"
               variant="destructive"
               className="w-full justify-start"
-              onClick={() => openFromSheet(dialogs.remove)}
+              onClick={() => {
+                setSheetOpen(false);
+                // After the sheet has closed, so it unmounts shut.
+                requestAnimationFrame(remove);
+              }}
             >
               <Trash2 className="size-4" />
               {dict.removeMealAriaLabel}
@@ -604,15 +786,6 @@ function MealEntryRow({
           />
         </>
       )}
-      <ConfirmDialog
-        handle={dialogs.remove}
-        title={format(dict.confirmDeleteMeal.title, { meal: label })}
-        description={cooked ? dict.confirmDeleteMeal.descriptionCooked : dict.confirmDeleteMeal.description}
-        cancelLabel={dict.confirmDeleteMeal.cancel}
-        confirmLabel={dict.confirmDeleteMeal.confirm}
-        pendingLabel={dict.confirmDeleteMeal.confirming}
-        onConfirm={() => deleteMealEntryAction(entry.id)}
-      />
     </>
   );
 }

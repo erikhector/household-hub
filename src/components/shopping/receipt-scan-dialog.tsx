@@ -336,7 +336,10 @@ export function ReceiptScanDialog({
   function handleApply() {
     const matches = rows
       .filter((row) => row.matchId !== SKIP_VALUE)
-      .map((row) => ({ shoppingListItemId: row.matchId, price: Number(row.price) }))
+      // BUG-3: the receipt line's own count rides along, since the list row it
+      // matches may be for a different number ("Milk x1" vs "3 x Milk 45,00")
+      // and the server divides the price by it for the unit price.
+      .map((row) => ({ shoppingListItemId: row.matchId, price: Number(row.price), quantity: row.quantity }))
       .filter((m) => Number.isFinite(m.price) && m.price > 0);
 
     if (matches.length === 0) {
@@ -372,6 +375,9 @@ export function ReceiptScanDialog({
   const acceptedRows = rows.filter((row) => row.autoAccepted);
   const reviewRows = rows.filter((row) => !row.autoAccepted);
 
+  // "3 × 15,00": the quantity and what one costs, so a misread count shows.
+  const unitPriceFormat = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   function renderRow(row: ReviewRow) {
     const isUnmatched = row.matchId === SKIP_VALUE;
     const isAdding = addingKey === row.key;
@@ -384,7 +390,14 @@ export function ReceiptScanDialog({
               {row.name}
             </p>
             {row.quantity !== 1 && (
-              <p className="text-xs text-muted-foreground">{format(dict.qtyLabel, { qty: row.quantity })}</p>
+              <p className="text-xs text-muted-foreground">
+                {Number(row.price) > 0
+                  ? format(dict.qtyAtUnitPrice, {
+                      qty: row.quantity,
+                      unitPrice: unitPriceFormat.format(Number(row.price) / row.quantity),
+                    })
+                  : format(dict.qtyLabel, { qty: row.quantity })}
+              </p>
             )}
             {row.byBarcode && <p className="text-xs text-muted-foreground">{dict.matchedByBarcode}</p>}
             {isUnmatched && !isDraftOpen && <p className="text-xs text-muted-foreground">{dict.noMatchHint}</p>}

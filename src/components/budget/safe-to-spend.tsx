@@ -34,6 +34,7 @@ import { createMoneyFormat } from "@/lib/currency";
 import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import { AnimatedNumber } from "@/components/charts/animated-number";
 import { ProjectionChart } from "@/components/charts/projection-chart";
+import { HouseholdDebtsList } from "@/components/budget/household-debts-list";
 
 // Calmer three-way read on the amount (see docs/archive/JOY_GAP_BACKLOG.md item 3): a
 // tight-but-not-empty balance gets its own amber tone instead of being
@@ -124,6 +125,9 @@ export function SafeToSpend({
     { label: dict.lineOwedFromEarlier, value: breakdown.owedFromEarlier, sign: "–" },
     { label: dict.lineDuePayments, value: breakdown.duePayments, sign: "–" },
     { label: dict.lineDueSavings, value: breakdown.dueSavings, sign: "→" },
+    // UX-138: what is left of the monthly limits. Earmarked, so it comes off
+    // the number even though it isn't spent yet.
+    { label: dict.lineStillBudgeted, value: breakdown.stillBudgeted, sign: "–" },
   ];
 
   const arithmetic = (
@@ -279,56 +283,12 @@ export function SafeToSpend({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {setup ? setupContent : numberContent}
-        {householdDebts.length > 0 && (
-          <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-            <p className="text-xs font-medium text-muted-foreground">{dict.debtsTitle}</p>
-            <ul className="flex flex-col gap-1.5">
-              {householdDebts.map((debt) => {
-                const household = showHouseholdName ? debt.householdName : "";
-                return (
-                  <li key={debt.householdId} className="flex flex-col gap-0.5 text-sm">
-                    {debt.owedToMembers > 0.005 && (
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate">
-                          {household ? format(dict.youOweIn, { household }) : dict.youOwe}
-                        </span>
-                        <span className="shrink-0 tabular-nums text-destructive">
-                          {numberFormat.format(debt.owedToMembers)}
-                        </span>
-                      </span>
-                    )}
-                    {debt.owedToMembers < -0.005 && (
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate">
-                          {household ? format(dict.owedToYouIn, { household }) : dict.owedToYou}
-                        </span>
-                        <span className="shrink-0 tabular-nums text-success">
-                          {numberFormat.format(-debt.owedToMembers)}
-                        </span>
-                      </span>
-                    )}
-                    {debt.owedToBills > 0.005 && (
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate">
-                          {household ? format(dict.unpaidBillsIn, { household }) : dict.unpaidBills}
-                        </span>
-                        <span className="shrink-0 tabular-nums text-warning">
-                          {numberFormat.format(debt.owedToBills)}
-                        </span>
-                      </span>
-                    )}
-                    <Link
-                      href={`/dashboard/budget?household=${debt.householdId}&tab=insights`}
-                      className="inline-flex items-center self-start text-xs font-medium text-primary hover:underline max-sm:min-h-11 pointer-coarse:min-h-11"
-                    >
-                      {dict.settleUpLink}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+        <HouseholdDebtsList
+          debts={householdDebts}
+          showHouseholdName={showHouseholdName}
+          numberFormat={numberFormat}
+          dict={dict}
+        />
       </CardContent>
     </Card>
   );

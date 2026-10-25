@@ -36,6 +36,13 @@ Stop at the first real problem in a hunk, note it, move on.
 - [ ] User-visible change ⇒ an `e2e/` spec asserts it, passing on both the
       `desktop` and `mobile` projects. New page ⇒ listed in `e2e/routes.ts`
       (seeded row in `e2e/seed.ts` if it has a dynamic segment).
+- [ ] You ran that new spec yourself and it passed. A spec that never ran
+      reached the release PR broken (UX-112's inserted a role,
+      `MEMBER`, that isn't in `HouseholdRole`; #602 was reverted).
+- [ ] The spec waits for hydration (`expectHydrated`, `gotoRevealed`,
+      `waitForDialogHistory`; see AGENTS.md "Shared checks") before it
+      clicks a React-driven control or reloads. MAINT-34, 40, 43, 44,
+      46-51 each fixed one that didn't.
 - [ ] Layout/CSS change ⇒ ran the full `npm run test:e2e` (or at least the
       specs near the area, e.g. `form-control-sizes`) once, not only
       `test:e2e:quick`: the landscape and tablet reruns have broken the

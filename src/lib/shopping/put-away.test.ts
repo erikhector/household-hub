@@ -170,6 +170,29 @@ describe("applyStockArrival", () => {
     );
   });
 
+  it("stores lastKnownPrice per unit of the quantity the price was paid for, not of what arrives (BUG-3)", async () => {
+    const tx = fakeTx();
+    openedResetOnArrivalMock.mockReturnValue(null);
+    estimatedExpiryUpdateMock.mockReturnValue(null);
+    addToDefaultListOnLowStockMock.mockResolvedValue(null);
+
+    await applyStockArrival(tx, {
+      householdId: "household-1",
+      inventoryItem: fakeItem({ quantity: 0 }),
+      quantity: 1,
+      unit: "l",
+      price: 45,
+      priceQuantity: 3,
+    });
+
+    expect(tx.inventoryItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ quantity: 1, lastKnownPrice: 15 }) }),
+    );
+    expect(tx.priceHistory.create).toHaveBeenCalledWith({
+      data: { inventoryItemId: "item-1", price: 45, quantity: 3, unit: "l" },
+    });
+  });
+
   it("writes lastKnownPrice and records a PriceHistory row using the arrival quantity by default", async () => {
     const tx = fakeTx();
     openedResetOnArrivalMock.mockReturnValue(null);
@@ -185,7 +208,7 @@ describe("applyStockArrival", () => {
     });
 
     expect(tx.inventoryItem.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ lastKnownPrice: 19.9 }) }),
+      expect.objectContaining({ data: expect.objectContaining({ lastKnownPrice: 4.975 }) }),
     );
     expect(tx.priceHistory.create).toHaveBeenCalledWith({
       data: { inventoryItemId: "item-1", price: 19.9, quantity: 4, unit: "L" },

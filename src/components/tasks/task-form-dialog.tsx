@@ -22,7 +22,8 @@
 // rotation is set, "Assign to" becomes "whose turn it is now" and only
 // offers the people taking turns, matching what the server enforces.
 
-import { useActionState, useState, type ReactElement } from "react";
+import { useActionState, useEffect, useState, type ReactElement } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 import { createTaskAction, updateTaskAction } from "@/app/dashboard/tasks/actions";
 import type { ActionState } from "@/lib/actions/auth";
 import { MIN_ROTATION_MEMBERS } from "@/lib/task-rotation";
@@ -49,6 +51,8 @@ type EditableTask = {
   title: string;
   assignedToMemberId: string | null;
   recurrenceIntervalDays: number | null;
+  /** UX-133: a one-off's due date as YYYY-MM-DD. */
+  dueDate: string | null;
   rotationMemberIds: string[];
 };
 
@@ -80,8 +84,8 @@ export function TaskFormDialog({
   dict: TasksDict;
   trigger: ReactElement;
   /** Edit mode only (UX-106): adds a Delete button to the sheet. The row
-   *  hands it to its own trash button, so the confirm dialog is the same one
-   *  the desktop icon opens. */
+   *  hands it to its own trash button, so the Undo toast is the same one
+   *  the desktop icon shows. */
   onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -94,6 +98,24 @@ export function TaskFormDialog({
     mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
   );
   const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
+  const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");
+
+  // UX-41a: the command palette's "Add task" lands here with `?add=1`. Only
+  // the create form listens (the edit dialogs share this component). The
+  // param is stripped again in an effect so a reload doesn't reopen it, and
+  // watched as it changes (adjust-state-during-render, like the shopping
+  // list's `putAway`) so a second palette run on this page opens it again.
+  const router = useRouter();
+  const pathname = usePathname();
+  const addParam = useSearchParams().get(ADD_PARAM);
+  const [seenAddParam, setSeenAddParam] = useState<string | null>(null);
+  if (addParam !== seenAddParam) {
+    setSeenAddParam(addParam);
+    if (addParam === "1" && mode === "create") setOpen(true);
+  }
+  useEffect(() => {
+    if (addParam === "1" && mode === "create") router.replace(pathname, { scroll: false });
+  }, [addParam, mode, pathname, router]);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -104,6 +126,7 @@ export function TaskFormDialog({
         mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
       );
       setRotation(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
+      setDueDate(mode === "edit" ? (task?.dueDate ?? "") : "");
     }
   };
 
@@ -159,6 +182,7 @@ export function TaskFormDialog({
             recurrenceIntervalDays: formData.has("recurrenceIntervalDays")
               ? Number(formData.get("recurrenceIntervalDays"))
               : null,
+            dueDate: String(formData.get("dueDate") ?? ""),
             rotationMemberIds: formData.getAll("rotationMemberIds").map(String),
           });
         };
@@ -272,6 +296,35 @@ export function TaskFormDialog({
               </SelectContent>
             </Select>
           </div>
+          {/* UX-133: a one-off can carry a due date. A repeat is due when its
+              schedule comes round, so the field steps aside rather than
+              taking a date the server would drop. */}
+          {!repeats && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-due-date">{dict.dueDateLabel}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="task-due-date"
+                  type="date"
+                  name="dueDate"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="min-w-0 flex-1 max-sm:min-h-11"
+                />
+                {dueDate !== "" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="shrink-0 max-sm:min-h-11 pointer-coarse:min-h-11"
+                    onClick={() => setDueDate("")}
+                  >
+                    {dict.clearDueDate}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">{dict.dueDateHint}</p>
+            </div>
+          )}
           {canRotate && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-rotation-add">{dict.rotationLabel}</Label>
@@ -353,8 +406,8 @@ export function TaskFormDialog({
             {/* UX-106 (M7): a phone row has no trash icon, so the sheet is
                 the visible path to Delete (the swipe tray is the quick one).
                 Last in the stacked footer, away from Save, and quiet: Save
-                stays the one primary action. The sheet closes first so the
-                confirm dialog doesn't open on top of it. */}
+                stays the one primary action. The sheet closes first so it
+                unmounts shut when the row goes. */}
             {mode === "edit" && onDelete && (
               <Button
                 type="button"

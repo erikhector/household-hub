@@ -67,14 +67,26 @@ test("an active 15-item list shows six whole rows above the dock, each 56-64 px"
 
   // Scrolled the way a shopper is mid-shop: the first row just under the
   // sticky add bar. (On first load the page title and actions sit above the
-  // list, which this item doesn't touch.)
+  // list, which this item doesn't touch.) The page can still be settling
+  // after hydration (the title collapsing as it scrolls away, the add bar
+  // sticking), which moves the first row after a one-shot scroll was
+  // measured (MAINT-46: the sixth row's bottom read 705 against a dock at
+  // 531 on a loaded runner). So wait until the first row sits where it
+  // should, and keeps sitting there across two frames, before measuring.
   const main = page.getByRole("main");
-  await main.evaluate((el) => el.scrollTo(0, 200));
-  await page.waitForTimeout(200);
-  const field = (await page.getByRole("combobox", { name: "Add to the list" }).boundingBox())!;
-  const first = (await rowOf(names[0]).boundingBox())!;
-  await main.evaluate((main, by) => main.scrollBy(0, by), first.y - (field.y + field.height + 16));
-  await page.waitForTimeout(300);
+  const field = page.getByRole("combobox", { name: "Add to the list" });
+  const gapToField = async () => {
+    const f = (await field.boundingBox())!;
+    const r = (await rowOf(names[0]).boundingBox())!;
+    return r.y - (f.y + f.height + 16);
+  };
+  await expect(async () => {
+    const before = await gapToField();
+    if (Math.abs(before) > 1) await main.evaluate((el, by) => el.scrollBy(0, by), before);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    expect(Math.abs(before), "the first row has stopped moving").toBeLessThanOrEqual(1);
+    expect(Math.abs(await gapToField())).toBeLessThanOrEqual(1);
+  }).toPass({ timeout: 10_000 });
 
   const dock = (await page.getByRole("region", { name: "Next up" }).boundingBox())!;
   const rows = [];

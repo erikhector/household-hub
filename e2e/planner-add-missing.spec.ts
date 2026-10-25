@@ -84,7 +84,7 @@ test.afterEach(async () => {
 
 test("an empty week has no Add missing button", async ({ page }) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
-  await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(7);
+  await expect(page.getByRole("button", { name: "Add your first dinner" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Add \d+ missing to shopping list$/ })).toHaveCount(0);
 });
 

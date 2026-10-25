@@ -23,7 +23,8 @@ import {
   ComboboxTrigger,
   createComboboxItems,
 } from "@/components/ui/combobox";
-import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { evenSplitAmounts, shareRemainder } from "@/components/budget/split-amounts";
+import { ShareRemainderNote } from "@/components/budget/split-editor";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -168,10 +169,8 @@ export function PlannedExpenseDialog({
     if (!sharesTouched) setSplitAmounts(evenShares(next));
   }
 
-  const splitTotal = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
-  // 0.01: the server's SPLIT_SUM_TOLERANCE (src/lib/share-split-form.ts),
-  // which can't be imported here since that module loads Prisma.
-  const splitMismatch = splitEnabled && Math.abs(splitTotal - (Number(amount) || 0)) > 0.01;
+  const splitRemainder = shareRemainder(amount, splitAmounts);
+  const splitMismatch = splitEnabled && splitRemainder !== 0;
 
   return (
     <Dialog
@@ -298,13 +297,14 @@ export function PlannedExpenseDialog({
                       </div>
                     ))}
                   </div>
-                  {splitMismatch && t.splitMismatch && (
-                    <p className="text-xs text-destructive">
-                      {format(t.splitMismatch, {
-                        total: numberFormat.format(splitTotal),
-                        amount: numberFormat.format(Number(amount) || 0),
-                      })}
-                    </p>
+                  {t.sharesLeftHint && t.sharesOverWarning && (
+                    <ShareRemainderNote
+                      amount={amount}
+                      remainder={splitRemainder}
+                      numberFormat={numberFormat}
+                      leftHint={t.sharesLeftHint}
+                      overWarning={t.sharesOverWarning}
+                    />
                   )}
                 </div>
               )}

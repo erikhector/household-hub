@@ -1,4 +1,7 @@
-import { ChefHat } from "lucide-react";
+import Link from "next/link";
+import { ChefHat, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 import { Badge } from "@/components/ui/badge";
 import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
 import { format, plural } from "@/lib/i18n/format";
@@ -32,9 +35,31 @@ export function CookNowList({
       </div>
 
       {cookableRecipes.length === 0 ? (
-        <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-          {dict.emptyCookNow}
-        </p>
+        // UX-50: the mascot and one next step, like every other tab. With no
+        // recipes the step is to add one (the Recipes tab holds the form);
+        // with recipes but none close to ready, it is stocking up.
+        <MascotEmptyState
+          alt={dict.mascotAlt}
+          action={
+            recipes.length === 0 ? (
+              <Button
+               
+                render={<Link href={`/dashboard/meal-planning?tab=recipes&week=${plannerWeekStartKey}`} />}
+              >
+                <Plus className="size-4" />
+                {dict.cookNowAddRecipe}
+              </Button>
+            ) : (
+              <Button render={<Link href="/dashboard/inventory" />}>
+                {dict.cookNowOpenInventory}
+              </Button>
+            )
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            {recipes.length === 0 ? dict.emptyCookNowNoRecipes : dict.emptyCookNow}
+          </p>
+        </MascotEmptyState>
       ) : (
         <div className="list-bleed flex flex-col divide-y rounded-md border">
           {cookableRecipes.map((recipe) => {

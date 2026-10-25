@@ -1,5 +1,6 @@
 import { withCommonUnits } from "@/lib/units";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -8,6 +9,7 @@ import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-di
 import { ListTemplatesSection } from "@/components/shopping/list-templates";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
+import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 
 // Same reasoning as inventory/page.tsx's maxDuration: RegisterReceiptDialog
 // can call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which
@@ -28,9 +30,12 @@ function ShoppingListsSkeleton({ label }: { label: string }) {
 async function ShoppingListsSection({
   householdId,
   dict,
+  newListDialog,
 }: {
   householdId: string;
   dict: Awaited<ReturnType<typeof getDictionary>>["shoppingList"];
+  /** UX-50: "New list", for the empty state to hold while there are no lists. */
+  newListDialog: ReactNode;
 }) {
   const [lists, templates] = await Promise.all([
     prisma.shoppingList.findMany({
@@ -60,6 +65,7 @@ async function ShoppingListsSection({
     <div className="flex flex-col gap-6">
       <ShoppingListsOverview
         dict={dict}
+        emptyAction={newListDialog}
         active={lists.filter((l) => l.status === "ACTIVE").map(toSummary)}
         completed={lists.filter((l) => l.status === "COMPLETED").map(toSummary)}
         archived={lists.filter((l) => l.status === "ARCHIVED").map(toSummary)}
@@ -72,15 +78,34 @@ async function ShoppingListsSection({
   );
 }
 
-export default async function ShoppingListPage() {
-  const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
+export default async function ShoppingListPage(props: PageProps<"/dashboard/shopping-list">) {
+  const [{ household }, dict, locale, searchParams] = await Promise.all([
+    requireHousehold(),
+    getDictionary(),
+    getLocale(),
+    props.searchParams,
+  ]);
+
+  // UX-41a: the command palette's "Add to shopping list" can't name a list,
+  // so it lands here with `?add=1` and goes on to the one the household is
+  // filling (the default "Next shop" leads the active lists, as in the
+  // overview below), where SmartAddBar takes focus. With no active list it
+  // falls through to the overview, whose "New list" is the next step.
+  if (searchParams[ADD_PARAM] === "1") {
+    const target = await prisma.shoppingList.findFirst({
+      where: { householdId: household.id, status: "ACTIVE" },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      select: { id: true },
+    });
+    if (target) redirect(`/dashboard/shopping-list/${target.id}?${ADD_PARAM}=1`);
+  }
 
   // UX-85: what the New list sheet can start from: saved templates, and the
   // latest few lists (any status, the default "Next shop" included: repeating
   // last week's shop is the common case). A list with no rows has nothing to
   // copy, so it isn't offered; the unbought count lets the sheet default a
   // finished trip, where every row is ticked, to "All items".
-  const [inventoryItems, aliases, startTemplates, recentLists] = await Promise.all([
+  const [inventoryItems, aliases, startTemplates, recentLists, listCount] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
       // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
@@ -105,11 +130,17 @@ export default async function ShoppingListPage() {
       take: 10,
       select: { id: true, name: true, _count: { select: { items: { where: { purchased: false } } } } },
     }),
+    // UX-50: with no lists at all "New list" lives in the empty state.
+    prisma.shoppingList.count({ where: { householdId: household.id } }),
   ]);
   const startLists = recentLists.map((list) => ({ id: list.id, name: list.name, unbought: list._count.items }));
 
   const units = withCommonUnits([...new Set(inventoryItems.map((item) => item.unit))].sort());
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
+
+  const newListDialog = (
+    <NewListDialog dict={dict.shoppingList} locale={locale} templates={startTemplates} recentLists={startLists} />
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -127,18 +158,11 @@ export default async function ShoppingListPage() {
             locale={locale}
             aliases={aliases}
           />
-          <PrimaryAction>
-            <NewListDialog
-              dict={dict.shoppingList}
-              locale={locale}
-              templates={startTemplates}
-              recentLists={startLists}
-            />
-          </PrimaryAction>
+          {listCount > 0 && <PrimaryAction>{newListDialog}</PrimaryAction>}
         </div>
       </div>
       <Suspense fallback={<ShoppingListsSkeleton label={dict.common.loading} />}>
-        <ShoppingListsSection householdId={household.id} dict={dict.shoppingList} />
+        <ShoppingListsSection householdId={household.id} dict={dict.shoppingList} newListDialog={newListDialog} />
       </Suspense>
     </div>
   );

@@ -22,24 +22,32 @@ type FakeSend = { userId: string; householdId: string; weekKey: string; sentAt: 
 type HouseholdData = {
   inventoryItems?: { name: string; expiresAt: Date | null; expiresAtEstimated: boolean }[];
   budgetCategoryCount?: number;
+  limitedCategories?: unknown[];
   transactions?: unknown[];
+  templates?: unknown[];
   plannedExpenses?: unknown[];
 };
 
 const db = vi.hoisted(() => ({
   users: [] as FakeUser[],
-  households: [] as { id: string; name: string }[],
+  households: [] as { id: string; name: string; budgetMonthStartDay: number }[],
   memberships: [] as { id: string; householdId: string; userId: string }[],
   sends: [] as FakeSend[],
   data: new Map<string, HouseholdData>(),
 }));
 
-const { sendWeeklyDigestEmailMock, weeklyDigestSendCreateMock, inventoryItemFindManyMock, plannedExpenseFindManyMock } =
-  vi.hoisted(() => ({
+const {
+  sendWeeklyDigestEmailMock,
+  weeklyDigestSendCreateMock,
+  inventoryItemFindManyMock,
+  plannedExpenseFindManyMock,
+  transactionFindManyMock,
+} = vi.hoisted(() => ({
     sendWeeklyDigestEmailMock: vi.fn(),
     weeklyDigestSendCreateMock: vi.fn(),
     inventoryItemFindManyMock: vi.fn(),
     plannedExpenseFindManyMock: vi.fn(),
+    transactionFindManyMock: vi.fn(),
   }));
 
 type UserFilter = {
@@ -93,11 +101,14 @@ vi.mock("@/lib/prisma", () => ({
     inventoryItem: { findMany: inventoryItemFindManyMock },
     budgetCategory: {
       count: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.budgetCategoryCount ?? 0),
+      findMany: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.limitedCategories ?? []),
     },
     transaction: {
-      findMany: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.transactions ?? []),
+      findMany: transactionFindManyMock,
     },
-    recurringTemplate: { findMany: vi.fn(async () => []) },
+    recurringTemplate: {
+      findMany: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.templates ?? []),
+    },
     plannedExpense: { findMany: plannedExpenseFindManyMock },
     recurringTemplateAck: { findMany: vi.fn(async () => []) },
     weeklyDigestSend: {
@@ -125,6 +136,7 @@ vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: 
 const { reportErrorMock } = vi.hoisted(() => ({ reportErrorMock: vi.fn() }));
 vi.mock("@/lib/report-error", () => ({ reportError: reportErrorMock }));
 
+const { prisma } = await import("@/lib/prisma");
 const { runWeeklyDigest, sendHouseholdDigest, digestWeekKey, DIGEST_BATCH_SIZE } = await import("@/lib/weekly-digest");
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -145,8 +157,8 @@ function addUser(id: string, overrides: Partial<FakeUser> = {}) {
   });
 }
 
-function addHousehold(id: string, userIds: string[], data: HouseholdData = {}) {
-  db.households.push({ id, name: `Household ${id}` });
+function addHousehold(id: string, userIds: string[], data: HouseholdData = {}, budgetMonthStartDay = 1) {
+  db.households.push({ id, name: `Household ${id}`, budgetMonthStartDay });
   userIds.forEach((userId, i) => db.memberships.push({ id: `${id}-m${i}`, householdId: id, userId }));
   // Default: one item about to expire, so the digest has something to say.
   db.data.set(id, {
@@ -168,6 +180,9 @@ beforeEach(() => {
   db.sends = [];
   db.data = new Map();
   sendWeeklyDigestEmailMock.mockResolvedValue({});
+  transactionFindManyMock.mockImplementation(
+    async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.transactions ?? [],
+  );
   plannedExpenseFindManyMock.mockImplementation(
     async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.plannedExpenses ?? [],
   );
@@ -310,6 +325,97 @@ describe("empty digests", () => {
     expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(1);
     expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
       "Remaining after expenses and savings this month: 750.00",
+    );
+  });
+
+  // UX-138: the digest holds back what's left of a limit, like the Budget page.
+  it("holds back the unspent remainder of a category limit", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], {
+      inventoryItems: [],
+      budgetCategoryCount: 2,
+      limitedCategories: [
+        { id: "c2", type: "EXPENSE", monthlyLimit: 400, rolloverEnabled: false, createdAt: new Date(2020, 0, 1) },
+      ],
+      transactions: [
+        {
+          categoryId: "c1",
+          category: { name: "Salary" },
+          type: "INCOME",
+          amount: 1000,
+          date: new Date(NOW.getTime() - DAY),
+          isRecurring: false,
+          recurringTemplateId: null,
+        },
+        {
+          categoryId: "c2",
+          category: { name: "Food" },
+          type: "EXPENSE",
+          amount: 250,
+          date: new Date(NOW.getTime() - DAY),
+          isRecurring: false,
+          recurringTemplateId: null,
+        },
+      ],
+    });
+
+    await run();
+
+    // 1000 - 250 spent - 150 still budgeted in Food's 400 limit.
+    expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
+      "Remaining after expenses and savings this month: 600.00",
+    );
+  });
+});
+
+// UX-134: a household that moved its budget month to payday.
+describe("budget month start day", () => {
+  // 10 Oct with start day 25: the household is in its "October" period,
+  // 25 Sep to 24 Oct (end exclusive 25 Oct).
+  const OCT_10 = new Date(2026, 9, 10, 12);
+
+  it("uses the household's period: bounds the query and counts rent logged on 28 Sep as paid", async () => {
+    addUser("u1");
+    addHousehold(
+      "h1",
+      ["u1"],
+      {
+        inventoryItems: [],
+        budgetCategoryCount: 1,
+        templates: [
+          { id: "tpl-rent", name: "Rent", categoryId: "c2", type: "EXPENSE", amount: 4000, frequency: "MONTHLY", active: true, createdAt: new Date(2026, 0, 1) },
+        ],
+        transactions: [
+          { categoryId: "c1", category: { name: "Salary" }, type: "INCOME", amount: 10000, date: new Date(2026, 8, 25), isRecurring: false, recurringTemplateId: null },
+          { categoryId: "c2", category: { name: "Rent" }, type: "EXPENSE", amount: 4000, date: new Date(2026, 8, 28), isRecurring: false, recurringTemplateId: "tpl-rent" },
+        ],
+      },
+      25,
+    );
+
+    await run(OCT_10);
+
+    // The query's upper bound is the period's end, 25 Oct (exclusive).
+    expect(transactionFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ date: expect.objectContaining({ lt: new Date(2026, 9, 25) }) }),
+      }),
+    );
+    // Rent (28 Sep) is in this period and posted: not still due, so it is
+    // spent once (10000 - 4000), not subtracted a second time as due.
+    expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
+      "Remaining after expenses and savings this month: 6,000.00",
+    );
+  });
+
+  it("selects each household's start day", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], {}, 25);
+
+    await run(OCT_10);
+
+    expect(prisma.household.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ select: expect.objectContaining({ budgetMonthStartDay: true }) }),
     );
   });
 });

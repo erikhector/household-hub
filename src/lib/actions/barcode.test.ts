@@ -109,6 +109,18 @@ describe("lookupBarcodeAction", () => {
     expect(await lookupBarcodeAction("7310865004703")).toEqual({ name: "Mellanmjölk 1,5%", category: "Dairy & eggs" });
   });
 
+  // PERF-20: repeat scans of a barcode are served from Next's data cache.
+  it("asks Next to cache the raw Open Food Facts response for a day", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ status: 1, product: { product_name: "Milk" } }) });
+
+    await lookupBarcodeAction("7310865004703");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://world.openfoodfacts.org/api/v2/product/7310865004703.json",
+      expect.objectContaining({ next: { revalidate: 86400 } }),
+    );
+  });
+
   it("returns a null category when the tags don't map to anything", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

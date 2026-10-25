@@ -232,6 +232,7 @@ export async function GET() {
       completedByMe: task.completedByMember?.userId === userId,
       completedAt: task.completedAt,
       recurrenceIntervalDays: task.recurrenceIntervalDays,
+      dueDate: task.dueDate,
       createdAt: task.createdAt,
     })),
     // This user's share of split household bills, with the bill it belongs
@@ -295,7 +296,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition": `attachment; filename="household-hub-my-data-${date}.json"`,
+      "Content-Disposition": `attachment; filename="squirrel-my-data-${date}.json"`,
       // A full copy of one person's data: never let a shared proxy or the
       // browser's back/forward cache keep it.
       "Cache-Control": "private, no-store",

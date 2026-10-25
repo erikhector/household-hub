@@ -27,7 +27,7 @@ import {
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
-import { categoriesNearLimit, withCategoryLimits } from "@/lib/budget-category-limit";
+import { categoriesNearLimit, categoryEnvelopes, withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import {
   RecurringTemplatesPanel,
@@ -63,7 +63,7 @@ import {
   updateTransactionAction,
 } from "@/app/dashboard/budget/actions";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
-import { dailyAllowance, projectMonthEnd, withSpendHistory } from "@/lib/chart-calc";
+import { dailyAllowance, projectMonthEnd, SPEND_HISTORY_MONTHS, withSpendHistory } from "@/lib/chart-calc";
 import { resolveBudgetHouseholdView } from "@/lib/budget-household-view";
 import { ReadOnlyHouseholdBanner } from "@/components/budget/read-only-household-banner";
 import {
@@ -78,7 +78,10 @@ import {
   getMonthEnd,
   getMonthStart,
   isMonthKey,
+  normalizeStartDay,
   parseMonthKey,
+  periodBounds,
+  periodKeyOf,
   toMonthKey,
 } from "@/lib/budget-date-utils";
 import { computeNetBalances, remainingDue, simplifyDebts } from "@/lib/settle-up-calc";
@@ -345,6 +348,8 @@ async function BudgetTabsSection({
   monthStart,
   monthEnd,
   monthKey,
+  currentMonthKey,
+  startDay,
   recurringLookbackStart,
   trendWindowStart,
   trendWindowEnd,
@@ -363,6 +368,9 @@ async function BudgetTabsSection({
   monthStart: Date;
   monthEnd: Date;
   monthKey: string;
+  // UX-134: today's period key and the household's budget month start day.
+  currentMonthKey: string;
+  startDay: number;
   recurringLookbackStart: Date;
   trendWindowStart: Date;
   trendWindowEnd: Date;
@@ -647,6 +655,7 @@ async function BudgetTabsSection({
     acks: recurringTemplateAcks,
     referenceDate: monthStart,
     monthEnd,
+    startDay,
   });
 
   // --- Planned bills (BUDGET-8) ---------------------------------------------
@@ -678,6 +687,13 @@ async function BudgetTabsSection({
   // needs to look further back than the viewed month to find a category's
   // most recent recurring transaction — see RECURRING_LOOKBACK_MONTHS's doc
   // comment above.
+  const limitEnvelopes = categoryEnvelopes({
+    categories,
+    transactions: recurringLookbackTransactions,
+    monthStart,
+    monthEnd,
+    startDay,
+  });
   const {
     safeToSpend,
     breakdown: safeToSpendBreakdown,
@@ -705,13 +721,16 @@ async function BudgetTabsSection({
       amount: row.template.amount,
       status: row.status,
     })),
-    plannedExpenses: plannedExpenseRows.map(({ id, name, amount, status, type }) => ({
+    plannedExpenses: plannedExpenseRows.map(({ id, name, amount, status, type, categoryId }) => ({
       id,
       name,
       amount,
       status,
       type,
+      categoryId,
     })),
+    // UX-138: what is still unspent of each limit is held back too.
+    categoryLimits: limitEnvelopes,
   });
   // UX-39: where that number lands at month end at this month's everyday
   // pace — null unless the viewed month is the current one.
@@ -719,9 +738,11 @@ async function BudgetTabsSection({
     safeToSpend,
     transactions: monthTransactions,
     monthStart,
+    monthEnd,
     today: now,
+    excludeCategoryIds: new Set(limitEnvelopes.map((e) => e.id)),
   });
-  const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, today: now });
+  const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, monthEnd, today: now });
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => {
     // F7: who ran "Mark accounted for" for this period, if it was
     // acknowledged rather than posted — resolved from the matching
@@ -786,6 +807,7 @@ async function BudgetTabsSection({
     transactions: fixedTrendTransactions,
     referenceDate: now,
     monthsBack: MAX_FIXED_TREND_MONTHS,
+    startDay,
   });
   // Per-item breakdown behind the totals above, for the proportional-bar
   // visualization of what makes up the fixed budget — same shape/component
@@ -892,9 +914,13 @@ async function BudgetTabsSection({
       categories,
       recurringLookbackTransactions,
       monthStart,
+      startDay,
     ),
     recurringLookbackTransactions,
     monthStart,
+    "EXPENSE",
+    SPEND_HISTORY_MONTHS,
+    startDay,
   );
   const limitAlerts = categoriesNearLimit(expenseRows).map((alert) => ({
     ...alert,
@@ -921,7 +947,7 @@ async function BudgetTabsSection({
       // (see RECURRING_LOOKBACK_MONTHS) rather than monthTransactions.
       // UX-39: each row's sparkline comes from the same window.
       expenseByCategory={expenseRows}
-      monthStart={monthStart}
+      monthStart={parseMonthKey(monthKey)}
       savingsByCategory={savingsByCategory}
       // P3: each of the viewer's own categories drills into Transactions,
       // filtered to it, for the same month.
@@ -1007,7 +1033,8 @@ async function BudgetTabsSection({
       locale={locale}
       currencyCode={currencyCode}
       monthKey={monthKey}
-      currentMonthKey={toMonthKey(now)}
+      currentMonthKey={currentMonthKey}
+      budgetMonthStartDay={startDay}
       basePath="/dashboard/budget"
       householdParam={householdParam}
       readOnly={readOnly}
@@ -1083,9 +1110,6 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const monthParam = searchParams.month;
   const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
   const now = new Date();
-  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
-  const monthEnd = getMonthEnd(monthStart);
-  const monthKey = toMonthKey(monthStart);
 
   // F1: "View in {household} Budget" links (from a shared row in Personal
   // Budget) carry an explicit `?household=` so this page shows the bill's
@@ -1107,15 +1131,24 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // GAP-13: amounts carry the currency of the household on screen, which
   // is not the active one in F1's read-only view.
   const currencyCode = viewedHousehold ? viewedHousehold.currencyCode : household.currencyCode;
+  // UX-134: the viewed household's budget month start day. The month tabs,
+  // safe to spend and the recurring statuses all run on its periods, named
+  // for the month they end in (day 25: "October" is 25 Sep to 24 Oct).
+  const startDay = normalizeStartDay(
+    viewedHousehold ? viewedHousehold.budgetMonthStartDay : household.budgetMonthStartDay,
+  );
+  const currentMonthKey = periodKeyOf(now, startDay);
+  const monthKey = isMonthKey(monthParamValue) ? monthParamValue : currentMonthKey;
+  const { start: monthStart, end: monthEnd } = periodBounds(monthKey, startDay);
 
   // Bounds for two of BudgetTabsSection's queries that need to see further
   // than just the viewed month — see RECURRING_LOOKBACK_MONTHS's and
   // MAX_FIXED_TREND_MONTHS's doc comments above. Computed here (pure, no DB)
   // so BudgetTabsSection doesn't need to recompute them itself.
-  const recurringLookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
-  const trendMonthStart = getMonthStart(now);
-  const trendWindowStart = addMonths(trendMonthStart, -(MAX_FIXED_TREND_MONTHS - 1));
-  const trendWindowEnd = getMonthEnd(trendMonthStart);
+  const keyMonthsAgo = (key: string, months: number) => toMonthKey(addMonths(parseMonthKey(key), -months));
+  const recurringLookbackStart = periodBounds(keyMonthsAgo(monthKey, RECURRING_LOOKBACK_MONTHS), startDay).start;
+  const trendWindowStart = periodBounds(keyMonthsAgo(currentMonthKey, MAX_FIXED_TREND_MONTHS - 1), startDay).start;
+  const trendWindowEnd = periodBounds(currentMonthKey, startDay).end;
 
   return (
     <div className="flex flex-col gap-6">
@@ -1152,6 +1185,8 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
           monthStart={monthStart}
           monthEnd={monthEnd}
           monthKey={monthKey}
+          currentMonthKey={currentMonthKey}
+          startDay={startDay}
           recurringLookbackStart={recurringLookbackStart}
           trendWindowStart={trendWindowStart}
           trendWindowEnd={trendWindowEnd}

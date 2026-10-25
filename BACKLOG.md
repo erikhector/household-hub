@@ -124,21 +124,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
-- [ ] **PERF-18. Batch "Add to shopping list" from inventory** (low, S) —
-      `addToShoppingListAction` (`src/app/dashboard/inventory/actions.ts:671-683`)
-      accepts up to 200 ids (`addToListSchema`, line 652) and loops
-      `addItemToDefaultList` (`src/lib/shopping/default-list.ts:90-122`),
-      which does `getOrCreateDefaultShoppingList` + `findFirst` + `create`
-      per item: up to ~600 sequential round trips for a select-all bulk add,
-      against a remote Postgres. PERF-15 already built the fixed-query
-      pattern in `addToDefaultListOnLowStockBatch` (`default-list.ts:198`).
-      Resolve the list once, read the already-pending `inventoryItemId`s in
-      one query, `createMany` the rest, keep the same
-      `{ listName, added, alreadyOnList }` result and the single-item path.
-      Acceptance: a unit test asserts the query count is constant for 1 vs
-      200 items, plus the existing dedupe (item already pending is counted
-      in `alreadyOnList`); the existing inventory bulk-add e2e still passes.
-
 - [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
       a Server Action that calls `revalidatePath` already returns the
       re-rendered page with its response, so a `router.refresh()` after it
@@ -157,18 +142,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       Acceptance: an e2e check per flow that the change shows without a
       reload (extend `e2e/meal-prep.spec.ts` and
       `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
-
-- [ ] **PERF-20. Cache Open Food Facts barcode lookups** (low, S) —
-      `lookupBarcodeAction`'s `fetch` (`src/lib/actions/barcode.ts:69`) goes to
-      Open Food Facts on every scan, even for a barcode scanned a minute
-      ago. The response is public product data with no household in it, so
-      it's safe to share across households: pass
-      `next: { revalidate: 86400 }` like `src/lib/exchange-rate.ts:19`
-      does (the URL already keys it by barcode). Cache only the raw
-      response, not the mapped result: the category label comes from the
-      caller's dictionary, which differs by locale. Don't cache failures or
-      timeouts. Acceptance: a unit test asserts the fetch options; existing
-      barcode tests still pass.
 
 ### Maintainability (2026-09-26 audit)
 
@@ -249,18 +222,6 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
-- [ ] **MAINT-16. Test the untested safety-critical helpers and actions** (medium, S) —
-      no test file exists for `lib/logger.ts` (its `redact()` is the only
-      thing stopping a careless `logger.error("x", { user })` leaking a
-      password or token into Sentry/logs: sensitive-key match, nested
-      objects, arrays, `Error` instances, circular refs), nor for
-      `lib/actions/notifications.ts` (`dismissNotificationAction` /
-      `dismissAllNotificationsAction`: tenancy via `requireHousehold()`, an
-      id from another household is a no-op), `lib/actions/preferences.ts`
-      (invalid theme ignored, DB failure logged not thrown) or
-      `lib/actions/locale.ts`. AGENTS.md requires a colocated test for every
-      Server Action. Acceptance: four new `*.test.ts` files that fail if the
-      household scope or a redaction pattern is removed.
 - [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
       timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
       60000).toISOString().slice(0, 10)`) is copy-pasted as
@@ -273,22 +234,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
-      #336 (`feat: show what's left to split as shares are typed`) turned
-      `next` red and was reverted by #340, which also deleted
-      `e2e/split-remainder.spec.ts`. Its spec failed at `:31` and `:57`
-      (`mobile`, a `locator.fill` timeout; also `desktop` on a feature
-      branch) in the local `ci:local` gate on a clean `0444ce1` (2026-10-18,
-      780 passed, 3 failed) and in 3 of 3 full runs on the UX-82 branch
-      (#343), yet passed alone (`--repeat-each=3`, 14/14), so it depended on
-      something earlier specs leave in the worker's household or on a field
-      it didn't wait for. Re-apply #336 (revert #340), find why the share
-      field can't be filled in the full run and fix the spec's setup
-      (AGENTS.md "Parallel workers") or the app, never a skip or looser
-      assertion, and restore #336's REQUIREMENTS.md text. Acceptance: the
-      full `npm run test:e2e` passes with the re-landed
-      `e2e/split-remainder.spec.ts`, and `npx playwright test
-      e2e/split-remainder.spec.ts --repeat-each=10` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -316,63 +261,147 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-- [ ] **MAINT-46. Flaky: `ux-79` six whole rows sit above the dock only some of the time** (low, S) —
-      `e2e/ux-79.spec.ts:60` ("an active 15-item list shows six whole rows
-      above the dock, each 56-64 px", `mobile`). Failed on the first
-      attempt in the GitHub `End-to-end (Playwright)` job on release PR
-      #537 (`4f04e69`, 2026-10-21): "sixth row clear of the dock",
-      expected <= 531, received 705, and passed on the CI retry. Find
-      what leaves the list at the wrong size on the first attempt (a late
-      layout settle) and fix it in the app or the spec's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/ux-79.spec.ts:60 --project=mobile --repeat-each=30`
-      passes 30/30.
-- [ ] **MAINT-47. Flaky: "Done shopping" after a carry-over completion and Undo sometimes leaves the late pending row out of place** (low, S) —
-      `e2e/shopping-finish-carry-over.spec.ts:170` ("Done shopping after
-      an earlier carry-over completion and Undo leaves a late pending row
-      where it is", `desktop`). Failed in the local `ci:local` gate on
-      release PR #576 (`e585c70`, 2026-10-22) and passed on a local re-run
-      of the same commit. Find what lets the row move or the assertion run
-      before the list has settled after Undo, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test
-      e2e/shopping-finish-carry-over.spec.ts:170 --project=desktop
-      --repeat-each=30` passes 30/30.
-      Seen again on release PR #588 (`673a16e`, 2026-10-22): the GitHub
-      e2e job failed the attempt (the 'Put everything away' button stayed
-      disabled and kept detaching) and passed on the retry.
-
-- [ ] **MAINT-48. Flaky: `optimistic-ticking` three ticked tasks are not all shown done before a save answers** (low, S) —
-      `e2e/optimistic-ticking.spec.ts:169` ("ticking three tasks shows all
-      three done before any save answers", `mobile`). Failed the attempt
-      in the GitHub `End-to-end (Playwright)` job on release PR #588
-      (`673a16e`, 2026-10-22) and passed on the CI retry. Find what lets
-      the third tick land late (a re-render between taps, or the spec
-      asserting before the optimistic state settles) and fix it in the
-      app or the spec's waiting, never a loosened assertion, a skip or a
+- [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
+      `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
+      3 of 40 runs (all `desktop`) with `--repeat-each=20` on clean `next`
+      (`051d294`, 2026-10-23), and 1 of 40 on the UX-133 branch
+      (`e8332a5`, `mobile`), so nobody's change is in it. The failure
+      snapshot at spec line 92 shows the page reloaded before the
+      optimistic tick (UX-14) had saved, so the row isn't shown done
+      after the reload. Wait for the toggle's POST to answer before the
+      reload (in the spec), never a loosened assertion, a skip or a
       retry. Acceptance: `npx playwright test
-      e2e/optimistic-ticking.spec.ts:169 --project=mobile
+      e2e/task-anchor-day.spec.ts:60 --repeat-each=30` passes 30/30 on
+      both projects.
+
+- [ ] **MAINT-53. Flaky: `task-compact-rows` fails now and then under full-suite load** (low, S) —
+      `e2e/task-compact-rows.spec.ts:58` (`mobile`). Failed once in 82
+      runs with `--repeat-each=20` on clean `next` (`26df2a2`,
+      2026-10-23), and once in the full `ci:local` gate on the UX-112
+      branch (`8b0197e`), where it passed on a solo rerun. Nobody's change
+      is in it. The failing assertion wasn't recorded: reproduce with the
+      repeat run, read the snapshot, and fix it in the app or the spec's
+      waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
+      --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
+      release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
+      2026-10-24) and passed on a solo rerun of the same commit. Nobody's
+      change is in it. The failing assertion wasn't recorded: reproduce
+      with the repeat run, read the snapshot, and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:194
+      --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
+      `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
+      full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
+      `toHaveCSS` assertion) and passed on a solo rerun of the same
+      commit. Nobody's change is in it. Reproduce with the repeat run and
+      fix it in the app or the spec's waiting, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
+      --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-56. Flaky: `undo-deletes` inventory delete finds two identical "Deleted …" toasts** (low, S) —
+      `e2e/undo-deletes.spec.ts:110` (`desktop`). Failed once and passed
+      on the retry in the GitHub `End-to-end (Playwright)` job of release
+      PR #660 on `1d492e1` (2026-10-24). Nobody's change is in it. The
+      failing assertion: `waitForUndoableDelete` (`e2e/ui.ts:282`) runs
+      `expect(page.getByText('Deleted "…"')).toBeVisible()` and hit a
+      strict-mode violation, because the locator matched two identical
+      toast `<div data-title>` elements at once. Find out whether the app
+      shows the toast twice (a real bug) or the spec's locator needs to
+      be scoped to one toast, and fix it there, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/undo-deletes.spec.ts:110
+      --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
+      `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
+      (`mobile`). Both failed once and passed on the retry in the GitHub
+      `End-to-end (Playwright)` job of release PR #666 on `8d2e088`
+      (2026-10-24). Nobody's change is in them. Same failure at
+      `e2e/ui.ts:330`: after `tab.click()`, `expect(tab).toHaveAttribute(
+      "aria-selected", "true")` still reads `false` after 5 s, although
+      the helper already waits for hydration and a patched `replaceState`.
+      Find out what the click races with (a re-render that resets the
+      tab, the `?tab=` URL sync) and fix it in the app or in the helper's
+      waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-dialog.spec.ts:43
+      e2e/recipe-planned-dates.spec.ts:55 --project=mobile
       --repeat-each=30` passes 30/30.
 
-- [ ] **MAINT-49. Flaky: recipe pages time out finding their first control under full-suite load** (low, S) —
-      `mobile` project, local `ci:local` gate runs, 2026-10-23. Different
-      recipe specs fail on different runs with the same symptom, a 30 s
-      timeout on the first control of the recipes page: (a)
-      `e2e/recipe-last-cooked.spec.ts:60` (`search.fill`, PR #603 gate on
-      `f7ac260`; also failed once in PR #602's first full run); (b)
-      `e2e/recipe-form-order.spec.ts:11` ("New recipe" button not found,
-      PR #611 gate on `672015a`); (c) `e2e/sheet-keyboard.mobile.spec.ts`
-      and `e2e/recipe-dialog.spec.ts:43` ("New recipe" button not found),
-      PR #611 / MAINT-44 gate runs. Each passed on its own (`--repeat-each=3`)
-      and in the next full run, so the page or the spec isn't ready when
-      the first click or fill lands, probably hydration of the recipes
-      list, or its data load, under a 13 minute full run. Find out
-      which, and fix it in the app or in the specs' waiting, never a
-      loosened assertion, a skip or a retry. Acceptance:
-      `npx playwright test e2e/recipe-last-cooked.spec.ts:60
-      e2e/recipe-form-order.spec.ts:11 e2e/recipe-dialog.spec.ts:43
-      --project=mobile --repeat-each=30` passes 30/30, and two full
-      `ci:local` runs show none of these specs failing.
+- [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
+      `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
+      shows the all-caught-up card above Completed" (`mobile`). Failed once
+      and passed on the retry in the GitHub `End-to-end (Playwright)` job
+      of release PR #689 (run 40184348720, 2026-10-25). Nobody's change is
+      in it. The failing assertion is the Postgres poll near line 111,
+      `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
+      for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
+      spec was already touched by MAINT-40 (#585, wait for each tick's
+      save) and MAINT-50 (#679, wait for hydration), so those fixes were
+      probably incomplete. Find out where the open row comes from: a tick
+      whose Server Action response was another action's (the
+      `waitForResponse` matches any `next-action` POST, so a different
+      action can satisfy it before the tick's save lands), a row another
+      spec in the same worker inserts while this one runs, or a save the
+      app drops. Fix it in the app or in the spec's waiting (match the
+      tick's own response), never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
+      --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-59. Flaky: `planned-expenses` spec times out under full-suite load** (low, S) —
+      `e2e/planned-expenses.spec.ts:82` (`mobile`) hit the 30 s test
+      timeout once in the `ci:local` gate of #694 (`7adc31c`, 2026-10-25)
+      and passed 3 of 3 on a re-run on the same commit; it passed 5 of 5 on
+      clean `next` (`18e4bfe`), so it needs load to show. Nobody's change is
+      in it. Find what the test is waiting on (hydration, a dialog, a
+      response) and fix it in the app or the spec's waiting, never a
+      loosened assertion, a skip or a retry. Acceptance: `npx playwright
+      test e2e/planned-expenses.spec.ts:82 --project=mobile
+      --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
+      `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
+      gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
+      left", got "2 of 4". Only `e2e/item-aliases.spec.ts` changed in that
+      PR, so nobody's change is in it. Not yet re-run on clean `next`.
+      Find out whether a portion is taken twice (a double tap or a repeated
+      action), or a row another spec in the same worker leaves behind, and
+      fix it in the app or the spec's setup, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-prep.spec.ts:145 --project=desktop --repeat-each=30`
+      passes 30/30.
+
+- [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
+      `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
+      `ci:local` gate of #696 (`6de6c89`, 2026-10-25), a PR that touches
+      only the budget split dialogs. Not yet re-run on clean `next`. Look at
+      the failing assertion in the gate log's first failure output (re-run
+      with `--repeat-each=30` to get it), find what the click races with and
+      fix it in the app or the spec's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
+      passes 30/30.
+
+- [ ] **MAINT-62. Flaky: `inventory-status-summary` Status filter doesn't offer Expiring and Expired** (low, S) —
+      `e2e/inventory-status-summary.spec.ts:130` ("the Status filter offers
+      Expiring and Expired", `desktop`) failed once in a full local
+      `ci:local` run on release commit `1b8abde` (2026-10-25). It passed on
+      a solo re-run and in the GitHub e2e job of the same commit, so it
+      only fails under full-suite load. Not yet re-run with repeats. Get
+      the failing assertion with `--repeat-each=30` (the log of the
+      original run wasn't kept), find what the filter control's open or
+      option check races with (a popup still animating, or the search
+      box's debounced filter re-rendering the list) and fix it in the app
+      or the spec's waiting, never a loosened assertion, a skip or a
+      retry. Acceptance: `npx playwright test
+      e2e/inventory-status-summary.spec.ts:130 --project=desktop
+      --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -436,67 +465,17 @@ Every item below was reproduced in a screenshot or confirmed in code
 build them first: UX-47,
 UX-89.
 
-**Built elsewhere.** Six items sit in other sections of this file:
-- Phase 2, because they need a migration: UX-133 (task due dates) and
-  UX-134 (budget month starting on payday).
-- Needs a decision before building: UX-136 and UX-138.
-
-**File conflicts.** Don't build these in parallel:
-- `src/components/shopping/shopping-list-client.tsx`: UX-49.
-- `src/components/tasks/tasks-client.tsx`: UX-49.
-- `src/components/meal-planning/week-planner.tsx`: UX-49.
-
-#### Shell and cross-cutting
-
-- [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
-      (impact: med, effort: M) — breaks Consistency and User control
-      (DESIGN.md: "prefer undo for frequent, low-stakes actions"). On
-      the same row, swipe → Delete removes the row with an Undo toast,
-      while the visible trash or menu Delete opens a confirm saying the
-      delete is permanent. Where:
-      - tasks: `tasks-client.tsx:278-298`;
-      - shopping items: `shopping-list-client.tsx:1301-1330`;
-      - inventory ⋯ → Delete: `inventory-table.tsx:605-607`;
-      - "Remove meal": `week-planner.tsx:581-585`;
-      - Edit transaction → Delete stacks a second sheet;
-      - deleting a recipe gives no toast at all.
-      Archiving a shopping list is silent, with no toast and no undo
-      (`shopping-lists-overview.tsx:139-170`), and its icon sits right
-      next to the trash icon on every row.
-      Acceptance: every delete path for a task, shopping item, inventory
-      item, planned meal and transaction removes at once and shows the
-      same Undo toast. Archiving a list shows "List archived · Undo".
-      Archive and delete are no longer adjacent lookalike icons (for
-      example, both behind a row ⋯ menu). Household, budget and account
-      deletes keep their confirms.
-
-- [ ] **UX-50. One empty-state pattern, with the next step inside it**
-      (impact: med, effort: M) — breaks Consistency, Usability ("empty:
-      explain and offer the next step") and M6. On a new household
-      every section's empty state looks different:
-      - Shopping ("No shopping lists yet. Create one to get started.")
-        and Tasks ("No tasks yet — use Add task to add one",
-        `tasks-client.tsx:106-108`) have no button inside them.
-      - The planner shows seven identical "+ Add meal" cards, with no
-        hint to add recipes first or use "Copy last week" / "Fill".
-      - Cook now has no mascot and no action.
-      - Meal prep's primary is an inline full-width bar, where the
-        sibling tabs use the floating `PrimaryAction`.
-      - The empty inventory offers five ways to add, three of them
-        purple primaries, and the FAB covers its "Paste a list" link.
-      - A new empty shopping list leads with a disabled full-width
-        "Register receipt" above the add bar.
-      Acceptance: every section and tab uses `MascotEmptyState` with one
-      line on why it's worth using and exactly one primary action, placed
-      through `PrimaryAction`. An empty week shows one empty state
-      ("Add your first dinner" / "Fill the week") instead of seven
-      slots. Nothing sits under the FAB at 412 px.
-
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) — breaks Context
+      accurate "who we are"** (impact: med, effort: M) `[!]` — breaks Context
       and Accessibility. ⚠️ Touches the privacy page (human-only area).
+      Blocked: needs the owner. Rewriting "who we are" and any Swedish
+      legal text is privacy-policy wording (AUTOPILOT.md `never_decide`).
+      Question: (1) Swedish translation of the policy, or (2) keep it
+      English with `lang="en"` and an "Only available in English" note?
+      And what is the accurate "who we are" sentence for how Squirrel is
+      offered? Once decided, the jump list and `lang` markup are buildable.
       - The sv cookie notice's "Läs mer" opens an English-only policy
         inside `<html lang="sv">`, so screen readers read English with a
         Swedish voice.
@@ -514,48 +493,7 @@ UX-89.
 
 #### Profile and household settings
 
-- [ ] **UX-77. Deleting your only household: explain instead of a button
-      that refuses** (impact: low, effort: S) — breaks User control.
-      ⚠️ Touches user-data deletion (human-only area). The red "Delete
-      household" button is active, but tapping it opens "You can't
-      delete your only household. Create another one first." The data
-      export is named `household-hub-my-data-<date>.json`
-      (`profile/export-data/route.ts:271`), after the repo, not the
-      product.
-      Acceptance: with one household the danger zone explains the rule
-      inline and points to "Delete account". The export is named
-      `squirrel-my-data-<date>.json`.
-
 #### Shopping
-
-- [ ] **BUG-3. A scanned receipt price isn't divided by its quantity**
-      (impact: high, effort: M) — reported by the owner, 2026-10-18.
-      A receipt line "3 x Mjölk 45,00" matched to a list row "Mjölk ×1"
-      is saved as if one carton cost 45:
-      - The scan reads the line's quantity (`ScannedReceiptLine.quantity`,
-        `lib/actions/receipt-scan.ts:65`), but the review step drops it
-        when building matches (`receipt-scan-dialog.tsx:306`), and
-        `ReceiptScanMatch` has no quantity
-        (`src/app/dashboard/shopping-list/actions.ts:1328`, the `actions.ts`
-        cited below).
-      - `applyReceiptScanAction` then writes PriceHistory with the list
-        row's quantity (`actions.ts:1475-1480`, and via `applyStockArrival`),
-        so the unit price is 45, not 15. GAP-9's price-spike check
-        compares that inflated unit price.
-      - `lastKnownPrice` becomes the line total (45), and every create
-        path copies it into a new row's `estimatedPrice` without regard to
-        quantity (`actions.ts:197,282,721,845`), so next week's "Mjölk ×1"
-        is estimated at 45. `registerReceiptAction` has the same
-        line-total problem (`actions.ts:1740-1760`).
-      Acceptance: scanning "3 x Mjölk 45,00" against "Mjölk ×1" prices
-      that row at 45 (what was paid) and records PriceHistory at 45 for 3
-      (unit 15). The item's next estimate is 15 for ×1 and 30 for ×2, and
-      no price-spike notification fires. Register receipt behaves the same.
-      The review row shows the quantity and unit price ("3 × 15,00") so a
-      misread can be caught. Stock still counts the list row's quantity,
-      as today. A unit test on `applyReceiptScanAction` (and one on
-      `registerReceiptAction`) fails without the fix, and the receipt e2e
-      spec covers a ×3 line.
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
       items** (impact: high, effort: M) `[!]` — breaks User-centricity
@@ -586,24 +524,6 @@ UX-89.
 
 #### Meals and recipes
 
-#### Budgets
-
-- [ ] **UX-112. A new member sees their shared costs before setting up a
-      personal budget** (impact: med, effort: M) — breaks Context (never
-      surprise a member) and Consistency. ⚠️ money.
-      - After a partner splits a 940 dinner, the new member's personal
-        Overview and home show only "Let's set up your budget". Their
-        Transactions tab shows "Shared −470.00" and Insights says they owe
-        470, but they'd never find either.
-      - Their only action, "Log a shared expense", is an outline button
-        at the top left.
-      - The household page calls the same action "Add transaction" plus
-        a "Split this expense" checkbox.
-      Acceptance: a member with shared splits sees their share and what
-      they owe or are owed on the personal Overview and home before
-      adding categories. The shared-expense action has one name and
-      placement on both pages.
-
 #### Inventory
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
@@ -629,43 +549,6 @@ Friday area: household and personal budgets. Swept `desktop`, `mobile`,
 sweeps; every route passes and the popup probe has no phone-size or
 off-screen hits in the budget dialogs. WebKit was not run.
 
-- [ ] **UX-147. Budget forms: stop name autofill, set the Enter key**
-      (impact: low, effort: S) — DESIGN.md's "right keyboard and autofill"
-      rule: `autoComplete="off"` for household data and `enterKeyHint` on
-      the last field. The budget dialogs set neither (`dialogs-mobile.json`:
-      `/dashboard/budget` and `/dashboard/personal-budget` "Add category",
-      `autoComplete: ""`, `enterKeyHint: ""`). A field called `name` makes
-      Chrome and Android offer the user's own name and contacts for a
-      category such as "Groceries", and the keyboard's action key stays a
-      generic Return. Affected: `src/components/budget/category-manager.tsx`
-      (add and edit name at ~281 and ~382; the limit and goal fields below
-      them), `recurring-template-dialog.tsx` (4 inputs, none set) and
-      `transaction-dialog.tsx` (`autoComplete` on the description and amount
-      fields; its `enterKeyHint` is already set). The other budget and
-      shopping dialogs already do this (`planned-expense-dialog.tsx:194-199`).
-      Acceptance: in the `mobile` project, `e2e/dialog-audit` style check
-      (or a small spec) opens Add category, Add recurring and Add
-      transaction and asserts every text field has `autocomplete="off"` and
-      the last field of each form has an `enterkeyhint`.
-
-### UX (2026-10-20 scout)
-
-Tuesday area: shopping lists. Swept `desktop`, `mobile`, `landscape`,
-`tablet`, `small-phone`, `light`, `text-200` and both dialog sweeps; every
-route passes. The popup probe found two phone-only size gaps.
-
-- [ ] **UX-138. "Safe to spend" subtracts what's still budgeted**
-      (impact: high, effort: M) — ⚠️ money (human-only area).
-      `src/lib/safe-to-spend-calc.ts` also subtracts the unspent
-      remainder of limited categories, shown as its own "Still budgeted"
-      breakdown line. The pace projection ("At this pace …") becomes a
-      qualifier under the headline, not a second equally weighted "left"
-      figure. Unit-test the calculator (day 1, partly spent, overspent
-      category counts as zero remainder).
-      Acceptance: with a seeded limited category and no spending, the
-      headline excludes its limit, the breakdown shows "Still budgeted",
-      and the projection reads as secondary text.
-      Decided 2026-10-20 by owner: option 1. See #397.
 
 ### Dependencies
 
@@ -689,25 +572,6 @@ route passes. The popup probe found two phone-only size gaps.
       22.20.5. Skip the majors (Sentry 11, ESLint 10, TypeScript 7, React
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
-
-- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: high, effort: S) —
-      `npm audit --omit=dev` (2026-10-23) flags `next` 16.0.0–16.4.0 with two
-      critical unauthenticated RCEs (GHSA-2464-fhr4-w9xw, image optimization
-      with SVG files; GHSA-673q-mjm6-r5xr, `use cache` returning typed
-      arrays) and a high Server Actions DoS (GHSA-p3m5-59mp-jv5r); 16.4.2
-      fixes them. Do this item first and don't wait on DEPS-3.
-      DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
-      16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
-      7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3
-      so a regression bisects to the framework. Read the Next 16.4 notes in
-      `node_modules/next/dist/docs/` for changed APIs, and regenerate the
-      client (`postinstall`). Playwright finds its browsers through
-      `PLAYWRIGHT_BROWSERS_PATH` (the web image ships the Chromium build
-      that matches 1.56, and `playwright install` is not allowed there), so
-      check 1.64 still launches against it, or pin `executablePath` in
-      `playwright.config.ts` if it doesn't.
-      Acceptance: `npm outdated` no longer lists these; `npm run ci:local`
-      is green on desktop and mobile.
 
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
       Major release (10.73 installed, 11.8 latest). Sentry is wired into
@@ -800,45 +664,6 @@ order below is a suggestion, not a dependency, unless noted.
       Why: the item's own recommendation; opt-in keeps the Guardrails on
       noisy positive alerts. See PRODUCT.md.
 
-- [ ] **UX-133. Optional due dates on tasks, sorted by urgency** (impact:
-      high, effort: L) — from the 2026-10-15 UI review. `HouseholdTask`
-      has no due field and `tasks/page.tsx:23` orders by `createdAt`.
-      Nothing is ever "overdue": "Water the plants" (every 3 days, done 8
-      days ago) looks the same as a task that reopened a minute ago. A
-      one-off like "Book the car service" can't get a date, and the
-      overview's "Today" block (UX-70) has nothing to say about lateness.
-      One migration: a nullable `dueDate`. Recurring tasks derive it from
-      the rule UX-137 settled (REQUIREMENTS.md, Recurrence).
-      Acceptance: a task can carry an optional due date. Open tasks sort
-      overdue, then today, then later. An overdue row shows a
-      `warning`-tinted "Overdue · 5 days" with an icon on the tasks page
-      and the overview. Unit tests cover the sort and the derived date.
-
-- [ ] **UX-134. A budget month that starts on payday** (impact: med,
-      effort: L) — from the 2026-10-15 UI review. ⚠️ Money (human-only
-      area). Swedish salaries land on the 25th, so most households budget
-      "lönemånad", the 25th to the 24th. With calendar months, logging
-      October's rent on 28 September put September (before the household
-      existed) at a red "−12,500.00" and left October's rent "Due". The
-      Log dialog also defaults to today, not the item's due day. One
-      migration: `Household.budgetMonthStartDay` (1–28, default 1).
-      Acceptance: with the start day set to 25, the month tabs, safe to
-      spend and recurring statuses use 25th–24th periods. Logging an
-      item from a period's Due list counts it in that period and
-      defaults its date to the due day. The calculator has unit tests.
-
-- [ ] **UX-136. Opt-in sample data for a new household** (impact: med,
-      effort: L) — one migration (a nullable `sample` tag/batch column on
-      the seeded models). "Try with sample data" on the first overview
-      seeds a small pantry, one list, a planned week, three recipes and a
-      few tasks, all tagged; "Clear sample data" removes exactly the
-      tagged rows and nothing else. Restore the landing page's "example
-      data" line only once this ships. Both languages.
-      Acceptance: an empty household taps "Try with sample data" and sees
-      rows on the overview; "Clear sample data" returns it to empty while
-      a row the user added meanwhile survives.
-      Decided 2026-10-20 by owner: option 1. See #396.
-
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)
@@ -858,16 +683,6 @@ gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) needs an owner decision and sits under
 "Needs a decision before building".
 
-- [ ] **UX-41a. Command palette: go-to and quick actions** (M) — Split
-      from UX-41 (too big for one PR). ⌘K / Ctrl-K opens a Base UI dialog
-      palette on desktop, mounted once in the dashboard layout. Static
-      commands first ("Go to budget", "Add task", "Add to Groceries"),
-      filtered as you type, arrow keys + Enter, Esc closes. The palette
-      stores nothing in the browser, so cookie-inventory.ts stays
-      unchanged. Needs dict entries in en/sv, and
-      an e2e spec for open, filter, run. No data search yet (UX-41b).
-      Builds on: nothing.
-
 - [ ] **UX-41b. Command palette: household search** (M) — Split from
       UX-41. A `searchHousehold(query)` Server Action (in
       `src/lib/actions/`) behind `requireHousehold()` that returns the top
@@ -875,7 +690,7 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       categories by name, every query scoped by householdId, Zod-validated,
       rate-limited like other read actions, with a unit test for the
       tenancy scoping. The palette from UX-41a shows them as grouped,
-      debounced results that navigate to the row. Needs UX-41a.
+      debounced results that navigate to the row. Builds on UX-41a (shipped).
 
 - [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
       UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
@@ -1143,22 +958,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-12 scan
-
-- [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —
-      AnyList's v6 meal planning has a queue of recipes you intend to make
-      soon without giving them a date. Squirrel has favorites (permanent)
-      and the planner (dated) but nothing in between, so "that chili I
-      want this week" gets lost or is planned on an arbitrary day. Add a
-      per-recipe "Cook soon" toggle (a nullable `Recipe.cookSoonAt`
-      timestamp `[schema]`, Phase 2) shown as a pinned "Cook soon" group
-      at the top of the Recipes tab, ordered by when it was added; it
-      clears itself when that recipe is marked cooked or placed on the
-      planner. Suggest, don't mutate: nothing else changes.
-      Acceptance: toggling a seeded recipe moves it into the group and
-      survives reload; marking it cooked removes it; unit test for the
-      auto-clear rule; e2e on desktop and mobile.
-
 ### 2026-10-13 scan
 
 - [ ] **GAP-52. Save a week of meals as a named, reusable template** (impact: med, effort: M) `[schema]` —
@@ -1212,44 +1011,7 @@ out to be a product-scope question rather than a scoped task should move to
       rows are pre-filled and nothing is saved until Save, on desktop
       and mobile.
 
-- [ ] **GAP-55. Show when a recipe is planned on its detail view** (impact: low-med, effort: S) —
-      AnyList's recipe details now list past and upcoming meal-plan dates
-      for a recipe. Squirrel's recipe view says nothing about whether a
-      recipe is already on this week's plan, so a household can plan the
-      same dish twice or not realise a favourite was cooked last week.
-      (GAP-46 covers "last cooked"; this is the upcoming side.) Add a
-      read-only "Planned: Tue 21 Oct, Sat 25 Oct" line to the recipe card
-      or dialog from a household-scoped query of `MealPlanEntry` rows with
-      `date >= today` for that `recipeId` (limit 3), each date linking to
-      `?week=` for its week. Nothing shown when there are none. No schema
-      change.
-      Acceptance: a loader test covers household scoping, past dates
-      excluded and the limit; an e2e step plans a seeded recipe and
-      asserts the date text on the recipe view on desktop and mobile.
-
 ### 2026-10-16 scan
-
-- [ ] **GAP-56. Select several planned meals to move, re-portion or remove at once** (impact: med, effort: M) —
-      Plan to Eat's late-2025 planner update added bulk editing: move,
-      copy or change servings for several meals together. Squirrel only
-      edits one entry at a time (REQUIREMENTS.md, "Editing a meal entry"
-      and "Moving a meal entry (GAP-30)": one pencil and one move button
-      per row), so shifting a week's dinners by a day, or halving every
-      portion for a trip, is a dozen dialogs. Add a "Select" mode to the
-      planner: tap rows to tick them (a bar shows the count), then "Move
-      to…" (reuses `MoveMealDialog`'s date and meal-type picker, applied
-      as a day offset so the group keeps its shape), "Portions…"
-      (reuses `PortionStepper`) or "Remove". Cooked entries aren't
-      selectable (same rule as move). A bulk action is one Server Action
-      taking entry ids, `requireHousehold()`-scoped, all-or-nothing in a
-      transaction, with an Undo toast like copy-week. No schema change.
-      Mobile: the bar sits above the bottom nav, rows keep 44 px targets
-      (M-rules).
-      Acceptance: unit tests for the day-offset mapping, skipping cooked
-      entries, tenancy (an id from another household rejects the whole
-      batch) and undo; an e2e step selects two seeded entries, moves them
-      a day, asserts them on the new day after reload, and halves their
-      portions, on desktop and mobile.
 
 - [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
       AnyList's December 2025 meal-planning update lets a plain note on the
@@ -1270,22 +1032,6 @@ out to be a product-scope question rather than a scoped task should move to
       meal still skipped; an e2e step adds a custom meal with "2 tortillas"
       and asserts it in the bridge preview and on the list after "Add",
       on desktop and mobile.
-
-- [ ] **GAP-59. Search the meal plan** (impact: low-med, effort: S) —
-      AnyList's same update added search across the whole meal-plan
-      calendar. Squirrel's planner shows one week at a time
-      (`?week=yyyy-mm-dd`), so "when did we last have lasagna?" or "which
-      night is taco night?" means paging week by week; GAP-46 covers only
-      saved recipes' last-cooked date, not custom meals or future dates.
-      Add a search field in the planner header that, after two characters,
-      lists up to 20 matching entries (recipe title or `freeformName`,
-      case-insensitive, within a year either side of today) as "Tue 21 Oct
-      · Dinner · Lasagna", newest first, each linking to its `?week=`.
-      Read-only, one household-scoped query, no schema change.
-      Acceptance: a loader test covers household scoping, the date window,
-      the 20 cap and freeform names; an e2e step plans a uniquely named
-      custom meal two weeks ahead, searches it and follows the link to the
-      right week, on desktop and mobile (field has a visible label, 44 px).
 
 ### 2026-10-18 scan
 
@@ -1385,6 +1131,29 @@ out to be a product-scope question rather than a scoped task should move to
       two uniquely named expenses, types one name in Search, sees only that
       row, reloads and still sees the filter, clears it and sees both, on
       desktop and mobile, in `en` and `sv`.
+
+### 2026-10-23 scan
+
+- [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —
+      Grocy tracks when a product was opened and applies a "days until
+      due after opening" so a jar of pesto or a carton of milk shows the
+      real deadline once the seal is broken. Squirrel only has the
+      sealed best-before date (`InventoryItem.expiresAt`,
+      `prisma/schema.prisma:335`), so an opened item reads "fine for
+      2 weeks" when it's good for 3 days, and the expiring-soon count and
+      digest miss it. Add a nullable `openedAt` and an optional per-item
+      "days good after opening" (`shelfLifeOpenedDays`); an "Opened" row
+      action stamps today, and `getExpiryStatus` (`src/lib/stock-status.ts`)
+      uses the earlier of `expiresAt` and `openedAt + shelfLifeOpenedDays`.
+      Nothing changes for items that never use it. Reuse the existing
+      expiring/expired filters, counts and notifications; no new
+      screen. Edge cases: undo within the toast, restocking clears
+      `openedAt`, a typed date is never overwritten (as with
+      `expiresAtEstimated`).
+      Acceptance: unit tests for the effective-date maths (sealed only,
+      opened earlier, opened later than sealed, no shelf-life set); an e2e
+      step on `mobile` marks a uniquely named item Opened with 3 days,
+      sees it under "expiring", reloads and still sees it, in `en` and `sv`.
 
 ## Needs a decision before building
 

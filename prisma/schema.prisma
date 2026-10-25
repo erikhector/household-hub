@@ -163,6 +163,15 @@ model Household {
   // Null (the default) keeps the original symbol-free two-decimal display,
   // so existing households see no change until the owner picks one.
   currencyCode          String?
+  // UX-134: the day of the month the household's budget month starts on, 1
+  // to 28 (28 so every month has the day; checked by
+  // setBudgetMonthStartDayAction). 1 is the calendar month. Swedish salaries
+  // land on the 25th, so most households budget "lönemånad", the 25th to the
+  // 24th. A period is named for the month it *ends* in (day 25: "October" is
+  // 25 Sep to 24 Oct), since that is the pay that funds the bills due in it.
+  // Only the household budget, its safe to spend and the recurring and
+  // planned statuses read it; the Personal Budget stays on calendar months.
+  budgetMonthStartDay   Int     @default(1)
   // When ticking a shopping-list row updates inventory. ON_PUT_AWAY (the
   // default for new households) treats a tick as "in the cart" only — stock
   // moves when the row is confirmed via the list's "Put away" step
@@ -396,6 +405,10 @@ model InventoryItem {
   // moves it rather than sharing it. Never sent anywhere — only the scanned
   // digits of an *unknown* code go to Open Food Facts.
   barcode            String?
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   shoppingListItems ShoppingListItem[]
@@ -544,6 +557,10 @@ model ShoppingList {
   // on the list rather than per row because the reminder is per trip, and
   // the default list lives across many trips.
   putAwayRemindedAt DateTime?
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household     Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items         ShoppingListItem[]
@@ -624,6 +641,10 @@ model ShoppingListItem {
   priceRecordedAt    DateTime?
   addedAutomatically Boolean  @default(false)
   createdAt          DateTime @default(now())
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   shoppingList  ShoppingList   @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
@@ -742,6 +763,17 @@ model Recipe {
   // every write goes through parseRecipeTags, and so does every read, so a
   // key later removed from the set is silently ignored rather than shown.
   tags                   String[] @default([])
+  // GAP-51 "Cook soon": when the household queued this recipe for the pinned
+  // shelf at the top of the Recipes tab. Null means not queued. A timestamp
+  // rather than a boolean so the shelf can list recipes in the order they
+  // were added. It clears itself when the recipe is cooked or put on the
+  // planner (cook-soon.ts), so the shelf only ever holds recipes that still
+  // have no date. Nothing else reads it: ranking and suggestions ignore it.
+  cookSoonAt             DateTime?
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
@@ -891,6 +923,10 @@ model MealPlan {
   householdId   String
   weekStartDate DateTime
   createdAt     DateTime @default(now())
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
   entries   MealPlanEntry[]
@@ -944,6 +980,10 @@ model MealPlanEntry {
   // preparedBatchId is set; the assign/unassign actions keep the pair in
   // step (and reset this to 0 when they clear the link).
   preparedPortionsUsed Int       @default(0)
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   mealPlan      MealPlan       @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipe        Recipe?        @relation(fields: [recipeId], references: [id], onDelete: SetNull)
@@ -1500,9 +1540,17 @@ model HouseholdTask {
   recurrenceIntervalDays Int?
   // UX-144: the anchor day of a weekly-or-longer repeat; null reads as createdAt.
   recurrenceAnchorAt     DateTime?
+  // UX-133: the optional due *day* of a one-off task (a calendar date, no time
+  // or zone). A repeating task ignores it: its due day is derived from the
+  // schedule (src/app/dashboard/tasks/task-due.ts).
+  dueDate                DateTime? @db.Date
   rotationMemberIds          String[]  @default([])
   rotationPreviousAssigneeId String?
   createdAt              DateTime  @default(now())
+  // UX-136: batch id of the opt-in sample data this row came from (see
+  // src/lib/sample-data.ts); null for everything a person made. "Clear sample
+  // data" deletes exactly the rows where this is set.
+  sample String?
 
   household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   assignedToMember  HouseholdMember? @relation("TaskAssignedTo", fields: [assignedToMemberId], references: [id], onDelete: SetNull)

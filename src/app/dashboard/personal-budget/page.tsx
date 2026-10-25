@@ -6,6 +6,8 @@ import { ExportButton } from "@/components/export/export-button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
+import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
+import { summarizeSharedCosts } from "@/lib/shared-costs-summary";
 import { CategoryManager } from "@/components/budget/category-manager";
 import {
   RecurringTemplatesPanel,
@@ -161,6 +163,8 @@ async function PersonalBudgetTabsSection({
     safeToSpendDaily,
     expectedRecurring,
   } = position;
+
+  const sharedCostsSummary = summarizeSharedCosts(sharedPostedRows, householdDebts);
 
   const categoryRows = categories.map((c) => ({
     id: c.id,
@@ -487,6 +491,23 @@ async function PersonalBudgetTabsSection({
           dict={dict.personalBudget}
           createCategoryAction={createPersonalCategoryAction}
         />
+      }
+      sharedCosts={
+        sharedCostsSummary.hasAny ? (
+          <SharedCostsCard
+            summary={sharedCostsSummary}
+            debts={householdDebts}
+            showHouseholdName={showHouseholdName}
+            transactionsHref={budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions" })}
+            monthLabel={
+              monthKey === toMonthKey(now)
+                ? undefined
+                : parseMonthKey(monthKey).toLocaleDateString(locale, { month: "long", year: "numeric" })
+            }
+            dict={dict.personalBudget}
+            locale={locale}
+          />
+        ) : null
       }
       manage={manage}
       transactions={transactionsTab}

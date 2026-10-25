@@ -10,8 +10,8 @@ const UNDO_WINDOW_MS = 5000;
 // destroys data is undoable", and principle 5's "prefer undo for frequent,
 // low-stakes actions"). The row hides itself while `hidden` is true; see
 // deferred-delete.ts for when the delete actually goes out. The visible
-// trash button keeps its confirm dialog: it's the deliberate path, this is
-// the quick one.
+// trash button and menu Delete use it too since UX-49: one delete, one Undo
+// toast, however it was started.
 export function useUndoableDelete({
   run,
   message,

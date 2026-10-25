@@ -193,6 +193,7 @@ export function RecurringTemplatesPanel({
                       description: template.name,
                       frequency: template.frequency,
                       splits: template.splits,
+                      dayOfMonth: template.frequency === "MONTHLY" ? template.dayOfMonth : null,
                     }}
                     createAction={createTransactionAction}
                     updateAction={updateTransactionAction}

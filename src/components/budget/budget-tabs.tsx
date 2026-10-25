@@ -85,6 +85,7 @@ import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { BudgetStartDayProvider } from "@/components/budget/budget-period-context";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { parseBudgetTab, type BudgetTab } from "@/lib/budget-url";
 
@@ -118,6 +119,7 @@ export function BudgetTabs({
   currencyCode = null,
   monthKey,
   currentMonthKey,
+  budgetMonthStartDay = 1,
   basePath,
   householdParam,
   readOnly = false,
@@ -148,6 +150,7 @@ export function BudgetTabs({
   onLogTemplateAsIs,
   savingsGoals,
   onboarding,
+  sharedCosts,
   manage,
   transactions,
   insights,
@@ -164,6 +167,11 @@ export function BudgetTabs({
   monthKey: string;
   /** The server's "YYYY-MM" for today — see MonthNavigator's prop. */
   currentMonthKey: string;
+  /** UX-134: the household's budget month start day (1 = calendar months).
+   * Names the period's dates in the month bar and sets new transactions'
+   * default date. Left unset by the personal budget, whose months stay
+   * calendar months. */
+  budgetMonthStartDay?: number;
   /** "/dashboard/budget" or "/dashboard/personal-budget" — passed straight
    * through to MonthNavigator, which builds every prev/next/"this month"
    * link from it. */
@@ -242,6 +250,9 @@ export function BudgetTabs({
   /** BudgetOnboarding or PersonalBudgetOnboarding, prebuilt by the page —
    * see this file's doc comment on why these stay separate components. */
   onboarding: ReactNode;
+  /** UX-112, personal budget only: the shared-costs card, prebuilt by the
+   * page and shown above `onboarding` while there are no categories. */
+  sharedCosts?: ReactNode;
   // Recurring items + categories — see this file's doc comment.
   manage: ReactNode;
   transactions: ReactNode;
@@ -281,6 +292,7 @@ export function BudgetTabs({
   ];
 
   return (
+    <BudgetStartDayProvider startDay={budgetMonthStartDay}>
     <div className="flex flex-col gap-6">
       {/* The month bar and the tab bar are one block of chrome: closer
           together than the sections below them, so they cost less of a
@@ -290,6 +302,7 @@ export function BudgetTabs({
           basePath={basePath}
           monthKey={monthKey}
           currentMonthKey={currentMonthKey}
+          startDay={budgetMonthStartDay}
           locale={locale}
           dict={dict}
           params={{
@@ -302,15 +315,27 @@ export function BudgetTabs({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Tabs tabs={tabItems} value={tab} onChange={setTab} />
           <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
-            {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (
-              <LogSharedExpenseDialog
-                numberFormat={numberFormat}
-                dict={logSharedDialogDict}
-                households={sharedExpenseHouseholds}
-                monthKey={monthKey}
-                trigger={<Button variant="outline">{logSharedDialogDict.logShared.button}</Button>}
-              />
-            )}
+            {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (() => {
+              const dialog = (
+                <LogSharedExpenseDialog
+                  numberFormat={numberFormat}
+                  dict={logSharedDialogDict}
+                  households={sharedExpenseHouseholds}
+                  monthKey={monthKey}
+                  trigger={
+                    <Button variant={hasCategories ? "outline" : "default"}>
+                      {logSharedDialogDict.logShared.button}
+                    </Button>
+                  }
+                />
+              );
+              // UX-112: with no category yet, adding a shared expense is the
+              // page's one action, so it takes the primary slot (the floating
+              // button on phones, DESIGN.md M2) exactly where the household
+              // page's "Add transaction" sits. Once Add transaction exists it
+              // is the primary and this stays the quieter second action.
+              return hasCategories ? dialog : <PrimaryAction>{dialog}</PrimaryAction>;
+            })()}
             {/* UX-23: with no category yet there is nothing to log against, and
                 a disabled primary read as broken. The onboarding card on
                 Overview is the next step, so the button appears once it is
@@ -393,7 +418,11 @@ export function BudgetTabs({
               {savingsGoals}
             </>
           ) : (
-            onboarding
+            <>
+              {/* UX-112: what they owe or are owed comes before "set up". */}
+              {sharedCosts}
+              {onboarding}
+            </>
           )}
         </div>
 
@@ -402,5 +431,6 @@ export function BudgetTabs({
         <div hidden={tab !== "insights"}>{insights}</div>
       </fieldset>
     </div>
+    </BudgetStartDayProvider>
   );
 }

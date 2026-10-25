@@ -64,6 +64,7 @@ export const en = {
     noRecipeLinked: "No recipe linked to this meal",
     chooseRecipeOrMeal: "Choose a recipe or enter a meal name",
     cookedMealCantMove: "A cooked meal can't be moved",
+    bulkNothingToChange: "None of the selected meals can be changed",
     selectAtMostIngredients: "Select at most {max} ingredients at once",
     selectAtLeastOneIngredient: "Select at least one ingredient to add",
     ingredientNameTooLong: "Ingredient names must be {max} characters or fewer",
@@ -100,6 +101,7 @@ export const en = {
     repeatWhole: "Repeat interval must be a whole number of days",
     repeatMin: "Repeat interval must be at least 1 day",
     repeatMax: "Repeat interval must be 90 days or fewer",
+    dueDateInvalid: "Due date must be a real date",
     eachPersonOnce: "Each person can only take turns once",
     plannedBillNotFound: "Planned bill not found",
     plannedBillAlreadyPaid: "This planned bill is already paid",
@@ -137,6 +139,19 @@ export const en = {
     more: "More",
     whatsNew: "What's new",
     whatsNewUnseen: "New update",
+  },
+  // UX-41a: the ⌘K / Ctrl+K command palette (command-palette.tsx).
+  commandPalette: {
+    title: "Command palette",
+    inputLabel: "Type a command",
+    placeholder: "Go to or do something…",
+    listLabel: "Commands",
+    goTo: "Go to {section}",
+    addTask: "Add task",
+    addToShoppingList: "Add to shopping list",
+    empty: "No matching commands.",
+    hint: "Arrow keys to move, Enter to run, Esc to close",
+    results: { one: "{count} command", other: "{count} commands" },
   },
   whatsNew: {
     title: "What's new",
@@ -315,6 +330,18 @@ export const en = {
       ownerOnlyHint: "Only the household owner can change this.",
       savedToast: "Currency updated",
     },
+    // UX-134: the day the household budget's month starts on.
+    budgetMonth: {
+      title: "Budget month",
+      label: "Budget month starts on day",
+      description:
+        "Most households budget from the 1st. If your pay lands on the 25th, start on day 25 and each month runs from the 25th to the 24th, named after the month it ends in.",
+      hint: "Changes the household budget's months, Safe to spend and recurring bills. Nothing you've logged changes, and Personal Budget stays on calendar months. Recurring items you marked as accounted for may need marking again.",
+      calendarOption: "{day} (calendar month)",
+      dayOption: "{day}",
+      ownerOnlyHint: "Only the household owner can change this.",
+      savedToast: "Budget month updated",
+    },
     // GAP-3: the read-only calendar feed (CalendarFeedSetting). `feed` holds
     // the strings written into the .ics itself; the route picks the locale
     // from the URL's ?lang=, since calendar apps send no cookie.
@@ -387,6 +414,12 @@ export const en = {
     delete: {
       trigger: "Delete household",
       checking: "Checking…",
+      onlyHousehold:
+        "This is your only household, so it can't be deleted on its own. To remove it, delete your account instead.",
+      onlyHouseholdLink: "Go to Delete account",
+      onlyHouseholdWithMembers:
+        "This is your only household and it has other members, so it can't be deleted while they're in it. Transfer ownership to one of them, or remove them, first.",
+      onlyHouseholdWithMembersLink: "Go to the members",
       blockedTitle: "Can't delete household",
       blockedClose: "OK",
       cancel: "Cancel",
@@ -521,6 +554,48 @@ export const en = {
         },
       },
     },
+    // UX-136: opt-in sample data. The card offers it on an empty household and,
+    // once it's there, the way out; `content` is the made-up home itself, in
+    // the viewer's language at the moment they seed it.
+    sampleData: {
+      tryTitle: "Not sure where to start?",
+      tryBody:
+        "Fill Squirrel with a small example home: a pantry, a shopping list, three recipes, a planned week and a few tasks. You can clear it again whenever you like.",
+      tryButton: "Try with sample data",
+      clearTitle: "You're looking at sample data",
+      clearBody:
+        "The rows marked as sample are made up. Clearing removes those, including any you've edited, and keeps everything you've added yourself.",
+      clearButton: "Clear sample data",
+      confirmTitle: "Clear the sample data?",
+      confirmDescription:
+        "This deletes the example pantry items, shopping list, recipes, planned meals and tasks. Examples you've edited or completed go too. Anything you added yourself stays. This can't be undone.",
+      confirmCancel: "Keep it",
+      confirmConfirm: "Clear sample data",
+      confirmPending: "Clearing…",
+      content: {
+        categoryPantry: "Pantry",
+        categoryDairy: "Dairy and eggs",
+        categoryBakery: "Bakery",
+        itemPasta: "Pasta",
+        itemRice: "Rice",
+        itemTomatoes: "Canned tomatoes",
+        itemMilk: "Milk",
+        itemEggs: "Eggs",
+        itemCoffee: "Coffee",
+        itemBread: "Bread",
+        listName: "Weekly shop",
+        recipeTomatoPasta: "Tomato pasta",
+        recipeTomatoPastaSteps: "Boil the pasta. Simmer the tomatoes with salt and pepper for ten minutes, then toss together.",
+        recipePancakes: "Pancakes",
+        recipePancakesSteps: "Whisk milk, eggs and flour into a smooth batter. Fry thin pancakes in butter on both sides.",
+        recipeFriedRice: "Egg fried rice",
+        recipeFriedRiceSteps: "Fry the cooked rice hot, push it aside, scramble the eggs and mix everything with soy sauce.",
+        mealLeftovers: "Leftovers",
+        taskRecycling: "Take out the recycling",
+        taskPlants: "Water the plants",
+        taskDentist: "Book a dentist appointment",
+      },
+    },
   },
   shoppingList: {
     title: "Shopping lists",
@@ -552,7 +627,7 @@ export const en = {
     nameLabel: "Name",
     creating: "Creating…",
     create: "Create list",
-    empty: "No shopping lists yet. Create one to get started.",
+    empty: "One shared list for the whole household, so nobody buys the milk twice.",
     sectionActive: "Active",
     sectionCompleted: "Completed",
     sectionArchived: "Archived",
@@ -562,8 +637,8 @@ export const en = {
     },
     statusCompleted: "Completed",
     statusArchived: "Archived",
-    archiveAriaLabel: "Archive list",
-    unarchiveAriaLabel: "Unarchive list",
+    // UX-49: archiving shows this with an Undo.
+    listArchivedToast: "List archived",
     deleteAriaLabel: "Delete list",
     confirmDeleteList: {
       title: "Delete {name}?",
@@ -633,13 +708,6 @@ export const en = {
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
-    },
-    confirmDeleteItem: {
-      title: "Remove {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
     },
     editItemAriaLabel: "Edit {name}",
     // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
@@ -951,6 +1019,7 @@ export const en = {
       matchLabel: "Matches",
       matchNoResults: "No matching items",
       qtyLabel: "qty {qty}",
+      qtyAtUnitPrice: "{qty} × {unitPrice}",
       noMatchHint: "No match found",
       addAsNewItem: "Add \"{name}\" as a new item",
       addButton: "Add",
@@ -1119,13 +1188,6 @@ export const en = {
     moreInventoryActions: "More inventory actions",
     edit: "Edit",
     delete: "Delete",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     nameLabel: "Name",
     categoryLabel: "Category",
     categoryPlaceholder: "e.g. Dairy",
@@ -1202,7 +1264,8 @@ export const en = {
     emptyNoItems: "No items yet. Add your first item to start tracking inventory.",
     emptyNoMatches: "No items match your filters.",
     emptyTitle: "No items yet",
-    emptyLead: "Add a few items to start tracking what's in stock.",
+    emptyLead: "Add a few items to start tracking what's in stock, and Squirrel tells you what to buy before it runs out.",
+    quickAddToggle: "Or type several in a row",
     mascotAlt: "Squirrel mascot",
     quickAdd: {
       label: "Quick add",
@@ -1701,6 +1764,13 @@ export const en = {
     // "Fill empty days" (BACKLOG GAP-45) — a preview of one favorite dinner
     // per empty day; nothing is saved until "Add dinners" (fillEmptyDaysAction).
     fillEmptyDays: "Fill empty days",
+    // UX-50: an empty week is one empty state with one primary, not seven
+    // "Add meal" cards; the ⋯ menu keeps Copy last week and Fill empty days.
+    plannerEmpty:
+      "Plan the week's meals and Squirrel works out what you still need to buy. Copy last week or fill the empty days from the ⋯ menu.",
+    plannerEmptyNoRecipes:
+      "Plan the week's meals and Squirrel works out what you still need to buy. Add a few recipes first and planning gets quicker.",
+    addFirstDinner: "Add your first dinner",
     fillEmptyDaysDescription: "Dinners picked for the days with nothing planned, favorites first and then your other recipes. Nothing is saved until you add them.",
     fillEmptyDaysNoRecipes: "No recipes to pick from yet. Add a few in the Recipes tab and they will show up here.",
     fillEmptyDaysNoneLeft: "Every recipe is already planned this week, so there is nothing new to propose.",
@@ -1726,6 +1796,12 @@ export const en = {
     mealTypeLunch: "Lunch",
     mealTypeDinner: "Dinner",
     mealTypeSnack: "Snack",
+    // GAP-59: search across the whole plan (a year either side of today).
+    searchPlanLabel: "Search the meal plan",
+    searchPlanPlaceholder: "Recipe or meal name",
+    searchPlanResults: "Planned meals matching your search",
+    searchPlanNoResults: "Nothing planned matches that.",
+    searchPlanError: "Couldn't search the meal plan. Try again.",
     // UX-99: each day's button names its day ("Add meal, Mon 12"), so seven
     // identical "Add meal" buttons are tellable apart by a screen reader.
     addMeal: "Add meal",
@@ -1750,15 +1826,47 @@ export const en = {
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
-    confirmDeleteMeal: {
-      title: "Remove {meal}?",
-      description: "This can't be undone.",
-      descriptionCooked:
-        "This meal was already marked as cooked — the inventory it used won't be restored automatically.",
-      cancel: "Cancel",
-      confirm: "Remove",
-      confirming: "Removing…",
+    // UX-49: Remove goes at once; the toast carries the way back.
+    mealRemovedToast: 'Removed "{meal}"',
+    undoDelete: "Undo",
+    // GAP-56: Select mode on the planner — move, re-portion or remove
+    // several planned meals at once.
+    bulkSelectAction: "Select meals",
+    bulkBarLabel: "Edit selected meals",
+    bulkSelectedCount: {
+      one: "{count} meal selected",
+      other: "{count} meals selected",
     },
+    bulkSelectHint: "Tap meals to select them",
+    bulkCookedLocked: "Cooked, can't be changed",
+    bulkDone: "Done",
+    bulkMove: "Move to…",
+    bulkPortions: "Portions…",
+    bulkRemove: "Remove",
+    bulkMoveTitle: "Move selected meals",
+    bulkMoveHint: "The earliest selected meal goes to this day. The others keep their distance from it.",
+    bulkMoveKeepSlot: "Keep each meal's slot",
+    bulkPortionsTitle: "Change portions",
+    bulkPortionsHint:
+      "Sets the portions for every selected recipe meal. Custom meals and meals eating from a prep batch stay as they are.",
+    bulkPortionsSubmit: "Set portions",
+    bulkMovedToast: {
+      one: "Moved {count} meal",
+      other: "Moved {count} meals",
+    },
+    bulkPortionsToast: {
+      one: "Changed portions for {count} meal",
+      other: "Changed portions for {count} meals",
+    },
+    bulkRemovedToast: {
+      one: "Removed {count} meal",
+      other: "Removed {count} meals",
+    },
+    bulkSkippedNote: {
+      one: "{count} left as it was",
+      other: "{count} left as they were",
+    },
+    bulkUndoneToast: "Changes undone",
     adding: "Adding…",
     add: "Add",
     recipesTitle: "Recipes",
@@ -1803,6 +1911,7 @@ export const en = {
       one: "Cooked {count} time, last {date}",
       other: "Cooked {count} times, last {date}",
     },
+    recipePlannedLabel: "Planned:",
     recipeCostHint: "Estimated from what you last paid for each ingredient",
     ingredientsLabel: "Ingredients",
     ingredientNamePlaceholder: "Ingredient",
@@ -1928,13 +2037,13 @@ export const en = {
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
     favoriteAriaLabel: "Favorite {name}",
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
+    cookSoonTitle: "Cook soon",
+    cookSoonAdd: "Cook soon",
+    cookSoonRemove: "Remove from Cook soon",
+    cookSoonAddedToast: "{name} added to Cook soon",
+    cookSoonRemovedToast: "{name} removed from Cook soon",
+    // UX-49: Delete goes at once; the toast carries the way back.
+    recipeDeletedToast: 'Deleted "{name}"',
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",
     mascotAlt: "Squirrel mascot",
     searchRecipesPlaceholder: "Search recipes…",
@@ -2070,6 +2179,10 @@ export const en = {
     cookNowTitle: "Cook now",
     cookNowSubtitle: "Recipes you already have everything (or almost everything) for.",
     emptyCookNow: "No recipes are close to ready yet — restock a few ingredients or add more recipes.",
+    // UX-50: Cook now's empty state, with its one next step.
+    emptyCookNowNoRecipes: "Add a recipe and this tab shows what you can cook from what's already in stock.",
+    cookNowAddRecipe: "Add a recipe",
+    cookNowOpenInventory: "Update your inventory",
     readyToCookBadge: "Ready to cook",
     addToPlanButton: "Add to plan",
     addToPlanDialogTitle: "Add {recipe} to the plan",
@@ -2193,13 +2306,23 @@ export const en = {
     unassignedOption: "Unassigned",
     add: "Add",
     adding: "Adding…",
-    emptyState: "No tasks yet — use Add task to add one.",
+    emptyState: "Add the chores that keep coming back, and everyone can see what's open and who has it.",
     mascotAlt: "Squirrel mascot",
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",
     completedByLabel: "Completed by {name}",
     lastCompletedByLabel: "Last done by {name}",
     nextDueLabel: "Next due {date}",
+    // UX-133: an optional due date, and the urgency it gives an open task.
+    dueDateLabel: "Due date",
+    dueDateHint: "Optional. Leave it empty for no deadline.",
+    clearDueDate: "Clear due date",
+    dueTodayLabel: "Due today",
+    dueLabel: "Due {date}",
+    overdueLabel: {
+      one: "Overdue · {count} day",
+      other: "Overdue · {count} days",
+    },
     deleteTaskAriaLabel: "Delete {title}",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
@@ -2211,13 +2334,6 @@ export const en = {
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
       undo: "Undo",
-    },
-    confirmDelete: {
-      title: "Delete {name}?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
     // UX-106: the "Mine / Everyone" filter above the list.
@@ -2310,13 +2426,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -2443,6 +2552,8 @@ export const en = {
       lineOwedFromEarlier: "Owed from earlier months",
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Still budgeted",
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
@@ -2570,7 +2681,8 @@ export const en = {
       sharesLabel: "Split between",
       splitEvenlyButton: "Split evenly",
       amountAriaLabel: "Amount for {name}",
-      mismatchWarning: "The shares add up to {total}, but the transaction is {amount}.",
+      sharesLeftHint: "{amount} of {total} left to split.",
+      sharesOverWarning: "The shares are {amount} more than the {total} total.",
       splitBadge: "Split",
       paidByBadge: "Paid by {name}",
       shareColumn: "Share",
@@ -2619,7 +2731,8 @@ export const en = {
         sharesLabel: "Split between",
         splitEvenlyButton: "Split evenly",
         amountAriaLabel: "Amount for {name}",
-        mismatchWarning: "The shares add up to {total}, but the template's amount is {amount}.",
+        sharesLeftHint: "{amount} of {total} left to split.",
+        sharesOverWarning: "The shares are {amount} more than the {total} total.",
         splitBadge: "Split",
       },
       statusLegend:
@@ -2698,7 +2811,8 @@ export const en = {
       sharesLabel: "Split between",
       splitEvenly: "Split evenly",
       shareAriaLabel: "Share for {name}",
-      splitMismatch: "The shares add up to {total}, but the bill is {amount}.",
+      sharesLeftHint: "{amount} of {total} left to split.",
+      sharesOverWarning: "The shares are {amount} more than the {total} total.",
       save: "Save",
       saving: "Saving…",
       savedToast: "{name} saved.",
@@ -2808,13 +2922,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    confirmDeleteTransaction: {
-      title: "Delete this transaction?",
-      description: "This can't be undone.",
-      cancel: "Cancel",
-      confirm: "Delete",
-      confirming: "Deleting…",
-    },
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -2940,6 +3047,8 @@ export const en = {
       lineOwedFromEarlier: "Owed from earlier months",
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
+      // UX-138: what is left of the monthly limits, held back from the number.
+      lineStillBudgeted: "Still budgeted",
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
@@ -2979,12 +3088,20 @@ export const en = {
       paidBy: "Paid by {name}",
       viewInHouseholdBudget: "View in {household} Budget →",
       leftDue: "{amount} left due",
+      // UX-112: the card a member sees before they've set up a budget.
+      costsTitle: "Shared with your household",
+      costsBody: "Expenses split with other members count here before you set up your own budget.",
+      monthShare: "Your share this month",
+      monthShareIn: "Your share in {month}",
+      viewShared: "See the shared expenses →",
     },
     logShared: {
       logPayment: "Log payment",
       paymentDialogTitle: "Log payment for {name}",
-      button: "Log a shared expense",
-      dialogTitle: "Log a shared expense",
+      // UX-112: "Add" like the household page's "Add transaction", which is
+      // where the same action lives next to a "Split this expense" checkbox.
+      button: "Add shared expense",
+      dialogTitle: "Add shared expense",
       subtitle:
         "This creates a real transaction in the household's budget, split the way you choose below — it isn't a separate personal entry.",
       householdLabel: "Household",
@@ -3000,7 +3117,8 @@ export const en = {
       sharesLabel: "Split between",
       splitEvenlyButton: "Split evenly",
       amountAriaLabel: "Amount for {name}",
-      mismatchWarning: "The shares add up to {total}, but the expense is {amount}.",
+      sharesLeftHint: "{amount} of {total} left to split.",
+      sharesOverWarning: "The shares are {amount} more than the {total} total.",
       saving: "Logging…",
       add: "Log expense",
       loggedToast: "Logged in {household}'s budget.",

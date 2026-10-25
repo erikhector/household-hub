@@ -11,6 +11,7 @@ import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk
 import { recordOutOfStockTransition, recordOutOfStockTransitions } from "@/lib/notifications";
 import {
   addItemToDefaultList,
+  addItemsToDefaultList,
   addToDefaultListOnLowStock,
   addToDefaultListOnLowStockBatch,
   revalidateAutoAdded,
@@ -679,21 +680,13 @@ export async function addInventoryItemsToShoppingListAction(
   if (items.length === 0) return await fail("itemNotFound");
 
   try {
-    let listId = "";
-    let listName = "";
-    let added = 0;
-    for (const item of items) {
-      const { list, created } = await addItemToDefaultList(prisma, household.id, item, false);
-      listId = list.id;
-      listName = list.name;
-      if (created) added += 1;
-    }
+    const { list, added } = await addItemsToDefaultList(prisma, household.id, items, false);
 
-    revalidatePath(`/dashboard/shopping-list/${listId}`);
+    revalidatePath(`/dashboard/shopping-list/${list.id}`);
     revalidatePath("/dashboard/shopping-list");
     revalidatePath("/dashboard/inventory");
 
-    return { listName, added, alreadyOnList: items.length - added };
+    return { listName: list.name, added, alreadyOnList: items.length - added };
   } catch (error) {
     return toFriendlyError(error);
   }

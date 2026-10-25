@@ -19,6 +19,7 @@ import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 import { generateCalendarFeedToken } from "@/lib/calendar-feed";
 import { defaultCurrencyForNewHousehold, parseHouseholdCurrency } from "@/lib/currency";
 import { HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX } from "@/lib/household-step-skip";
+import { MAX_BUDGET_MONTH_START_DAY, MIN_BUDGET_MONTH_START_DAY } from "@/lib/budget-date-utils";
 import {
   GETTING_STARTED_DISMISS_COOKIE_PREFIX,
   GETTING_STARTED_DONE_COOKIE_PREFIX,
@@ -770,6 +771,44 @@ export async function setHouseholdCurrencyAction(currencyCode: string | null): P
   // Every page that shows an amount (budget, shopping lists, recipes, the
   // household page itself) reads the setting, so the whole dashboard is
   // revalidated rather than listing each route and missing one later.
+  revalidatePath("/dashboard", "layout");
+  return {};
+}
+
+// --- Budget month start day (UX-134) ---------------------------------------
+
+const BUDGET_START_DAY_OWNER_ONLY_MESSAGE = "Only the household owner can change when the budget month starts";
+
+/**
+ * Sets the day the household budget's month starts on (1 to 28; 25 for a
+ * payday month, the 25th to the 24th). Owner-only like the currency: it
+ * moves every member's month boundaries. Nothing stored changes, since
+ * transactions keep their dates and only which period each falls in does. A
+ * click action (the Household page's select saves on change), so it takes
+ * the value directly.
+ */
+export async function setBudgetMonthStartDayAction(day: number): Promise<ActionState> {
+  const { household, role } = await requireHousehold();
+  if (role !== "OWNER") return { error: BUDGET_START_DAY_OWNER_ONLY_MESSAGE };
+
+  const parsed = z
+    .number()
+    .int()
+    .min(MIN_BUDGET_MONTH_START_DAY)
+    .max(MAX_BUDGET_MONTH_START_DAY)
+    .safeParse(day);
+  if (!parsed.success) return { error: "Choose a day from 1 to 28" };
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { budgetMonthStartDay: parsed.data },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  // The budget, the overview's Safe to spend and the digest all read it.
   revalidatePath("/dashboard", "layout");
   return {};
 }

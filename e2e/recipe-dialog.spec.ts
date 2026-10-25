@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRecipesTab } from "./ui";
 
 // The recipe form is the longest dialog in the app. On phones it opens as a
 // bottom sheet, and it used to be a scroll container nested inside the
@@ -42,7 +42,7 @@ const nonsenseName = () =>
 
 test("the new recipe dialog scrolls as one sheet on both steps", async ({ page }) => {
   await page.goto("/dashboard/meal-planning");
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   await page.getByRole("button", { name: "New recipe" }).click();
 
   const dialog = page.getByRole("dialog", { name: "New recipe" });

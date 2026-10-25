@@ -2,8 +2,12 @@ import Link from "next/link";
 import { ChevronRight, CircleCheck, PiggyBank, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SampleDataCard } from "@/components/dashboard/sample-data-card";
+import { loadSampleDataState } from "@/lib/sample-data-state";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
+import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
+import { summarizeSharedCosts } from "@/lib/shared-costs-summary";
 import { TodayBlock, type TodayTask } from "@/components/dashboard/today-block";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
@@ -14,6 +18,7 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { daysOverdue, getTaskDueDay, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { getStockStatus } from "@/lib/stock-status";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
@@ -68,6 +73,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     gettingStartedCelebrated,
     plannedMealCount,
     prepBatches,
+    sampleState,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
     // UX-70: the tasks that need *you*: yours and the unassigned ones
@@ -88,6 +94,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         completedAt: true,
         recurrenceIntervalDays: true,
         recurrenceAnchorAt: true,
+        dueDate: true,
         createdAt: true,
       },
       orderBy: { createdAt: "asc" },
@@ -116,7 +123,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     // categories, so the count gates it, inside this one parallel slot.
     prisma.budgetCategory.count({ where: { householdId: household.id } }).then(async (count) => ({
       count,
-      safeToSpend: count > 0 ? await loadHouseholdSafeToSpend(household.id, now) : null,
+      safeToSpend: count > 0 ? await loadHouseholdSafeToSpend(household.id, now, household.budgetMonthStartDay) : null,
     })),
     prisma.personalBudgetCategory.count({ where: { userId } }),
     // The exact same number Personal Budget shows for this month — shared
@@ -145,16 +152,29 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     // UX-69: the "Plan this week's meals" step is done once anything is planned.
     prisma.mealPlanEntry.count({ where: { mealPlan: { householdId: household.id } } }),
     getActiveBatches(household.id),
+    loadSampleDataState(household.id),
   ]);
   const budgetCategoryCount = householdBudget.count;
 
   // Open tasks first, yours before the household's unassigned ones (stable,
-  // so each group keeps its oldest-first order).
+  // so each group keeps its oldest-first order), then by urgency (UX-133):
+  // overdue, due today, due later, undated. The sort is stable too, so the
+  // order above breaks ties, and the overdue ones are never cut off by the
+  // "N more" limit.
   const timeZone = await getTimeZone();
-  const openTasks = todayTasks
-    .filter((t) => isTaskOpen(t, now, timeZone))
-    .map((t) => ({ id: t.id, title: t.title, unassigned: t.assignedToMemberId === null }))
-    .sort((a, b) => Number(a.unassigned) - Number(b.unassigned));
+  const today = todayDayNumber(now, timeZone);
+  const openTasks = sortByUrgency(
+    todayTasks
+      .filter((t) => isTaskOpen(t, now, timeZone))
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        unassigned: t.assignedToMemberId === null,
+        dueDay: getTaskDueDay(t, timeZone),
+      }))
+      .sort((a, b) => Number(a.unassigned) - Number(b.unassigned)),
+    today,
+  ).map(({ dueDay, ...task }) => ({ ...task, overdueDays: daysOverdue(dueDay, today) }));
   const shownTasks: TodayTask[] = openTasks.slice(0, TODAY_TASK_LIMIT);
   const tonight = tonightEntries
     .map((entry) => entry.recipe?.name ?? entry.freeformName)
@@ -212,6 +232,11 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     // optional feature were one too many on the first screen.
   ];
 
+  const sharedCostsSummary = summarizeSharedCosts(
+    personalPosition.sharedPostedRows,
+    personalPosition.householdDebts,
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {showWelcome && (
@@ -237,8 +262,14 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
           doneToast: dict.tasks.doneToast,
           undo: dict.tasks.swipe.undo,
           saveFailedToast: dict.tasks.saveFailedToast,
+          overdueLabel: dict.tasks.overdueLabel,
         }}
       />
+
+      {/* UX-136: opt-in sample data for an empty household, and the way out. */}
+      {(sampleState.hasSample || sampleState.isEmpty) && (
+        <SampleDataCard mode={sampleState.hasSample ? "clear" : "offer"} dict={dict.dashboard.sampleData} />
+      )}
 
       {!gettingStartedDismissed && (
         <GettingStarted
@@ -270,28 +301,41 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
             locale={locale}
           />
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2">
-                  <PiggyBank className="size-4 shrink-0" />
-                </span>
-                {dict.dashboard.yourBudgetTitle}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-3">
-              <p className="text-sm text-muted-foreground">{dict.personalBudget.onboarding.body}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className={CARD_LINK_BUTTON}
-                render={<Link href="/dashboard/personal-budget" />}
-              >
-                {dict.dashboard.setUpPersonalBudgetCta}
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col gap-4">
+            {/* UX-112: shares and balances come before "set up". */}
+            {sharedCostsSummary.hasAny && (
+              <SharedCostsCard
+                summary={sharedCostsSummary}
+                debts={personalPosition.householdDebts}
+                showHouseholdName={personalPosition.showHouseholdName}
+                transactionsHref="/dashboard/personal-budget?tab=transactions"
+                dict={dict.personalBudget}
+                locale={locale}
+              />
+            )}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2">
+                    <PiggyBank className="size-4 shrink-0" />
+                  </span>
+                  {dict.dashboard.yourBudgetTitle}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-3">
+                <p className="text-sm text-muted-foreground">{dict.personalBudget.onboarding.body}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={CARD_LINK_BUTTON}
+                  render={<Link href="/dashboard/personal-budget" />}
+                >
+                  {dict.dashboard.setUpPersonalBudgetCta}
+                  <ChevronRight className="size-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 

@@ -31,6 +31,8 @@ import {
 } from "@/app/dashboard/meal-planning/leftovers";
 import { defaultBatchExpiry } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { findSessionMemberId } from "@/app/dashboard/meal-planning/prep-assign";
+import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
+import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -198,7 +200,7 @@ export async function addMissingIngredientsToShoppingListAction(
       quantity: row.quantity,
       unit: row.unit,
       // AUTO-4: same last-known-price default as the other add paths.
-      estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
+      estimatedPrice: defaultLineEstimate(inventoryItem?.lastKnownPrice, row.quantity),
       addedAutomatically: true,
     });
   }
@@ -330,6 +332,8 @@ export async function markMealEntryCookedAction(
         where: { id: entry.id },
         data: { consumedAt: new Date() },
       });
+      // GAP-51: cooked, so it's off the Cook soon shelf.
+      await clearCookSoon(tx, household.id, entry.recipeId);
     });
   } catch (error) {
     return toFriendlyError(error);

@@ -22,6 +22,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getStockStatus } from "@/lib/stock-status";
 import { coveredQuantity, loadIncomingByItem, loadIncomingQuantity } from "@/lib/incoming-stock";
+import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
 
@@ -110,7 +111,7 @@ export async function addItemToDefaultList(
       unit: item.unit,
       addedAutomatically,
       // AUTO-4: same last-known-price default as every other add path.
-      estimatedPrice: item.lastKnownPrice ?? undefined,
+      estimatedPrice: defaultLineEstimate(item.lastKnownPrice, Math.max(1, item.lowStockThreshold - item.quantity)),
     },
     select: { id: true },
   });
@@ -119,6 +120,44 @@ export async function addItemToDefaultList(
     list,
     created: { shoppingListItemId: row.id, listId: list.id, listName: list.name, itemName: item.name },
   };
+}
+
+/**
+ * Batch sibling of addItemToDefaultList for the inventory bulk "Add to
+ * shopping list" (PERF-18): the default list (get-or-create), one read of
+ * what's already pending and one createMany, so up to 200 items cost the same
+ * handful of round trips as one. Same dedupe and sizing as the single-item
+ * version. `added` counts the rows created; the rest were already pending.
+ */
+export async function addItemsToDefaultList(
+  db: DbClient,
+  householdId: string,
+  items: readonly ListableItem[],
+  addedAutomatically: boolean,
+): Promise<{ list: { id: string; name: string }; added: number }> {
+  const list = await getOrCreateDefaultShoppingList(db, householdId);
+  if (items.length === 0) return { list, added: 0 };
+
+  const pending = await db.shoppingListItem.findMany({
+    where: { shoppingListId: list.id, purchased: false, inventoryItemId: { in: items.map((i) => i.id) } },
+    select: { inventoryItemId: true },
+  });
+  const alreadyPending = new Set(pending.map((row) => row.inventoryItemId));
+  const toAdd = items.filter((item) => !alreadyPending.has(item.id));
+  if (toAdd.length === 0) return { list, added: 0 };
+
+  await db.shoppingListItem.createMany({
+    data: toAdd.map((item) => ({
+      shoppingListId: list.id,
+      inventoryItemId: item.id,
+      name: item.name,
+      quantity: Math.max(1, item.lowStockThreshold - item.quantity),
+      unit: item.unit,
+      addedAutomatically,
+      estimatedPrice: item.lastKnownPrice ?? undefined,
+    })),
+  });
+  return { list, added: toAdd.length };
 }
 
 /**
@@ -235,7 +274,7 @@ export async function addToDefaultListOnLowStockBatch(
       quantity: Math.max(1, item.lowStockThreshold - nextQuantity),
       unit: item.unit,
       addedAutomatically: true,
-      estimatedPrice: item.lastKnownPrice ?? undefined,
+      estimatedPrice: defaultLineEstimate(item.lastKnownPrice, Math.max(1, item.lowStockThreshold - nextQuantity)),
     })),
     select: { id: true, inventoryItemId: true },
   });

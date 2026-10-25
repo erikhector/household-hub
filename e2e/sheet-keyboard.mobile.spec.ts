@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRecipesTab } from "./ui";
 
 // UX-12 (DESIGN.md M2, thumb zone): the recipe form is the longest sheet in
 // the app, and its Save used to scroll out of view on phones — exactly where
@@ -17,7 +17,7 @@ test("a filled recipe form keeps its submit in view on a phone", async ({ page, 
   // letting it overlay the sheet.
   const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute("content");
   expect(viewportMeta ?? "").toContain("interactive-widget=resizes-content");
-  await page.getByRole("tab", { name: "Recipes" }).click();
+  await openRecipesTab(page);
   await page.getByRole("button", { name: "New recipe" }).click();
 
   const dialog = page.getByRole("dialog", { name: "New recipe" });

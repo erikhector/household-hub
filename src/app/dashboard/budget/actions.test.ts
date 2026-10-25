@@ -1038,7 +1038,7 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
   });
 
   it("returns 'Category not found' for a category outside the chosen household", async () => {
-    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1", household: { budgetMonthStartDay: 1 } });
     categoryFindFirstMock.mockResolvedValue(null);
 
     const result = await createSharedExpenseFromPersonalBudgetAction({}, sharedFormData());
@@ -1048,7 +1048,7 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
   });
 
   it("requires a split — this entry point never logs an unsplit transaction", async () => {
-    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1", household: { budgetMonthStartDay: 1 } });
     categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
 
     const result = await createSharedExpenseFromPersonalBudgetAction(
@@ -1061,7 +1061,7 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
   });
 
   it("rejects when split amounts don't sum to the total", async () => {
-    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1", household: { budgetMonthStartDay: 1 } });
     categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
     householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
 
@@ -1074,7 +1074,7 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
   });
 
   it("creates the household transaction with splits and revalidates both budgets", async () => {
-    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1", household: { budgetMonthStartDay: 1 } });
     categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
     householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
     transactionCreateMock.mockResolvedValue({});
@@ -1103,7 +1103,7 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
 
   describe("logging a payment against a shared bill (recurringTemplateId)", () => {
     beforeEach(() => {
-      householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+      householdMemberFindFirstMock.mockResolvedValue({ id: "member-1", household: { budgetMonthStartDay: 1 } });
       categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
       householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
       transactionCreateMock.mockResolvedValue({});
@@ -1406,6 +1406,78 @@ describe("recurring templates", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    // UX-134: with the budget month starting on the 25th, 28 September and 1
+    // October are one period, so October's rent paid early counts as logged.
+    describe("with a budget month starting on the 25th (UX-134)", () => {
+      beforeEach(() => {
+        requireHouseholdMock.mockResolvedValue({
+          household: { id: "household-1", budgetMonthStartDay: 25 },
+          userId: "user-1",
+        });
+        recurringTemplateFindFirstMock.mockResolvedValue({ id: "template-1", categoryId: "cat-1", amount: 12500, type: "EXPENSE", name: "Rent", frequency: "MONTHLY", splits: [] });
+      });
+
+      it("reads the 25th-to-24th period and rejects a second log in it", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          vi.setSystemTime(new Date(2026, 8, 30, 12));
+          transactionFindManyMock.mockResolvedValue([{ date: new Date(2026, 8, 28) }]);
+
+          const result = await logRecurringTemplateAction("template-1");
+
+          expect(transactionFindManyMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+              where: {
+                recurringTemplateId: "template-1",
+                date: { gte: new Date(2026, 8, 25), lt: new Date(2026, 9, 25) },
+              },
+            }),
+          );
+          expect(result.error).toBe(
+            "A transaction for this recurring item already exists for this period",
+          );
+          expect(transactionCreateMock).not.toHaveBeenCalled();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("does not count the previous period's log", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          vi.setSystemTime(new Date(2026, 8, 30, 12));
+          // 3 September is in the period that ended on 24 September.
+          transactionFindManyMock.mockResolvedValue([{ date: new Date(2026, 8, 3) }]);
+          transactionCreateMock.mockResolvedValue({});
+
+          const result = await logRecurringTemplateAction("template-1");
+
+          expect(result).toEqual({});
+          expect(transactionCreateMock).toHaveBeenCalledTimes(1);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("acknowledges under the period's key, named for the month it ends in", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          vi.setSystemTime(new Date(2026, 8, 30, 12));
+          recurringTemplateAckUpsertMock.mockResolvedValue({});
+
+          await acknowledgeTemplatePeriodAction("template-1");
+
+          expect(recurringTemplateAckUpsertMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+              create: expect.objectContaining({ periodKey: "2026-10" }),
+            }),
+          );
+        } finally {
+          vi.useRealTimers();
+        }
+      });
     });
   });
 });

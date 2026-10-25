@@ -9,6 +9,8 @@
 // docs/archive/PERSONAL_BUDGET_UNIFICATION.md §1); only this logic is shared.
 
 import { z } from "zod";
+import { computeCategoryRollover } from "@/lib/budget-rollover-calc";
+import type { CategoryEnvelope } from "@/lib/safe-to-spend-calc";
 
 /**
  * The CategoryManager form's optional "Monthly limit" input. An empty (or
@@ -162,4 +164,56 @@ export function categoriesNearLimit(
     });
   }
   return alerts.sort((a, b) => Number(b.over) - Number(a.over) || b.percent - a.percent);
+}
+
+/**
+ * UX-138: each EXPENSE category with a monthly limit, as the envelope the
+ * month may spend there (limit plus any GAP-21 rollover carried in) and what
+ * is already spent in it, for computeStillBudgeted. `transactions` is any
+ * window that covers the rollover lookback and the viewed month. Uses the
+ * same envelope the "Near or over their limit" list is drawn against, so
+ * Safe to spend and that list agree on what is left.
+ */
+export function categoryEnvelopes({
+  categories,
+  transactions,
+  monthStart,
+  monthEnd,
+  startDay = 1,
+}: {
+  categories: {
+    id: string;
+    type: "INCOME" | "EXPENSE" | "SAVINGS";
+    monthlyLimit: number | null;
+    rolloverEnabled: boolean;
+    createdAt: Date;
+  }[];
+  transactions: { categoryId: string; type: "INCOME" | "EXPENSE" | "SAVINGS"; amount: number; date: Date }[];
+  monthStart: Date;
+  monthEnd: Date;
+  /** UX-134: the household's budget month start day, for the rollover. */
+  startDay?: number;
+}): CategoryEnvelope[] {
+  const spentById = new Map<string, number>();
+  for (const t of transactions) {
+    if (t.type !== "EXPENSE" || t.date < monthStart || t.date >= monthEnd) continue;
+    spentById.set(t.categoryId, (spentById.get(t.categoryId) ?? 0) + t.amount);
+  }
+  const envelopes: CategoryEnvelope[] = [];
+  for (const category of categories) {
+    const limit = limitForType(category.type, category.monthlyLimit);
+    if (limit == null || !Number.isFinite(limit) || limit <= 0) continue;
+    const rollover = computeCategoryRollover({
+      category: { ...category, monthlyLimit: limit },
+      transactions,
+      monthStart,
+      startDay,
+    });
+    envelopes.push({
+      id: category.id,
+      spent: spentById.get(category.id) ?? 0,
+      available: rollover?.available ?? limit,
+    });
+  }
+  return envelopes;
 }

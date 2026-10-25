@@ -29,8 +29,10 @@ import type { CategoryTotal } from "@/components/budget/category-breakdown";
 import type { SharedPostedRow } from "@/components/budget/transaction-list";
 import type { SharedDueRow } from "@/components/budget/due-recurring-widget";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
+import { normalizeStartDay } from "@/lib/budget-date-utils";
 import {
   computeSafeToSpend,
+  computeStillBudgeted,
   deriveSafeToSpend,
   type ExpectedRecurringExpense,
   type HouseholdDebt,
@@ -42,6 +44,7 @@ import {
   isPlannedExpenseOutstanding,
   plannedItemType,
 } from "@/lib/planned-expense-calc";
+import { categoryEnvelopes } from "@/lib/budget-category-limit";
 import { dailyAllowance, projectMonthEnd } from "@/lib/chart-calc";
 import {
   computeMemberPosition,
@@ -67,7 +70,7 @@ export async function loadPersonalBudgetPosition({
    * shared "Rent" don't merge into one row. */
   sharedLabel: string;
 }) {
-  const [transactions, recurringTemplates, recurringTemplateAcks, memberships, ownPlannedExpenses] = await Promise.all([
+  const [transactions, recurringTemplates, recurringTemplateAcks, memberships, ownPlannedExpenses, limitedCategories] = await Promise.all([
     prisma.personalTransaction.findMany({
       where: { userId },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -85,7 +88,7 @@ export async function loadPersonalBudgetPosition({
     }),
     prisma.householdMember.findMany({
       where: { userId },
-      select: { id: true, household: { select: { id: true, name: true } } },
+      select: { id: true, household: { select: { id: true, name: true, budgetMonthStartDay: true } } },
     }),
     // The user's own planned bills (PersonalPlannedExpense): every unpaid
     // one, plus those paid on or after the viewed month's start — the same
@@ -99,6 +102,11 @@ export async function loadPersonalBudgetPosition({
       },
       include: { category: { select: { name: true, type: true } }, transaction: { select: { date: true } } },
       orderBy: { dueDate: "asc" },
+    }),
+    // UX-138: the limited categories, whose unspent remainder is held back.
+    prisma.personalBudgetCategory.findMany({
+      where: { userId, type: "EXPENSE", monthlyLimit: { not: null } },
+      select: { id: true, type: true, monthlyLimit: true, rolloverEnabled: true, createdAt: true },
     }),
   ]);
 
@@ -350,13 +358,31 @@ export async function loadPersonalBudgetPosition({
   // has a split in. A user has at most one split row per template (a
   // membership is unique per household+user, and a template belongs to one
   // household), so there's exactly one row per template here.
-  const sharedTemplateStatusRows = computeTemplateStatuses({
-    templates: sharedTemplates.map((s) => s.template),
-    transactions: sharedTemplateTransactions,
-    acks: sharedTemplateAcks,
-    referenceDate: monthStart,
-    monthEnd,
-  });
+  //
+  // UX-134: each template is judged on its own household's budget periods,
+  // the same ones `assertNoDuplicateTemplatePeriod` guards on when the bill
+  // is logged from the due row. Otherwise, with start day 25, a rent logged
+  // on 28 Sep (the household's October) would leave a Due row here that the
+  // guard then refuses to clear. The personal view itself stays on calendar
+  // months, so the reference date is today when it falls in the viewed month
+  // (matching the date "Log payment" pre-fills) and the month's start
+  // otherwise.
+  const startDayByHousehold = new Map(
+    memberships.map((m) => [m.household.id, normalizeStartDay(m.household.budgetMonthStartDay)]),
+  );
+  const statusReferenceDate = now >= monthStart && now < monthEnd ? now : monthStart;
+  const sharedTemplateStatusRows = [...new Set(startDayByHousehold.values())].flatMap((startDay) =>
+    computeTemplateStatuses({
+      templates: sharedTemplates
+        .map((s) => s.template)
+        .filter((t) => (startDayByHousehold.get(t.householdId) ?? 1) === startDay),
+      transactions: sharedTemplateTransactions,
+      acks: sharedTemplateAcks,
+      referenceDate: statusReferenceDate,
+      monthEnd,
+      startDay,
+    }),
+  );
   const sharedDueRows: SharedDueRow[] = sharedTemplateStatusRows
     .filter((row) => row.status === "due")
     .map((row) => {
@@ -568,6 +594,12 @@ export async function loadPersonalBudgetPosition({
     })),
   ].sort((a, b) => b.amount - a.amount);
 
+  const limitEnvelopes = categoryEnvelopes({
+    categories: limitedCategories,
+    transactions,
+    monthStart,
+    monthEnd,
+  });
   const {
     safeToSpend,
     status: safeToSpendStatus,
@@ -578,6 +610,7 @@ export async function loadPersonalBudgetPosition({
       expenseSoFar: expense,
       savingsSoFar: savings,
       owedFromEarlier,
+      stillBudgeted: computeStillBudgeted(limitEnvelopes, expectedRecurring),
       expectedRecurring,
     });
 
@@ -589,6 +622,7 @@ export async function loadPersonalBudgetPosition({
     transactions: monthTransactions,
     monthStart,
     today: now,
+    excludeCategoryIds: new Set(limitEnvelopes.map((e) => e.id)),
   });
 
   const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, today: now });

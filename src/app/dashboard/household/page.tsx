@@ -1,4 +1,5 @@
 import { cache } from "react";
+import Link from "next/link";
 import { Users } from "lucide-react";
 import { absoluteAppUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +13,7 @@ import { AutoAddSetting } from "@/components/household/auto-add-setting";
 import { HouseholdNotes } from "@/components/household/household-notes";
 import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
 import { RenameHousehold } from "@/components/household/rename-household";
+import { BudgetMonthSetting } from "@/components/household/budget-month-setting";
 import { CurrencySetting } from "@/components/household/currency-setting";
 import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
 import { ShoppingExpenseSetting } from "@/components/household/shopping-expense-setting";
@@ -112,13 +114,13 @@ async function HouseholdNotesSection({
 }
 
 export default async function HouseholdPage() {
-  const [{ household, userId, role }, dict, locale] = await Promise.all([
+  const [{ household, userId, role, households }, dict, locale] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
   ]);
   const isOwner = role === "OWNER";
-  const [feedUrl, expenseCategories] = await Promise.all([
+  const [feedUrl, expenseCategories, memberCount] = await Promise.all([
     household.calendarFeedToken
       ? absoluteAppUrl(calendarFeedPath(household.calendarFeedToken, locale))
       : null,
@@ -127,6 +129,7 @@ export default async function HouseholdPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.householdMember.count({ where: { householdId: household.id } }),
   ]);
 
   return (
@@ -150,7 +153,10 @@ export default async function HouseholdPage() {
           <InviteButton dict={dict.household.invite} />
         </PrimaryAction>
       </div>
-      <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
+      {/* Anchor for the danger zone's "has other members" link (UX-77). */}
+      <div id="household-members" className="scroll-mt-4">
+        <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
+      </div>
       <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
       {/* Owner-only (see renameHouseholdAction). */}
       {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}
@@ -178,6 +184,12 @@ export default async function HouseholdPage() {
         locale={locale}
         dict={dict.household.currency}
       />
+      {/* Owner-gated inside (see setBudgetMonthStartDayAction). */}
+      <BudgetMonthSetting
+        startDay={household.budgetMonthStartDay}
+        isOwner={isOwner}
+        dict={dict.household.budgetMonth}
+      />
       <CalendarFeedSetting
         feedUrl={feedUrl}
         isOwner={isOwner}
@@ -189,9 +201,28 @@ export default async function HouseholdPage() {
             <h2 className="font-heading text-base font-semibold">{dict.household.dangerZoneTitle}</h2>
             <p className="text-sm text-muted-foreground">{dict.household.dangerZoneDescription}</p>
           </div>
-          <div>
-            <DeleteHouseholdDialog householdName={household.name} dict={dict.household.delete} />
-          </div>
+          {/* The server refuses to delete a user's only household (see
+              deleteHouseholdAction), so with one household we say so and
+              point at the way out instead of offering a button that opens a
+              refusal (UX-77, User control). The way out depends on who else
+              is in it: deleteAccountAction removes a household only for its
+              sole member, and blocks an owner whose household has other
+              members, so those get the member list instead. */}
+          {households.length <= 1 ? (
+            <p className="text-sm">
+              {memberCount <= 1 ? dict.household.delete.onlyHousehold : dict.household.delete.onlyHouseholdWithMembers}{" "}
+              <Link
+                href={memberCount <= 1 ? "/dashboard/profile?open=danger#profile-danger" : "#household-members"}
+                className="touch-target font-medium text-primary underline-offset-4 hover:underline"
+              >
+                {memberCount <= 1 ? dict.household.delete.onlyHouseholdLink : dict.household.delete.onlyHouseholdWithMembersLink}
+              </Link>
+            </p>
+          ) : (
+            <div>
+              <DeleteHouseholdDialog householdName={household.name} dict={dict.household.delete} />
+            </div>
+          )}
         </div>
       )}
     </div>
