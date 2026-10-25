@@ -26,7 +26,8 @@ export type SplitEditorDict = {
   paidColumn: string;
   amountAriaLabel: string;
   paidAriaLabel: string;
-  mismatchWarning: string;
+  sharesLeftHint: string;
+  sharesOverWarning: string;
   overpaidWarning: string;
   leftDueHint: string;
 };
@@ -100,14 +101,13 @@ export function SplitEditor({
           />
         </div>
       ))}
-      {check.shareMismatch && (
-        <p className="text-xs text-destructive">
-          {format(dict.mismatchWarning, {
-            total: numberFormat.format(check.shareTotal),
-            amount: numberFormat.format(Number(amount) || 0),
-          })}
-        </p>
-      )}
+      <ShareRemainderNote
+        amount={amount}
+        remainder={check.shareRemainder}
+        numberFormat={numberFormat}
+        leftHint={dict.sharesLeftHint}
+        overWarning={dict.sharesOverWarning}
+      />
       {check.overpaid && (
         <p className="text-xs text-destructive">
           {format(dict.overpaidWarning, {
@@ -119,6 +119,52 @@ export function SplitEditor({
       {!check.overpaid && check.leftDue > 0 && (
         <p className="text-xs text-muted-foreground">
           {format(dict.leftDueHint, { amount: numberFormat.format(check.leftDue) })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The running "176 of 476 left to split" under a share grid, updated on
+ * every keystroke, so splitting a bill by hand doesn't mean doing the
+ * subtraction yourself. Still-to-split is muted rather than red: it's the
+ * normal state halfway through typing, not a mistake (submit stays
+ * disabled until it's 0 either way). Over-split is red, since some share
+ * has to come down. Silent only at exactly 0 (see shareRemainder for why
+ * a single cent still counts). Shared by SplitEditor and the two dialogs
+ * with their own share-only grid (RecurringTemplateDialog,
+ * PlannedExpenseDialog). The live region is always mounted so screen
+ * readers announce the change, not only the first appearance.
+ */
+export function ShareRemainderNote({
+  amount,
+  remainder,
+  numberFormat,
+  leftHint,
+  overWarning,
+}: {
+  /** The bill's total, as typed in the dialog's amount input. */
+  amount: string;
+  /** shareRemainder(amount, shares). */
+  remainder: number;
+  numberFormat: Intl.NumberFormat;
+  /** "{amount} of {total} left to split." */
+  leftHint: string;
+  /** "The shares are {amount} more than the {total} total." */
+  overWarning: string;
+}) {
+  const total = numberFormat.format(Number(amount) || 0);
+  return (
+    <div aria-live="polite">
+      {remainder > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {format(leftHint, { amount: numberFormat.format(remainder), total })}
+        </p>
+      )}
+      {remainder < 0 && (
+        <p className="text-xs text-destructive">
+          {format(overWarning, { amount: numberFormat.format(-remainder), total })}
         </p>
       )}
     </div>
