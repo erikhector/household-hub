@@ -58,6 +58,7 @@ export const sv = {
     noRecipeLinked: "Inget recept är kopplat till måltiden",
     chooseRecipeOrMeal: "Välj ett recept eller skriv ett namn på måltiden",
     cookedMealCantMove: "En lagad måltid kan inte flyttas",
+    bulkNothingToChange: "Ingen av de markerade måltiderna kan ändras",
     selectAtMostIngredients: "Välj högst {max} ingredienser åt gången",
     selectAtLeastOneIngredient: "Välj minst en ingrediens att lägga till",
     ingredientNameTooLong: "Ingrediensnamn får vara högst {max} tecken",
@@ -132,6 +133,18 @@ export const sv = {
     more: "Mer",
     whatsNew: "Nyheter",
     whatsNewUnseen: "Ny uppdatering",
+  },
+  commandPalette: {
+    title: "Kommandopalett",
+    inputLabel: "Skriv ett kommando",
+    placeholder: "Gå till eller gör något…",
+    listLabel: "Kommandon",
+    goTo: "Gå till {section}",
+    addTask: "Lägg till syssla",
+    addToShoppingList: "Lägg till i inköpslistan",
+    empty: "Inga matchande kommandon.",
+    hint: "Piltangenter för att flytta, Retur för att köra, Esc för att stänga",
+    results: { one: "{count} kommando", other: "{count} kommandon" },
   },
   whatsNew: {
     title: "Nyheter",
@@ -1708,6 +1721,44 @@ export const sv = {
     // UX-49: Ta bort sker direkt; toasten har vägen tillbaka.
     mealRemovedToast: 'Tog bort "{meal}"',
     undoDelete: "Ångra",
+    // GAP-56: Markera-läget i planeraren — flytta, ändra portioner på eller
+    // ta bort flera planerade måltider på en gång.
+    bulkSelectAction: "Markera måltider",
+    bulkBarLabel: "Redigera markerade måltider",
+    bulkSelectedCount: {
+      one: "{count} måltid markerad",
+      other: "{count} måltider markerade",
+    },
+    bulkSelectHint: "Tryck på måltider för att markera dem",
+    bulkCookedLocked: "Lagad, kan inte ändras",
+    bulkDone: "Klar",
+    bulkMove: "Flytta till…",
+    bulkPortions: "Portioner…",
+    bulkRemove: "Ta bort",
+    bulkMoveTitle: "Flytta markerade måltider",
+    bulkMoveHint: "Den tidigaste markerade måltiden flyttas till den här dagen. De andra behåller avståndet till den.",
+    bulkMoveKeepSlot: "Behåll varje måltids plats",
+    bulkPortionsTitle: "Ändra portioner",
+    bulkPortionsHint:
+      "Sätter portionerna för varje markerad receptmåltid. Egna måltider och måltider som äter ur en förberedd sats lämnas som de är.",
+    bulkPortionsSubmit: "Sätt portioner",
+    bulkMovedToast: {
+      one: "Flyttade {count} måltid",
+      other: "Flyttade {count} måltider",
+    },
+    bulkPortionsToast: {
+      one: "Ändrade portioner för {count} måltid",
+      other: "Ändrade portioner för {count} måltider",
+    },
+    bulkRemovedToast: {
+      one: "Tog bort {count} måltid",
+      other: "Tog bort {count} måltider",
+    },
+    bulkSkippedNote: {
+      one: "{count} lämnades som den var",
+      other: "{count} lämnades som de var",
+    },
+    bulkUndoneToast: "Ändringarna ångrade",
     adding: "Lägger till…",
     add: "Lägg till",
     recipesTitle: "Recept",

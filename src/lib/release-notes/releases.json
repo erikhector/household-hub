@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.109.0",
+    "date": "2026-10-25",
+    "pr": 683,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now select several planned meals in the planner and move them to another day, change their portions or remove them all at once, with Undo.",
+      "sv": "Du kan nu markera flera planerade måltider i planeraren och flytta dem till en annan dag, ändra portionerna eller ta bort dem på en gång, med Ångra."
+    }
+  },
+  {
+    "version": "0.108.0",
+    "date": "2026-10-24",
+    "pr": 676,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Press Ctrl+K (or ⌘K on a Mac) anywhere in Squirrel to open a command palette. Type to jump to a page, add a task or start adding to your shopping list.",
+      "sv": "Tryck Ctrl+K (eller ⌘K på Mac) var som helst i Squirrel för att öppna en kommandopalett. Skriv för att hoppa till en sida, lägga till en uppgift eller börja lägga till i inköpslistan."
+    }
+  },
+  {
     "version": "0.107.0",
     "date": "2026-10-24",
     "pr": 666,

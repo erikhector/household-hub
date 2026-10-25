@@ -4614,6 +4614,42 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   - The success toast names the meal. When the new date is in a different
     week than the one on screen, the meal disappears from view, so the toast
     says so and offers "View that week", the same as "Add to plan".
+- **Editing several meals at once (GAP-56)**: the planner's ⋯ menu has
+  "Select meals" (shown when the week has an uncooked meal). In Select mode
+  each uncooked row becomes a checkbox row (the whole row is the 44 px
+  target), the "+ Add meal" buttons and the shopping-list primary action are
+  hidden, and a bar (`BulkMealBar`, `src/components/meal-planning/bulk-meal-bar.tsx`)
+  shows the count with **Move to…**, **Portions…**, **Remove** and **Done**.
+  On a phone the bar sticks just above the bottom nav. Cooked rows stay
+  visible but have no checkbox and say "Cooked, can't be changed" (the same
+  rule as single move and edit).
+  - **Move to…** asks for a date and a slot ("Keep each meal's slot" by
+    default, or one meal type for all). The earliest selected meal lands on
+    that date and every other one keeps its distance from it
+    (`mapBulkMove`, `bulk-meal-calc.ts`: a day offset, so Mon/Tue/Thu moved to
+    start Wed becomes Wed/Thu/Sat). Target weeks are derived on the server
+    and their `MealPlan` rows upserted; open "Meal not logged" reminders for
+    the moved entries are dismissed, as in `moveMealEntryAction`.
+  - **Portions…** uses `PortionStepper` and sets the count on every selected
+    meal that has a recipe and isn't eating from a prep batch. Custom meals
+    and batch meals are left alone and counted as skipped.
+  - **Remove** hides the rows at once and sends the delete when its Undo
+    toast closes (like a single Remove, UX-49); a meal eating from a batch
+    gives its portions back, in the same transaction.
+  - All three are one Server Action, `bulkEditMealEntriesAction`
+    (`bulk-meal-actions.ts`), taking entry ids and the edit (never a
+    household id). It is all-or-nothing: an id that isn't in the session's
+    household rejects the whole batch with "Meal not found" before anything
+    is written, and the writes share one transaction. Cooked entries
+    selected before they were cooked are skipped (reported in the toast), and
+    if nothing is left the action answers "None of the selected meals can be
+    changed".
+  - Move and Portions toast "Moved N meals" / "Changed portions for N meals"
+    with **Undo**, backed by `undoBulkMealEditAction`, which restores the
+    previous date, slot, week or portions the action returned (also
+    household-scoped and all-or-nothing; a meal cooked since is left alone).
+    No schema change. Covered by `bulk-meal-calc.test.ts`,
+    `bulk-meal-actions.test.ts` and `e2e/meal-planner-bulk.spec.ts`.
 - **Scaling a recipe to how many it's feeding (GAP-11)**: every recipe
   entry carries `MealPlanEntry.portions`, the number of people that slot
   is cooking for. The meal entry dialog's "Portions" field sets it. Picking
@@ -6921,6 +6957,35 @@ components directly.
     animating and the page behind doesn't scale.
 
   Covered by `e2e/native-sheets.spec.ts` and `sheet-focus.test.ts`.
+
+### Command palette (UX-41a)
+
+`src/components/dashboard/command-palette.tsx`, mounted once in the
+dashboard layout. `Ctrl+K` / `⌘K` toggles it; there is no button, and it is
+never the only way to anything (every command is also a nav link or a page
+button). It is the shared `Dialog` holding a combobox input over a listbox
+(`aria-activedescendant`, focus stays in the input), so Escape, the focus
+trap and the X work like every other dialog.
+
+- Commands are static (`command-palette-commands.ts`): quick actions first
+  ("Add task", "Add to shopping list"), then "Go to <section>" for each
+  `navItems` entry. Labels come from `dict.commandPalette` and `dict.nav`.
+- Typing filters: every word must appear in the label, any order, case
+  insensitive. Up/Down move the highlight (wrapping), Enter runs it, a
+  click runs it. The count is announced in a live region; no match shows
+  "No matching commands."
+- "Go to" commands navigate. The two quick actions navigate with `?add=1`:
+  on `/dashboard/tasks` the create `TaskFormDialog` opens, and
+  `/dashboard/shopping-list?add=1` redirects to the active list the
+  household is filling (the default "Next shop" first) where
+  `SmartAddBar` takes focus. Both strip the param afterwards. With no
+  active list the shopping command lands on the overview.
+- It stores nothing in the browser (`cookie-inventory.ts` unchanged).
+  No data search yet (UX-41b).
+
+Covered by `e2e/command-palette.spec.ts` and
+`command-palette-commands.test.ts`.
+
 
 ## Releases & What's new
 

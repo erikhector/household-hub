@@ -64,6 +64,7 @@ export const en = {
     noRecipeLinked: "No recipe linked to this meal",
     chooseRecipeOrMeal: "Choose a recipe or enter a meal name",
     cookedMealCantMove: "A cooked meal can't be moved",
+    bulkNothingToChange: "None of the selected meals can be changed",
     selectAtMostIngredients: "Select at most {max} ingredients at once",
     selectAtLeastOneIngredient: "Select at least one ingredient to add",
     ingredientNameTooLong: "Ingredient names must be {max} characters or fewer",
@@ -138,6 +139,19 @@ export const en = {
     more: "More",
     whatsNew: "What's new",
     whatsNewUnseen: "New update",
+  },
+  // UX-41a: the ⌘K / Ctrl+K command palette (command-palette.tsx).
+  commandPalette: {
+    title: "Command palette",
+    inputLabel: "Type a command",
+    placeholder: "Go to or do something…",
+    listLabel: "Commands",
+    goTo: "Go to {section}",
+    addTask: "Add task",
+    addToShoppingList: "Add to shopping list",
+    empty: "No matching commands.",
+    hint: "Arrow keys to move, Enter to run, Esc to close",
+    results: { one: "{count} command", other: "{count} commands" },
   },
   whatsNew: {
     title: "What's new",
@@ -1808,6 +1822,44 @@ export const en = {
     // UX-49: Remove goes at once; the toast carries the way back.
     mealRemovedToast: 'Removed "{meal}"',
     undoDelete: "Undo",
+    // GAP-56: Select mode on the planner — move, re-portion or remove
+    // several planned meals at once.
+    bulkSelectAction: "Select meals",
+    bulkBarLabel: "Edit selected meals",
+    bulkSelectedCount: {
+      one: "{count} meal selected",
+      other: "{count} meals selected",
+    },
+    bulkSelectHint: "Tap meals to select them",
+    bulkCookedLocked: "Cooked, can't be changed",
+    bulkDone: "Done",
+    bulkMove: "Move to…",
+    bulkPortions: "Portions…",
+    bulkRemove: "Remove",
+    bulkMoveTitle: "Move selected meals",
+    bulkMoveHint: "The earliest selected meal goes to this day. The others keep their distance from it.",
+    bulkMoveKeepSlot: "Keep each meal's slot",
+    bulkPortionsTitle: "Change portions",
+    bulkPortionsHint:
+      "Sets the portions for every selected recipe meal. Custom meals and meals eating from a prep batch stay as they are.",
+    bulkPortionsSubmit: "Set portions",
+    bulkMovedToast: {
+      one: "Moved {count} meal",
+      other: "Moved {count} meals",
+    },
+    bulkPortionsToast: {
+      one: "Changed portions for {count} meal",
+      other: "Changed portions for {count} meals",
+    },
+    bulkRemovedToast: {
+      one: "Removed {count} meal",
+      other: "Removed {count} meals",
+    },
+    bulkSkippedNote: {
+      one: "{count} left as it was",
+      other: "{count} left as they were",
+    },
+    bulkUndoneToast: "Changes undone",
     adding: "Adding…",
     add: "Add",
     recipesTitle: "Recipes",
