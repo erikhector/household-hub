@@ -249,18 +249,6 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
-- [ ] **MAINT-16. Test the untested safety-critical helpers and actions** (medium, S) —
-      no test file exists for `lib/logger.ts` (its `redact()` is the only
-      thing stopping a careless `logger.error("x", { user })` leaking a
-      password or token into Sentry/logs: sensitive-key match, nested
-      objects, arrays, `Error` instances, circular refs), nor for
-      `lib/actions/notifications.ts` (`dismissNotificationAction` /
-      `dismissAllNotificationsAction`: tenancy via `requireHousehold()`, an
-      id from another household is a no-op), `lib/actions/preferences.ts`
-      (invalid theme ignored, DB failure logged not thrown) or
-      `lib/actions/locale.ts`. AGENTS.md requires a colocated test for every
-      Server Action. Acceptance: four new `*.test.ts` files that fail if the
-      household scope or a redaction pattern is removed.
 - [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
       timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
       60000).toISOString().slice(0, 10)`) is copy-pasted as
