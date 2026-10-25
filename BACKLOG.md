@@ -143,18 +143,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       reload (extend `e2e/meal-prep.spec.ts` and
       `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
 
-- [ ] **PERF-20. Cache Open Food Facts barcode lookups** (low, S) —
-      `lookupBarcodeAction`'s `fetch` (`src/lib/actions/barcode.ts:69`) goes to
-      Open Food Facts on every scan, even for a barcode scanned a minute
-      ago. The response is public product data with no household in it, so
-      it's safe to share across households: pass
-      `next: { revalidate: 86400 }` like `src/lib/exchange-rate.ts:19`
-      does (the URL already keys it by barcode). Cache only the raw
-      response, not the mapped result: the category label comes from the
-      caller's dictionary, which differs by locale. Don't cache failures or
-      timeouts. Acceptance: a unit test asserts the fetch options; existing
-      barcode tests still pass.
-
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860

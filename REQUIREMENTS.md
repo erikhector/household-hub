@@ -3797,6 +3797,12 @@ never blocks or breaks manual entry, at any failure point.
   (`https://world.openfoodfacts.org/api/v2/product/<barcode>.json`, no API
   key) with a short timeout (5s, via `AbortController`) and identifies the
   app via a `User-Agent` header, per Open Food Facts's own API etiquette.
+  The raw response is cached in Next's data cache for 24 hours
+  (`next: { revalidate: 86400 }`, keyed by the barcode in the URL), shared
+  across households since it is public product data. The mapped result is
+  not cached, because the category label comes from the caller's locale
+  dictionary; a timeout or network error throws before any response exists,
+  so failures are never cached.
   Any failure — invalid barcode shape, network error, timeout, a 4xx/5xx
   response, no matching product, or a product with no `product_name` — is
   swallowed and reported back as `{ name: null }` rather than an error;
