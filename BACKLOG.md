@@ -346,17 +346,6 @@ then MAINT-7 per feature, to avoid churn.
       Seen again on release PR #666 (`8d2e088`, 2026-10-24): `native-sheets.spec.ts:55`
       (mobile) failed once and passed on the retry in the GitHub e2e job.
 
-- [ ] **MAINT-50. Flaky: `task-caught-up` all-caught-up card missing on a fresh visit under load** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` ("with nothing open, a fresh visit
-      shows the all-caught-up card above Completed", `mobile`) failed once
-      in a local `ci:local` run on `cccc1d5` (2026-10-23, heavy load) and
-      passed on a same-commit re-run; it doesn't fail in GitHub CI. Find
-      out whether the card renders late (data load, hydration) or the
-      spec asserts before the page settles, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-51. Flaky: `item-aliases` a name linked once in a recipe doesn't arrive linked in the pasted shopping list under load** (low, S) —
       `e2e/item-aliases.spec.ts:50` ("a name linked once in a recipe
       arrives linked in a pasted shopping list", `mobile`) failed once in
@@ -1095,28 +1084,6 @@ out to be a product-scope question rather than a scoped task should move to
       and mobile.
 
 ### 2026-10-16 scan
-
-- [ ] **GAP-56. Select several planned meals to move, re-portion or remove at once** (impact: med, effort: M) —
-      Plan to Eat's late-2025 planner update added bulk editing: move,
-      copy or change servings for several meals together. Squirrel only
-      edits one entry at a time (REQUIREMENTS.md, "Editing a meal entry"
-      and "Moving a meal entry (GAP-30)": one pencil and one move button
-      per row), so shifting a week's dinners by a day, or halving every
-      portion for a trip, is a dozen dialogs. Add a "Select" mode to the
-      planner: tap rows to tick them (a bar shows the count), then "Move
-      to…" (reuses `MoveMealDialog`'s date and meal-type picker, applied
-      as a day offset so the group keeps its shape), "Portions…"
-      (reuses `PortionStepper`) or "Remove". Cooked entries aren't
-      selectable (same rule as move). A bulk action is one Server Action
-      taking entry ids, `requireHousehold()`-scoped, all-or-nothing in a
-      transaction, with an Undo toast like copy-week. No schema change.
-      Mobile: the bar sits above the bottom nav, rows keep 44 px targets
-      (M-rules).
-      Acceptance: unit tests for the day-offset mapping, skipping cooked
-      entries, tenancy (an id from another household rejects the whole
-      batch) and undo; an e2e step selects two seeded entries, moves them
-      a day, asserts them on the new day after reload, and halves their
-      portions, on desktop and mobile.
 
 - [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
       AnyList's December 2025 meal-planning update lets a plain note on the
