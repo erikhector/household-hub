@@ -551,7 +551,7 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     expect(inventoryItemCreateManyAndReturnMock).not.toHaveBeenCalled();
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
       data: [
-        expect.objectContaining({ inventoryItemId: "inv-carrot", name: "Carrot", estimatedPrice: 4 }),
+        expect.objectContaining({ inventoryItemId: "inv-carrot", name: "Carrot", estimatedPrice: 8 }),
         expect.objectContaining({ inventoryItemId: null, name: "Kale" }),
       ],
     });

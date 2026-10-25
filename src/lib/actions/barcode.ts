@@ -72,6 +72,14 @@ async function fetchOpenFoodFactsProduct(barcode: string): Promise<BarcodeLookup
         signal: controller.signal,
         // Open Food Facts asks API consumers to identify themselves.
         headers: { "User-Agent": "HouseholdHub - Barcode Scanner Feature" },
+        // PERF-20: the raw response is public product data with no
+        // household in it, so Next's data cache shares it across
+        // households for a day (the URL already keys it by barcode). Only
+        // the raw response is cached: the category label below comes from
+        // the caller's dictionary, which differs by locale. A timeout or
+        // network error throws before any response exists, so failures
+        // never reach the cache.
+        next: { revalidate: 86400 },
       },
     );
     if (!response.ok) return { name: null };

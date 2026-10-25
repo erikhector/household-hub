@@ -16,6 +16,7 @@ import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
 import { frozenResetOnArrival, openedResetOnArrival } from "@/lib/inventory/expiry";
 import { recordOutOfStockTransition, type RecordedPrice } from "@/lib/notifications";
 import { addToDefaultListOnLowStock, type AutoAddedItem } from "@/lib/shopping/default-list";
+import { unitPriceOf } from "@/lib/shopping/unit-price";
 
 export type StockArrivalOptions = {
   householdId: string;
@@ -70,6 +71,7 @@ export async function applyStockArrival(
   options: StockArrivalOptions,
 ): Promise<StockArrivalResult> {
   const { householdId, inventoryItem: current, quantity, price } = options;
+  const priceQuantity = options.priceQuantity ?? quantity;
   const previousQuantity = current.quantity;
   const nextQuantity = Math.max(0, previousQuantity + quantity);
 
@@ -80,7 +82,9 @@ export async function applyStockArrival(
     : estimatedExpiryUpdate(current, previousQuantity, nextQuantity);
   const data = {
     quantity: nextQuantity,
-    ...(price != null ? { lastKnownPrice: price } : {}),
+    // BUG-3: lastKnownPrice is per unit of the quantity the price was paid
+    // for, so a later row of any quantity can scale it (see unit-price.ts).
+    ...(price != null ? { lastKnownPrice: unitPriceOf(price, priceQuantity) } : {}),
     ...(options.location ? { location: options.location } : {}),
     ...openedReset,
     ...frozenReset,
@@ -93,7 +97,6 @@ export async function applyStockArrival(
 
   let recordedPrice: RecordedPrice | null = null;
   if (price != null) {
-    const priceQuantity = options.priceQuantity ?? quantity;
     // GAP-9: the line's quantity/unit too, so the price can be compared per
     // unit later (see detectPriceSpike).
     const row = await tx.priceHistory.create({

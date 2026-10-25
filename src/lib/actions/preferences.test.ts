@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, userUpdateMock, requireUserIdMock } = vi.hoisted(() => ({
+const { authMock, userUpdateMock, requireUserIdMock, loggerErrorMock } = vi.hoisted(() => ({
+  loggerErrorMock: vi.fn(),
   authMock: vi.fn(),
   userUpdateMock: vi.fn(),
   requireUserIdMock: vi.fn(),
@@ -9,9 +10,9 @@ const { authMock, userUpdateMock, requireUserIdMock } = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { update: userUpdateMock } } }));
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
-vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn() } }));
+vi.mock("@/lib/logger", () => ({ logger: { error: loggerErrorMock } }));
 
-import { setThemeAction } from "./preferences";
+import { setInventoryViewPrefsAction, setThemeAction } from "./preferences";
 
 describe("setThemeAction", () => {
   beforeEach(() => {
@@ -37,5 +38,41 @@ describe("setThemeAction", () => {
     authMock.mockResolvedValue({ user: { id: "u1" } });
     await setThemeAction("purple" as never);
     expect(userUpdateMock).not.toHaveBeenCalled();
+  });
+
+  // Fire-and-forget persistence: a failed write must never reach the caller.
+  it("logs a database failure instead of throwing", async () => {
+    authMock.mockResolvedValue({ user: { id: "u1" } });
+    const failure = new Error("db down");
+    userUpdateMock.mockRejectedValueOnce(failure);
+    await expect(setThemeAction("dark")).resolves.toBeUndefined();
+    expect(loggerErrorMock).toHaveBeenCalledWith("Failed to persist theme preference", { error: failure });
+  });
+});
+
+describe("setInventoryViewPrefsAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const prefs = { sort: "name" } as never;
+
+  it("saves the prefs on the session user's own account", async () => {
+    requireUserIdMock.mockResolvedValue("u1");
+    await setInventoryViewPrefsAction(prefs);
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { inventoryViewPrefs: prefs },
+    });
+  });
+
+  it("logs a database failure instead of throwing", async () => {
+    requireUserIdMock.mockResolvedValue("u1");
+    const failure = new Error("db down");
+    userUpdateMock.mockRejectedValueOnce(failure);
+    await expect(setInventoryViewPrefsAction(prefs)).resolves.toBeUndefined();
+    expect(loggerErrorMock).toHaveBeenCalledWith("Failed to persist inventory view preferences", {
+      error: failure,
+    });
   });
 });

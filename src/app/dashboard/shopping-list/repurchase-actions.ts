@@ -14,6 +14,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { repurchaseSnoozeUntil } from "@/lib/inventory/repurchase-calc";
 import { loadRepurchaseRhythm } from "@/lib/inventory/repurchase-suggestions";
+import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 
 /**
  * One tap on a chip: puts the item on the list being viewed. The amount is
@@ -66,7 +67,7 @@ export async function addRepurchaseSuggestionAction(
         quantity: lastPurchase?.quantity ?? 1,
         unit: lastPurchase?.unit ?? inventoryItem.unit,
         // AUTO-4: same last-known-price default as every other add path.
-        estimatedPrice: inventoryItem.lastKnownPrice ?? undefined,
+        estimatedPrice: defaultLineEstimate(inventoryItem.lastKnownPrice, lastPurchase?.quantity ?? 1),
       },
       select: { id: true },
     });

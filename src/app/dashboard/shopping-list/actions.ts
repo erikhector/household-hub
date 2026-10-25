@@ -35,6 +35,7 @@ import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away"
 import { awaitsReceiptPrice, defersToPutAway } from "@/lib/shopping/put-away-calc";
 import { loadIncomingByItem, coveredQuantity } from "@/lib/incoming-stock";
 import type { InventoryItem, Prisma } from "@/generated/prisma/client";
+import { defaultLineEstimate, unitPriceOf } from "@/lib/shopping/unit-price";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -306,7 +307,7 @@ export async function generateFromLowStockAction(
           unit: item.unit,
           addedAutomatically: true,
           // AUTO-4: same last-known-price default as the ad-hoc add path.
-          estimatedPrice: item.lastKnownPrice ?? undefined,
+          estimatedPrice: defaultLineEstimate(item.lastKnownPrice, Math.max(1, item.lowStockThreshold - item.quantity)),
         })),
       });
       added = toAdd.length;
@@ -386,12 +387,12 @@ async function createAdHocShoppingListItem(
       // AUTO-4: default the estimate from the linked item's last recorded
       // price, so the running total (and the eventual Groceries expense)
       // isn't 0 just because nothing's been priced yet this trip.
-      // Per-unit, unmultiplied by quantity — matches how
-      // completeShoppingListAction sums estimatedPrice below, so a 2-pack
-      // priced at "24" books as 24, not 48. This only ever runs at creation;
-      // once the user corrects a row's price, nothing here touches it again
-      // (Guardrails: corrections stick).
-      estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
+      // BUG-3: lastKnownPrice is per unit of quantity, a row's estimate is
+      // the whole line (completeShoppingListAction sums it as is, so a
+      // 2-pack priced at "24" books as 24, not 48), hence the multiply.
+      // This only ever runs at creation; once the user corrects a row's
+      // price, nothing here touches it again (Guardrails: corrections stick).
+      estimatedPrice: defaultLineEstimate(inventoryItem?.lastKnownPrice, quantity),
     },
   });
   // Only surfaced to the caller when the link just happened automatically
@@ -830,7 +831,7 @@ export async function importShoppingListItemsAction(
         quantity: item.quantity,
         unit: item.unit || inventoryItem?.unit || "pcs",
         // AUTO-4: same last-known-price default as the ad-hoc add path.
-        estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
+        estimatedPrice: defaultLineEstimate(inventoryItem?.lastKnownPrice, item.quantity),
       };
     });
 
@@ -954,7 +955,7 @@ export async function smartAddShoppingListItemsAction(
           // AUTO-4: same last-known-price default as the other create
           // paths — a brand-new item created just below has no price yet,
           // so this only ever fires for the "existing" branch.
-          estimatedPrice: existing.lastKnownPrice ?? undefined,
+          estimatedPrice: defaultLineEstimate(existing.lastKnownPrice, row.quantity),
         });
         continue;
       }
@@ -1437,7 +1438,16 @@ export async function putAwayItemsAction(
   return { putAway, notBought, ...(autoAdded.length > 0 ? { autoAdded } : {}) };
 }
 
-export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
+export type ReceiptScanMatch = {
+  shoppingListItemId: string;
+  /** What the receipt line cost in total (the line's amount, not per unit). */
+  price: number;
+  /** BUG-3: how many the receipt line was for ("3 x Milk 45,00" is 3).
+   * Omitted (or unusable) means the list row's own quantity, which is what
+   * the price was always assumed to cover. It can differ from the row's:
+   * the row says "Milk x1", the receipt says three. */
+  quantity?: number;
+};
 
 /**
  * Applies a reviewed receipt scan (see ReceiptScanDialog) to a shopping
@@ -1538,6 +1548,14 @@ export async function applyReceiptScanAction(
     for (const match of validMatches) {
       const item = itemsById.get(match.shoppingListItemId)!;
       const convertedPrice = Math.round(match.price * rate * 100) / 100;
+      // BUG-3: the receipt's own count when it gave one, else the row's. The
+      // price stays the row's estimate as paid (the Groceries expense sums
+      // it), but PriceHistory and lastKnownPrice are per unit of *this*
+      // quantity: 45 for 3 is 15 each, not 45 for the row's one.
+      const priceQuantity =
+        match.quantity !== undefined && Number.isFinite(match.quantity) && match.quantity > 0
+          ? match.quantity
+          : item.quantity;
 
       // Claimed only while it's still waiting for a price (the
       // transactional twin of awaitsReceiptPrice), so a put-away or a
@@ -1582,13 +1600,13 @@ export async function applyReceiptScanAction(
         // itself is put away.
         await tx.inventoryItem.update({
           where: { id: row.inventoryItem.id },
-          data: { lastKnownPrice: convertedPrice },
+          data: { lastKnownPrice: unitPriceOf(convertedPrice, priceQuantity) },
         });
         const history = await tx.priceHistory.create({
           data: {
             inventoryItemId: row.inventoryItem.id,
             price: convertedPrice,
-            quantity: row.quantity,
+            quantity: priceQuantity,
             unit: row.unit,
             store: trimmedStore,
           },
@@ -1597,7 +1615,7 @@ export async function applyReceiptScanAction(
           priceHistoryId: history.id,
           inventoryItemId: row.inventoryItem.id,
           price: convertedPrice,
-          quantity: row.quantity,
+          quantity: priceQuantity,
           unit: row.unit,
         });
         continue;
@@ -1614,6 +1632,7 @@ export async function applyReceiptScanAction(
         quantity: row.quantity,
         unit: row.unit,
         price: convertedPrice,
+        priceQuantity,
         store: trimmedStore,
       });
       if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
@@ -1863,11 +1882,13 @@ export async function registerReceiptAction(
     const existing = inventoryDeltas.get(item.inventoryItem.id) ?? {
       currentQuantity: item.inventoryItem.quantity,
       delta: 0,
-      lastKnownPrice: item.convertedPrice,
+      lastKnownPrice: unitPriceOf(item.convertedPrice, item.quantity),
       item: item.inventoryItem,
     };
     existing.delta += item.quantity;
-    existing.lastKnownPrice = item.convertedPrice;
+    // BUG-3: the line's price is for its whole quantity ("3 x Milk 45,00"),
+    // lastKnownPrice is per unit of it, so the next "Milk x1" starts at 15.
+    existing.lastKnownPrice = unitPriceOf(item.convertedPrice, item.quantity);
     inventoryDeltas.set(item.inventoryItem.id, existing);
   }
 

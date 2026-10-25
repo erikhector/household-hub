@@ -1338,7 +1338,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     the same explicit, person-added row on the default list as above,
     deduped against a row already pending there, with the stock untouched.
     The toast says how many were added, or that they were already on the
-    list. A row with an unpurchased line on any active list shows an "On
+    list. The bulk add runs in a fixed number of queries (PERF-18) via
+    `addItemsToDefaultList` (src/lib/shopping/default-list.ts): the default
+    list, one read of what's pending, one `createMany`, for 1 or 200 items.
+    A row with an unpurchased line on any active list shows an "On
     list" tag. With auto-add on, the row menu drops "Mark as empty & add to
     shopping list" (plain "Mark as empty" already does it); with it off,
     both entries show.
@@ -2193,8 +2196,8 @@ item is marked purchased with an estimated price
     judged better than dropping emptied items, which would make throwing
     something out erase it from the recap.
   - **Value.** One `lastKnownPrice` per item, never `lastKnownPrice ×
-    quantity`: `lastKnownPrice` is the price of one shopping-list line
-    (AUTO-4's per-line convention), not a price per inventory unit, so
+    quantity`: `lastKnownPrice` is the price of one unit of a shopping
+    line's quantity (BUG-3), not a price per inventory unit, so
     multiplying it by a quantity in grams or millilitres would be nonsense.
     The figure is shown with "≈". Items with no known price are listed and
     counted ("N of them have no known price yet") but add nothing to the
@@ -2226,8 +2229,8 @@ item is marked purchased with an estimated price
     are counted — they're physically there, and whether they were wasted
     is GAP-17's question.
   - **Value.** Same rule as GAP-17: one `lastKnownPrice` per item, never
-    `lastKnownPrice × quantity` (it's a per-shopping-line price, not a
-    per-unit one), so a half-used bag counts at its full last price and the
+    `lastKnownPrice × quantity` (it's a price per unit of a shopping
+    line's quantity, not per inventory unit), so a half-used bag counts at its full last price and the
     figure is shown with "≈". Items with no known price (null or 0) add
     nothing but are counted, and the card always says what the figure is
     built from: "Based on N of M items with a known price."
@@ -2282,9 +2285,17 @@ non-null `lastKnownPrice` now defaults the new row's `estimatedPrice` to it
 low-stock items" (`generateFromLowStockAction`), pasted/CSV import
 (`importShoppingListItemsAction`), and the smart add line
 (`smartAddShoppingListItemsAction`, for a row that resolves to an *existing*
-inventory item — a brand-new one has no price yet). The default is
-per-unit, unmultiplied by `quantity` — matching how `completeShoppingListAction`
-sums `estimatedPrice` above, so a 2-pack priced at "24" books as 24, not 48.
+inventory item — a brand-new one has no price yet). `lastKnownPrice` is the
+price of **one unit of a line's quantity** and a row's `estimatedPrice` is the
+whole line (`completeShoppingListAction` sums it as is, so a row priced "24"
+books as 24 whatever its quantity), so every writer divides and every create
+path multiplies (`src/lib/shopping/unit-price.ts`: `unitPriceOf`,
+`defaultLineEstimate`): after 3 cartons for 45 the item's `lastKnownPrice` is
+15, and the next "Milk ×1" starts at 15 and a "Milk ×2" at 30 (BUG-3). The
+writers are `applyStockArrival` (tick, share-link tick, put-away: the price
+over `priceQuantity`, the quantity it was paid for), the put-away-mode branch
+of `applyReceiptScanAction` and `registerReceiptAction`. Older rows hold the
+line price, which is the same number for a ×1 line; there was no backfill.
 This only ever runs once, at creation: a receipt-driven create
 (`registerReceiptAction`) keeps setting `estimatedPrice` from the receipt's
 own (real) price instead, and once a user corrects a row's price nothing
@@ -2889,9 +2900,15 @@ following. The even split is
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
 total instead of drifting from naive floating-point division), individually
-adjustable afterward. The dialog shows
-a live warning and disables submit whenever the shares don't (yet) sum to
-the transaction total or the payments add up to more than it
+adjustable afterward. As shares are
+typed, the dialog shows what's still left to split ("176.00 of 476.00 left
+to split." for a 476 bill with a 300 share, muted since it's the normal
+state mid-typing) or, in red, how far the shares are over the total
+(`shareRemainder`, summed in whole cents so the shares must match to the
+cent, and `ShareRemainderNote` in
+`split-editor.tsx`, which the recurring-item and planned-bill dialogs'
+share grids use too). Submit stays disabled while the shares don't (yet)
+sum to the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
 `updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
 re-validate the same invariants server-side (`parseSplitFormData`, ±0.01
@@ -3801,6 +3818,12 @@ never blocks or breaks manual entry, at any failure point.
   (`https://world.openfoodfacts.org/api/v2/product/<barcode>.json`, no API
   key) with a short timeout (5s, via `AbortController`) and identifies the
   app via a `User-Agent` header, per Open Food Facts's own API etiquette.
+  The raw response is cached in Next's data cache for 24 hours
+  (`next: { revalidate: 86400 }`, keyed by the barcode in the URL), shared
+  across households since it is public product data. The mapped result is
+  not cached, because the category label comes from the caller's locale
+  dictionary; a timeout or network error throws before any response exists,
+  so failures are never cached.
   Any failure — invalid barcode shape, network error, timeout, a 4xx/5xx
   response, no matching product, or a product with no `product_name` — is
   swallowed and reported back as `{ name: null }` rather than an error;
@@ -4033,8 +4056,8 @@ below.
   quantity, which is what a receipt line's price already means, so typed
   rows go through `applyReceiptScanAction` / `registerReceiptAction`
   exactly like scanned ones: `estimatedPrice`, PriceHistory (with the
-  quantity), `lastKnownPrice` (the line price, as every writer stores it;
-  see `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
+  quantity), `lastKnownPrice` (the price per unit of that quantity, 45 for
+  3 is 15; see AUTO-4 and `recipe-cost.ts`) and `priceRecordedAt`. The hand-typed subtitle
   shows only when every row was typed, not when "Add line" joins a scanned
   receipt. Covered by `e2e/manual-receipt-prices.spec.ts`, with the vision
   call mocked to fail.
@@ -4115,6 +4138,18 @@ below.
   its own rows). De-dupes by `shoppingListItemId` server-side (in case two
   OCR'd lines were ever matched to the same item) so nothing is
   double-counted.
+  **Quantity (BUG-3)**: a receipt line's quantity rides along in
+  `ReceiptScanMatch.quantity` (the receipt may say 3 where the row says
+  ×1; omitted or not positive falls back to the row's). The price is what
+  was paid, so the row is booked at it (`estimatedPrice` 45), but
+  `PriceHistory` records it with the line's quantity (45 for 3, so the
+  price-spike check compares 15) and `lastKnownPrice` is the unit price
+  (15). Stock still counts the row's own quantity. The review row shows
+  "3 × 15.00" (quantity × unit price, from the editable price) under the
+  name when the quantity isn't 1, so a misread count or price is visible
+  before applying. `registerReceiptAction` stores `lastKnownPrice` the
+  same way. Covered by `e2e/manual-receipt-prices.spec.ts` (a ×3 line, then
+  the next ×2 row estimating 30).
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
   this flow has no existing shopping list to match against, each reviewed
   line instead gets matched against the household's *inventory* catalog —
@@ -4764,7 +4799,10 @@ by AUTO-4, above) and the purchased shopping-list line that set it — through
 the same unit table (`src/lib/units.ts`) the
 meal-plan → shopping-list bridge uses.
 
-- **Per-unit price**: `lastKnownPrice` is the price of one purchased
+- **Per-unit price** (BUG-3: lines saved since then store `lastKnownPrice`
+  per unit of the line's quantity, so the line that set it has `price =
+  lastKnownPrice × quantity`, and `unitPriceFromLastPurchase` reads both
+  that and the older form below): `lastKnownPrice` was the price of one purchased
   shopping-list *line*, whatever quantity that line was for (a 500 g pack
   of flour for 24 records 24), not the price of one of the item's unit. So
   `unitPriceFromLastPurchase` recovers the line that set it — the newest
@@ -6679,6 +6717,36 @@ components directly.
   `mt-auto` so cards side by side line them up, and their labels wrap rather
   than push the chevron outside the card on narrow (tablet) columns.
   Covered by `e2e/overview.spec.ts`.
+- **Opt-in sample data (UX-136)**: a household with no inventory, shopping
+  lists, recipes, meal plan entries or tasks sees a "Not sure where to
+  start?" card on the overview (`src/components/dashboard/sample-data-card.tsx`,
+  above the setup card, outline button so the page keeps one primary) with
+  "Try with sample data". `seedSampleDataAction`
+  (`src/lib/actions/sample-data.ts`) then inserts, in one transaction and in
+  the viewer's language (`dashboard.sampleData.content` in both
+  dictionaries): six pantry items (one low, one out, one expiring), one
+  default shopping list of three items, three recipes whose ingredients link
+  to the pantry rows, four dinners in a single planner week (from today when
+  four days of the week remain, otherwise next week) and three tasks (two
+  repeating, one dated). It refuses when the household already has any of
+  those kinds of data. Everything seeded carries one batch id in a nullable
+  `sample` text column (migration `sample_data_tag`, on `InventoryItem`,
+  `ShoppingList`, `ShoppingListItem`, `Recipe`, `MealPlan`, `MealPlanEntry`
+  and `HouseholdTask`; null for everything a person makes). While any tagged
+  row exists the card turns into "You're looking at sample data" with
+  "Clear sample data" (`clearSampleDataAction`), which opens a confirm dialog
+  first (`clear-sample-data-button.tsx`, the shared `ConfirmDialog`) saying
+  that sample rows the person has edited or completed go too and that it
+  can't be undone, then deletes by that column
+  alone, scoped to the session household, children first. A sample list or
+  week plan that has since gained a row of the person's own is kept and
+  untagged instead of deleted; a pre-existing empty `MealPlan` for the week
+  is reused, never tagged, and keeps existing when cleared. What the card
+  shows is decided by `loadSampleDataState` (`src/lib/sample-data-state.ts`);
+  the rows are built by the pure `buildSampleData` (`src/lib/sample-data.ts`).
+  Covered by `src/lib/sample-data.test.ts`,
+  `src/lib/actions/sample-data.test.ts` and `e2e/sample-data.spec.ts`. The
+  landing page's "example data" claim is not restored by this item.
 - **Overview "Today" block (UX-70)**: the first thing on the overview,
   above the setup card, answers "what needs me now?"
   (`src/components/dashboard/today-block.tsx`, fed by
@@ -6744,7 +6812,7 @@ components directly.
   (household, splitting, personal), so the grid fills evenly at two and
   three columns; their icon tiles use the `chart-*` tokens. The copy
   claims only what's true: no "example data" (a new household starts
-  empty, see UX-136 in BACKLOG.md) and no "less than a minute" (signup
+  empty; sample data is an opt-in on the overview, UX-136) and no "less than a minute" (signup
   waits on email verification). Covered by `e2e/landing.spec.ts` (the
   preview at least 40% on screen without scrolling, every feature named,
   no empty grid cell at 1280 px, Swedish preview).

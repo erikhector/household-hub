@@ -20,7 +20,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { PlannedItemType } from "@/lib/planned-expense-calc";
 
 type HouseholdPlannedDict = Dictionary["budget"]["planned"];
-type PlannedSplitKey = "splitWays" | "splitLabel" | "sharesLabel" | "splitEvenly" | "shareAriaLabel" | "splitMismatch";
+type PlannedSplitKey = "splitWays" | "splitLabel" | "sharesLabel" | "splitEvenly" | "shareAriaLabel" | "sharesLeftHint" | "sharesOverWarning";
 
 /** Planned bills' texts on either budget (budget.planned or
  * personalBudget.planned). The split texts are household-only, the same
@@ -97,7 +97,8 @@ export type BudgetDict = {
   // Household-only: TransactionDialog's/TransactionList's expense-split UI.
   split?: {
     amountAriaLabel: string;
-    mismatchWarning: string;
+    sharesLeftHint: string;
+    sharesOverWarning: string;
     paidByBadge: string;
     sharesLabel: string;
     splitBadge: string;
@@ -174,7 +175,8 @@ export type BudgetDict = {
     // above.
     split?: {
       amountAriaLabel: string;
-      mismatchWarning: string;
+      sharesLeftHint: string;
+      sharesOverWarning: string;
       sharesLabel: string;
       splitBadge: string;
       splitEvenlyButton: string;

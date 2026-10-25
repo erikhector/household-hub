@@ -539,7 +539,7 @@ describe("generateFromLowStockAction", () => {
     await generateFromLowStockAction("list-1");
 
     const rows = shoppingListItemCreateManyMock.mock.calls[0][0].data;
-    expect(rows.find((r: { inventoryItemId: string }) => r.inventoryItemId === "inv-1").estimatedPrice).toBe(22);
+    expect(rows.find((r: { inventoryItemId: string }) => r.inventoryItemId === "inv-1").estimatedPrice).toBe(44); // 22 a unit x the row's 2 (BUG-3)
     expect(rows.find((r: { inventoryItemId: string }) => r.inventoryItemId === "inv-2").estimatedPrice).toBeUndefined();
   });
 });
@@ -1520,8 +1520,9 @@ describe("togglePurchasedAction", () => {
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      // AUTO-4: this purchase's price also becomes the item's lastKnownPrice.
-      data: { quantity: 5, lastKnownPrice: 25 },
+      // AUTO-4: this purchase's price also becomes the item's lastKnownPrice,
+      // per unit (BUG-3): 25 for 3 is 25 / 3 each.
+      data: { quantity: 5, lastKnownPrice: 25 / 3 },
     });
     // GAP-9: with the line's quantity/unit, then checked for a price spike
     // once the transaction has committed, excluding the acting user's push.
@@ -1842,6 +1843,48 @@ describe("applyReceiptScanAction", () => {
     ],
   };
 
+  // BUG-3: "3 x Milk 45,00" matched to a "Milk x1" row. 45 is what was
+  // paid, so the row is priced at 45, but the unit price is 15.
+  it("divides a receipt line's price by the line's own quantity for PriceHistory and lastKnownPrice (BUG-3)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [{ id: "sli-1", purchased: false, quantity: 1, unit: "l", inventoryItem: { id: "inv-1", quantity: 1 } }],
+    });
+
+    const result = await applyReceiptScanAction("list-1", "SEK", [
+      { shoppingListItemId: "sli-1", price: 45, quantity: 3 },
+    ]);
+
+    expect(result.totalAmount).toBe(45);
+    expect(txShoppingListItemUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ estimatedPrice: 45 }) }),
+    );
+    // Stock still counts the list row's quantity, as before.
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 2, lastKnownPrice: 15 },
+    });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 45, quantity: 3, unit: "l", store: null },
+    });
+    // The spike check compares the unit price, so it must be handed 45 for 3.
+    expect(recordPriceSpikesMock).toHaveBeenCalledWith(
+      "household-1",
+      [{ priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 45, quantity: 3, unit: "l" }],
+      "user-1",
+    );
+  });
+
+  it("falls back to the row's quantity when the match carries an unusable one (BUG-3)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(baseList);
+
+    await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10, quantity: 0 }]);
+
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 10, quantity: 2, unit: "pcs", store: null },
+    });
+  });
+
   it("refuses when the list isn't active/owned by the caller's household", async () => {
     shoppingListFindFirstMock.mockResolvedValue(null);
 
@@ -1898,7 +1941,7 @@ describe("applyReceiptScanAction", () => {
     // AUTO-4: a scanned receipt price also becomes the item's lastKnownPrice.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 3, lastKnownPrice: 10 },
+      data: { quantity: 3, lastKnownPrice: 5 }, // 10 for the row's 2
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-2" },
@@ -1976,7 +2019,7 @@ describe("applyReceiptScanAction", () => {
     expect(result.totalAmount).toBe(10);
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 3, lastKnownPrice: 10 }, // 1 + quantity(2), converted price
+      data: { quantity: 3, lastKnownPrice: 5 }, // 1 + quantity(2); 10 converted, for the row's 2
     });
   });
 
@@ -2144,7 +2187,7 @@ describe("registerReceiptAction", () => {
     // lastKnownPrice.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 4, lastKnownPrice: 15 },
+      data: { quantity: 4, lastKnownPrice: 7.5 }, // 15 for 2
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 15, quantity: 2, unit: "l", store: null },
@@ -2280,6 +2323,26 @@ describe("registerReceiptAction", () => {
     expect(result.unresolvedNotice).toBeUndefined();
   });
 
+  it("stores lastKnownPrice per unit, not the line total, for a multi-quantity line (BUG-3)", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 1, unit: "l" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await registerReceiptAction("My receipt", "SEK", [{ name: "Milk", quantity: 3, unit: "l", price: 45 }]);
+
+    // The line is still booked at what was paid, and PriceHistory has 45 for 3.
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ quantity: 3, estimatedPrice: 45 }),
+    });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 45, quantity: 3, unit: "l", store: null },
+    });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 4, lastKnownPrice: 15 },
+    });
+  });
+
   it("sums quantity across two lines matching the same inventory item instead of overwriting each other", async () => {
     shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
     inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 10, unit: "pcs" });
@@ -2293,8 +2356,9 @@ describe("registerReceiptAction", () => {
     expect(inventoryItemUpdateMock).toHaveBeenCalledTimes(1);
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      // AUTO-4: the later of the two lines' prices wins as lastKnownPrice.
-      data: { quantity: 15, lastKnownPrice: 6 }, // 10 + 2 + 3
+      // AUTO-4: the later of the two lines' prices wins as lastKnownPrice,
+      // per unit: 6 for 3 is 2 (BUG-3).
+      data: { quantity: 15, lastKnownPrice: 2 }, // 10 + 2 + 3
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledTimes(2);
     // GAP-9: both lines go to recordPriceSpikes in one call, which pools
@@ -3072,7 +3136,7 @@ describe("putAwayItemsAction", () => {
     const [[{ where, data }]] = inventoryItemUpdateMock.mock.calls;
     expect(where).toEqual({ id: "inv-1" });
     expect(data).toEqual(
-      expect.objectContaining({ quantity: 3, lastKnownPrice: 18, expiresAtEstimated: true, expiresAt: expect.any(Date) }),
+      expect.objectContaining({ quantity: 3, lastKnownPrice: 9, expiresAtEstimated: true, expiresAt: expect.any(Date) }),
     );
     // 18 was paid for the listed 2 l — recorded against 2, so the unit price
     // (9/l) isn't distorted to 6/l by the corrected quantity and no false
@@ -3188,6 +3252,23 @@ describe("applyReceiptScanAction — put-away mode (ON_PUT_AWAY)", () => {
     });
   }
 
+  it("records the unit price of a multi-quantity receipt line without touching stock (BUG-3)", async () => {
+    asPutAwayHousehold();
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [
+        { id: "sli-1", purchased: false, putAwayAt: null, priceRecordedAt: null, quantity: 1, unit: "l", inventoryItem: { id: "inv-1", quantity: 0 } },
+      ],
+    });
+
+    await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 45, quantity: 3 }]);
+
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { lastKnownPrice: 15 } });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 45, quantity: 3, unit: "l", store: null },
+    });
+  });
+
   it("prices and ticks the rows but leaves the stock for the put-away step", async () => {
     asPutAwayHousehold();
     shoppingListFindFirstMock.mockResolvedValue({
@@ -3228,7 +3309,7 @@ describe("applyReceiptScanAction — put-away mode (ON_PUT_AWAY)", () => {
       data: { priceRecordedAt: expect.any(Date) },
     });
     // Only the price moves on the inventory item — no quantity.
-    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { lastKnownPrice: 10 } });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { lastKnownPrice: 5 } });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-2" }, data: { lastKnownPrice: 30 } });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-2", price: 30, quantity: 1, unit: "kg", store: "ICA" },
@@ -3300,7 +3381,7 @@ describe("applyReceiptScanAction — put-away mode (ON_PUT_AWAY)", () => {
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 3, lastKnownPrice: 10 },
+      data: { quantity: 3, lastKnownPrice: 5 },
     });
   });
 
