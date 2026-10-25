@@ -311,18 +311,6 @@ then MAINT-7 per feature, to avoid churn.
       (`18e4bfe`, under the shared lock) and in the full `ci:local` gate of
       #694, #696 and #697, so it no longer only flakes under load.
 
-- [ ] **MAINT-51. Flaky: `item-aliases` a name linked once in a recipe doesn't arrive linked in the pasted shopping list under load** (low, S) —
-      `e2e/item-aliases.spec.ts:50` ("a name linked once in a recipe
-      arrives linked in a pasted shopping list", `mobile`) failed once in
-      a local `ci:local` run on release PR #622 (`49a1fc8`, 2026-10-23)
-      and passed on a same-commit re-run; the GitHub e2e job on the same
-      commit was green. Find out whether the pasted list is checked before
-      the alias lookup has settled (data load, hydration) or the link
-      really is dropped, and fix it in the app or the spec's waiting,
-      never a loosened assertion, a skip or a retry. Acceptance: `npx
-      playwright test e2e/item-aliases.spec.ts:50 --project=mobile
-      --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-52. Flaky: `task-anchor-day` "Mark … as not done" isn't checked after a reload that follows a tick** (low, S) —
       `e2e/task-anchor-day.spec.ts:60` (`desktop` and `mobile`). Failed
       3 of 40 runs (all `desktop`) with `--repeat-each=20` on clean `next`
