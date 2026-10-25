@@ -83,8 +83,15 @@ test("editing a task to repeat weekly anchors the schedule on the day of the edi
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog).toBeHidden();
 
+  // The tick is optimistic (UX-14): the checkbox flips before the toggle's
+  // POST has saved. Wait for the POST to answer, or the reload below can
+  // cancel it and the server's row comes back not done.
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
+  );
   await page.getByRole("checkbox", { name: `Mark ${title} as done` }).click();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
+  await saved;
 
   // Reload so the label comes from the server's schedule: a week from the
   // edit, not from the day the task was created.
