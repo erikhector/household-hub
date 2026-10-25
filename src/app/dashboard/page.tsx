@@ -15,6 +15,8 @@ import { getTimeZone } from "@/lib/get-time-zone";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
+import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
+import { periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { daysOverdue, getTaskDueDay, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { getStockStatus } from "@/lib/stock-status";
@@ -52,8 +54,6 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
   const showWelcome = searchParams.welcome === "1";
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
   const [
     user,
@@ -127,11 +127,17 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     // bills, what's owed to household members, due payments and savings
     // included. See src/lib/personal-budget-position.ts; this card used to
     // run its own simplified copy of the math that left all of that out.
-    loadPersonalBudgetPosition({
-      userId,
-      monthStart,
-      monthEnd,
-      sharedLabel: dict.personalBudget.shared.sharedBadge,
+    // On the user's own budget month (User.personalBudgetMonthStartDay):
+    // today's period, the one Personal Budget opens on.
+    getPersonalBudgetStartDay(userId).then((startDay) => {
+      const { start, end } = periodBounds(periodKeyOf(now, startDay), startDay);
+      return loadPersonalBudgetPosition({
+        userId,
+        monthStart: start,
+        monthEnd: end,
+        startDay,
+        sharedLabel: dict.personalBudget.shared.sharedBadge,
+      });
     }),
     // Tonight's dinner. Planner dates are UTC midnights (date-utils.ts), so
     // today is the UTC date key, like the planner's own "today".

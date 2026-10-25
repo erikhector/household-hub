@@ -305,7 +305,7 @@ export const sv = {
       label: "Budgetmånaden börjar den",
       description:
         "De flesta hushåll budgeterar från den 1:a. Om lönen kommer den 25:e börjar du på dag 25, så löper varje månad från den 25:e till den 24:e och döps efter månaden den slutar i.",
-      hint: "Ändrar hushållsbudgetens månader, Säkert att spendera och återkommande räkningar. Inget du har loggat ändras, och Privat budget behåller kalendermånader. Återkommande poster du markerat som redovisade kan behöva markeras igen.",
+      hint: "Ändrar hushållsbudgetens månader, Säkert att spendera och återkommande räkningar. Inget du har loggat ändras, och Personlig budget har en egen inställning. Återkommande poster du markerat som redovisade kan behöva markeras igen.",
       calendarOption: "{day} (kalendermånad)",
       dayOption: "{day}",
       ownerOnlyHint: "Bara hushållets ägare kan ändra det här.",
@@ -2709,6 +2709,16 @@ export const sv = {
     },
   },
   personalBudget: {
+    budgetMonth: {
+      title: "Budgetmånad",
+      label: "Budgetmånaden börjar den",
+      description:
+        "Börja den dag lönen kommer. Med dag 25 löper varje månad från den 25:e till den 24:e och döps efter månaden den slutar i.",
+      hint: "Ändrar din personliga budgets månader, Säkert att spendera och återkommande poster, inte hushållsbudgetens. Inget du har loggat ändras. Återkommande poster du markerat som redovisade kan behöva markeras igen.",
+      calendarOption: "{day} (kalendermånad)",
+      dayOption: "{day}",
+      savedToast: "Budgetmånaden har uppdaterats",
+    },
     title: "Personlig budget",
     subtitle: "Dina egna inkomster och utgifter — separat från hushåll du är med i.",
     purpose: "Bara dina — ingen annan i hushållet ser dem.",

@@ -336,7 +336,7 @@ export const en = {
       label: "Budget month starts on day",
       description:
         "Most households budget from the 1st. If your pay lands on the 25th, start on day 25 and each month runs from the 25th to the 24th, named after the month it ends in.",
-      hint: "Changes the household budget's months, Safe to spend and recurring bills. Nothing you've logged changes, and Personal Budget stays on calendar months. Recurring items you marked as accounted for may need marking again.",
+      hint: "Changes the household budget's months, Safe to spend and recurring bills. Nothing you've logged changes, and Personal Budget has its own setting. Recurring items you marked as accounted for may need marking again.",
       calendarOption: "{day} (calendar month)",
       dayOption: "{day}",
       ownerOnlyHint: "Only the household owner can change this.",
@@ -2838,6 +2838,18 @@ export const en = {
     },
   },
   personalBudget: {
+    // The Manage tab's budget month card — the user's own start day, the
+    // personal counterpart of household.budgetMonth (UX-134).
+    budgetMonth: {
+      title: "Budget month",
+      label: "Budget month starts on day",
+      description:
+        "Start on the day your pay lands. With day 25 each month runs from the 25th to the 24th, named after the month it ends in.",
+      hint: "Changes your personal budget's months, Safe to spend and recurring items, not the household budget's. Nothing you've logged changes. Recurring items you marked as accounted for may need marking again.",
+      calendarOption: "{day} (calendar month)",
+      dayOption: "{day}",
+      savedToast: "Budget month updated",
+    },
     title: "Personal budget",
     subtitle: "Your own income and expenses — separate from any household you're part of.",
     // UX-110: the phone line (the subtitle above is hidden there).

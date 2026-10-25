@@ -69,7 +69,16 @@ model User {
   // export and deleted with the account.
   swishNumber String?
 
-  memberships                HouseholdMember[]
+  // The Personal Budget's own budget month start day, 1 to 28 — the same
+  // setting as Household.budgetMonthStartDay (UX-134, see its comment) but
+  // for this user's personal budget, which is theirs alone and so not tied
+  // to any household's choice: someone paid on the 25th can budget their
+  // own money 25th to 24th while the household stays on calendar months.
+  // Set from the Personal Budget's Manage tab
+  // (setPersonalBudgetMonthStartDayAction). 1 is the calendar month.
+  personalBudgetMonthStartDay Int @default(1)
+
+  memberships               HouseholdMember[]
   personalBudgetCategories   PersonalBudgetCategory[]
   personalTransactions       PersonalTransaction[]
   personalRecurringTemplates PersonalRecurringTemplate[]

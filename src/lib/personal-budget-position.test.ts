@@ -456,6 +456,33 @@ describe("loadPersonalBudgetPosition", () => {
     ]);
   });
 
+  it("runs the user's own recurring items on their payday periods (start day 25)", async () => {
+    // "October" with day 25 is 25 Sep to 24 Oct, so the gym paid on 3 Oct is
+    // October's: posted and counted, not still due. On calendar months the
+    // period would start 1 Sep and the gym would still show as due.
+    personalTransactionFindManyMock.mockResolvedValue([
+      { ...personalTx("Gym", "EXPENSE", 300, 1, "Gym"), date: new Date(2026, 9, 3) },
+    ]);
+    personalTemplateFindManyMock.mockResolvedValue([personalTemplate("Gym", "EXPENSE", 300)]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: new Date(2026, 8, 25),
+      monthEnd: new Date(2026, 9, 25),
+      startDay: 25,
+      sharedLabel: "Shared",
+    });
+
+    expect(position.templateStatusRows).toEqual([
+      expect.objectContaining({ template: expect.objectContaining({ id: "Gym" }), status: "posted" }),
+    ]);
+    expect(position.expense).toBe(300);
+    expect(position.safeToSpendBreakdown).toMatchObject({ duePayments: 0 });
+  });
+
   it("works with no household at all", async () => {
     personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 1000, 5)]);
     personalTemplateFindManyMock.mockResolvedValue([]);
