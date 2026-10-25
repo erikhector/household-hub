@@ -261,22 +261,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **BUG-5. Re-land #336 ("what's left to split") with its spec passing in the full gate** (medium, S) —
-      #336 (`feat: show what's left to split as shares are typed`) turned
-      `next` red and was reverted by #340, which also deleted
-      `e2e/split-remainder.spec.ts`. Its spec failed at `:31` and `:57`
-      (`mobile`, a `locator.fill` timeout; also `desktop` on a feature
-      branch) in the local `ci:local` gate on a clean `0444ce1` (2026-10-18,
-      780 passed, 3 failed) and in 3 of 3 full runs on the UX-82 branch
-      (#343), yet passed alone (`--repeat-each=3`, 14/14), so it depended on
-      something earlier specs leave in the worker's household or on a field
-      it didn't wait for. Re-apply #336 (revert #340), find why the share
-      field can't be filled in the full run and fix the spec's setup
-      (AGENTS.md "Parallel workers") or the app, never a skip or looser
-      assertion, and restore #336's REQUIREMENTS.md text. Acceptance: the
-      full `npm run test:e2e` passes with the re-landed
-      `e2e/split-remainder.spec.ts`, and `npx playwright test
-      e2e/split-remainder.spec.ts --repeat-each=10` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
