@@ -28,7 +28,7 @@ test("ticking Split after typing the amount shows an even split with no error", 
   await expect(shares).toHaveCount(2);
   await expect(shares.nth(0)).toHaveValue("470.00");
   await expect(shares.nth(1)).toHaveValue("470.00");
-  await expect(dialog.getByText(/The shares add up to/)).toHaveCount(0);
+  await expect(dialog.getByText(/left to split|more than the/)).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Add transaction" })).toBeEnabled();
 
   // The person logging it paid the whole bill.
@@ -51,9 +51,9 @@ test("shares follow the amount until one is edited", async ({ page }) => {
   await shares.nth(1).fill("30");
   await amount.fill("200");
   await expect(shares.nth(0)).toHaveValue("70");
-  await expect(dialog.getByText(/The shares add up to/)).toBeVisible();
+  await expect(dialog.getByText(/100\.00.* of .*200\.00.* left to split\./)).toBeVisible();
 
   await dialog.getByRole("button", { name: "Split evenly" }).click();
   await expect(shares.nth(0)).toHaveValue("100.00");
-  await expect(dialog.getByText(/The shares add up to/)).toHaveCount(0);
+  await expect(dialog.getByText(/left to split|more than the/)).toHaveCount(0);
 });
