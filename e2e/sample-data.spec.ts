@@ -107,6 +107,9 @@ test("an empty household tries the sample data, sees rows, and clears only the s
     // Confirming clears.
     await main.getByRole("button", { name: d.clearButton }).click();
     await page.getByRole("dialog", { name: d.confirmTitle }).getByRole("button", { name: d.confirmConfirm }).click();
+    // The open dialog hides the page from the accessibility tree, so wait for
+    // it to close before asserting on the page behind it.
+    await expect(page.getByRole("dialog", { name: d.confirmTitle })).toHaveCount(0);
 
     // Cleared: the offer is gone too (the household is no longer empty), and
     // exactly the person's own rows are left.
