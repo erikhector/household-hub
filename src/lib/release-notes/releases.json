@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.110.0",
+    "date": "2026-10-25",
+    "pr": 700,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "New here? Tap \"Try with sample data\" on the overview to fill Squirrel with a small example home: a pantry, a shopping list, recipes, a planned week and a few tasks. \"Clear sample data\" removes only the examples and keeps everything you've added.\n\nScanning a receipt line like \"3 × Milk 45.00\" now records the price per carton (15.00) instead of treating 45.00 as the price of one. Next time you add Milk, its estimate follows the quantity, and the review step shows \"3 × 15.00\" so you can catch a misread.\n\nAdding many items to your shopping list from the inventory at once is now much faster.\n\nScanning a barcode you or someone else scanned recently is now faster.\n\nWhen you split a bill by hand, Squirrel now shows how much is still left to split as you type each share, or how far over the total the shares are.",
+      "sv": "Ny här? Tryck på \"Prova med exempeldata\" på översikten för att fylla Squirrel med ett litet exempelhem: ett skafferi, en inköpslista, recept, en planerad vecka och några sysslor. \"Rensa exempeldata\" tar bara bort exemplen och behåller allt du lagt till själv.\n\nNär du skannar en kvittorad som \"3 × Mjölk 45,00\" sparas nu priset per förpackning (15,00) i stället för att 45,00 räknas som priset för en. Nästa gång du lägger till Mjölk följer prisuppskattningen antalet, och granskningssteget visar \"3 × 15,00\" så att du kan se om något lästs fel.\n\nAtt lägga många varor på inköpslistan från lagret samtidigt går nu mycket snabbare.\n\nDet går nu snabbare att skanna en streckkod som har skannats nyligen.\n\nNär du delar en räkning för hand visar Squirrel nu hur mycket som återstår att dela medan du skriver varje andel, eller hur mycket andelarna överstiger totalen."
+    }
+  },
+  {
     "version": "0.109.0",
     "date": "2026-10-25",
     "pr": 683,
