@@ -36,6 +36,8 @@ Decisions only the owner can make, each with a recommended answer.
 - `AUTO-13`: owner chose the inbound address (#399); waiting on the owner to
   enable Resend inbound and accept temporary storage of receipt content.
 - `PRICE-1`: wait; decide after AUTO-4 shows how much price data exists.
+- `UX-125`/`UX-89`: add an `everStocked` flag (one migration) so used-up items stop reading "never stocked"; recommended yes (schema shape, so yours to confirm).
+- `UX-66`: privacy-policy wording; recommended keep English with `lang="en"` and an "English only" note.
 - `PERF-11`: check the Vercel and database regions in the dashboards; if
   they differ, pin `regions` (likely the biggest latency win).
 - `GAP-35`, `GAP-36`, `GAP-37`, `GAP-38`, `GAP-41`: recommended no for now
@@ -46,6 +48,7 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-10-26 | PERF-21 | Client page cache of 15 s (`staleTimes.dynamic`) | Instant tab switches; a partner's change on a shared list still shows within seconds | Yes |
 | 2026-10-20 | AUTO-13 | Inbound receipt email address, forwarded receipts land as pending review only; stays blocked until Resend inbound is enabled | owner (#399) | Yes |
 | 2026-10-20 | BUDGET-5 | Personal budget gets its own short starter set via the same picker, then the onboarding components merge | owner (#398) | Yes |
 | 2026-10-20 | UX-138 | Safe to spend subtracts unspent limited-category remainder as a "Still budgeted" line; pace projection becomes a qualifier | owner (#397) | Yes |
