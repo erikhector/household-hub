@@ -114,6 +114,105 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
+### Client JS and caching (2026-10-26 measurement)
+
+Measured on a production build with the seeded e2e user in Chromium
+(Pixel 7 profile): JS actually loaded per dashboard page, JS coverage at
+load, and timings under 4× CPU and Lighthouse's Slow 4G profile. Every
+dashboard page loads the same **325 KB gz of shared JS** (Next/React
+174 KB, Base UI 83, `releases.json` 39, the rest small). Pages paint at
+~1 s but finish loading JS at 2.7–3.3 s, and the smallest page
+(`/dashboard/notifications`, 5 KB of its own JS) still takes 2.7 s, so
+the shared JS dominates that "looks ready, doesn't respond yet" window. A
+page's own JS ranges from 4 KB (what's new) to 109 KB (meal planning),
+and 56–78% of it is unused at load, mostly dialogs. Client navigation
+fetches no new JS (the bottom bar's links prefetch the chunks), so
+per-page splitting helps the cold start and hydration on slow phones,
+not tab switches. Re-measure before and after each item.
+`npx next analyze` attributes chunks to modules; JS coverage per route
+comes from Playwright's `page.coverage`.
+
+- [ ] **PERF-23. Keep `releases.json` out of the client bundle** (high, S) —
+      `src/components/dashboard/sidebar.tsx:18` and `bottom-nav.tsx:31`
+      import `CURRENT_VERSION` from `@/lib/release-notes`, which imports
+      the whole release history (135 KB raw, 39 KB gz) to print "v0.111.0".
+      That is 12% of the JS every page loads. The release workflow
+      rewrites the file on every release, so the chunk holding it changes
+      name each time and every user downloads it again after each release.
+      Pass the version from `src/app/dashboard/layout.tsx` (a Server
+      Component) as a prop instead. Check `mark-release-seen.tsx` too: it
+      only needs the cookie constants, so move those to a module that
+      doesn't import the JSON. Acceptance: `next analyze` shows no
+      `releases.json` in any `/dashboard` client chunk.
+- [ ] **PERF-24. Keep zod out of the meal-planning client bundle, again** (medium, S) —
+      PERF-7 removed it; it's back (98 KB raw, 30 KB gz, ~28% of the
+      page's own JS). `missing-ingredients-dialog.tsx`,
+      `record-prep-dialog.tsx` and `plan-portions-dialog.tsx` import
+      constants from `src/app/dashboard/meal-planning/missing-ingredients.ts`
+      and `leftovers.ts`, which also define zod schemas. Move the
+      constants and shared types to zod-free modules the way PERF-7 did
+      with `recipe-tags.ts`. Add a guard so it can't creep back: a unit
+      test that walks the imports of every `"use client"` file under
+      `src/components/` and fails on a path to `zod` (or a lint rule
+      with the same effect).
+- [ ] **PERF-25. Lazy-load dialogs: shared helper + shopping list** (medium, M) —
+      dialogs are most of each heavy page's unused JS, along with Base
+      UI's Combobox (39 KB raw), which only dialogs use. Add one helper
+      that renders a `next/dynamic` dialog only after it has been opened
+      once, works with the Base UI dialog handles the pages already use
+      (`createHandle`, detached triggers), and preloads the chunk on
+      pointer-enter/focus of the trigger and in idle time after
+      hydration (`requestIdleCallback`), so the first open isn't slower
+      than today (DESIGN.md: instant feedback). Apply it first to
+      `src/components/shopping/shopping-list-client.tsx`, which imports
+      nine dialogs up front (receipt scan, put away, import, resolve
+      mappings, reorder sections, rename, save template, partial price,
+      item form). Existing e2e specs for those dialogs must pass
+      unchanged on desktop and mobile; add one asserting a dialog opens
+      on the first tap after a hard load.
+- [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
+      the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
+      `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
+      missing ingredients, record prep, plan portions, meal entry, move,
+      fill empty days, add to plan); `inventory-header-actions.tsx` (AI
+      shelf scan, stock scan, bulk scan, bulk paste, add item) and the
+      item page's change-unit/merge dialogs; the budget pages'
+      transaction, recurring-template, planned-expense and
+      log-shared-expense dialogs. One PR per page group is fine. Expect
+      30–40% less of each page's own JS.
+- [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
+      `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
+      switcher's menu and create form, and the bottom bar's "More" menu
+      hydrate on every page but only appear after a tap or ⌘K. Keep the
+      triggers and the ⌘K listener eager; load the popups with the
+      PERF-25 helper. Base UI's drawer, menu, tooltip and positioning code
+      only leaves the shared JS once page dialogs are lazy too
+      (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
+      20–40 KB gz off every page.
+- [ ] **PERF-28. Cache hashed static assets in the service worker** (medium, S; after PERF-23) —
+      `src/lib/service-worker.js` passes JS/CSS straight to the network,
+      so an installed app relies on the HTTP cache, which phones (iOS in
+      particular) evict aggressively; a cold launch then downloads the
+      full 325 KB gz again. Add a cache-first fetch handler for
+      `/_next/static/*` only: the filenames are content hashes, so a
+      cached copy can never be stale. Pages, RSC requests, API routes and
+      Server Actions stay network-only, which keeps the file's reasoning
+      for not precaching an app shell intact. On `activate`, delete files
+      the current build no longer references (or cap the cache by
+      entries) so it doesn't grow forever. Update the comment block that
+      says the worker has no versioned assets. Do after PERF-23, or the
+      release-notes chunk misses on every release.
+- [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
+      `MealPlanningView` and `BudgetTabs` render every tab on the server
+      and hide the inactive ones with `hidden`, so all four tabs' JS
+      downloads and hydrates before the visible one is interactive. That
+      keeps tab switches instant, which is worth keeping. Try wrapping the
+      inactive tabs in React 19's `<Activity mode="hidden">` and record:
+      whether the visible tab becomes interactive sooner (long-task time
+      under 4× CPU), whether hidden tabs still render on the server, and
+      whether tab state survives a switch as it does now. Ends in a
+      follow-up item or a note here explaining why not.
+
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
