@@ -124,25 +124,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
-- [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
-      a Server Action that calls `revalidatePath` already returns the
-      re-rendered page with its response, so a `router.refresh()` after it
-      renders the same page (and runs all its queries) a second time. Every
-      action behind these calls already revalidates `MEAL_PLANNING_PATH`:
-      `week-planner.tsx:464` (`unassignBatchPortionAction`),
-      `plan-portions-dialog.tsx:174` (`assignBatchPortionsAction`, success
-      path only; the error path at :169 refreshes on purpose, nothing was
-      revalidated), `prep-tab.tsx:158` (`undoDiscardBatchAction`),
-      `fill-empty-days-dialog.tsx:100` (`undoCopyWeekAction`) and
-      `record-prep-dialog.tsx:158` (`undoRecordPrepAction`). The undo calls
-      run from a toast outside `startTransition`, so confirm the page still
-      updates without the refresh before removing each one. Leave the
-      cookie-driven refreshes (`mark-release-seen.tsx`,
-      `preferences-controls.tsx`) alone: no action revalidates there.
-      Acceptance: an e2e check per flow that the change shows without a
-      reload (extend `e2e/meal-prep.spec.ts` and
-      `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
-
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
@@ -222,18 +203,6 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
-- [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
-      timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
-      60000).toISOString().slice(0, 10)`) is copy-pasted as
-      `toDateInputValue` in `components/budget/transaction-dialog.tsx:121`
-      and `personal-budget/log-shared-expense-dialog.tsx:82`, and as
-      `todayInputValue` in `components/budget/household-balances.tsx:73`,
-      while `meal-planning/date-utils.ts` has a UTC `toDateKey` with the
-      opposite semantics under a similar name. Add `toLocalDateKey` /
-      `todayLocalDateKey` to a shared `src/lib/` module with a unit test
-      around midnight in a non-UTC offset, use it in the three call sites,
-      and note in `toDateKey`'s comment that it is UTC. Acceptance: no
-      behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -351,20 +320,6 @@ then MAINT-7 per feature, to avoid churn.
       e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
       passes 30/30.
 
-- [ ] **MAINT-62. Flaky: `inventory-status-summary` Status filter doesn't offer Expiring and Expired** (low, S) —
-      `e2e/inventory-status-summary.spec.ts:130` ("the Status filter offers
-      Expiring and Expired", `desktop`) failed once in a full local
-      `ci:local` run on release commit `1b8abde` (2026-10-25). It passed on
-      a solo re-run and in the GitHub e2e job of the same commit, so it
-      only fails under full-suite load. Not yet re-run with repeats. Get
-      the failing assertion with `--repeat-each=30` (the log of the
-      original run wasn't kept), find what the filter control's open or
-      option check races with (a popup still animating, or the search
-      box's debounced filter re-rendering the list) and fix it in the app
-      or the spec's waiting, never a loosened assertion, a skip or a
-      retry. Acceptance: `npx playwright test
-      e2e/inventory-status-summary.spec.ts:130 --project=desktop
-      --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-64. Flaky: `log-expense-fast` last-used category radio isn't checked after the sheet reopens** (low, S) —
       `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same
@@ -382,6 +337,24 @@ then MAINT-7 per feature, to avoid churn.
       spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/log-expense-fast.spec.ts:118
       --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
+      1,249 lines in one file, past the 800-line smell threshold and not
+      covered by MAINT-10 (which lists UI files only). It holds two
+      unrelated jobs: HTML parsing (JSON-LD `:72-:545`, ingredient strings
+      `:146-:450`, microdata `:564-:775`, heuristic headings `:777-:900`)
+      and the SSRF-guarded fetch (`isPrivateOrReservedIPv4/6`,
+      `validateRecipeUrl`, `createPinnedPublicLookup`, `fetchRecipeHtml`,
+      `:903-:1249`). Split into `lib/recipe-import/parse-*.ts` (ingredient
+      parsing, JSON-LD, microdata, heuristic) and `lib/recipe-import/fetch.ts`
+      (the network guard), keeping `lib/recipe-import.ts` as a re-exporting
+      entry point so `recipe-actions.ts` and the tests don't change import
+      paths. Split `recipe-import.test.ts` (1,173 lines) the same way. The
+      SSRF guard is security-sensitive: move it verbatim, no behaviour
+      change, and keep `_setPrivateAddressCheckForTests` working.
+      Acceptance: no behaviour change; every existing `recipe-import*` test
+      passes unmodified apart from import paths, and no file under
+      `lib/recipe-import/` exceeds ~500 lines.
 
 
 ### UX (2026-09-26 scout)
@@ -1054,6 +1027,28 @@ out to be a product-scope question rather than a scoped task should move to
       opened earlier, opened later than sealed, no shelf-life set); an e2e
       step on `mobile` marks a uniquely named item Opened with 3 days,
       sees it under "expiring", reloads and still sees it, in `en` and `sv`.
+
+### 2026-10-26 scan
+
+- [ ] **GAP-65. Show who added a line on a shared shopping list** (impact: low-med, effort: S) `[schema]` —
+      Bring! keeps an activity log on a shared list ("Anna added milk")
+      so two people filling the same list can tell what came from whom
+      and don't ask "did you add the oats?". Squirrel records who ticked
+      a row (`ShoppingListItem.checkedOffByUserId`,
+      `prisma/schema.prisma:650`) but not who added it, so the list can't
+      show it. Add a nullable plain-string `addedByUserId` (mirroring
+      `checkedOffByUserId`, no `@relation`, so a leaving member takes no
+      history with them), set by the add actions in
+      `src/app/dashboard/shopping-list/actions.ts` and left null for
+      share-link adds and older rows. Show it as a muted "Added by Anna"
+      in the row's secondary line only when the household has 2+ members
+      and the adder isn't the viewer; no new screen, no notification.
+      Scope: no activity feed, no chat or reactions.
+      Acceptance: unit tests that the add action stores the session
+      user's id and never one from the client; an e2e step on `mobile`
+      adds a uniquely named line as one seeded member and sees "Added by"
+      with their name as another, in `en` and `sv`, and no label on a
+      line the viewer added.
 
 ## Needs a decision before building
 
