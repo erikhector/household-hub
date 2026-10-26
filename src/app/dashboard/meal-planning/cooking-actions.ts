@@ -38,6 +38,10 @@ const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
 const MAX_MISSING_INGREDIENT_NAME_LENGTH = 120;
 const MAX_MISSING_INGREDIENT_UNIT_LENGTH = 20;
+// GAP-62: ShoppingListItem.note's cap (SHOPPING_ITEM_NOTE_MAX_LENGTH in
+// shopping-list/actions.ts, a "use server" file that can't export it). A
+// longer ingredient note is cut rather than the row dropped.
+const MAX_MISSING_INGREDIENT_NOTE_LENGTH = 200;
 // The row cap follows the shopping-list side's 300 rather than a recipe's
 // own 100: this submits a whole range's shortfall (up to
 // MAX_MISSING_INGREDIENTS_RANGE_DAYS of meals), not one recipe's ingredients.
@@ -105,9 +109,15 @@ export async function addMissingIngredientsToShoppingListAction(
   }
   const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
   const units = formData.getAll("itemUnit").map((v) => String(v).trim());
+  const notes = formData.getAll("itemNote").map((v) => String(v).trim());
 
   const rows = names
-    .map((name, i) => ({ name, quantity: quantities[i], unit: units[i] || "pcs" }))
+    .map((name, i) => ({
+      name,
+      quantity: quantities[i],
+      unit: units[i] || "pcs",
+      note: notes[i]?.slice(0, MAX_MISSING_INGREDIENT_NOTE_LENGTH).trim() || null,
+    }))
     .filter(
       (row) =>
         row.name &&
@@ -179,6 +189,7 @@ export async function addMissingIngredientsToShoppingListAction(
     name: string;
     quantity: number;
     unit: string;
+    note: string | null;
     estimatedPrice?: number;
     addedAutomatically: true;
   }[] = [];
@@ -199,6 +210,7 @@ export async function addMissingIngredientsToShoppingListAction(
       name: row.name,
       quantity: row.quantity,
       unit: row.unit,
+      note: row.note,
       // AUTO-4: same last-known-price default as the other add paths.
       estimatedPrice: defaultLineEstimate(inventoryItem?.lastKnownPrice, row.quantity),
       addedAutomatically: true,

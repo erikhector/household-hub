@@ -29,6 +29,9 @@ export type ExpandedIngredientNeed = {
   name: string;
   unit: string;
   quantity: number;
+  // RecipeIngredient.note ("ripe", "unsalted"), carried so the shopping-list
+  // bridge (GAP-62) can put it under the row. Null when there is none.
+  note: string | null;
 };
 
 // One node of the in-memory recipe graph fetched by loadRecipeGraph below —
@@ -50,6 +53,8 @@ type RecipeGraphNode = {
     name: string;
     unit: string;
     quantity: number;
+    // Optional only so hand-built test graphs can leave it out.
+    note?: string | null;
   }[];
   components: { componentRecipeId: string; quantity: number }[];
 };
@@ -126,6 +131,7 @@ export function expandFromGraph(
       name: ingredient.name,
       unit: ingredient.unit,
       quantity: ingredient.quantity * multiplier,
+      note: ingredient.note ?? null,
     }));
 
   const nextAncestry = new Set(ancestry).add(recipeId);

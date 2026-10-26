@@ -90,6 +90,9 @@ export type IngredientNeed = {
   // The matched item's saved conversions (ItemUnitConversion, MATCH-3),
   // for a recipe unit the generic table can't turn into `onHandUnit`.
   conversions?: readonly ItemUnitConversionLike[];
+  // The recipe ingredient's note (GAP-62). Optional so callers that don't
+  // care (and older tests) can leave it out.
+  note?: string | null;
 };
 
 // Sums `quantity` per ingredient (key), then splits that total across one
@@ -134,14 +137,19 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
       return converted === null ? need : { ...need, unit: onHandUnit, quantity: converted };
     });
 
-    const clusters: { unit: string; required: number }[] = [];
+    // GAP-62: a cluster keeps the first non-blank note among its needs, the
+    // same "first row wins, never merge text" rule the list's own dedupe
+    // uses, so two recipes noting the same item don't glue sentences together.
+    const clusters: { unit: string; required: number; note: string | null }[] = [];
     for (const need of restated) {
       const cluster = clusters.find((c) => unitsAreComparable(c.unit, need.unit));
+      const note = need.note?.trim() || null;
       if (cluster) {
+        cluster.note ??= note;
         const sameUnit = normalizeUnit(cluster.unit) === normalizeUnit(need.unit);
         cluster.required += sameUnit ? need.quantity : convertQuantity(need.quantity, need.unit, cluster.unit)!;
       } else {
-        clusters.push({ unit: need.unit, required: need.quantity });
+        clusters.push({ unit: need.unit, required: need.quantity, note });
       }
     }
 
@@ -172,6 +180,7 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
           unit: cluster.unit,
           missingQuantity: round2(missing),
           unitMismatch,
+          note: cluster.note,
         });
       }
     }

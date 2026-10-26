@@ -5112,6 +5112,17 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   `addMissingIngredientsToShoppingListAction` takes no range: it commits
   exactly the reviewed rows the preview returned, so preview and apply can't
   disagree about which days were included.
+- **Ingredient notes (GAP-62)**: a `RecipeIngredient.note` ("ripe",
+  "unsalted") rides along. `expandFromGraph` carries it, and
+  `computeMissingIngredients` gives each row the first non-blank note among
+  the needs that merged into it (a second recipe's note is skipped, never
+  concatenated, matching how the list keeps the first row on a duplicate).
+  The review dialog shows it as a muted line under the row and posts it as
+  `itemNote`; the add action trims it, cuts it to 200 characters (the
+  `ShoppingListItem.note` cap from GAP-5) and stores `null` when blank, so the
+  shopper sees it under the item on the list and the share page. No schema
+  change. The low-stock auto-add (`default-list.ts`) doesn't build rows from
+  recipe ingredients, so it has nothing to carry.
 - **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
   (`src/app/dashboard/meal-planning/cooking-actions.ts`), a read-only preview — no
   rows are written until the user commits. It collects every
