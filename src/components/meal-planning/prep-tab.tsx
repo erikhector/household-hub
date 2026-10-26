@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { unstable_rethrow, useRouter } from "next/navigation";
+import { unstable_rethrow } from "next/navigation";
 import { CalendarPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -136,7 +136,6 @@ function BatchCard({
   formatDay: (iso: string) => string;
   onPlanPortions: (batch: PreparedBatchData) => void;
 }) {
-  const router = useRouter();
   const cookedDay = formatDay(batch.cookedAt);
 
   async function discard() {
@@ -152,8 +151,8 @@ function BatchCard({
             (undoResult) => {
               if (undoResult.error) toast.error(undoResult.error);
               else {
+                // No router.refresh(): the undo action revalidated the page.
                 toast.success(dict.prepDiscardUndoneToast);
-                router.refresh();
               }
             },
             // Offline, a failed undo would otherwise fail silently.

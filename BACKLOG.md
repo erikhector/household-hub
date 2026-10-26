@@ -124,25 +124,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
-- [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
-      a Server Action that calls `revalidatePath` already returns the
-      re-rendered page with its response, so a `router.refresh()` after it
-      renders the same page (and runs all its queries) a second time. Every
-      action behind these calls already revalidates `MEAL_PLANNING_PATH`:
-      `week-planner.tsx:464` (`unassignBatchPortionAction`),
-      `plan-portions-dialog.tsx:174` (`assignBatchPortionsAction`, success
-      path only; the error path at :169 refreshes on purpose, nothing was
-      revalidated), `prep-tab.tsx:158` (`undoDiscardBatchAction`),
-      `fill-empty-days-dialog.tsx:100` (`undoCopyWeekAction`) and
-      `record-prep-dialog.tsx:158` (`undoRecordPrepAction`). The undo calls
-      run from a toast outside `startTransition`, so confirm the page still
-      updates without the refresh before removing each one. Leave the
-      cookie-driven refreshes (`mark-release-seen.tsx`,
-      `preferences-controls.tsx`) alone: no action revalidates there.
-      Acceptance: an e2e check per flow that the change shows without a
-      reload (extend `e2e/meal-prep.spec.ts` and
-      `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
-
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860

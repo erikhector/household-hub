@@ -254,6 +254,10 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("Planned 2 portions")).toBeVisible();
 
+  // PERF-19: the card shows the new count without a reload (the action's own
+  // revalidation re-renders the page, no router.refresh() follows).
+  await expect(batchCard(page, recipeName)).toContainText("2 of 4 portions left");
+
   // Saved: after a reload the card has 2 left.
   await page.reload();
   await expect(batchCard(page, recipeName)).toContainText("2 of 4 portions left");
@@ -298,6 +302,7 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await batchCard(page, recipeName).getByRole("button", { name: "Discard" }).click();
   await page.getByRole("dialog", { name: `Discard ${recipeName}?` }).getByRole("button", { name: "Discard" }).click();
   await expect(page.getByText(`Discarded ${recipeName}`)).toBeVisible();
+  await expect(batchCard(page, recipeName)).toHaveCount(0);
   // The confirm dialog's history.back() can still be on its way here.
   await waitForDialogHistory(page);
   await page.reload();
@@ -368,6 +373,43 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
       await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
     });
   }
+});
+
+// PERF-19: the Undo buttons on the record and discard toasts run outside a
+// transition and no longer follow up with router.refresh(); the page must
+// still update from the undo action's own revalidation, with no reload.
+test("Undo on the record and discard toasts updates the Prep tab without a reload", async ({ page }) => {
+  const recipeName = unique("Prep soup");
+  const { recipeId, itemId } = await seedRecipe(recipeName);
+  cleanup = () =>
+    withClient(async (client) => {
+      await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
+      await client.query(`DELETE FROM "InventoryItem" WHERE id = $1 AND "householdId" = $2`, [itemId, E2E_HOUSEHOLD.id]);
+    });
+
+  await page.goto("/dashboard/meal-planning?tab=prep");
+  await recordPrep(page, recipeName, 2);
+  await expect(batchCard(page, recipeName)).toContainText("2 of 2 portions left");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Recorded 1 dish · 2 portions" })
+    .getByRole("button", { name: "Undo" })
+    .click();
+  await expect(page.getByText("Undone — inventory restored")).toBeVisible();
+  await expect(batchCard(page, recipeName)).toHaveCount(0);
+
+  await recordPrep(page, recipeName, 2);
+  await expect(batchCard(page, recipeName)).toContainText("2 of 2 portions left");
+  await batchCard(page, recipeName).getByRole("button", { name: "Discard" }).click();
+  await page.getByRole("dialog", { name: `Discard ${recipeName}?` }).getByRole("button", { name: "Discard" }).click();
+  await expect(batchCard(page, recipeName)).toHaveCount(0);
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: `Discarded ${recipeName}` })
+    .getByRole("button", { name: "Undo" })
+    .click();
+  await expect(page.getByText("Undone — batch restored")).toBeVisible();
+  await expect(batchCard(page, recipeName)).toContainText("2 of 2 portions left");
 });
 
 // Undo record prep is refused once a portion is planned, and then must leave
