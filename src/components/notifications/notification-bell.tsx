@@ -18,6 +18,7 @@
 
 import { createElement, useTransition } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package, ShoppingBag, TrendingUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -139,7 +140,12 @@ function NotificationRow({ item, dict }: { item: NotificationItem; dict: Diction
       <DropdownMenuItem
         closeOnClick={false}
         disabled={isDismissing}
-        onClick={() => startDismissing(async () => dismissNotificationAction(item.id))}
+        onClick={() =>
+          startDismissing(async () => {
+            const result = await dismissNotificationAction(item.id);
+            if (result.error) toast.error(result.error);
+          })
+        }
         aria-label={dict.dismiss}
         title={dict.dismiss}
         className="shrink-0 justify-center px-1.5 text-muted-foreground"
@@ -183,7 +189,12 @@ function DismissAllItem({ items, dict }: { items: NotificationItem[]; dict: Dict
     <DropdownMenuItem
       closeOnClick={false}
       disabled={isPending}
-      onClick={() => startTransition(async () => dismissAllNotificationsAction())}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await dismissAllNotificationsAction();
+          if (result.error) toast.error(result.error);
+        })
+      }
       className="justify-center text-center text-muted-foreground"
     >
       {dict.dismissAll}

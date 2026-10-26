@@ -192,24 +192,15 @@ comes from Playwright's `page.coverage`.
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Items 3, 6 and 7 all
-touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-6 → MAINT-3,
+tests passing, no `any`/`@ts-ignore` in app code. Items 3 and 7 both
+touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
 - [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
       lines / 29 exports, test file 2,850 lines. Follow the meal-planning
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
       put-away), `receipt-` and `store-order-actions.ts`, tests split the
-      same way. Do after MAINT-2/5/6.
-- [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
-      ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
-      error hits the error boundary: `planner-actions.ts` (add/update/move/
-      delete entry, copy/undo-copy week — e.g. `:65-88`), `recipe-actions.ts`
-      (create/update/delete/favorite), `lib/actions/push.ts` (all 4),
-      `notifications.ts` dismiss/dismiss-all, `updatePasswordAction`,
-      shopping link/unlink/apply-receipt/complete,
-      `addMissingIngredientsToShoppingListAction`. Consider a
-      `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
+      same way. Do after MAINT-2/5.
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
@@ -295,16 +286,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-- [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
-      release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
-      2026-10-24) and passed on a solo rerun of the same commit. Nobody's
-      change is in it. The failing assertion wasn't recorded: reproduce
-      with the repeat run, read the snapshot, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:194
-      --project=desktop --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
       `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's

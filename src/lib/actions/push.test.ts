@@ -240,6 +240,18 @@ describe("setPushQuietHoursAction", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
+  // MAINT-6: this one runs under useActionState, so a database failure must
+  // be an `{ error }` and not a throw into the error boundary.
+  it("returns a friendly error when the write fails", async () => {
+    updateManyMock.mockRejectedValueOnce(new Error("connection reset"));
+
+    const result = await setPushQuietHoursAction({}, quietHoursForm(VALID));
+
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("connection reset");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["an out-of-range start hour", { quietHoursStart: "24" }],
     ["a negative end hour", { quietHoursEnd: "-1" }],
