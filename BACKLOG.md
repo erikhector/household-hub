@@ -303,8 +303,9 @@ then MAINT-7 per feature, to avoid churn.
       `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
       shows the all-caught-up card above Completed" (`mobile`). Failed once
       and passed on the retry in the GitHub `End-to-end (Playwright)` job
-      of release PR #689 (run 40184348720, 2026-10-25). Nobody's change is
-      in it. The failing assertion is the Postgres poll near line 111,
+      of release PR #689 (run 40184348720, 2026-10-25). Seen again, same
+      outcome (failed, passed on the retry), in the GitHub job of release
+      PR #754 (2026-10-26). Nobody's change is in it. The failing assertion is the Postgres poll near line 111,
       `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
       for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
       spec was already touched by MAINT-40 (#585, wait for each tick's
