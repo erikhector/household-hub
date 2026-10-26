@@ -43,6 +43,7 @@ import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/bud
 import { checkSplitForm, evenSplitAmounts } from "@/components/budget/split-amounts";
 import { SplitEditor } from "@/components/budget/split-editor";
 import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
+import { toLocalDateKey } from "@/lib/local-date";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -79,12 +80,6 @@ export type SharedExpensePrefill = {
 };
 
 const initialState: ActionState = {};
-
-function toDateInputValue(date: Date) {
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60 * 1000);
-  return local.toISOString().slice(0, 10);
-}
 
 /** Mirrors TransactionDialog's defaultDateForMonth (F11) — see its doc
  * comment (src/components/budget/transaction-dialog.tsx). */
@@ -151,7 +146,7 @@ export function LogSharedExpenseDialog({
   );
 
   const [amount, setAmount] = useState(prefill ? String(prefill.amount) : "");
-  const [date, setDate] = useState(() => toDateInputValue(defaultDateForMonth(monthKey)));
+  const [date, setDate] = useState(() => toLocalDateKey(defaultDateForMonth(monthKey)));
   const [paidAmounts, setPaidAmounts] = useState<Record<string, string>>(() =>
     defaultPaidAmounts(household, prefill ? String(prefill.amount) : ""),
   );
@@ -185,7 +180,7 @@ export function LogSharedExpenseDialog({
 
   function resetForHousehold(next: ShareableHousehold | undefined) {
     setAmount(prefill ? String(prefill.amount) : "");
-    setDate(toDateInputValue(defaultDateForMonth(monthKey)));
+    setDate(toLocalDateKey(defaultDateForMonth(monthKey)));
     setPaidAmounts(defaultPaidAmounts(next, prefill ? String(prefill.amount) : ""));
     setPaidTouched(false);
     setSplitAmounts(prefill ? prefillSplitAmounts(prefill, next) : evenShares(next, ""));
