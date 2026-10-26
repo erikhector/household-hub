@@ -1055,6 +1055,28 @@ out to be a product-scope question rather than a scoped task should move to
       step on `mobile` marks a uniquely named item Opened with 3 days,
       sees it under "expiring", reloads and still sees it, in `en` and `sv`.
 
+### 2026-10-26 scan
+
+- [ ] **GAP-65. Show who added a line on a shared shopping list** (impact: low-med, effort: S) `[schema]` —
+      Bring! keeps an activity log on a shared list ("Anna added milk")
+      so two people filling the same list can tell what came from whom
+      and don't ask "did you add the oats?". Squirrel records who ticked
+      a row (`ShoppingListItem.checkedOffByUserId`,
+      `prisma/schema.prisma:650`) but not who added it, so the list can't
+      show it. Add a nullable plain-string `addedByUserId` (mirroring
+      `checkedOffByUserId`, no `@relation`, so a leaving member takes no
+      history with them), set by the add actions in
+      `src/app/dashboard/shopping-list/actions.ts` and left null for
+      share-link adds and older rows. Show it as a muted "Added by Anna"
+      in the row's secondary line only when the household has 2+ members
+      and the adder isn't the viewer; no new screen, no notification.
+      Scope: no activity feed, no chat or reactions.
+      Acceptance: unit tests that the add action stores the session
+      user's id and never one from the client; an e2e step on `mobile`
+      adds a uniquely named line as one seeded member and sees "Added by"
+      with their name as another, in `en` and `sv`, and no label on a
+      line the viewer added.
+
 ## Needs a decision before building
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
