@@ -17,7 +17,7 @@ function basic(body: string, status = 200) {
   return response;
 }
 
-function load() {
+function load(href = "https://app.test/sw.js?prod=1") {
   const handlers: Record<string, Handler> = {};
   const stores = new Map<string, Map<string, Response>>();
   const store = (name: string) => {
@@ -41,7 +41,7 @@ function load() {
   const fetchMock = vi.fn(async () => basic("body"));
   const self = {
     addEventListener: (type: string, fn: Handler) => void (handlers[type] = fn),
-    location: { origin: "https://app.test" },
+    location: { origin: "https://app.test", href },
     clients: { claim: async () => {}, matchAll: async () => [] },
     registration: {},
     skipWaiting: () => {},
@@ -87,6 +87,11 @@ describe("service worker static cache", () => {
     }
     expect(fire(handlers, new Request(chunk, { method: "POST" })).responded).toBeUndefined();
     expect(fire(handlers, new Request(chunk, { headers: { Range: "bytes=0-9" } })).responded).toBeUndefined();
+  });
+
+  it("stays network-only when registered without the production flag (next dev)", () => {
+    const { handlers } = load("https://app.test/sw.js");
+    expect(fire(handlers, new Request(chunk)).responded).toBeUndefined();
   });
 
   it("does not cache a failed response", async () => {

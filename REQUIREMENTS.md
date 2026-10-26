@@ -7702,7 +7702,11 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     so an installed app's cold launch doesn't re-download the ~325 KB gz of
     JS/CSS once the OS (iOS especially) has evicted the HTTP cache. Pages,
     RSC payloads, API routes, Server Actions, Range requests and
-    non-200 responses are never cached. With no manifest to prune against,
+    non-200 responses are never cached. Only production builds turn this on:
+    `serviceWorkerUrl()` (`src/lib/service-worker-url.ts`, used by both
+    registration sites so the script URL matches) appends `?prod=1` when
+    `NODE_ENV` is production, because `next dev` chunk names aren't
+    guaranteed to change with their content and would otherwise go stale. With no manifest to prune against,
     the cache is capped at 400 entries (oldest dropped first); `activate`
     deletes `squirrel-static-*` caches under any other name. Covered by
     `src/lib/service-worker.test.ts` and `e2e/sw-static-cache.spec.ts`.

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { PushQuietHoursForm } from "@/components/profile/push-quiet-hours-form";
 import { subscribeToPushAction, unsubscribeFromPushAction } from "@/lib/actions/push";
 import { pushAvailability, type PushAvailability } from "@/lib/platform";
+import { serviceWorkerUrl } from "@/lib/service-worker-url";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { resolveSubscriptionState, type SubscriptionState } from "@/lib/push-subscription-state";
 
@@ -93,7 +94,7 @@ export function PushNotificationsCard({
     if (!VAPID_PUBLIC_KEY || support !== "available") return;
 
     navigator.serviceWorker
-      .register(new URL("../../lib/service-worker.js", import.meta.url), { scope: "/", updateViaCache: "none" })
+      .register(serviceWorkerUrl(), { scope: "/", updateViaCache: "none" })
       .then((registration) => registration.pushManager.getSubscription())
       .then((sub) => {
         setEndpoint(sub?.endpoint ?? null);

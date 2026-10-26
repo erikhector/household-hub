@@ -121,6 +121,11 @@ self.addEventListener("install", (event) => {
 const STATIC_CACHE_NAME = "squirrel-static-v1";
 const STATIC_CACHE_MAX = 400;
 const STATIC_PATH_PREFIX = "/_next/static/";
+// Set (`?prod=1`) by src/lib/service-worker-url.ts in production builds only.
+// `next dev` chunk URLs aren't guaranteed to change with their content, so a
+// cache-first lookup there could serve a developer stale code; without the
+// flag the worker never touches static files.
+const CACHE_STATIC = new URL(self.location.href).searchParams.get("prod") === "1";
 
 async function trimStaticCache() {
   const cache = await caches.open(STATIC_CACHE_NAME);
@@ -163,7 +168,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method === "GET" && !request.headers.has("range")) {
+  if (CACHE_STATIC && request.method === "GET" && !request.headers.has("range")) {
     const url = new URL(request.url);
     if (url.origin === self.location.origin && url.pathname.startsWith(STATIC_PATH_PREFIX)) {
       event.respondWith(cacheFirstStatic(event));

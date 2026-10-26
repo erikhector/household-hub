@@ -17,12 +17,13 @@
 // "invisible top-level client component" shape as PwaSplashScreen.
 
 import { useEffect } from "react";
+import { serviceWorkerUrl } from "@/lib/service-worker-url";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     navigator.serviceWorker
-      .register(new URL("../../lib/service-worker.js", import.meta.url), { scope: "/", updateViaCache: "none" })
+      .register(serviceWorkerUrl(), { scope: "/", updateViaCache: "none" })
       .catch(() => {
         // Best-effort — a failed registration here just means no offline
         // fallback / no push later; nothing in the rest of the app depends
