@@ -131,19 +131,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-
-- [ ] **PERF-23. Keep `releases.json` out of the client bundle** (high, S) —
-      `src/components/dashboard/sidebar.tsx:18` and `bottom-nav.tsx:31`
-      import `CURRENT_VERSION` from `@/lib/release-notes`, which imports
-      the whole release history (135 KB raw, 39 KB gz) to print "v0.111.0".
-      That is 12% of the JS every page loads. The release workflow
-      rewrites the file on every release, so the chunk holding it changes
-      name each time and every user downloads it again after each release.
-      Pass the version from `src/app/dashboard/layout.tsx` (a Server
-      Component) as a prop instead. Check `mark-release-seen.tsx` too: it
-      only needs the cookie constants, so move those to a module that
-      doesn't import the JSON. Acceptance: `next analyze` shows no
-      `releases.json` in any `/dashboard` client chunk.
 - [ ] **PERF-24. Keep zod out of the meal-planning client bundle, again** (medium, S) —
       PERF-7 removed it; it's back (98 KB raw, 30 KB gz, ~28% of the
       page's own JS). `missing-ingredients-dialog.tsx`,

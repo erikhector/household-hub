@@ -17,7 +17,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { getActiveNotifications } from "@/lib/notifications";
 import { TimeZoneCookie } from "@/components/dashboard/time-zone-cookie";
 import { TIME_ZONE_COOKIE } from "@/lib/time-zone";
-import { hasUnseenRelease, LAST_SEEN_RELEASE_COOKIE } from "@/lib/release-notes";
+import { CURRENT_VERSION, hasUnseenRelease, LAST_SEEN_RELEASE_COOKIE } from "@/lib/release-notes";
 
 // Isolated behind its own Suspense boundary (see below) so the
 // emailVerifiedAt lookup doesn't gate the rest of the dashboard shell —
@@ -119,6 +119,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         locale={locale}
         notifications={notifications}
         unseenRelease={unseenRelease}
+        version={CURRENT_VERSION}
       />
       <div className="flex min-w-0 flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
         {/* relative + the empty slot: once a page's large title scrolls
@@ -164,7 +165,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </main>
       </div>
       <CommandPalette dict={dict.commandPalette} nav={dict.nav} />
-      <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} />
+      <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} version={CURRENT_VERSION} />
     </div>
   );
 }
