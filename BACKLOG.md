@@ -108,12 +108,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-13. Make the notification-sync cron proportional to work, not households** (low now, M) —
-      `api/cron/sync-notifications/route.ts:41-65` walks every household in
-      sequential batches of 10, with no `maxDuration`. Pre-select only
-      households with candidates (one query per trigger), export
-      `maxDuration`, and log run duration.
-
 ### Client JS and caching (2026-10-26 measurement)
 
 Measured on a production build with the seeded e2e user in Chromium
