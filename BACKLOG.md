@@ -165,19 +165,6 @@ comes from Playwright's `page.coverage`.
       only leaves the shared JS once page dialogs are lazy too
       (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
       20–40 KB gz off every page.
-- [ ] **PERF-28. Cache hashed static assets in the service worker** (medium, S; after PERF-23) —
-      `src/lib/service-worker.js` passes JS/CSS straight to the network,
-      so an installed app relies on the HTTP cache, which phones (iOS in
-      particular) evict aggressively; a cold launch then downloads the
-      full 325 KB gz again. Add a cache-first fetch handler for
-      `/_next/static/*` only: the filenames are content hashes, so a
-      cached copy can never be stale. Pages, RSC requests, API routes and
-      Server Actions stay network-only, which keeps the file's reasoning
-      for not precaching an app shell intact. On `activate`, delete files
-      the current build no longer references (or cap the cache by
-      entries) so it doesn't grow forever. Update the comment block that
-      says the worker has no versioned assets. Do after PERF-23, or the
-      release-notes chunk misses on every release.
 - [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
       `MealPlanningView` and `BudgetTabs` render every tab on the server
       and hide the inactive ones with `hidden`, so all four tabs' JS
@@ -287,16 +274,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
-      `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
-      full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
-      `toHaveCSS` assertion) and passed on a solo rerun of the same
-      commit. Nobody's change is in it. Reproduce with the repeat run and
-      fix it in the app or the spec's waiting, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
       `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
       (`mobile`). Both failed once and passed on the retry in the GitHub
@@ -316,8 +293,9 @@ then MAINT-7 per feature, to avoid churn.
       `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
       shows the all-caught-up card above Completed" (`mobile`). Failed once
       and passed on the retry in the GitHub `End-to-end (Playwright)` job
-      of release PR #689 (run 40184348720, 2026-10-25). Nobody's change is
-      in it. The failing assertion is the Postgres poll near line 111,
+      of release PR #689 (run 40184348720, 2026-10-25). Seen again, same
+      outcome (failed, passed on the retry), in the GitHub job of release
+      PR #754 (2026-10-26). Nobody's change is in it. The failing assertion is the Postgres poll near line 111,
       `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
       for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
       spec was already touched by MAINT-40 (#585, wait for each tick's

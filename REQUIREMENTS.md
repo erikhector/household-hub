@@ -7703,9 +7703,29 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     full-colour app icon would render as a blob) and `notificationclick`
     (closes it, then focuses the already-open tab — steering it to `url`
     when same-origin — and only opens a new window when none exists,
-    mirroring `notificationHref()` in `notification-bell.tsx`). It has no `fetch`
-    handler and does no caching — it exists purely to deliver push, not for
-    offline support (see `INFRA-5` in BACKLOG.md).
+    mirroring `notificationHref()` in `notification-bell.tsx`). It also has
+    a small `fetch` handler, but no app shell and no data caching (real
+    offline support is `INFRA-5` in BACKLOG.md): a failed full-page
+    navigation gets a tiny "You're offline" page instead of the browser's
+    error, and requests under `/_next/static/` go cache-first (below).
+  - **Hashed static assets (PERF-28)**: Next names every file under
+    `/_next/static/` by content hash, so a cached copy can never be stale.
+    The worker keeps successful same-origin GETs for them in
+    `squirrel-static-v1` and answers from it before touching the network,
+    so an installed app's cold launch doesn't re-download the ~325 KB gz of
+    JS/CSS once the OS (iOS especially) has evicted the HTTP cache. Pages,
+    RSC payloads, API routes, Server Actions, Range requests and
+    non-200 responses are never cached. Only production builds turn this on:
+    `ServiceWorkerRegistration` posts `{ type: "static-cache", enabled:
+    NODE_ENV === "production" }` to the worker on every load and the worker
+    persists the answer (the registration URL can't carry a flag: Next gives
+    the worker root scope only when `register(new URL(...))` is passed
+    untouched). `next dev` chunk names aren't content hashes, so with the
+    flag off (also the default) the worker passes those requests through and
+    developers never get stale code. With no manifest to prune against,
+    the cache is capped at 400 entries (oldest dropped first); `activate`
+    deletes `squirrel-static-*` caches under any other name. Covered by
+    `src/lib/service-worker.test.ts` and `e2e/sw-static-cache.spec.ts`.
 
 ### Platform polish (UX-29)
 
