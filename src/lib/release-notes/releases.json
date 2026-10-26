@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.113.0",
+    "date": "2026-10-26",
+    "pr": 725,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Turn on \"Tonight's dinner\" in your profile to get one morning notification listing what's planned on the menu that day. It's off by default.",
+      "sv": "Slå på \"Kvällens middag\" i din profil för att få en avisering på morgonen med dagens planerade måltider. Den är avstängd som standard."
+    }
+  },
+  {
     "version": "0.112.0",
     "date": "2026-10-26",
     "pr": 720,
