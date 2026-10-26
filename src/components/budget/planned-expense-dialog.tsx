@@ -26,6 +26,7 @@ import {
 import { evenSplitAmounts, shareRemainder } from "@/components/budget/split-amounts";
 import { ShareRemainderNote } from "@/components/budget/split-editor";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { todayLocalDateKey } from "@/lib/local-date";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import { plannedTexts, type BudgetDict } from "@/components/budget/budget-dict";
@@ -46,14 +47,6 @@ export type PlannedExpenseFormAction = (
 ) => Promise<ActionState>;
 
 const initialState: ActionState = {};
-
-/** Today as the date input's YYYY-MM-DD, in the viewer's own time zone —
- * toISOString() alone would give yesterday's date before 01:00/02:00 in
- * Sweden. */
-function todayInputValue(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
 
 /** A saved due date back into the date input. Due dates are calendar days
  * stored at UTC noon (planned-expense-actions.ts's parseDueDate), so the UTC
@@ -121,7 +114,7 @@ export function PlannedExpenseDialog({
     [categories],
   );
   const [amount, setAmount] = useState(bill ? String(bill.amount) : "");
-  const [dueDate, setDueDate] = useState(() => (bill ? dueDateInputValue(bill.dueDate) : todayInputValue()));
+  const [dueDate, setDueDate] = useState(() => (bill ? dueDateInputValue(bill.dueDate) : todayLocalDateKey()));
   const [splitEnabled, setSplitEnabled] = useState(canSplit && !!bill && bill.splits.length > 0);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
     buildInitialSplitAmounts(bill, members),
@@ -157,7 +150,7 @@ export function PlannedExpenseDialog({
   // resetForTemplate does the same).
   function resetForBill() {
     setAmount(bill ? String(bill.amount) : "");
-    setDueDate(bill ? dueDateInputValue(bill.dueDate) : todayInputValue());
+    setDueDate(bill ? dueDateInputValue(bill.dueDate) : todayLocalDateKey());
     setSplitEnabled(canSplit && !!bill && bill.splits.length > 0);
     setSplitAmounts(buildInitialSplitAmounts(bill, members));
     setSharesTouched(!!bill && bill.splits.length > 0);

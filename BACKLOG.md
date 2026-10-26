@@ -124,25 +124,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
 
-- [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
-      a Server Action that calls `revalidatePath` already returns the
-      re-rendered page with its response, so a `router.refresh()` after it
-      renders the same page (and runs all its queries) a second time. Every
-      action behind these calls already revalidates `MEAL_PLANNING_PATH`:
-      `week-planner.tsx:464` (`unassignBatchPortionAction`),
-      `plan-portions-dialog.tsx:174` (`assignBatchPortionsAction`, success
-      path only; the error path at :169 refreshes on purpose, nothing was
-      revalidated), `prep-tab.tsx:158` (`undoDiscardBatchAction`),
-      `fill-empty-days-dialog.tsx:100` (`undoCopyWeekAction`) and
-      `record-prep-dialog.tsx:158` (`undoRecordPrepAction`). The undo calls
-      run from a toast outside `startTransition`, so confirm the page still
-      updates without the refresh before removing each one. Leave the
-      cookie-driven refreshes (`mark-release-seen.tsx`,
-      `preferences-controls.tsx`) alone: no action revalidates there.
-      Acceptance: an e2e check per flow that the change shows without a
-      reload (extend `e2e/meal-prep.spec.ts` and
-      `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
-
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
@@ -222,21 +203,6 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
-- [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
-      timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
-      60000).toISOString().slice(0, 10)`) is copy-pasted as
-      `toDateInputValue` in `components/budget/transaction-dialog.tsx:121`
-      and `personal-budget/log-shared-expense-dialog.tsx:82`, and as
-      `todayInputValue` in `components/budget/household-balances.tsx:73`,
-      while `meal-planning/date-utils.ts` has a UTC `toDateKey` with the
-      opposite semantics under a similar name. Add `toLocalDateKey` /
-      `todayLocalDateKey` to a shared `src/lib/` module with a unit test
-      around midnight in a non-UTC offset, use it in the three call sites,
-      and note in `toDateKey`'s comment that it is UTC. Acceptance: no
-      behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-      A fourth copy, `todayInputValue` in
-      `components/budget/planned-expense-dialog.tsx:55`, was added since
-      this audit: switch it over too (four call sites, not three).
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -1075,6 +1041,28 @@ out to be a product-scope question rather than a scoped task should move to
       opened earlier, opened later than sealed, no shelf-life set); an e2e
       step on `mobile` marks a uniquely named item Opened with 3 days,
       sees it under "expiring", reloads and still sees it, in `en` and `sv`.
+
+### 2026-10-26 scan
+
+- [ ] **GAP-65. Show who added a line on a shared shopping list** (impact: low-med, effort: S) `[schema]` —
+      Bring! keeps an activity log on a shared list ("Anna added milk")
+      so two people filling the same list can tell what came from whom
+      and don't ask "did you add the oats?". Squirrel records who ticked
+      a row (`ShoppingListItem.checkedOffByUserId`,
+      `prisma/schema.prisma:650`) but not who added it, so the list can't
+      show it. Add a nullable plain-string `addedByUserId` (mirroring
+      `checkedOffByUserId`, no `@relation`, so a leaving member takes no
+      history with them), set by the add actions in
+      `src/app/dashboard/shopping-list/actions.ts` and left null for
+      share-link adds and older rows. Show it as a muted "Added by Anna"
+      in the row's secondary line only when the household has 2+ members
+      and the adder isn't the viewer; no new screen, no notification.
+      Scope: no activity feed, no chat or reactions.
+      Acceptance: unit tests that the add action stores the session
+      user's id and never one from the client; an e2e step on `mobile`
+      adds a uniquely named line as one seeded member and sees "Added by"
+      with their name as another, in `en` and `sv`, and no label on a
+      line the viewer added.
 
 ## Needs a decision before building
 

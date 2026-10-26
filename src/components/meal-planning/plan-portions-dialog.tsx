@@ -171,7 +171,8 @@ export function PlanPortionsDialog({
       }
       toast.success(format(plural(total, dict.prepPlannedToast), { count: total }));
       controlled.onOpenChange(false);
-      router.refresh();
+      // No router.refresh() on success: the action revalidated the page.
+      // The error path above refreshes on purpose, as nothing was.
     });
   }
 

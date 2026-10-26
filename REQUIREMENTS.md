@@ -5410,6 +5410,18 @@ source in the add-meal dialog and a card on the home dashboard. No schema
 change: the `PreparedBatch` model and the two `MealPlanEntry` fields
 landed earlier (PR #179, see the data model above). No browser storage.
 
+- **One render per action (PERF-19).** Every meal-prep and fill-week action
+  that succeeds calls `revalidatePath(MEAL_PLANNING_PATH)`, so its response
+  already carries the re-rendered page and the client does not call
+  `router.refresh()` after it (that rendered the page and ran its queries a
+  second time). That covers unassigning a portion, Plan portions (success),
+  and the Undo toasts for record prep, discard and fill empty days; the
+  toasts run outside a transition and still update the page. The one
+  deliberate refresh left is Plan portions' error path, where nothing was
+  revalidated and the dialog must show the plan as it is now. The
+  cookie-driven refreshes (release notes seen, preferences) stay: no action
+  revalidates there.
+
 - **Data rules.** `remainingPortions` is the portions not yet handed to a
   planner slot, and the invariant is `0 ≤ remainingPortions ≤
   totalPortions`. A slot eating from a batch has `preparedBatchId` set,
@@ -7906,6 +7918,10 @@ approximating them, so the email never disagrees with the app.
 
 ## Conventions
 
+- A date input's default for "the user's own calendar day" comes from
+  `toLocalDateKey` / `todayLocalDateKey` in `src/lib/local-date.ts` (local
+  time zone). Meal-planning's `toDateKey` is the UTC day, for dates stored
+  at UTC midnight; don't use it for a wall-clock "today".
 - Server Actions live next to the routes that use them
   (`src/app/dashboard/<feature>/actions.ts`) or in `src/lib/actions/` when
   shared across routes (auth, household). Every action re-derives the
