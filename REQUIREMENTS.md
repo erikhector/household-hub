@@ -7918,6 +7918,10 @@ approximating them, so the email never disagrees with the app.
 
 ## Conventions
 
+- A date input's default for "the user's own calendar day" comes from
+  `toLocalDateKey` / `todayLocalDateKey` in `src/lib/local-date.ts` (local
+  time zone). Meal-planning's `toDateKey` is the UTC day, for dates stored
+  at UTC midnight; don't use it for a wall-clock "today".
 - Server Actions live next to the routes that use them
   (`src/app/dashboard/<feature>/actions.ts`) or in `src/lib/actions/` when
   shared across routes (auth, household). Every action re-derives the

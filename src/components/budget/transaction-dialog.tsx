@@ -27,6 +27,7 @@ import { SplitEditor } from "@/components/budget/split-editor";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { dateInPeriod, periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
 import { useBudgetStartDay } from "@/components/budget/budget-period-context";
+import { toLocalDateKey } from "@/lib/local-date";
 import { format } from "@/lib/i18n/format";
 import { groupCategoriesForLogging, defaultLoggingCategoryId } from "@/lib/recent-categories";
 import type { ActionState } from "@/lib/actions/auth";
@@ -113,12 +114,6 @@ function hasSplit(
 ): boolean {
   if (transaction) return transaction.splits.length > 0;
   return !!prefillFromTemplate?.splits && prefillFromTemplate.splits.length > 0;
-}
-
-function toDateInputValue(date: Date) {
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60 * 1000);
-  return local.toISOString().slice(0, 10);
 }
 
 /** A new transaction's default date (F11): today, when the budget month
@@ -273,7 +268,7 @@ export function TransactionDialog({
     transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
   );
   const [date, setDate] = useState(() =>
-    toDateInputValue(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)),
+    toLocalDateKey(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)),
   );
   const [splitEnabled, setSplitEnabled] = useState(canSplit && hasSplit(transaction, prefillFromTemplate));
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
@@ -358,7 +353,7 @@ export function TransactionDialog({
     setPaidTouched(false);
     setSharesTouched(hasSplit(transaction, prefillFromTemplate));
     kept.reset();
-    setDate(toDateInputValue(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)));
+    setDate(toLocalDateKey(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)));
   }
 
   function resetToEvenSplit(total: string) {

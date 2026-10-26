@@ -41,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Settlement } from "@/lib/settle-up-calc";
 import { buildSwishPaymentUrl, formatSwishNumber } from "@/lib/swish";
+import { todayLocalDateKey } from "@/lib/local-date";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -70,12 +71,6 @@ export type RepaymentRow = {
 type BalancesDict = Dictionary["budget"]["balances"];
 
 const initialState: ActionState = {};
-
-function todayInputValue() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60 * 1000);
-  return local.toISOString().slice(0, 10);
-}
 
 function ClearDebtDialog({
   settlement,
@@ -135,7 +130,7 @@ function ClearDebtDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="settle-date">{dict.dateLabel}</Label>
-              <Input id="settle-date" name="date" type="date" defaultValue={todayInputValue()} required />
+              <Input id="settle-date" name="date" type="date" defaultValue={todayLocalDateKey()} required />
             </div>
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}

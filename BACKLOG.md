@@ -203,18 +203,6 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
-- [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
-      timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
-      60000).toISOString().slice(0, 10)`) is copy-pasted as
-      `toDateInputValue` in `components/budget/transaction-dialog.tsx:121`
-      and `personal-budget/log-shared-expense-dialog.tsx:82`, and as
-      `todayInputValue` in `components/budget/household-balances.tsx:73`,
-      while `meal-planning/date-utils.ts` has a UTC `toDateKey` with the
-      opposite semantics under a similar name. Add `toLocalDateKey` /
-      `todayLocalDateKey` to a shared `src/lib/` module with a unit test
-      around midnight in a non-UTC offset, use it in the three call sites,
-      and note in `toDateKey`'s comment that it is UTC. Acceptance: no
-      behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after

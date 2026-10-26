@@ -11,7 +11,7 @@
 //     server and in every browser alike (formatting it in local time would
 //     move it to the day before anywhere west of UTC).
 //   - "Today" is the viewer's own local calendar day: the day the
-//     transaction dialog defaults a new date to (toDateInputValue).
+//     transaction dialog defaults a new date to (toLocalDateKey).
 
 type TransactionKind = "INCOME" | "EXPENSE" | "SAVINGS";
 
