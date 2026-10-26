@@ -153,6 +153,8 @@ export default defineConfig({
         timeout: 120_000,
         // `next start` treats localhost as untrusted without this, and
         // Auth.js then rejects the login callback with a config error.
-        env: { AUTH_TRUST_HOST: "true" },
+        // CRON_SECRET lets a spec call /api/cron/sync-notifications
+        // (e2e/tonights-dinner-nudge.spec.ts), which reads the same fallback.
+        env: { AUTH_TRUST_HOST: "true", CRON_SECRET: process.env.CRON_SECRET || "e2e-cron-secret" },
       },
 });
