@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { unstable_rethrow, useRouter } from "next/navigation";
+import { unstable_rethrow } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,6 @@ export function RecordPrepDialog({
   // Opens the Plan portions dialog for a batch this prep just recorded.
   onPlanPortions: (batchId: string) => void;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [dishes, setDishes] = useState<DishRow[]>(() => [newDish()]);
   // null while on step 1; the reviewed ingredients once on step 2.
@@ -154,8 +153,9 @@ export function RecordPrepDialog({
                 }
                 if (undoAutoAddResult.error) toast.error(undoAutoAddResult.error);
                 else toast.success(dict.prepRecordUndoneToast);
-                // The prep itself was undone either way.
-                router.refresh();
+                // The prep itself was undone either way. No refresh: the
+                // undo action revalidated the page and its response already
+                // carries the re-render.
               })();
             },
           },

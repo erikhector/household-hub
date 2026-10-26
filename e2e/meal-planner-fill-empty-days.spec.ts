@@ -101,6 +101,9 @@ test("Undo on the toast removes exactly the dinners that were added", async ({ p
   await expect(page.getByText("Planned 7 dinners")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Added dinners removed")).toBeVisible();
+  // PERF-19: the week empties without a reload (no router.refresh() follows
+  // the undo; the action's own revalidation re-renders the page).
+  await expect(page.getByRole("button", { name: "Add your first dinner" })).toBeVisible();
 
   await page.reload();
   await expect(page.getByRole("button", { name: "Add your first dinner" })).toBeVisible();
