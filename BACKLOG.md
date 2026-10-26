@@ -228,16 +228,6 @@ then MAINT-7 per feature, to avoid churn.
       optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
       `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
       separate PR.
-- [ ] **MAINT-13. Fix documentation drift** (low, S) — REQUIREMENTS.md
-      says react-hook-form is installed (it isn't, `:37-39`); its "Testing →
-      What's covered so far" section cites a missing `AGENT_TASKS.md` and
-      calls meal planning/budget/profile untested (they're well tested);
-      comments in `budget/actions.ts:18-35`, `lib/notifications.ts:16,63`,
-      `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
-      cite a `findOrCreateInventoryItem` that no longer exists. Delete the
-      stray committed `src/components/budget/cost-analyzer.tsx.orig`, and
-      add `*.orig` and `*.rej` to `.gitignore` so a conflict leftover
-      can't be committed again.
 - [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
       exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
       `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,

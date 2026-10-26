@@ -40,9 +40,9 @@ easy for AI coding agents to work in correctly:
   screen reader announces a link for something that navigates (UX-68); e2e
   finds these with `getByRole("link", …)`. A `role` passed at the call
   site still wins.
-- **react-hook-form + Zod** are installed for future complex forms; the
-  current auth/inventory/shopping forms use React's `useActionState` +
-  native `<form action={...}>` directly, which is enough for their shape.
+- **Zod** validates every form and action input; forms use React's
+  `useActionState` + native `<form action={...}>` directly, which is enough
+  for their shape (react-hook-form is not installed).
 - Prisma's client generator is the new `prisma-client` (Prisma 7), which
   **requires an explicit driver adapter** — see `src/lib/prisma.ts`
   (`@prisma/adapter-pg`). A bare `new PrismaClient()` throws at runtime.
@@ -1904,7 +1904,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   link instead of a second "Groceries" appearing on the next trip. It runs
   on the caller's transaction client. The fallback name
   (`GROCERIES_CATEGORY_NAME`) is module-private; callers read
-  `category.name`. Like `findOrCreateInventoryItem`, it trusts its
+  `category.name`. Like every helper that takes a `householdId`, it trusts its
   `householdId` argument and does no auth check of its own; every caller
   must resolve that id from its own `requireHousehold()` call first, never
   from client input.
@@ -8418,9 +8418,7 @@ UX-14's rapid ticks and the rollback toast.
   Picked for discoverability (the test sits right next to what it covers)
   and because it matches how the rest of this codebase colocates related
   files (e.g. `actions.ts` next to the `page.tsx` that uses it).
-- **What's covered so far** (deliberately scoped to already-stable code that
-  doesn't depend on Wave 1's other in-flight features — see
-  `AGENT_TASKS.md`):
+- **What's covered so far** (the first batch; later features add their own colocated tests):
   - `src/lib/i18n/format.ts` — `format()`/`plural()`, pure functions, no
     mocking needed.
   - `src/lib/session.ts` — `requireHousehold()`'s cookie-fallback logic
@@ -8452,10 +8450,9 @@ UX-14's rapid ticks and the rollback toast.
     inventory and shopping-list CSV `export/route.ts` handlers (household
     tenancy scoping, filename generation, column rendering, and formula-
     injection guarding end to end).
-  - Not covered yet: meal planning, budgeting, profile — out of scope for
-    this task per `AGENT_TASKS.md` (they're other in-flight Wave 1 work and
-    don't exist in a stable form on this branch). Add their tests alongside
-    their own feature work.
+  - Meal planning, budgeting and profile have colocated tests of their own
+    (`actions.test.ts` next to each feature's `actions.ts`, plus the pure
+    calculators in `src/lib/`), added with each feature.
 - **Database isolation**: no test in this suite touches the real database.
   Everything under `src/lib/actions/*.test.ts` and `src/lib/session.test.ts`
   mocks `@/lib/prisma`, `@/lib/auth`, `@/lib/session`, `next/headers`,

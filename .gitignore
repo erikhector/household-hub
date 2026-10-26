@@ -56,3 +56,7 @@ next-env.d.ts
 
 # agent git worktrees
 /.worktrees/
+
+# merge/patch leftovers
+*.orig
+*.rej
