@@ -296,16 +296,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
-      `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
-      full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
-      `toHaveCSS` assertion) and passed on a solo rerun of the same
-      commit. Nobody's change is in it. Reproduce with the repeat run and
-      fix it in the app or the spec's waiting, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
       `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
       (`mobile`). Both failed once and passed on the retry in the GitHub
