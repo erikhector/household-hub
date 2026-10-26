@@ -17,13 +17,20 @@
 // "invisible top-level client component" shape as PwaSplashScreen.
 
 import { useEffect } from "react";
-import { serviceWorkerUrl } from "@/lib/service-worker-url";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     navigator.serviceWorker
-      .register(serviceWorkerUrl(), { scope: "/", updateViaCache: "none" })
+      .register(new URL("../../lib/service-worker.js", import.meta.url), { scope: "/", updateViaCache: "none" })
+      // Tells the worker whether /_next/static/* is content-hashed (a
+      // production build), which is what makes caching it safe. See
+      // service-worker.js's "Hashed static assets" block for why this is a
+      // message and not part of the registration URL.
+      .then(() => navigator.serviceWorker.ready)
+      .then((registration) =>
+        registration.active?.postMessage({ type: "static-cache", enabled: process.env.NODE_ENV === "production" }),
+      )
       .catch(() => {
         // Best-effort — a failed registration here just means no offline
         // fallback / no push later; nothing in the rest of the app depends

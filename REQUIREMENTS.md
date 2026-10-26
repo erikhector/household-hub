@@ -7703,10 +7703,13 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     JS/CSS once the OS (iOS especially) has evicted the HTTP cache. Pages,
     RSC payloads, API routes, Server Actions, Range requests and
     non-200 responses are never cached. Only production builds turn this on:
-    `serviceWorkerUrl()` (`src/lib/service-worker-url.ts`, used by both
-    registration sites so the script URL matches) appends `?prod=1` when
-    `NODE_ENV` is production, because `next dev` chunk names aren't
-    guaranteed to change with their content and would otherwise go stale. With no manifest to prune against,
+    `ServiceWorkerRegistration` posts `{ type: "static-cache", enabled:
+    NODE_ENV === "production" }` to the worker on every load and the worker
+    persists the answer (the registration URL can't carry a flag: Next gives
+    the worker root scope only when `register(new URL(...))` is passed
+    untouched). `next dev` chunk names aren't content hashes, so with the
+    flag off (also the default) the worker passes those requests through and
+    developers never get stale code. With no manifest to prune against,
     the cache is capped at 400 entries (oldest dropped first); `activate`
     deletes `squirrel-static-*` caches under any other name. Covered by
     `src/lib/service-worker.test.ts` and `e2e/sw-static-cache.spec.ts`.

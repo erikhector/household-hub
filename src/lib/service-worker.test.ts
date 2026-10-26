@@ -17,7 +17,7 @@ function basic(body: string, status = 200) {
   return response;
 }
 
-function load(href = "https://app.test/sw.js?prod=1") {
+function load({ enabled = true }: { enabled?: boolean } = {}) {
   const handlers: Record<string, Handler> = {};
   const stores = new Map<string, Map<string, Response>>();
   const store = (name: string) => {
@@ -28,10 +28,11 @@ function load(href = "https://app.test/sw.js?prod=1") {
     open: async (name: string) => {
       const s = store(name);
       return {
-        match: async (req: Request | string) => s.get(typeof req === "string" ? req : req.url)?.clone(),
-        put: async (req: Request, res: Response) => void s.set(req.url, res),
+        match: async (req: Request | string) => s.get(new URL(typeof req === "string" ? req : req.url, "https://app.test").href)?.clone(),
+        put: async (req: Request | string, res: Response) =>
+          void s.set(new URL(typeof req === "string" ? req : req.url, "https://app.test").href, res),
         keys: async () => [...s.keys()].map((url) => new Request(url)),
-        delete: async (req: Request) => s.delete(req.url),
+        delete: async (req: Request | string) => s.delete(new URL(typeof req === "string" ? req : req.url, "https://app.test").href),
       };
     },
     keys: async () => [...stores.keys()],
@@ -41,11 +42,12 @@ function load(href = "https://app.test/sw.js?prod=1") {
   const fetchMock = vi.fn(async () => basic("body"));
   const self = {
     addEventListener: (type: string, fn: Handler) => void (handlers[type] = fn),
-    location: { origin: "https://app.test", href },
+    location: { origin: "https://app.test" },
     clients: { claim: async () => {}, matchAll: async () => [] },
     registration: {},
     skipWaiting: () => {},
   };
+  if (enabled) store("squirrel-offline-v1").set("https://app.test/~static-cache-enabled", basic("1"));
   const source = readFileSync(join(__dirname, "service-worker.js"), "utf8");
   new Function("self", "caches", "fetch", source)(self, caches, fetchMock);
   return { handlers, stores, fetchMock };
@@ -89,9 +91,32 @@ describe("service worker static cache", () => {
     expect(fire(handlers, new Request(chunk, { headers: { Range: "bytes=0-9" } })).responded).toBeUndefined();
   });
 
-  it("stays network-only when registered without the production flag (next dev)", () => {
-    const { handlers } = load("https://app.test/sw.js");
-    expect(fire(handlers, new Request(chunk)).responded).toBeUndefined();
+  it("passes static files straight to the network until the page says it is a production build", async () => {
+    const { handlers, fetchMock, stores } = load({ enabled: false });
+    for (let i = 0; i < 2; i++) {
+      const result = fire(handlers, new Request(chunk));
+      await result.responded;
+      await result.settle();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(stores.get("squirrel-static-v1")?.size ?? 0).toBe(0);
+  });
+
+  it("turns caching on and off from the page's message, and remembers it", async () => {
+    const { handlers, stores } = load({ enabled: false });
+    const message = async (enabled: boolean) => {
+      let done: Promise<unknown> | undefined;
+      handlers.message({ data: { type: "static-cache", enabled }, waitUntil: (p: Promise<unknown>) => void (done = p) });
+      await done;
+    };
+    await message(true);
+    expect(stores.get("squirrel-offline-v1")?.has("https://app.test/~static-cache-enabled")).toBe(true);
+    const result = fire(handlers, new Request(chunk));
+    await result.responded;
+    await result.settle();
+    expect(stores.get("squirrel-static-v1")?.size).toBe(1);
+    await message(false);
+    expect(stores.get("squirrel-offline-v1")?.has("https://app.test/~static-cache-enabled")).toBe(false);
   });
 
   it("does not cache a failed response", async () => {

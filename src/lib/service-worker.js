@@ -121,11 +121,42 @@ self.addEventListener("install", (event) => {
 const STATIC_CACHE_NAME = "squirrel-static-v1";
 const STATIC_CACHE_MAX = 400;
 const STATIC_PATH_PREFIX = "/_next/static/";
-// Set (`?prod=1`) by src/lib/service-worker-url.ts in production builds only.
-// `next dev` chunk URLs aren't guaranteed to change with their content, so a
-// cache-first lookup there could serve a developer stale code; without the
-// flag the worker never touches static files.
-const CACHE_STATIC = new URL(self.location.href).searchParams.get("prod") === "1";
+
+// Production only. `next dev` chunk names are NOT content hashes (e.g.
+// `polyfill-nomodule.js`, and Turbopack's `src_<hash>._.js` names survive
+// edits), so cache-first there would serve a developer stale code. The page
+// tells the worker which kind of build it is running (the `static-cache`
+// message from service-worker-registration.tsx, sent on every load from
+// `process.env.NODE_ENV`). The registration URL can't carry the flag: Next
+// only gives the worker root scope when `register(new URL(...))` is passed
+// untouched, so a query string or a helper around it breaks scope "/".
+// The answer is persisted, because the worker is restarted for a cold launch
+// and must know before the page's first chunk request; it defaults to off.
+const STATIC_FLAG_URL = "/~static-cache-enabled";
+let staticCacheEnabled;
+
+async function isStaticCacheEnabled() {
+  if (staticCacheEnabled === undefined) {
+    const cache = await caches.open(OFFLINE_CACHE_NAME);
+    staticCacheEnabled = Boolean(await cache.match(STATIC_FLAG_URL));
+  }
+  return staticCacheEnabled;
+}
+
+self.addEventListener("message", (event) => {
+  if (!event.data || event.data.type !== "static-cache") return;
+  const enabled = event.data.enabled === true;
+  staticCacheEnabled = enabled;
+  event.waitUntil(
+    caches
+      .open(OFFLINE_CACHE_NAME)
+      .then((cache) => (enabled ? cache.put(STATIC_FLAG_URL, new Response("1")) : cache.delete(STATIC_FLAG_URL))),
+  );
+});
+
+async function handleStatic(event) {
+  return (await isStaticCacheEnabled()) ? cacheFirstStatic(event) : fetch(event.request);
+}
 
 async function trimStaticCache() {
   const cache = await caches.open(STATIC_CACHE_NAME);
@@ -168,10 +199,10 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (CACHE_STATIC && request.method === "GET" && !request.headers.has("range")) {
+  if (request.method === "GET" && !request.headers.has("range")) {
     const url = new URL(request.url);
     if (url.origin === self.location.origin && url.pathname.startsWith(STATIC_PATH_PREFIX)) {
-      event.respondWith(cacheFirstStatic(event));
+      event.respondWith(handleStatic(event));
       return;
     }
   }
