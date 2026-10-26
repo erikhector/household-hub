@@ -296,16 +296,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
-      release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
-      2026-10-24) and passed on a solo rerun of the same commit. Nobody's
-      change is in it. The failing assertion wasn't recorded: reproduce
-      with the repeat run, read the snapshot, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:194
-      --project=desktop --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
       `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
       full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
