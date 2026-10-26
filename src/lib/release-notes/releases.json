@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.113.4",
+    "date": "2026-10-26",
+    "pr": 758,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The installed app now opens faster after your phone clears its cache, because it keeps its own copy of the app's code files.",
+      "sv": "Den installerade appen öppnas nu snabbare när telefonen har rensat sitt cacheminne, eftersom appen sparar en egen kopia av sina kodfiler."
+    }
+  },
+  {
     "version": "0.113.3",
     "date": "2026-10-26",
     "pr": 754,
