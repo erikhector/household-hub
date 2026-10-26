@@ -58,6 +58,14 @@ model User {
   // asking for it.
   weeklyDigestEnabled Boolean @default(false)
 
+  // GAP-57: opt-in "what's on the menu today" morning nudge
+  // (syncTonightsDinnerNudge in src/lib/notifications.ts), toggled from the
+  // Notifications section of the Profile page. Off by default: a positive
+  // alert nobody asked for is noise (PRODUCT.md Guardrails). Per user
+  // because it decides who gets the push; the bell entry itself is
+  // household-wide like every Notification.
+  tonightsDinnerNudge Boolean @default(false)
+
   // GAP-7: the user's own Swish number, so household members who owe them
   // money get a "Pay with Swish" link on the Budget page's "Who owes whom"
   // card. Stored normalized as Swish's alias format (46 + number without
@@ -460,6 +468,9 @@ enum NotificationKind {
   // Ticked shopping-list rows that were never put away, a few hours after
   // the trip — see syncPutAwayReminders in src/lib/notifications.ts.
   PUT_AWAY_REMINDER
+  // GAP-57: one entry per household per day listing that day's planned,
+  // uncooked meals — see syncTonightsDinnerNudge in src/lib/notifications.ts.
+  TONIGHTS_DINNER
 }
 
 // Persisted household alerts (see src/lib/notifications.ts) — replaces an
@@ -522,6 +533,13 @@ model Notification {
   // PRICE_SPIKE only (GAP-9): how far above the trailing median the new
   // price was, as a rounded percentage. Null on every other kind.
   priceIncreasePercent Int?
+  // TONIGHTS_DINNER only (GAP-57): the day the nudge is for and the meal
+  // names planned on it, snapshotted when the nudge fired (the bell lists
+  // them without joining back to entries that may since have been edited).
+  // The unique below is what makes it once per household per day; Postgres
+  // treats NULLs as distinct, so every other kind (null date) is unaffected.
+  tonightsDinnerDate DateTime? @db.Date
+  mealNames       String[]         @default([])
   createdAt       DateTime         @default(now())
   dismissedAt     DateTime?
 
@@ -531,6 +549,7 @@ model Notification {
   shoppingList  ShoppingList?  @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
 
   @@unique([mealPlanEntryId])
+  @@unique([householdId, tonightsDinnerDate])
   @@index([householdId, dismissedAt])
   @@index([inventoryItemId])
   @@index([shoppingListId])

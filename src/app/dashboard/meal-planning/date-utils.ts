@@ -6,6 +6,8 @@
 
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The UTC calendar day of `date`, not the local one. For a user's local
+ * wall-clock day use `toLocalDateKey` (src/lib/local-date.ts). */
 export function toDateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }

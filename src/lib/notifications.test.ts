@@ -28,6 +28,7 @@ const {
   shoppingListUpdateManyMock,
   shoppingListItemFindManyMock,
   priceHistoryFindManyMock,
+  userFindManyMock,
   sendPushToHouseholdMock,
   sendPushToHouseholdMembersMock,
 } = vi.hoisted(() => ({
@@ -43,6 +44,7 @@ const {
   shoppingListUpdateManyMock: vi.fn(),
   shoppingListItemFindManyMock: vi.fn(),
   priceHistoryFindManyMock: vi.fn(),
+  userFindManyMock: vi.fn(),
   sendPushToHouseholdMock: vi.fn(),
   sendPushToHouseholdMembersMock: vi.fn(),
 }));
@@ -64,6 +66,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     shoppingListItem: { findMany: shoppingListItemFindManyMock },
     priceHistory: { findMany: priceHistoryFindManyMock },
+    user: { findMany: userFindManyMock },
   },
 }));
 
@@ -115,6 +118,7 @@ const {
   syncMealNotLoggedNotifications,
   syncExpiringSoonNotifications,
   syncPutAwayReminders,
+  syncTonightsDinnerNudge,
   getActiveNotifications,
 } = await import("@/lib/notifications");
 const { prisma } = await import("@/lib/prisma");
@@ -136,6 +140,7 @@ beforeEach(() => {
   shoppingListFindManyMock.mockResolvedValue([]);
   shoppingListUpdateManyMock.mockResolvedValue({ count: 1 });
   shoppingListItemFindManyMock.mockResolvedValue([]);
+  userFindManyMock.mockResolvedValue([]);
   sendPushToHouseholdMock.mockResolvedValue(undefined);
   sendPushToHouseholdMembersMock.mockResolvedValue(undefined);
 });
@@ -1036,6 +1041,108 @@ describe("getActiveNotifications — put-away reminder", () => {
 
     expect(await getActiveNotifications("household-1")).toEqual([
       { id: "notif-7", kind: "putAwayReminder", shoppingListId: "list-1", name: "Weekly shop" },
+    ]);
+  });
+});
+
+describe("syncTonightsDinnerNudge", () => {
+  // System time is 2026-09-05T12:00Z (see beforeEach).
+  const today = new Date("2026-09-05");
+  const optedIn = [{ id: "user-1" }, { id: "user-2" }];
+
+  it("does nothing, and never even reads the plan, while nobody has opted in (the default)", async () => {
+    await syncTonightsDinnerNudge("household-1");
+
+    expect(userFindManyMock).toHaveBeenCalledWith({
+      where: { tonightsDinnerNudge: true, memberships: { some: { householdId: "household-1" } } },
+      select: { id: true },
+    });
+    expect(mealPlanEntryFindManyMock).not.toHaveBeenCalled();
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMembersMock).not.toHaveBeenCalled();
+  });
+
+  it("stays silent on a day with nothing planned or everything already cooked", async () => {
+    userFindManyMock.mockResolvedValue(optedIn);
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
+
+    await syncTonightsDinnerNudge("household-1");
+
+    // The query itself excludes cooked entries, so an all-cooked day is an
+    // empty result; and it is household- and day-scoped.
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { mealPlan: { householdId: "household-1" }, date: today, consumedAt: null },
+      }),
+    );
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMembersMock).not.toHaveBeenCalled();
+  });
+
+  it("files one household-scoped entry listing the day's meals and pushes only the opted-in members", async () => {
+    userFindManyMock.mockResolvedValue(optedIn);
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { freeformName: null, recipe: { name: "Lasagna" } },
+      { freeformName: "Leftover soup", recipe: null },
+    ]);
+
+    await syncTonightsDinnerNudge("household-1");
+
+    expect(notificationCreateMock).toHaveBeenCalledTimes(1);
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: {
+        householdId: "household-1",
+        kind: "TONIGHTS_DINNER",
+        tonightsDinnerDate: today,
+        mealNames: ["Lasagna", "Leftover soup"],
+      },
+    });
+    expect(sendPushToHouseholdMembersMock).toHaveBeenCalledWith("household-1", ["user-1", "user-2"], {
+      title: "On the menu today",
+      body: "Lasagna, Leftover soup",
+      url: "/dashboard/meal-planning?week=2026-08-31",
+    });
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing when today's nudge already exists (a repeat or racing run)", async () => {
+    userFindManyMock.mockResolvedValue(optedIn);
+    mealPlanEntryFindManyMock.mockResolvedValue([{ freeformName: "Tacos", recipe: null }]);
+    notificationCreateMock.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" }),
+    );
+
+    await syncTonightsDinnerNudge("household-1");
+
+    expect(sendPushToHouseholdMembersMock).not.toHaveBeenCalled();
+  });
+
+  it("rethrows any other create failure", async () => {
+    userFindManyMock.mockResolvedValue(optedIn);
+    mealPlanEntryFindManyMock.mockResolvedValue([{ freeformName: "Tacos", recipe: null }]);
+    notificationCreateMock.mockRejectedValue(new Error("db down"));
+
+    await expect(syncTonightsDinnerNudge("household-1")).rejects.toThrow("db down");
+    expect(sendPushToHouseholdMembersMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getActiveNotifications (tonight's dinner)", () => {
+  it("maps a TONIGHTS_DINNER row to the meal names and its week", async () => {
+    notificationFindManyMock.mockResolvedValue([
+      {
+        id: "n1",
+        kind: "TONIGHTS_DINNER",
+        tonightsDinnerDate: new Date("2026-09-05"),
+        mealNames: ["Lasagna", "Salad"],
+        inventoryItem: null,
+        mealPlanEntry: null,
+        shoppingList: null,
+      },
+    ]);
+
+    expect(await getActiveNotifications("household-1")).toEqual([
+      { id: "n1", kind: "tonightsDinner", weekStartKey: "2026-08-31", names: ["Lasagna", "Salad"] },
     ]);
   });
 });

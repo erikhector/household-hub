@@ -138,7 +138,15 @@ test("the Status filter offers Expiring and Expired", async ({ page }) => {
   const scope = isMobile ? page.getByRole("dialog") : page.getByRole("main");
   await scope.getByRole("combobox").filter({ hasText: /statuses|stock|Expir/ }).first().click();
   await expect(page.getByRole("option", { name: "Expiring soon" })).toBeVisible();
+  // The view pref is saved by a fire-and-forget Server Action (see the
+  // persist effect in inventory-client.tsx). Reloading before it has been
+  // answered aborts it, the pref never lands and the reload below finds no
+  // pressed count under full-suite load. Wait for the save, then reload.
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === "POST" && "next-action" in r.request().headers(),
+  );
   await page.getByRole("option", { name: "Expired" }).click();
+  await saved;
   if (isMobile) await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
 
   const rows = itemRows(page);

@@ -5410,6 +5410,18 @@ source in the add-meal dialog and a card on the home dashboard. No schema
 change: the `PreparedBatch` model and the two `MealPlanEntry` fields
 landed earlier (PR #179, see the data model above). No browser storage.
 
+- **One render per action (PERF-19).** Every meal-prep and fill-week action
+  that succeeds calls `revalidatePath(MEAL_PLANNING_PATH)`, so its response
+  already carries the re-rendered page and the client does not call
+  `router.refresh()` after it (that rendered the page and ran its queries a
+  second time). That covers unassigning a portion, Plan portions (success),
+  and the Undo toasts for record prep, discard and fill empty days; the
+  toasts run outside a transition and still update the page. The one
+  deliberate refresh left is Plan portions' error path, where nothing was
+  revalidated and the dialog must show the plan as it is now. The
+  cookie-driven refreshes (release notes seen, preferences) stay: no action
+  revalidates there.
+
 - **Data rules.** `remainingPortions` is the portions not yet handed to a
   planner slot, and the invariant is `0 ≤ remainingPortions ≤
   totalPortions`. A slot eating from a batch has `preparedBatchId` set,
@@ -7195,7 +7207,7 @@ the locale fallback.
 email and password as one card with a divider between the three forms, each
 keeping its own Save), **Preferences** (the Language and
 Appearance controls of UX-51, then the Swish number), **Notifications** (push, weekly
-digest, install app) and **Data & privacy** (Export my data; the "About
+digest, tonight's dinner, install app) and **Data & privacy** (Export my data; the "About
 Squirrel" version and "Danger zone" account deletion behind native
 `<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
 `LogoutButton` as `no-household`, so the push subscription is dropped
@@ -7216,7 +7228,7 @@ now" from "this item just ran out," and had no way to dismiss anything.
 The current model fires an alert once, at the moment a specific trigger
 happens, and it stays until a user dismisses it.
 
-Exactly six triggers exist — nothing else creates a notification:
+Exactly seven triggers exist — nothing else creates a notification:
 
 - **Out of stock**: an existing `InventoryItem`'s quantity crossing from
   `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
@@ -7329,6 +7341,24 @@ Exactly six triggers exist — nothing else creates a notification:
   ticked from a share link. Both link to the list with `?putAway=1`, which
   opens the put-away dialog. `putAwayItemsAction` dismisses the bell row
   once nothing on the list is waiting.
+- **Tonight's dinner** (GAP-57, opt-in, off by default): one `TONIGHTS_DINNER`
+  entry per household per day listing the meals planned for that day that
+  aren't cooked yet ("On the menu today: Lasagna, Salad"), linking to that
+  week in the planner. Synced by `syncTonightsDinnerNudge` from the same
+  `/api/cron/sync-notifications` run, so on the daily 06:00 UTC run it is
+  a morning nudge. It is the only trigger with a setting: each user has
+  `User.tonightsDinnerNudge` (default `false`), toggled from the
+  Notifications section of the Profile page ("Tonight's dinner",
+  `setTonightsDinnerNudgeAction`, included in the data export). The sync
+  does nothing unless at least one household member has it on, and stays
+  silent when nothing is planned for the day or every entry is already
+  cooked (`consumedAt` set). Once-a-day is the `Notification` unique on
+  `(householdId, tonightsDinnerDate)`: the create is the claim, so a repeat
+  or racing run (or a dismissed entry) sends nothing more that day. The
+  meal names are snapshotted on the row (`mealNames`). The bell entry is
+  household-wide like every other kind, but the push goes only to the
+  opted-in members (`sendPushToHouseholdMembers`, quiet hours apply).
+  Covered by `e2e/tonights-dinner-nudge.spec.ts`.
 - **List cleared** (good news): a `ShoppingList`'s unpurchased item count
   crossing from >0 to 0 — `recordListClearedTransition`, called from
   `togglePurchasedAction`/`deleteShoppingListItemAction` and their
@@ -7405,7 +7435,7 @@ Exactly six triggers exist — nothing else creates a notification:
     apply as for every push (`sendPushToHousehold`). A share-link visitor
     has no account, so a jump they record pushes every member. There are
     no per-kind notification settings to respect — none exist for any
-    kind.
+    kind except the opt-in Tonight's dinner nudge above.
 - All of these triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a
@@ -7883,6 +7913,10 @@ approximating them, so the email never disagrees with the app.
 
 ## Conventions
 
+- A date input's default for "the user's own calendar day" comes from
+  `toLocalDateKey` / `todayLocalDateKey` in `src/lib/local-date.ts` (local
+  time zone). Meal-planning's `toDateKey` is the UTC day, for dates stored
+  at UTC midnight; don't use it for a wall-clock "today".
 - Server Actions live next to the routes that use them
   (`src/app/dashboard/<feature>/actions.ts`) or in `src/lib/actions/` when
   shared across routes (auth, household). Every action re-derives the
