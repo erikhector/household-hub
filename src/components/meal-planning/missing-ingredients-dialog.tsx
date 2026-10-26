@@ -303,9 +303,13 @@ export function MissingIngredientsDialog({
                         <input type="hidden" name="itemName" value={item.name} />
                         <input type="hidden" name="itemQuantity" value={item.missingQuantity} />
                         <input type="hidden" name="itemUnit" value={item.unit} />
+                        <input type="hidden" name="itemNote" value={item.note ?? ""} />
                       </>
                     )}
                   </label>
+                  {item.note && (
+                    <p className="pl-6 text-xs text-muted-foreground break-words">{item.note}</p>
+                  )}
                   {item.unitMismatch && (
                     <p className="pl-6 text-xs text-warning">{dict.missingIngredientUnitMismatchNote}</p>
                   )}

@@ -262,17 +262,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-53. Flaky: `task-compact-rows` fails now and then under full-suite load** (low, S) —
-      `e2e/task-compact-rows.spec.ts:58` (`mobile`). Failed once in 82
-      runs with `--repeat-each=20` on clean `next` (`26df2a2`,
-      2026-10-23), and once in the full `ci:local` gate on the UX-112
-      branch (`8b0197e`), where it passed on a solo rerun. Nobody's change
-      is in it. The failing assertion wasn't recorded: reproduce with the
-      repeat run, read the snapshot, and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
       `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
       release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
@@ -1043,55 +1032,6 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance: an action test covers household scoping, the cap and
       unpin; an e2e step pins a uniquely named note, reloads and sees it
       above a newer one, then unpins it, on desktop and mobile.
-### 2026-10-19 scan
-
-- [ ] **GAP-62. Carry a recipe ingredient's note onto the shopping list row** (impact: low-med, effort: S) —
-      Grocy 3.1.0 made an ingredient's note ride along when missing
-      products are added from a recipe. Squirrel stores the note
-      (`RecipeIngredient.note`, "ripe", "unsalted", the prep note an
-      import keeps) and shows it in the recipe sheet, but
-      `addMissingIngredientsToShoppingListAction`
-      (`src/app/dashboard/meal-planning/cooking-actions.ts:206`) builds its
-      `itemsToCreate` without it, so the shopper at the shelf no longer
-      sees "unsalted" even though `ShoppingListItem.note` (GAP-5) already
-      renders as the muted second line there and on the share page. No
-      schema change: copy the ingredient's note (trimmed, cut to the 200
-      characters GAP-5 allows) into `note`. When two recipes add the same
-      item the existing dedupe keeps the first row, so keep its note and
-      skip the second's rather than merging text. Check the plan-portions
-      path (`src/lib/shopping/default-list.ts`) and do the same if it
-      builds rows from recipe ingredients.
-      Acceptance: an action test shows a note on the ingredient reaches
-      the created row's `note` (capped at 200) and a null note stays null;
-      an e2e step adds a missing ingredient that has a note from a
-      uniquely named recipe and sees the note under the row on the
-      shopping list, on desktop and mobile.
-
-### 2026-10-21 scan
-
-- [ ] **GAP-63. Search the month's expenses by what you typed** (impact: med, effort: S) —
-      Splitwise lists "search your full expense history" among its core
-      features; "where did that 340 kr go?" or "what did we pay Clas Ohlson
-      last time?" is the commonest reason to open a ledger. Squirrel's
-      transaction list (`src/components/budget/transaction-list.tsx`) can
-      only be narrowed by category (`categoryFilter`, ~line 294), so
-      finding a row means scrolling the month. Add a "Search" field above
-      the list that filters the already-loaded rows client-side, as the
-      category filter does (nothing refetches), by a case-insensitive
-      substring of the description or category name, and the amount
-      typed as "340" or "340,50" (decimal comma accepted, per the locale
-      helpers). It combines with the category filter, the month's totals
-      stay unchanged, and the empty result says "No expenses match
-      '…'" with a Clear button. Use `type="search"`, `enterKeyHint="search"`,
-      `autoComplete="off"`, a 16 px font and a 44 px field (M-rules); put
-      the term in `?q=` so a reload and the back gesture keep it. Reading
-      only, so no schema or money maths changes. First version covers the
-      month on screen; a cross-month search can follow once there's demand.
-      Acceptance: a unit test for the pure matcher (description, category,
-      amount with comma and dot, empty term, accents); an e2e step creates
-      two uniquely named expenses, types one name in Search, sees only that
-      row, reloads and still sees the filter, clears it and sees both, on
-      desktop and mobile, in `en` and `sv`.
 
 ### 2026-10-23 scan
 

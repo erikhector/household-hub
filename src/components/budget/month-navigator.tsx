@@ -43,8 +43,8 @@ export function MonthNavigator({
   /** Query params preserved across prev/next/this-month navigation: the
    * household budget's `?household=` deep-link override (F1: a link from
    * Personal Budget into a *specific* household's budget, not whichever one
-   * happens to be "active"), the open tab and the category filter. */
-  params?: { household?: string; tab?: BudgetTab; category?: string };
+   * happens to be "active"), the open tab, the category filter and the search term. */
+  params?: { household?: string; tab?: BudgetTab; category?: string; q?: string };
 }) {
   const monthStart = parseMonthKey(monthKey);
 

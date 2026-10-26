@@ -27,6 +27,13 @@ describe("budgetHref", () => {
     ).toBe("/dashboard/budget?month=2026-09&household=h%201&tab=transactions&category=c1");
   });
 
+  it("carries the search term last (GAP-63)", () => {
+    expect(budgetHref("/x", { tab: "transactions", category: "c1", q: "clas ohlson" })).toBe(
+      "/x?tab=transactions&category=c1&q=clas%20ohlson",
+    );
+    expect(budgetHref("/x", { q: "" })).toBe("/x");
+  });
+
   it("leaves out overview, since it's the default tab", () => {
     expect(budgetHref("/x", { tab: "overview" })).toBe("/x");
   });
