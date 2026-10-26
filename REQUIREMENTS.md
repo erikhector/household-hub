@@ -271,7 +271,21 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   session's `role`, not trusted from the client):
   - `removeMemberAction` — removes a `CONTRIBUTOR` from the household. Fails
     (returns `{ error }`) if the caller isn't the owner, the target is the
-    owner, or the caller targets themselves.
+    owner, or the caller targets themselves. SEC-4: in the same
+    `$transaction` as the delete (shared with `leaveHouseholdAction` via
+    `revokeDepartingMemberAccess`) it deletes the member's unused
+    invitations (`Invitation.invitedById`, set since UX-62, so no new
+    column was needed; links made before that column have no inviter and
+    stay until they expire), revokes **every** active shopping-list share
+    link in the household (we can't tell which the leaver saw), and
+    regenerates the calendar feed token if the feed is on. Rotation is
+    automatic rather than a prompt because a skippable prompt leaves the
+    hole open; the cost is that members re-share lists and the owner
+    re-copies the feed URL. The remove dialog says so up front.
+  - `revokeInviteAction(invitationId)` — closes an unused invite. Owner:
+    any in the household; contributor: only their own. The Household page
+    lists unexpired, unused invites ("Pending invites", `PendingInvites`)
+    to every member with the inviter and expiry, never the token.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to

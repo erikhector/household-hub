@@ -232,6 +232,17 @@ export const sv = {
       sending: "Skickar…",
       sent: "Inbjudan skickad till {email}",
     },
+    pendingInvites: {
+      title: "Väntande inbjudningar",
+      description: "Länkar som ännu inte har använts. Om du stänger en slutar den fungera.",
+      createdBy: "Skapad av {name}",
+      expires: "Går ut {date}",
+      revoke: "Stäng inbjudan",
+      revokeAriaLabel: "Stäng inbjudan skapad av {name}",
+      revoked: "Inbjudan stängd",
+      revokeFailed: "Det gick inte att stänga inbjudan",
+      unknownInviter: "en tidigare medlem",
+    },
     title: "Hushåll",
     sharedWith: {
       one: "Delas med {count} annan person",
@@ -248,7 +259,7 @@ export const sv = {
     },
     confirmRemoveMember: {
       title: "Ta bort {name}?",
-      description: "Personen förlorar åtkomst till hushållets lager, inköpslistor, matplaner och budgetdata.",
+      description: "Personen förlorar åtkomst till hushållets lager, inköpslistor, matplaner och budgetdata. Personens oanvända inbjudningar stängs, och delningslänkarna för inköpslistor och kalenderlänken återställs, så du behöver dela dem igen.",
       cancel: "Avbryt",
       confirm: "Ta bort",
       confirming: "Tar bort…",
