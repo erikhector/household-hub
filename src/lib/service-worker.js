@@ -63,10 +63,10 @@ self.addEventListener("notificationclick", (event) => {
 // database behind auth, so meaningfully "working offline" would mean an
 // entire local-data-sync layer, not a service worker change. What's in
 // scope-sized reach instead: never show the browser's bare connection-error
-// page for a full page load. Only full-page navigations are intercepted
-// (`event.request.mode === "navigate"`) — every other request (hashed JS/CSS
-// bundles, RSC data fetches, API routes, server actions) passes straight
-// through untouched, network-only, exactly as before this block existed.
+// page for a full page load. Full-page navigations get that fallback; the
+// only other thing the worker touches is `/_next/static/*` (see "Hashed
+// static assets" below). RSC data fetches, API routes and server actions
+// pass straight through untouched, network-only.
 const OFFLINE_CACHE_NAME = "squirrel-offline-v1";
 const OFFLINE_CACHE_URL = "/~offline-fallback";
 
@@ -95,17 +95,82 @@ self.addEventListener("install", (event) => {
     ),
   );
   // Takes over immediately rather than waiting for every open tab of the
-  // previous version to close — this worker has no versioned assets to keep
-  // consistent with an old page, unlike a typical precache-the-app-shell
-  // worker, so there's nothing an in-flight page load could break.
+  // previous version to close — this worker precaches no app shell, and the
+  // static cache below is keyed by content-hashed URLs that never go stale,
+  // so unlike a typical precache worker there's no old page a new worker
+  // version could leave inconsistent.
   self.skipWaiting();
 });
 
+// --- Hashed static assets (PERF-28) -------------------------------------------
+//
+// An installed app's cold launch used to re-download every JS/CSS chunk
+// (~325 KB gz) whenever the OS had evicted the HTTP cache, which iOS does
+// aggressively. Next names everything under /_next/static/ by content hash,
+// so a cached copy can never be stale and a cache-first lookup is always
+// safe. Pages, RSC payloads, API routes and Server Actions are NOT cached
+// here, which keeps the "no app shell" reasoning above intact: the HTML
+// always comes from the network, only the files it points at come from disk.
+//
+// There's no list of "files the current build references" to prune against
+// (no precache manifest, on purpose), so the cache is capped by entry count
+// instead: when it grows past STATIC_CACHE_MAX the oldest entries (cache
+// keys come back in insertion order) are dropped. The cap is a few builds'
+// worth of chunks, so a release that changes most chunks still leaves room
+// for the next one without evicting what the current page needs.
+const STATIC_CACHE_NAME = "squirrel-static-v1";
+const STATIC_CACHE_MAX = 400;
+const STATIC_PATH_PREFIX = "/_next/static/";
+
+async function trimStaticCache() {
+  const cache = await caches.open(STATIC_CACHE_NAME);
+  const keys = await cache.keys();
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - STATIC_CACHE_MAX)).map((key) => cache.delete(key)));
+}
+
+async function cacheFirstStatic(event) {
+  const cache = await caches.open(STATIC_CACHE_NAME);
+  const hit = await cache.match(event.request);
+  if (hit) return hit;
+  const response = await fetch(event.request);
+  // Only a complete, successful, same-origin response is worth keeping: a
+  // 404 or an opaque cross-origin one cached under a hashed name would be
+  // served forever.
+  if (response.status === 200 && response.type === "basic") {
+    event.waitUntil(cache.put(event.request, response.clone()).then(trimStaticCache));
+  }
+  return response;
+}
+
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Drop static caches left behind by an older version of this worker
+      // that used a different name (a bump of STATIC_CACHE_NAME).
+      caches
+        .keys()
+        .then((names) =>
+          Promise.all(
+            names
+              .filter((name) => name.startsWith("squirrel-static-") && name !== STATIC_CACHE_NAME)
+              .map((name) => caches.delete(name)),
+          ),
+        ),
+    ]),
+  );
 });
 
 self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.method === "GET" && !request.headers.has("range")) {
+    const url = new URL(request.url);
+    if (url.origin === self.location.origin && url.pathname.startsWith(STATIC_PATH_PREFIX)) {
+      event.respondWith(cacheFirstStatic(event));
+      return;
+    }
+  }
+
   if (event.request.mode !== "navigate") return;
 
   event.respondWith(

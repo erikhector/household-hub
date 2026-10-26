@@ -165,19 +165,6 @@ comes from Playwright's `page.coverage`.
       only leaves the shared JS once page dialogs are lazy too
       (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
       20–40 KB gz off every page.
-- [ ] **PERF-28. Cache hashed static assets in the service worker** (medium, S; after PERF-23) —
-      `src/lib/service-worker.js` passes JS/CSS straight to the network,
-      so an installed app relies on the HTTP cache, which phones (iOS in
-      particular) evict aggressively; a cold launch then downloads the
-      full 325 KB gz again. Add a cache-first fetch handler for
-      `/_next/static/*` only: the filenames are content hashes, so a
-      cached copy can never be stale. Pages, RSC requests, API routes and
-      Server Actions stay network-only, which keeps the file's reasoning
-      for not precaching an app shell intact. On `activate`, delete files
-      the current build no longer references (or cap the cache by
-      entries) so it doesn't grow forever. Update the comment block that
-      says the worker has no versioned assets. Do after PERF-23, or the
-      release-notes chunk misses on every release.
 - [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
       `MealPlanningView` and `BudgetTabs` render every tab on the server
       and hide the inactive ones with `hidden`, so all four tabs' JS
