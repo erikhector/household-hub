@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.112.0",
+    "date": "2026-10-26",
+    "pr": 720,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Notes on recipe ingredients, like \"unsalted\" or \"ripe\", now follow along when you add missing ingredients to a shopping list.\n\nSearch your transactions. Type a description, a category or an amount above the list on the Transactions tab to narrow the month, and the search stays when you reload.",
+      "sv": "Anteckningar på receptingredienser, som \"osaltat\" eller \"mogen\", följer nu med när du lägger till saknade ingredienser i en inköpslista.\n\nSök bland dina transaktioner. Skriv en beskrivning, en kategori eller ett belopp ovanför listan på fliken Transaktioner för att smalna av månaden. Sökningen finns kvar när du laddar om sidan."
+    }
+  },
+  {
     "version": "0.111.1",
     "date": "2026-10-25",
     "pr": 714,
