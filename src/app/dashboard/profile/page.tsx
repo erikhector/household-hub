@@ -12,6 +12,7 @@ import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog"
 import { InstallAppCard } from "@/components/profile/install-app-card";
 import { PushNotificationsCard } from "@/components/profile/push-notifications-card";
 import { WeeklyDigestSetting } from "@/components/profile/weekly-digest-setting";
+import { TonightsDinnerSetting } from "@/components/profile/tonights-dinner-setting";
 import { ProfileDisclosure } from "@/components/profile/profile-disclosure";
 import { LogoutButton } from "@/components/logout-button";
 import { ExportButton } from "@/components/export/export-button";
@@ -97,6 +98,7 @@ export default async function ProfilePage({
             emailVerified={Boolean(user.emailVerifiedAt)}
             dict={dict.profile.weeklyDigest}
           />
+          <TonightsDinnerSetting enabled={user.tonightsDinnerNudge} dict={dict.profile.tonightsDinner} />
           <InstallAppCard dict={dict.profile.installApp} />
         </section>
         <section aria-labelledby="profile-data" className="flex flex-col gap-3">

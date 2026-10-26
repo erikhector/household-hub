@@ -596,24 +596,6 @@ order below is a suggestion, not a dependency, unless noted.
       automatically). Test: `invitation.deleteMany` with that user's id
       after `removeMemberAction`.
 
----
-
-- [ ] **GAP-57. "Tonight's dinner" nudge in the morning, opt-in**
-      (impact: low-med, effort: M) `[schema]` — Plan to Eat and
-      Cozi/Mealime-style planners remind you what is on the menu; Squirrel
-      only nudges after the fact (`syncMealNotLoggedNotifications`), so a
-      planned dinner needing thawing or a missing ingredient goes unnoticed
-      until evening. Chosen scope: a per-user toggle in the notification
-      settings, **default off**, and one bell/push entry per day listing
-      that day's planned meals; silent when nothing is planned or
-      everything is already cooked. No other per-kind settings.
-      Acceptance: a sync test covers the opt-out default, no entry on an
-      empty day and household scoping; an e2e step enables the toggle and
-      asserts the bell entry, on desktop and mobile.
-      Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
-      Why: the item's own recommendation; opt-in keeps the Guardrails on
-      noisy positive alerts. See PRODUCT.md.
-
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)

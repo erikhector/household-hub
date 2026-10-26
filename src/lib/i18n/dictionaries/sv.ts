@@ -175,6 +175,7 @@ export const sv = {
     priceSpike: "{name} kostade {percent} % mer än vanligt",
     priceSpikePlain: "{name} kostade mer än vanligt",
     putAwayReminder: "Dags att ställa in varorna från {name}?",
+    tonightsDinner: "På menyn idag: {names}",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
@@ -3342,6 +3343,14 @@ export const sv = {
       unverified: "Verifiera din e-postadress för att börja få den.",
       enabledToast: "Du får veckosammanfattningen",
       disabledToast: "Veckosammanfattningen är avstängd",
+    },
+    tonightsDinner: {
+      title: "Kvällens middag",
+      label: "Påminn mig varje morgon om vad som står på menyn",
+      description:
+        "En avisering om dagen med dagens planerade måltider. Inget skickas om inget är planerat eller allt redan är lagat.",
+      enabledToast: "Du får en menypåminnelse på morgonen",
+      disabledToast: "Menypåminnelsen är avstängd",
     },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:

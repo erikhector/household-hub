@@ -191,6 +191,8 @@ export const en = {
     priceSpikePlain: "{name} cost more than usual",
     // PUT_AWAY_REMINDER — see syncPutAwayReminders in src/lib/notifications.ts.
     putAwayReminder: "Put away your shopping from {name}?",
+    // TONIGHTS_DINNER (GAP-57) — see syncTonightsDinnerNudge.
+    tonightsDinner: "On the menu today: {names}",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",
@@ -3493,6 +3495,14 @@ export const en = {
       unverified: "Verify your email address to start receiving it.",
       enabledToast: "You'll get the weekly digest",
       disabledToast: "Weekly digest turned off",
+    },
+    tonightsDinner: {
+      title: "Tonight's dinner",
+      label: "Remind me each morning what's on the menu",
+      description:
+        "One notification a day listing the meals planned for that day. Nothing is sent when nothing is planned or it's all been cooked.",
+      enabledToast: "You'll get a morning menu reminder",
+      disabledToast: "Menu reminder turned off",
     },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:

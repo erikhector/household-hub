@@ -67,6 +67,7 @@ export function notificationLabel(item: NotificationItem, dict: Dictionary["noti
       : format(dict.priceSpikePlain, { name: item.name });
   }
   if (item.kind === "putAwayReminder") return format(dict.putAwayReminder, { name: item.name });
+  if (item.kind === "tonightsDinner") return format(dict.tonightsDinner, { names: item.names.join(", ") });
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
 

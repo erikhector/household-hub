@@ -9,11 +9,13 @@ const {
   syncMealNotLoggedNotificationsMock,
   syncExpiringSoonNotificationsMock,
   syncPutAwayRemindersMock,
+  syncTonightsDinnerNudgeMock,
 } = vi.hoisted(() => ({
   householdFindManyMock: vi.fn(),
   syncMealNotLoggedNotificationsMock: vi.fn(),
   syncExpiringSoonNotificationsMock: vi.fn(),
   syncPutAwayRemindersMock: vi.fn(),
+  syncTonightsDinnerNudgeMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -27,6 +29,7 @@ vi.mock("@/lib/notifications", () => ({
   syncMealNotLoggedNotifications: syncMealNotLoggedNotificationsMock,
   syncExpiringSoonNotifications: syncExpiringSoonNotificationsMock,
   syncPutAwayReminders: syncPutAwayRemindersMock,
+  syncTonightsDinnerNudge: syncTonightsDinnerNudgeMock,
 }));
 
 const { GET } = await import("@/app/api/cron/sync-notifications/route");
@@ -49,6 +52,7 @@ beforeEach(() => {
   syncMealNotLoggedNotificationsMock.mockResolvedValue(undefined);
   syncExpiringSoonNotificationsMock.mockResolvedValue(undefined);
   syncPutAwayRemindersMock.mockResolvedValue(undefined);
+  syncTonightsDinnerNudgeMock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -104,6 +108,8 @@ describe("GET /api/cron/sync-notifications", () => {
     expect(syncExpiringSoonNotificationsMock).toHaveBeenCalledTimes(2);
     expect(syncPutAwayRemindersMock).toHaveBeenCalledWith("household-1");
     expect(syncPutAwayRemindersMock).toHaveBeenCalledWith("household-2");
+    expect(syncTonightsDinnerNudgeMock).toHaveBeenCalledWith("household-1");
+    expect(syncTonightsDinnerNudgeMock).toHaveBeenCalledWith("household-2");
   });
 
   it("counts a household as failed when only its put-away reminder sync fails", async () => {
