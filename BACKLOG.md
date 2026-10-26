@@ -144,17 +144,6 @@ comes from Playwright's `page.coverage`.
       only needs the cookie constants, so move those to a module that
       doesn't import the JSON. Acceptance: `next analyze` shows no
       `releases.json` in any `/dashboard` client chunk.
-- [ ] **PERF-24. Keep zod out of the meal-planning client bundle, again** (medium, S) —
-      PERF-7 removed it; it's back (98 KB raw, 30 KB gz, ~28% of the
-      page's own JS). `missing-ingredients-dialog.tsx`,
-      `record-prep-dialog.tsx` and `plan-portions-dialog.tsx` import
-      constants from `src/app/dashboard/meal-planning/missing-ingredients.ts`
-      and `leftovers.ts`, which also define zod schemas. Move the
-      constants and shared types to zod-free modules the way PERF-7 did
-      with `recipe-tags.ts`. Add a guard so it can't creep back: a unit
-      test that walks the imports of every `"use client"` file under
-      `src/components/` and fails on a path to `zod` (or a lint rule
-      with the same effect).
 - [ ] **PERF-25. Lazy-load dialogs: shared helper + shopping list** (medium, M) —
       dialogs are most of each heavy page's unused JS, along with Base
       UI's Combobox (39 KB raw), which only dialogs use. Add one helper

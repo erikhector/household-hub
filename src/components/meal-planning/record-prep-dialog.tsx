@@ -23,7 +23,7 @@ import {
   undoRecordPrepAction,
 } from "@/app/dashboard/meal-planning/prep-actions";
 import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
-import { LEFTOVERS_SHELF_LIFE_DAYS, MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftovers";
+import { LEFTOVERS_SHELF_LIFE_DAYS, MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftover-constants";
 import { PortionStepper } from "@/components/meal-planning/portion-stepper";
 import {
   CookedIngredientsChecklist,
