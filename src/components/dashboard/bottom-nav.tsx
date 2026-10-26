@@ -28,7 +28,6 @@ import { format } from "@/lib/i18n/format";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
 import { NotificationCountBadge, NotificationMenuItem } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
-import { CURRENT_VERSION } from "@/lib/release-notes";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 // Each streamed independently under its own Suspense boundary (see BottomNav
@@ -61,11 +60,13 @@ export function BottomNav({
   locale,
   notifications,
   unseenRelease,
+  version,
 }: {
   dict: ShellDictionary;
   locale: Locale;
   notifications: Promise<NotificationItem[]>;
   unseenRelease: boolean;
+  version: string;
 }) {
   const pathname = usePathname();
   const moreActive = isMoreMenuActive(pathname);
@@ -193,7 +194,7 @@ export function BottomNav({
                   <span className="sr-only">{dict.nav.whatsNewUnseen}</span>
                 </span>
               )}
-              <span className="ml-auto text-xs text-muted-foreground tabular-nums">v{CURRENT_VERSION}</span>
+              <span className="ml-auto text-xs text-muted-foreground tabular-nums">v{version}</span>
             </DropdownMenuItem>
             <Suspense fallback={null}>
               <NotificationMenuItemContent notifications={notifications} dict={dict.notifications} />
