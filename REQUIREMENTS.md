@@ -5984,6 +5984,14 @@ everywhere.
   `recipe-manager.tsx` and `recipe-form-dialog.tsx`, so it must stay
   free of `zod` (which put a ~99 KB gz chunk into the meal-planning page).
   `isRecipeTag` is a `Set` lookup for that reason.
+  *Bundle size (PERF-24)*: the same holds for every client component:
+  `leftover-constants.ts` (leftover constants) and
+  `missing-ingredients-range.ts` (the hand-written, zod-free date-range
+  validator and `weekRange`) are the client-safe halves of `leftovers.ts`
+  and `missing-ingredients.ts`, which re-export them for server callers.
+  `src/components/client-bundle-guard.test.ts` walks the value imports of
+  every `"use client"` file under `src/components/` (stopping at `"use
+  server"` modules) and fails with the import chain on any path to `zod`.
 - **Form**: `RecipeFormDialog` (create and edit) shows every tag as a
   toggle chip (`aria-pressed`, the starter-picker look) under
   instructions, posted as one hidden `tags` input per selected tag.
