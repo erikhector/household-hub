@@ -352,6 +352,24 @@ then MAINT-7 per feature, to avoid churn.
       Acceptance: `npx playwright test e2e/log-expense-fast.spec.ts:118
       --project=mobile --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
+      1,249 lines in one file, past the 800-line smell threshold and not
+      covered by MAINT-10 (which lists UI files only). It holds two
+      unrelated jobs: HTML parsing (JSON-LD `:72-:545`, ingredient strings
+      `:146-:450`, microdata `:564-:775`, heuristic headings `:777-:900`)
+      and the SSRF-guarded fetch (`isPrivateOrReservedIPv4/6`,
+      `validateRecipeUrl`, `createPinnedPublicLookup`, `fetchRecipeHtml`,
+      `:903-:1249`). Split into `lib/recipe-import/parse-*.ts` (ingredient
+      parsing, JSON-LD, microdata, heuristic) and `lib/recipe-import/fetch.ts`
+      (the network guard), keeping `lib/recipe-import.ts` as a re-exporting
+      entry point so `recipe-actions.ts` and the tests don't change import
+      paths. Split `recipe-import.test.ts` (1,173 lines) the same way. The
+      SSRF guard is security-sensitive: move it verbatim, no behaviour
+      change, and keep `_setPrivateAddressCheckForTests` working.
+      Acceptance: no behaviour change; every existing `recipe-import*` test
+      passes unmodified apart from import paths, and no file under
+      `lib/recipe-import/` exceeds ~500 lines.
+
 
 ### UX (2026-09-26 scout)
 
