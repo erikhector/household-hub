@@ -1724,3 +1724,45 @@ describe("importRecipeFromUrlAction", () => {
     expect(checkRateLimitMock).toHaveBeenCalledWith(`recipe-import:${household.id}`, 20, 60 * 60 * 1000);
   });
 });
+
+// MAINT-6: a database failure in any recipe write comes back as a friendly
+// `{ error }` (the form or toast shows it), never a throw into the error
+// boundary. `Once` variants, since clearAllMocks leaves implementations alone.
+describe("recipe actions × unexpected database errors (MAINT-6)", () => {
+  const boom = () => new Error("connection reset by peer");
+
+  function expectFriendly(result: { error?: string }) {
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("connection reset");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  }
+
+  it("createRecipeAction", async () => {
+    recipeCreateMock.mockRejectedValueOnce(boom());
+    expectFriendly(await createRecipeAction({}, formData({ name: "Soup" })));
+  });
+
+  it("updateRecipeAction", async () => {
+    recipeFindFirstMock.mockResolvedValueOnce({ id: "recipe-1" });
+    recipeUpdateMock.mockRejectedValueOnce(boom());
+    expectFriendly(await updateRecipeAction({}, formData({ recipeId: "recipe-1", name: "Soup" })));
+  });
+
+  it("deleteRecipeAction", async () => {
+    recipeFindFirstMock.mockResolvedValueOnce({ id: "recipe-1" });
+    recipeComponentFindFirstMock.mockResolvedValueOnce(null);
+    recipeDeleteMock.mockRejectedValueOnce(boom());
+    expectFriendly(await deleteRecipeAction("recipe-1"));
+  });
+
+  it("toggleRecipeFavoriteAction", async () => {
+    recipeFindFirstMock.mockResolvedValueOnce({ id: "recipe-1", isFavorite: false });
+    recipeUpdateMock.mockRejectedValueOnce(boom());
+    expectFriendly(await toggleRecipeFavoriteAction("recipe-1"));
+  });
+
+  it("toggleRecipeCookSoonAction", async () => {
+    recipeFindFirstMock.mockRejectedValueOnce(boom());
+    expectFriendly(await toggleRecipeCookSoonAction("recipe-1"));
+  });
+});

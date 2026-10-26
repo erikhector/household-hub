@@ -438,6 +438,23 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     expect(result.error).toBe("Select at least one ingredient to add");
   });
 
+  // MAINT-6: the dialog shows `{ error }` inline; a throw would hit the boundary.
+  it("returns a friendly error when the write fails", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateManyMock.mockRejectedValueOnce(new Error("connection reset"));
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "Carrot");
+    fd.append("itemQuantity", "2");
+    fd.append("itemUnit", "pcs");
+
+    const result = await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("connection reset");
+  });
+
   // SEC-7: the rows are a raw FormData payload, so nothing but these caps
   // stops a client from posting an arbitrarily long or wide one.
   it("rejects more than 300 ingredient rows", async () => {

@@ -164,6 +164,19 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   string-literal `error:` in any action file that isn't on its `PENDING`
   list (the files MAINT-7 still has to convert; a file that becomes clean
   must be removed from the list), and by `e2e/localised-errors.spec.ts`.
+- **Database failures in actions (MAINT-6)**: a Server Action that writes
+  wraps the risky `prisma.*` call in `try`/`catch` and returns
+  `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
+  Sentry), so a dropped connection toasts or shows inline instead of
+  reaching the error boundary. Only the database call sits inside the
+  `try`; `redirect()`, `signOut()` and `revalidatePath()` stay outside so
+  their control-flow throws propagate. Covered: the planner and recipe
+  writes, `updatePasswordAction`, the receipt-apply, unlink and
+  add-missing-ingredients actions, `setPushQuietHoursAction`, and the
+  notification dismiss actions (now `Promise<ActionState>`; the bell and
+  the history page toast the error). `subscribeToPushAction`,
+  `unsubscribeFromPushAction` and `clearPushQuietHoursAction` still throw on
+  purpose: their callers already `try`/`catch` and show their own error.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
   page) carries a `PublicLanguageToggle` button that names the language in
   use ("Language: English", UX-51) and switches to the other, calling

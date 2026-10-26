@@ -15,6 +15,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +53,12 @@ export function NotificationsHistory({
           variant="outline"
           size="sm"
           disabled={unreadCount === 0 || isPending}
-          onClick={() => startTransition(() => dismissAllNotificationsAction())}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await dismissAllNotificationsAction();
+              if (result.error) toast.error(result.error);
+            })
+          }
         >
           {dict.history.markAllRead}
         </Button>

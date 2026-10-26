@@ -377,6 +377,20 @@ describe("updatePasswordAction (re-authentication gate + forced sign-out)", () =
     expect(signOutMock).not.toHaveBeenCalled();
   });
 
+  // MAINT-6: a failed write is an `{ error }` on the form, not a throw, and
+  // the user must not be signed out of a password that didn't change.
+  it("returns a friendly error and keeps the session when the update fails", async () => {
+    userFindUniqueOrThrowMock.mockResolvedValue({ id: "user-1", passwordHash: "old-hash" });
+    bcryptCompareMock.mockResolvedValue(true);
+    transactionMock.mockRejectedValueOnce(new Error("connection reset"));
+
+    const result = await updatePasswordAction({}, formData(base));
+
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("connection reset");
+    expect(signOutMock).not.toHaveBeenCalled();
+  });
+
   it("hashes the new password (bcrypt cost 12), updates only the caller's account, and forces sign-out", async () => {
     userFindUniqueOrThrowMock.mockResolvedValue({ id: "user-1", passwordHash: "old-hash" });
     bcryptCompareMock.mockResolvedValue(true);

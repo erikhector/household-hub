@@ -253,16 +253,20 @@ export async function updatePasswordAction(
   // the same transaction, so a failure partway through can't leave the
   // password changed but a stale subscription still receiving pushes (or
   // the reverse) — same atomicity as resetPasswordAction's transaction.
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      // Revokes every other session for this user (another device, or a
-      // stolen cookie) on its next request — SCALE-H, see src/lib/session.ts.
-      // This one is signed out just below anyway.
-      data: { passwordHash, passwordChangedAt: new Date() },
-    }),
-    prisma.pushSubscription.deleteMany({ where: { userId } }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        // Revokes every other session for this user (another device, or a
+        // stolen cookie) on its next request — SCALE-H, see src/lib/session.ts.
+        // This one is signed out just below anyway.
+        data: { passwordHash, passwordChangedAt: new Date() },
+      }),
+      prisma.pushSubscription.deleteMany({ where: { userId } }),
+    ]);
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   // Rotating the password credential should invalidate the current session
   // too, the same way changing a password anywhere else typically forces

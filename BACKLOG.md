@@ -192,24 +192,15 @@ comes from Playwright's `page.coverage`.
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Items 3, 6 and 7 all
-touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-6 → MAINT-3,
+tests passing, no `any`/`@ts-ignore` in app code. Items 3 and 7 both
+touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
 - [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
       lines / 29 exports, test file 2,850 lines. Follow the meal-planning
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
       put-away), `receipt-` and `store-order-actions.ts`, tests split the
-      same way. Do after MAINT-2/5/6.
-- [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
-      ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
-      error hits the error boundary: `planner-actions.ts` (add/update/move/
-      delete entry, copy/undo-copy week — e.g. `:65-88`), `recipe-actions.ts`
-      (create/update/delete/favorite), `lib/actions/push.ts` (all 4),
-      `notifications.ts` dismiss/dismiss-all, `updatePasswordAction`,
-      shopping link/unlink/apply-receipt/complete,
-      `addMissingIngredientsToShoppingListAction`. Consider a
-      `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
+      same way. Do after MAINT-2/5.
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see

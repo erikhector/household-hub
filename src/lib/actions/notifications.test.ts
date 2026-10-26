@@ -34,7 +34,7 @@ describe("notification actions", () => {
   // The id is another household's: the where clause carries OUR household id,
   // so the DB matches nothing, and the action resolves without throwing.
   it("treats another household's id as a silent no-op", async () => {
-    await expect(dismissNotificationAction("other-household-note")).resolves.toBeUndefined();
+    await expect(dismissNotificationAction("other-household-note")).resolves.toEqual({});
     expect(updateManyMock.mock.calls[0][0].where.householdId).toBe("hh-1");
   });
 
@@ -45,6 +45,18 @@ describe("notification actions", () => {
     expect(arg.data.dismissedAt).toBeInstanceOf(Date);
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard");
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/notifications");
+  });
+
+  // MAINT-6: both callers run inside a transition, where a throw reaches the
+  // error boundary, so a failed write is an `{ error }` and nothing is revalidated.
+  it("returns a friendly error instead of throwing when the write fails", async () => {
+    updateManyMock.mockRejectedValue(new Error("connection reset"));
+    const one = await dismissNotificationAction("n-1");
+    const all = await dismissAllNotificationsAction();
+    expect(one.error).toBeTruthy();
+    expect(all.error).toBeTruthy();
+    expect(one.error).not.toContain("connection reset");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("does not touch the database when there is no household (requireHousehold throws)", async () => {
