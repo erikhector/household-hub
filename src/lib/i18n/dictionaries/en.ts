@@ -2448,6 +2448,12 @@ export const en = {
       clear: "Clear filter",
       empty: "Nothing logged in {category} this month.",
     },
+    search: {
+      label: "Search transactions",
+      placeholder: "Search description, category or amount",
+      clear: "Clear search",
+      empty: "No transactions match “{query}”.",
+    },
     emptyTransactions: "No transactions yet. Add your first one to start tracking the budget.",
     recurringBadge: "Recurring",
     type: {
@@ -2955,6 +2961,12 @@ export const en = {
       all: "All categories",
       clear: "Clear filter",
       empty: "Nothing logged in {category} this month.",
+    },
+    search: {
+      label: "Search transactions",
+      placeholder: "Search description, category or amount",
+      clear: "Clear search",
+      empty: "No transactions match “{query}”.",
     },
     emptyTransactions: "No transactions yet. Add your first one to start tracking your own budget.",
     type: {

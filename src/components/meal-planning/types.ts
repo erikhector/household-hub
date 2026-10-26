@@ -89,6 +89,10 @@ export type MissingIngredientData = {
   // review dialog can surface it instead of silently treating it as fully
   // missing. See D5 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
   unitMismatch: boolean;
+  // GAP-62: the first recipe ingredient note for this row ("unsalted"), sent
+  // along to the shopping list row's own note. Null when none of the recipes
+  // that need it has one.
+  note: string | null;
 };
 
 // An ACTIVE shopping list the "add missing ingredients" dialog can add to.

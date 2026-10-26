@@ -87,6 +87,13 @@ export type BudgetDict = {
     clear: string;
     empty: string;
   };
+  // GAP-63: the search box above the list.
+  search: {
+    label: string;
+    placeholder: string;
+    clear: string;
+    empty: string;
+  };
   frequencyLabel: string;
   frequencyMonthly: string;
   frequencyWeekly: string;

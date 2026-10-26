@@ -309,6 +309,7 @@ export function BudgetTabs({
             household: householdParam,
             tab,
             category: searchParams.get("category") ?? undefined,
+            q: searchParams.get("q") ?? undefined,
           }}
         />
 

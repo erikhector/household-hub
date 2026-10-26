@@ -103,6 +103,7 @@ export async function loadMissingIngredients(
         onHandQuantity: ingredient.onHandQuantity ?? 0,
         onHandUnit: ingredient.onHandUnit,
         conversions: ingredient.conversions,
+        note: ingredient.note,
       };
     }
     const loose = looseByName.get(ingredient.name.toLowerCase());
@@ -114,6 +115,7 @@ export async function loadMissingIngredients(
       onHandQuantity: loose?.quantity ?? 0,
       onHandUnit: loose?.unit ?? null,
       conversions: loose?.unitConversions ?? [],
+      note: ingredient.note,
     };
   });
 

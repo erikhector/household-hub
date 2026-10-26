@@ -47,13 +47,26 @@ describe("parseMissingIngredientsRange", () => {
 });
 
 describe("computeMissingIngredients", () => {
+  it("carries the first non-blank ingredient note and never merges two (GAP-62)", () => {
+    const base = { key: "butter", name: "Butter", unit: "g", onHandQuantity: 0, onHandUnit: null };
+    const needs: IngredientNeed[] = [
+      { ...base, quantity: 100, note: "  " },
+      { ...base, quantity: 50, note: "unsalted" },
+      { ...base, quantity: 50, note: "soft" },
+    ];
+
+    expect(computeMissingIngredients(needs)).toEqual([
+      { key: "butter::g", name: "Butter", unit: "g", missingQuantity: 200, unitMismatch: false, note: "unsalted" },
+    ]);
+  });
+
   it("proposes an ingredient whose required quantity exceeds what's on hand", () => {
     const needs: IngredientNeed[] = [
       { key: "flour", name: "Flour", unit: "cups", quantity: 3, onHandQuantity: 1, onHandUnit: "cups" },
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false, note: null },
     ]);
   });
 
@@ -81,7 +94,7 @@ describe("computeMissingIngredients", () => {
 
     // 4 + 4 = 8 required, 6 on hand (read once, not doubled) -> 2 missing.
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "egg-1::pcs", name: "Eggs", unit: "pcs", missingQuantity: 2, unitMismatch: false },
+      { key: "egg-1::pcs", name: "Eggs", unit: "pcs", missingQuantity: 2, unitMismatch: false, note: null },
     ]);
   });
 
@@ -94,8 +107,8 @@ describe("computeMissingIngredients", () => {
     const result = computeMissingIngredients(needs);
 
     expect(result).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false },
-      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 200, unitMismatch: false },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false, note: null },
+      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 200, unitMismatch: false, note: null },
     ]);
     // Distinct keys so the review dialog can toggle each unit independently.
     expect(new Set(result.map((item) => item.key)).size).toBe(2);
@@ -108,7 +121,7 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "Cups", missingQuantity: 3, unitMismatch: false },
+      { key: "flour::cups", name: "Flour", unit: "Cups", missingQuantity: 3, unitMismatch: false, note: null },
     ]);
   });
 
@@ -124,7 +137,7 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: true },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: true, note: null },
     ]);
   });
 
@@ -134,7 +147,7 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false, note: null },
     ]);
   });
 
@@ -183,7 +196,7 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 2, unitMismatch: false },
+      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 2, unitMismatch: false, note: null },
     ]);
   });
 
@@ -196,7 +209,7 @@ describe("computeMissingIngredients", () => {
     // 2 tbsp (30ml) + 3 tsp (15ml) = 45ml = 3 tbsp, expressed in the first
     // cluster's unit (tbsp, from whichever need was seen first).
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 3, unitMismatch: false },
+      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 3, unitMismatch: false, note: null },
     ]);
   });
 
@@ -210,8 +223,8 @@ describe("computeMissingIngredients", () => {
     const result = computeMissingIngredients(needs);
     // cups + tbsp merge (both volume); g stays separate (different dimension).
     expect(result).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 1.13, unitMismatch: false },
-      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 100, unitMismatch: false },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 1.13, unitMismatch: false, note: null },
+      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 100, unitMismatch: false, note: null },
     ]);
   });
 
@@ -226,7 +239,7 @@ describe("computeMissingIngredients", () => {
     // 3000 g = 1.5 bags, plus 1 bag, minus the 1 on hand: 1.5 bags short,
     // in one line and without a unit mismatch.
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::pcs", name: "Flour", unit: "pcs", missingQuantity: 1.5, unitMismatch: false },
+      { key: "flour::pcs", name: "Flour", unit: "pcs", missingQuantity: 1.5, unitMismatch: false, note: null },
     ]);
   });
 
@@ -260,7 +273,7 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::dl", name: "Flour", unit: "dl", missingQuantity: 3, unitMismatch: true },
+      { key: "flour::dl", name: "Flour", unit: "dl", missingQuantity: 3, unitMismatch: true, note: null },
     ]);
   });
 });
