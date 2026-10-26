@@ -50,7 +50,28 @@ test("a dialog still opens when idle prefetching never ran", async ({ page }) =>
   await expect(page.getByRole("textbox", { name: t.renameList.nameLabel })).toBeVisible();
 });
 
-test("the receipt scan button opens its menu on the first tap", async ({ page }) => {
+test("a failed chunk load says so, and the next tap retries", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.requestIdleCallback = () => 0;
+  });
+  await page.goto(listUrl);
+  const scan = page.getByRole("button", { name: t.receiptScan.scanButton });
+  await expectHydrated(scan);
+
+  // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
+  let offline = true;
+  await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+  await scan.click();
+  await expect(page.getByText(en.errors.generic)).toBeVisible();
+  await expect(scan).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: t.receiptScan.takePhoto })).toBeHidden();
+
+  offline = false;
+  await scan.click();
+  await expect(page.getByRole("menuitem", { name: t.receiptScan.takePhoto })).toBeVisible();
+});
+
+test("the receipt scan button opens its menu on the first tap",async ({ page }) => {
   await page.addInitScript(() => {
     window.requestIdleCallback = () => 0;
   });

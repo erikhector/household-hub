@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLazyDialogLoader, openLazyDialog } from "./lazy-dialog";
+import { createLazyDialogLoader, loadLazyDialog, openLazyDialog } from "./lazy-dialog";
 import type { DialogHandle } from "./dialog";
 
 describe("createLazyDialogLoader", () => {
@@ -33,6 +33,28 @@ describe("createLazyDialogLoader", () => {
     const loader = createLazyDialogLoader(() => Promise.reject(new Error("offline")));
     expect(() => loader.preload()).not.toThrow();
     await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+});
+
+describe("loadLazyDialog", () => {
+  it("reports a failed import and succeeds on the retry", async () => {
+    const Component = () => null;
+    const loader = createLazyDialogLoader(
+      vi
+        .fn<() => Promise<typeof Component>>()
+        .mockRejectedValueOnce(new Error("chunk gone"))
+        .mockResolvedValueOnce(Component),
+    );
+    const onLoaded = vi.fn();
+    const onFailed = vi.fn();
+
+    await loadLazyDialog(loader, onLoaded, onFailed);
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    expect(onLoaded).not.toHaveBeenCalled();
+
+    await loadLazyDialog(loader, onLoaded, onFailed);
+    expect(onLoaded).toHaveBeenCalledTimes(1);
+    expect(onFailed).toHaveBeenCalledTimes(1);
   });
 });
 

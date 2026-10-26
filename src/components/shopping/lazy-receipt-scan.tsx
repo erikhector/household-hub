@@ -25,6 +25,7 @@ export function LazyReceiptScan(props: ComponentProps<typeof ReceiptScanDialog>)
     <LazyDialog
       loader={loadReceiptScanDialog}
       open={requested}
+      onLoadError={() => setRequested(false)}
       fallback={
         <div className="flex flex-col gap-1">
           <Button

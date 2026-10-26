@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import type { DialogHandle } from "@/components/ui/dialog"
 
@@ -92,6 +93,35 @@ export function preloadOnIntent(loader: Pick<LazyDialogLoader<Component>, "prelo
   }
 }
 
+/**
+ * What to tell the user when a dialog's chunk can't be fetched (offline, or
+ * replaced by a deploy since the page loaded). A page passes an existing
+ * "something went wrong" string, so the primitive needs no copy of its own.
+ */
+const LoadErrorContext = React.createContext<string | null>(null)
+export function LazyDialogErrorMessage({ message, children }: { message: string; children: React.ReactNode }) {
+  return <LoadErrorContext.Provider value={message}>{children}</LoadErrorContext.Provider>
+}
+
+/**
+ * Loads a dialog's chunk and reports the outcome: `onLoaded` on success,
+ * `onFailed` on a failed import. A failure leaves the loader empty, so asking
+ * again retries the import (see createLazyDialogLoader).
+ */
+export async function loadLazyDialog(
+  loader: Pick<LazyDialogLoader<Component>, "load">,
+  onLoaded: () => void,
+  onFailed: () => void
+) {
+  try {
+    await loader.load()
+  } catch {
+    onFailed()
+    return
+  }
+  onLoaded()
+}
+
 type Host = { request: () => void }
 const hosts = new WeakMap<DialogHandle, Host>()
 
@@ -120,6 +150,7 @@ export function LazyDialog<C extends Component>({
   handle,
   open = false,
   fallback = null,
+  onLoadError,
   children,
 }: {
   loader: LazyDialogLoader<C>
@@ -128,6 +159,9 @@ export function LazyDialog<C extends Component>({
   /** Shown until the dialog is mounted, for a component that owns its opener
    * (a stand-in with the same look, which asks for the real one on tap). */
   fallback?: React.ReactNode
+  /** The chunk failed to load. A dialog driven by `open` must close it (or
+   * reset whatever set it) here, or the next tap can't retry. */
+  onLoadError?: () => void
   children: (Dialog: C) => React.ReactNode
 }) {
   const [requested, setRequested] = React.useState(false)
@@ -137,10 +171,23 @@ export function LazyDialog<C extends Component>({
   const openWhenMounted = React.useRef(false)
   const mounted = React.useRef(false)
 
+  const errorMessage = React.useContext(LoadErrorContext)
+  // Latest values for the async failure path, which outlives the render.
+  const onFailureRef = React.useRef({ errorMessage, onLoadError })
+  React.useEffect(() => {
+    onFailureRef.current = { errorMessage, onLoadError }
+  })
+
   const loadAndRender = React.useCallback(() => {
-    loader.load().then(rerender, () => {
-      // Dropped the request: the import failed (offline). A retry is the next tap.
+    void loadLazyDialog(loader, rerender, () => {
+      // The import failed. Say so, drop the request and let the owner reset
+      // what asked for it: a handle dialog just retries on the next tap, but
+      // one driven by `open` only reloads when `open` goes false -> true
+      // again, so its owner has to close it (onLoadError).
       openWhenMounted.current = false
+      const { errorMessage: message, onLoadError: reset } = onFailureRef.current
+      if (message) toast.error(message)
+      reset?.()
     })
   }, [loader])
 

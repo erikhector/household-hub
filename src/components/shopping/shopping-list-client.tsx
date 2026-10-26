@@ -868,7 +868,7 @@ export function ShoppingListClient({
       </div>
 
       {list.status !== "ARCHIVED" && (
-        <LazyDialog loader={loadPutAwayDialog} open={putAwayMode !== null}>
+        <LazyDialog loader={loadPutAwayDialog} open={putAwayMode !== null} onLoadError={closePutAway}>
           {(PutAwayDialog) => (
             <PutAwayDialog
               open={putAwayMode !== null}
