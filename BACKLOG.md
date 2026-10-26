@@ -274,21 +274,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
-      `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
-      (`mobile`). Both failed once and passed on the retry in the GitHub
-      `End-to-end (Playwright)` job of release PR #666 on `8d2e088`
-      (2026-10-24). Nobody's change is in them. Same failure at
-      `e2e/ui.ts:330`: after `tab.click()`, `expect(tab).toHaveAttribute(
-      "aria-selected", "true")` still reads `false` after 5 s, although
-      the helper already waits for hydration and a patched `replaceState`.
-      Find out what the click races with (a re-render that resets the
-      tab, the `?tab=` URL sync) and fix it in the app or in the helper's
-      waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-dialog.spec.ts:43
-      e2e/recipe-planned-dates.spec.ts:55 --project=mobile
-      --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
       `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
       shows the all-caught-up card above Completed" (`mobile`). Failed once

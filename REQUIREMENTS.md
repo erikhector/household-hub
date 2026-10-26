@@ -8626,8 +8626,8 @@ UX-14's rapid ticks and the rollback toast.
   visit, "Got it" hides it, stays hidden after a reload).
 - **Waiting on what the user sees, not on the URL**: the e2e flakes fixed
   in Oct 2026 were all a test acting one step ahead of the page. A tab
-  switch that is a `history.replaceState` (BudgetTabs, MealPlanningView)
-  moves the URL at once but renders in a React transition, so a spec
+  switch that is a `history.replaceState` (BudgetTabs) moves the URL at
+  once but renders in a React transition, so a spec
   waits for the tab's `aria-selected` (and, before following a month
   link, for the link's `href`) rather than `toHaveURL` alone. A dialog
   closed from the UI takes its history entry back with an async
