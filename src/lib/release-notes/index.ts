@@ -4,8 +4,10 @@
 // always matches the code that's actually deployed. No database table or
 // GitHub API call at runtime.
 //
-// Client-safe (plain data, no "server-only"): the sidebar reads the latest
-// version too.
+// Server-side only in practice: the full history is ~135 KB, so no Client
+// Component may import this module. The dashboard layout reads
+// CURRENT_VERSION and passes it down as a prop; the cookie constants a client
+// needs live in cookie.ts. The guard test in client-bundle.test.ts checks it.
 
 import releasesJson from "@/lib/release-notes/releases.json";
 import { compareVersions, type ReleaseEntry } from "@/lib/release-notes/release-calc";
@@ -17,12 +19,7 @@ export const RELEASES: readonly ReleaseEntry[] = releasesJson as ReleaseEntry[];
 
 export const CURRENT_VERSION = RELEASES[0]?.version ?? "0.0.0";
 
-// Stores the newest version the user has opened "What's new" for, so the
-// sidebar can show an unread dot until they look at a new release. A
-// preference-category cookie (see src/lib/cookie-inventory.ts): it only
-// affects that dot.
-export const LAST_SEEN_RELEASE_COOKIE = "last_seen_release";
-export const LAST_SEEN_RELEASE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+export { LAST_SEEN_RELEASE_COOKIE, LAST_SEEN_RELEASE_COOKIE_MAX_AGE } from "@/lib/release-notes/cookie";
 
 export function hasUnseenRelease(lastSeen: string | undefined): boolean {
   if (RELEASES.length === 0) return false;

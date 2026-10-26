@@ -7180,6 +7180,15 @@ always match the deployed code with no DB table or GitHub API call.
 `src/lib/release-notes/index.ts` exposes `RELEASES`, `CURRENT_VERSION` and
 the locale fallback.
 
+The history is server-only (PERF-23): it is ~135 KB, and the release
+workflow rewrites it on every release, so a client chunk holding it would
+be re-downloaded by every user after each release. The dashboard layout
+(a Server Component) passes `CURRENT_VERSION` to `Sidebar` and `BottomNav`
+as a `version` prop, and the cookie name and lifetime a Client Component
+needs live in `src/lib/release-notes/cookie.ts`, which doesn't import the
+JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
+`releases.json` through its imports.
+
 - `/dashboard/whats-new` lists every release, newest first, with version,
   date and the note in the user's locale. A note wraps at any width
   (`break-words`), so a URL or long Swedish compound in it can't push the
