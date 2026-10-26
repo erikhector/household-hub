@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.113.3",
+    "date": "2026-10-26",
+    "pr": 754,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed: a database hiccup while saving a recipe, planning a meal, changing your password or dismissing a notification now shows a short \"try again\" message instead of an error page.",
+      "sv": "Åtgärdat: ett tillfälligt databasfel när du sparar ett recept, planerar en måltid, byter lösenord eller stänger en avisering visar nu ett kort meddelande om att försöka igen i stället för en felsida."
+    }
+  },
+  {
     "version": "0.113.2",
     "date": "2026-10-26",
     "pr": 746,
