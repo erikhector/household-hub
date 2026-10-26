@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.113.1",
+    "date": "2026-10-26",
+    "pr": 733,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Meal planning feels a little snappier: saving or undoing prep, plans and portions no longer redraws the page twice.",
+      "sv": "Måltidsplaneringen känns lite snabbare: när du sparar eller ångrar prep, planer och portioner ritas sidan inte längre om två gånger."
+    }
+  },
+  {
     "version": "0.113.0",
     "date": "2026-10-26",
     "pr": 725,

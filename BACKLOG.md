@@ -102,16 +102,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-12. Dependency hygiene** (low) `[!]` — blocked on upstream.
-      `prisma` is already a devDependency; `npm audit --omit=dev` still
-      shows 4 high findings (`mysql2`, `deepmerge-ts` via `@prisma/config`)
-      because `@prisma/client` lists `prisma` as an optional peer, which npm
-      installs and audits. Not reachable at runtime (details in
-      REQUIREMENTS.md, "Dependency audit findings (SEC-12)"). Nothing to do
-      until Prisma ships patched versions: re-audit on the next Prisma bump
-      and delete this item then. `next-auth` is still `5.0.0-beta.32`; track
-      its advisories. Pairs with MAINT-12's Dependabot config.
-
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:
@@ -603,14 +593,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
 
 
 ### Dependencies
-
-- [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
-      `brace-expansion` (under `glob`), `sharp`, `source-map-js` (all high)
-      and `fast-uri` (moderate) all have fixes available via
-      `npm audit fix` or an `overrides` entry. Leave the Prisma-owned
-      `mysql2`/`deepmerge-ts`/`@prisma/config` findings to SEC-12.
-      Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
-      `npm run check && npm run build` is green.
 
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
       Major release (10.73 installed, 11.8 latest). Sentry is wired into
@@ -1204,26 +1186,22 @@ out to be a product-scope question rather than a scoped task should move to
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
 
-- [ ] **PERF-21. Keep recently visited pages in the browser** `[!]` needs a
-      product decision — Next 16 keeps no client copy of dynamic pages
-      (`staleTimes.dynamic` defaults to 0), so every switch between
+- [ ] **PERF-21. Keep recently visited pages in the browser for 15 s**
+      (impact: med, effort: S) — Next 16 keeps no client copy of dynamic
+      pages (`staleTimes.dynamic` defaults to 0), so every switch between
       bottom-bar tabs is a full server render plus that page's queries,
-      even for a tab seen seconds ago. Setting
-      `experimental.staleTimes: { dynamic: 30 }` in `next.config.ts` makes
-      going back to it instant. Your own edits still show at once (an
-      action's `revalidatePath` clears this cache). The cost: another
-      household member's change can take up to 30 s to appear when you
-      navigate (a reload always shows it), which matters most for a shopping
-      list two people work through in the shop. Decide the window (30 s,
-      shorter, or none). The flag is marked experimental. If PERF-22 goes
-      ahead, `cacheLife`'s `stale` value controls this instead.
-      Acceptance once decided: the config change plus an e2e check that an
-      edit still shows after navigating away and back.
-      Suggested (2026-10-26 measurement): 30 s, plus a `router.refresh()`
-      when the app comes back to the foreground (`visibilitychange`), so a
-      phone picked up after a while never shows an old shopping list. That
-      gets most of the speed while keeping the stale window to an active
-      session.
+      even for a tab seen seconds ago. Set
+      `experimental.staleTimes: { dynamic: 15 }` in `next.config.ts`. Your
+      own edits still show at once (an action's `revalidatePath` clears this
+      cache); another household member's change can take up to 15 s to
+      appear on navigation (a reload always shows it). The flag is marked
+      experimental. If PERF-22 goes ahead, `cacheLife`'s `stale` value
+      controls this instead.
+      Decided 2026-10-26 by autopilot-product: 15 s window. Why: tab
+      switching feels instant while a two-person shop sees the other's tick
+      within seconds, and it is one config line to revert. See PRODUCT.md.
+      Acceptance: the config change plus an e2e check that an edit still
+      shows after navigating away and back.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 

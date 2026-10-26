@@ -6640,23 +6640,18 @@ password guesses against any known email.
   limit. `signIn("credentials", ...)` always calls `authorize` internally,
   so one call to `loginAction` still means exactly one throttle check.
 
-### Dependency audit findings (SEC-12)
+### Dependency audit findings
 
-`npm audit --omit=dev` still reports `prisma`'s transitive `mysql2` and
-`deepmerge-ts` (via `@prisma/config`) as high, and the fix npm offers is a
-downgrade to prisma 6, so it isn't taken. Moving `prisma` to
-`devDependencies` is not the answer: it **already is** one. The finding
-survives `--omit=dev` because `@prisma/client` declares `prisma` as an
-*optional peer dependency* (`"prisma": "*"`), which npm 7+ installs and
-audits as part of the production tree. Both packages only run in the CLI
-(`migrate deploy`, `generate`); the deployed app imports `@prisma/client` and
-`@prisma/adapter-pg`, never `mysql2` (the datasource is Postgres) or
-`@prisma/config`. `scripts/vercel-build.mjs` needs the CLI at build time
-and Vercel installs devDependencies for builds, so `prisma` stays where it
-is. The real fix is upstream (a Prisma release with patched `mysql2` and
-`deepmerge-ts`); re-run the audit when MAINT-12's Dependabot config proposes
-a Prisma bump. `next-auth` is still `5.0.0-beta.32`; there is no stable v5,
-so watch its advisories through the same Dependabot config.
+`npm audit --omit=dev` reports 0 vulnerabilities. The earlier Prisma-owned
+findings (`mysql2`, `deepmerge-ts` via `@prisma/config`, tracked as SEC-12)
+cleared with Prisma's patched releases, and DEPS-2 cleared the transitive
+`fast-uri` and `source-map-js` findings with `npm audit fix`. One finding
+needs a pin rather than a fix: `@vercel/cli-config` (under
+`@vercel/functions` > `@vercel/oidc`) pins `zod` to 4.1.11, so
+`package.json` has an `overrides` entry that makes it use the app's `zod`.
+Drop the override once `@vercel/cli-config` ships a patched `zod`. Re-run the
+audit on dependency bumps. `next-auth` is still `5.0.0-beta.32`; there is no
+stable v5, so watch its advisories through MAINT-12's Dependabot config.
 
 ## Navigation & responsive layout
 
