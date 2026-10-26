@@ -155,21 +155,6 @@ comes from Playwright's `page.coverage`.
       test that walks the imports of every `"use client"` file under
       `src/components/` and fails on a path to `zod` (or a lint rule
       with the same effect).
-- [ ] **PERF-25. Lazy-load dialogs: shared helper + shopping list** (medium, M) —
-      dialogs are most of each heavy page's unused JS, along with Base
-      UI's Combobox (39 KB raw), which only dialogs use. Add one helper
-      that renders a `next/dynamic` dialog only after it has been opened
-      once, works with the Base UI dialog handles the pages already use
-      (`createHandle`, detached triggers), and preloads the chunk on
-      pointer-enter/focus of the trigger and in idle time after
-      hydration (`requestIdleCallback`), so the first open isn't slower
-      than today (DESIGN.md: instant feedback). Apply it first to
-      `src/components/shopping/shopping-list-client.tsx`, which imports
-      nine dialogs up front (receipt scan, put away, import, resolve
-      mappings, reorder sections, rename, save template, partial price,
-      item form). Existing e2e specs for those dialogs must pass
-      unchanged on desktop and mobile; add one asserting a dialog opens
-      on the first tap after a hard load.
 - [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
       the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
       `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
