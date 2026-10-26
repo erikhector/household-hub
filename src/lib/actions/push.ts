@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { isValidTimeZone } from "@/lib/quiet-hours";
+import { toFriendlyError } from "@/lib/actions/errors";
 
 type PushSubscriptionInput = {
   endpoint: string;
@@ -217,10 +218,19 @@ export async function setPushQuietHoursAction(
   // instead of showing a schedule on the card that never takes effect.
   if (quietHoursStart === quietHoursEnd) return { error: "Start and end must differ" };
 
-  const { count } = await prisma.pushSubscription.updateMany({
-    where: { endpoint, userId },
-    data: { quietHoursStart, quietHoursEnd, timeZone },
-  });
+  // The one push action that runs under useActionState, where a throw would
+  // reach the error boundary (MAINT-6). The others are awaited inside the
+  // card's own try/catch, which already turns a rejection into its error
+  // state, so they keep throwing on purpose.
+  let count: number;
+  try {
+    ({ count } = await prisma.pushSubscription.updateMany({
+      where: { endpoint, userId },
+      data: { quietHoursStart, quietHoursEnd, timeZone },
+    }));
+  } catch (error) {
+    return toFriendlyError(error);
+  }
   if (count === 0) return { error: "Subscription not found" };
 
   revalidatePath("/dashboard/profile");

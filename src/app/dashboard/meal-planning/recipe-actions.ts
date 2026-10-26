@@ -31,7 +31,7 @@ import {
 import { canonicalUnit, classifyUnits, type ItemUnitConversionLike } from "@/lib/units";
 import { MAX_UNIT_FACTOR, MIN_UNIT_FACTOR } from "@/lib/recipes/unit-choice";
 import type { Prisma } from "@/generated/prisma/client";
-import { fail, v, zodFail } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -698,24 +698,28 @@ export async function createRecipeAction(
 
   // One transaction for the new items and the recipe (MATCH-1), so a
   // failed recipe write never leaves orphaned items behind.
-  await prisma.$transaction(async (tx) => {
-    const ingredientData = await createIngredientItems(tx, household.id, ingredients);
-    await tx.recipe.create({
-      data: {
-        householdId: household.id,
-        name: parsed.data.name,
-        instructions: parsed.data.instructions || null,
-        servings: parsed.data.servings,
-        caloriesPerServing: parsed.data.caloriesPerServing,
-        proteinGramsPerServing: parsed.data.proteinGramsPerServing,
-        carbsGramsPerServing: parsed.data.carbsGramsPerServing,
-        fatGramsPerServing: parsed.data.fatGramsPerServing,
-        tags: parseRecipeTags(formData.getAll("tags")),
-        ingredients: { create: ingredientData },
-        components: { create: components.data },
-      },
+  try {
+    await prisma.$transaction(async (tx) => {
+      const ingredientData = await createIngredientItems(tx, household.id, ingredients);
+      await tx.recipe.create({
+        data: {
+          householdId: household.id,
+          name: parsed.data.name,
+          instructions: parsed.data.instructions || null,
+          servings: parsed.data.servings,
+          caloriesPerServing: parsed.data.caloriesPerServing,
+          proteinGramsPerServing: parsed.data.proteinGramsPerServing,
+          carbsGramsPerServing: parsed.data.carbsGramsPerServing,
+          fatGramsPerServing: parsed.data.fatGramsPerServing,
+          tags: parseRecipeTags(formData.getAll("tags")),
+          ingredients: { create: ingredientData },
+          components: { create: components.data },
+        },
+      });
     });
-  });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
   // The items are committed by now, so the background patch can't race
   // their creation. A no-op when no AI provider key is configured.
   if (ingredients.aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, ingredients.aiCandidates);
@@ -763,28 +767,32 @@ export async function updateRecipeAction(
   const ingredients = await resolveIngredientDecisions(ingredientRows.data, household.id, dict.mealPlanning);
   if ("error" in ingredients) return { error: ingredients.error };
 
-  await prisma.$transaction(async (tx) => {
-    const ingredientData = await createIngredientItems(tx, household.id, ingredients);
-    await tx.recipeIngredient.deleteMany({ where: { recipeId: recipe.id } });
-    await tx.recipeComponent.deleteMany({ where: { parentRecipeId: recipe.id } });
-    await tx.recipe.update({
-      where: { id: recipe.id },
-      data: {
-        name: parsed.data.name,
-        instructions: parsed.data.instructions || null,
-        servings: parsed.data.servings,
-        caloriesPerServing: parsed.data.caloriesPerServing,
-        proteinGramsPerServing: parsed.data.proteinGramsPerServing,
-        carbsGramsPerServing: parsed.data.carbsGramsPerServing,
-        fatGramsPerServing: parsed.data.fatGramsPerServing,
-        // Replaced wholesale, like ingredients/components — an edit that
-        // un-ticks every chip sends no `tags` at all and clears them.
-        tags: parseRecipeTags(formData.getAll("tags")),
-        ingredients: { create: ingredientData },
-        components: { create: components.data },
-      },
+  try {
+    await prisma.$transaction(async (tx) => {
+      const ingredientData = await createIngredientItems(tx, household.id, ingredients);
+      await tx.recipeIngredient.deleteMany({ where: { recipeId: recipe.id } });
+      await tx.recipeComponent.deleteMany({ where: { parentRecipeId: recipe.id } });
+      await tx.recipe.update({
+        where: { id: recipe.id },
+        data: {
+          name: parsed.data.name,
+          instructions: parsed.data.instructions || null,
+          servings: parsed.data.servings,
+          caloriesPerServing: parsed.data.caloriesPerServing,
+          proteinGramsPerServing: parsed.data.proteinGramsPerServing,
+          carbsGramsPerServing: parsed.data.carbsGramsPerServing,
+          fatGramsPerServing: parsed.data.fatGramsPerServing,
+          // Replaced wholesale, like ingredients/components — an edit that
+          // un-ticks every chip sends no `tags` at all and clears them.
+          tags: parseRecipeTags(formData.getAll("tags")),
+          ingredients: { create: ingredientData },
+          components: { create: components.data },
+        },
+      });
     });
-  });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
   if (ingredients.aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, ingredients.aiCandidates);
 
   revalidatePath(MEAL_PLANNING_PATH);
@@ -821,13 +829,17 @@ export async function deleteRecipeAction(recipeId: string): Promise<ActionState>
   // unlink always resets the pair". So the entries are unlinked properly
   // first, in the same transaction as the delete. Scoped through the batch
   // to this household, like every other query here.
-  await prisma.$transaction(async (tx) => {
-    await tx.mealPlanEntry.updateMany({
-      where: { preparedBatch: { recipeId: recipe.id, householdId: household.id } },
-      data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.mealPlanEntry.updateMany({
+        where: { preparedBatch: { recipeId: recipe.id, householdId: household.id } },
+        data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+      });
+      await tx.recipe.delete({ where: { id: recipe.id } });
     });
-    await tx.recipe.delete({ where: { id: recipe.id } });
-  });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
   // The dashboard's meal-prep card lists active batches, which may just
@@ -846,16 +858,20 @@ export async function deleteRecipeAction(recipeId: string): Promise<ActionState>
 export async function toggleRecipeFavoriteAction(recipeId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  const recipe = await prisma.recipe.findFirst({
-    where: { id: recipeId, householdId: household.id },
-    select: { id: true, isFavorite: true },
-  });
-  if (!recipe) return {};
+  try {
+    const recipe = await prisma.recipe.findFirst({
+      where: { id: recipeId, householdId: household.id },
+      select: { id: true, isFavorite: true },
+    });
+    if (!recipe) return {};
 
-  await prisma.recipe.update({
-    where: { id: recipe.id },
-    data: { isFavorite: !recipe.isFavorite },
-  });
+    await prisma.recipe.update({
+      where: { id: recipe.id },
+      data: { isFavorite: !recipe.isFavorite },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
@@ -869,16 +885,20 @@ export async function toggleRecipeFavoriteAction(recipeId: string): Promise<Acti
 export async function toggleRecipeCookSoonAction(recipeId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  const recipe = await prisma.recipe.findFirst({
-    where: { id: recipeId, householdId: household.id },
-    select: { id: true, cookSoonAt: true },
-  });
-  if (!recipe) return {};
+  try {
+    const recipe = await prisma.recipe.findFirst({
+      where: { id: recipeId, householdId: household.id },
+      select: { id: true, cookSoonAt: true },
+    });
+    if (!recipe) return {};
 
-  await prisma.recipe.update({
-    where: { id: recipe.id },
-    data: { cookSoonAt: recipe.cookSoonAt ? null : new Date() },
-  });
+    await prisma.recipe.update({
+      where: { id: recipe.id },
+      data: { cookSoonAt: recipe.cookSoonAt ? null : new Date() },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};

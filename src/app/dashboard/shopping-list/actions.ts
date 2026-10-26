@@ -705,10 +705,14 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
   });
   if (!item) return await fail("itemNotFound");
 
-  await prisma.shoppingListItem.update({
-    where: { id: item.id },
-    data: { inventoryItemId: null },
-  });
+  try {
+    await prisma.shoppingListItem.update({
+      where: { id: item.id },
+      data: { inventoryItemId: null },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   return {};
@@ -1543,101 +1547,105 @@ export async function applyReceiptScanAction(
   // line's stock. Each line re-reads its row and item inside the
   // transaction after claiming the row, so the second line builds on the
   // first. A receipt is a few dozen lines, so the extra hold time is small.
-  await prisma.$transaction(async (tx) => {
-    const now = new Date();
-    for (const match of validMatches) {
-      const item = itemsById.get(match.shoppingListItemId)!;
-      const convertedPrice = Math.round(match.price * rate * 100) / 100;
-      // BUG-3: the receipt's own count when it gave one, else the row's. The
-      // price stays the row's estimate as paid (the Groceries expense sums
-      // it), but PriceHistory and lastKnownPrice are per unit of *this*
-      // quantity: 45 for 3 is 15 each, not 45 for the row's one.
-      const priceQuantity =
-        match.quantity !== undefined && Number.isFinite(match.quantity) && match.quantity > 0
-          ? match.quantity
-          : item.quantity;
+  try {
+    await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      for (const match of validMatches) {
+        const item = itemsById.get(match.shoppingListItemId)!;
+        const convertedPrice = Math.round(match.price * rate * 100) / 100;
+        // BUG-3: the receipt's own count when it gave one, else the row's. The
+        // price stays the row's estimate as paid (the Groceries expense sums
+        // it), but PriceHistory and lastKnownPrice are per unit of *this*
+        // quantity: 45 for 3 is 15 each, not 45 for the row's one.
+        const priceQuantity =
+          match.quantity !== undefined && Number.isFinite(match.quantity) && match.quantity > 0
+            ? match.quantity
+            : item.quantity;
 
-      // Claimed only while it's still waiting for a price (the
-      // transactional twin of awaitsReceiptPrice), so a put-away or a
-      // second receipt that got there first wins and this line is skipped
-      // instead of counting the stock or the price again.
-      const claimed = await tx.shoppingListItem.updateMany({
-        where: {
-          id: item.id,
-          shoppingListId: list.id,
-          OR: [{ purchased: false }, { putAwayAt: null, priceRecordedAt: null }],
-        },
-        data: {
-          estimatedPrice: convertedPrice,
-          purchased: true,
-          // Whoever applied the receipt gets the put-away reminder for rows
-          // nobody ticked by hand.
-          ...(deferStock && !item.purchased ? { checkedOffByUserId: userId } : {}),
-        },
-      });
-      if (claimed.count === 0) continue;
-      itemsUpdated++;
-      totalAmount += convertedPrice;
-
-      const row = await tx.shoppingListItem.findUnique({
-        where: { id: item.id },
-        include: { inventoryItem: true },
-      });
-      if (!row) continue;
-      const linked = row.inventoryItem !== null;
-      await tx.shoppingListItem.update({
-        where: { id: row.id },
-        data: {
-          ...(linked ? { priceRecordedAt: now } : {}),
-          ...(!deferStock || !linked ? { putAwayAt: now } : {}),
-        },
-      });
-      if (!row.inventoryItem) continue;
-
-      if (deferStock) {
-        // AUTO-4: a scanned receipt price is as real as it gets, so it
-        // becomes the item's new lastKnownPrice even before the stock
-        // itself is put away.
-        await tx.inventoryItem.update({
-          where: { id: row.inventoryItem.id },
-          data: { lastKnownPrice: unitPriceOf(convertedPrice, priceQuantity) },
-        });
-        const history = await tx.priceHistory.create({
+        // Claimed only while it's still waiting for a price (the
+        // transactional twin of awaitsReceiptPrice), so a put-away or a
+        // second receipt that got there first wins and this line is skipped
+        // instead of counting the stock or the price again.
+        const claimed = await tx.shoppingListItem.updateMany({
+          where: {
+            id: item.id,
+            shoppingListId: list.id,
+            OR: [{ purchased: false }, { putAwayAt: null, priceRecordedAt: null }],
+          },
           data: {
+            estimatedPrice: convertedPrice,
+            purchased: true,
+            // Whoever applied the receipt gets the put-away reminder for rows
+            // nobody ticked by hand.
+            ...(deferStock && !item.purchased ? { checkedOffByUserId: userId } : {}),
+          },
+        });
+        if (claimed.count === 0) continue;
+        itemsUpdated++;
+        totalAmount += convertedPrice;
+
+        const row = await tx.shoppingListItem.findUnique({
+          where: { id: item.id },
+          include: { inventoryItem: true },
+        });
+        if (!row) continue;
+        const linked = row.inventoryItem !== null;
+        await tx.shoppingListItem.update({
+          where: { id: row.id },
+          data: {
+            ...(linked ? { priceRecordedAt: now } : {}),
+            ...(!deferStock || !linked ? { putAwayAt: now } : {}),
+          },
+        });
+        if (!row.inventoryItem) continue;
+
+        if (deferStock) {
+          // AUTO-4: a scanned receipt price is as real as it gets, so it
+          // becomes the item's new lastKnownPrice even before the stock
+          // itself is put away.
+          await tx.inventoryItem.update({
+            where: { id: row.inventoryItem.id },
+            data: { lastKnownPrice: unitPriceOf(convertedPrice, priceQuantity) },
+          });
+          const history = await tx.priceHistory.create({
+            data: {
+              inventoryItemId: row.inventoryItem.id,
+              price: convertedPrice,
+              quantity: priceQuantity,
+              unit: row.unit,
+              store: trimmedStore,
+            },
+          });
+          recordedPrices.push({
+            priceHistoryId: history.id,
             inventoryItemId: row.inventoryItem.id,
             price: convertedPrice,
             quantity: priceQuantity,
             unit: row.unit,
-            store: trimmedStore,
-          },
-        });
-        recordedPrices.push({
-          priceHistoryId: history.id,
-          inventoryItemId: row.inventoryItem.id,
-          price: convertedPrice,
-          quantity: priceQuantity,
-          unit: row.unit,
-        });
-        continue;
-      }
+          });
+          continue;
+        }
 
-      // A matched receipt line is stock arriving, same as a tick in
-      // ON_CHECK mode: AUTO-7's estimate, GAP-28's fresh-pack reset,
-      // AUTO-4's lastKnownPrice and GAP-9's PriceHistory all come from
-      // applyStockArrival.
-      const arrival = await applyStockArrival(tx, {
-        householdId: household.id,
-        actingUserId: userId,
-        inventoryItem: row.inventoryItem,
-        quantity: row.quantity,
-        unit: row.unit,
-        price: convertedPrice,
-        priceQuantity,
-        store: trimmedStore,
-      });
-      if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
-    }
-  });
+        // A matched receipt line is stock arriving, same as a tick in
+        // ON_CHECK mode: AUTO-7's estimate, GAP-28's fresh-pack reset,
+        // AUTO-4's lastKnownPrice and GAP-9's PriceHistory all come from
+        // applyStockArrival.
+        const arrival = await applyStockArrival(tx, {
+          householdId: household.id,
+          actingUserId: userId,
+          inventoryItem: row.inventoryItem,
+          quantity: row.quantity,
+          unit: row.unit,
+          price: convertedPrice,
+          priceQuantity,
+          store: trimmedStore,
+        });
+        if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
+      }
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
   recordPriceSpikes(household.id, recordedPrices, userId);
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
