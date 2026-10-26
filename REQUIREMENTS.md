@@ -3594,6 +3594,25 @@ the viewer's own categories (Personal Budget's "(Shared)" rows,
 `FixedBudgetSummary`'s recurring items) stay plain. Covered by
 `src/lib/budget-url.test.ts` and `e2e/budget-category-filter.spec.ts`.
 
+**Search the month's transactions (GAP-63).** Above the category select,
+the Transactions tab has a Search field (`SearchInput`: `type="search"`,
+`enterKeyHint="search"`, `autoComplete="off"`, 16 px text and a 44 px
+field on a phone). It filters the rows already loaded for the month on
+screen, client-side, so nothing refetches, and it combines with the
+category filter. A row matches on a case- and accent-insensitive
+substring of its description or category name, or, when the whole term
+is a number written with a comma or a dot ("340", "340,50"), on an
+amount equal to it to the cent (so "34" does not find 340). The term
+lives in `?q=` (written with `history.replaceState` like the category,
+read once on the first render, carried by `MonthNavigator`), so a reload
+keeps the list narrowed. Period totals and Insights are unaffected; only
+the list and its day headers narrow. No match shows "No transactions
+match “{query}”." with a "Clear search" button; the field's own x clears
+it too. Cross-month search is not built. In the read-only household view
+the field is disabled with every other control. Covered by
+`src/lib/budget-transaction-search.test.ts`, `src/lib/budget-url.test.ts`
+and `e2e/budget-search.spec.ts`.
+
 **One Overview, nothing twice (phone pass, Oct 2026).** Overview used to
 run to about five phone screens, with income, expenses and what's left
 shown three times and the due list twice. Now it is Safe to spend, the

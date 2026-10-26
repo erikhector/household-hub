@@ -2323,6 +2323,12 @@ export const sv = {
       clear: "Rensa filter",
       empty: "Inget loggat i {category} den här månaden.",
     },
+    search: {
+      label: "Sök transaktioner",
+      placeholder: "Sök beskrivning, kategori eller belopp",
+      clear: "Rensa sökning",
+      empty: "Inga transaktioner matchar ”{query}”.",
+    },
     emptyTransactions: "Inga transaktioner än. Lägg till den första för att börja hålla koll på budgeten.",
     recurringBadge: "Återkommande",
     type: {
@@ -2818,6 +2824,12 @@ export const sv = {
       all: "Alla kategorier",
       clear: "Rensa filter",
       empty: "Inget loggat i {category} den här månaden.",
+    },
+    search: {
+      label: "Sök transaktioner",
+      placeholder: "Sök beskrivning, kategori eller belopp",
+      clear: "Rensa sökning",
+      empty: "Inga transaktioner matchar ”{query}”.",
     },
     emptyTransactions: "Inga transaktioner än. Lägg till din första för att börja spåra din budget.",
     type: {
