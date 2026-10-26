@@ -5,7 +5,7 @@
 // condition happens, and stick around until a user dismisses them (see
 // dismissNotificationAction in src/lib/actions/notifications.ts).
 //
-// Six triggers exist:
+// Seven triggers exist:
 // - Out-of-stock: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0 — see `recordOutOfStockTransition`, called from every action
 //   that can *decrease* an existing item's quantity (adjustQuantityAction,
@@ -49,6 +49,11 @@
 //   hours after the trip — synced by `syncPutAwayReminders` below, on the
 //   same cron schedule as meal-not-logged. Pushed to whoever ticked the rows
 //   rather than the whole household where that's known.
+// - Tonight's dinner (GAP-57, opt-in): one entry per household per day
+//   listing that day's planned meals that aren't cooked yet — synced by
+//   `syncTonightsDinnerNudge` below on the same cron run, and only for
+//   households where at least one member turned on
+//   `User.tonightsDinnerNudge`. The only trigger that is off by default.
 //
 // There used to be another, good-news "restocked" trigger (the inverse of
 // out-of-stock, firing when an item crossed back above its low-stock
@@ -139,13 +144,22 @@ export type PutAwayReminderNotification = {
   name: string;
 };
 
+export type TonightsDinnerNotification = {
+  id: string;
+  kind: "tonightsDinner";
+  // Monday of the nudge's day, for the link into the planner's week view.
+  weekStartKey: string;
+  names: string[];
+};
+
 export type NotificationItem =
   | OutOfStockNotification
   | MealNotLoggedNotification
   | ExpiringSoonNotification
   | ListClearedNotification
   | PriceSpikeNotification
-  | PutAwayReminderNotification;
+  | PutAwayReminderNotification
+  | TonightsDinnerNotification;
 
 // A history-list entry: the same shape as the bell's NotificationItem, plus
 // the timestamps the notification center page needs to show "when" and
@@ -213,6 +227,18 @@ function toNotificationItem(row: NotificationRow): NotificationItem[] {
   if (row.kind === "PUT_AWAY_REMINDER") {
     if (!row.shoppingList) return [];
     return [{ id: row.id, kind: "putAwayReminder", shoppingListId: row.shoppingListId!, name: row.shoppingList.name }];
+  }
+
+  if (row.kind === "TONIGHTS_DINNER") {
+    if (!row.tonightsDinnerDate || row.mealNames.length === 0) return [];
+    return [
+      {
+        id: row.id,
+        kind: "tonightsDinner",
+        weekStartKey: toDateKey(getWeekStart(row.tonightsDinnerDate)),
+        names: row.mealNames,
+      },
+    ];
   }
 
   if (!row.mealPlanEntry) return [];
@@ -747,6 +773,62 @@ export async function syncPutAwayReminders(householdId: string, now: Date = new 
         await sendPushToHousehold(householdId, payload);
       }
     }),
+  );
+}
+
+// "On the menu today" (GAP-57) — opt-in, see this file's top doc comment.
+// Silent unless a member of the household turned the nudge on AND the day has
+// at least one planned meal that isn't cooked yet, so an empty day or one
+// where everything is already logged never produces an entry.
+//
+// The bell entry is household-wide (every Notification is), but the push goes
+// only to the members who opted in. The `(householdId, tonightsDinnerDate)`
+// unique is what makes it once a day: the create is the claim, a concurrent
+// or repeated run hits P2002 and sends nothing, and a dismissed entry still
+// blocks a second one the same day. The cron runs once a day in the morning
+// (DEPLOYMENT.md "Scheduled jobs"), which is what makes it a morning nudge;
+// "today" is the UTC date, like every other date key in the planner.
+//
+// Awaited push, for the same reason as syncMealNotLoggedNotifications's.
+//
+// Exported for `/api/cron/sync-notifications` (the only caller).
+export async function syncTonightsDinnerNudge(householdId: string, now: Date = new Date()): Promise<void> {
+  const recipients = await prisma.user.findMany({
+    where: { tonightsDinnerNudge: true, memberships: { some: { householdId } } },
+    select: { id: true },
+  });
+  if (recipients.length === 0) return;
+
+  const today = new Date(toDateKey(now));
+  const entries = await prisma.mealPlanEntry.findMany({
+    where: { mealPlan: { householdId }, date: today, consumedAt: null },
+    orderBy: [{ mealType: "asc" }, { id: "asc" }],
+    select: { freeformName: true, recipe: { select: { name: true } } },
+  });
+  const names = entries.flatMap((entry) => {
+    const name = entry.recipe?.name ?? entry.freeformName;
+    return name ? [name] : [];
+  });
+  if (names.length === 0) return;
+
+  try {
+    await prisma.notification.create({
+      data: { householdId, kind: "TONIGHTS_DINNER", tonightsDinnerDate: today, mealNames: names },
+    });
+  } catch (error) {
+    // P2002: already nudged today (an earlier run, or one racing this one).
+    if (isUniqueViolation(error)) return;
+    throw error;
+  }
+
+  await sendPushToHouseholdMembers(
+    householdId,
+    recipients.map((user) => user.id),
+    {
+      title: "On the menu today",
+      body: names.join(", "),
+      url: `/dashboard/meal-planning?week=${toDateKey(getWeekStart(today))}`,
+    },
   );
 }
 

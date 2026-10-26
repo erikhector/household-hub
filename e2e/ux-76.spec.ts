@@ -33,6 +33,7 @@ test("profile is grouped into four sections, with Swish under Preferences", asyn
   await expect(preferences.getByLabel(t.swishForm.label)).toBeVisible();
   const notifications = page.getByRole("region", { name: t.sections.notifications });
   await expect(notifications.getByRole("heading", { name: t.weeklyDigest.title })).toBeVisible();
+  await expect(notifications.getByRole("heading", { name: t.tonightsDinner.title })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
