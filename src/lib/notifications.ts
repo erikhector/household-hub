@@ -13,7 +13,7 @@
 //   markMealEntryCookedAction, togglePurchasedAction). Deliberately never
 //   called from anything that *creates* an item (createInventoryItemAction,
 //   quickAddInventoryItemAction, addStarterKitItemsAction,
-//   findOrCreateInventoryItem, createInventoryItemFromShoppingListItemAction)
+//   createInventoryItemFromShoppingListItemAction)
 //   — those items often start at quantity 0, which is not a depletion event.
 //   Every one of those call sites also runs AUTO-8's sibling
 //   `addToDefaultListOnLowStock` (src/lib/shopping/default-list.ts), which
@@ -65,7 +65,7 @@
 //
 // Callers must resolve `householdId` from their own `requireHousehold()`
 // call first — this trusts its argument the same way
-// `findOrCreateInventoryItem`/`resolveShoppingExpenseCategory` do.
+// `resolveShoppingExpenseCategory` does.
 //
 // Every trigger below that stems from a specific user action (as opposed to
 // the lazy background syncs, which have no single actor) takes an optional
