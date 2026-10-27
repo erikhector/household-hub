@@ -5,13 +5,11 @@
 // are a PreparedBatch, written in markMealEntryCookedAction's transaction.
 
 import { z } from "zod";
-import { LEFTOVERS_SHELF_LIFE_DAYS, MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftover-constants";
+import { MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftover-constants";
 import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 
-// LEFTOVERS_SHELF_LIFE_DAYS and MAX_LEFTOVER_SERVINGS live in
-// leftover-constants.ts (zod-free, imported by client dialogs); re-exported
-// so server callers keep one import.
-export { LEFTOVERS_SHELF_LIFE_DAYS, MAX_LEFTOVER_SERVINGS };
+// MAX_LEFTOVER_SERVINGS lives in leftover-constants.ts (zod-free, imported
+// by client dialogs).
 
 // Empty (the default — the field starts blank) means "no leftovers", same
 // as 0: the Guardrails' "suggest, don't silently mutate" rule means a

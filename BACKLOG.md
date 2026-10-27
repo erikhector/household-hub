@@ -186,11 +186,12 @@ then MAINT-7 per feature, to avoid churn.
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
       REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks and the shared list link. Still
-      English: the ~125 string-literal `error:` values and Zod messages in
-      the files on `PENDING` in `src/lib/actions/error-strings.test.ts`
-      (budget 35, household 27, personal budget 19, auth 14, barcode,
-      receipt and inventory scans, profile, push, digest, household notes),
+      inventory, meal planning, tasks, the shared list link and household
+      (`lib/actions/household.ts`, done). Still English: the string-literal
+      `error:` values and Zod messages in the files on `PENDING` in
+      `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
+      19, auth 14, barcode, receipt and inventory scans, profile, push,
+      digest, household notes),
       plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
       `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
       feature at a time, add its keys to `dict.errors` (or a feature
@@ -214,14 +215,6 @@ then MAINT-7 per feature, to avoid churn.
       optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
       `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
       separate PR.
-- [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
-      exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
-      `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
-      `CALENDAR_FEED_*_DAYS`, `MAX_LEFTOVER_SERVINGS`, `SWISH_*`); non-null
-      assertions in `lib/rate-limit.ts:97,100`, `tasks/page.tsx:38`,
-      `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
-      `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
-      with a typed `isOneOf(values)` guard.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -249,38 +242,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-- [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
-      shows the all-caught-up card above Completed" (`mobile`). Failed once
-      and passed on the retry in the GitHub `End-to-end (Playwright)` job
-      of release PR #689 (run 40184348720, 2026-10-25). Seen again, same
-      outcome (failed, passed on the retry), in the GitHub job of release
-      PR #754 (2026-10-26). Nobody's change is in it. The failing assertion is the Postgres poll near line 111,
-      `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
-      for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
-      spec was already touched by MAINT-40 (#585, wait for each tick's
-      save) and MAINT-50 (#679, wait for hydration), so those fixes were
-      probably incomplete. Find out where the open row comes from: a tick
-      whose Server Action response was another action's (the
-      `waitForResponse` matches any `next-action` POST, so a different
-      action can satisfy it before the tick's save lands), a row another
-      spec in the same worker inserts while this one runs, or a save the
-      app drops. Fix it in the app or in the spec's waiting (match the
-      tick's own response), never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=mobile --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-59. Flaky: `planned-expenses` spec times out under full-suite load** (low, S) —
-      `e2e/planned-expenses.spec.ts:82` (`mobile`) hit the 30 s test
-      timeout once in the `ci:local` gate of #694 (`7adc31c`, 2026-10-25)
-      and passed 3 of 3 on a re-run on the same commit; it passed 5 of 5 on
-      clean `next` (`18e4bfe`), so it needs load to show. Nobody's change is
-      in it. Find what the test is waiting on (hydration, a dialog, a
-      response) and fix it in the app or the spec's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/planned-expenses.spec.ts:82 --project=mobile
-      --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
       `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`

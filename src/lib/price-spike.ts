@@ -47,15 +47,15 @@
 import { median } from "@/lib/math";
 import { convertQuantity, normalizeUnit } from "@/lib/units";
 
-export const PRICE_SPIKE_MIN_PRIOR_PRICES = 3;
+const PRICE_SPIKE_MIN_PRIOR_PRICES = 3;
 export const PRICE_SPIKE_TRAILING_WINDOW = 10;
 export const PRICE_SPIKE_MAX_AGE_DAYS = 365;
 // 25% above the usual price — well outside week-to-week shelf-price
 // variance, well inside what a household would call "wait, what?".
-export const PRICE_SPIKE_MIN_RATIO = 1.25;
+const PRICE_SPIKE_MIN_RATIO = 1.25;
 // In HOUSEHOLD_BASE_CURRENCY (SEK, src/lib/currency.ts) — every PriceHistory
 // row is already converted to it before it's written.
-export const PRICE_SPIKE_MIN_EXTRA_COST = 10;
+const PRICE_SPIKE_MIN_EXTRA_COST = 10;
 // How long after one PRICE_SPIKE alert (dismissed or not) the same item
 // can't raise another — enforced by recordPriceSpikes, exported from here so
 // the rules live in one place. Covers re-checking the same purchase

@@ -164,6 +164,12 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   string-literal `error:` in any action file that isn't on its `PENDING`
   list (the files MAINT-7 still has to convert; a file that becomes clean
   must be removed from the list), and by `e2e/localised-errors.spec.ts`.
+  MAINT-7 (in progress, one feature per PR) has converted the household
+  actions (`lib/actions/household.ts`): invites, joining by invite, members,
+  ownership transfer, leaving or deleting a household, and the owner-only
+  settings, including the "can't delete your only household" reason the
+  delete dialog shows. `passwordTooLong` spells out the 72-character limit
+  because a Zod message can't carry variables.
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
