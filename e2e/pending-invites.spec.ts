@@ -35,7 +35,7 @@ test.afterEach(async () => {
   await withDb((c) => c.query(`DELETE FROM "Invitation" WHERE id = $1 AND "householdId" = $2`, [INVITE_ID, E2E_HOUSEHOLD.id]));
 });
 
-test("a pending invite is listed and closing it stops the link working", async ({ page, request }) => {
+test("a pending invite is listed and closing it stops the link working", async ({ page }) => {
   // Another spec renames the seeded user, so read the current name rather
   // than relying on the seeded one.
   const inviter = await withDb((c) => c.query(`SELECT "displayName" FROM "User" WHERE id = $1`, [E2E_USER.id]));
@@ -48,8 +48,12 @@ test("a pending invite is listed and closing it stops the link working", async (
   await expectNoHorizontalOverflow(page);
 
   // The link works before it is closed.
-  const before = await request.get(`/join/${INVITE_ID}-token`);
-  expect(await before.text()).not.toContain("invalid or has expired");
+  // Asserted on visible text, not the raw HTML: the page's payload carries
+  // the whole dictionary, including the "invalid" message, either way.
+  await page.goto(`/join/${INVITE_ID}-token`);
+  await expect(page.getByText(/invalid or has expired/)).toHaveCount(0);
+  await gotoRevealed(page, "/dashboard/household");
+  await expectHydrated(close);
 
   await close.click();
   await expect(page.getByText("Invite closed")).toBeVisible();
@@ -58,6 +62,6 @@ test("a pending invite is listed and closing it stops the link working", async (
   const rows = await withDb((c) => c.query(`SELECT 1 FROM "Invitation" WHERE id = $1`, [INVITE_ID]));
   expect(rows.rowCount).toBe(0);
 
-  const after = await request.get(`/join/${INVITE_ID}-token`);
-  expect(await after.text()).toContain("invalid or has expired");
+  await page.goto(`/join/${INVITE_ID}-token`);
+  await expect(page.getByText(/invalid or has expired/)).toBeVisible();
 });
