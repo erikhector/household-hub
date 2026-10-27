@@ -103,12 +103,12 @@ export function CookieNotice({
           two text lines apart (UX-148). Vertical padding on an inline box
           widens its hit area (and bounding box) without changing the line
           height, so the paragraph keeps `leading-snug` and the link still
-          reaches 44 px below `sm` or under a coarse pointer (M3). */}
+          reaches 44 px (a little side padding for short words) below `sm` or under a coarse pointer (M3). */}
       <p className="flex-1 leading-snug text-muted-foreground">
         {dict.message}{" "}
         <Link
           href="/privacy#cookies"
-          className="text-foreground underline underline-offset-4 max-sm:py-4 pointer-coarse:py-4"
+          className="text-foreground underline underline-offset-4 max-sm:-mx-1 max-sm:px-1 max-sm:py-4 pointer-coarse:-mx-1 pointer-coarse:px-1 pointer-coarse:py-4"
         >
           {dict.learnMore}
         </Link>
