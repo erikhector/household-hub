@@ -186,12 +186,13 @@ then MAINT-7 per feature, to avoid churn.
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
       REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks, the shared list link and household
-      (`lib/actions/household.ts`, done). Still English: the string-literal
+      inventory, meal planning, tasks, the shared list link, household
+      (`lib/actions/household.ts`), auth (`lib/actions/auth.ts`) and
+      profile, all done. Still English: the string-literal
       `error:` values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19, auth 14, barcode, receipt and inventory scans, profile, push,
-      digest, household notes),
+      19, barcode, receipt and inventory scans, push, digest, household
+      notes),
       plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
       `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
       feature at a time, add its keys to `dict.errors` (or a feature
@@ -242,18 +243,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-- [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
-      `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
-      gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
-      left", got "2 of 4". Only `e2e/item-aliases.spec.ts` changed in that
-      PR, so nobody's change is in it. Not yet re-run on clean `next`.
-      Find out whether a portion is taken twice (a double tap or a repeated
-      action), or a row another spec in the same worker leaves behind, and
-      fix it in the app or the spec's setup, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-prep.spec.ts:145 --project=desktop --repeat-each=30`
-      passes 30/30.
 
 - [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
       `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
@@ -551,13 +540,6 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       focus search, `j`/`k` move, `x` tick. Ignored while typing in a
       field or with a dialog open. A `?` overlay lists them. Desktop only
       (hidden on touch). e2e spec on the desktop project.
-
-- [ ] **UX-41d. Tooltips on icon-only buttons** (S) — Split from UX-41.
-      A Base UI Tooltip (via a shared `IconButton` or a wrapper in
-      `src/components/ui/`) on every icon-only button, using its existing
-      aria-label text so the two cannot drift. Desktop hover/focus only;
-      mobile unchanged. e2e: hover a known icon button, assert the
-      tooltip.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
