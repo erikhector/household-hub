@@ -280,7 +280,18 @@ export async function waitForDialogHistory(page: Page) {
 export async function waitForUndoableDelete(page: Page, message: string | RegExp) {
   const toast = page.getByText(message);
   await expect(toast).toBeVisible();
+  // Listen for the delete's Server Action before the toast can close: it goes
+  // out the moment the toast times out. waitForLoadState("networkidle") can't
+  // stand in for this, since it resolves at once when the page already reached
+  // idle during its load, so a reload right after could beat the request and
+  // see the state it should have changed as it was (MAINT-60: a prepped
+  // portion not yet given back).
+  const sent = page.waitForResponse(
+    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
+    { timeout: 15_000 },
+  );
   await expect(toast).toBeHidden({ timeout: 15_000 });
+  await sent;
   await page.waitForLoadState("networkidle");
 }
 

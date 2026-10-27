@@ -35,19 +35,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { createDialogHandle } from "@/components/ui/dialog";
-import { LazyDialog, openLazyDialog } from "@/components/ui/lazy-dialog";
-import { LazyReceiptScan } from "@/components/shopping/lazy-receipt-scan";
-import { ShoppingItemEditTriggers } from "@/components/shopping/shopping-item-edit-triggers";
-import {
-  loadImportListDialog,
-  loadPartialPriceDialog,
-  loadPutAwayDialog,
-  loadRenameListDialog,
-  loadReorderSectionsDialog,
-  loadResolveMappingsDialog,
-  loadSaveTemplateDialog,
-  loadShoppingItemFormDialog,
-} from "@/components/shopping/lazy-dialogs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,9 +42,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ShoppingItemFormDialog } from "@/components/shopping/shopping-item-form-dialog";
+import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
+import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-dialog";
+import { ImportListDialog } from "@/components/shopping/import-list-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { CategoryChip } from "@/components/shopping/category-chip";
+import { ReorderSectionsDialog } from "@/components/shopping/reorder-sections-dialog";
+import { SaveTemplateDialog } from "@/components/shopping/list-templates";
+import { RenameListDialog } from "@/components/shopping/rename-list-dialog";
+import { PutAwayDialog } from "@/components/shopping/put-away-dialog";
 import { NextUpDock, ProgressRing } from "@/components/shopping/shopping-mode";
 import {
   completeShoppingListAction,
@@ -85,6 +80,7 @@ import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
 import type { StoreOrder } from "@/lib/shopping/store-order";
+import { PartialPriceDialog } from "@/components/shopping/partial-price-dialog";
 import { countPriced, sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { nextUp, shoppingProgress, type ShoppingProgress } from "@/lib/shopping/shopping-progress";
 import {
@@ -533,7 +529,7 @@ export function ShoppingListClient({
 
   // UX-87: with some bought rows unpriced, ask what to log before the list
   // closes; otherwise complete as before.
-  const completeList = () => (hasPartialPrices ? openLazyDialog(dialogs.partialPrice) : runComplete());
+  const completeList = () => (hasPartialPrices ? dialogs.partialPrice.open(null) : runComplete());
 
   // UX-80: whether completing moves the unbought rows to the next list. A
   // ref beside the state because the put-away sheet sets it and completes in
@@ -688,7 +684,7 @@ export function ShoppingListClient({
           <div className="flex items-center gap-2">
             <PageTitle
               morph={{ kind: "shopping-list", id: list.id }}
-              onTap={() => openLazyDialog(dialogs.renameList)}
+              onTap={() => dialogs.renameList.open(null)}
               tapHint={dict.renameList.titleHint}
             >{list.name}</PageTitle>
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
@@ -723,7 +719,7 @@ export function ShoppingListClient({
               the button waits for the first row instead of leading the page
               as a disabled bar above the add line. */}
           {isActive && items.length > 0 && (
-            <LazyReceiptScan
+            <ReceiptScanDialog
               listId={list.id}
               pendingItems={receiptMatchable.map((item) => ({
                 id: item.id,
@@ -753,17 +749,17 @@ export function ShoppingListClient({
             />
             <DropdownMenuContent align="end" className="w-auto min-w-52 print:hidden">
               {/* UX-85: offered on any status, like Save as template. */}
-              <DropdownMenuItem onClick={() => openLazyDialog(dialogs.renameList)}>
+              <DropdownMenuItem onClick={() => dialogs.renameList.open(null)}>
                 <Pencil />
                 {dict.renameList.menuItem}
               </DropdownMenuItem>
               {isActive && (
                 <>
-                  <DropdownMenuItem onClick={() => openLazyDialog(dialogs.addItem)}>
+                  <DropdownMenuItem onClick={() => dialogs.addItem.open(null)}>
                     <Plus />
                     {dict.addItem}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openLazyDialog(dialogs.importList)}>
+                  <DropdownMenuItem onClick={() => dialogs.importList.open(null)}>
                     <ClipboardPaste />
                     {dict.importList.triggerLabel}
                   </DropdownMenuItem>
@@ -772,7 +768,7 @@ export function ShoppingListClient({
                     {dict.addLowStock}
                   </DropdownMenuItem>
                   {showResolveMappings && (
-                    <DropdownMenuItem onClick={() => openLazyDialog(dialogs.resolveMappings)}>
+                    <DropdownMenuItem onClick={() => dialogs.resolveMappings.open(null)}>
                       <Link2 />
                       {resolveMappingsLabel}
                     </DropdownMenuItem>
@@ -782,7 +778,7 @@ export function ShoppingListClient({
                     {dict.shareLink.button}
                   </DropdownMenuItem>
                   {reorderSections.length >= 2 && (
-                    <DropdownMenuItem onClick={() => openLazyDialog(dialogs.reorderSections)}>
+                    <DropdownMenuItem onClick={() => dialogs.reorderSections.open(null)}>
                       <ArrowUpDown />
                       {dict.reorderSections.menuItem}
                     </DropdownMenuItem>
@@ -798,7 +794,7 @@ export function ShoppingListClient({
               {/* GAP-4: offered on any status — saving a finished trip as a
                   template is the common case. */}
               {items.length > 0 && (
-                <DropdownMenuItem onClick={() => openLazyDialog(dialogs.saveTemplate)}>
+                <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
                   <ScrollText />
                   {dict.templates.menuItem}
                 </DropdownMenuItem>
@@ -868,98 +864,72 @@ export function ShoppingListClient({
       </div>
 
       {list.status !== "ARCHIVED" && (
-        <LazyDialog loader={loadPutAwayDialog} open={putAwayMode !== null} onLoadError={closePutAway}>
-          {(PutAwayDialog) => (
-            <PutAwayDialog
-              open={putAwayMode !== null}
-              onOpenChange={(next) => {
-                if (!next) closePutAway();
-              }}
-              listId={list.id}
-              items={awaitingPutAway.map((item) => ({
-                id: item.id,
-                name: item.name,
-                quantity: item.quantity,
-                unit: item.unit,
-                inventoryItemId: item.inventoryItemId,
-                estimatedPrice: item.estimatedPrice,
-                location: item.location,
-              }))}
-              finishing={putAwayMode === "finish" && isActive}
-              // UX-80: "Put away & finish" completes right here. The sheet has
-              // already said what happens to unbought rows (its carry-over
-              // checkbox), so a second "Complete this list?" would only repeat it.
-              pendingCount={pendingItems.length}
-              carryOverListName={carryOverListName}
-              onFinish={(carry) => {
-                setCarryOver(carry);
-                completeList();
-              }}
-              numberFormat={numberFormat}
-              locations={locations}
-              dict={dict}
-              autoAddDict={autoAddDict}
-            />
-          )}
-        </LazyDialog>
+        <PutAwayDialog
+          open={putAwayMode !== null}
+          onOpenChange={(next) => {
+            if (!next) closePutAway();
+          }}
+          listId={list.id}
+          items={awaitingPutAway.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            inventoryItemId: item.inventoryItemId,
+            estimatedPrice: item.estimatedPrice,
+            location: item.location,
+          }))}
+          finishing={putAwayMode === "finish" && isActive}
+          // UX-80: "Put away & finish" completes right here. The sheet has
+          // already said what happens to unbought rows (its carry-over
+          // checkbox), so a second "Complete this list?" would only repeat it.
+          pendingCount={pendingItems.length}
+          carryOverListName={carryOverListName}
+          onFinish={(carry) => {
+            setCarryOver(carry);
+            completeList();
+          }}
+          numberFormat={numberFormat}
+          locations={locations}
+          dict={dict}
+          autoAddDict={autoAddDict}
+        />
       )}
 
-      <LazyDialog loader={loadRenameListDialog} handle={dialogs.renameList}>
-        {(RenameListDialog) => (
-          <RenameListDialog listId={list.id} listName={list.name} dict={dict.renameList} handle={dialogs.renameList} />
-        )}
-      </LazyDialog>
+      <RenameListDialog listId={list.id} listName={list.name} dict={dict.renameList} handle={dialogs.renameList} />
 
       {items.length > 0 && (
-        <LazyDialog loader={loadSaveTemplateDialog} handle={dialogs.saveTemplate}>
-          {(SaveTemplateDialog) => (
-            <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />
-          )}
-        </LazyDialog>
+        <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />
       )}
 
       {isActive && (
         <>
-          <LazyDialog loader={loadShoppingItemFormDialog} handle={dialogs.addItem}>
-            {(ShoppingItemFormDialog) => (
-              <ShoppingItemFormDialog
-                mode="create"
-                listId={list.id}
-                inventoryItems={inventoryItems}
-                units={units}
-                dict={dict}
-                barcodeDict={barcodeDict}
-                handle={dialogs.addItem}
-              />
-            )}
-          </LazyDialog>
-          <LazyDialog loader={loadImportListDialog} handle={dialogs.importList}>
-            {(ImportListDialog) => <ImportListDialog listId={list.id} dict={dict.importList} handle={dialogs.importList} />}
-          </LazyDialog>
+          <ShoppingItemFormDialog
+            mode="create"
+            listId={list.id}
+            inventoryItems={inventoryItems}
+            units={units}
+            dict={dict}
+            barcodeDict={barcodeDict}
+            handle={dialogs.addItem}
+          />
+          <ImportListDialog listId={list.id} dict={dict.importList} handle={dialogs.importList} />
           <ShareListButton shoppingListId={list.id} dict={dict.shareLink} handle={dialogs.share} />
-          <LazyDialog loader={loadReorderSectionsDialog} handle={dialogs.reorderSections}>
-            {(ReorderSectionsDialog) => (
-              <ReorderSectionsDialog
-                sections={reorderSections}
-                dict={dict.reorderSections}
-                handle={dialogs.reorderSections}
-              />
-            )}
-          </LazyDialog>
+          <ReorderSectionsDialog
+            sections={reorderSections}
+            dict={dict.reorderSections}
+            handle={dialogs.reorderSections}
+          />
           {showResolveMappings && (
-            <LazyDialog loader={loadResolveMappingsDialog} handle={dialogs.resolveMappings}>
-              {(ResolveMappingsDialog) => (
-                <ResolveMappingsDialog
-                  items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}
-                  inventoryItems={inventoryItems}
-                  aliases={aliases}
-                  categories={categories}
-                  dict={dict.resolveMappings}
-                  triggerLabel={resolveMappingsLabel}
-                  handle={dialogs.resolveMappings}
-                />
-              )}
-            </LazyDialog>
+            <ResolveMappingsDialog
+              items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}
+              inventoryItems={inventoryItems}
+              aliases={aliases}
+              categories={categories}
+              dict={dict.resolveMappings}
+              triggerLabel={resolveMappingsLabel}
+              handle={dialogs.resolveMappings}
+            />
           )}
           <ConfirmDialog
             handle={dialogs.completeList}
@@ -981,18 +951,14 @@ export function ShoppingListClient({
               })}
             </label>
           </ConfirmDialog>
-          <LazyDialog loader={loadPartialPriceDialog} handle={dialogs.partialPrice}>
-            {(PartialPriceDialog) => (
-              <PartialPriceDialog
-                handle={dialogs.partialPrice}
-                suggested={boughtPricedTotal}
-                unpriced={boughtPriced.total - boughtPriced.priced}
-                total={boughtPriced.total}
-                dict={dict.partialPrice}
-                onConfirm={runComplete}
-              />
-            )}
-          </LazyDialog>
+          <PartialPriceDialog
+            handle={dialogs.partialPrice}
+            suggested={boughtPricedTotal}
+            unpriced={boughtPriced.total - boughtPriced.priced}
+            total={boughtPriced.total}
+            dict={dict.partialPrice}
+            onConfirm={runComplete}
+          />
         </>
       )}
       <ConfirmDialog
@@ -1399,10 +1365,6 @@ function ShoppingRow({
   // also carries a chip or the "Match item" badge keeps the stacked second
   // line: those are too wide to share a 412 px line with a readable name.
   const inline = large && !needsMapping && !(item.category !== null && !groupedByCategory);
-  // PERF-25: the edit form is a lazily loaded chunk, so its openers (the pencil,
-  // "Match item", the ⋯ menu's Edit and the swipe) reach it through this
-  // row's own handle instead of sharing a Dialog root with it.
-  const [editHandle] = useState(() => createDialogHandle());
 
   // A just-added row scrolls into view if the list is long enough to have
   // hidden it ("nearest" leaves it alone if it's already on screen). New
@@ -1571,25 +1533,16 @@ function ShoppingRow({
             <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} hideAddOnPhone={inline} />
             {editable && (
               <>
-                <ShoppingItemEditTriggers
-                  handle={editHandle}
-                  unlinked={item.inventoryItemId === null}
+                <ShoppingItemFormDialog
+                  mode="edit"
+                  item={item}
+                  inventoryItems={inventoryItems}
+                  categories={categories}
+                  units={units}
+                  dict={dict}
                   editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
                   matchItemLabel={dict.matchItemButton}
                 />
-                <LazyDialog loader={loadShoppingItemFormDialog} handle={editHandle}>
-                  {(ShoppingItemFormDialog) => (
-                    <ShoppingItemFormDialog
-                      mode="edit"
-                      item={item}
-                      inventoryItems={inventoryItems}
-                      categories={categories}
-                      units={units}
-                      dict={dict}
-                      handle={editHandle}
-                    />
-                  )}
-                </LazyDialog>
                 {/* UX-49: removes at once with the swipe's Undo toast, not a
                     "can't be undone" confirm for an item that is one tap to
                     add back. */}

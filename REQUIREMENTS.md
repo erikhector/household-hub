@@ -75,40 +75,6 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
-- **Dialogs load on first use (PERF-25).** A dialog is most of a heavy
-  page's unused JS, so a page declares each one's chunk with
-  `createLazyDialogLoader(() => import(...))` (module level, shared; the
-  shopping list's are in `src/components/shopping/lazy-dialogs.ts`) and
-  renders it through `<LazyDialog>` from `src/components/ui/lazy-dialog.tsx`,
-  which mounts the real component the first time it is asked to open and
-  keeps it mounted after. Two ways to ask: a dialog that opens through a
-  Base UI handle (`createDialogHandle`) is opened with
-  `openLazyDialog(handle)` where `handle.open(null)` used to be (the host
-  waits for the chunk and for the Root to attach, because a handle ignores
-  `open()` until one is mounted); a dialog the parent controls with an
-  `open` prop passes `open` to `<LazyDialog>`. The chunk is fetched before
-  it's needed so the first open is no slower than before: in idle time after
-  the host hydrates (`requestIdleCallback`, a short timeout on Safari), and
-  on pointer-enter, focus or touch-start of an opener that spreads
-  `preloadOnIntent(loader)`. A tap that still beats both opens the dialog as
-  soon as the chunk arrives. Openers stay in the page's own chunk: a dialog
-  that owned its trigger either gets a handle plus eager opener buttons (a
-  row's edit form: `ShoppingItemEditTriggers`) or a same-looking stand-in via
-  `fallback` (`LazyReceiptScan`, whose real component mounts with its menu
-  already open). Applied so far to the shopping list page (item form, receipt
-  scan, put away, import, resolve mappings, reorder sections, rename, save
-  template, partial price); `e2e/shopping-lazy-dialogs.spec.ts` covers the
-  first tap after a hard load, with and without the idle prefetch.
-  Also applied to the meal planning page group (PERF-26: `week-planner.tsx`,
-  `recipe-manager.tsx`, `prep-tab.tsx`, `cook-now-list.tsx`; loaders in
-  `src/components/meal-planning/lazy-dialogs.ts`): meal entry (add and edit),
-  cook mode, mark cooked, move, fill empty days, missing ingredients, add to
-  plan, recipe form, record prep and plan portions. Dialogs that used to own
-  their trigger (meal entry, recipe form, record prep, add to plan) now take a
-  `handle`, with the opener button kept in the page (`AddMealSlot` in the
-  planner, `LazyAddToPlan` for the Cook now tab's server-rendered rows).
-  `e2e/meal-planning-lazy-dialogs.spec.ts` covers the first tap without the idle
-  prefetch. Inventory and the budget pages are still to do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -198,6 +164,17 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   string-literal `error:` in any action file that isn't on its `PENDING`
   list (the files MAINT-7 still has to convert; a file that becomes clean
   must be removed from the list), and by `e2e/localised-errors.spec.ts`.
+  MAINT-7 (in progress, one feature per PR) has converted the household
+  actions (`lib/actions/household.ts`): invites, joining by invite, members,
+  ownership transfer, leaving or deleting a household, and the owner-only
+  settings, including the "can't delete your only household" reason the
+  delete dialog shows. `passwordTooLong` spells out the 72-character limit
+  because a Zod message can't carry variables.
+  It has also converted the auth actions (`lib/actions/auth.ts`: signup,
+  login, password reset, email verification and its resend, including the
+  "if an account exists" confirmations, which stay identical whether or not
+  the account exists) and the profile actions
+  (`dashboard/profile/actions.ts`: name, email, password, delete account).
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
@@ -305,7 +282,21 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   session's `role`, not trusted from the client):
   - `removeMemberAction` — removes a `CONTRIBUTOR` from the household. Fails
     (returns `{ error }`) if the caller isn't the owner, the target is the
-    owner, or the caller targets themselves.
+    owner, or the caller targets themselves. SEC-4: in the same
+    `$transaction` as the delete (shared with `leaveHouseholdAction` via
+    `revokeDepartingMemberAccess`) it deletes the member's unused
+    invitations (`Invitation.invitedById`, set since UX-62, so no new
+    column was needed; links made before that column have no inviter and
+    stay until they expire), revokes **every** active shopping-list share
+    link in the household (we can't tell which the leaver saw), and
+    regenerates the calendar feed token if the feed is on. Rotation is
+    automatic rather than a prompt because a skippable prompt leaves the
+    hole open; the cost is that members re-share lists and the owner
+    re-copies the feed URL. The remove dialog says so up front.
+  - `revokeInviteAction(invitationId)` — closes an unused invite. Owner:
+    any in the household; contributor: only their own. The Household page
+    lists unexpired, unused invites ("Pending invites", `PendingInvites`)
+    to every member with the inviter and expiry, never the token.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
@@ -4280,7 +4271,7 @@ where this feature has none.
   are, exactly like the other two features' review step.
 - **An ordered attempt chain, not a single provider pick**
   (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
-  `resolveAttempts()` builds a chain of up to three attempts — Gemini's
+  `resolveAttempts()` (in `src/lib/ai/provider-chain.ts`, the one chain shared with receipt scan and the category fallback, unit-tested with mocked `fetch`) builds a chain of up to three attempts — Gemini's
   primary model (`GEMINI_MODEL`, default the auto-updating
   `gemini-flash-latest` alias), then Gemini's *fallback* model
   (`GEMINI_FALLBACK_MODEL`, default `gemini-flash-lite-latest` — a
@@ -4291,7 +4282,7 @@ where this feature has none.
   (`generativelanguage.googleapis.com`, no card required) makes this
   feature genuinely free to run at a single-household scale, where
   Anthropic's is metered from the first request — see `.env.example` for
-  all three env vars. `callAttempts` walks the chain in order and moves to
+  all three env vars. `runProviderChain` walks the chain in order and moves to
   the *next* entry only when the current one reports itself busy
   (`provider_busy` — see the retry section just below), trying a different
   Gemini model before ever spending real money falling through to
@@ -4317,7 +4308,7 @@ where this feature has none.
   fetch, not its own internal retry loop — a busy response (Gemini: `503
   UNAVAILABLE`, commonly hit on the free-tier Flash model under load;
   Anthropic: `529 overloaded_error`; either: plain rate limiting, `429`)
-  throws `provider_busy` and lets `callAttempts` move on to the next
+  throws `provider_busy` and lets `runProviderChain` move on to the next
   *different* model/provider rather than retrying the same one — that's
   both faster (no artificial backoff delay for a request that isn't being
   identically repeated) and, per Google's own guidance for the 503 case,
@@ -4325,13 +4316,13 @@ where this feature has none.
   `REQUEST_TIMEOUT_MS` is 50s (a live test measured ~40s for one
   successful Gemini free-tier call, comfortably past a shorter timeout)
   and is shared as one deadline across the *entire chain* — before
-  actually starting the next attempt, `callAttempts` checks
+  actually starting the next attempt, `runProviderChain` checks
   `deadlineAt - Date.now()` against `MIN_ATTEMPT_BUDGET_MS` (15s) and
   returns `provider_busy` immediately if another attempt couldn't
   realistically finish in what's left, rather than starting one doomed to
   be aborted mid-flight. That shared deadline firing itself (an attempt
-  slow enough to eat the whole remaining budget) is caught in
-  `scanShelfPhotoAction` as a plain `AbortError` and mapped to the same
+  slow enough to eat the whole remaining budget) is caught by `runProviderChain` (not
+  `scanShelfPhotoAction`) as a plain `AbortError` and mapped to the same
   `provider_busy` message, not the generic failure — the raw
   `{name: "AbortError", message: "This operation was aborted"}` this
   produces if left unmapped is exactly what surfaced in testing before
@@ -6765,6 +6756,12 @@ components directly.
   (`components/ui/tooltip.tsx`, Base UI) instead of a `title`, which touch
   never shows; the footer's What's new and notification bell are marked
   active on their own pages like the section links.
+  **Icon-only buttons everywhere (UX-41d)**: `Button` (`components/ui/button.tsx`)
+  wraps itself in that Tooltip whenever its size is `icon*` and it has a
+  string `aria-label`, showing the same text, so the hint and the accessible
+  name come from one prop and cannot drift. `tooltip={false}` opts out. The
+  popup opens on hover and keyboard focus only (Base UI ignores touch), so phones are unchanged. Covered
+  by `e2e/icon-button-tooltips.desktop.spec.ts`.
 - **In between (640 px wide and up, but a tablet or a phone in landscape;
   UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
   863×393 too. The content column next to the sidebar is `min-w-0`, so a
@@ -7133,10 +7130,34 @@ trap and the X work like every other dialog.
   `SmartAddBar` takes focus. Both strip the param afterwards. With no
   active list the shopping command lands on the overview.
 - It stores nothing in the browser (`cookie-inventory.ts` unchanged).
-  No data search yet (UX-41b).
 
-Covered by `e2e/command-palette.spec.ts` and
-`command-palette-commands.test.ts`.
+#### Household search (UX-41b)
+
+From two characters on, the palette also searches the household. After a
+250 ms pause in typing it calls `searchHouseholdAction(query)`
+(`src/lib/actions/search.ts`), and the hits show under the matching
+commands in groups: Inventory, Recipes, Shopping lists, Tasks and Budget
+categories (at most five each, name contains the text, case insensitive,
+empty groups left out). Hits and commands are one list of options, so the
+arrows, Enter, the click and the live count work the same on both.
+
+- The action calls `requireHousehold()` and scopes all five queries by that
+  household; the client sends only the text. The text is Zod-validated
+  (trimmed, 2 to 80 characters); anything else, or a non-string, is an empty
+  search. It is rate limited to 120 a minute per user (`search:<userId>`);
+  past that the palette says "Too many searches." and keeps the commands.
+  Archived shopping lists are not searched.
+- A hit opens its row: an inventory item and a shopping list their own page,
+  a recipe the Recipes tab searched down to it (`?tab=recipes&recipe=<id>`),
+  a budget category Transactions filtered to it, and a task the task list
+  (tasks have no page of their own). Links are built in
+  `src/lib/household-search.ts`.
+- A reply for an older query is dropped, and a failed search silently
+  leaves the commands. "No matching commands." waits for the answer.
+
+Covered by `e2e/command-palette.spec.ts`,
+`command-palette-commands.test.ts` and `src/lib/actions/search.test.ts`
+(tenancy scoping, validation, rate limit).
 
 
 ## Releases & What's new
@@ -8086,7 +8107,7 @@ approximating them, so the email never disagrees with the app.
   under that field and takes focus. A taken email also offers Log in
   (prefilled with the email) and Forgot password links. A wrong login
   password is shown under the password field, which takes focus; the email
-  is kept. Server messages stay English (MAINT-7). Covered by
+  is kept. Server messages come back in the request's language (UX-16, MAINT-7). Covered by
   `e2e/auth-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically

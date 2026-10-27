@@ -32,7 +32,7 @@
 import { z } from "zod";
 import { requireHousehold } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { excerptForLog, logger } from "@/lib/logger";
+import { DEFAULT_ANTHROPIC_MODEL, resolveAttempts, runProviderChain } from "@/lib/ai/provider-chain";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { receiptLineBarcode } from "@/lib/barcode";
 
@@ -78,7 +78,6 @@ const rawReceiptLineSchema = z.object({
     .optional()
     .transform((v) => (v == null ? null : String(v))),
 });
-type RawReceiptLine = z.infer<typeof rawReceiptLineSchema>;
 
 const receiptScanSchema = z.object({
   lines: z.array(rawReceiptLineSchema).max(MAX_LINES_PER_SCAN),
@@ -101,25 +100,9 @@ const SYSTEM_PROMPT =
   "Report every line item you can read even if the photo is imperfect — skipping an item is only ever better " +
   "than inventing one that isn't really on the receipt.";
 
-/** A provider-specific failure — the message is one of the codes
- * scanReceiptPhotoAction already maps to a translated string in the calling
- * dialogs, so callers can just re-throw it. */
-class ScanError extends Error {}
-
-// Same reasoning as inventory-scan.ts: a transient "overloaded"/rate-limited
-// response moves on to the next attempt in the chain instead of retrying the
-// same busy model.
-const RETRYABLE_STATUS = new Set([429, 503, 529]);
-const MIN_ATTEMPT_BUDGET_MS = 15_000;
-
-// ---------------------------------------------------------------------------
-// Gemini (Google AI Studio) — same REST generateContent + responseSchema
-// approach as inventory-scan.ts.
-// ---------------------------------------------------------------------------
-
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
-const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-flash-lite-latest";
+// Gemini's and Anthropic's views of the same answer shape — the chain itself
+// (attempt order, busy/deadline fallback, the REST calls) lives in
+// src/lib/ai/provider-chain.ts.
 
 const GEMINI_LINES_SCHEMA = {
   type: "OBJECT",
@@ -156,78 +139,6 @@ const GEMINI_LINES_SCHEMA = {
   required: ["lines"],
 };
 
-type GeminiResponse = {
-  candidates?: { content?: { parts?: { text?: string }[] } }[];
-  error?: { message?: string };
-};
-
-async function callGemini(
-  apiKey: string,
-  model: string,
-  mediaType: string,
-  base64Data: string,
-  signal: AbortSignal,
-): Promise<{ lines: RawReceiptLine[]; currency?: string | null }> {
-  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
-    method: "POST",
-    signal,
-    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { inlineData: { mimeType: mediaType, data: base64Data } },
-            { text: "Here's the receipt. What was purchased?" },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: GEMINI_LINES_SCHEMA,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as GeminiResponse | null;
-    logger.error("AI receipt scan (Gemini) request failed", {
-      model,
-      status: response.status,
-      message: body?.error?.message,
-    });
-    throw new ScanError(RETRYABLE_STATUS.has(response.status) ? "provider_busy" : "analysis_failed");
-  }
-
-  const data = (await response.json()) as GeminiResponse;
-  const text = data.candidates?.[0]?.content?.parts?.find((p) => typeof p.text === "string")?.text;
-  if (!text) throw new ScanError("analysis_failed");
-
-  let json: unknown;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    logger.error("AI receipt scan (Gemini) returned non-JSON text", { model, text: excerptForLog(text) });
-    throw new ScanError("analysis_failed");
-  }
-
-  const parsed = receiptScanSchema.safeParse(json);
-  if (!parsed.success) {
-    logger.error("AI receipt scan (Gemini) returned an unexpected shape", { model, issues: parsed.error.issues });
-    throw new ScanError("analysis_failed");
-  }
-  return { lines: parsed.data.lines, currency: parsed.data.currency };
-}
-
-// ---------------------------------------------------------------------------
-// Anthropic (Claude) — last in the chain.
-// ---------------------------------------------------------------------------
-
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
-const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
-
 const RECEIPT_SCAN_TOOL = {
   name: "report_receipt_lines",
   description: "Report every purchased line item on the receipt, plus the currency its prices are printed in.",
@@ -262,147 +173,6 @@ const RECEIPT_SCAN_TOOL = {
   },
 };
 
-type AnthropicContentBlock = { type: "text"; text: string } | { type: "tool_use"; name: string; input: unknown };
-
-type AnthropicResponse = {
-  content?: AnthropicContentBlock[];
-  error?: { message?: string };
-};
-
-async function callAnthropic(
-  apiKey: string,
-  mediaType: string,
-  base64Data: string,
-  signal: AbortSignal,
-): Promise<{ lines: RawReceiptLine[]; currency?: string | null }> {
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    signal,
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": ANTHROPIC_VERSION,
-    },
-    body: JSON.stringify({
-      model: process.env.RECEIPT_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      tools: [RECEIPT_SCAN_TOOL],
-      tool_choice: { type: "tool", name: RECEIPT_SCAN_TOOL.name },
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-            { type: "text", text: "Here's the receipt. What was purchased?" },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as AnthropicResponse | null;
-    logger.error("AI receipt scan (Anthropic) request failed", { status: response.status, message: body?.error?.message });
-    throw new ScanError(RETRYABLE_STATUS.has(response.status) ? "provider_busy" : "analysis_failed");
-  }
-
-  const data = (await response.json()) as AnthropicResponse;
-  const toolUse = data.content?.find(
-    (block): block is Extract<AnthropicContentBlock, { type: "tool_use" }> => block.type === "tool_use",
-  );
-  if (!toolUse) throw new ScanError("analysis_failed");
-
-  const parsed = receiptScanSchema.safeParse(toolUse.input);
-  if (!parsed.success) {
-    logger.error("AI receipt scan (Anthropic) returned an unexpected shape", { issues: parsed.error.issues });
-    throw new ScanError("analysis_failed");
-  }
-  return { lines: parsed.data.lines, currency: parsed.data.currency };
-}
-
-// ---------------------------------------------------------------------------
-
-type Attempt =
-  | { label: string; kind: "gemini"; apiKey: string; model: string }
-  | { label: string; kind: "anthropic"; apiKey: string };
-
-/** Builds the ordered attempt chain: Gemini's primary model, then its
- * fallback model, then Anthropic — each only included when its provider's
- * key is set. Mirrors resolveAttempts in inventory-scan.ts (same env vars,
- * so one GEMINI_API_KEY/ANTHROPIC_API_KEY pair configures both features);
- * RECEIPT_SCAN_MODEL lets the Anthropic model be pinned independently of
- * INVENTORY_SCAN_MODEL if that's ever wanted, but both default the same. */
-function resolveAttempts(): Attempt[] {
-  const attempts: Attempt[] = [];
-
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    const primaryModel = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || DEFAULT_GEMINI_FALLBACK_MODEL;
-    attempts.push({ label: `gemini:${primaryModel}`, kind: "gemini", apiKey: geminiKey, model: primaryModel });
-    if (fallbackModel && fallbackModel !== primaryModel) {
-      attempts.push({ label: `gemini:${fallbackModel}`, kind: "gemini", apiKey: geminiKey, model: fallbackModel });
-    }
-  }
-
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (anthropicKey) attempts.push({ label: "anthropic", kind: "anthropic", apiKey: anthropicKey });
-
-  return attempts;
-}
-
-function callAttempt(
-  attempt: Attempt,
-  mediaType: string,
-  base64Data: string,
-  signal: AbortSignal,
-): Promise<{ lines: RawReceiptLine[]; currency?: string | null }> {
-  return attempt.kind === "gemini"
-    ? callGemini(attempt.apiKey, attempt.model, mediaType, base64Data, signal)
-    : callAnthropic(attempt.apiKey, mediaType, base64Data, signal);
-}
-
-type RawScanResult = { lines?: RawReceiptLine[]; currency?: string | null; error?: string };
-
-/** Walks the attempt chain in order, same fallback rules as callAttempts in
- * inventory-scan.ts: only move on for a "busy" provider with time left in
- * the shared deadline, not for a real analysis failure. */
-async function callAttempts(
-  attempts: Attempt[],
-  mediaType: string,
-  base64Data: string,
-  signal: AbortSignal,
-  deadlineAt: number,
-): Promise<RawScanResult> {
-  for (let i = 0; i < attempts.length; i++) {
-    const attempt = attempts[i];
-    try {
-      const { lines, currency } = await callAttempt(attempt, mediaType, base64Data, signal);
-      return { lines, currency };
-    } catch (error) {
-      const hasNext = i < attempts.length - 1;
-      const hasTime = deadlineAt - Date.now() > MIN_ATTEMPT_BUDGET_MS;
-
-      if (error instanceof ScanError) {
-        if (error.message === "provider_busy" && hasNext && hasTime) {
-          logger.warn(`AI receipt scan: ${attempt.label} busy, falling back to ${attempts[i + 1].label}`);
-          continue;
-        }
-        return { error: error.message };
-      }
-      if (error instanceof Error && error.name === "AbortError") {
-        logger.error(`AI receipt scan (${attempt.label}) timed out`, { error });
-        return { error: "provider_busy" };
-      }
-      logger.error(`AI receipt scan (${attempt.label}) request errored`, { error });
-      return { error: "analysis_failed" };
-    }
-  }
-  // Unreachable: scanReceiptPhotoAction only calls this with a non-empty array.
-  return { error: "analysis_failed" };
-}
-
 /** Takes a client-captured receipt photo (as a data URL) and returns the
  * first successful attempt's best read of the purchased line items and
  * receipt currency. Every line is a starting point for the review step in
@@ -413,7 +183,10 @@ async function callAttempts(
 export async function scanReceiptPhotoAction(photoDataUrl: string): Promise<ScanReceiptPhotoResult> {
   const { household } = await requireHousehold();
 
-  const attempts = resolveAttempts();
+  const attempts = resolveAttempts({
+    anthropicModel: process.env.RECEIPT_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
+    geminiFallbackModel: true,
+  });
   if (attempts.length === 0) return { error: "not_configured" };
 
   if (
@@ -431,22 +204,27 @@ export async function scanReceiptPhotoAction(photoDataUrl: string): Promise<Scan
   const [, mediaType, base64Data] = match;
   if (!ALLOWED_MEDIA_TYPES.has(mediaType)) return { error: "invalid_photo" };
 
-  const deadlineAt = Date.now() + REQUEST_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  try {
-    const result = await callAttempts(attempts, mediaType, base64Data, controller.signal, deadlineAt);
-    if (result.error) return { error: result.error };
-    const currency = result.currency && (SUPPORTED_CURRENCIES as readonly string[]).includes(result.currency)
-      ? result.currency
+  const result = await runProviderChain(attempts, {
+    feature: "AI receipt scan",
+    systemPrompt: SYSTEM_PROMPT,
+    userText: "Here's the receipt. What was purchased?",
+    image: { mediaType, base64Data },
+    geminiSchema: GEMINI_LINES_SCHEMA,
+    anthropicTool: RECEIPT_SCAN_TOOL,
+    anthropicMaxTokens: 2048,
+    schema: receiptScanSchema,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    fallbackOn: "busy",
+    failureLevel: "error",
+  });
+  if (!result.ok) return { error: result.error };
+  const currency =
+    result.data.currency && (SUPPORTED_CURRENCIES as readonly string[]).includes(result.data.currency)
+      ? result.data.currency
       : undefined;
-    const lines: ScannedReceiptLine[] = (result.lines ?? []).map(({ name, quantity, price, barcode }) => {
-      const gtin = receiptLineBarcode(barcode);
-      return { name, quantity, price, ...(gtin ? { barcode: gtin } : {}) };
-    });
-    return { lines, currency };
-  } finally {
-    clearTimeout(timeout);
-  }
+  const lines: ScannedReceiptLine[] = result.data.lines.map(({ name, quantity, price, barcode }) => {
+    const gtin = receiptLineBarcode(barcode);
+    return { name, quantity, price, ...(gtin ? { barcode: gtin } : {}) };
+  });
+  return { lines, currency };
 }

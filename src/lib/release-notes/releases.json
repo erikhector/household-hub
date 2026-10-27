@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.115.0",
+    "date": "2026-10-27",
+    "pr": 793,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Icon-only buttons now show a small label when you hover over them or tab to them with the keyboard.\n\nSign-in, sign-up, password reset, email verification and profile error messages now show in your language.",
+      "sv": "Knappar med bara en ikon visar nu en liten etikett när du håller muspekaren över dem eller tabbar till dem med tangentbordet.\n\nFelmeddelanden vid inloggning, registrering, återställning av lösenord, verifiering av e-post och i profilen visas nu på ditt språk."
+    }
+  },
+  {
+    "version": "0.114.0",
+    "date": "2026-10-27",
+    "pr": 786,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The command palette (Ctrl+K or Cmd+K) now finds things in your household too. Type a name to jump straight to an inventory item, recipe, shopping list, task or budget category.",
+      "sv": "Kommandopaletten (Ctrl+K eller Cmd+K) hittar nu även saker i hushållet. Skriv ett namn för att hoppa direkt till en lagervara, ett recept, en inköpslista, en uppgift eller en budgetkategori."
+    }
+  },
+  {
+    "version": "0.113.6",
+    "date": "2026-10-27",
+    "pr": 780,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Errors about households and invites (for example \"only the owner can change the currency\" or \"this invite link has expired\") now show in Swedish when Squirrel is set to Swedish.",
+      "sv": "Felmeddelanden om hushåll och inbjudningar (till exempel \"bara ägaren kan ändra valutan\" eller \"inbjudningslänken har gått ut\") visas nu på svenska när Squirrel är inställt på svenska."
+    }
+  },
+  {
+    "version": "0.113.5",
+    "date": "2026-10-27",
+    "pr": 771,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list page loads faster, because its pop-up forms now load only when you first open them.\n\nBackground reminders (expiring food, unlogged meals, put-away and the morning menu) now run faster and more reliably as Squirrel grows.\n\nSwitching tabs in the meal planner now reacts instantly, even on a slow connection.\n\nWhen you remove a member or someone leaves, their unused invite links are closed, and shopping list share links and the calendar feed link are reset for safety. You can now also see and close pending invites on the Household page.\n\nLazy-load the shopping list's dialogs (PERF-25)",
+      "sv": "Inköpslistan laddas snabbare, eftersom dess formulär i popup-fönster nu bara hämtas när du öppnar dem första gången.\n\nBakgrundspåminnelser (utgående mat, ologgade måltider, undanplockning och morgonens meny) går nu snabbare och mer tillförlitligt när Squirrel växer.\n\nAtt byta flik i måltidsplaneraren går nu direkt, även med långsam anslutning.\n\nNär du tar bort en medlem, eller någon lämnar hushållet, stängs personens oanvända inbjudningslänkar och delningslänkarna för inköpslistor och kalenderlänken återställs. Du kan också se och stänga väntande inbjudningar på hushållssidan.\n\nLazy-load the shopping list's dialogs (PERF-25)"
+    }
+  },
+  {
     "version": "0.113.4",
     "date": "2026-10-26",
     "pr": 758,

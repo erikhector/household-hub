@@ -26,7 +26,7 @@
 
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { logger } from "@/lib/logger";
+import { resolveAttempts as resolveProviderAttempts, runProviderChain } from "@/lib/ai/provider-chain";
 import { AUTO_CATEGORY_KEYS, type AutoCategoryKey } from "@/lib/inventory/auto-category";
 
 // Same household-scoped budget as AI shelf scan / AI receipt scan
@@ -76,16 +76,8 @@ function toKey(value: string | undefined): AutoCategoryKey | null {
   return value && (AUTO_CATEGORY_KEYS as readonly string[]).includes(value) ? (value as AutoCategoryKey) : null;
 }
 
-// ---------------------------------------------------------------------------
-// Gemini — same REST endpoint and responseSchema-constrained JSON approach
-// as callGemini in inventory-scan.ts, minus the image part.
-// ---------------------------------------------------------------------------
-
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-// Mirrors inventory-scan.ts's DEFAULT_GEMINI_MODEL — kept as its own literal
-// here rather than importing it, since inventory-scan.ts doesn't export it
-// and this call has nothing else in common with the vision path.
-const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+// Gemini's and Anthropic's views of the same answer shape — the chain itself
+// (attempt order, fallback, the REST calls) lives in src/lib/ai/provider-chain.ts.
 
 const GEMINI_CATEGORIES_SCHEMA = {
   type: "OBJECT",
@@ -99,45 +91,6 @@ const GEMINI_CATEGORIES_SCHEMA = {
   required: ["categories"],
 };
 
-type GeminiResponse = {
-  candidates?: { content?: { parts?: { text?: string }[] } }[];
-  error?: { message?: string };
-};
-
-async function callGemini(apiKey: string, model: string, names: string[], signal: AbortSignal): Promise<string[]> {
-  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
-    method: "POST",
-    signal,
-    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: JSON.stringify(names) }] }],
-      generationConfig: { responseMimeType: "application/json", responseSchema: GEMINI_CATEGORIES_SCHEMA },
-    }),
-  });
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as GeminiResponse | null;
-    logger.warn("AI category fallback (Gemini) request failed", { model, status: response.status, message: body?.error?.message });
-    throw new Error("gemini_request_failed");
-  }
-
-  const data = (await response.json()) as GeminiResponse;
-  const text = data.candidates?.[0]?.content?.parts?.find((p) => typeof p.text === "string")?.text;
-  if (!text) throw new Error("gemini_empty_response");
-
-  const parsed = classifyResponseSchema.safeParse(JSON.parse(text));
-  if (!parsed.success) throw new Error("gemini_unexpected_shape");
-  return parsed.data.categories;
-}
-
-// ---------------------------------------------------------------------------
-// Anthropic — same forced tool-use approach as callAnthropic in
-// inventory-scan.ts, minus the image content block.
-// ---------------------------------------------------------------------------
-
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
 // A plain text classification task needs none of the vision capability
 // INVENTORY_SCAN_MODEL exists to override, so this isn't made configurable
 // separately — one fewer env var to document for a background feature this
@@ -164,60 +117,6 @@ const CLASSIFY_TOOL = {
   },
 };
 
-type AnthropicContentBlock = { type: "text"; text: string } | { type: "tool_use"; name: string; input: unknown };
-type AnthropicResponse = { content?: AnthropicContentBlock[]; error?: { message?: string } };
-
-async function callAnthropic(apiKey: string, names: string[], signal: AbortSignal): Promise<string[]> {
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    signal,
-    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": ANTHROPIC_VERSION },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      tools: [CLASSIFY_TOOL],
-      tool_choice: { type: "tool", name: CLASSIFY_TOOL.name },
-      messages: [{ role: "user", content: JSON.stringify(names) }],
-    }),
-  });
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as AnthropicResponse | null;
-    logger.warn("AI category fallback (Anthropic) request failed", { status: response.status, message: body?.error?.message });
-    throw new Error("anthropic_request_failed");
-  }
-
-  const data = (await response.json()) as AnthropicResponse;
-  const toolUse = data.content?.find(
-    (block): block is Extract<AnthropicContentBlock, { type: "tool_use" }> => block.type === "tool_use",
-  );
-  if (!toolUse) throw new Error("anthropic_empty_response");
-
-  const parsed = classifyResponseSchema.safeParse(toolUse.input);
-  if (!parsed.success) throw new Error("anthropic_unexpected_shape");
-  return parsed.data.categories;
-}
-
-// ---------------------------------------------------------------------------
-
-type Attempt = { kind: "gemini"; apiKey: string; model: string } | { kind: "anthropic"; apiKey: string };
-
-/** Gemini first (its free tier makes this genuinely free to run), then
- * Anthropic — same provider order as inventory-scan.ts's resolveAttempts,
- * skipping whichever provider has no key set. No same-provider retry chain
- * here (unlike inventory-scan.ts's busy-status fallback): this call is
- * best-effort and cheap enough that a single miss just means the item stays
- * "Uncategorized", exactly as if no key were configured at all. */
-function resolveAttempts(): Attempt[] {
-  const attempts: Attempt[] = [];
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) attempts.push({ kind: "gemini", apiKey: geminiKey, model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL });
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (anthropicKey) attempts.push({ kind: "anthropic", apiKey: anthropicKey });
-  return attempts;
-}
-
 /** Whether this tier can run at all — mirrors inventory-scan.ts's own
  * "attempts.length === 0" keyless check, reusing the exact same env vars
  * rather than inventing a separate on/off switch for this feature. */
@@ -225,10 +124,13 @@ export function isAiCategoryFallbackConfigured(): boolean {
   return resolveAttempts().length > 0;
 }
 
-function callAttempt(attempt: Attempt, names: string[], signal: AbortSignal): Promise<string[]> {
-  return attempt.kind === "gemini"
-    ? callGemini(attempt.apiKey, attempt.model, names, signal)
-    : callAnthropic(attempt.apiKey, names, signal);
+/** Gemini first (its free tier makes this genuinely free to run), then
+ * Anthropic, skipping whichever provider has no key set. No second Gemini
+ * model here (unlike the vision scans' busy-status fallback): this call is
+ * best-effort and cheap enough that a single miss just means the item stays
+ * "Uncategorized", exactly as if no key were configured at all. */
+function resolveAttempts() {
+  return resolveProviderAttempts({ anthropicModel: ANTHROPIC_MODEL, geminiFallbackModel: false });
 }
 
 /**
@@ -263,27 +165,25 @@ export async function resolveCategoriesWithAiFallback(
     return result;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    for (const attempt of attempts) {
-      try {
-        const raw = await callAttempt(attempt, unique, controller.signal);
-        unique.forEach((name, i) => {
-          const key = toKey(raw[i]);
-          if (key) result.set(name, key);
-        });
-        return result;
-      } catch (error) {
-        logger.warn(`AI category fallback (${attempt.kind}) attempt failed`, {
-          error: error instanceof Error ? error.message : error,
-        });
-        // Falls through to the next attempt (if any); every provider
-        // failing just means the loop ends with an empty result below.
-      }
-    }
-    return result;
-  } finally {
-    clearTimeout(timeout);
-  }
+  // Any failed attempt moves on to the next provider; every one failing
+  // just leaves the result empty, so the items stay as they were.
+  const answer = await runProviderChain(attempts, {
+    feature: "AI category fallback",
+    systemPrompt: SYSTEM_PROMPT,
+    userText: JSON.stringify(unique),
+    geminiSchema: GEMINI_CATEGORIES_SCHEMA,
+    anthropicTool: CLASSIFY_TOOL,
+    anthropicMaxTokens: 1024,
+    schema: classifyResponseSchema,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    fallbackOn: "any",
+    failureLevel: "warn",
+  });
+  if (!answer.ok) return result;
+
+  unique.forEach((name, i) => {
+    const key = toKey(answer.data.categories[i]);
+    if (key) result.set(name, key);
+  });
+  return result;
 }

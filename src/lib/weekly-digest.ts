@@ -59,7 +59,7 @@ type Recipient = { userId: string; email: string; locale: string };
  * `householdId`, which only ever comes from the household table itself
  * (never from a request).
  */
-export async function loadHouseholdDigestInput(
+async function loadHouseholdDigestInput(
   householdId: string,
   now: Date,
   budgetMonthStartDay?: number,

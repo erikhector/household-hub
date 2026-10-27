@@ -10,6 +10,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hashToken } from "@/lib/token-hash";
 import { computeBillPositions } from "@/lib/settle-up-calc";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   householdCreateMock,
@@ -22,6 +23,8 @@ const {
   txUserCreateMock,
   invitationFindFirstMock,
   invitationUpdateManyMock,
+  invitationDeleteManyMock,
+  shareLinkUpdateManyMock,
   householdMemberFindFirstMock,
   householdMemberFindUniqueMock,
   householdMemberDeleteMock,
@@ -39,6 +42,7 @@ const {
   sendHouseholdInviteEmailMock,
   sendVerificationEmailMock,
   getLocaleMock,
+  getDictionaryMock,
   budgetCategoryFindFirstMock,
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
@@ -51,6 +55,8 @@ const {
   txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   invitationFindFirstMock: vi.fn(),
   invitationUpdateManyMock: vi.fn(async (): Promise<{ count: number }> => ({ count: 1 })),
+  invitationDeleteManyMock: vi.fn(async (_args: unknown): Promise<{ count: number }> => ({ count: 1 })),
+  shareLinkUpdateManyMock: vi.fn(async (_args: unknown) => ({ count: 0 })),
   householdMemberFindFirstMock: vi.fn(),
   householdMemberFindUniqueMock: vi.fn(),
   householdMemberDeleteMock: vi.fn(),
@@ -79,7 +85,9 @@ const {
     return (arg as (tx: unknown) => unknown)({
       user: { create: txUserCreateMock },
       householdMember: { create: vi.fn(async () => ({})), delete: householdMemberDeleteMock },
-      invitation: { updateMany: invitationUpdateManyMock },
+      invitation: { updateMany: invitationUpdateManyMock, deleteMany: invitationDeleteManyMock },
+      shoppingListShareLink: { updateMany: shareLinkUpdateManyMock },
+      household: { updateMany: householdUpdateManyMock },
       transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
     });
   }),
@@ -94,6 +102,7 @@ const {
   sendHouseholdInviteEmailMock: vi.fn(async () => ({})),
   sendVerificationEmailMock: vi.fn(async () => ({})),
   getLocaleMock: vi.fn(async () => "en"),
+  getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})),
   budgetCategoryFindFirstMock: vi.fn(),
 }));
 
@@ -110,6 +119,7 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: invitationFindUniqueMock,
       findFirst: invitationFindFirstMock,
       create: invitationCreateMock,
+      deleteMany: invitationDeleteManyMock,
       update: vi.fn(async () => ({})),
     },
     householdMember: {
@@ -137,7 +147,9 @@ vi.mock("@/lib/email", () => ({
 }));
 // See the identical note in src/lib/actions/auth.test.ts — avoids pulling in
 // next/headers cookies()/@/lib/preferences's auth+Prisma chain transitively.
-vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
+// MAINT-7: errors resolve through getDictionary(); `{}` falls back to English,
+// and a test that checks a translated error swaps in `sv` for one call.
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock, getDictionary: getDictionaryMock }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
   headers: headersMock,
@@ -153,6 +165,7 @@ const {
   joinViaInviteSignupAction,
   sendInviteEmailAction,
   removeMemberAction,
+  revokeInviteAction,
   deleteHouseholdAction,
   leaveHouseholdAction,
   transferOwnershipAction,
@@ -324,12 +337,21 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
     expect(result.error).toBe("Name is required");
   });
 
+  it("translates a Zod message to the request's language (MAINT-7)", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const result = await joinViaInviteSignupAction(
+      {},
+      formData({ ...validInput, email: "not-an-email" }),
+    );
+    expect(result.error).toBe(sv.errors.emailInvalid);
+  });
+
   it("rejects an invalid email", async () => {
     const result = await joinViaInviteSignupAction(
       {},
       formData({ ...validInput, email: "not-an-email" }),
     );
-    expect(result.error).toBe("Enter a valid email");
+    expect(result.error).toBe("Enter a valid email address");
   });
 
   it("rejects a short password", async () => {
@@ -667,6 +689,42 @@ describe("removeMemberAction", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
   });
 
+  // SEC-4: a removed member must not keep a way back in or a way to keep
+  // reading what they could reach.
+  it("closes the removed member's pending invites, share links and calendar feed token", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-2",
+      householdId: "household-1",
+      userId: "contributor-user",
+      role: "CONTRIBUTOR",
+    });
+    householdMemberDeleteMock.mockResolvedValue({});
+
+    await removeMemberAction("member-2");
+
+    expect(invitationDeleteManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", invitedById: "contributor-user", acceptedAt: null },
+    });
+    expect(shareLinkUpdateManyMock).toHaveBeenCalledWith({
+      where: { revokedAt: null, shoppingList: { householdId: "household-1" } },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(householdUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "household-1", calendarFeedToken: { not: null } },
+      data: { calendarFeedToken: expect.any(String) },
+    });
+  });
+
+  it("revokes nothing when the removal is rejected", async () => {
+    requireHouseholdMock.mockResolvedValue({ ...ownerSession, role: "CONTRIBUTOR" as const });
+
+    await removeMemberAction("member-2");
+
+    expect(invitationDeleteManyMock).not.toHaveBeenCalled();
+    expect(shareLinkUpdateManyMock).not.toHaveBeenCalled();
+  });
+
   // Regression test for the bug settle-departing-member.ts fixes: before
   // that fix, removing a member who'd paid a shared bill cascade-deleted
   // their split row (with its amountPaid) along with their membership, so a
@@ -719,6 +777,23 @@ describe("removeMemberAction", () => {
 });
 
 describe("deleteHouseholdAction", () => {
+  it("answers in Swedish for a Swedish request (MAINT-7)", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "CONTRIBUTOR",
+      households: [
+        { id: "household-1", name: "The Hectors", role: "CONTRIBUTOR" },
+        { id: "household-2", name: "Lake House", role: "OWNER" },
+      ],
+    });
+    getDictionaryMock.mockResolvedValueOnce(sv);
+
+    const result = await deleteHouseholdAction();
+
+    expect(result.error).toBe(sv.errors.deleteOwnerOnly);
+    expect(sv.errors.deleteOwnerOnly).not.toBe("Only the household owner can delete the household");
+  });
+
   it("rejects a non-owner caller", async () => {
     requireHouseholdMock.mockResolvedValue({
       household: { id: "household-1", name: "The Hectors" },
@@ -828,11 +903,62 @@ describe("leaveHouseholdAction", () => {
       where: { householdId_userId: { householdId: "household-1", userId: "contributor-user" } },
     });
     expect(householdMemberDeleteMock).toHaveBeenCalledWith({ where: { id: "member-2" } });
+    // SEC-4: leaving closes the leaver's invites and resets the shared links.
+    expect(invitationDeleteManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", invitedById: "contributor-user", acceptedAt: null },
+    });
+    expect(shareLinkUpdateManyMock).toHaveBeenCalled();
     expect(cookieSetMock).toHaveBeenCalledWith(
       "active_household",
       "household-2",
       expect.objectContaining({ path: "/" }),
     );
+  });
+});
+
+describe("revokeInviteAction", () => {
+  it("lets the owner close any pending invite in the household", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1" },
+      role: "OWNER",
+      userId: "owner-user",
+    });
+
+    const result = await revokeInviteAction("invite-1");
+
+    expect(result).toEqual({});
+    expect(invitationDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "invite-1", householdId: "household-1", acceptedAt: null },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+
+  it("limits a contributor to their own invites", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1" },
+      role: "CONTRIBUTOR",
+      userId: "contributor-user",
+    });
+
+    await revokeInviteAction("invite-1");
+
+    expect(invitationDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "invite-1", householdId: "household-1", acceptedAt: null, invitedById: "contributor-user" },
+    });
+  });
+
+  it("reports an invite that doesn't match (forged id or someone else's)", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1" },
+      role: "OWNER",
+      userId: "owner-user",
+    });
+    invitationDeleteManyMock.mockResolvedValueOnce({ count: 0 });
+
+    const result = await revokeInviteAction("invite-elsewhere");
+
+    expect(result.error).toBe("Invite not found");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });
 

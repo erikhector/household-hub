@@ -66,12 +66,23 @@ export async function insertHouseholdTransaction(
   },
 ) {
   await client.query(
-    `INSERT INTO "Transaction" (id, "householdId", "categoryId", amount, type, description, date)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    `INSERT INTO "Transaction" (id, "householdId", "categoryId", amount, type, description, date, "createdAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     // A zone-less timestamp, as Prisma writes it: the column has no time
     // zone, so node-pg's local-time Date serialisation could shift it.
-    [id, E2E_HOUSEHOLD.id, categoryId, amount, type, description, date.toISOString().replace("Z", "")],
+    [id, E2E_HOUSEHOLD.id, categoryId, amount, type, description, date.toISOString().replace("Z", ""), nextCreatedAt()],
   );
+}
+
+/** A strictly increasing "createdAt" for seeded transactions. The Add
+ * transaction sheet preselects the category of the newest row by createdAt
+ * (ms precision), and two inserts a round trip apart can land on the same
+ * millisecond under load, leaving the order (and so the preselected chip)
+ * to chance. Zone-less, like the dates above. */
+let lastCreatedAt = 0;
+function nextCreatedAt(): string {
+  lastCreatedAt = Math.max(Date.now(), lastCreatedAt + 1);
+  return new Date(lastCreatedAt).toISOString().replace("Z", "");
 }
 
 export async function insertPersonalCategory(
@@ -105,9 +116,9 @@ export async function insertPersonalTransaction(
   },
 ) {
   await client.query(
-    `INSERT INTO "PersonalTransaction" (id, "userId", "categoryId", amount, type, description, date)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [id, E2E_USER.id, categoryId, amount, type, description, date.toISOString().replace("Z", "")],
+    `INSERT INTO "PersonalTransaction" (id, "userId", "categoryId", amount, type, description, date, "createdAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [id, E2E_USER.id, categoryId, amount, type, description, date.toISOString().replace("Z", ""), nextCreatedAt()],
   );
 }
 
