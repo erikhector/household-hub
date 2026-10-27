@@ -19,11 +19,15 @@
 // is dead code and no Sentry chunk is emitted. The trade-off with a DSN
 // set: the SDK loads async, so an error thrown in the first moments before
 // the chunk arrives isn't captured.
+import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection";
+
 if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
   void import("@sentry/nextjs").then((Sentry) => {
     Sentry.init({
       dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
       tracesSampleRate: 0,
+      // Sentry 11 collects personal data unless opted out per category.
+      dataCollection: SENTRY_DATA_COLLECTION,
     });
   });
 }

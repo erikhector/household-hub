@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection";
 
 // Next.js calls `register()` once per server instance (Node and Edge each
 // get their own call, distinguished by NEXT_RUNTIME) before it starts
@@ -24,6 +25,8 @@ export async function register() {
     // shipping trace data; a human can raise this later in Sentry project
     // settings once there's real traffic to justify it.
     tracesSampleRate: 0,
+    // Sentry 11 collects personal data unless opted out per category.
+    dataCollection: SENTRY_DATA_COLLECTION,
   });
 }
 
