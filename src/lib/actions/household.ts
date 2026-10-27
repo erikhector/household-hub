@@ -12,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold, requireUserId } from "@/lib/session";
 import { sendHouseholdInviteEmail, sendVerificationEmail } from "@/lib/email";
 import type { ActionState, SignupState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { errorText, fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { hashToken } from "@/lib/token-hash";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
@@ -63,7 +63,7 @@ export async function createInviteAction(): Promise<{ url?: string; token?: stri
 
 const sendInviteEmailSchema = z.object({
   token: z.string().min(1),
-  email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254, "Email is too long"),
+  email: z.string().trim().toLowerCase().email(v("emailInvalid")).max(254, v("emailTooLong")),
 });
 
 // Unlike JOIN_SIGNUP_RATE_LIMIT (keyed on the invitee's email, to slow down
@@ -95,7 +95,7 @@ export async function revokeInviteAction(invitationId: string): Promise<ActionSt
         ...(role === "OWNER" ? {} : { invitedById: userId }),
       },
     });
-    if (count === 0) return { error: "Invite not found" };
+    if (count === 0) return await fail("inviteNotFound");
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -114,19 +114,19 @@ export async function sendInviteEmailAction(token: string, email: string): Promi
   if (
     !(await checkRateLimit(`invite-email:${userId}`, INVITE_EMAIL_RATE_LIMIT, INVITE_EMAIL_RATE_LIMIT_WINDOW_MS))
   ) {
-    return { error: "Too many invite emails sent. Please wait a while and try again." };
+    return await fail("tooManyInviteEmails");
   }
 
   const parsed = sendInviteEmailSchema.safeParse({ token, email });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const invitation = await prisma.invitation.findFirst({
     where: { token: parsed.data.token, householdId: household.id },
   });
   if (!invitation || invitation.acceptedAt || invitation.expiresAt < new Date()) {
-    return { error: "This invite link is invalid or has expired" };
+    return await fail("inviteLinkInvalid");
   }
 
   const inviteUrl = await absoluteAppUrl(`/join/${invitation.token}`);
@@ -170,10 +170,10 @@ export async function acceptInviteAction(
   formData: FormData,
 ): Promise<ActionState> {
   const token = formData.get("token");
-  if (typeof token !== "string") return { error: "Invalid invite link" };
+  if (typeof token !== "string") return await fail("inviteLinkMalformed");
 
   const invitation = await getValidInvitation(token);
-  if (!invitation) return { error: "This invite link is invalid or has expired" };
+  if (!invitation) return await fail("inviteLinkInvalid");
 
   // requireUserId, not requireHousehold: accepting an invite is one of the
   // two ways out of the no-household page (see NO_HOUSEHOLD_PATH), so it
@@ -199,7 +199,7 @@ export async function acceptInviteAction(
         });
         return true;
       });
-      if (!redeemed) return { error: "This invite link is invalid or has expired" };
+      if (!redeemed) return await fail("inviteLinkInvalid");
     } catch (error) {
       return toFriendlyError(error);
     }
@@ -222,16 +222,16 @@ const JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const joinSignupSchema = z
   .object({
     token: z.string().min(1),
-    displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
-    email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+    displayName: z.string().trim().min(1, v("nameRequired")).max(60, v("displayNameTooLong")),
+    email: z.string().trim().toLowerCase().email(v("emailInvalid")).max(254, v("emailTooLong")),
     password: z
       .string()
-      .min(8, "Password must be at least 8 characters")
-      .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
+      .min(8, v("passwordTooShort"))
+      .max(PASSWORD_MAX_LENGTH, v("passwordTooLong")),
+    confirmPassword: z.string().min(1, v("confirmPasswordRequired")),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
+    message: v("passwordsMismatch"),
     path: ["confirmPassword"],
   });
 
@@ -247,20 +247,20 @@ export async function joinViaInviteSignupAction(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   const { token, displayName, email, password } = parsed.data;
 
   if (!(await checkRateLimit(`join-signup:${email}`, JOIN_SIGNUP_RATE_LIMIT, JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS))) {
-    return { error: "Too many attempts. Please wait a while and try again." };
+    return await fail("tooManyAttempts");
   }
 
   const invitation = await getValidInvitation(token);
-  if (!invitation) return { error: "This invite link is invalid or has expired" };
+  if (!invitation) return await fail("inviteLinkInvalid");
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: "An account with that email already exists. Please log in, then open the invite link again." };
+    return await fail("inviteAccountExists");
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -281,7 +281,7 @@ export async function joinViaInviteSignupAction(
       });
       return user.id;
     });
-    if (!created) return { error: "This invite link is invalid or has expired" };
+    if (!created) return await fail("inviteLinkInvalid");
     userId = created;
   } catch (error) {
     return toFriendlyError(error);
@@ -408,7 +408,7 @@ export async function switchHouseholdAction(householdId: string, returnTo?: stri
 }
 
 const createHouseholdSchema = z.object({
-  name: z.string().trim().min(1, "Household name is required").max(60, "Household name is too long"),
+  name: z.string().trim().min(1, v("householdNameRequired")).max(60, v("householdNameTooLong")),
 });
 
 export async function createHouseholdAction(
@@ -421,7 +421,7 @@ export async function createHouseholdAction(
 
   const parsed = createHouseholdSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   // UX-73: same derived starting currency as signupAction.
@@ -461,15 +461,14 @@ export async function createHouseholdAction(
 // name that could be typed at signup can be typed here. Called directly in a
 // transition (the card toasts on success), so it takes the value rather than
 // FormData; the household comes from the session, never the client.
-const RENAME_OWNER_ONLY_MESSAGE = "Only the household owner can rename the household";
 
 export async function renameHouseholdAction(name: string): Promise<ActionState> {
   const { household, role } = await requireHousehold();
-  if (role !== "OWNER") return { error: RENAME_OWNER_ONLY_MESSAGE };
+  if (role !== "OWNER") return await fail("renameOwnerOnly");
 
   const parsed = createHouseholdSchema.safeParse({ name });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   try {
@@ -522,15 +521,15 @@ async function revokeDepartingMemberAccess(
 export async function removeMemberAction(memberId: string): Promise<ActionState> {
   const { household, role, userId } = await requireHousehold();
   if (role !== "OWNER") {
-    return { error: "Only the household owner can remove members" };
+    return await fail("removeOwnerOnly");
   }
 
   const member = await prisma.householdMember.findFirst({
     where: { id: memberId, householdId: household.id },
   });
-  if (!member) return { error: "Member not found" };
-  if (member.userId === userId) return { error: "You can't remove yourself" };
-  if (member.role === "OWNER") return { error: "The owner can't be removed" };
+  if (!member) return await fail("memberNotFound");
+  if (member.userId === userId) return await fail("cantRemoveSelf");
+  if (member.role === "OWNER") return await fail("ownerCantBeRemoved");
 
   try {
     // settleDepartingMemberSplits must run before (and atomically with) the
@@ -556,15 +555,13 @@ export async function removeMemberAction(memberId: string): Promise<ActionState>
 // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md. Every other piece of a household's data
 // cascades on delete (see schema.prisma's onDelete: Cascade throughout), so
 // "this is your only household" is the one real blocker to surface.
-const ONLY_HOUSEHOLD_BLOCKED_MESSAGE = "You can't delete your only household. Create another one first.";
-
 export async function getHouseholdDeleteEligibilityAction(): Promise<{ blocked: boolean; reason?: string }> {
   const { role, households } = await requireHousehold();
   if (role !== "OWNER") {
-    return { blocked: true, reason: "Only the household owner can delete the household" };
+    return { blocked: true, reason: await errorText("deleteOwnerOnly") };
   }
   if (households.length <= 1) {
-    return { blocked: true, reason: ONLY_HOUSEHOLD_BLOCKED_MESSAGE };
+    return { blocked: true, reason: await errorText("onlyHouseholdDelete") };
   }
   return { blocked: false };
 }
@@ -572,10 +569,10 @@ export async function getHouseholdDeleteEligibilityAction(): Promise<{ blocked: 
 export async function deleteHouseholdAction(): Promise<ActionState> {
   const { household, role, households } = await requireHousehold();
   if (role !== "OWNER") {
-    return { error: "Only the household owner can delete the household" };
+    return await fail("deleteOwnerOnly");
   }
   if (households.length <= 1) {
-    return { error: ONLY_HOUSEHOLD_BLOCKED_MESSAGE };
+    return await fail("onlyHouseholdDelete");
   }
 
   try {
@@ -605,16 +602,16 @@ export async function deleteHouseholdAction(): Promise<ActionState> {
 export async function leaveHouseholdAction(): Promise<ActionState> {
   const { household, role, userId, households } = await requireHousehold();
   if (role === "OWNER") {
-    return { error: "Transfer ownership to another member before leaving, or delete the household instead" };
+    return await fail("transferBeforeLeaving");
   }
   if (households.length <= 1) {
-    return { error: "You can't leave your only household. Create another one first." };
+    return await fail("onlyHouseholdLeave");
   }
 
   const membership = await prisma.householdMember.findUnique({
     where: { householdId_userId: { householdId: household.id, userId } },
   });
-  if (!membership) return { error: "Membership not found" };
+  if (!membership) return await fail("membershipNotFound");
 
   try {
     // See removeMemberAction's identical comment — settleDepartingMemberSplits
@@ -650,20 +647,20 @@ export async function leaveHouseholdAction(): Promise<ActionState> {
 export async function transferOwnershipAction(newOwnerMemberId: string): Promise<ActionState> {
   const { household, role, userId } = await requireHousehold();
   if (role !== "OWNER") {
-    return { error: "Only the household owner can transfer ownership" };
+    return await fail("transferOwnerOnly");
   }
 
   const currentOwnerMembership = await prisma.householdMember.findUnique({
     where: { householdId_userId: { householdId: household.id, userId } },
   });
-  if (!currentOwnerMembership) return { error: "Membership not found" };
+  if (!currentOwnerMembership) return await fail("membershipNotFound");
 
   const target = await prisma.householdMember.findFirst({
     where: { id: newOwnerMemberId, householdId: household.id },
   });
-  if (!target) return { error: "Member not found" };
-  if (target.userId === userId) return { error: "You're already the owner" };
-  if (target.role === "OWNER") return { error: "This member is already the owner" };
+  if (!target) return await fail("memberNotFound");
+  if (target.userId === userId) return await fail("alreadyOwner");
+  if (target.role === "OWNER") return await fail("memberAlreadyOwner");
 
   try {
     await prisma.$transaction([
@@ -694,7 +691,7 @@ export async function transferOwnershipAction(newOwnerMemberId: string): Promise
 export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  if (typeof enabled !== "boolean") return { error: "Invalid input" };
+  if (typeof enabled !== "boolean") return await fail("invalidInput");
 
   try {
     await prisma.household.update({
@@ -722,7 +719,7 @@ export async function setShoppingExpenseCategoryAction(categoryId: string | null
   const { household } = await requireHousehold();
 
   const parsed = z.string().trim().min(1).max(100).nullable().safeParse(categoryId);
-  if (!parsed.success) return { error: "Invalid input" };
+  if (!parsed.success) return await fail("invalidInput");
 
   try {
     if (parsed.data !== null) {
@@ -730,7 +727,7 @@ export async function setShoppingExpenseCategoryAction(categoryId: string | null
         where: { id: parsed.data, householdId: household.id, type: "EXPENSE" },
         select: { id: true },
       });
-      if (!category) return { error: "Category not found" };
+      if (!category) return await fail("categoryNotFound");
     }
     await prisma.household.update({
       where: { id: household.id },
@@ -753,11 +750,10 @@ export async function setShoppingExpenseCategoryAction(categoryId: string | null
 // services. Deciding to publish that for everyone is administration, the
 // same bucket as removing members. Contributors still see and copy the link
 // once it's on: they can already read everything in it.
-const CALENDAR_FEED_OWNER_ONLY_MESSAGE = "Only the household owner can manage the calendar feed";
 
 async function setCalendarFeedToken(mode: "enable" | "regenerate" | "disable"): Promise<ActionState> {
   const { household, role } = await requireHousehold();
-  if (role !== "OWNER") return { error: CALENDAR_FEED_OWNER_ONLY_MESSAGE };
+  if (role !== "OWNER") return await fail("calendarFeedOwnerOnly");
 
   try {
     if (mode === "enable") {
@@ -803,7 +799,6 @@ export async function disableCalendarFeedAction(): Promise<ActionState> {
 // every member sees, so it's household administration rather than
 // day-to-day use (contrast the auto-add switch). Contributors still see the
 // current value on the Household page.
-const CURRENCY_OWNER_ONLY_MESSAGE = "Only the household owner can change the currency";
 
 /**
  * Sets (or, with null/"", clears) the household's display currency. Only
@@ -814,10 +809,10 @@ const CURRENCY_OWNER_ONLY_MESSAGE = "Only the household owner can change the cur
  */
 export async function setHouseholdCurrencyAction(currencyCode: string | null): Promise<ActionState> {
   const { household, role } = await requireHousehold();
-  if (role !== "OWNER") return { error: CURRENCY_OWNER_ONLY_MESSAGE };
+  if (role !== "OWNER") return await fail("currencyOwnerOnly");
 
   const parsed = parseHouseholdCurrency(currencyCode);
-  if (parsed === undefined) return { error: "Choose a currency from the list" };
+  if (parsed === undefined) return await fail("chooseCurrency");
 
   try {
     await prisma.household.update({
@@ -837,7 +832,6 @@ export async function setHouseholdCurrencyAction(currencyCode: string | null): P
 
 // --- Budget month start day (UX-134) ---------------------------------------
 
-const BUDGET_START_DAY_OWNER_ONLY_MESSAGE = "Only the household owner can change when the budget month starts";
 
 /**
  * Sets the day the household budget's month starts on (1 to 28; 25 for a
@@ -849,7 +843,7 @@ const BUDGET_START_DAY_OWNER_ONLY_MESSAGE = "Only the household owner can change
  */
 export async function setBudgetMonthStartDayAction(day: number): Promise<ActionState> {
   const { household, role } = await requireHousehold();
-  if (role !== "OWNER") return { error: BUDGET_START_DAY_OWNER_ONLY_MESSAGE };
+  if (role !== "OWNER") return await fail("budgetStartDayOwnerOnly");
 
   const parsed = z
     .number()
@@ -857,7 +851,7 @@ export async function setBudgetMonthStartDayAction(day: number): Promise<ActionS
     .min(MIN_BUDGET_MONTH_START_DAY)
     .max(MAX_BUDGET_MONTH_START_DAY)
     .safeParse(day);
-  if (!parsed.success) return { error: "Choose a day from 1 to 28" };
+  if (!parsed.success) return await fail("chooseBudgetDay", { min: MIN_BUDGET_MONTH_START_DAY, max: MAX_BUDGET_MONTH_START_DAY });
 
   try {
     await prisma.household.update({
@@ -879,7 +873,6 @@ export async function setBudgetMonthStartDayAction(day: number): Promise<ActionS
 // on every list does to the shared inventory, so it's a household-wide
 // decision rather than day-to-day use (contrast the auto-add switch).
 // Contributors still see the current choice on the Household page.
-const INVENTORY_SYNC_OWNER_ONLY_MESSAGE = "Only the household owner can change when inventory is updated";
 
 const inventorySyncModeSchema = z.enum(["ON_CHECK", "ON_PUT_AWAY"]);
 
@@ -895,10 +888,10 @@ const inventorySyncModeSchema = z.enum(["ON_CHECK", "ON_PUT_AWAY"]);
  */
 export async function setInventorySyncModeAction(mode: string): Promise<ActionState> {
   const { household, role } = await requireHousehold();
-  if (role !== "OWNER") return { error: INVENTORY_SYNC_OWNER_ONLY_MESSAGE };
+  if (role !== "OWNER") return await fail("inventorySyncOwnerOnly");
 
   const parsed = inventorySyncModeSchema.safeParse(mode);
-  if (!parsed.success) return { error: "Invalid input" };
+  if (!parsed.success) return await fail("invalidInput");
 
   try {
     await prisma.household.update({
