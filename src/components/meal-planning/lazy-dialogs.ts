@@ -1,11 +1,10 @@
 import { createLazyDialogLoader } from "@/components/ui/lazy-dialog";
 
 // PERF-26: the meal planning page's dialogs, loaded on first use with the
-// PERF-25 helper (components/ui/lazy-dialog.tsx). One loader per dialog,
+// lazy-dialog helper (components/ui/lazy-dialog.tsx). One loader per dialog,
 // shared by the host that mounts it and any opener that wants to warm its
 // chunk. Kept in one module so the import() paths are in a single place and
-// out of the page's own chunk. The shopping list's are in
-// components/shopping/lazy-dialogs.ts.
+// out of the page's own chunk.
 
 export const loadMealEntryDialog = createLazyDialogLoader(() =>
   import("@/components/meal-planning/meal-entry-dialog").then((m) => m.MealEntryDialog),

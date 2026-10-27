@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import type { DialogHandle } from "@/components/ui/dialog"
 
-// PERF-25: a dialog is most of a heavy page's unused JavaScript (a form, its
+// PERF-25/26: a dialog is most of a heavy page's unused JavaScript (a form, its
 // validation, Base UI's Combobox, an OCR reader, …) and nobody sees one until
 // they tap something. This keeps a dialog's code out of the page's own
 // chunk: the page declares a *loader* for it, and a <LazyDialog> host mounts

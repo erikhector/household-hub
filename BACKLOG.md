@@ -125,37 +125,31 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-25. Lazy-load dialogs: shared helper + shopping list** (medium, M) —
-      dialogs are most of each heavy page's unused JS, along with Base
-      UI's Combobox (39 KB raw), which only dialogs use. Add one helper
-      that renders a `next/dynamic` dialog only after it has been opened
-      once, works with the Base UI dialog handles the pages already use
-      (`createHandle`, detached triggers), and preloads the chunk on
-      pointer-enter/focus of the trigger and in idle time after
-      hydration (`requestIdleCallback`), so the first open isn't slower
-      than today (DESIGN.md: instant feedback). Apply it first to
+- [ ] **PERF-25. Lazy-load the shopping list's dialogs** (medium, M) —
+      the helper (`src/components/ui/lazy-dialog.tsx`) shipped with the
+      meal planning page group (PERF-26); apply it to
       `src/components/shopping/shopping-list-client.tsx`, which imports
       nine dialogs up front (receipt scan, put away, import, resolve
       mappings, reorder sections, rename, save template, partial price,
-      item form). Existing e2e specs for those dialogs must pass
-      unchanged on desktop and mobile; add one asserting a dialog opens
-      on the first tap after a hard load.
-- [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
-      the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
-      `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
-      missing ingredients, record prep, plan portions, meal entry, move,
-      fill empty days, add to plan); `inventory-header-actions.tsx` (AI
+      item form). #743 did this and was reverted (#766) only because its
+      failed-chunk e2e check let the app's service worker fetch the chunk
+      past `page.route()`; `1ab2ab4` is a good starting point, with
+      `test.use({ serviceWorkers: "block" })` around that check (as in
+      `e2e/meal-planning-lazy-dialogs.spec.ts`). Existing e2e specs for
+      those dialogs must pass unchanged on desktop and mobile.
+- [ ] **PERF-26. Lazy-load dialogs on inventory and budgets** (medium, M) —
+      the same helper on: `inventory-header-actions.tsx` (AI
       shelf scan, stock scan, bulk scan, bulk paste, add item) and the
       item page's change-unit/merge dialogs; the budget pages'
       transaction, recurring-template, planned-expense and
-      log-shared-expense dialogs. One PR per page group is fine. Expect
-      30–40% less of each page's own JS.
+      log-shared-expense dialogs. One PR per page group is fine. The
+      meal planning group (done) cut its route's JS by 17% gz.
 - [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
       `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
       switcher's menu and create form, and the bottom bar's "More" menu
       hydrate on every page but only appear after a tap or ⌘K. Keep the
       triggers and the ⌘K listener eager; load the popups with the
-      PERF-25 helper. Base UI's drawer, menu, tooltip and positioning code
+      lazy-dialog helper. Base UI's drawer, menu, tooltip and positioning code
       only leaves the shared JS once page dialogs are lazy too
       (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
       20–40 KB gz off every page.

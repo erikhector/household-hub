@@ -75,6 +75,37 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
+  page's unused JS, so a page declares each one's chunk with
+  `createLazyDialogLoader(() => import(...))` (module level, shared; the
+  meal planning ones are in `src/components/meal-planning/lazy-dialogs.ts`)
+  and renders it through `<LazyDialog>` from
+  `src/components/ui/lazy-dialog.tsx`, which mounts the real component the
+  first time it is asked to open and keeps it mounted after. Two ways to
+  ask: a dialog that opens through a Base UI handle (`createDialogHandle`)
+  is opened with `openLazyDialog(handle)` where `handle.open(null)` used to
+  be (the host waits for the chunk and for the Root to attach, because a
+  handle ignores `open()` until one is mounted); a dialog the parent
+  controls with an `open` prop passes `open` to `<LazyDialog>`. The chunk is
+  fetched before it's needed so the first open is no slower than before: in
+  idle time after the host hydrates (`requestIdleCallback`, a short timeout
+  on Safari), and on pointer-enter, focus or touch-start of an opener that
+  spreads `preloadOnIntent(loader)`. A tap that still beats both opens the
+  dialog as soon as the chunk arrives. A chunk that fails to load (offline,
+  or replaced by a deploy) shows the page's generic error toast (the page
+  wraps itself in `LazyDialogErrorMessage`) and the next tap retries.
+  Applied to the meal planning page group (`week-planner.tsx`,
+  `recipe-manager.tsx`, `prep-tab.tsx`, `cook-now-list.tsx`): meal entry
+  (add and edit), cook mode, mark cooked, move, fill empty days, missing
+  ingredients, add to plan, recipe form, record prep and plan portions.
+  Dialogs that used to own their trigger (meal entry, recipe form, record
+  prep, add to plan) now take a `handle`, with the opener button kept in
+  the page (`AddMealSlot` in the planner, `LazyAddToPlan` for the Cook now
+  tab's server-rendered rows). `e2e/meal-planning-lazy-dialogs.spec.ts`
+  covers the first tap without the idle prefetch and the failed-load toast
+  and retry (with the service worker blocked, since `page.route()` can't
+  see requests it handles). The shopping list (PERF-25), inventory and the
+  budget pages are still to do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
