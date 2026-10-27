@@ -125,18 +125,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-25. Lazy-load the shopping list's dialogs** (medium, M) —
-      the helper (`src/components/ui/lazy-dialog.tsx`) shipped with the
-      meal planning page group (PERF-26); apply it to
-      `src/components/shopping/shopping-list-client.tsx`, which imports
-      nine dialogs up front (receipt scan, put away, import, resolve
-      mappings, reorder sections, rename, save template, partial price,
-      item form). #743 did this and was reverted (#766) only because its
-      failed-chunk e2e check let the app's service worker fetch the chunk
-      past `page.route()`; `1ab2ab4` is a good starting point, with
-      `test.use({ serviceWorkers: "block" })` around that check (as in
-      `e2e/meal-planning-lazy-dialogs.spec.ts`). Existing e2e specs for
-      those dialogs must pass unchanged on desktop and mobile.
 - [ ] **PERF-26. Lazy-load dialogs on inventory and budgets** (medium, M) —
       the same helper on: `inventory-header-actions.tsx` (AI
       shelf scan, stock scan, bulk scan, bulk paste, add item) and the
