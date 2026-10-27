@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { unstable_rethrow } from "next/navigation";
-import { CalendarPlus, Trash2 } from "lucide-react";
+import { CalendarPlus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ExpiryBadge } from "@/components/inventory/expiry-badge";
-import { RecordPrepDialog } from "@/components/meal-planning/record-prep-dialog";
-import { PlanPortionsDialog } from "@/components/meal-planning/plan-portions-dialog";
+import { createDialogHandle } from "@/components/ui/dialog";
+import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
+import { loadPlanPortionsDialog, loadRecordPrepDialog } from "@/components/meal-planning/lazy-dialogs";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { discardBatchAction, undoDiscardBatchAction } from "@/app/dashboard/meal-planning/prep-actions";
 import { format, plural } from "@/lib/i18n/format";
@@ -63,8 +64,18 @@ export function PrepTab({
   // bottom bar on a phone, in the header from `sm`. With no batches yet the
   // empty state holds it instead, so it is never on screen twice. (It used to
   // be a full-width bar of its own, sticky above the bottom bar.)
+  // PERF-26: the button stays in this chunk; the dialog loads on first use.
+  const [recordPrepHandle] = useState(() => createDialogHandle());
   const recordPrep = (
-    <RecordPrepDialog dict={dict} recipes={recipes} maxDishes={maxDishes} onPlanPortions={openPlanning} />
+    <Button
+      type="button"
+      aria-haspopup="dialog"
+      onClick={() => openLazyDialog(recordPrepHandle)}
+      {...preloadOnIntent(loadRecordPrepDialog)}
+    >
+      <Plus />
+      {dict.prepRecordButton}
+    </Button>
   );
 
   return (
@@ -100,25 +111,45 @@ export function PrepTab({
         </ul>
       )}
 
-      {planning && planningBatch && (
-        <PlanPortionsDialog
-          key={`${planning.batchId}-${planning.openedAt}`}
-          dict={dict}
-          locale={locale}
-          batch={planningBatch}
-          // The week of today, or of the cook date if that's later (a batch
-          // can't be eaten before it's cooked).
-          initialWeekStartKey={toDateKey(
-            getWeekStart(new Date(Math.max(planning.openedAt, Date.parse(planningBatch.cookedAt)))),
-          )}
-          controlled={{
-            open: true,
-            onOpenChange: (next) => {
-              if (!next) setPlanning(null);
-            },
-          }}
-        />
-      )}
+      <LazyDialog loader={loadRecordPrepDialog} handle={recordPrepHandle}>
+        {(RecordPrep) => (
+          <RecordPrep
+            dict={dict}
+            recipes={recipes}
+            maxDishes={maxDishes}
+            onPlanPortions={openPlanning}
+            handle={recordPrepHandle}
+          />
+        )}
+      </LazyDialog>
+      <LazyDialog
+        loader={loadPlanPortionsDialog}
+        open={planning !== null && !!planningBatch}
+        onLoadError={() => setPlanning(null)}
+      >
+        {(PlanPortions) =>
+          planning &&
+          planningBatch && (
+            <PlanPortions
+              key={`${planning.batchId}-${planning.openedAt}`}
+              dict={dict}
+              locale={locale}
+              batch={planningBatch}
+              // The week of today, or of the cook date if that's later (a batch
+              // can't be eaten before it's cooked).
+              initialWeekStartKey={toDateKey(
+                getWeekStart(new Date(Math.max(planning.openedAt, Date.parse(planningBatch.cookedAt)))),
+              )}
+              controlled={{
+                open: true,
+                onOpenChange: (next) => {
+                  if (!next) setPlanning(null);
+                },
+              }}
+            />
+          )
+        }
+      </LazyDialog>
     </div>
   );
 }

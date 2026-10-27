@@ -5,6 +5,7 @@
 // validation and per-user cap (SEC-3). All I/O (Prisma, requireUserId,
 // next/cache) is mocked — no database is touched.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   upsertMock,
@@ -60,6 +61,11 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
+// Empty by default so errors fall back to English; a test of a translated
+// error swaps in `sv` for one call.
+const { getDictionaryMock } = vi.hoisted(() => ({ getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})) }));
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: getDictionaryMock, getLocale: vi.fn(async () => "en") }));
 
 import {
   clearPushQuietHoursAction,
@@ -233,10 +239,11 @@ describe("setPushQuietHoursAction", () => {
 
   it("returns an error when the endpoint isn't one of the caller's subscriptions", async () => {
     updateManyMock.mockResolvedValue({ count: 0 });
+    getDictionaryMock.mockResolvedValueOnce(sv);
 
     const result = await setPushQuietHoursAction({}, quietHoursForm({ ...VALID, endpoint: "https://push.example/someone-else" }));
 
-    expect(result.error).toBeDefined();
+    expect(result.error).toBe(sv.errors.subscriptionNotFound);
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
@@ -264,7 +271,7 @@ describe("setPushQuietHoursAction", () => {
   ])("rejects %s without writing", async (_label, override) => {
     const result = await setPushQuietHoursAction({}, quietHoursForm({ ...VALID, ...override }));
 
-    expect(result.error).toBeDefined();
+    expect(result.error).toMatch(/^Invalid quiet hours$|^Start and end must differ$/);
     expect(updateManyMock).not.toHaveBeenCalled();
   });
 

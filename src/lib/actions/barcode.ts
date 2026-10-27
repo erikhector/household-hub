@@ -12,7 +12,7 @@ import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 
 // Two halves live here:
 //
@@ -150,9 +150,9 @@ export async function scanStockChangeAction(barcode: string, delta: number): Pro
   const { household, userId } = await requireHousehold();
 
   const code = normalizeBarcode(barcode);
-  if (!code) return { kind: "error", error: "Invalid barcode" };
+  if (!code) return { kind: "error", ...(await fail("invalidBarcode")) };
   const parsedDelta = deltaSchema.safeParse(delta);
-  if (!parsedDelta.success || parsedDelta.data === 0) return { kind: "error", error: "Invalid change" };
+  if (!parsedDelta.success || parsedDelta.data === 0) return { kind: "error", ...(await fail("invalidChange")) };
 
   const item = await prisma.inventoryItem.findFirst({ where: { householdId: household.id, barcode: code } });
   if (!item) {
@@ -201,10 +201,10 @@ export async function undoScanStockChangeAction(
   const { household, userId } = await requireHousehold();
 
   const parsedDelta = deltaSchema.safeParse(appliedDelta);
-  if (!parsedDelta.success) return { error: "Invalid change" };
+  if (!parsedDelta.success) return await fail("invalidChange");
 
   const item = await prisma.inventoryItem.findFirst({ where: { id: itemId, householdId: household.id } });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
   if (parsedDelta.data === 0) return { item: toScannedItem(item, item.quantity) };
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, -parsedDelta.data);
@@ -242,12 +242,12 @@ export async function linkBarcodeAction(
   const { household, userId } = await requireHousehold();
 
   const code = normalizeBarcode(barcode);
-  if (!code) return { kind: "error", error: "Invalid barcode" };
+  if (!code) return { kind: "error", ...(await fail("invalidBarcode")) };
   const parsedDelta = deltaSchema.safeParse(delta);
-  if (!parsedDelta.success) return { kind: "error", error: "Invalid change" };
+  if (!parsedDelta.success) return { kind: "error", ...(await fail("invalidChange")) };
 
   const item = await prisma.inventoryItem.findFirst({ where: { id: itemId, householdId: household.id } });
-  if (!item) return { kind: "error", error: "Item not found" };
+  if (!item) return { kind: "error", ...(await fail("itemNotFound")) };
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, parsedDelta.data);
   // AUTO-8 low-stock auto-add — see scanStockChangeAction.
@@ -276,7 +276,7 @@ export async function linkBarcodeAction(
 }
 
 const newItemSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
+  name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
   category: z.string().trim().max(60).optional(),
 });
 
@@ -297,11 +297,11 @@ export async function createItemFromBarcodeAction(input: {
   const { household, userId } = await requireHousehold();
 
   const code = normalizeBarcode(input.barcode);
-  if (!code) return { kind: "error", error: "Invalid barcode" };
+  if (!code) return { kind: "error", ...(await fail("invalidBarcode")) };
   const parsedDelta = deltaSchema.safeParse(input.delta);
-  if (!parsedDelta.success) return { kind: "error", error: "Invalid change" };
+  if (!parsedDelta.success) return { kind: "error", ...(await fail("invalidChange")) };
   const parsed = newItemSchema.safeParse({ name: input.name, category: input.category ?? undefined });
-  if (!parsed.success) return { kind: "error", error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success) return { kind: "error", ...(await zodFail(parsed.error)) };
 
   const quantity = nextQuantityAfterDelta(0, parsedDelta.data);
   let created: { id: string; name: string; unit: string };
@@ -348,7 +348,7 @@ export async function findItemByBarcodeAction(barcode: string): Promise<BarcodeI
   const { household } = await requireHousehold();
 
   const code = normalizeBarcode(barcode);
-  if (!code) return { kind: "error", error: "Invalid barcode" };
+  if (!code) return { kind: "error", ...(await fail("invalidBarcode")) };
 
   const item = await prisma.inventoryItem.findFirst({
     where: { householdId: household.id, barcode: code },

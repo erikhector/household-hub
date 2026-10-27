@@ -1,7 +1,10 @@
 {
   "name": "squirrel",
-  "version": "0.115.0",
+  "version": "0.115.1",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -24,13 +27,13 @@
     "@base-ui/react": "^1.9.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
-    "@sentry/nextjs": "^10.76.2",
+    "@sentry/nextjs": "^11.9.0",
     "@upstash/redis": "^1.38.4",
     "@vercel/functions": "^3.9.9",
     "barcode-detector": "^3.2.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
-    "cn": "^0.2.5",
+    "cn": "^0.5.0",
     "lucide-react": "^1.41.0",
     "next": "16.4.3",
     "next-auth": "^5.0.0-beta.32",
@@ -48,13 +51,12 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4",
-    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.20.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.9",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "prisma": "^7.10.1",

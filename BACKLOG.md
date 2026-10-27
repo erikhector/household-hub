@@ -125,37 +125,31 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-25. Lazy-load dialogs: shared helper + shopping list** (medium, M) —
-      dialogs are most of each heavy page's unused JS, along with Base
-      UI's Combobox (39 KB raw), which only dialogs use. Add one helper
-      that renders a `next/dynamic` dialog only after it has been opened
-      once, works with the Base UI dialog handles the pages already use
-      (`createHandle`, detached triggers), and preloads the chunk on
-      pointer-enter/focus of the trigger and in idle time after
-      hydration (`requestIdleCallback`), so the first open isn't slower
-      than today (DESIGN.md: instant feedback). Apply it first to
+- [ ] **PERF-25. Lazy-load the shopping list's dialogs** (medium, M) —
+      the helper (`src/components/ui/lazy-dialog.tsx`) shipped with the
+      meal planning page group (PERF-26); apply it to
       `src/components/shopping/shopping-list-client.tsx`, which imports
       nine dialogs up front (receipt scan, put away, import, resolve
       mappings, reorder sections, rename, save template, partial price,
-      item form). Existing e2e specs for those dialogs must pass
-      unchanged on desktop and mobile; add one asserting a dialog opens
-      on the first tap after a hard load.
-- [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
-      the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
-      `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
-      missing ingredients, record prep, plan portions, meal entry, move,
-      fill empty days, add to plan); `inventory-header-actions.tsx` (AI
+      item form). #743 did this and was reverted (#766) only because its
+      failed-chunk e2e check let the app's service worker fetch the chunk
+      past `page.route()`; `1ab2ab4` is a good starting point, with
+      `test.use({ serviceWorkers: "block" })` around that check (as in
+      `e2e/meal-planning-lazy-dialogs.spec.ts`). Existing e2e specs for
+      those dialogs must pass unchanged on desktop and mobile.
+- [ ] **PERF-26. Lazy-load dialogs on inventory and budgets** (medium, M) —
+      the same helper on: `inventory-header-actions.tsx` (AI
       shelf scan, stock scan, bulk scan, bulk paste, add item) and the
       item page's change-unit/merge dialogs; the budget pages'
       transaction, recurring-template, planned-expense and
-      log-shared-expense dialogs. One PR per page group is fine. Expect
-      30–40% less of each page's own JS.
+      log-shared-expense dialogs. One PR per page group is fine. The
+      meal planning group (done) cut its route's JS by 17% gz.
 - [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
       `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
       switcher's menu and create form, and the bottom bar's "More" menu
       hydrate on every page but only appear after a tap or ⌘K. Keep the
       triggers and the ⌘K listener eager; load the popups with the
-      PERF-25 helper. Base UI's drawer, menu, tooltip and positioning code
+      lazy-dialog helper. Base UI's drawer, menu, tooltip and positioning code
       only leaves the shared JS once page dialogs are lazy too
       (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
       20–40 KB gz off every page.
@@ -191,14 +185,16 @@ then MAINT-7 per feature, to avoid churn.
       profile, all done. Still English: the string-literal
       `error:` values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19, barcode, receipt and inventory scans, push, digest, household
-      notes),
-      plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
-      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
-      feature at a time, add its keys to `dict.errors` (or a feature
-      namespace, as `template-actions.ts` does), and delete the file from
-      `PENDING`: the test fails if a clean file stays listed. Leave budget
-      until BUDGET-6 is decided.
+      19), plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
+      `savings-goal-calc.ts` and `budget-category-limit.ts`. The receipt and
+      inventory scans (`receipt-scan.ts`, `inventory-scan.ts`) return
+      snake_case codes (`rate_limited`, `invalid_photo`, …) that their
+      clients map to text, so check whether the client already translates
+      them; if so, move both files to `RETURNS_KEYS` in that test instead of
+      converting. Convert a feature at a time, add its keys to `dict.errors`
+      (or a feature namespace, as `template-actions.ts` does), and delete the
+      file from `PENDING`: the test fails if a clean file stays listed. Leave
+      budget until BUDGET-6 is decided.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
@@ -206,16 +202,15 @@ then MAINT-7 per feature, to avoid churn.
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
       with PERF-12 and BUDGET-5/6.
-- [ ] **MAINT-12. CI and tooling gaps** (medium, M, own PR — touches `package.json`/lockfile) —
-      add a migration drift check to `.github/workflows/ci.yml` (Postgres
-      service → `prisma validate` → `migrate deploy` → `prisma migrate diff
-      --from-migrations prisma/migrations --to-schema-datamodel
-      prisma/schema.prisma --exit-code`; a dropped-column migration already
-      caused the PR #36 outage); add Dependabot/Renovate config; pin Node
-      via `engines` + `.nvmrc` and `node-version-file` in the 3 workflows;
-      optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
-      `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
-      separate PR.
+- [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
+      the migration drift check, Node pinning and Dependabot are done
+      (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
+      `knip` in CI. ESLint 10 waits on `eslint-config-next`'s plugins:
+      `eslint-plugin-react` 7.37, `eslint-plugin-import` 2.32 and
+      `eslint-plugin-jsx-a11y` 6.10 (the latest, 2026-10-27) declare
+      `eslint` peers up to `^9`, so 10 only installs by overriding them.
+      When they support 10, bump `eslint` + `eslint-config-next` in a
+      separate PR and drop the `eslint` ignore in `.github/dependabot.yml`.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -277,6 +272,19 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-68. Flaky: `motion` "a completed task moves to Completed at tap time" sees a late layout shift** (low, S) —
+      `e2e/motion.spec.ts:242` (`desktop`) failed once in the `ci:local`
+      gate of #773 (`1df4959`, 2026-10-27), a PR that touches only the
+      meal planning page: CLS 0.0103 outside the 500 ms after input, the
+      moved node a task swipe row (`data-swipe-row`). It passed 5/5 when
+      re-run alone on the same commit. Find what moves the row late under
+      load (the FLIP move to Completed finishing after the input window, or
+      a revalidation re-render) and fix it in the app or the spec's waiting
+      (`expectHydrated` / `gotoRevealed` in `e2e/ui.ts`), never a loosened
+      assertion, a skip or a retry. Acceptance: `npx playwright test
+      e2e/motion.spec.ts:242 --project=desktop --repeat-each=30` passes
+      30/30 with three workers busy.
 
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
@@ -442,16 +450,28 @@ Friday area: household and personal budgets. Swept `desktop`, `mobile`,
 sweeps; every route passes and the popup probe has no phone-size or
 off-screen hits in the budget dialogs. WebKit was not run.
 
+### UX (2026-10-25 scout)
+
+Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
+hits. Signup error paths at 320 px keep input and put errors beside the
+field. WebKit was not run.
+
+- [ ] **UX-148. Cookie notice's "Läs mer" link stretches its line**
+      (impact: low, effort: S) — `src/components/legal/cookie-notice.tsx:103`
+      puts a `touch-target` (inline-flex, min-h-11) link inside the
+      paragraph, so the line holding it grows to 44 px and the two text
+      lines sit far apart (`small-phone` `/signup` sv, bottom notice). Looks
+      like a rendering glitch on the first screen every visitor sees. Move the
+      44 px target to the notice's own row (or pad the link with a negative
+      margin instead of `min-h`) so the paragraph keeps `leading-snug`.
+      Acceptance: in the `mobile` project the notice's paragraph height is
+      under 3 × its line-height, and "Läs mer" and "Uppfattat" both have
+      ≥ 44 px tap targets.
+
 
 ### Dependencies
-
-- [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
-      Major release (10.73 installed, 11.8 latest). Sentry is wired into
-      the client, server and edge configs plus `instrumentation`; check the
-      v11 migration guide for removed options, then confirm an error still
-      reaches Sentry with no PII added (see the privacy page).
-      Acceptance: `npm run check && npm run build` green; the build emits
-      no new Sentry warnings; REQUIREMENTS.md's monitoring section matches.
 
 ### Budget component unification
 
@@ -479,19 +499,6 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-- [ ] **PERF-3. Add missing indexes** (medium, S) — one migration:
-      - `HouseholdMember @@index([userId])`: `requireHousehold`
-        (`src/lib/session.ts:69-78`) looks memberships up by `userId` on
-        every dashboard request and Server Action, but the only index is
-        `@@unique([householdId, userId])` with `userId` second → full scan
-        that grows with total users.
-      - `Transaction @@index([recurringTemplateId])`:
-        `personal-budget-position.ts:227-230` filters by it without
-        `householdId` (cross-household scan), and the template's
-        `onDelete: SetNull` scans again on every delete.
-      - `PersonalTransaction @@index([userId, date])`: needed by PERF-2.
-      - Optionally `PriceHistory @@index([inventoryItemId, date])` for PERF-12.
-      Verify with `EXPLAIN` before/after.
 - [ ] **PERF-2. Month-scope the personal budget loader** (high, M; after PERF-3) —
       `src/lib/personal-budget-position.ts:62-66` reads *every*
       `personalTransaction` (with `category`), and `:106-118` every split
@@ -952,6 +959,31 @@ out to be a product-scope question rather than a scoped task should move to
       adds a uniquely named line as one seeded member and sees "Added by"
       with their name as another, in `en` and `sv`, and no label on a
       line the viewer added.
+
+### 2026-10-27 scan
+
+- [ ] **GAP-66. Per-item stock history ("who changed the amount, and when")** (impact: low-med, effort: M) `[schema]` —
+      Grocy's "Stock journal" lists every change to a product (consumed,
+      purchased, spoiled, adjusted) with who made it, and Bring! shows who
+      did what on a shared list. Squirrel's item page shows the current
+      quantity and a few derived dates, but nothing explains why the
+      amount is what it is, so "who used the last of the rice?" or "why
+      does it say 0?" has no answer in a shared household. Add an
+      append-only `InventoryItemEvent` (itemId, householdId, nullable
+      plain-string `userId` with no `@relation` so a leaving member takes
+      no history with them, `delta`, `reason`: `used | restocked |
+      adjusted | cooked | trip`, `createdAt`), written by the existing
+      quantity actions (+/-, quantity sheet, mark cooked, finish trip)
+      and capped to the last 50 per item. Show it as a collapsed "History"
+      list at the bottom of the item page (`/dashboard/inventory/items/[id]`),
+      newest first, "Anna used 1 · 2 days ago". Scope: no chart, no
+      household-wide feed, no backfill, no notification.
+      Acceptance: unit tests that each quantity action writes one event
+      with the session user's id (never one from the client), scoped by
+      `requireHousehold()`, and that the 51st event drops the oldest; an
+      e2e step on `mobile` decrements a uniquely named item and sees
+      "used 1" with the actor's name under History after a reload, in
+      `en` and `sv`.
 
 ## Needs a decision before building
 

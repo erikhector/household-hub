@@ -167,6 +167,13 @@ export const sv = {
     resetRequested: "Om det finns ett konto för den e-postadressen har vi skickat en länk för att återställa lösenordet.",
     verificationResent:
       "Om kontot behöver verifieras har vi skickat en ny verifieringslänk. Kolla din inkorg.",
+    noteEmpty: "Anteckningen kan inte vara tom",
+    householdNoteTooLong: "Anteckningen får vara högst 1000 tecken",
+    invalidBarcode: "Ogiltig streckkod",
+    invalidChange: "Ogiltig ändring",
+    invalidQuietHours: "Ogiltiga tysta timmar",
+    quietHoursMustDiffer: "Start och slut får inte vara samma tid",
+    subscriptionNotFound: "Prenumerationen hittades inte",
   },
   nav: {
     overview: "Översikt",

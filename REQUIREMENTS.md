@@ -75,6 +75,46 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Sentry sends error details only (DEPS-5).** `@sentry/nextjs` 11 collects user
+  info, cookies, headers, bodies, query strings and stack-frame local
+  variables unless each is opted out, so both `Sentry.init()` calls pass
+  `SENTRY_DATA_COLLECTION` (`src/lib/sentry-data-collection.ts`): Sentry's
+  documented equivalent of v10's `sendDefaultPii: false`, plus local
+  variables, database query data and the AI/MCP categories off. That keeps
+  what the privacy page describes (message, stack trace, page address,
+  browser and device). `sentry-data-collection.test.ts` pins the opt-outs
+  and that the server's `register()` passes them.
+- **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
+  page's unused JS, so a page declares each one's chunk with
+  `createLazyDialogLoader(() => import(...))` (module level, shared; the
+  meal planning ones are in `src/components/meal-planning/lazy-dialogs.ts`)
+  and renders it through `<LazyDialog>` from
+  `src/components/ui/lazy-dialog.tsx`, which mounts the real component the
+  first time it is asked to open and keeps it mounted after. Two ways to
+  ask: a dialog that opens through a Base UI handle (`createDialogHandle`)
+  is opened with `openLazyDialog(handle)` where `handle.open(null)` used to
+  be (the host waits for the chunk and for the Root to attach, because a
+  handle ignores `open()` until one is mounted); a dialog the parent
+  controls with an `open` prop passes `open` to `<LazyDialog>`. The chunk is
+  fetched before it's needed so the first open is no slower than before: in
+  idle time after the host hydrates (`requestIdleCallback`, a short timeout
+  on Safari), and on pointer-enter, focus or touch-start of an opener that
+  spreads `preloadOnIntent(loader)`. A tap that still beats both opens the
+  dialog as soon as the chunk arrives. A chunk that fails to load (offline,
+  or replaced by a deploy) shows the page's generic error toast (the page
+  wraps itself in `LazyDialogErrorMessage`) and the next tap retries.
+  Applied to the meal planning page group (`week-planner.tsx`,
+  `recipe-manager.tsx`, `prep-tab.tsx`, `cook-now-list.tsx`): meal entry
+  (add and edit), cook mode, mark cooked, move, fill empty days, missing
+  ingredients, add to plan, recipe form, record prep and plan portions.
+  Dialogs that used to own their trigger (meal entry, recipe form, record
+  prep, add to plan) now take a `handle`, with the opener button kept in
+  the page (`AddMealSlot` in the planner, `LazyAddToPlan` for the Cook now
+  tab's server-rendered rows). `e2e/meal-planning-lazy-dialogs.spec.ts`
+  covers the first tap without the idle prefetch and the failed-load toast
+  and retry (with the service worker blocked, since `page.route()` can't
+  see requests it handles). The shopping list (PERF-25), inventory and the
+  budget pages are still to do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -170,6 +210,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   settings, including the "can't delete your only household" reason the
   delete dialog shows. `passwordTooLong` spells out the 72-character limit
   because a Zod message can't carry variables.
+  The household notes board (`notes-actions.ts`), the push actions (quiet
+  hours validation, unknown subscription), the weekly-digest toggle and the
+  barcode scan, link and create-item actions (`lib/actions/barcode.ts`) are
+  converted too. `householdNoteTooLong` spells out the 1000-character limit
+  for the same reason, with a test that it matches `NOTE_BODY_MAX_LENGTH`.
   It has also converted the auth actions (`lib/actions/auth.ts`: signup,
   login, password reset, email verification and its resend, including the
   "if an account exists" confirmations, which stay identical whether or not
@@ -470,6 +515,16 @@ outbound email to arbitrary addresses via this app's sending domain.
 ## Data model
 
 See `prisma/schema.prisma` for the authoritative version. Summary:
+
+**Hot-path indexes (PERF-3)**: `HouseholdMember(userId)` serves
+`requireHousehold`'s lookup by user alone (the `[householdId, userId]`
+unique has `userId` second); `Transaction(recurringTemplateId)` serves the
+template lookups and the `SetNull` on template delete;
+`PersonalTransaction(userId, date)` (replacing `userId`) serves the
+month-scoped personal-budget reads; `PriceHistory(inventoryItemId, date)`
+(replacing `inventoryItemId`) serves per-item price lookups in date order.
+Where a composite replaces a single-column index, its leading column covers
+every lookup the old one did.
 
 **Inventory & shopping** (built)
 - `InventoryItem` — name, category, quantity, unit, `lowStockThreshold`,
@@ -7195,6 +7250,22 @@ version or the notes by hand.
   PR's running workflow, and nothing runs on push, since every commit
   reaching `next` or `master` was already checked on its PR. The
   Playwright browsers and `.next/cache` are cached between runs.
+- **Migration drift and tooling pins** (MAINT-12). A `Migration drift`
+  job in `ci.yml` (same code-changed condition as the fast job, not a
+  required check) starts a Postgres service, runs `prisma validate` and
+  `prisma migrate deploy`, then `prisma migrate diff
+  --from-config-datasource --to-schema prisma/schema.prisma --exit-code`.
+  Any difference between what the migrations build and `schema.prisma`
+  fails it, which catches a schema edit committed without its migration.
+  Node is pinned in one place, `.nvmrc` (`22`), which every
+  `actions/setup-node` step reads through `node-version-file`;
+  `package.json` `engines.node` is `>=22`. `.github/dependabot.yml` opens
+  weekly `chore(deps)` PRs for npm and GitHub Actions, minor and patch
+  bumps grouped, majors separate. It skips `@types/node` majors (they
+  follow the Node pin), ESLint majors until `eslint-config-next`'s
+  plugins support ESLint 10 (MAINT-12), and TypeScript majors until
+  `typescript-eslint` supports 7 (it accepts `<6.1.0`). `@types/bcryptjs` is gone:
+  `bcryptjs` 3 ships its own types.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →

@@ -1,0 +1,40 @@
+# Weekly update PRs for npm packages and the pinned GitHub Actions. Minor and
+# patch bumps are grouped into one PR each so a week doesn't open a dozen;
+# majors stay separate because they need a human look (ESLint, Prisma and
+# Next.js majors have all needed code changes here). PR titles use the
+# `chore(deps)` Conventional Commit form, which doesn't cut a release.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Node is pinned to 22 (.nvmrc, engines); newer type majors would let
+      # code use APIs the runtime doesn't have. Bump with the Node pin.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # ESLint 10 only installs by overriding the peer ranges of
+      # eslint-config-next's plugins (react, import, jsx-a11y), which stop at
+      # 9. Drop this once they support 10 (MAINT-12).
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 fails `npm ci`: typescript-eslint accepts only
+      # `>=4.8.4 <6.1.0`. Drop this once it supports 7.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      actions:
+        update-types: [minor, patch]

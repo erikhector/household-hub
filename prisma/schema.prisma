@@ -262,6 +262,10 @@ model HouseholdMember {
   cookedBatches           PreparedBatch[]
 
   @@unique([householdId, userId])
+  // requireHousehold looks the membership up by userId alone on every
+  // dashboard request and Server Action (PERF-3). The unique above has
+  // userId second, so it can't serve that lookup.
+  @@index([userId])
 }
 
 model Invitation {
@@ -745,7 +749,9 @@ model PriceHistory {
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
 
-  @@index([inventoryItemId])
+  // Latest-N / date-range price lookups per item (PERF-12) read in date
+  // order; the leading column covers the old inventoryItemId-only index.
+  @@index([inventoryItemId, date])
 }
 
 // --- Meal planning -----------------------------------------------------------
@@ -1173,6 +1179,10 @@ model Transaction {
   // that access pattern directly instead of falling back to the
   // householdId-only index above plus a sort.
   @@index([householdId, date])
+  // personal-budget-position filters by recurringTemplateId without
+  // householdId, and the template's onDelete: SetNull scans for it on every
+  // delete (PERF-3).
+  @@index([recurringTemplateId])
 }
 
 // One row per household member included in a split transaction's cost
@@ -1450,7 +1460,10 @@ model PersonalTransaction {
   recurringTemplate PersonalRecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
   plannedExpense    PersonalPlannedExpense?    @relation(fields: [plannedExpenseId], references: [id], onDelete: SetNull)
 
-  @@index([userId])
+  // Month-scoped personal-budget reads filter by user and date range
+  // (PERF-2). Its leading column also covers plain userId lookups, so this
+  // replaces the old userId-only index.
+  @@index([userId, date])
   @@index([categoryId])
   @@index([recurringTemplateId])
 }
