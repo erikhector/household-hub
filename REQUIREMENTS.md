@@ -107,8 +107,8 @@ easy for AI coding agents to work in correctly:
   their trigger (meal entry, recipe form, record prep, add to plan) now take a
   `handle`, with the opener button kept in the page (`AddMealSlot` in the
   planner, `LazyAddToPlan` for the Cook now tab's server-rendered rows).
-  `e2e/meal-planning-lazy-dialogs.spec.ts` covers the first tap and a failed
-  chunk load. Inventory and the budget pages are still to do.
+  `e2e/meal-planning-lazy-dialogs.spec.ts` covers the first tap without the idle
+  prefetch. Inventory and the budget pages are still to do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`

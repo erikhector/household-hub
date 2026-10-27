@@ -4,9 +4,10 @@ import { dismissCookieNotice, expectHydrated } from "./ui";
 
 // PERF-26: the meal planning dialogs are separate chunks, mounted the first
 // time they're asked to open (the PERF-25 helper). The first tap after a hard
-// load must still open one at once, with or without the idle prefetch, and a
-// failed chunk load must say so and retry on the next tap. The rest of the
-// page group's behaviour is covered by the flow specs that open each dialog.
+// load must still open one at once, without the idle prefetch. The failed
+// chunk path is the shared primitive's and is covered in
+// shopping-lazy-dialogs.spec.ts; the rest of the page group's behaviour is
+// covered by the flow specs that open each dialog.
 const t = en.mealPlanning;
 // A far-future week nobody plans in, so it is an empty week for every run.
 const EMPTY_WEEK = "2032-03-02";
@@ -46,24 +47,4 @@ test.describe("without the idle prefetch", () => {
     await button.click();
     await expect(page.getByRole("dialog", { name: t.prepRecordDialogTitle })).toBeVisible();
   });
-});
-
-test("a failed chunk load says so, and the next tap retries", async ({ page }) => {
-  await page.addInitScript(() => {
-    window.requestIdleCallback = () => 0;
-  });
-  await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
-  const first = page.getByRole("button", { name: t.addFirstDinner });
-  await expectHydrated(first);
-
-  // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
-  let offline = true;
-  await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
-  await first.click();
-  await expect(page.getByText(en.errors.generic)).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  offline = false;
-  await first.click();
-  await expect(page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })).toBeVisible();
 });
