@@ -30,13 +30,13 @@
 // Household.currencyCode), falling back to HOUSEHOLD_BASE_CURRENCY
 // (src/lib/currency.ts) when it's unset, so the link shows only for a SEK
 // or unset household.
-export const SWISH_CURRENCY = "SEK";
+const SWISH_CURRENCY = "SEK";
 
 export function swishSupportsCurrency(currencyCode: string): boolean {
   return currencyCode.toUpperCase() === SWISH_CURRENCY;
 }
 
-export const SWISH_MESSAGE_MAX_LENGTH = 50;
+const SWISH_MESSAGE_MAX_LENGTH = 50;
 
 // Returned by updateSwishNumberAction (src/app/dashboard/profile/actions.ts)
 // for an unparseable number. The form swaps it for the translated message,
