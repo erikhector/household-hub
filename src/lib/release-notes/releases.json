@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.113.6",
+    "date": "2026-10-27",
+    "pr": 780,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Errors about households and invites (for example \"only the owner can change the currency\" or \"this invite link has expired\") now show in Swedish when Squirrel is set to Swedish.",
+      "sv": "Felmeddelanden om hushåll och inbjudningar (till exempel \"bara ägaren kan ändra valutan\" eller \"inbjudningslänken har gått ut\") visas nu på svenska när Squirrel är inställt på svenska."
+    }
+  },
+  {
     "version": "0.113.5",
     "date": "2026-10-27",
     "pr": 771,
