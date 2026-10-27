@@ -1,6 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { sv } from "@/lib/i18n/dictionaries/sv";
+import { LOCALE_COOKIE } from "@/lib/i18n/locales";
 
 // UX-57: the cookie notice is a slim strip that the page makes room for, so
 // while it shows, nothing a person needs on a phone sits underneath it.
@@ -29,6 +31,32 @@ test.describe("logged out", () => {
       /(^|\s)bg-primary(\s|$)/,
     );
   });
+
+  // UX-148: the "Läs mer" link used to be a 44 px inline-flex box inside the
+  // paragraph, which stretched the line holding it. Swedish wraps to two
+  // lines, so it is the case that showed the gap.
+  for (const [locale, dict] of [["en", en], ["sv", sv]] as const) {
+    test(`the ${locale} message keeps tight lines and both controls are tappable`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: LOCALE_COOKIE, value: locale, url: baseURL! }]);
+      await page.goto("/signup");
+      const region = notice(page);
+      await expect(region).toBeVisible();
+      const para = region.locator("p");
+      const { height, lineHeight } = await para.evaluate((el) => ({
+        height: el.getBoundingClientRect().height,
+        lineHeight: parseFloat(getComputedStyle(el).lineHeight),
+      }));
+      expect(height).toBeLessThan(3 * lineHeight);
+      for (const target of [
+        region.getByRole("link", { name: dict.cookieNotice.learnMore }),
+        region.getByRole("button", { name: dict.cookieNotice.dismiss }),
+      ]) {
+        const box = (await target.boundingBox())!;
+        expect(box.height).toBeGreaterThanOrEqual(43.5);
+        expect(box.width).toBeGreaterThanOrEqual(43.5);
+      }
+    });
+  }
 
   test("signup's submit button stays visible under the notice", async ({ page }) => {
     await page.goto("/signup");

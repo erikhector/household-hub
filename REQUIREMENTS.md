@@ -7041,7 +7041,7 @@ components directly.
   `--cookie-notice-h`, so the button rides above it, and public pages pad
   the body by `--cookie-notice-space`, which is not published over
   `/dashboard` (the shell scrolls inside itself, so the document must not
-  grow); both are set by `CookieNotice` and removed on dismissal, covered by `cookie-notice-room.mobile.spec.ts`)
+  grow); both are set by `CookieNotice` and removed on dismissal, covered by `cookie-notice-room.mobile.spec.ts`, which also holds the message to under three line-heights with 44 px "Läs mer" and dismiss targets: the link's hit area comes from inline vertical padding, not `touch-target`, so it doesn't stretch its line, UX-148)
   still shares the bottom edge, so e2e specs that tap a primary action on
   a phone call `dismissCookieNotice` first, and `expectTargetsApart`
   doesn't pair the floating button with the content scrolling under it.
