@@ -39,7 +39,7 @@ test.describe("logged out", () => {
     test(`the ${locale} message keeps tight lines and both controls are tappable`, async ({ page, context, baseURL }) => {
       await context.addCookies([{ name: LOCALE_COOKIE, value: locale, url: baseURL! }]);
       await page.goto("/signup");
-      const region = notice(page);
+      const region = page.getByRole("region", { name: dict.cookieNotice.title });
       await expect(region).toBeVisible();
       const para = region.locator("p");
       const { height, lineHeight } = await para.evaluate((el) => ({
