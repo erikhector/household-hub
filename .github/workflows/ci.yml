@@ -140,7 +140,7 @@ jobs:
       # (the cache setup its docs recommend for GitHub Actions).
       - name: Restore Next.js build cache
         if: needs.changes.outputs.e2e == 'false'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
@@ -248,7 +248,7 @@ jobs:
       # so a hit still installs those.
       - name: Restore Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -265,7 +265,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Restore Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
