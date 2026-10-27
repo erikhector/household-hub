@@ -40,9 +40,9 @@ easy for AI coding agents to work in correctly:
   screen reader announces a link for something that navigates (UX-68); e2e
   finds these with `getByRole("link", …)`. A `role` passed at the call
   site still wins.
-- **react-hook-form + Zod** are installed for future complex forms; the
-  current auth/inventory/shopping forms use React's `useActionState` +
-  native `<form action={...}>` directly, which is enough for their shape.
+- **Zod** validates every form and action input; forms use React's
+  `useActionState` + native `<form action={...}>` directly, which is enough
+  for their shape (react-hook-form is not installed).
 - Prisma's client generator is the new `prisma-client` (Prisma 7), which
   **requires an explicit driver adapter** — see `src/lib/prisma.ts`
   (`@prisma/adapter-pg`). A bare `new PrismaClient()` throws at runtime.
@@ -271,7 +271,21 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   session's `role`, not trusted from the client):
   - `removeMemberAction` — removes a `CONTRIBUTOR` from the household. Fails
     (returns `{ error }`) if the caller isn't the owner, the target is the
-    owner, or the caller targets themselves.
+    owner, or the caller targets themselves. SEC-4: in the same
+    `$transaction` as the delete (shared with `leaveHouseholdAction` via
+    `revokeDepartingMemberAccess`) it deletes the member's unused
+    invitations (`Invitation.invitedById`, set since UX-62, so no new
+    column was needed; links made before that column have no inviter and
+    stay until they expire), revokes **every** active shopping-list share
+    link in the household (we can't tell which the leaver saw), and
+    regenerates the calendar feed token if the feed is on. Rotation is
+    automatic rather than a prompt because a skippable prompt leaves the
+    hole open; the cost is that members re-share lists and the owner
+    re-copies the feed URL. The remove dialog says so up front.
+  - `revokeInviteAction(invitationId)` — closes an unused invite. Owner:
+    any in the household; contributor: only their own. The Household page
+    lists unexpired, unused invites ("Pending invites", `PendingInvites`)
+    to every member with the inviter and expiry, never the token.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
@@ -1904,7 +1918,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   link instead of a second "Groceries" appearing on the next trip. It runs
   on the caller's transaction client. The fallback name
   (`GROCERIES_CATEGORY_NAME`) is module-private; callers read
-  `category.name`. Like `findOrCreateInventoryItem`, it trusts its
+  `category.name`. Like every helper that takes a `householdId`, it trusts its
   `householdId` argument and does no auth check of its own; every caller
   must resolve that id from its own `requireHousehold()` call first, never
   from client input.
@@ -4246,7 +4260,7 @@ where this feature has none.
   are, exactly like the other two features' review step.
 - **An ordered attempt chain, not a single provider pick**
   (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
-  `resolveAttempts()` builds a chain of up to three attempts — Gemini's
+  `resolveAttempts()` (in `src/lib/ai/provider-chain.ts`, the one chain shared with receipt scan and the category fallback, unit-tested with mocked `fetch`) builds a chain of up to three attempts — Gemini's
   primary model (`GEMINI_MODEL`, default the auto-updating
   `gemini-flash-latest` alias), then Gemini's *fallback* model
   (`GEMINI_FALLBACK_MODEL`, default `gemini-flash-lite-latest` — a
@@ -4257,7 +4271,7 @@ where this feature has none.
   (`generativelanguage.googleapis.com`, no card required) makes this
   feature genuinely free to run at a single-household scale, where
   Anthropic's is metered from the first request — see `.env.example` for
-  all three env vars. `callAttempts` walks the chain in order and moves to
+  all three env vars. `runProviderChain` walks the chain in order and moves to
   the *next* entry only when the current one reports itself busy
   (`provider_busy` — see the retry section just below), trying a different
   Gemini model before ever spending real money falling through to
@@ -4283,7 +4297,7 @@ where this feature has none.
   fetch, not its own internal retry loop — a busy response (Gemini: `503
   UNAVAILABLE`, commonly hit on the free-tier Flash model under load;
   Anthropic: `529 overloaded_error`; either: plain rate limiting, `429`)
-  throws `provider_busy` and lets `callAttempts` move on to the next
+  throws `provider_busy` and lets `runProviderChain` move on to the next
   *different* model/provider rather than retrying the same one — that's
   both faster (no artificial backoff delay for a request that isn't being
   identically repeated) and, per Google's own guidance for the 503 case,
@@ -4291,13 +4305,13 @@ where this feature has none.
   `REQUEST_TIMEOUT_MS` is 50s (a live test measured ~40s for one
   successful Gemini free-tier call, comfortably past a shorter timeout)
   and is shared as one deadline across the *entire chain* — before
-  actually starting the next attempt, `callAttempts` checks
+  actually starting the next attempt, `runProviderChain` checks
   `deadlineAt - Date.now()` against `MIN_ATTEMPT_BUDGET_MS` (15s) and
   returns `provider_busy` immediately if another attempt couldn't
   realistically finish in what's left, rather than starting one doomed to
   be aborted mid-flight. That shared deadline firing itself (an attempt
-  slow enough to eat the whole remaining budget) is caught in
-  `scanShelfPhotoAction` as a plain `AbortError` and mapped to the same
+  slow enough to eat the whole remaining budget) is caught by `runProviderChain` (not
+  `scanShelfPhotoAction`) as a plain `AbortError` and mapped to the same
   `provider_busy` message, not the generic failure — the raw
   `{name: "AbortError", message: "This operation was aborted"}` this
   produces if left unmapped is exactly what surfaced in testing before
@@ -7313,9 +7327,14 @@ Exactly seven triggers exist — nothing else creates a notification:
     — meaning opening the bell could trigger an unbounded number of
     `Notification` writes and push sends on what should've been a pure
     read. They now run only from `GET /api/cron/sync-notifications`
-    (`src/app/api/cron/sync-notifications/route.ts`), which iterates every
-    household (`prisma.household.findMany`) and calls both sync functions
-    for each; something external must hit this route on a schedule (see
+    (`src/app/api/cron/sync-notifications/route.ts`), which runs the syncs
+    only for households with something to act on
+    (`findHouseholdIdsWithSyncCandidates` in `src/lib/notifications.ts`: one
+    `household.findMany` per trigger, with the same predicate as that
+    trigger's sync, unioned), so a run's cost follows the work, not the
+    number of households. The route exports `maxDuration = 60` and logs
+    `durationMs` and the household counts on every authorised run (PERF-13);
+    something external must hit this route on a schedule (see
     DEPLOYMENT.md's "Scheduled jobs" section for the Vercel/Railway/Render
     setup). It's protected by a `CRON_SECRET`-checked bearer token, since
     unlike `/api/health` it both writes data and sends push notifications;
@@ -8418,9 +8437,7 @@ UX-14's rapid ticks and the rollback toast.
   Picked for discoverability (the test sits right next to what it covers)
   and because it matches how the rest of this codebase colocates related
   files (e.g. `actions.ts` next to the `page.tsx` that uses it).
-- **What's covered so far** (deliberately scoped to already-stable code that
-  doesn't depend on Wave 1's other in-flight features — see
-  `AGENT_TASKS.md`):
+- **What's covered so far** (the first batch; later features add their own colocated tests):
   - `src/lib/i18n/format.ts` — `format()`/`plural()`, pure functions, no
     mocking needed.
   - `src/lib/session.ts` — `requireHousehold()`'s cookie-fallback logic
@@ -8452,10 +8469,9 @@ UX-14's rapid ticks and the rollback toast.
     inventory and shopping-list CSV `export/route.ts` handlers (household
     tenancy scoping, filename generation, column rendering, and formula-
     injection guarding end to end).
-  - Not covered yet: meal planning, budgeting, profile — out of scope for
-    this task per `AGENT_TASKS.md` (they're other in-flight Wave 1 work and
-    don't exist in a stable form on this branch). Add their tests alongside
-    their own feature work.
+  - Meal planning, budgeting and profile have colocated tests of their own
+    (`actions.test.ts` next to each feature's `actions.ts`, plus the pure
+    calculators in `src/lib/`), added with each feature.
 - **Database isolation**: no test in this suite touches the real database.
   Everything under `src/lib/actions/*.test.ts` and `src/lib/session.test.ts`
   mocks `@/lib/prisma`, `@/lib/auth`, `@/lib/session`, `next/headers`,
@@ -8626,8 +8642,8 @@ UX-14's rapid ticks and the rollback toast.
   visit, "Got it" hides it, stays hidden after a reload).
 - **Waiting on what the user sees, not on the URL**: the e2e flakes fixed
   in Oct 2026 were all a test acting one step ahead of the page. A tab
-  switch that is a `history.replaceState` (BudgetTabs, MealPlanningView)
-  moves the URL at once but renders in a React transition, so a spec
+  switch that is a `history.replaceState` (BudgetTabs) moves the URL at
+  once but renders in a React transition, so a spec
   waits for the tab's `aria-selected` (and, before following a month
   link, for the link's `href`) rather than `toHaveURL` alone. A dialog
   closed from the UI takes its history entry back with an async

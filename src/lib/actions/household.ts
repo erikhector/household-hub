@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold, requireUserId } from "@/lib/session";
 import { sendHouseholdInviteEmail, sendVerificationEmail } from "@/lib/email";
@@ -76,6 +77,32 @@ const sendInviteEmailSchema = z.object({
 // malicious account can do.
 const INVITE_EMAIL_RATE_LIMIT = 10;
 const INVITE_EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
+// SEC-4: close one pending invite from the Household page. The owner may
+// close any; a contributor only their own, matching who could mint it. The
+// household scope is in the where clause so a forged id from another
+// household deletes nothing. Accepted invites aren't listed or deletable
+// here: they're history, not a live way in.
+export async function revokeInviteAction(invitationId: string): Promise<ActionState> {
+  const { household, role, userId } = await requireHousehold();
+
+  try {
+    const { count } = await prisma.invitation.deleteMany({
+      where: {
+        id: invitationId,
+        householdId: household.id,
+        acceptedAt: null,
+        ...(role === "OWNER" ? {} : { invitedById: userId }),
+      },
+    });
+    if (count === 0) return { error: "Invite not found" };
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  return {};
+}
 
 // Sends the same link the on-screen "copy link" UI already shows for this
 // invite (see InviteButton) — email delivery is additive, not a
@@ -461,6 +488,37 @@ export async function renameHouseholdAction(name: string): Promise<ActionState> 
   return {};
 }
 
+// SEC-4: what a departing member could still reach on their own once their
+// membership row is gone, closed in the same transaction as the delete.
+// - Their pending invites (any role can mint a 7-day link), or a removed
+//   contributor could hand themselves a way back in.
+// - Every active shopping-list share link in the household. These never
+//   expire and need no login, so anyone who held one (the leaver certainly
+//   did) keeps reading and ticking the list. We can't tell which links the
+//   leaver saw, so all of them are closed; members share again in one tap.
+// - The calendar feed token, regenerated (not switched off) so the feed
+//   stays enabled; the owner re-copies the new URL from the Household page.
+// Rotating automatically beats prompting the owner: a prompt is skippable,
+// and a forgotten rotation is the exact hole this closes. The cost is a
+// one-off re-share, acceptable for an owner-initiated removal or a leave.
+async function revokeDepartingMemberAccess(
+  tx: Prisma.TransactionClient,
+  householdId: string,
+  userId: string,
+) {
+  await tx.invitation.deleteMany({
+    where: { householdId, invitedById: userId, acceptedAt: null },
+  });
+  await tx.shoppingListShareLink.updateMany({
+    where: { revokedAt: null, shoppingList: { householdId } },
+    data: { revokedAt: new Date() },
+  });
+  await tx.household.updateMany({
+    where: { id: householdId, calendarFeedToken: { not: null } },
+    data: { calendarFeedToken: generateCalendarFeedToken() },
+  });
+}
+
 export async function removeMemberAction(memberId: string): Promise<ActionState> {
   const { household, role, userId } = await requireHousehold();
   if (role !== "OWNER") {
@@ -481,6 +539,7 @@ export async function removeMemberAction(memberId: string): Promise<ActionState>
     await prisma.$transaction(async (tx) => {
       await settleDepartingMemberSplits(tx, member.id);
       await tx.householdMember.delete({ where: { id: member.id } });
+      await revokeDepartingMemberAccess(tx, household.id, member.userId);
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -565,6 +624,7 @@ export async function leaveHouseholdAction(): Promise<ActionState> {
     await prisma.$transaction(async (tx) => {
       await settleDepartingMemberSplits(tx, membership.id);
       await tx.householdMember.delete({ where: { id: membership.id } });
+      await revokeDepartingMemberAccess(tx, household.id, userId);
     });
   } catch (error) {
     return toFriendlyError(error);

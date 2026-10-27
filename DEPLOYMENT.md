@@ -380,8 +380,8 @@ still fire synchronously from the Server Action that causes them, e.g.
 inside `getActiveNotifications` on every notification-bell fetch, which
 meant opening the bell could trigger an unbounded number of `Notification`
 writes and push sends on what should've been a pure read. Those two now run
-only from `GET /api/cron/sync-notifications`, which iterates every household
-and syncs both. **This route does nothing on its own — something external
+only from `GET /api/cron/sync-notifications`, which syncs every household
+that has something to alert on. **This route does nothing on its own — something external
 has to call it on a schedule**, and it must never be called without the
 `CRON_SECRET` bearer token (see `.env.example`), since unlike `/api/health`
 it both writes data and sends push notifications.

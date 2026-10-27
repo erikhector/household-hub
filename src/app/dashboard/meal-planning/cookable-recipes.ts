@@ -79,8 +79,7 @@ export async function getCookableRecipes(
 
   // Same loose-match fallback as previewMissingIngredientsAction /
   // previewCookedIngredientsAction in cooking-actions.ts (duplicated rather
-  // than shared, for the same self-containment reason given there — see
-  // findOrCreateInventoryItem's comment): an ingredient's inventoryItemId is
+  // than shared): an ingredient's inventoryItemId is
   // normally always set (find-or-create-linked at recipe-save time), but the
   // relation is `onDelete: SetNull`, so a since-deleted inventory item can
   // leave one unlinked. Fall back to a case-insensitive name match against

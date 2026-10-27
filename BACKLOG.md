@@ -108,12 +108,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-13. Make the notification-sync cron proportional to work, not households** (low now, M) —
-      `api/cron/sync-notifications/route.ts:41-65` walks every household in
-      sequential batches of 10, with no `maxDuration`. Pre-select only
-      households with candidates (one query per trigger), export
-      `maxDuration`, and log run duration.
-
 ### Client JS and caching (2026-10-26 measurement)
 
 Measured on a production build with the seeded e2e user in Chromium
@@ -203,14 +197,6 @@ then MAINT-7 per feature, to avoid churn.
       namespace, as `template-actions.ts` does), and delete the file from
       `PENDING`: the test fails if a clean file stays listed. Leave budget
       until BUDGET-6 is decided.
-- [ ] **MAINT-8. One tested AI provider chain** (medium, M) —
-      `resolveAttempts`/`callGemini`/`callAnthropic`/deadline-fallback loop
-      is copy-pasted in `lib/actions/inventory-scan.ts:247-480`,
-      `lib/actions/receipt-scan.ts:164-390` and
-      `lib/inventory/ai-category-fallback.ts:107-228`, and none of it has
-      tests. Extract `src/lib/ai/provider-chain.ts`, parameterised by prompt
-      and response schema; unit-test fallback, busy and deadline paths with
-      mocked `fetch`.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
@@ -228,16 +214,6 @@ then MAINT-7 per feature, to avoid churn.
       optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
       `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
       separate PR.
-- [ ] **MAINT-13. Fix documentation drift** (low, S) — REQUIREMENTS.md
-      says react-hook-form is installed (it isn't, `:37-39`); its "Testing →
-      What's covered so far" section cites a missing `AGENT_TASKS.md` and
-      calls meal planning/budget/profile untested (they're well tested);
-      comments in `budget/actions.ts:18-35`, `lib/notifications.ts:16,63`,
-      `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
-      cite a `findOrCreateInventoryItem` that no longer exists. Delete the
-      stray committed `src/components/budget/cost-analyzer.tsx.orig`, and
-      add `*.orig` and `*.rej` to `.gitignore` so a conflict leftover
-      can't be committed again.
 - [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
       exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
       `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
@@ -273,21 +249,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-- [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
-      `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
-      (`mobile`). Both failed once and passed on the retry in the GitHub
-      `End-to-end (Playwright)` job of release PR #666 on `8d2e088`
-      (2026-10-24). Nobody's change is in them. Same failure at
-      `e2e/ui.ts:330`: after `tab.click()`, `expect(tab).toHaveAttribute(
-      "aria-selected", "true")` still reads `false` after 5 s, although
-      the helper already waits for hydration and a patched `replaceState`.
-      Find out what the click races with (a re-render that resets the
-      tab, the `?tab=` URL sync) and fix it in the app or in the helper's
-      waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-dialog.spec.ts:43
-      e2e/recipe-planned-dates.spec.ts:55 --project=mobile
-      --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
       `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
@@ -361,6 +322,23 @@ then MAINT-7 per feature, to avoid churn.
       spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/log-expense-fast.spec.ts:118
       --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
+      item, blocks an incomplete row, and folds away confident matches",
+      `desktop`) failed once in a full local `ci:local` run of the SEC-4
+      branch (`c1f4461`, based on `origin/next` `2a8d9b6`, 2026-10-27) and
+      passed in the two other full runs of that branch (`a4f4dcf`,
+      `5cf0616`), whose diff touches nothing in recipes. Failing
+      assertion (line 169 region): `getByRole("dialog", { name: "Match
+      ingredients" }).getByRole("group", { name: "1 krm romatmnaai" })
+      .getByText("Nothing close in your pantry, so…")` not found after 5 s.
+      Likely the row's match note renders after an async lookup the spec
+      doesn't wait for. Reproduce with `--repeat-each=30`, find the race,
+      and fix it in the app or the spec's waiting, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:144
+      --project=desktop --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
@@ -588,19 +566,6 @@ order below is a suggestion, not a dependency, unless noted.
       savings, and a SQL aggregate (`groupBy` on `TransactionSplit`) for
       "owed from earlier months". Verify with 3 years × 100/month seeded.
  No schema change of its own beyond PERF-3's index.
-
-- [ ] **SEC-4. Removing a member revokes what they can still reach** (medium) —
-      any role can create 7-day invites (`household.ts:32-50`) and nothing
-      revokes them; `removeMemberAction` (`:383-410`) leaves pending
-      invites, never-expiring shopping-list share tokens and the calendar
-      feed token intact. A contributor expecting removal can mint an invite
-      and rejoin, or keep reading/ticking a shared list and the meal/bill
-      feed. Add `Invitation.createdByUserId` (migration), delete that
-      member's pending invites on remove/leave, add list/revoke pending
-      invites to the Household page, and prompt the owner to rotate share
-      links and the calendar feed after a removal (or rotate
-      automatically). Test: `invitation.deleteMany` with that user's id
-      after `removeMemberAction`.
 
 ## Phase 3 — larger items, own PR each
 
