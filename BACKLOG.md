@@ -552,13 +552,6 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       field or with a dialog open. A `?` overlay lists them. Desktop only
       (hidden on touch). e2e spec on the desktop project.
 
-- [ ] **UX-41d. Tooltips on icon-only buttons** (S) — Split from UX-41.
-      A Base UI Tooltip (via a shared `IconButton` or a wrapper in
-      `src/components/ui/`) on every icon-only button, using its existing
-      aria-label text so the two cannot drift. Desktop hover/focus only;
-      mobile unchanged. e2e: hover a known icon button, assert the
-      tooltip.
-
 - [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
       most-used screens:
