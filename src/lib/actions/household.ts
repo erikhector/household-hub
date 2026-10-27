@@ -78,10 +78,6 @@ const sendInviteEmailSchema = z.object({
 const INVITE_EMAIL_RATE_LIMIT = 10;
 const INVITE_EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-// Sends the same link the on-screen "copy link" UI already shows for this
-// invite (see InviteButton) — email delivery is additive, not a
-// replacement, so the invite still works via manual copy/paste if this
-// fails or if RESEND_API_KEY isn't configured (see src/lib/email.ts).
 // SEC-4: close one pending invite from the Household page. The owner may
 // close any; a contributor only their own, matching who could mint it. The
 // household scope is in the where clause so a forged id from another
@@ -108,6 +104,10 @@ export async function revokeInviteAction(invitationId: string): Promise<ActionSt
   return {};
 }
 
+// Sends the same link the on-screen "copy link" UI already shows for this
+// invite (see InviteButton) — email delivery is additive, not a
+// replacement, so the invite still works via manual copy/paste if this
+// fails or if RESEND_API_KEY isn't configured (see src/lib/email.ts).
 export async function sendInviteEmailAction(token: string, email: string): Promise<ActionState> {
   const { household, userId } = await requireHousehold();
 
