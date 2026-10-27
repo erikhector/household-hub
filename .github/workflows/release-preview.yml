@@ -45,7 +45,7 @@ jobs:
       # Node 22.18+ runs scripts/release.ts directly (built-in type
       # stripping), so no `npm ci` is needed.
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
