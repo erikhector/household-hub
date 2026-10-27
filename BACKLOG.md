@@ -1031,6 +1031,31 @@ out to be a product-scope question rather than a scoped task should move to
       with their name as another, in `en` and `sv`, and no label on a
       line the viewer added.
 
+### 2026-10-27 scan
+
+- [ ] **GAP-66. Per-item stock history ("who changed the amount, and when")** (impact: low-med, effort: M) `[schema]` —
+      Grocy's "Stock journal" lists every change to a product (consumed,
+      purchased, spoiled, adjusted) with who made it, and Bring! shows who
+      did what on a shared list. Squirrel's item page shows the current
+      quantity and a few derived dates, but nothing explains why the
+      amount is what it is, so "who used the last of the rice?" or "why
+      does it say 0?" has no answer in a shared household. Add an
+      append-only `InventoryItemEvent` (itemId, householdId, nullable
+      plain-string `userId` with no `@relation` so a leaving member takes
+      no history with them, `delta`, `reason`: `used | restocked |
+      adjusted | cooked | trip`, `createdAt`), written by the existing
+      quantity actions (+/-, quantity sheet, mark cooked, finish trip)
+      and capped to the last 50 per item. Show it as a collapsed "History"
+      list at the bottom of the item page (`/dashboard/inventory/[id]`),
+      newest first, "Anna used 1 · 2 days ago". Scope: no chart, no
+      household-wide feed, no backfill, no notification.
+      Acceptance: unit tests that each quantity action writes one event
+      with the session user's id (never one from the client), scoped by
+      `requireHousehold()`, and that the 51st event drops the oldest; an
+      e2e step on `mobile` decrements a uniquely named item and sees
+      "used 1" with the actor's name under History after a reload, in
+      `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
