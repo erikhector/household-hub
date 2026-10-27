@@ -244,17 +244,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
-      `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
-      `ci:local` gate of #696 (`6de6c89`, 2026-10-25), a PR that touches
-      only the budget split dialogs. Not yet re-run on clean `next`. Look at
-      the failing assertion in the gate log's first failure output (re-run
-      with `--repeat-each=30` to get it), find what the click races with and
-      fix it in the app or the spec's waiting, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
-      passes 30/30.
-
 
 - [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
       `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
