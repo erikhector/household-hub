@@ -49,5 +49,15 @@ for (const [locale, storageState, t] of [
 
       await expect(dialog.getByText(t.errors.householdNameRequired)).toBeVisible();
     });
+    // MAINT-7: so do the profile actions (an all-space name passes `required`).
+    test("a rejected profile name shows the server's message in the user's language", async ({ page }) => {
+      await page.goto("/dashboard/profile");
+      const name = page.getByLabel(t.profile.displayNameForm.label);
+      await expectHydrated(name);
+      await name.fill("   ");
+      await page.getByRole("button", { name: t.profile.displayNameForm.save, exact: true }).click();
+
+      await expect(page.getByText(t.errors.nameRequired)).toBeVisible();
+    });
   });
 }

@@ -15,8 +15,6 @@ const PENDING = new Set([
   "src/app/dashboard/budget/actions.ts",
   "src/app/dashboard/household/notes-actions.ts",
   "src/app/dashboard/personal-budget/actions.ts",
-  "src/app/dashboard/profile/actions.ts",
-  "src/lib/actions/auth.ts",
   "src/lib/actions/barcode.ts",
   "src/lib/actions/digest.ts",
   "src/lib/actions/inventory-scan.ts",

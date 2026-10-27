@@ -157,6 +157,24 @@ export const en = {
     budgetStartDayOwnerOnly: "Only the household owner can change when the budget month starts",
     chooseBudgetDay: "Choose a day from {min} to {max}",
     inventorySyncOwnerOnly: "Only the household owner can change when inventory is updated",
+    confirmNewPasswordRequired: "Please confirm your new password",
+    currentPasswordRequired: "Current password is required",
+    currentPasswordIncorrect: "Current password is incorrect",
+    alreadyYourEmail: "That's already your email",
+    emailTaken: "An account with that email already exists",
+    invalidEmailOrPassword: "Invalid email or password",
+    tooManyAttemptsMinutes: "Too many attempts. Please wait a few minutes and try again.",
+    unverifiedLogin:
+      "Please verify your email before signing in. Check your inbox for the link, or resend it below.",
+    resetLinkInvalid: "Invalid or expired reset link",
+    resetLinkExpired: "This password reset link is invalid or has expired. Request a new one.",
+    verificationLinkInvalid: "This verification link is invalid or has expired. Request a new one.",
+    verificationEmailFailed: "Couldn't send the verification email. Please try again later.",
+    // Deliberately the same wording whether or not the account exists, so it
+    // doesn't reveal which emails are registered.
+    resetRequested: "If an account exists for that email, we've sent a password reset link.",
+    verificationResent:
+      "If that account needs verifying, we've sent a fresh verification link. Check your inbox.",
   },
   nav: {
     overview: "Overview",

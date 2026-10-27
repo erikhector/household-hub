@@ -186,12 +186,13 @@ then MAINT-7 per feature, to avoid churn.
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
       REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks, the shared list link and household
-      (`lib/actions/household.ts`, done). Still English: the string-literal
+      inventory, meal planning, tasks, the shared list link, household
+      (`lib/actions/household.ts`), auth (`lib/actions/auth.ts`) and
+      profile, all done. Still English: the string-literal
       `error:` values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19, auth 14, barcode, receipt and inventory scans, profile, push,
-      digest, household notes),
+      19, barcode, receipt and inventory scans, push, digest, household
+      notes),
       plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
       `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
       feature at a time, add its keys to `dict.errors` (or a feature
