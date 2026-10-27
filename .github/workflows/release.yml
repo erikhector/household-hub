@@ -41,7 +41,7 @@ jobs:
       # The default GITHUB_TOKEN can't push past that rule. Falling back to
       # it keeps releases working before the ruleset exists.
       - name: Check out master
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: master
           fetch-depth: 0
