@@ -25,9 +25,12 @@ import {
 } from "@/components/ui/dialog";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { formatCookQuantity, splitSteps } from "@/lib/cook-mode-calc";
-import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
-import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
-import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
+import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
+import {
+  loadAddToPlanDialog,
+  loadCookModeDialog,
+  loadRecipeFormDialog,
+} from "@/components/meal-planning/lazy-dialogs";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
 import {
   deleteRecipeAction,
@@ -146,20 +149,19 @@ export function RecipeManager({
 
   // UX-50: "New recipe" is the tab's one primary; with no recipes yet the
   // empty state holds it instead of the header.
-  const newRecipeDialog = (
-    <RecipeFormDialog
-      dict={dict}
-      mode="create"
-      allRecipes={recipes}
-      ingredientNames={ingredientNames}
-      ingredientUnits={ingredientUnits}
-      trigger={
-        <Button type="button">
-          <Plus className="size-4" />
-          {dict.newRecipe}
-        </Button>
-      }
-    />
+  // PERF-26: the button stays in this chunk; the form (the page's biggest
+  // dialog) loads on first use.
+  const [newRecipeHandle] = useState(() => createDialogHandle());
+  const newRecipeButton = (
+    <Button
+      type="button"
+      aria-haspopup="dialog"
+      onClick={() => openLazyDialog(newRecipeHandle)}
+      {...preloadOnIntent(loadRecipeFormDialog)}
+    >
+      <Plus className="size-4" />
+      {dict.newRecipe}
+    </Button>
   );
 
   return (
@@ -172,11 +174,23 @@ export function RecipeManager({
         {/* M2: on a phone the tab's one primary action floats in thumb
             reach above the bottom bar, like every other page's (UX-40);
             from `sm` it stays here in the header. */}
-        {recipes.length > 0 && <PrimaryAction>{newRecipeDialog}</PrimaryAction>}
+        {recipes.length > 0 && <PrimaryAction>{newRecipeButton}</PrimaryAction>}
       </div>
+      <LazyDialog loader={loadRecipeFormDialog} handle={newRecipeHandle}>
+        {(RecipeForm) => (
+          <RecipeForm
+            dict={dict}
+            mode="create"
+            allRecipes={recipes}
+            ingredientNames={ingredientNames}
+            ingredientUnits={ingredientUnits}
+            handle={newRecipeHandle}
+          />
+        )}
+      </LazyDialog>
 
       {recipes.length === 0 ? (
-        <MascotEmptyState alt={dict.mascotAlt} action={newRecipeDialog}>
+        <MascotEmptyState alt={dict.mascotAlt} action={newRecipeButton}>
           <p className="text-sm text-muted-foreground">{dict.emptyRecipes}</p>
         </MascotEmptyState>
       ) : (
@@ -452,12 +466,12 @@ function RecipeRow({
   // chosen action's dialog opens, so closing that lands back on the list.
   useEffect(() => {
     if (!openEditOnMount) return;
-    dialogs.edit.open(null);
+    openLazyDialog(dialogs.edit);
     onEditOpened();
   }, [openEditOnMount, dialogs, onEditOpened]);
   function openFromSheet(handle: DialogHandle) {
     setSheetOpen(false);
-    handle.open(null);
+    openLazyDialog(handle);
   }
 
   if (hidden) return null;
@@ -695,37 +709,51 @@ function RecipeRow({
         </DialogContent>
       </Dialog>
 
-      <AddToPlanDialog
-        dict={dict}
-        recipeId={recipe.id}
-        recipeName={recipe.name}
-        defaultPortions={recipe.servings}
-        plannerWeekStartKey={plannerWeekStartKey}
-        controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
-      />
+      <LazyDialog loader={loadAddToPlanDialog} open={planOpen} onLoadError={() => setPlanOpen(false)}>
+        {(AddToPlan) => (
+          <AddToPlan
+            dict={dict}
+            recipeId={recipe.id}
+            recipeName={recipe.name}
+            defaultPortions={recipe.servings}
+            plannerWeekStartKey={plannerWeekStartKey}
+            controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
+          />
+        )}
+      </LazyDialog>
       {recipe.instructions?.trim() && (
-        <CookModeDialog dict={dict} locale={locale} recipe={recipe} handle={dialogs.cook} />
+        <LazyDialog loader={loadCookModeDialog} handle={dialogs.cook}>
+          {(CookMode) => <CookMode dict={dict} locale={locale} recipe={recipe} handle={dialogs.cook} />}
+        </LazyDialog>
       )}
-      <RecipeFormDialog
-        dict={dict}
-        mode="edit"
-        recipe={recipe}
-        allRecipes={allRecipes}
-        ingredientNames={ingredientNames}
-        ingredientUnits={ingredientUnits}
-        handle={dialogs.edit}
-      />
+      <LazyDialog loader={loadRecipeFormDialog} handle={dialogs.edit}>
+        {(RecipeForm) => (
+          <RecipeForm
+            dict={dict}
+            mode="edit"
+            recipe={recipe}
+            allRecipes={allRecipes}
+            ingredientNames={ingredientNames}
+            ingredientUnits={ingredientUnits}
+            handle={dialogs.edit}
+          />
+        )}
+      </LazyDialog>
       {recipe.ingredients.length > 0 && (
-        <RecipeFormDialog
-          dict={dict}
-          mode="edit"
-          recipe={recipe}
-          allRecipes={allRecipes}
-          ingredientNames={ingredientNames}
-          ingredientUnits={ingredientUnits}
-          startAtReview
-          handle={dialogs.review}
-        />
+        <LazyDialog loader={loadRecipeFormDialog} handle={dialogs.review}>
+          {(RecipeForm) => (
+            <RecipeForm
+              dict={dict}
+              mode="edit"
+              recipe={recipe}
+              allRecipes={allRecipes}
+              ingredientNames={ingredientNames}
+              ingredientUnits={ingredientUnits}
+              startAtReview
+              handle={dialogs.review}
+            />
+          )}
+        </LazyDialog>
       )}
     </div>
   );

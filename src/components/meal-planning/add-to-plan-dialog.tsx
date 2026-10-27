@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -62,6 +63,7 @@ export function AddToPlanDialog({
   hint,
   preparedBatchId,
   controlled,
+  handle,
 }: {
   dict: MealPlanningDict;
   recipeId: string;
@@ -79,6 +81,10 @@ export function AddToPlanDialog({
   // this plans eats from it (addMealEntryAction links it on confirm).
   preparedBatchId?: string;
   controlled?: { open: boolean; onOpenChange: (open: boolean) => void };
+  // PERF-26: opened through a handle by an opener the page keeps in its own
+  // chunk (LazyAddToPlan), so this dialog's code can load on first use. Like
+  // `controlled`, it has no trigger of its own.
+  handle?: DialogHandle;
 }) {
   const router = useRouter();
   const [ownOpen, setOwnOpen] = useState(false);
@@ -112,8 +118,8 @@ export function AddToPlanDialog({
   }, initialState);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      {!controlled && (
+    <Dialog open={open} onOpenChange={setOpen} handle={handle}>
+      {!controlled && !handle && (
         <DialogTrigger
           render={
             <Button type="button" variant="outline" size="sm">
