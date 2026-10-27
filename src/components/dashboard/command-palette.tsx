@@ -14,7 +14,7 @@ import {
   isPaletteShortcut,
   type PaletteCommand,
 } from "@/components/dashboard/command-palette-commands";
-import { searchHousehold } from "@/lib/actions/search";
+import { searchHouseholdAction } from "@/lib/actions/search";
 import { SEARCH_MIN_CHARS, type SearchGroup, type SearchGroupKey } from "@/lib/household-search";
 
 // UX-41a: ⌘K / Ctrl+K opens a command palette, mounted once in the
@@ -128,7 +128,7 @@ export function CommandPalette({ dict, nav }: { dict: Dictionary["commandPalette
     if (!open || trimmed.length < SEARCH_MIN_CHARS) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      searchHousehold(trimmed)
+      searchHouseholdAction(trimmed)
         .then((result) => {
           if (cancelled) return;
           setFound(

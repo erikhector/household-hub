@@ -24,7 +24,7 @@ const SEARCH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 const querySchema = z.string().trim().min(SEARCH_MIN_CHARS).max(SEARCH_MAX_CHARS);
 
-export async function searchHousehold(query: string): Promise<SearchResult> {
+export async function searchHouseholdAction(query: string): Promise<SearchResult> {
   const { household, userId } = await requireHousehold();
 
   // A too-short, too-long or non-string query (a forged call) is an empty
@@ -34,7 +34,7 @@ export async function searchHousehold(query: string): Promise<SearchResult> {
   const q = parsed.data;
 
   if (!(await checkRateLimit(`search:${userId}`, SEARCH_RATE_LIMIT, SEARCH_RATE_LIMIT_WINDOW_MS))) {
-    return { ok: false, error: "rateLimited" };
+    return { ok: false, rateLimited: true };
   }
 
   const householdId = household.id;

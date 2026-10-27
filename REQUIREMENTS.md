@@ -7123,7 +7123,7 @@ trap and the X work like every other dialog.
 #### Household search (UX-41b)
 
 From two characters on, the palette also searches the household. After a
-250 ms pause in typing it calls `searchHousehold(query)`
+250 ms pause in typing it calls `searchHouseholdAction(query)`
 (`src/lib/actions/search.ts`), and the hits show under the matching
 commands in groups: Inventory, Recipes, Shopping lists, Tasks and Budget
 categories (at most five each, name contains the text, case insensitive,

@@ -15,7 +15,7 @@ export type SearchGroupKey = (typeof SEARCH_GROUPS)[number];
 
 export type SearchHit = { id: string; name: string; href: string };
 export type SearchGroup = { key: SearchGroupKey; hits: SearchHit[] };
-export type SearchResult = { ok: true; groups: SearchGroup[] } | { ok: false; error: "rateLimited" };
+export type SearchResult = { ok: true; groups: SearchGroup[] } | { ok: false; rateLimited: true };
 
 // Where a hit opens. Inventory items and shopping lists have their own page.
 // A recipe opens the Recipes tab searched down to it (MATCH-6's link). A

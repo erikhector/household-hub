@@ -1,4 +1,4 @@
-// searchHousehold: tenancy scoping, validation and rate limiting. Prisma,
+// searchHouseholdAction: tenancy scoping, validation and rate limiting. Prisma,
 // the session and the rate limiter are mocked; no database is touched.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,7 +32,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { searchHousehold } from "@/lib/actions/search";
+import { searchHouseholdAction } from "@/lib/actions/search";
 
 const allMocks = [inventoryMock, recipeMock, listMock, taskMock, categoryMock];
 
@@ -43,9 +43,9 @@ beforeEach(() => {
   for (const mock of allMocks) mock.mockResolvedValue([]);
 });
 
-describe("searchHousehold", () => {
+describe("searchHouseholdAction", () => {
   it("scopes every query to the session's household, never a client value", async () => {
-    await searchHousehold("milk");
+    await searchHouseholdAction("milk");
     for (const mock of allMocks) {
       expect(mock).toHaveBeenCalledTimes(1);
       expect(mock.mock.calls[0][0].where.householdId).toBe("h1");
@@ -54,7 +54,7 @@ describe("searchHousehold", () => {
   });
 
   it("matches names case-insensitively and hides archived shopping lists", async () => {
-    await searchHousehold("  Milk ");
+    await searchHouseholdAction("  Milk ");
     expect(inventoryMock.mock.calls[0][0].where.name).toEqual({ contains: "Milk", mode: "insensitive" });
     expect(taskMock.mock.calls[0][0].where.title).toEqual({ contains: "Milk", mode: "insensitive" });
     expect(listMock.mock.calls[0][0].where.archivedAt).toBeNull();
@@ -64,7 +64,7 @@ describe("searchHousehold", () => {
     inventoryMock.mockResolvedValue([{ id: "i1", name: "Milk" }]);
     taskMock.mockResolvedValue([{ id: "t1", title: "Buy milk" }]);
     categoryMock.mockResolvedValue([{ id: "c1", name: "Milk run" }]);
-    const result = await searchHousehold("milk");
+    const result = await searchHouseholdAction("milk");
     expect(result).toEqual({
       ok: true,
       groups: [
@@ -81,14 +81,14 @@ describe("searchHousehold", () => {
   it.each([["a"], [" "], ["x".repeat(81)], [undefined as unknown as string], [{} as unknown as string]])(
     "treats %j as an empty search without querying",
     async (query) => {
-      expect(await searchHousehold(query)).toEqual({ ok: true, groups: [] });
+      expect(await searchHouseholdAction(query)).toEqual({ ok: true, groups: [] });
       for (const mock of allMocks) expect(mock).not.toHaveBeenCalled();
     },
   );
 
   it("refuses without querying once the rate limit is hit", async () => {
     checkRateLimitMock.mockResolvedValue(false);
-    expect(await searchHousehold("milk")).toEqual({ ok: false, error: "rateLimited" });
+    expect(await searchHouseholdAction("milk")).toEqual({ ok: false, rateLimited: true });
     expect(checkRateLimitMock.mock.calls[0][0]).toBe("search:u1");
     for (const mock of allMocks) expect(mock).not.toHaveBeenCalled();
   });
