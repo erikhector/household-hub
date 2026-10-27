@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.115.1",
+    "date": "2026-10-27",
+    "pr": 809,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The meal planner, recipes and meal prep pages load faster, because their pop-up forms are now fetched only when you open them.\n\nError messages from household notes, push notification settings, the weekly digest switch and barcode scanning now appear in your chosen language.\n\nPages load faster for households with a lot of history.",
+      "sv": "Måltidsplaneraren, recepten och måltidsförberedelserna laddas snabbare, eftersom formulären hämtas först när du öppnar dem.\n\nFelmeddelanden från hushållets anteckningar, push-inställningar, veckosammanfattningen och streckkodsskanningen visas nu på ditt valda språk.\n\nSidor laddas snabbare för hushåll med mycket historik."
+    }
+  },
+  {
     "version": "0.115.0",
     "date": "2026-10-27",
     "pr": 793,
