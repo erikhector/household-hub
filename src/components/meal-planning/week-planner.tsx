@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { unstable_rethrow, useRouter } from "next/navigation";
+import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Unlink, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -559,7 +559,6 @@ function MealEntryRow({
     : null;
   const cooked = entry.consumedAt !== null;
   const prepped = entry.preparedBatchId !== null;
-  const router = useRouter();
   const [unassignPending, startUnassign] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
   // UX-49: Remove meal hides the row at once with an Undo toast (the delete
@@ -604,7 +603,8 @@ function MealEntryRow({
       }
       toast.success(dict.prepUnassignedToast);
       setSheetOpen(false);
-      router.refresh();
+      // No router.refresh(): the action revalidated the page and its
+      // response already carries the re-render.
     });
   }
 

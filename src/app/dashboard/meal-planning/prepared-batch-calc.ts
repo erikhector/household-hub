@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { v } from "@/lib/actions/errors";
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { LEFTOVERS_SHELF_LIFE_DAYS, MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftovers";
+import { LEFTOVERS_SHELF_LIFE_DAYS, MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftover-constants";
 import { MEAL_TYPES } from "@/app/dashboard/meal-planning/meal-types";
 import type { AutoAddedItem } from "@/lib/shopping/default-list";
 

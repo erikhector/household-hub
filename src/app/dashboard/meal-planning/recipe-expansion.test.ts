@@ -56,6 +56,7 @@ describe("expandRecipeIngredients", () => {
         name: "Ground beef",
         unit: "kg",
         quantity: 0.5,
+        note: null,
       },
     ]);
     expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
@@ -187,6 +188,7 @@ describe("expandRecipeIngredients", () => {
         name: "Tomato passata",
         unit: "L",
         quantity: 6,
+        note: null,
       },
     ]);
   });

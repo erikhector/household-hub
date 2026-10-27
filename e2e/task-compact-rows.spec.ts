@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV } from "./seed";
 import { E2E_WORKER, e2eWorkerData } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, waitForUndoableDelete } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRevealed, waitForUndoableDelete } from "./ui";
 
 // UX-106: a task row is one line on a phone (at most 56 px with an assignee
 // badge), with Edit and Delete in the swipe tray and the edit sheet rather
@@ -61,7 +61,9 @@ test("a phone task row with an assignee is one line of at most 56 px, with Delet
   const title = `Wipe the hob ${t}`;
   await seedTask(`row-${t}`, title, E2E_MEMBER);
   const assignee = await currentDisplayName();
-  await page.goto("/dashboard/tasks");
+  // gotoRevealed: the height below is measured, so the row must be the real
+  // one and not a loading.tsx skeleton still waiting to be swapped in.
+  await gotoRevealed(page, "/dashboard/tasks");
 
   const box = page.getByRole("checkbox", { name: `Mark ${title} as done` });
   await expect(box).toBeVisible();
@@ -77,8 +79,16 @@ test("a phone task row with an assignee is one line of at most 56 px, with Delet
   await expect(page.getByRole("button", { name: `Edit ${title}`, exact: true })).toBeHidden();
   await expect(page.getByRole("button", { name: `Delete ${title}`, exact: true })).toBeHidden();
 
-  // The visible path: the title opens the edit sheet, which has Delete.
-  await page.getByRole("main").getByRole("button", { name: title, exact: true }).click();
+  // The visible path: the title opens the edit sheet, which has Delete. The
+  // title is server-rendered before it is interactive, and its click only
+  // hands off to the hidden edit button (a dialog trigger with its own
+  // handler). Under a loaded run goto() returns before React has hydrated
+  // either, a click then does nothing and the sheet never opens, so wait
+  // for both.
+  const titleButton = page.getByRole("main").getByRole("button", { name: title, exact: true });
+  await expectHydrated(titleButton);
+  await expectHydrated(box.locator("xpath=ancestor::*[@data-swipe-row]").locator("[data-swipe-edit]"));
+  await titleButton.click();
   const sheet = page.getByRole("dialog", { name: `Edit "${title}"` });
   await expect(sheet.getByRole("button", { name: "Save", exact: true })).toBeVisible();
   await sheet.getByRole("button", { name: "Delete", exact: true }).click();

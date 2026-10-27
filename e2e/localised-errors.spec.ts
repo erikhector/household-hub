@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, expectHydrated } from "./ui";
 
 // UX-16: what a server action returns as `{ error }` and the labels that
 // primitives hard-coded ("Close" on every dialog) follow the user's
@@ -33,6 +33,31 @@ for (const [locale, storageState, t] of [
       await dialog.getByRole("button", { name: t.inventory.addItem, exact: true }).click();
 
       await expect(dialog.getByText(t.errors.nameRequired)).toBeVisible();
+    });
+    // MAINT-7: the household actions follow the language too.
+    test("a rejected household name shows the server's message in the user's language", async ({ page }, testInfo) => {
+      await page.goto("/dashboard");
+      const row = testInfo.project.name === "mobile" ? page.getByRole("banner") : page.getByRole("complementary");
+      const switcher = row.getByRole("button", { name: /E2E Household/ });
+      await expectHydrated(switcher);
+      await switcher.click();
+      await page.getByRole("menuitem", { name: t.household.switcher.createMenuItem }).click();
+
+      const dialog = page.getByRole("dialog", { name: t.household.switcher.createNew });
+      await dialog.getByLabel(t.household.switcher.nameLabel).fill("   ");
+      await dialog.getByRole("button", { name: t.household.switcher.create, exact: true }).click();
+
+      await expect(dialog.getByText(t.errors.householdNameRequired)).toBeVisible();
+    });
+    // MAINT-7: so do the profile actions (an all-space name passes `required`).
+    test("a rejected profile name shows the server's message in the user's language", async ({ page }) => {
+      await page.goto("/dashboard/profile");
+      const name = page.getByLabel(t.profile.displayNameForm.label);
+      await expectHydrated(name);
+      await name.fill("   ");
+      await page.getByRole("button", { name: t.profile.displayNameForm.save, exact: true }).click();
+
+      await expect(page.getByText(t.errors.nameRequired)).toBeVisible();
     });
   });
 }

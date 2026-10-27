@@ -40,9 +40,9 @@ easy for AI coding agents to work in correctly:
   screen reader announces a link for something that navigates (UX-68); e2e
   finds these with `getByRole("link", …)`. A `role` passed at the call
   site still wins.
-- **react-hook-form + Zod** are installed for future complex forms; the
-  current auth/inventory/shopping forms use React's `useActionState` +
-  native `<form action={...}>` directly, which is enough for their shape.
+- **Zod** validates every form and action input; forms use React's
+  `useActionState` + native `<form action={...}>` directly, which is enough
+  for their shape (react-hook-form is not installed).
 - Prisma's client generator is the new `prisma-client` (Prisma 7), which
   **requires an explicit driver adapter** — see `src/lib/prisma.ts`
   (`@prisma/adapter-pg`). A bare `new PrismaClient()` throws at runtime.
@@ -164,6 +164,30 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   string-literal `error:` in any action file that isn't on its `PENDING`
   list (the files MAINT-7 still has to convert; a file that becomes clean
   must be removed from the list), and by `e2e/localised-errors.spec.ts`.
+  MAINT-7 (in progress, one feature per PR) has converted the household
+  actions (`lib/actions/household.ts`): invites, joining by invite, members,
+  ownership transfer, leaving or deleting a household, and the owner-only
+  settings, including the "can't delete your only household" reason the
+  delete dialog shows. `passwordTooLong` spells out the 72-character limit
+  because a Zod message can't carry variables.
+  It has also converted the auth actions (`lib/actions/auth.ts`: signup,
+  login, password reset, email verification and its resend, including the
+  "if an account exists" confirmations, which stay identical whether or not
+  the account exists) and the profile actions
+  (`dashboard/profile/actions.ts`: name, email, password, delete account).
+- **Database failures in actions (MAINT-6)**: a Server Action that writes
+  wraps the risky `prisma.*` call in `try`/`catch` and returns
+  `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
+  Sentry), so a dropped connection toasts or shows inline instead of
+  reaching the error boundary. Only the database call sits inside the
+  `try`; `redirect()`, `signOut()` and `revalidatePath()` stay outside so
+  their control-flow throws propagate. Covered: the planner and recipe
+  writes, `updatePasswordAction`, the receipt-apply, unlink and
+  add-missing-ingredients actions, `setPushQuietHoursAction`, and the
+  notification dismiss actions (now `Promise<ActionState>`; the bell and
+  the history page toast the error). `subscribeToPushAction`,
+  `unsubscribeFromPushAction` and `clearPushQuietHoursAction` still throw on
+  purpose: their callers already `try`/`catch` and show their own error.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
   page) carries a `PublicLanguageToggle` button that names the language in
   use ("Language: English", UX-51) and switches to the other, calling
@@ -258,7 +282,21 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   session's `role`, not trusted from the client):
   - `removeMemberAction` — removes a `CONTRIBUTOR` from the household. Fails
     (returns `{ error }`) if the caller isn't the owner, the target is the
-    owner, or the caller targets themselves.
+    owner, or the caller targets themselves. SEC-4: in the same
+    `$transaction` as the delete (shared with `leaveHouseholdAction` via
+    `revokeDepartingMemberAccess`) it deletes the member's unused
+    invitations (`Invitation.invitedById`, set since UX-62, so no new
+    column was needed; links made before that column have no inviter and
+    stay until they expire), revokes **every** active shopping-list share
+    link in the household (we can't tell which the leaver saw), and
+    regenerates the calendar feed token if the feed is on. Rotation is
+    automatic rather than a prompt because a skippable prompt leaves the
+    hole open; the cost is that members re-share lists and the owner
+    re-copies the feed URL. The remove dialog says so up front.
+  - `revokeInviteAction(invitationId)` — closes an unused invite. Owner:
+    any in the household; contributor: only their own. The Household page
+    lists unexpired, unused invites ("Pending invites", `PendingInvites`)
+    to every member with the inviter and expiry, never the token.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
@@ -1891,7 +1929,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   link instead of a second "Groceries" appearing on the next trip. It runs
   on the caller's transaction client. The fallback name
   (`GROCERIES_CATEGORY_NAME`) is module-private; callers read
-  `category.name`. Like `findOrCreateInventoryItem`, it trusts its
+  `category.name`. Like every helper that takes a `householdId`, it trusts its
   `householdId` argument and does no auth check of its own; every caller
   must resolve that id from its own `requireHousehold()` call first, never
   from client input.
@@ -3594,6 +3632,25 @@ the viewer's own categories (Personal Budget's "(Shared)" rows,
 `FixedBudgetSummary`'s recurring items) stay plain. Covered by
 `src/lib/budget-url.test.ts` and `e2e/budget-category-filter.spec.ts`.
 
+**Search the month's transactions (GAP-63).** Above the category select,
+the Transactions tab has a Search field (`SearchInput`: `type="search"`,
+`enterKeyHint="search"`, `autoComplete="off"`, 16 px text and a 44 px
+field on a phone). It filters the rows already loaded for the month on
+screen, client-side, so nothing refetches, and it combines with the
+category filter. A row matches on a case- and accent-insensitive
+substring of its description or category name, or, when the whole term
+is a number written with a comma or a dot ("340", "340,50"), on an
+amount equal to it to the cent (so "34" does not find 340). The term
+lives in `?q=` (written with `history.replaceState` like the category,
+read once on the first render, carried by `MonthNavigator`), so a reload
+keeps the list narrowed. Period totals and Insights are unaffected; only
+the list and its day headers narrow. No match shows "No transactions
+match “{query}”." with a "Clear search" button; the field's own x clears
+it too. Cross-month search is not built. In the read-only household view
+the field is disabled with every other control. Covered by
+`src/lib/budget-transaction-search.test.ts`, `src/lib/budget-url.test.ts`
+and `e2e/budget-search.spec.ts`.
+
 **One Overview, nothing twice (phone pass, Oct 2026).** Overview used to
 run to about five phone screens, with income, expenses and what's left
 shown three times and the due list twice. Now it is Safe to spend, the
@@ -4214,7 +4271,7 @@ where this feature has none.
   are, exactly like the other two features' review step.
 - **An ordered attempt chain, not a single provider pick**
   (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
-  `resolveAttempts()` builds a chain of up to three attempts — Gemini's
+  `resolveAttempts()` (in `src/lib/ai/provider-chain.ts`, the one chain shared with receipt scan and the category fallback, unit-tested with mocked `fetch`) builds a chain of up to three attempts — Gemini's
   primary model (`GEMINI_MODEL`, default the auto-updating
   `gemini-flash-latest` alias), then Gemini's *fallback* model
   (`GEMINI_FALLBACK_MODEL`, default `gemini-flash-lite-latest` — a
@@ -4225,7 +4282,7 @@ where this feature has none.
   (`generativelanguage.googleapis.com`, no card required) makes this
   feature genuinely free to run at a single-household scale, where
   Anthropic's is metered from the first request — see `.env.example` for
-  all three env vars. `callAttempts` walks the chain in order and moves to
+  all three env vars. `runProviderChain` walks the chain in order and moves to
   the *next* entry only when the current one reports itself busy
   (`provider_busy` — see the retry section just below), trying a different
   Gemini model before ever spending real money falling through to
@@ -4251,7 +4308,7 @@ where this feature has none.
   fetch, not its own internal retry loop — a busy response (Gemini: `503
   UNAVAILABLE`, commonly hit on the free-tier Flash model under load;
   Anthropic: `529 overloaded_error`; either: plain rate limiting, `429`)
-  throws `provider_busy` and lets `callAttempts` move on to the next
+  throws `provider_busy` and lets `runProviderChain` move on to the next
   *different* model/provider rather than retrying the same one — that's
   both faster (no artificial backoff delay for a request that isn't being
   identically repeated) and, per Google's own guidance for the 503 case,
@@ -4259,13 +4316,13 @@ where this feature has none.
   `REQUEST_TIMEOUT_MS` is 50s (a live test measured ~40s for one
   successful Gemini free-tier call, comfortably past a shorter timeout)
   and is shared as one deadline across the *entire chain* — before
-  actually starting the next attempt, `callAttempts` checks
+  actually starting the next attempt, `runProviderChain` checks
   `deadlineAt - Date.now()` against `MIN_ATTEMPT_BUDGET_MS` (15s) and
   returns `provider_busy` immediately if another attempt couldn't
   realistically finish in what's left, rather than starting one doomed to
   be aborted mid-flight. That shared deadline firing itself (an attempt
-  slow enough to eat the whole remaining budget) is caught in
-  `scanShelfPhotoAction` as a plain `AbortError` and mapped to the same
+  slow enough to eat the whole remaining budget) is caught by `runProviderChain` (not
+  `scanShelfPhotoAction`) as a plain `AbortError` and mapped to the same
   `provider_busy` message, not the generic failure — the raw
   `{name: "AbortError", message: "This operation was aborted"}` this
   produces if left unmapped is exactly what surfaced in testing before
@@ -5112,6 +5169,17 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   `addMissingIngredientsToShoppingListAction` takes no range: it commits
   exactly the reviewed rows the preview returned, so preview and apply can't
   disagree about which days were included.
+- **Ingredient notes (GAP-62)**: a `RecipeIngredient.note` ("ripe",
+  "unsalted") rides along. `expandFromGraph` carries it, and
+  `computeMissingIngredients` gives each row the first non-blank note among
+  the needs that merged into it (a second recipe's note is skipped, never
+  concatenated, matching how the list keeps the first row on a duplicate).
+  The review dialog shows it as a muted line under the row and posts it as
+  `itemNote`; the add action trims it, cuts it to 200 characters (the
+  `ShoppingListItem.note` cap from GAP-5) and stores `null` when blank, so the
+  shopper sees it under the item on the list and the share page. No schema
+  change. The low-stock auto-add (`default-list.ts`) doesn't build rows from
+  recipe ingredients, so it has nothing to carry.
 - **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
   (`src/app/dashboard/meal-planning/cooking-actions.ts`), a read-only preview — no
   rows are written until the user commits. It collects every
@@ -5379,6 +5447,18 @@ fourth meal-planning tab, **Meal prep** (`?tab=prep`, `PrepTab` in
 source in the add-meal dialog and a card on the home dashboard. No schema
 change: the `PreparedBatch` model and the two `MealPlanEntry` fields
 landed earlier (PR #179, see the data model above). No browser storage.
+
+- **One render per action (PERF-19).** Every meal-prep and fill-week action
+  that succeeds calls `revalidatePath(MEAL_PLANNING_PATH)`, so its response
+  already carries the re-rendered page and the client does not call
+  `router.refresh()` after it (that rendered the page and ran its queries a
+  second time). That covers unassigning a portion, Plan portions (success),
+  and the Undo toasts for record prep, discard and fill empty days; the
+  toasts run outside a transition and still update the page. The one
+  deliberate refresh left is Plan portions' error path, where nothing was
+  revalidated and the dialog must show the plan as it is now. The
+  cookie-driven refreshes (release notes seen, preferences) stay: no action
+  revalidates there.
 
 - **Data rules.** `remainingPortions` is the portions not yet handed to a
   planner slot, and the invariant is `0 ≤ remainingPortions ≤
@@ -5942,6 +6022,14 @@ everywhere.
   `recipe-manager.tsx` and `recipe-form-dialog.tsx`, so it must stay
   free of `zod` (which put a ~99 KB gz chunk into the meal-planning page).
   `isRecipeTag` is a `Set` lookup for that reason.
+  *Bundle size (PERF-24)*: the same holds for every client component:
+  `leftover-constants.ts` (leftover constants) and
+  `missing-ingredients-range.ts` (the hand-written, zod-free date-range
+  validator and `weekRange`) are the client-safe halves of `leftovers.ts`
+  and `missing-ingredients.ts`, which re-export them for server callers.
+  `src/components/client-bundle-guard.test.ts` walks the value imports of
+  every `"use client"` file under `src/components/` (stopping at `"use
+  server"` modules) and fails with the import chain on any path to `zod`.
 - **Form**: `RecipeFormDialog` (create and edit) shows every tag as a
   toggle chip (`aria-pressed`, the starter-picker look) under
   instructions, posted as one hidden `tags` input per selected tag.
@@ -6598,23 +6686,18 @@ password guesses against any known email.
   limit. `signIn("credentials", ...)` always calls `authorize` internally,
   so one call to `loginAction` still means exactly one throttle check.
 
-### Dependency audit findings (SEC-12)
+### Dependency audit findings
 
-`npm audit --omit=dev` still reports `prisma`'s transitive `mysql2` and
-`deepmerge-ts` (via `@prisma/config`) as high, and the fix npm offers is a
-downgrade to prisma 6, so it isn't taken. Moving `prisma` to
-`devDependencies` is not the answer: it **already is** one. The finding
-survives `--omit=dev` because `@prisma/client` declares `prisma` as an
-*optional peer dependency* (`"prisma": "*"`), which npm 7+ installs and
-audits as part of the production tree. Both packages only run in the CLI
-(`migrate deploy`, `generate`); the deployed app imports `@prisma/client` and
-`@prisma/adapter-pg`, never `mysql2` (the datasource is Postgres) or
-`@prisma/config`. `scripts/vercel-build.mjs` needs the CLI at build time
-and Vercel installs devDependencies for builds, so `prisma` stays where it
-is. The real fix is upstream (a Prisma release with patched `mysql2` and
-`deepmerge-ts`); re-run the audit when MAINT-12's Dependabot config proposes
-a Prisma bump. `next-auth` is still `5.0.0-beta.32`; there is no stable v5,
-so watch its advisories through the same Dependabot config.
+`npm audit --omit=dev` reports 0 vulnerabilities. The earlier Prisma-owned
+findings (`mysql2`, `deepmerge-ts` via `@prisma/config`, tracked as SEC-12)
+cleared with Prisma's patched releases, and DEPS-2 cleared the transitive
+`fast-uri` and `source-map-js` findings with `npm audit fix`. One finding
+needs a pin rather than a fix: `@vercel/cli-config` (under
+`@vercel/functions` > `@vercel/oidc`) pins `zod` to 4.1.11, so
+`package.json` has an `overrides` entry that makes it use the app's `zod`.
+Drop the override once `@vercel/cli-config` ships a patched `zod`. Re-run the
+audit on dependency bumps. `next-auth` is still `5.0.0-beta.32`; there is no
+stable v5, so watch its advisories through MAINT-12's Dependabot config.
 
 ## Navigation & responsive layout
 
@@ -6673,6 +6756,12 @@ components directly.
   (`components/ui/tooltip.tsx`, Base UI) instead of a `title`, which touch
   never shows; the footer's What's new and notification bell are marked
   active on their own pages like the section links.
+  **Icon-only buttons everywhere (UX-41d)**: `Button` (`components/ui/button.tsx`)
+  wraps itself in that Tooltip whenever its size is `icon*` and it has a
+  string `aria-label`, showing the same text, so the hint and the accessible
+  name come from one prop and cannot drift. `tooltip={false}` opts out. The
+  popup opens on hover and keyboard focus only (Base UI ignores touch), so phones are unchanged. Covered
+  by `e2e/icon-button-tooltips.desktop.spec.ts`.
 - **In between (640 px wide and up, but a tablet or a phone in landscape;
   UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
   863×393 too. The content column next to the sidebar is `min-w-0`, so a
@@ -7041,10 +7130,34 @@ trap and the X work like every other dialog.
   `SmartAddBar` takes focus. Both strip the param afterwards. With no
   active list the shopping command lands on the overview.
 - It stores nothing in the browser (`cookie-inventory.ts` unchanged).
-  No data search yet (UX-41b).
 
-Covered by `e2e/command-palette.spec.ts` and
-`command-palette-commands.test.ts`.
+#### Household search (UX-41b)
+
+From two characters on, the palette also searches the household. After a
+250 ms pause in typing it calls `searchHouseholdAction(query)`
+(`src/lib/actions/search.ts`), and the hits show under the matching
+commands in groups: Inventory, Recipes, Shopping lists, Tasks and Budget
+categories (at most five each, name contains the text, case insensitive,
+empty groups left out). Hits and commands are one list of options, so the
+arrows, Enter, the click and the live count work the same on both.
+
+- The action calls `requireHousehold()` and scopes all five queries by that
+  household; the client sends only the text. The text is Zod-validated
+  (trimmed, 2 to 80 characters); anything else, or a non-string, is an empty
+  search. It is rate limited to 120 a minute per user (`search:<userId>`);
+  past that the palette says "Too many searches." and keeps the commands.
+  Archived shopping lists are not searched.
+- A hit opens its row: an inventory item and a shopping list their own page,
+  a recipe the Recipes tab searched down to it (`?tab=recipes&recipe=<id>`),
+  a budget category Transactions filtered to it, and a task the task list
+  (tasks have no page of their own). Links are built in
+  `src/lib/household-search.ts`.
+- A reply for an older query is dropped, and a failed search silently
+  leaves the commands. "No matching commands." waits for the answer.
+
+Covered by `e2e/command-palette.spec.ts`,
+`command-palette-commands.test.ts` and `src/lib/actions/search.test.ts`
+(tenancy scoping, validation, rate limit).
 
 
 ## Releases & What's new
@@ -7143,6 +7256,15 @@ always match the deployed code with no DB table or GitHub API call.
 `src/lib/release-notes/index.ts` exposes `RELEASES`, `CURRENT_VERSION` and
 the locale fallback.
 
+The history is server-only (PERF-23): it is ~135 KB, and the release
+workflow rewrites it on every release, so a client chunk holding it would
+be re-downloaded by every user after each release. The dashboard layout
+(a Server Component) passes `CURRENT_VERSION` to `Sidebar` and `BottomNav`
+as a `version` prop, and the cookie name and lifetime a Client Component
+needs live in `src/lib/release-notes/cookie.ts`, which doesn't import the
+JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
+`releases.json` through its imports.
+
 - `/dashboard/whats-new` lists every release, newest first, with version,
   date and the note in the user's locale. A note wraps at any width
   (`break-words`), so a URL or long Swedish compound in it can't push the
@@ -7170,7 +7292,7 @@ the locale fallback.
 email and password as one card with a divider between the three forms, each
 keeping its own Save), **Preferences** (the Language and
 Appearance controls of UX-51, then the Swish number), **Notifications** (push, weekly
-digest, install app) and **Data & privacy** (Export my data; the "About
+digest, tonight's dinner, install app) and **Data & privacy** (Export my data; the "About
 Squirrel" version and "Danger zone" account deletion behind native
 `<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
 `LogoutButton` as `no-household`, so the push subscription is dropped
@@ -7191,7 +7313,7 @@ now" from "this item just ran out," and had no way to dismiss anything.
 The current model fires an alert once, at the moment a specific trigger
 happens, and it stays until a user dismisses it.
 
-Exactly six triggers exist — nothing else creates a notification:
+Exactly seven triggers exist — nothing else creates a notification:
 
 - **Out of stock**: an existing `InventoryItem`'s quantity crossing from
   `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
@@ -7246,9 +7368,14 @@ Exactly six triggers exist — nothing else creates a notification:
     — meaning opening the bell could trigger an unbounded number of
     `Notification` writes and push sends on what should've been a pure
     read. They now run only from `GET /api/cron/sync-notifications`
-    (`src/app/api/cron/sync-notifications/route.ts`), which iterates every
-    household (`prisma.household.findMany`) and calls both sync functions
-    for each; something external must hit this route on a schedule (see
+    (`src/app/api/cron/sync-notifications/route.ts`), which runs the syncs
+    only for households with something to act on
+    (`findHouseholdIdsWithSyncCandidates` in `src/lib/notifications.ts`: one
+    `household.findMany` per trigger, with the same predicate as that
+    trigger's sync, unioned), so a run's cost follows the work, not the
+    number of households. The route exports `maxDuration = 60` and logs
+    `durationMs` and the household counts on every authorised run (PERF-13);
+    something external must hit this route on a schedule (see
     DEPLOYMENT.md's "Scheduled jobs" section for the Vercel/Railway/Render
     setup). It's protected by a `CRON_SECRET`-checked bearer token, since
     unlike `/api/health` it both writes data and sends push notifications;
@@ -7304,6 +7431,24 @@ Exactly six triggers exist — nothing else creates a notification:
   ticked from a share link. Both link to the list with `?putAway=1`, which
   opens the put-away dialog. `putAwayItemsAction` dismisses the bell row
   once nothing on the list is waiting.
+- **Tonight's dinner** (GAP-57, opt-in, off by default): one `TONIGHTS_DINNER`
+  entry per household per day listing the meals planned for that day that
+  aren't cooked yet ("On the menu today: Lasagna, Salad"), linking to that
+  week in the planner. Synced by `syncTonightsDinnerNudge` from the same
+  `/api/cron/sync-notifications` run, so on the daily 06:00 UTC run it is
+  a morning nudge. It is the only trigger with a setting: each user has
+  `User.tonightsDinnerNudge` (default `false`), toggled from the
+  Notifications section of the Profile page ("Tonight's dinner",
+  `setTonightsDinnerNudgeAction`, included in the data export). The sync
+  does nothing unless at least one household member has it on, and stays
+  silent when nothing is planned for the day or every entry is already
+  cooked (`consumedAt` set). Once-a-day is the `Notification` unique on
+  `(householdId, tonightsDinnerDate)`: the create is the claim, so a repeat
+  or racing run (or a dismissed entry) sends nothing more that day. The
+  meal names are snapshotted on the row (`mealNames`). The bell entry is
+  household-wide like every other kind, but the push goes only to the
+  opted-in members (`sendPushToHouseholdMembers`, quiet hours apply).
+  Covered by `e2e/tonights-dinner-nudge.spec.ts`.
 - **List cleared** (good news): a `ShoppingList`'s unpurchased item count
   crossing from >0 to 0 — `recordListClearedTransition`, called from
   `togglePurchasedAction`/`deleteShoppingListItemAction` and their
@@ -7380,7 +7525,7 @@ Exactly six triggers exist — nothing else creates a notification:
     apply as for every push (`sendPushToHousehold`). A share-link visitor
     has no account, so a jump they record pushes every member. There are
     no per-kind notification settings to respect — none exist for any
-    kind.
+    kind except the opt-in Tonight's dinner nudge above.
 - All of these triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a
@@ -7618,9 +7763,29 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     full-colour app icon would render as a blob) and `notificationclick`
     (closes it, then focuses the already-open tab — steering it to `url`
     when same-origin — and only opens a new window when none exists,
-    mirroring `notificationHref()` in `notification-bell.tsx`). It has no `fetch`
-    handler and does no caching — it exists purely to deliver push, not for
-    offline support (see `INFRA-5` in BACKLOG.md).
+    mirroring `notificationHref()` in `notification-bell.tsx`). It also has
+    a small `fetch` handler, but no app shell and no data caching (real
+    offline support is `INFRA-5` in BACKLOG.md): a failed full-page
+    navigation gets a tiny "You're offline" page instead of the browser's
+    error, and requests under `/_next/static/` go cache-first (below).
+  - **Hashed static assets (PERF-28)**: Next names every file under
+    `/_next/static/` by content hash, so a cached copy can never be stale.
+    The worker keeps successful same-origin GETs for them in
+    `squirrel-static-v1` and answers from it before touching the network,
+    so an installed app's cold launch doesn't re-download the ~325 KB gz of
+    JS/CSS once the OS (iOS especially) has evicted the HTTP cache. Pages,
+    RSC payloads, API routes, Server Actions, Range requests and
+    non-200 responses are never cached. Only production builds turn this on:
+    `ServiceWorkerRegistration` posts `{ type: "static-cache", enabled:
+    NODE_ENV === "production" }` to the worker on every load and the worker
+    persists the answer (the registration URL can't carry a flag: Next gives
+    the worker root scope only when `register(new URL(...))` is passed
+    untouched). `next dev` chunk names aren't content hashes, so with the
+    flag off (also the default) the worker passes those requests through and
+    developers never get stale code. With no manifest to prune against,
+    the cache is capped at 400 entries (oldest dropped first); `activate`
+    deletes `squirrel-static-*` caches under any other name. Covered by
+    `src/lib/service-worker.test.ts` and `e2e/sw-static-cache.spec.ts`.
 
 ### Platform polish (UX-29)
 
@@ -7858,6 +8023,10 @@ approximating them, so the email never disagrees with the app.
 
 ## Conventions
 
+- A date input's default for "the user's own calendar day" comes from
+  `toLocalDateKey` / `todayLocalDateKey` in `src/lib/local-date.ts` (local
+  time zone). Meal-planning's `toDateKey` is the UTC day, for dates stored
+  at UTC midnight; don't use it for a wall-clock "today".
 - Server Actions live next to the routes that use them
   (`src/app/dashboard/<feature>/actions.ts`) or in `src/lib/actions/` when
   shared across routes (auth, household). Every action re-derives the
@@ -7938,7 +8107,7 @@ approximating them, so the email never disagrees with the app.
   under that field and takes focus. A taken email also offers Log in
   (prefilled with the email) and Forgot password links. A wrong login
   password is shown under the password field, which takes focus; the email
-  is kept. Server messages stay English (MAINT-7). Covered by
+  is kept. Server messages come back in the request's language (UX-16, MAINT-7). Covered by
   `e2e/auth-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
@@ -8309,9 +8478,7 @@ UX-14's rapid ticks and the rollback toast.
   Picked for discoverability (the test sits right next to what it covers)
   and because it matches how the rest of this codebase colocates related
   files (e.g. `actions.ts` next to the `page.tsx` that uses it).
-- **What's covered so far** (deliberately scoped to already-stable code that
-  doesn't depend on Wave 1's other in-flight features — see
-  `AGENT_TASKS.md`):
+- **What's covered so far** (the first batch; later features add their own colocated tests):
   - `src/lib/i18n/format.ts` — `format()`/`plural()`, pure functions, no
     mocking needed.
   - `src/lib/session.ts` — `requireHousehold()`'s cookie-fallback logic
@@ -8343,10 +8510,9 @@ UX-14's rapid ticks and the rollback toast.
     inventory and shopping-list CSV `export/route.ts` handlers (household
     tenancy scoping, filename generation, column rendering, and formula-
     injection guarding end to end).
-  - Not covered yet: meal planning, budgeting, profile — out of scope for
-    this task per `AGENT_TASKS.md` (they're other in-flight Wave 1 work and
-    don't exist in a stable form on this branch). Add their tests alongside
-    their own feature work.
+  - Meal planning, budgeting and profile have colocated tests of their own
+    (`actions.test.ts` next to each feature's `actions.ts`, plus the pure
+    calculators in `src/lib/`), added with each feature.
 - **Database isolation**: no test in this suite touches the real database.
   Everything under `src/lib/actions/*.test.ts` and `src/lib/session.test.ts`
   mocks `@/lib/prisma`, `@/lib/auth`, `@/lib/session`, `next/headers`,
@@ -8517,8 +8683,8 @@ UX-14's rapid ticks and the rollback toast.
   visit, "Got it" hides it, stays hidden after a reload).
 - **Waiting on what the user sees, not on the URL**: the e2e flakes fixed
   in Oct 2026 were all a test acting one step ahead of the page. A tab
-  switch that is a `history.replaceState` (BudgetTabs, MealPlanningView)
-  moves the URL at once but renders in a React transition, so a spec
+  switch that is a `history.replaceState` (BudgetTabs) moves the URL at
+  once but renders in a React transition, so a spec
   waits for the tab's `aria-selected` (and, before following a month
   link, for the link's `href`) rather than `toHaveURL` alone. A dialog
   closed from the UI takes its history entry back with an async

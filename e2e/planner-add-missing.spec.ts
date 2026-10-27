@@ -16,6 +16,8 @@ const plannedWeek = (project: string) => (project === "mobile" ? "2031-03-17" : 
 const tag = `${E2E_WORKER}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 const sheets = `Lasagne sheets ${tag}`;
 const ricotta = `Ricotta ${tag}`;
+// GAP-62: the ingredient's note should reach the list row.
+const ricottaNote = `well drained ${tag}`;
 
 async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -38,9 +40,9 @@ test.beforeEach(async ({ context, baseURL }, testInfo) => {
       `Lasagne ${tag}`,
     ]);
     await client.query(
-      `INSERT INTO "RecipeIngredient" (id, "recipeId", name, quantity, unit)
-       VALUES ($1, $3, $4, 12, 'pcs'), ($2, $3, $5, 2, 'pcs')`,
-      [`${recipe}-a`, `${recipe}-b`, recipe, sheets, ricotta],
+      `INSERT INTO "RecipeIngredient" (id, "recipeId", name, quantity, unit, note)
+       VALUES ($1, $3, $4, 12, 'pcs', NULL), ($2, $3, $5, 2, 'pcs', $6)`,
+      [`${recipe}-a`, `${recipe}-b`, recipe, sheets, ricotta, ricottaNote],
     );
     // The app creates a week's MealPlan itself the first time it needs one, and
     // that row has its own id, so a plain insert collides on
@@ -115,4 +117,7 @@ test("a planned week's primary button adds the missing items and the toast opens
   await page.getByRole("button", { name: "Open list", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/]+$/);
   await expect(page.getByRole("checkbox", { name: new RegExp(`^${sheets}`) })).toBeVisible();
+  // GAP-62: the ingredient's note shows under its row; the one without stays bare.
+  await expect(page.getByText(ricottaNote)).toBeVisible();
+  await expect(page.getByText(ricottaNote)).toHaveCount(1);
 });

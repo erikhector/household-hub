@@ -15,7 +15,6 @@ import { format } from "@/lib/i18n/format";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
-import { CURRENT_VERSION } from "@/lib/release-notes";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -93,6 +92,7 @@ export function Sidebar({
   locale,
   notifications,
   unseenRelease,
+  version,
 }: {
   defaultExpanded: boolean;
   current: HouseholdOption;
@@ -102,6 +102,7 @@ export function Sidebar({
   locale: Locale;
   notifications: Promise<NotificationItem[]>;
   unseenRelease: boolean;
+  version: string;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const pathname = usePathname();
@@ -192,14 +193,15 @@ export function Sidebar({
       <div className="flex flex-col gap-1 border-t p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {/* Doubles as the app's version display. The dot stays until the
             user opens What's new for the newest release (see
-            src/lib/release-notes/index.ts). */}
+            src/lib/release-notes/index.ts). The version arrives as a prop so
+            the release history JSON stays out of the client bundle. */}
         <Tooltip
-          label={`${dict.nav.whatsNew} · v${CURRENT_VERSION}`}
+          label={`${dict.nav.whatsNew} · v${version}`}
           disabled={expanded}
           render={
             <Link
               href="/dashboard/whats-new"
-              aria-label={expanded ? undefined : `${dict.nav.whatsNew} · v${CURRENT_VERSION}`}
+              aria-label={expanded ? undefined : `${dict.nav.whatsNew} · v${version}`}
               aria-current={whatsNewActive ? "page" : undefined}
               className={cn(
                 "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors pointer-coarse:h-11",
@@ -222,7 +224,7 @@ export function Sidebar({
           {expanded && (
             <>
               <span className="truncate">{dict.nav.whatsNew}</span>
-              <span className="ml-auto text-xs tabular-nums">v{CURRENT_VERSION}</span>
+              <span className="ml-auto text-xs tabular-nums">v{version}</span>
             </>
           )}
         </Tooltip>

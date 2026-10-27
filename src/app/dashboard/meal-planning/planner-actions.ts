@@ -277,46 +277,50 @@ export async function moveMealEntryAction(
 
   const { entryId, date, mealType } = parsed.data;
 
-  const entry = await prisma.mealPlanEntry.findFirst({
-    where: { id: entryId, mealPlan: { householdId: household.id } },
-    select: { id: true, consumedAt: true },
-  });
-  if (!entry) return await fail("mealNotFound");
-  if (entry.consumedAt) return await fail("cookedMealCantMove");
+  try {
+    const entry = await prisma.mealPlanEntry.findFirst({
+      where: { id: entryId, mealPlan: { householdId: household.id } },
+      select: { id: true, consumedAt: true },
+    });
+    if (!entry) return await fail("mealNotFound");
+    if (entry.consumedAt) return await fail("cookedMealCantMove");
 
-  const targetDate = parseDateKey(date);
-  const weekStartDate = getWeekStart(targetDate);
+    const targetDate = parseDateKey(date);
+    const weekStartDate = getWeekStart(targetDate);
 
-  // The source week's MealPlan row is left behind even if this empties it,
-  // the same as deleting its last entry would: an empty plan is harmless and
-  // the page already treats "no row" and "no entries" alike.
-  const plan = await prisma.mealPlan.upsert({
-    where: { householdId_weekStartDate: { householdId: household.id, weekStartDate } },
-    update: {},
-    create: { householdId: household.id, weekStartDate },
-  });
+    // The source week's MealPlan row is left behind even if this empties it,
+    // the same as deleting its last entry would: an empty plan is harmless and
+    // the page already treats "no row" and "no entries" alike.
+    const plan = await prisma.mealPlan.upsert({
+      where: { householdId_weekStartDate: { householdId: household.id, weekStartDate } },
+      update: {},
+      create: { householdId: household.id, weekStartDate },
+    });
 
-  // Moving a meal is the household answering a "Meal not logged" reminder
-  // ("we didn't cook it, it's on Thursday now"), so an open one for this
-  // entry is dismissed alongside the move rather than left in the bell
-  // pointing at the new date. It's dismissed, not deleted: that reminder
-  // fires at most once per entry, ever (see "Meal not logged" in
-  // REQUIREMENTS.md), and a moved meal doesn't get a second nag.
-  await prisma.$transaction([
-    prisma.mealPlanEntry.update({
-      where: { id: entry.id },
-      data: { mealPlanId: plan.id, date: targetDate, mealType },
-    }),
-    prisma.notification.updateMany({
-      where: {
-        householdId: household.id,
-        mealPlanEntryId: entry.id,
-        kind: "MEAL_NOT_LOGGED",
-        dismissedAt: null,
-      },
-      data: { dismissedAt: new Date() },
-    }),
-  ]);
+    // Moving a meal is the household answering a "Meal not logged" reminder
+    // ("we didn't cook it, it's on Thursday now"), so an open one for this
+    // entry is dismissed alongside the move rather than left in the bell
+    // pointing at the new date. It's dismissed, not deleted: that reminder
+    // fires at most once per entry, ever (see "Meal not logged" in
+    // REQUIREMENTS.md), and a moved meal doesn't get a second nag.
+    await prisma.$transaction([
+      prisma.mealPlanEntry.update({
+        where: { id: entry.id },
+        data: { mealPlanId: plan.id, date: targetDate, mealType },
+      }),
+      prisma.notification.updateMany({
+        where: {
+          householdId: household.id,
+          mealPlanEntryId: entry.id,
+          kind: "MEAL_NOT_LOGGED",
+          dismissedAt: null,
+        },
+        data: { dismissedAt: new Date() },
+      }),
+    ]);
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
@@ -325,10 +329,15 @@ export async function moveMealEntryAction(
 export async function deleteMealEntryAction(entryId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  const entry = await prisma.mealPlanEntry.findFirst({
-    where: { id: entryId, mealPlan: { householdId: household.id } },
-    select: { id: true, preparedBatchId: true, preparedPortionsUsed: true, consumedAt: true },
-  });
+  let entry;
+  try {
+    entry = await prisma.mealPlanEntry.findFirst({
+      where: { id: entryId, mealPlan: { householdId: household.id } },
+      select: { id: true, preparedBatchId: true, preparedPortionsUsed: true, consumedAt: true },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
   if (!entry) return {};
 
   // GAP-49: an uneaten meal planned from a batch gives its portions back,
@@ -336,7 +345,11 @@ export async function deleteMealEntryAction(entryId: string): Promise<ActionStat
   // and one whose batch went with its recipe (SetNull, a stale count left
   // behind) has nothing to give back to: both just delete.
   if (!entry.preparedBatchId || entry.consumedAt) {
-    await prisma.mealPlanEntry.delete({ where: { id: entry.id } });
+    try {
+      await prisma.mealPlanEntry.delete({ where: { id: entry.id } });
+    } catch (error) {
+      return toFriendlyError(error);
+    }
     revalidatePath(MEAL_PLANNING_PATH);
     return {};
   }
@@ -362,7 +375,7 @@ export async function deleteMealEntryAction(entryId: string): Promise<ActionStat
     // knows to try again rather than wondering why the meal is still there;
     // re-throwing would hit the error boundary instead.
     if (error instanceof BatchChangedError) return await fail("generic");
-    throw error;
+    return toFriendlyError(error);
   }
 
   revalidatePath(MEAL_PLANNING_PATH);
@@ -401,77 +414,82 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
     return await zodFail(parsed.error);
   }
 
-  const fromDate = parseDateKey(parsed.data.fromWeekStart);
-  const toDate = parseDateKey(parsed.data.toWeekStart);
+  let created: { id: string }[];
+  try {
+    const fromDate = parseDateKey(parsed.data.fromWeekStart);
+    const toDate = parseDateKey(parsed.data.toWeekStart);
 
-  const [sourceEntries, targetEntries] = await Promise.all([
-    prisma.mealPlanEntry.findMany({
-      where: { mealPlan: { householdId: household.id, weekStartDate: fromDate } },
-      select: { date: true, mealType: true, recipeId: true, freeformName: true, portions: true },
-      orderBy: [{ date: "asc" }, { mealType: "asc" }],
-    }),
-    prisma.mealPlanEntry.findMany({
-      where: { mealPlan: { householdId: household.id, weekStartDate: toDate } },
-      select: { date: true, mealType: true },
-    }),
-  ]);
+    const [sourceEntries, targetEntries] = await Promise.all([
+      prisma.mealPlanEntry.findMany({
+        where: { mealPlan: { householdId: household.id, weekStartDate: fromDate } },
+        select: { date: true, mealType: true, recipeId: true, freeformName: true, portions: true },
+        orderBy: [{ date: "asc" }, { mealType: "asc" }],
+      }),
+      prisma.mealPlanEntry.findMany({
+        where: { mealPlan: { householdId: household.id, weekStartDate: toDate } },
+        select: { date: true, mealType: true },
+      }),
+    ]);
 
-  // The source entries are already scoped to this household's own plan, so
-  // their recipes *should* be too. A recipe id is the one foreign key being
-  // copied, though, so it's re-checked against the household in one query
-  // rather than trusted, the same guard addMealEntryAction applies.
-  const sourceRecipeIds = [
-    ...new Set(sourceEntries.map((e) => e.recipeId).filter((id): id is string => id !== null)),
-  ];
-  const ownedRecipeIds = new Set(
-    sourceRecipeIds.length > 0
-      ? (
-          await prisma.recipe.findMany({
-            where: { id: { in: sourceRecipeIds }, householdId: household.id },
-            select: { id: true },
-          })
-        ).map((r) => r.id)
-      : [],
-  );
-
-  const slotKey = (date: Date, mealType: string) => `${toDateKey(date)}|${mealType}`;
-  const filledSlots = new Set(targetEntries.map((e) => slotKey(e.date, e.mealType)));
-  const dayOffset = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000);
-
-  const rows = sourceEntries.flatMap((entry) => {
-    const date = addDays(entry.date, dayOffset);
-    if (filledSlots.has(slotKey(date, entry.mealType))) return [];
-    const recipeId = entry.recipeId && ownedRecipeIds.has(entry.recipeId) ? entry.recipeId : null;
-    // A recipe that's since been deleted (the FK is SetNull) or that failed
-    // the ownership check leaves nothing to show for the slot, so skip it
-    // rather than writing a nameless entry.
-    if (!recipeId && !entry.freeformName) return [];
-    return [
-      {
-        date,
-        mealType: entry.mealType,
-        recipeId,
-        freeformName: recipeId ? null : entry.freeformName,
-        portions: entry.portions,
-      },
+    // The source entries are already scoped to this household's own plan, so
+    // their recipes *should* be too. A recipe id is the one foreign key being
+    // copied, though, so it's re-checked against the household in one query
+    // rather than trusted, the same guard addMealEntryAction applies.
+    const sourceRecipeIds = [
+      ...new Set(sourceEntries.map((e) => e.recipeId).filter((id): id is string => id !== null)),
     ];
-  });
+    const ownedRecipeIds = new Set(
+      sourceRecipeIds.length > 0
+        ? (
+            await prisma.recipe.findMany({
+              where: { id: { in: sourceRecipeIds }, householdId: household.id },
+              select: { id: true },
+            })
+          ).map((r) => r.id)
+        : [],
+    );
 
-  // Nothing to write means no MealPlan row either, the same "don't create a
-  // plan on a no-op" rule page views follow (see the weekly planner section
-  // in REQUIREMENTS.md).
-  if (rows.length === 0) return { copied: 0, entryIds: [] };
+    const slotKey = (date: Date, mealType: string) => `${toDateKey(date)}|${mealType}`;
+    const filledSlots = new Set(targetEntries.map((e) => slotKey(e.date, e.mealType)));
+    const dayOffset = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000);
 
-  const plan = await prisma.mealPlan.upsert({
-    where: { householdId_weekStartDate: { householdId: household.id, weekStartDate: toDate } },
-    update: {},
-    create: { householdId: household.id, weekStartDate: toDate },
-  });
+    const rows = sourceEntries.flatMap((entry) => {
+      const date = addDays(entry.date, dayOffset);
+      if (filledSlots.has(slotKey(date, entry.mealType))) return [];
+      const recipeId = entry.recipeId && ownedRecipeIds.has(entry.recipeId) ? entry.recipeId : null;
+      // A recipe that's since been deleted (the FK is SetNull) or that failed
+      // the ownership check leaves nothing to show for the slot, so skip it
+      // rather than writing a nameless entry.
+      if (!recipeId && !entry.freeformName) return [];
+      return [
+        {
+          date,
+          mealType: entry.mealType,
+          recipeId,
+          freeformName: recipeId ? null : entry.freeformName,
+          portions: entry.portions,
+        },
+      ];
+    });
 
-  const created = await prisma.mealPlanEntry.createManyAndReturn({
-    data: rows.map((row) => ({ ...row, mealPlanId: plan.id })),
-    select: { id: true },
-  });
+    // Nothing to write means no MealPlan row either, the same "don't create a
+    // plan on a no-op" rule page views follow (see the weekly planner section
+    // in REQUIREMENTS.md).
+    if (rows.length === 0) return { copied: 0, entryIds: [] };
+
+    const plan = await prisma.mealPlan.upsert({
+      where: { householdId_weekStartDate: { householdId: household.id, weekStartDate: toDate } },
+      update: {},
+      create: { householdId: household.id, weekStartDate: toDate },
+    });
+
+    created = await prisma.mealPlanEntry.createManyAndReturn({
+      data: rows.map((row) => ({ ...row, mealPlanId: plan.id })),
+      select: { id: true },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
   return { copied: created.length, entryIds: created.map((e) => e.id) };
@@ -576,14 +594,18 @@ export async function undoCopyWeekAction(entryIds: string[]): Promise<ActionStat
   const parsed = undoCopyWeekSchema.safeParse(entryIds);
   if (!parsed.success) return await fail("invalidInput");
 
-  await prisma.mealPlanEntry.deleteMany({
-    where: {
-      id: { in: parsed.data },
-      consumedAt: null,
-      preparedBatchId: null,
-      mealPlan: { householdId: household.id },
-    },
-  });
+  try {
+    await prisma.mealPlanEntry.deleteMany({
+      where: {
+        id: { in: parsed.data },
+        consumedAt: null,
+        preparedBatchId: null,
+        mealPlan: { householdId: household.id },
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};

@@ -107,12 +107,23 @@ test.describe("logged out", () => {
     // before the answer comes back (M5).
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
+    let reachedServer!: () => void;
+    const inFlight = new Promise<void>((resolve) => (reachedServer = resolve));
     await page.route("**/login", async (route) => {
-      if (route.request().method() === "POST" && route.request().headers()["next-action"]) await held;
+      if (route.request().method() === "POST" && route.request().headers()["next-action"]) {
+        reachedServer();
+        await held;
+      }
       await route.continue();
     });
     const button = page.getByRole("button", { name: new RegExp(en.language.toggleLabel) });
+    // The button is server-rendered before React takes it over, and under a
+    // loaded run goto() returns first (MAINT-55, as MAINT-27, 34 and 44).
+    await expectHydrated(button);
     await button.click();
+    // Assert the busy state only once the change is known to be on its way
+    // and held, so "busy" can't have already ended by the time it is read.
+    await inFlight;
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute("aria-busy", "true");
     // Dimmed, so a sighted visitor sees the tap registered.

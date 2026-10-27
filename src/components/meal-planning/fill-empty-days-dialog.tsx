@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,6 @@ export function FillEmptyDaysDialog({
   plannedRecipeIds: string[];
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const recipeName = new Map(recipes.map((r) => [r.id, r.name]));
@@ -96,8 +94,8 @@ export function FillEmptyDaysDialog({
             void undoCopyWeekAction(entryIds).then((undoResult) => {
               if (undoResult.error) toast.error(undoResult.error);
               else {
+                // No router.refresh(): the undo action revalidated the page.
                 toast.success(dict.fillEmptyDaysUndoneToast);
-                router.refresh();
               }
             });
           },

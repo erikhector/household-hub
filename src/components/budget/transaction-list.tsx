@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   TransactionDialog,
@@ -33,6 +34,7 @@ import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { dayHeading, groupByDay, localDateKey } from "@/lib/budget-transaction-days";
 import { resolveCategoryFilter } from "@/lib/budget-url";
+import { normalizeSearchTerm, transactionMatchesSearch } from "@/lib/budget-transaction-search";
 
 export type TransactionListRow = TransactionRow & {
   categoryName: string;
@@ -194,6 +196,20 @@ export function TransactionList({
     else url.searchParams.set("category", next);
     window.history.replaceState(null, "", url);
   }
+  // GAP-63: `?q=` is the search box's text. The input keeps its own state so
+  // typing never waits on the URL; the URL is written with replaceState on
+  // every change (so a reload or the back gesture keeps the term, and
+  // MonthNavigator carries it when paging months) and only read here once,
+  // for the first render.
+  const [query, setQueryState] = useState(() => searchParams.get("q") ?? "");
+  function setQuery(next: string) {
+    setQueryState(next);
+    const url = new URL(window.location.href);
+    if (normalizeSearchTerm(next)) url.searchParams.set("q", next);
+    else url.searchParams.delete("q");
+    window.history.replaceState(null, "", url);
+  }
+  const searchTerm = normalizeSearchTerm(query);
   const clearParams = new URLSearchParams(searchParams.toString());
   clearParams.delete("category");
   const clearHref = clearParams.size > 0 ? `${pathname}?${clearParams}` : pathname;
@@ -314,9 +330,19 @@ export function TransactionList({
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
   // A shared row is a household category, never one of the viewer's own,
   // so a filter always leaves it out.
-  const rows = categoryFilter
+  const inCategory = categoryFilter
     ? allRows.filter((item) => item.kind === "own" && item.row.categoryId === categoryFilter)
     : allRows;
+  // The search narrows what the category filter left, on what each row
+  // shows. Shared rows have no description, only a category and a share.
+  const rows = searchTerm
+    ? inCategory.filter((item) =>
+        transactionMatchesSearch(
+          { description: item.kind === "own" ? item.row.description : null, categoryName: item.row.categoryName, amount: item.amount },
+          searchTerm,
+        ),
+      )
+    : inCategory;
 
   if (allRows.length === 0) {
     return (
@@ -338,6 +364,18 @@ export function TransactionList({
       {/* Pick, don't type (M4); on a phone the select has its own row (M1)
           and Clear sits under it. */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        {/* GAP-63: type="search" brings the phone's Search key; 16 px text
+            and a 44 px field come from Input on a phone (M3, M9). */}
+        <SearchInput
+          value={query}
+          onValueChange={setQuery}
+          placeholder={dict.search.placeholder}
+          aria-label={dict.search.label}
+          clearLabel={dict.search.clear}
+          enterKeyHint="search"
+          autoComplete="off"
+          containerClassName="w-full sm:w-72"
+        />
         <Select value={categoryFilter ?? ALL_CATEGORIES} onValueChange={(v) => setCategoryFilter(String(v))}>
           <SelectTrigger aria-label={dict.filter.label} className="w-full sm:w-64">
             <SelectValue>
@@ -358,10 +396,22 @@ export function TransactionList({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-md border border-dashed p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            {format(dict.filter.empty, { category: filteredCategory?.name ?? "" })}
-          </p>
-          {clearButton}
+          {searchTerm ? (
+            <>
+              <p className="text-sm text-muted-foreground">{format(dict.search.empty, { query: searchTerm })}</p>
+              <Button variant="outline" onClick={() => setQuery("")}>
+                <X className="size-4" />
+                {dict.search.clear}
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {format(dict.filter.empty, { category: filteredCategory?.name ?? "" })}
+              </p>
+              {clearButton}
+            </>
+          )}
         </div>
       ) : (
       <>

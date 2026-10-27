@@ -7,6 +7,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { InviteButton } from "@/components/household/invite-button";
+import { PendingInvites } from "@/components/household/pending-invites";
 import { MemberList } from "@/components/household/member-list";
 import { DeleteHouseholdDialog } from "@/components/household/delete-household-dialog";
 import { AutoAddSetting } from "@/components/household/auto-add-setting";
@@ -74,6 +75,47 @@ async function HouseholdMemberList({
 }) {
   const members = await getHouseholdMembers(householdId);
   return <MemberList isOwner={isOwner} currentUserId={userId} dict={dict} members={members} />;
+}
+
+// SEC-4. Unused, unexpired invites. Every member sees them; whether a row
+// gets a close button is decided here by the same rule revokeInviteAction
+// enforces (owner: any, contributor: own), so the button never promises what
+// the action would refuse.
+async function PendingInvitesSection({
+  householdId,
+  userId,
+  isOwner,
+  locale,
+  dict,
+}: {
+  householdId: string;
+  userId: string;
+  isOwner: boolean;
+  locale: Locale;
+  dict: Dictionary["household"]["pendingInvites"];
+}) {
+  const invites = await prisma.invitation.findMany({
+    where: { householdId, acceptedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      invitedById: true,
+      expiresAt: true,
+      invitedBy: { select: { displayName: true } },
+    },
+  });
+  const formatter = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" });
+  return (
+    <PendingInvites
+      dict={dict}
+      invites={invites.map((i) => ({
+        id: i.id,
+        inviterName: i.invitedBy?.displayName ?? null,
+        expiresLabel: formatter.format(i.expiresAt),
+        canRevoke: isOwner || i.invitedById === userId,
+      }))}
+    />
+  );
 }
 
 // GAP-16. Newest first — the board is for what's current, so the latest note
@@ -158,6 +200,13 @@ export default async function HouseholdPage() {
       <div id="household-members" className="scroll-mt-4">
         <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
       </div>
+      <PendingInvitesSection
+        householdId={household.id}
+        userId={userId}
+        isOwner={isOwner}
+        locale={locale}
+        dict={dict.household.pendingInvites}
+      />
       <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
       {/* Owner-only (see renameHouseholdAction). */}
       {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}

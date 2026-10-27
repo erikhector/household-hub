@@ -1,5 +1,126 @@
 [
   {
+    "version": "0.115.0",
+    "date": "2026-10-27",
+    "pr": 793,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Icon-only buttons now show a small label when you hover over them or tab to them with the keyboard.\n\nSign-in, sign-up, password reset, email verification and profile error messages now show in your language.",
+      "sv": "Knappar med bara en ikon visar nu en liten etikett när du håller muspekaren över dem eller tabbar till dem med tangentbordet.\n\nFelmeddelanden vid inloggning, registrering, återställning av lösenord, verifiering av e-post och i profilen visas nu på ditt språk."
+    }
+  },
+  {
+    "version": "0.114.0",
+    "date": "2026-10-27",
+    "pr": 786,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The command palette (Ctrl+K or Cmd+K) now finds things in your household too. Type a name to jump straight to an inventory item, recipe, shopping list, task or budget category.",
+      "sv": "Kommandopaletten (Ctrl+K eller Cmd+K) hittar nu även saker i hushållet. Skriv ett namn för att hoppa direkt till en lagervara, ett recept, en inköpslista, en uppgift eller en budgetkategori."
+    }
+  },
+  {
+    "version": "0.113.6",
+    "date": "2026-10-27",
+    "pr": 780,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Errors about households and invites (for example \"only the owner can change the currency\" or \"this invite link has expired\") now show in Swedish when Squirrel is set to Swedish.",
+      "sv": "Felmeddelanden om hushåll och inbjudningar (till exempel \"bara ägaren kan ändra valutan\" eller \"inbjudningslänken har gått ut\") visas nu på svenska när Squirrel är inställt på svenska."
+    }
+  },
+  {
+    "version": "0.113.5",
+    "date": "2026-10-27",
+    "pr": 771,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list page loads faster, because its pop-up forms now load only when you first open them.\n\nBackground reminders (expiring food, unlogged meals, put-away and the morning menu) now run faster and more reliably as Squirrel grows.\n\nSwitching tabs in the meal planner now reacts instantly, even on a slow connection.\n\nWhen you remove a member or someone leaves, their unused invite links are closed, and shopping list share links and the calendar feed link are reset for safety. You can now also see and close pending invites on the Household page.\n\nLazy-load the shopping list's dialogs (PERF-25)",
+      "sv": "Inköpslistan laddas snabbare, eftersom dess formulär i popup-fönster nu bara hämtas när du öppnar dem första gången.\n\nBakgrundspåminnelser (utgående mat, ologgade måltider, undanplockning och morgonens meny) går nu snabbare och mer tillförlitligt när Squirrel växer.\n\nAtt byta flik i måltidsplaneraren går nu direkt, även med långsam anslutning.\n\nNär du tar bort en medlem, eller någon lämnar hushållet, stängs personens oanvända inbjudningslänkar och delningslänkarna för inköpslistor och kalenderlänken återställs. Du kan också se och stänga väntande inbjudningar på hushållssidan.\n\nLazy-load the shopping list's dialogs (PERF-25)"
+    }
+  },
+  {
+    "version": "0.113.4",
+    "date": "2026-10-26",
+    "pr": 758,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The installed app now opens faster after your phone clears its cache, because it keeps its own copy of the app's code files.",
+      "sv": "Den installerade appen öppnas nu snabbare när telefonen har rensat sitt cacheminne, eftersom appen sparar en egen kopia av sina kodfiler."
+    }
+  },
+  {
+    "version": "0.113.3",
+    "date": "2026-10-26",
+    "pr": 754,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed: a database hiccup while saving a recipe, planning a meal, changing your password or dismissing a notification now shows a short \"try again\" message instead of an error page.",
+      "sv": "Åtgärdat: ett tillfälligt databasfel när du sparar ett recept, planerar en måltid, byter lösenord eller stänger en avisering visar nu ett kort meddelande om att försöka igen i stället för en felsida."
+    }
+  },
+  {
+    "version": "0.113.2",
+    "date": "2026-10-26",
+    "pr": 746,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The app loads a little faster, because the list of past releases is no longer downloaded on every page.\n\nThe meal planner now loads faster because a validation library no longer ships with the page.",
+      "sv": "Appen laddas lite snabbare, eftersom listan över tidigare versioner inte längre hämtas på varje sida.\n\nMåltidsplaneraren laddas snabbare eftersom ett valideringsbibliotek inte längre skickas med sidan."
+    }
+  },
+  {
+    "version": "0.113.1",
+    "date": "2026-10-26",
+    "pr": 733,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Meal planning feels a little snappier: saving or undoing prep, plans and portions no longer redraws the page twice.",
+      "sv": "Måltidsplaneringen känns lite snabbare: när du sparar eller ångrar prep, planer och portioner ritas sidan inte längre om två gånger."
+    }
+  },
+  {
+    "version": "0.113.0",
+    "date": "2026-10-26",
+    "pr": 725,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Turn on \"Tonight's dinner\" in your profile to get one morning notification listing what's planned on the menu that day. It's off by default.",
+      "sv": "Slå på \"Kvällens middag\" i din profil för att få en avisering på morgonen med dagens planerade måltider. Den är avstängd som standard."
+    }
+  },
+  {
+    "version": "0.112.0",
+    "date": "2026-10-26",
+    "pr": 720,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Notes on recipe ingredients, like \"unsalted\" or \"ripe\", now follow along when you add missing ingredients to a shopping list.\n\nSearch your transactions. Type a description, a category or an amount above the list on the Transactions tab to narrow the month, and the search stays when you reload.",
+      "sv": "Anteckningar på receptingredienser, som \"osaltat\" eller \"mogen\", följer nu med när du lägger till saknade ingredienser i en inköpslista.\n\nSök bland dina transaktioner. Skriv en beskrivning, en kategori eller ett belopp ovanför listan på fliken Transaktioner för att smalna av månaden. Sökningen finns kvar när du laddar om sidan."
+    }
+  },
+  {
+    "version": "0.111.1",
+    "date": "2026-10-25",
+    "pr": 714,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Behind-the-scenes update of the libraries Squirrel is built on, including a security fix in error reporting. Nothing changes in how the app looks or works.",
+      "sv": "Uppdatering av de bibliotek Squirrel bygger på, bland annat en säkerhetsfix i felrapporteringen. Inget ändras i hur appen ser ut eller fungerar."
+    }
+  },
+  {
     "version": "0.111.0",
     "date": "2026-10-25",
     "pr": 704,

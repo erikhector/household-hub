@@ -102,91 +102,103 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-12. Dependency hygiene** (low) `[!]` — blocked on upstream.
-      `prisma` is already a devDependency; `npm audit --omit=dev` still
-      shows 4 high findings (`mysql2`, `deepmerge-ts` via `@prisma/config`)
-      because `@prisma/client` lists `prisma` as an optional peer, which npm
-      installs and audits. Not reachable at runtime (details in
-      REQUIREMENTS.md, "Dependency audit findings (SEC-12)"). Nothing to do
-      until Prisma ships patched versions: re-audit on the next Prisma bump
-      and delete this item then. `next-auth` is still `5.0.0-beta.32`; track
-      its advisories. Pairs with MAINT-12's Dependabot config.
-
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-13. Make the notification-sync cron proportional to work, not households** (low now, M) —
-      `api/cron/sync-notifications/route.ts:41-65` walks every household in
-      sequential batches of 10, with no `maxDuration`. Pre-select only
-      households with candidates (one query per trigger), export
-      `maxDuration`, and log run duration.
+### Client JS and caching (2026-10-26 measurement)
 
-- [ ] **PERF-19. Drop the second render after meal-planning actions** (low, S) —
-      a Server Action that calls `revalidatePath` already returns the
-      re-rendered page with its response, so a `router.refresh()` after it
-      renders the same page (and runs all its queries) a second time. Every
-      action behind these calls already revalidates `MEAL_PLANNING_PATH`:
-      `week-planner.tsx:464` (`unassignBatchPortionAction`),
-      `plan-portions-dialog.tsx:174` (`assignBatchPortionsAction`, success
-      path only; the error path at :169 refreshes on purpose, nothing was
-      revalidated), `prep-tab.tsx:158` (`undoDiscardBatchAction`),
-      `fill-empty-days-dialog.tsx:100` (`undoCopyWeekAction`) and
-      `record-prep-dialog.tsx:158` (`undoRecordPrepAction`). The undo calls
-      run from a toast outside `startTransition`, so confirm the page still
-      updates without the refresh before removing each one. Leave the
-      cookie-driven refreshes (`mark-release-seen.tsx`,
-      `preferences-controls.tsx`) alone: no action revalidates there.
-      Acceptance: an e2e check per flow that the change shows without a
-      reload (extend `e2e/meal-prep.spec.ts` and
-      `meal-planner-fill-empty-days.spec.ts`), on desktop and mobile.
+Measured on a production build with the seeded e2e user in Chromium
+(Pixel 7 profile): JS actually loaded per dashboard page, JS coverage at
+load, and timings under 4× CPU and Lighthouse's Slow 4G profile. Every
+dashboard page loads the same **325 KB gz of shared JS** (Next/React
+174 KB, Base UI 83, `releases.json` 39, the rest small). Pages paint at
+~1 s but finish loading JS at 2.7–3.3 s, and the smallest page
+(`/dashboard/notifications`, 5 KB of its own JS) still takes 2.7 s, so
+the shared JS dominates that "looks ready, doesn't respond yet" window. A
+page's own JS ranges from 4 KB (what's new) to 109 KB (meal planning),
+and 56–78% of it is unused at load, mostly dialogs. Client navigation
+fetches no new JS (the bottom bar's links prefetch the chunks), so
+per-page splitting helps the cold start and hydration on slow phones,
+not tab switches. Re-measure before and after each item.
+`npx next analyze` attributes chunks to modules; JS coverage per route
+comes from Playwright's `page.coverage`.
+- [ ] **PERF-25. Lazy-load dialogs: shared helper + shopping list** (medium, M) —
+      dialogs are most of each heavy page's unused JS, along with Base
+      UI's Combobox (39 KB raw), which only dialogs use. Add one helper
+      that renders a `next/dynamic` dialog only after it has been opened
+      once, works with the Base UI dialog handles the pages already use
+      (`createHandle`, detached triggers), and preloads the chunk on
+      pointer-enter/focus of the trigger and in idle time after
+      hydration (`requestIdleCallback`), so the first open isn't slower
+      than today (DESIGN.md: instant feedback). Apply it first to
+      `src/components/shopping/shopping-list-client.tsx`, which imports
+      nine dialogs up front (receipt scan, put away, import, resolve
+      mappings, reorder sections, rename, save template, partial price,
+      item form). Existing e2e specs for those dialogs must pass
+      unchanged on desktop and mobile; add one asserting a dialog opens
+      on the first tap after a hard load.
+- [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
+      the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
+      `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
+      missing ingredients, record prep, plan portions, meal entry, move,
+      fill empty days, add to plan); `inventory-header-actions.tsx` (AI
+      shelf scan, stock scan, bulk scan, bulk paste, add item) and the
+      item page's change-unit/merge dialogs; the budget pages'
+      transaction, recurring-template, planned-expense and
+      log-shared-expense dialogs. One PR per page group is fine. Expect
+      30–40% less of each page's own JS.
+- [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
+      `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
+      switcher's menu and create form, and the bottom bar's "More" menu
+      hydrate on every page but only appear after a tap or ⌘K. Keep the
+      triggers and the ⌘K listener eager; load the popups with the
+      PERF-25 helper. Base UI's drawer, menu, tooltip and positioning code
+      only leaves the shared JS once page dialogs are lazy too
+      (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
+      20–40 KB gz off every page.
+- [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
+      `MealPlanningView` and `BudgetTabs` render every tab on the server
+      and hide the inactive ones with `hidden`, so all four tabs' JS
+      downloads and hydrates before the visible one is interactive. That
+      keeps tab switches instant, which is worth keeping. Try wrapping the
+      inactive tabs in React 19's `<Activity mode="hidden">` and record:
+      whether the visible tab becomes interactive sooner (long-task time
+      under 4× CPU), whether hidden tabs still render on the server, and
+      whether tab state survives a switch as it does now. Ends in a
+      follow-up item or a note here explaining why not.
 
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Items 3, 6 and 7 all
-touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-6 → MAINT-3,
+tests passing, no `any`/`@ts-ignore` in app code. Items 3 and 7 both
+touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
 - [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
       lines / 29 exports, test file 2,850 lines. Follow the meal-planning
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
       put-away), `receipt-` and `store-order-actions.ts`, tests split the
-      same way. Do after MAINT-2/5/6.
-- [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
-      ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
-      error hits the error boundary: `planner-actions.ts` (add/update/move/
-      delete entry, copy/undo-copy week — e.g. `:65-88`), `recipe-actions.ts`
-      (create/update/delete/favorite), `lib/actions/push.ts` (all 4),
-      `notifications.ts` dismiss/dismiss-all, `updatePasswordAction`,
-      shopping link/unlink/apply-receipt/complete,
-      `addMissingIngredientsToShoppingListAction`. Consider a
-      `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
+      same way. Do after MAINT-2/5.
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
       REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks and the shared list link. Still
-      English: the ~125 string-literal `error:` values and Zod messages in
-      the files on `PENDING` in `src/lib/actions/error-strings.test.ts`
-      (budget 35, household 27, personal budget 19, auth 14, barcode,
-      receipt and inventory scans, profile, push, digest, household notes),
+      inventory, meal planning, tasks, the shared list link, household
+      (`lib/actions/household.ts`), auth (`lib/actions/auth.ts`) and
+      profile, all done. Still English: the string-literal
+      `error:` values and Zod messages in the files on `PENDING` in
+      `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
+      19, barcode, receipt and inventory scans, push, digest, household
+      notes),
       plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
       `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
       feature at a time, add its keys to `dict.errors` (or a feature
       namespace, as `template-actions.ts` does), and delete the file from
       `PENDING`: the test fails if a clean file stays listed. Leave budget
       until BUDGET-6 is decided.
-- [ ] **MAINT-8. One tested AI provider chain** (medium, M) —
-      `resolveAttempts`/`callGemini`/`callAnthropic`/deadline-fallback loop
-      is copy-pasted in `lib/actions/inventory-scan.ts:247-480`,
-      `lib/actions/receipt-scan.ts:164-390` and
-      `lib/inventory/ai-category-fallback.ts:107-228`, and none of it has
-      tests. Extract `src/lib/ai/provider-chain.ts`, parameterised by prompt
-      and response schema; unit-test fallback, busy and deadline paths with
-      mocked `fetch`.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
@@ -204,36 +216,6 @@ then MAINT-7 per feature, to avoid churn.
       optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
       `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
       separate PR.
-- [ ] **MAINT-13. Fix documentation drift** (low, S) — REQUIREMENTS.md
-      says react-hook-form is installed (it isn't, `:37-39`); its "Testing →
-      What's covered so far" section cites a missing `AGENT_TASKS.md` and
-      calls meal planning/budget/profile untested (they're well tested);
-      comments in `budget/actions.ts:18-35`, `lib/notifications.ts:16,63`,
-      `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
-      cite a `findOrCreateInventoryItem` that no longer exists. Delete the
-      stray committed `src/components/budget/cost-analyzer.tsx.orig`, and
-      add `*.orig` and `*.rej` to `.gitignore` so a conflict leftover
-      can't be committed again.
-- [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
-      exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
-      `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
-      `CALENDAR_FEED_*_DAYS`, `MAX_LEFTOVER_SERVINGS`, `SWISH_*`); non-null
-      assertions in `lib/rate-limit.ts:97,100`, `tasks/page.tsx:38`,
-      `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
-      `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
-      with a typed `isOneOf(values)` guard.
-- [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
-      timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
-      60000).toISOString().slice(0, 10)`) is copy-pasted as
-      `toDateInputValue` in `components/budget/transaction-dialog.tsx:121`
-      and `personal-budget/log-shared-expense-dialog.tsx:82`, and as
-      `todayInputValue` in `components/budget/household-balances.tsx:73`,
-      while `meal-planning/date-utils.ts` has a UTC `toDateKey` with the
-      opposite semantics under a similar name. Add `toLocalDateKey` /
-      `todayLocalDateKey` to a shared `src/lib/` module with a unit test
-      around midnight in a non-UTC offset, use it in the three call sites,
-      and note in `toDateKey`'s comment that it is UTC. Acceptance: no
-      behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -262,95 +244,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-53. Flaky: `task-compact-rows` fails now and then under full-suite load** (low, S) —
-      `e2e/task-compact-rows.spec.ts:58` (`mobile`). Failed once in 82
-      runs with `--repeat-each=20` on clean `next` (`26df2a2`,
-      2026-10-23), and once in the full `ci:local` gate on the UX-112
-      branch (`8b0197e`), where it passed on a solo rerun. Nobody's change
-      is in it. The failing assertion wasn't recorded: reproduce with the
-      repeat run, read the snapshot, and fix it in the app or the spec's
-      waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-compact-rows.spec.ts:58
-      --project=mobile --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
-      release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
-      2026-10-24) and passed on a solo rerun of the same commit. Nobody's
-      change is in it. The failing assertion wasn't recorded: reproduce
-      with the repeat run, read the snapshot, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:194
-      --project=desktop --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
-      `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
-      full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
-      `toHaveCSS` assertion) and passed on a solo rerun of the same
-      commit. Nobody's change is in it. Reproduce with the repeat run and
-      fix it in the app or the spec's waiting, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
-      --project=mobile --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
-      `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
-      (`mobile`). Both failed once and passed on the retry in the GitHub
-      `End-to-end (Playwright)` job of release PR #666 on `8d2e088`
-      (2026-10-24). Nobody's change is in them. Same failure at
-      `e2e/ui.ts:330`: after `tab.click()`, `expect(tab).toHaveAttribute(
-      "aria-selected", "true")` still reads `false` after 5 s, although
-      the helper already waits for hydration and a patched `replaceState`.
-      Find out what the click races with (a re-render that resets the
-      tab, the `?tab=` URL sync) and fix it in the app or in the helper's
-      waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-dialog.spec.ts:43
-      e2e/recipe-planned-dates.spec.ts:55 --project=mobile
-      --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
-      shows the all-caught-up card above Completed" (`mobile`). Failed once
-      and passed on the retry in the GitHub `End-to-end (Playwright)` job
-      of release PR #689 (run 40184348720, 2026-10-25). Nobody's change is
-      in it. The failing assertion is the Postgres poll near line 111,
-      `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
-      for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
-      spec was already touched by MAINT-40 (#585, wait for each tick's
-      save) and MAINT-50 (#679, wait for hydration), so those fixes were
-      probably incomplete. Find out where the open row comes from: a tick
-      whose Server Action response was another action's (the
-      `waitForResponse` matches any `next-action` POST, so a different
-      action can satisfy it before the tick's save lands), a row another
-      spec in the same worker inserts while this one runs, or a save the
-      app drops. Fix it in the app or in the spec's waiting (match the
-      tick's own response), never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=mobile --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-59. Flaky: `planned-expenses` spec times out under full-suite load** (low, S) —
-      `e2e/planned-expenses.spec.ts:82` (`mobile`) hit the 30 s test
-      timeout once in the `ci:local` gate of #694 (`7adc31c`, 2026-10-25)
-      and passed 3 of 3 on a re-run on the same commit; it passed 5 of 5 on
-      clean `next` (`18e4bfe`), so it needs load to show. Nobody's change is
-      in it. Find what the test is waiting on (hydration, a dialog, a
-      response) and fix it in the app or the spec's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/planned-expenses.spec.ts:82 --project=mobile
-      --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
-      `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
-      gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
-      left", got "2 of 4". Only `e2e/item-aliases.spec.ts` changed in that
-      PR, so nobody's change is in it. Not yet re-run on clean `next`.
-      Find out whether a portion is taken twice (a double tap or a repeated
-      action), or a row another spec in the same worker leaves behind, and
-      fix it in the app or the spec's setup, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-prep.spec.ts:145 --project=desktop --repeat-each=30`
-      passes 30/30.
-
 - [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
       `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
       `ci:local` gate of #696 (`6de6c89`, 2026-10-25), a PR that touches
@@ -362,20 +255,57 @@ then MAINT-7 per feature, to avoid churn.
       e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
       passes 30/30.
 
-- [ ] **MAINT-62. Flaky: `inventory-status-summary` Status filter doesn't offer Expiring and Expired** (low, S) —
-      `e2e/inventory-status-summary.spec.ts:130` ("the Status filter offers
-      Expiring and Expired", `desktop`) failed once in a full local
-      `ci:local` run on release commit `1b8abde` (2026-10-25). It passed on
-      a solo re-run and in the GitHub e2e job of the same commit, so it
-      only fails under full-suite load. Not yet re-run with repeats. Get
-      the failing assertion with `--repeat-each=30` (the log of the
-      original run wasn't kept), find what the filter control's open or
-      option check races with (a popup still animating, or the search
-      box's debounced filter re-rendering the list) and fix it in the app
-      or the spec's waiting, never a loosened assertion, a skip or a
-      retry. Acceptance: `npx playwright test
-      e2e/inventory-status-summary.spec.ts:130 --project=desktop
-      --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
+      item, blocks an incomplete row, and folds away confident matches",
+      `desktop`) failed once in a full local `ci:local` run of the SEC-4
+      branch (`c1f4461`, based on `origin/next` `2a8d9b6`, 2026-10-27) and
+      passed in the two other full runs of that branch (`a4f4dcf`,
+      `5cf0616`), whose diff touches nothing in recipes. Failing
+      assertion (line 169 region): `getByRole("dialog", { name: "Match
+      ingredients" }).getByRole("group", { name: "1 krm romatmnaai" })
+      .getByText("Nothing close in your pantry, so…")` not found after 5 s.
+      Likely the row's match note renders after an async lookup the spec
+      doesn't wait for. Reproduce with `--repeat-each=30`, find the race,
+      and fix it in the app or the spec's waiting, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:144
+      --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-67. Flaky: `native-sheets` mobile specs time out opening the add-meal sheet** (low, S) —
+      Five `[mobile]` tests in `e2e/native-sheets.spec.ts` (`:64` flick
+      down on the grabber, `:79` short slow pull, `:125` page behind
+      scales, `:137` reduced motion, `:145` touch open focuses the sheet)
+      failed in the full local `ci:local` run of the `release/2026-10-27-0740`
+      gate (`e2bc21a`, 2026-10-27) and passed when the spec was re-run
+      alone on the same commit. The first failure is a 30 s timeout in
+      `openAddMeal` (line 55) at `trigger.click()` waiting for the "Add
+      your first dinner" button, which points at a click before
+      hydration or before the meal planner has rendered. Reproduce with
+      `--repeat-each=30`, find the race, and fix it in the app or the
+      spec's waiting (`expectHydrated` / `gotoRevealed` in `e2e/ui.ts`),
+      never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/native-sheets.spec.ts
+      --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
+      1,249 lines in one file, past the 800-line smell threshold and not
+      covered by MAINT-10 (which lists UI files only). It holds two
+      unrelated jobs: HTML parsing (JSON-LD `:72-:545`, ingredient strings
+      `:146-:450`, microdata `:564-:775`, heuristic headings `:777-:900`)
+      and the SSRF-guarded fetch (`isPrivateOrReservedIPv4/6`,
+      `validateRecipeUrl`, `createPinnedPublicLookup`, `fetchRecipeHtml`,
+      `:903-:1249`). Split into `lib/recipe-import/parse-*.ts` (ingredient
+      parsing, JSON-LD, microdata, heuristic) and `lib/recipe-import/fetch.ts`
+      (the network guard), keeping `lib/recipe-import.ts` as a re-exporting
+      entry point so `recipe-actions.ts` and the tests don't change import
+      paths. Split `recipe-import.test.ts` (1,173 lines) the same way. The
+      SSRF guard is security-sensitive: move it verbatim, no behaviour
+      change, and keep `_setPrivateAddressCheckForTests` working.
+      Acceptance: no behaviour change; every existing `recipe-import*` test
+      passes unmodified apart from import paths, and no file under
+      `lib/recipe-import/` exceeds ~500 lines.
 
 
 ### UX (2026-09-26 scout)
@@ -546,27 +476,6 @@ field. WebKit was not run.
 
 ### Dependencies
 
-- [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
-      `brace-expansion` (under `glob`), `sharp`, `source-map-js` (all high)
-      and `fast-uri` (moderate) all have fixes available via
-      `npm audit fix` or an `overrides` entry. Leave the Prisma-owned
-      `mysql2`/`deepmerge-ts`/`@prisma/config` findings to SEC-12.
-      Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
-      `npm run check && npm run build` is green.
-
-- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: med, effort: S) —
-      The `@sentry/nextjs` bump is a security fix: 10.75.1 and older have a
-      critical middleware bypass when a tunnel route is used
-      (GHSA-mchm-gjx6-7h55, fixed in 10.75.2). Check whether
-      `next.config` sets `tunnelRoute`; the audit flags it either way.
-      `@base-ui/react` 1.8→1.9, `@sentry/nextjs` 10.73→10.76, `@upstash/redis`
-      1.38→1.39, `@vercel/functions` 3.9→3.10, `lucide-react` 1.43→1.57,
-      `pg` 8.23.0→8.23.1, `resend` 6.26→6.33, `shadcn` 4.21.0→4.21.5,
-      `vitest` 5.0.0→5.0.4, `zod` 4.5→4.6, `@types/react(-dom)` 19.3, `@types/node`
-      22.20.5. Skip the majors (Sentry 11, ESLint 10, TypeScript 7, React
-      19.3 is fine to include if `check` passes); each needs its own item.
-      Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
-
 - [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
       Major release (10.73 installed, 11.8 latest). Sentry is wired into
       the client, server and edge configs plus `instrumentation`; check the
@@ -627,37 +536,6 @@ order below is a suggestion, not a dependency, unless noted.
       "owed from earlier months". Verify with 3 years × 100/month seeded.
  No schema change of its own beyond PERF-3's index.
 
-- [ ] **SEC-4. Removing a member revokes what they can still reach** (medium) —
-      any role can create 7-day invites (`household.ts:32-50`) and nothing
-      revokes them; `removeMemberAction` (`:383-410`) leaves pending
-      invites, never-expiring shopping-list share tokens and the calendar
-      feed token intact. A contributor expecting removal can mint an invite
-      and rejoin, or keep reading/ticking a shared list and the meal/bill
-      feed. Add `Invitation.createdByUserId` (migration), delete that
-      member's pending invites on remove/leave, add list/revoke pending
-      invites to the Household page, and prompt the owner to rotate share
-      links and the calendar feed after a removal (or rotate
-      automatically). Test: `invitation.deleteMany` with that user's id
-      after `removeMemberAction`.
-
----
-
-- [ ] **GAP-57. "Tonight's dinner" nudge in the morning, opt-in**
-      (impact: low-med, effort: M) `[schema]` — Plan to Eat and
-      Cozi/Mealime-style planners remind you what is on the menu; Squirrel
-      only nudges after the fact (`syncMealNotLoggedNotifications`), so a
-      planned dinner needing thawing or a missing ingredient goes unnoticed
-      until evening. Chosen scope: a per-user toggle in the notification
-      settings, **default off**, and one bell/push entry per day listing
-      that day's planned meals; silent when nothing is planned or
-      everything is already cooked. No other per-kind settings.
-      Acceptance: a sync test covers the opt-out default, no entry on an
-      empty day and household scoping; an e2e step enables the toggle and
-      asserts the bell entry, on desktop and mobile.
-      Decided 2026-10-19 by autopilot-product: opt-in toggle, default off.
-      Why: the item's own recommendation; opt-in keeps the Guardrails on
-      noisy positive alerts. See PRODUCT.md.
-
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)
@@ -677,27 +555,11 @@ gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) needs an owner decision and sits under
 "Needs a decision before building".
 
-- [ ] **UX-41b. Command palette: household search** (M) — Split from
-      UX-41. A `searchHousehold(query)` Server Action (in
-      `src/lib/actions/`) behind `requireHousehold()` that returns the top
-      few inventory items, recipes, shopping lists, tasks and budget
-      categories by name, every query scoped by householdId, Zod-validated,
-      rate-limited like other read actions, with a unit test for the
-      tenancy scoping. The palette from UX-41a shows them as grouped,
-      debounced results that navigate to the row. Builds on UX-41a (shipped).
-
 - [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
       UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
       focus search, `j`/`k` move, `x` tick. Ignored while typing in a
       field or with a dialog open. A `?` overlay lists them. Desktop only
       (hidden on touch). e2e spec on the desktop project.
-
-- [ ] **UX-41d. Tooltips on icon-only buttons** (S) — Split from UX-41.
-      A Base UI Tooltip (via a shared `IconButton` or a wrapper in
-      `src/components/ui/`) on every icon-only button, using its existing
-      aria-label text so the two cannot drift. Desktop hover/focus only;
-      mobile unchanged. e2e: hover a known icon button, assert the
-      tooltip.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
@@ -1076,55 +938,6 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance: an action test covers household scoping, the cap and
       unpin; an e2e step pins a uniquely named note, reloads and sees it
       above a newer one, then unpins it, on desktop and mobile.
-### 2026-10-19 scan
-
-- [ ] **GAP-62. Carry a recipe ingredient's note onto the shopping list row** (impact: low-med, effort: S) —
-      Grocy 3.1.0 made an ingredient's note ride along when missing
-      products are added from a recipe. Squirrel stores the note
-      (`RecipeIngredient.note`, "ripe", "unsalted", the prep note an
-      import keeps) and shows it in the recipe sheet, but
-      `addMissingIngredientsToShoppingListAction`
-      (`src/app/dashboard/meal-planning/cooking-actions.ts:206`) builds its
-      `itemsToCreate` without it, so the shopper at the shelf no longer
-      sees "unsalted" even though `ShoppingListItem.note` (GAP-5) already
-      renders as the muted second line there and on the share page. No
-      schema change: copy the ingredient's note (trimmed, cut to the 200
-      characters GAP-5 allows) into `note`. When two recipes add the same
-      item the existing dedupe keeps the first row, so keep its note and
-      skip the second's rather than merging text. Check the plan-portions
-      path (`src/lib/shopping/default-list.ts`) and do the same if it
-      builds rows from recipe ingredients.
-      Acceptance: an action test shows a note on the ingredient reaches
-      the created row's `note` (capped at 200) and a null note stays null;
-      an e2e step adds a missing ingredient that has a note from a
-      uniquely named recipe and sees the note under the row on the
-      shopping list, on desktop and mobile.
-
-### 2026-10-21 scan
-
-- [ ] **GAP-63. Search the month's expenses by what you typed** (impact: med, effort: S) —
-      Splitwise lists "search your full expense history" among its core
-      features; "where did that 340 kr go?" or "what did we pay Clas Ohlson
-      last time?" is the commonest reason to open a ledger. Squirrel's
-      transaction list (`src/components/budget/transaction-list.tsx`) can
-      only be narrowed by category (`categoryFilter`, ~line 294), so
-      finding a row means scrolling the month. Add a "Search" field above
-      the list that filters the already-loaded rows client-side, as the
-      category filter does (nothing refetches), by a case-insensitive
-      substring of the description or category name, and the amount
-      typed as "340" or "340,50" (decimal comma accepted, per the locale
-      helpers). It combines with the category filter, the month's totals
-      stay unchanged, and the empty result says "No expenses match
-      '…'" with a Clear button. Use `type="search"`, `enterKeyHint="search"`,
-      `autoComplete="off"`, a 16 px font and a 44 px field (M-rules); put
-      the term in `?q=` so a reload and the back gesture keep it. Reading
-      only, so no schema or money maths changes. First version covers the
-      month on screen; a cross-month search can follow once there's demand.
-      Acceptance: a unit test for the pure matcher (description, category,
-      amount with comma and dot, empty term, accents); an e2e step creates
-      two uniquely named expenses, types one name in Search, sees only that
-      row, reloads and still sees the filter, clears it and sees both, on
-      desktop and mobile, in `en` and `sv`.
 
 ### 2026-10-23 scan
 
@@ -1148,6 +961,28 @@ out to be a product-scope question rather than a scoped task should move to
       opened earlier, opened later than sealed, no shelf-life set); an e2e
       step on `mobile` marks a uniquely named item Opened with 3 days,
       sees it under "expiring", reloads and still sees it, in `en` and `sv`.
+
+### 2026-10-26 scan
+
+- [ ] **GAP-65. Show who added a line on a shared shopping list** (impact: low-med, effort: S) `[schema]` —
+      Bring! keeps an activity log on a shared list ("Anna added milk")
+      so two people filling the same list can tell what came from whom
+      and don't ask "did you add the oats?". Squirrel records who ticked
+      a row (`ShoppingListItem.checkedOffByUserId`,
+      `prisma/schema.prisma:650`) but not who added it, so the list can't
+      show it. Add a nullable plain-string `addedByUserId` (mirroring
+      `checkedOffByUserId`, no `@relation`, so a leaving member takes no
+      history with them), set by the add actions in
+      `src/app/dashboard/shopping-list/actions.ts` and left null for
+      share-link adds and older rows. Show it as a muted "Added by Anna"
+      in the row's secondary line only when the household has 2+ members
+      and the adder isn't the viewer; no new screen, no notification.
+      Scope: no activity feed, no chat or reactions.
+      Acceptance: unit tests that the add action stores the session
+      user's id and never one from the client; an e2e step on `mobile`
+      adds a uniquely named line as one seeded member and sees "Added by"
+      with their name as another, in `en` and `sv`, and no label on a
+      line the viewer added.
 
 ## Needs a decision before building
 
@@ -1204,21 +1039,22 @@ out to be a product-scope question rather than a scoped task should move to
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
 
-- [ ] **PERF-21. Keep recently visited pages in the browser** `[!]` needs a
-      product decision — Next 16 keeps no client copy of dynamic pages
-      (`staleTimes.dynamic` defaults to 0), so every switch between
+- [ ] **PERF-21. Keep recently visited pages in the browser for 15 s**
+      (impact: med, effort: S) — Next 16 keeps no client copy of dynamic
+      pages (`staleTimes.dynamic` defaults to 0), so every switch between
       bottom-bar tabs is a full server render plus that page's queries,
-      even for a tab seen seconds ago. Setting
-      `experimental.staleTimes: { dynamic: 30 }` in `next.config.ts` makes
-      going back to it instant. Your own edits still show at once (an
-      action's `revalidatePath` clears this cache). The cost: another
-      household member's change can take up to 30 s to appear when you
-      navigate (a reload always shows it), which matters most for a shopping
-      list two people work through in the shop. Decide the window (30 s,
-      shorter, or none). The flag is marked experimental. If PERF-22 goes
-      ahead, `cacheLife`'s `stale` value controls this instead.
-      Acceptance once decided: the config change plus an e2e check that an
-      edit still shows after navigating away and back.
+      even for a tab seen seconds ago. Set
+      `experimental.staleTimes: { dynamic: 15 }` in `next.config.ts`. Your
+      own edits still show at once (an action's `revalidatePath` clears this
+      cache); another household member's change can take up to 15 s to
+      appear on navigation (a reload always shows it). The flag is marked
+      experimental. If PERF-22 goes ahead, `cacheLife`'s `stale` value
+      controls this instead.
+      Decided 2026-10-26 by autopilot-product: 15 s window. Why: tab
+      switching feels instant while a two-person shop sees the other's tick
+      within seconds, and it is one config line to revert. See PRODUCT.md.
+      Acceptance: the config change plus an e2e check that an edit still
+      shows after navigating away and back.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
@@ -1302,3 +1138,17 @@ credentials only the product owner can provision, or an architecture call.
       decision on what's safe to serve stale (e.g. inventory counts, a
       shopping list in a store with bad signal — the strongest use case)
       vs. what must always be fresh (auth, money).
+
+- [ ] **MAINT-63. Flaky: `recipe-form-order` recipe form order and 44 px tag chips check fails once, then passes on retry** (low, S) —
+      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe
+      order, labelled, with 44 px tag chips", `mobile`) failed and then
+      passed on the one retry of the GitHub `End-to-end (Playwright)` job
+      of release commit `e1e5230` (2026-10-25). It passed in the full
+      local `ci:local` run of the same commit. Not yet re-run with
+      repeats. Get the failing assertion with `--repeat-each=30`, find
+      what the position or chip-height measurement races with (the sheet
+      still animating in, or the Recipes tab not selected yet) and fix it
+      in the app or the spec's waiting, never a loosened assertion, a
+      skip or a retry. Acceptance: `npx playwright test
+      e2e/recipe-form-order.spec.ts:11 --project=mobile --repeat-each=30`
+      passes 30/30.

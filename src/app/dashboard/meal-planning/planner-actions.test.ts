@@ -983,3 +983,45 @@ describe("planner actions × prepared batches (GAP-49)", () => {
     expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
   });
 });
+
+// MAINT-6: a database failure in any planner write comes back as a friendly
+// `{ error }` the dialog can toast, never a throw that reaches the error
+// boundary. `Once` variants, since clearAllMocks leaves implementations alone.
+describe("planner actions × unexpected database errors (MAINT-6)", () => {
+  const boom = () => new Error("connection reset by peer");
+
+  function expectFriendly(result: { error?: string }) {
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("connection reset");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  }
+
+  it("moveMealEntryAction", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValueOnce({ id: "entry-1", consumedAt: null });
+    mealPlanUpsertMock.mockRejectedValueOnce(boom());
+    expectFriendly(
+      await moveMealEntryAction({}, formData({ entryId: "entry-1", date: "2026-01-08", mealType: "LUNCH" })),
+    );
+  });
+
+  it("deleteMealEntryAction (plain delete)", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValueOnce({ id: "entry-1", preparedBatchId: null, consumedAt: null });
+    mealPlanEntryDeleteMock.mockRejectedValueOnce(boom());
+    expectFriendly(await deleteMealEntryAction("entry-1"));
+  });
+
+  it("deleteMealEntryAction (lookup)", async () => {
+    mealPlanEntryFindFirstMock.mockRejectedValueOnce(boom());
+    expectFriendly(await deleteMealEntryAction("entry-1"));
+  });
+
+  it("copyWeekAction", async () => {
+    mealPlanEntryFindManyMock.mockRejectedValueOnce(boom()).mockResolvedValueOnce([]);
+    expectFriendly(await copyWeekAction("2026-01-05", "2026-01-12"));
+  });
+
+  it("undoCopyWeekAction", async () => {
+    mealPlanEntryDeleteManyMock.mockRejectedValueOnce(boom());
+    expectFriendly(await undoCopyWeekAction(["new-1"]));
+  });
+});

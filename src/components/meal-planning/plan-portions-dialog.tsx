@@ -16,7 +16,7 @@ import {
 } from "@/app/dashboard/meal-planning/prep-actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftovers";
+import { MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftover-constants";
 import { format, plural } from "@/lib/i18n/format";
 import type { PreparedBatchData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -171,7 +171,8 @@ export function PlanPortionsDialog({
       }
       toast.success(format(plural(total, dict.prepPlannedToast), { count: total }));
       controlled.onOpenChange(false);
-      router.refresh();
+      // No router.refresh() on success: the action revalidated the page.
+      // The error path above refreshes on purpose, as nothing was.
     });
   }
 

@@ -220,8 +220,8 @@ describe("previewMissingIngredientsAction", () => {
     // 3000 g = 1.5 bags against 1 on hand; 50 g = 2 packs against 1.
     expect(result).toEqual({
       items: [
-        { key: "inv-flour::pcs", name: "Flour", unit: "pcs", missingQuantity: 0.5, unitMismatch: false },
-        { key: "inv-yeast::pcs", name: "Yeast", unit: "pcs", missingQuantity: 1, unitMismatch: false },
+        { key: "inv-flour::pcs", name: "Flour", unit: "pcs", missingQuantity: 0.5, unitMismatch: false, note: null },
+        { key: "inv-yeast::pcs", name: "Yeast", unit: "pcs", missingQuantity: 1, unitMismatch: false, note: null },
       ],
     });
     expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
@@ -261,7 +261,7 @@ describe("previewMissingIngredientsAction", () => {
       }),
     );
     expect(result).toEqual({
-      items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false }],
+      items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false, note: null }],
     });
   });
 
@@ -302,7 +302,7 @@ describe("previewMissingIngredientsAction", () => {
 
     expect(result).toEqual({
       items: [
-        { key: "name:ground beef::kg", name: "Ground beef", unit: "kg", missingQuantity: 0.5, unitMismatch: false },
+        { key: "name:ground beef::kg", name: "Ground beef", unit: "kg", missingQuantity: 0.5, unitMismatch: false, note: null },
       ],
     });
   });
@@ -324,7 +324,7 @@ describe("previewMissingIngredientsAction", () => {
     const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
 
     expect(result).toEqual({
-      items: [{ key: "name:flour::g", name: "Flour", unit: "g", missingQuantity: 500, unitMismatch: false }],
+      items: [{ key: "name:flour::g", name: "Flour", unit: "g", missingQuantity: 500, unitMismatch: false, note: null }],
     });
   });
 
@@ -350,7 +350,7 @@ describe("previewMissingIngredientsAction", () => {
     const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
 
     expect(result).toEqual({
-      items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false }],
+      items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false, note: null }],
     });
   });
 
@@ -388,9 +388,9 @@ describe("previewMissingIngredientsAction", () => {
     expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       items: [
-        { key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false },
-        { key: "name:ground beef::kg", name: "Ground beef", unit: "kg", missingQuantity: 0.5, unitMismatch: false },
-        { key: "name:pasta sheets::pcs", name: "Pasta sheets", unit: "pcs", missingQuantity: 12, unitMismatch: false },
+        { key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false, note: null },
+        { key: "name:ground beef::kg", name: "Ground beef", unit: "kg", missingQuantity: 0.5, unitMismatch: false, note: null },
+        { key: "name:pasta sheets::pcs", name: "Pasta sheets", unit: "pcs", missingQuantity: 12, unitMismatch: false, note: null },
       ],
     });
   });
@@ -422,8 +422,8 @@ describe("previewMissingIngredientsAction", () => {
 
     expect(result).toEqual({
       items: [
-        { key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 3, unitMismatch: false },
-        { key: "name:potato::kg", name: "Potato", unit: "kg", missingQuantity: 1, unitMismatch: false },
+        { key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 3, unitMismatch: false, note: null },
+        { key: "name:potato::kg", name: "Potato", unit: "kg", missingQuantity: 1, unitMismatch: false, note: null },
       ],
     });
   });
@@ -436,6 +436,23 @@ describe("addMissingIngredientsToShoppingListAction", () => {
       formData({ targetListId: "list-1" }),
     );
     expect(result.error).toBe("Select at least one ingredient to add");
+  });
+
+  // MAINT-6: the dialog shows `{ error }` inline; a throw would hit the boundary.
+  it("returns a friendly error when the write fails", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateManyMock.mockRejectedValueOnce(new Error("connection reset"));
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "Carrot");
+    fd.append("itemQuantity", "2");
+    fd.append("itemUnit", "pcs");
+
+    const result = await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("connection reset");
   });
 
   // SEC-7: the rows are a raw FormData payload, so nothing but these caps
@@ -597,6 +614,35 @@ describe("addMissingIngredientsToShoppingListAction", () => {
 
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
       data: [expect.objectContaining({ inventoryItemId: null, name: "Leek" })],
+    });
+  });
+
+  // GAP-62: the note rides along as the row's own note.
+  it("copies an ingredient's note onto the row, trimmed and cut to 200 characters, and keeps a blank one null", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
+    const fd = formData({ targetListId: "list-1" });
+    for (const [name, note] of [
+      ["Butter", "  unsalted  "],
+      ["Banana", "n".repeat(250)],
+      ["Leek", ""],
+    ]) {
+      fd.append("itemName", name);
+      fd.append("itemQuantity", "1");
+      fd.append("itemUnit", "pcs");
+      fd.append("itemNote", note);
+    }
+
+    await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ name: "Butter", note: "unsalted" }),
+        expect.objectContaining({ name: "Banana", note: "n".repeat(200) }),
+        expect.objectContaining({ name: "Leek", note: null }),
+      ],
     });
   });
 });

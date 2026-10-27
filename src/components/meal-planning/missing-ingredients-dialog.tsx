@@ -33,7 +33,7 @@ import {
   parseMissingIngredientsRange,
   weekRange,
   type MissingIngredientsRange,
-} from "@/app/dashboard/meal-planning/missing-ingredients";
+} from "@/app/dashboard/meal-planning/missing-ingredients-range";
 import { format, plural } from "@/lib/i18n/format";
 import { findSubstitutionKey, type SubstitutionKey } from "@/lib/inventory/substitutions";
 import type { ActiveShoppingListOption, MissingIngredientData } from "@/components/meal-planning/types";
@@ -303,9 +303,13 @@ export function MissingIngredientsDialog({
                         <input type="hidden" name="itemName" value={item.name} />
                         <input type="hidden" name="itemQuantity" value={item.missingQuantity} />
                         <input type="hidden" name="itemUnit" value={item.unit} />
+                        <input type="hidden" name="itemNote" value={item.note ?? ""} />
                       </>
                     )}
                   </label>
+                  {item.note && (
+                    <p className="pl-6 text-xs text-muted-foreground break-words">{item.note}</p>
+                  )}
                   {item.unitMismatch && (
                     <p className="pl-6 text-xs text-warning">{dict.missingIngredientUnitMismatchNote}</p>
                   )}

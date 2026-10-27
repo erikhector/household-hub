@@ -45,8 +45,8 @@ export function calendarFeedPath(token: string, locale: Locale): string {
 // six months ahead, which covers every meal anyone realistically plans and
 // two quarters of bills. Bounded both ways so the feed's size doesn't grow
 // with the household's history.
-export const CALENDAR_FEED_PAST_DAYS = 30;
-export const CALENDAR_FEED_FUTURE_DAYS = 183;
+const CALENDAR_FEED_PAST_DAYS = 30;
+const CALENDAR_FEED_FUTURE_DAYS = 183;
 
 /** The [from, to] window of UTC days the feed covers, both inclusive. */
 export function calendarFeedWindow(now: Date): { from: Date; to: Date } {

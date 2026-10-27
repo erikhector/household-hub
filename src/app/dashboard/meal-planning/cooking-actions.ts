@@ -38,6 +38,10 @@ const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
 const MAX_MISSING_INGREDIENT_NAME_LENGTH = 120;
 const MAX_MISSING_INGREDIENT_UNIT_LENGTH = 20;
+// GAP-62: ShoppingListItem.note's cap (SHOPPING_ITEM_NOTE_MAX_LENGTH in
+// shopping-list/actions.ts, a "use server" file that can't export it). A
+// longer ingredient note is cut rather than the row dropped.
+const MAX_MISSING_INGREDIENT_NOTE_LENGTH = 200;
 // The row cap follows the shopping-list side's 300 rather than a recipe's
 // own 100: this submits a whole range's shortfall (up to
 // MAX_MISSING_INGREDIENTS_RANGE_DAYS of meals), not one recipe's ingredients.
@@ -105,9 +109,15 @@ export async function addMissingIngredientsToShoppingListAction(
   }
   const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
   const units = formData.getAll("itemUnit").map((v) => String(v).trim());
+  const notes = formData.getAll("itemNote").map((v) => String(v).trim());
 
   const rows = names
-    .map((name, i) => ({ name, quantity: quantities[i], unit: units[i] || "pcs" }))
+    .map((name, i) => ({
+      name,
+      quantity: quantities[i],
+      unit: units[i] || "pcs",
+      note: notes[i]?.slice(0, MAX_MISSING_INGREDIENT_NOTE_LENGTH).trim() || null,
+    }))
     .filter(
       (row) =>
         row.name &&
@@ -123,89 +133,97 @@ export async function addMissingIngredientsToShoppingListAction(
   }
 
   let listId: string;
-  if (parsed.data.targetListId === NEW_SHOPPING_LIST_SENTINEL) {
-    const dict = await getDictionary();
-    const list = await prisma.shoppingList.create({
-      data: {
-        householdId: household.id,
-        name:
-          parsed.data.newListName ||
-          datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
-      },
-    });
-    listId = list.id;
-  } else {
-    const list = await prisma.shoppingList.findFirst({
-      where: { id: parsed.data.targetListId, householdId: household.id, status: "ACTIVE" },
-    });
-    if (!list) return await fail("shoppingListNotFound");
-    listId = list.id;
-  }
-
-  // Mirrors generateFromLowStockAction's dedupe: don't add a second row for
-  // an inventory item that's already pending (unpurchased) on the target
-  // list — the user can adjust the quantity already there instead. An
-  // unlinked row is deduped by name the same way.
-  const alreadyOnList = await prisma.shoppingListItem.findMany({
-    where: { shoppingListId: listId, purchased: false },
-    select: { inventoryItemId: true, name: true },
-  });
-  const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId).filter(Boolean));
-  const alreadyOnListNames = new Set(
-    alreadyOnList.filter((i) => !i.inventoryItemId).map((i) => i.name.trim().toLowerCase()),
-  );
-
-  // MATCH-1: link each row the same way a pasted list or template does
-  // (exact name, the household's learned alias for it (MATCH-5), else one
-  // clear fuzzy match) over one inventory fetch, and
-  // leave the rest unlinked for "Resolve mappings" on the list. This used
-  // to find-or-create an inventory item for every unmatched name, which
-  // filled the pantry with zero-stock phantoms.
-  const [inventoryItems, aliases] = await Promise.all([
-    prisma.inventoryItem.findMany({
-      where: { householdId: household.id },
-      select: { id: true, name: true, lastKnownPrice: true },
-    }),
-    prisma.itemAlias.findMany({
-      where: { householdId: household.id },
-      select: { normalizedName: true, inventoryItemId: true },
-    }),
-  ]);
-  const linkInventoryItem = createInventoryLinker(inventoryItems, aliases);
-
-  const itemsToCreate: {
-    shoppingListId: string;
-    inventoryItemId: string | null;
-    name: string;
-    quantity: number;
-    unit: string;
-    estimatedPrice?: number;
-    addedAutomatically: true;
-  }[] = [];
-  for (const row of rows) {
-    const inventoryItem = linkInventoryItem(row.name);
-    if (inventoryItem) {
-      if (alreadyOnListIds.has(inventoryItem.id)) continue;
-      alreadyOnListIds.add(inventoryItem.id);
+  let addedCount: number;
+  try {
+    if (parsed.data.targetListId === NEW_SHOPPING_LIST_SENTINEL) {
+      const dict = await getDictionary();
+      const list = await prisma.shoppingList.create({
+        data: {
+          householdId: household.id,
+          name:
+            parsed.data.newListName ||
+            datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
+        },
+      });
+      listId = list.id;
     } else {
-      const key = row.name.toLowerCase();
-      if (alreadyOnListNames.has(key)) continue;
-      alreadyOnListNames.add(key);
+      const list = await prisma.shoppingList.findFirst({
+        where: { id: parsed.data.targetListId, householdId: household.id, status: "ACTIVE" },
+      });
+      if (!list) return await fail("shoppingListNotFound");
+      listId = list.id;
     }
 
-    itemsToCreate.push({
-      shoppingListId: listId,
-      inventoryItemId: inventoryItem?.id ?? null,
-      name: row.name,
-      quantity: row.quantity,
-      unit: row.unit,
-      // AUTO-4: same last-known-price default as the other add paths.
-      estimatedPrice: defaultLineEstimate(inventoryItem?.lastKnownPrice, row.quantity),
-      addedAutomatically: true,
+    // Mirrors generateFromLowStockAction's dedupe: don't add a second row for
+    // an inventory item that's already pending (unpurchased) on the target
+    // list — the user can adjust the quantity already there instead. An
+    // unlinked row is deduped by name the same way.
+    const alreadyOnList = await prisma.shoppingListItem.findMany({
+      where: { shoppingListId: listId, purchased: false },
+      select: { inventoryItemId: true, name: true },
     });
-  }
-  if (itemsToCreate.length > 0) {
-    await prisma.shoppingListItem.createMany({ data: itemsToCreate });
+    const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId).filter(Boolean));
+    const alreadyOnListNames = new Set(
+      alreadyOnList.filter((i) => !i.inventoryItemId).map((i) => i.name.trim().toLowerCase()),
+    );
+
+    // MATCH-1: link each row the same way a pasted list or template does
+    // (exact name, the household's learned alias for it (MATCH-5), else one
+    // clear fuzzy match) over one inventory fetch, and
+    // leave the rest unlinked for "Resolve mappings" on the list. This used
+    // to find-or-create an inventory item for every unmatched name, which
+    // filled the pantry with zero-stock phantoms.
+    const [inventoryItems, aliases] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { householdId: household.id },
+        select: { id: true, name: true, lastKnownPrice: true },
+      }),
+      prisma.itemAlias.findMany({
+        where: { householdId: household.id },
+        select: { normalizedName: true, inventoryItemId: true },
+      }),
+    ]);
+    const linkInventoryItem = createInventoryLinker(inventoryItems, aliases);
+
+    const itemsToCreate: {
+      shoppingListId: string;
+      inventoryItemId: string | null;
+      name: string;
+      quantity: number;
+      unit: string;
+      note: string | null;
+      estimatedPrice?: number;
+      addedAutomatically: true;
+    }[] = [];
+    for (const row of rows) {
+      const inventoryItem = linkInventoryItem(row.name);
+      if (inventoryItem) {
+        if (alreadyOnListIds.has(inventoryItem.id)) continue;
+        alreadyOnListIds.add(inventoryItem.id);
+      } else {
+        const key = row.name.toLowerCase();
+        if (alreadyOnListNames.has(key)) continue;
+        alreadyOnListNames.add(key);
+      }
+
+      itemsToCreate.push({
+        shoppingListId: listId,
+        inventoryItemId: inventoryItem?.id ?? null,
+        name: row.name,
+        quantity: row.quantity,
+        unit: row.unit,
+        note: row.note,
+        // AUTO-4: same last-known-price default as the other add paths.
+        estimatedPrice: defaultLineEstimate(inventoryItem?.lastKnownPrice, row.quantity),
+        addedAutomatically: true,
+      });
+    }
+    if (itemsToCreate.length > 0) {
+      await prisma.shoppingListItem.createMany({ data: itemsToCreate });
+    }
+    addedCount = itemsToCreate.length;
+  } catch (error) {
+    return toFriendlyError(error);
   }
 
   revalidatePath(MEAL_PLANNING_PATH);
@@ -215,7 +233,7 @@ export async function addMissingIngredientsToShoppingListAction(
 
   // UX-91: the toast says how many rows landed (not how many were checked,
   // some may have been on the list already) and links to the list.
-  return { listId, addedCount: itemsToCreate.length };
+  return { listId, addedCount };
 }
 
 // --- Mark meal as cooked → inventory decrement ------------------------------

@@ -1,35 +1,35 @@
-// Tests the /api/cron/sync-notifications Route Handler. Prisma and the sync
-// functions it calls are mocked (same pattern as
+// Tests the /api/cron/sync-notifications Route Handler. The candidate lookup and the
+// sync functions it calls are mocked (same pattern as
 // src/app/api/health/route.test.ts) — no real database is touched, and the
 // sync functions' own behavior is covered by src/lib/notifications.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  householdFindManyMock,
+  findCandidatesMock,
   syncMealNotLoggedNotificationsMock,
   syncExpiringSoonNotificationsMock,
   syncPutAwayRemindersMock,
+  syncTonightsDinnerNudgeMock,
 } = vi.hoisted(() => ({
-  householdFindManyMock: vi.fn(),
+  findCandidatesMock: vi.fn(),
   syncMealNotLoggedNotificationsMock: vi.fn(),
   syncExpiringSoonNotificationsMock: vi.fn(),
   syncPutAwayRemindersMock: vi.fn(),
-}));
-
-vi.mock("@/lib/prisma", () => ({
-  prisma: { household: { findMany: householdFindManyMock } },
+  syncTonightsDinnerNudgeMock: vi.fn(),
 }));
 
 const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
 vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 vi.mock("@/lib/notifications", () => ({
+  findHouseholdIdsWithSyncCandidates: findCandidatesMock,
   syncMealNotLoggedNotifications: syncMealNotLoggedNotificationsMock,
   syncExpiringSoonNotifications: syncExpiringSoonNotificationsMock,
   syncPutAwayReminders: syncPutAwayRemindersMock,
+  syncTonightsDinnerNudge: syncTonightsDinnerNudgeMock,
 }));
 
-const { GET } = await import("@/app/api/cron/sync-notifications/route");
+const { GET, maxDuration } = await import("@/app/api/cron/sync-notifications/route");
 
 function request(authorization?: string) {
   const headers = new Headers();
@@ -38,17 +38,18 @@ function request(authorization?: string) {
 }
 
 function households(count: number) {
-  return Array.from({ length: count }, (_, i) => ({ id: `household-${i + 1}` }));
+  return Array.from({ length: count }, (_, i) => `household-${i + 1}`);
 }
 
 const ORIGINAL_CRON_SECRET = process.env.CRON_SECRET;
 
 beforeEach(() => {
   process.env.CRON_SECRET = "test-secret";
-  householdFindManyMock.mockResolvedValue(households(2));
+  findCandidatesMock.mockResolvedValue(households(2));
   syncMealNotLoggedNotificationsMock.mockResolvedValue(undefined);
   syncExpiringSoonNotificationsMock.mockResolvedValue(undefined);
   syncPutAwayRemindersMock.mockResolvedValue(undefined);
+  syncTonightsDinnerNudgeMock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -63,7 +64,7 @@ describe("GET /api/cron/sync-notifications", () => {
     const response = await GET(request());
 
     expect(response.status).toBe(401);
-    expect(householdFindManyMock).not.toHaveBeenCalled();
+    expect(findCandidatesMock).not.toHaveBeenCalled();
     expect(syncMealNotLoggedNotificationsMock).not.toHaveBeenCalled();
     expect(syncExpiringSoonNotificationsMock).not.toHaveBeenCalled();
     // A rejected run must be noticeable in logs, not just a silent 401 —
@@ -78,7 +79,7 @@ describe("GET /api/cron/sync-notifications", () => {
     const response = await GET(request("Bearer wrong-secret"));
 
     expect(response.status).toBe(401);
-    expect(householdFindManyMock).not.toHaveBeenCalled();
+    expect(findCandidatesMock).not.toHaveBeenCalled();
   });
 
   it("rejects even a correct-looking token when CRON_SECRET isn't configured", async () => {
@@ -87,7 +88,7 @@ describe("GET /api/cron/sync-notifications", () => {
     const response = await GET(request("Bearer undefined"));
 
     expect(response.status).toBe(401);
-    expect(householdFindManyMock).not.toHaveBeenCalled();
+    expect(findCandidatesMock).not.toHaveBeenCalled();
   });
 
   it("runs every sync function for every household when the bearer token matches", async () => {
@@ -104,6 +105,34 @@ describe("GET /api/cron/sync-notifications", () => {
     expect(syncExpiringSoonNotificationsMock).toHaveBeenCalledTimes(2);
     expect(syncPutAwayRemindersMock).toHaveBeenCalledWith("household-1");
     expect(syncPutAwayRemindersMock).toHaveBeenCalledWith("household-2");
+    expect(syncTonightsDinnerNudgeMock).toHaveBeenCalledWith("household-1");
+    expect(syncTonightsDinnerNudgeMock).toHaveBeenCalledWith("household-2");
+  });
+
+  it("does nothing, and still reports ok, when no household has candidates", async () => {
+    findCandidatesMock.mockResolvedValue([]);
+
+    const response = await GET(request("Bearer test-secret"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok", householdsSynced: 0, householdsFailed: 0, failedHouseholdIds: [] });
+    expect(syncMealNotLoggedNotificationsMock).not.toHaveBeenCalled();
+    expect(syncExpiringSoonNotificationsMock).not.toHaveBeenCalled();
+    expect(syncPutAwayRemindersMock).not.toHaveBeenCalled();
+    expect(syncTonightsDinnerNudgeMock).not.toHaveBeenCalled();
+  });
+
+  it("logs the run duration and counts, and exports a maxDuration", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await GET(request("Bearer test-secret"));
+
+    const logged = logSpy.mock.calls.map((call) => call.join(" ")).join("\n");
+    expect(logged).toContain("Notification sync cron finished");
+    expect(logged).toContain("durationMs");
+    expect(logged).toContain("householdsWithCandidates");
+    expect(maxDuration).toBe(60);
+    logSpy.mockRestore();
   });
 
   it("counts a household as failed when only its put-away reminder sync fails", async () => {
@@ -127,7 +156,7 @@ describe("GET /api/cron/sync-notifications", () => {
   });
 
   it("processes households in batches capped at 10 concurrent", async () => {
-    householdFindManyMock.mockResolvedValue(households(25));
+    findCandidatesMock.mockResolvedValue(households(25));
     let concurrent = 0;
     let maxConcurrent = 0;
     syncMealNotLoggedNotificationsMock.mockImplementation(async () => {
@@ -148,7 +177,7 @@ describe("GET /api/cron/sync-notifications", () => {
 
   it("does not fail the whole run when one household's sync throws — the rest still succeed", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    householdFindManyMock.mockResolvedValue(households(3));
+    findCandidatesMock.mockResolvedValue(households(3));
     syncMealNotLoggedNotificationsMock.mockImplementation(async (householdId: string) => {
       if (householdId === "household-2") throw new Error("boom");
     });
@@ -172,9 +201,9 @@ describe("GET /api/cron/sync-notifications", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("returns 500 with a generic body (no leaked internals) when the household lookup itself fails", async () => {
+  it("returns 500 with a generic body (no leaked internals) when the candidate lookup itself fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    householdFindManyMock.mockRejectedValue(new Error("connection refused: secret-host:5432"));
+    findCandidatesMock.mockRejectedValue(new Error("connection refused: secret-host:5432"));
 
     const response = await GET(request("Bearer test-secret"));
     const body = await response.json();
@@ -190,7 +219,7 @@ describe("GET /api/cron/sync-notifications", () => {
 
   it("waits for a failing household's other sync to finish before responding", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    householdFindManyMock.mockResolvedValue(households(1));
+    findCandidatesMock.mockResolvedValue(households(1));
     syncMealNotLoggedNotificationsMock.mockRejectedValue(new Error("boom"));
     let expiringSyncFinished = false;
     syncExpiringSoonNotificationsMock.mockImplementation(async () => {
