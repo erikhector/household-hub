@@ -3,6 +3,7 @@ import { en } from "@/lib/i18n/dictionaries/en";
 import { expectHydrated } from "./ui";
 import { E2E_SHOPPING_LIST } from "./seed-data";
 
+// UX-41d: an icon-only button shows its aria-label as a Tooltip on hover and
 // keyboard focus. Desktop only: touch never opens it (the label stays the
 // accessible name there).
 test("an icon-only button shows its label as a tooltip on hover and focus", async ({ page }) => {
