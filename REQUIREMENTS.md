@@ -7119,10 +7119,34 @@ trap and the X work like every other dialog.
   `SmartAddBar` takes focus. Both strip the param afterwards. With no
   active list the shopping command lands on the overview.
 - It stores nothing in the browser (`cookie-inventory.ts` unchanged).
-  No data search yet (UX-41b).
 
-Covered by `e2e/command-palette.spec.ts` and
-`command-palette-commands.test.ts`.
+#### Household search (UX-41b)
+
+From two characters on, the palette also searches the household. After a
+250 ms pause in typing it calls `searchHousehold(query)`
+(`src/lib/actions/search.ts`), and the hits show under the matching
+commands in groups: Inventory, Recipes, Shopping lists, Tasks and Budget
+categories (at most five each, name contains the text, case insensitive,
+empty groups left out). Hits and commands are one list of options, so the
+arrows, Enter, the click and the live count work the same on both.
+
+- The action calls `requireHousehold()` and scopes all five queries by that
+  household; the client sends only the text. The text is Zod-validated
+  (trimmed, 2 to 80 characters); anything else, or a non-string, is an empty
+  search. It is rate limited to 120 a minute per user (`search:<userId>`);
+  past that the palette says "Too many searches." and keeps the commands.
+  Archived shopping lists are not searched.
+- A hit opens its row: an inventory item and a shopping list their own page,
+  a recipe the Recipes tab searched down to it (`?tab=recipes&recipe=<id>`),
+  a budget category Transactions filtered to it, and a task the task list
+  (tasks have no page of their own). Links are built in
+  `src/lib/household-search.ts`.
+- A reply for an older query is dropped, and a failed search silently
+  leaves the commands. "No matching commands." waits for the answer.
+
+Covered by `e2e/command-palette.spec.ts`,
+`command-palette-commands.test.ts` and `src/lib/actions/search.test.ts`
+(tenancy scoping, validation, rate limit).
 
 
 ## Releases & What's new

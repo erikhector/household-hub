@@ -547,15 +547,6 @@ gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) needs an owner decision and sits under
 "Needs a decision before building".
 
-- [ ] **UX-41b. Command palette: household search** (M) — Split from
-      UX-41. A `searchHousehold(query)` Server Action (in
-      `src/lib/actions/`) behind `requireHousehold()` that returns the top
-      few inventory items, recipes, shopping lists, tasks and budget
-      categories by name, every query scoped by householdId, Zod-validated,
-      rate-limited like other read actions, with a unit test for the
-      tenancy scoping. The palette from UX-41a shows them as grouped,
-      debounced results that navigate to the row. Builds on UX-41a (shipped).
-
 - [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
       UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
       focus search, `j`/`k` move, `x` tick. Ignored while typing in a
