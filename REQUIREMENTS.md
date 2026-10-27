@@ -471,6 +471,16 @@ outbound email to arbitrary addresses via this app's sending domain.
 
 See `prisma/schema.prisma` for the authoritative version. Summary:
 
+**Hot-path indexes (PERF-3)**: `HouseholdMember(userId)` serves
+`requireHousehold`'s lookup by user alone (the `[householdId, userId]`
+unique has `userId` second); `Transaction(recurringTemplateId)` serves the
+template lookups and the `SetNull` on template delete;
+`PersonalTransaction(userId, date)` (replacing `userId`) serves the
+month-scoped personal-budget reads; `PriceHistory(inventoryItemId, date)`
+(replacing `inventoryItemId`) serves per-item price lookups in date order.
+Where a composite replaces a single-column index, its leading column covers
+every lookup the old one did.
+
 **Inventory & shopping** (built)
 - `InventoryItem` — name, category, quantity, unit, `lowStockThreshold`,
   location, `lastKnownPrice`. Low stock = `0 < quantity < lowStockThreshold`
