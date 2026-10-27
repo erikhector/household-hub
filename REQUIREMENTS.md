@@ -75,7 +75,7 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
-- **Sentry sends error details only.** `@sentry/nextjs` 11 collects user
+- **Sentry sends error details only (DEPS-5).** `@sentry/nextjs` 11 collects user
   info, cookies, headers, bodies, query strings and stack-frame local
   variables unless each is opted out, so both `Sentry.init()` calls pass
   `SENTRY_DATA_COLLECTION` (`src/lib/sentry-data-collection.ts`): Sentry's
@@ -7262,8 +7262,9 @@ version or the notes by hand.
   `package.json` `engines.node` is `>=22`. `.github/dependabot.yml` opens
   weekly `chore(deps)` PRs for npm and GitHub Actions, minor and patch
   bumps grouped, majors separate. It skips `@types/node` majors (they
-  follow the Node pin) and ESLint majors until `eslint-config-next`'s
-  plugins support ESLint 10 (MAINT-12). `@types/bcryptjs` is gone:
+  follow the Node pin), ESLint majors until `eslint-config-next`'s
+  plugins support ESLint 10 (MAINT-12), and TypeScript majors until
+  `typescript-eslint` supports 7 (it accepts `<6.1.0`). `@types/bcryptjs` is gone:
   `bcryptjs` 3 ships its own types.
 
 - **PR title = release type.** Titles follow Conventional Commits
