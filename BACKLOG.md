@@ -244,18 +244,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
-      `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
-      gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
-      left", got "2 of 4". Only `e2e/item-aliases.spec.ts` changed in that
-      PR, so nobody's change is in it. Not yet re-run on clean `next`.
-      Find out whether a portion is taken twice (a double tap or a repeated
-      action), or a row another spec in the same worker leaves behind, and
-      fix it in the app or the spec's setup, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-prep.spec.ts:145 --project=desktop --repeat-each=30`
-      passes 30/30.
-
 - [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
       `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
       `ci:local` gate of #696 (`6de6c89`, 2026-10-25), a PR that touches
