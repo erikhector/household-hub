@@ -250,27 +250,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
-      `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
-      shows the all-caught-up card above Completed" (`mobile`). Failed once
-      and passed on the retry in the GitHub `End-to-end (Playwright)` job
-      of release PR #689 (run 40184348720, 2026-10-25). Seen again, same
-      outcome (failed, passed on the retry), in the GitHub job of release
-      PR #754 (2026-10-26). Nobody's change is in it. The failing assertion is the Postgres poll near line 111,
-      `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
-      for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
-      spec was already touched by MAINT-40 (#585, wait for each tick's
-      save) and MAINT-50 (#679, wait for hydration), so those fixes were
-      probably incomplete. Find out where the open row comes from: a tick
-      whose Server Action response was another action's (the
-      `waitForResponse` matches any `next-action` POST, so a different
-      action can satisfy it before the tick's save lands), a row another
-      spec in the same worker inserts while this one runs, or a save the
-      app drops. Fix it in the app or in the spec's waiting (match the
-      tick's own response), never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-caught-up.spec.ts:77
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-59. Flaky: `planned-expenses` spec times out under full-suite load** (low, S) —
       `e2e/planned-expenses.spec.ts:82` (`mobile`) hit the 30 s test
       timeout once in the `ci:local` gate of #694 (`7adc31c`, 2026-10-25)
