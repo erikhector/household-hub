@@ -257,6 +257,17 @@ export const en = {
       sending: "Sending…",
       sent: "Invite sent to {email}",
     },
+    pendingInvites: {
+      title: "Pending invites",
+      description: "Links that haven't been used yet. Closing one stops it working.",
+      createdBy: "Created by {name}",
+      expires: "Expires {date}",
+      revoke: "Close invite",
+      revokeAriaLabel: "Close invite created by {name}",
+      revoked: "Invite closed",
+      revokeFailed: "Could not close the invite",
+      unknownInviter: "a former member",
+    },
     title: "Household",
     sharedWith: {
       one: "Shared with {count} other person",
@@ -273,7 +284,7 @@ export const en = {
     },
     confirmRemoveMember: {
       title: "Remove {name}?",
-      description: "They'll lose access to this household's inventory, shopping lists, meal plans, and budget data.",
+      description: "They'll lose access to this household's inventory, shopping lists, meal plans, and budget data. Their unused invites are closed, and the shopping list share links and the calendar feed link are reset, so you'll need to share them again.",
       cancel: "Cancel",
       confirm: "Remove",
       confirming: "Removing…",

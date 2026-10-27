@@ -543,19 +543,6 @@ order below is a suggestion, not a dependency, unless noted.
       "owed from earlier months". Verify with 3 years × 100/month seeded.
  No schema change of its own beyond PERF-3's index.
 
-- [ ] **SEC-4. Removing a member revokes what they can still reach** (medium) —
-      any role can create 7-day invites (`household.ts:32-50`) and nothing
-      revokes them; `removeMemberAction` (`:383-410`) leaves pending
-      invites, never-expiring shopping-list share tokens and the calendar
-      feed token intact. A contributor expecting removal can mint an invite
-      and rejoin, or keep reading/ticking a shared list and the meal/bill
-      feed. Add `Invitation.createdByUserId` (migration), delete that
-      member's pending invites on remove/leave, add list/revoke pending
-      invites to the Household page, and prompt the owner to rotate share
-      links and the calendar feed after a removal (or rotate
-      automatically). Test: `invitation.deleteMany` with that user's id
-      after `removeMemberAction`.
-
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)
