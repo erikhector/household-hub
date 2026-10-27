@@ -36,10 +36,14 @@ test.afterEach(async () => {
 });
 
 test("a pending invite is listed and closing it stops the link working", async ({ page, request }) => {
+  // Another spec renames the seeded user, so read the current name rather
+  // than relying on the seeded one.
+  const inviter = await withDb((c) => c.query(`SELECT "displayName" FROM "User" WHERE id = $1`, [E2E_USER.id]));
+  const inviterName: string = inviter.rows[0].displayName;
   await gotoRevealed(page, "/dashboard/household");
   await expect(page.getByRole("heading", { name: "Pending invites" })).toBeVisible();
 
-  const close = page.getByRole("button", { name: `Close invite created by ${E2E_USER.displayName}` }).first();
+  const close = page.getByRole("button", { name: `Close invite created by ${inviterName}` }).first();
   await expectHydrated(close);
   await expectNoHorizontalOverflow(page);
 
