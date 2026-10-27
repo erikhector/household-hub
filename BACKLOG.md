@@ -206,16 +206,11 @@ then MAINT-7 per feature, to avoid churn.
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
       with PERF-12 and BUDGET-5/6.
-- [ ] **MAINT-12. CI and tooling gaps** (medium, M, own PR — touches `package.json`/lockfile) —
-      add a migration drift check to `.github/workflows/ci.yml` (Postgres
-      service → `prisma validate` → `migrate deploy` → `prisma migrate diff
-      --from-migrations prisma/migrations --to-schema-datamodel
-      prisma/schema.prisma --exit-code`; a dropped-column migration already
-      caused the PR #36 outage); add Dependabot/Renovate config; pin Node
-      via `engines` + `.nvmrc` and `node-version-file` in the 3 workflows;
-      optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
-      `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
-      separate PR.
+- [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
+      the migration drift check, Node pinning and Dependabot are done
+      (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
+      `knip` in CI. ESLint 9 is flagged unsupported by `npm ci` — bump to
+      ESLint 10 + matching `eslint-config-next` in a separate PR.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
