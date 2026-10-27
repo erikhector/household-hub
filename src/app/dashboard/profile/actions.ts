@@ -10,7 +10,7 @@ import { isUniqueViolation } from "@/lib/prisma-errors";
 import { requireHousehold, requireUserId } from "@/lib/session";
 import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { hashToken } from "@/lib/token-hash";
 import { sendVerificationEmail } from "@/lib/email";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -38,7 +38,7 @@ const REAUTH_RATE_LIMIT = 5;
 const REAUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
 const updateProfileSchema = z.object({
-  displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  displayName: z.string().trim().min(1, v("nameRequired")).max(60, v("displayNameTooLong")),
 });
 
 export async function updateProfileAction(
@@ -49,7 +49,7 @@ export async function updateProfileAction(
 
   const parsed = updateProfileSchema.safeParse({ displayName: formData.get("displayName") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   try {
@@ -111,12 +111,12 @@ export async function updateSwishNumberAction(
 // caller doesn't actually control can't quietly become the account's login
 // identifier.
 const updateEmailSchema = z.object({
-  newEmail: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+  newEmail: z.string().trim().toLowerCase().email(v("emailInvalid")).max(254, v("emailTooLong")),
   // No .max() here: this only ever gets bcrypt.compare()'d against an
   // existing hash (never re-hashed), so a pre-existing long password must
   // still be accepted for verification — only a *new* password (below)
   // needs the bcrypt-truncation cap.
-  currentPassword: z.string().min(1, "Current password is required"),
+  currentPassword: z.string().min(1, v("currentPasswordRequired")),
 });
 
 // Mirrors auth.ts's EMAIL_VERIFICATION_TOKEN_TTL_MS — duplicated locally
@@ -136,7 +136,7 @@ export async function updateEmailAction(
     currentPassword: formData.get("currentPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   const { newEmail, currentPassword } = parsed.data;
 
@@ -148,16 +148,16 @@ export async function updateEmailAction(
 
   const validPassword = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!validPassword) {
-    return { error: "Current password is incorrect" };
+    return await fail("currentPasswordIncorrect");
   }
 
   if (newEmail === user.email) {
-    return { error: "That's already your email" };
+    return await fail("alreadyYourEmail");
   }
 
   const existing = await prisma.user.findUnique({ where: { email: newEmail } });
   if (existing) {
-    return { error: "An account with that email already exists" };
+    return await fail("emailTaken");
   }
 
   try {
@@ -172,7 +172,7 @@ export async function updateEmailAction(
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return { error: "An account with that email already exists" };
+      return await fail("emailTaken");
     }
     return toFriendlyError(error);
   }
@@ -207,15 +207,15 @@ export async function updateEmailAction(
 
 const updatePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Current password is required"),
+    currentPassword: z.string().min(1, v("currentPasswordRequired")),
     newPassword: z
       .string()
-      .min(8, "Password must be at least 8 characters")
-      .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
-    confirmPassword: z.string().min(1, "Please confirm your new password"),
+      .min(8, v("passwordTooShort"))
+      .max(PASSWORD_MAX_LENGTH, v("passwordTooLong")),
+    confirmPassword: z.string().min(1, v("confirmNewPasswordRequired")),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords do not match",
+    message: v("passwordsMismatch"),
     path: ["confirmPassword"],
   });
 
@@ -231,7 +231,7 @@ export async function updatePasswordAction(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   const { currentPassword, newPassword } = parsed.data;
 
@@ -243,7 +243,7 @@ export async function updatePasswordAction(
 
   const validPassword = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!validPassword) {
-    return { error: "Current password is incorrect" };
+    return await fail("currentPasswordIncorrect");
   }
 
   // Reuse the exact hashing approach signup already uses (bcryptjs, cost 12)
@@ -281,7 +281,7 @@ export async function updatePasswordAction(
 // as updateEmailAction/updatePasswordAction above: proving current
 // possession of the password, not just a valid session.
 const deleteAccountSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
+  currentPassword: z.string().min(1, v("currentPasswordRequired")),
 });
 
 // Per-membership rules (see docs/archive/PRODUCTION_READINESS.md task M for the full
@@ -319,7 +319,7 @@ export async function deleteAccountAction(
     currentPassword: formData.get("currentPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   if (!(await checkRateLimit(`reauth:${userId}`, REAUTH_RATE_LIMIT, REAUTH_RATE_LIMIT_WINDOW_MS))) {
@@ -329,7 +329,7 @@ export async function deleteAccountAction(
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const validPassword = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
   if (!validPassword) {
-    return { error: "Current password is incorrect" };
+    return await fail("currentPasswordIncorrect");
   }
 
   const memberships = await prisma.householdMember.findMany({

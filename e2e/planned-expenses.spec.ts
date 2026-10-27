@@ -82,6 +82,12 @@ function plannedRow(page: Page, heading: string, name: string) {
 test("adds a planned bill, logs its payment, and un-pays it when the transaction goes", async ({
   page,
 }, testInfo) => {
+  // MAINT-59: the whole bill journey in one test, five page loads, three
+  // dialogs and a delete that waits out its Undo toast (UX-49), which alone
+  // is about 10 s. That is 17 s on an idle machine, so under three loaded
+  // workers it ran into the default 30 s once (#694's gate). Each assertion
+  // keeps its own 5 s wait; only the test's total budget grows.
+  test.slow();
   const category = await seedCategory();
   const name = `Car service ${tag()}`;
   const main = page.getByRole("main");

@@ -106,7 +106,12 @@ vi.mock("bcryptjs", () => ({
   default: { compare: bcryptCompareMock, hash: bcryptHashMock },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
-vi.mock("@/lib/actions/errors", () => ({ toFriendlyError: toFriendlyErrorMock }));
+// Only toFriendlyError is stubbed: fail/zodFail/v are pure and resolve to the
+// real English text when the dictionary can't be read.
+vi.mock("@/lib/actions/errors", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/actions/errors")>()),
+  toFriendlyError: toFriendlyErrorMock,
+}));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build — stub it out, same as
 // src/lib/actions/auth.test.ts does.
@@ -221,7 +226,7 @@ describe("updateEmailAction (re-authentication gate)", () => {
 
   it("rejects an invalid new email", async () => {
     const result = await updateEmailAction({}, formData({ ...base, newEmail: "not-an-email" }));
-    expect(result.error).toBe("Enter a valid email");
+    expect(result.error).toBe("Enter a valid email address");
     expect(userFindUniqueOrThrowMock).not.toHaveBeenCalled();
   });
 

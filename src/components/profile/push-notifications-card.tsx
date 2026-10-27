@@ -113,9 +113,14 @@ export function PushNotificationsCard({
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
       const json = sub.toJSON();
+      const p256dh = json.keys?.p256dh;
+      const auth = json.keys?.auth;
+      // A browser subscription always carries both keys; if one is somehow
+      // missing, fail into the same error state as a rejected subscribe.
+      if (!p256dh || !auth) throw new Error("Push subscription is missing its keys");
       await subscribeToPushAction({
         endpoint: sub.endpoint,
-        keys: { p256dh: json.keys!.p256dh, auth: json.keys!.auth },
+        keys: { p256dh, auth },
         // Stored so quiet hours are evaluated in this device's local time
         // rather than the server's (see isWithinQuietHours).
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,

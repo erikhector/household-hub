@@ -1,7 +1,8 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
-import { isValidElement } from "react"
+import { cloneElement, isValidElement } from "react"
 import { cn } from "cn"
+import { Tooltip } from "@/components/ui/tooltip"
 
 const buttonVariants = cva(
   "group/button inline-flex max-sm:min-w-11 pointer-coarse:min-w-11 shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none hover:-translate-y-0.5 active:not-aria-[haspopup]:translate-y-px active:not-aria-[haspopup]:scale-[0.98] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 disabled:hover:translate-y-0 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -61,15 +62,23 @@ function isLinkRender(render: ButtonPrimitive.Props["render"]) {
   )
 }
 
+// UX-41d: an icon-only button has no visible text, so a mouse or keyboard
+// user can only guess what it does. Every `icon*` size that carries a string
+// `aria-label` gets a Tooltip showing that same label, derived from the one
+// prop so the hint and the accessible name cannot drift. Pass `tooltip={false}`
+// where the label is already visible or another Tooltip wraps the button.
 function Button({
   className,
   variant = "default",
   size = "default",
   nativeButton,
   render,
+  tooltip = true,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return (
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants> & { tooltip?: boolean }) {
+  const label = props["aria-label"]
+  const { children, ...rest } = props
+  const primitive = (
     <ButtonPrimitive
       data-slot="button"
       // Most `render` usage here swaps in a non-<button> element (a Next.js
@@ -81,8 +90,17 @@ function Button({
       render={render}
       {...(isLinkRender(render) ? { role: "link" } : null)}
       className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
+      {...rest}
     />
+  )
+  if (!tooltip || typeof label !== "string" || !label || !size?.startsWith("icon")) {
+    return cloneElement(primitive, undefined, children)
+  }
+  // The trigger is the same ButtonPrimitive, so the Tooltip adds no element.
+  return (
+    <Tooltip label={label} side="top" render={primitive}>
+      {children}
+    </Tooltip>
   )
 }
 

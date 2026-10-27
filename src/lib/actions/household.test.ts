@@ -10,6 +10,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hashToken } from "@/lib/token-hash";
 import { computeBillPositions } from "@/lib/settle-up-calc";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   householdCreateMock,
@@ -41,6 +42,7 @@ const {
   sendHouseholdInviteEmailMock,
   sendVerificationEmailMock,
   getLocaleMock,
+  getDictionaryMock,
   budgetCategoryFindFirstMock,
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
@@ -100,6 +102,7 @@ const {
   sendHouseholdInviteEmailMock: vi.fn(async () => ({})),
   sendVerificationEmailMock: vi.fn(async () => ({})),
   getLocaleMock: vi.fn(async () => "en"),
+  getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})),
   budgetCategoryFindFirstMock: vi.fn(),
 }));
 
@@ -144,7 +147,9 @@ vi.mock("@/lib/email", () => ({
 }));
 // See the identical note in src/lib/actions/auth.test.ts — avoids pulling in
 // next/headers cookies()/@/lib/preferences's auth+Prisma chain transitively.
-vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
+// MAINT-7: errors resolve through getDictionary(); `{}` falls back to English,
+// and a test that checks a translated error swaps in `sv` for one call.
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock, getDictionary: getDictionaryMock }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
   headers: headersMock,
@@ -332,12 +337,21 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
     expect(result.error).toBe("Name is required");
   });
 
+  it("translates a Zod message to the request's language (MAINT-7)", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const result = await joinViaInviteSignupAction(
+      {},
+      formData({ ...validInput, email: "not-an-email" }),
+    );
+    expect(result.error).toBe(sv.errors.emailInvalid);
+  });
+
   it("rejects an invalid email", async () => {
     const result = await joinViaInviteSignupAction(
       {},
       formData({ ...validInput, email: "not-an-email" }),
     );
-    expect(result.error).toBe("Enter a valid email");
+    expect(result.error).toBe("Enter a valid email address");
   });
 
   it("rejects a short password", async () => {
@@ -763,6 +777,23 @@ describe("removeMemberAction", () => {
 });
 
 describe("deleteHouseholdAction", () => {
+  it("answers in Swedish for a Swedish request (MAINT-7)", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "CONTRIBUTOR",
+      households: [
+        { id: "household-1", name: "The Hectors", role: "CONTRIBUTOR" },
+        { id: "household-2", name: "Lake House", role: "OWNER" },
+      ],
+    });
+    getDictionaryMock.mockResolvedValueOnce(sv);
+
+    const result = await deleteHouseholdAction();
+
+    expect(result.error).toBe(sv.errors.deleteOwnerOnly);
+    expect(sv.errors.deleteOwnerOnly).not.toBe("Only the household owner can delete the household");
+  });
+
   it("rejects a non-owner caller", async () => {
     requireHouseholdMock.mockResolvedValue({
       household: { id: "household-1", name: "The Hectors" },

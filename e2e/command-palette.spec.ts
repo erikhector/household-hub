@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dismissCookieNotice, gotoRevealed } from "./ui";
+import { E2E_ITEM, E2E_SHOPPING_LIST } from "./seed-data";
 
 // UX-41a: the ⌘K / Ctrl+K command palette. Open, filter, run.
 const SHORTCUT = "ControlOrMeta+k";
@@ -71,4 +72,38 @@ test("Add to shopping list focuses the add box of the list in use", async ({ pag
 
   await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/?]+$/);
   await expect(page.getByRole("combobox", { name: "Add to the list" })).toBeFocused();
+});
+
+// UX-41b: household search. The seeded household has an inventory item and a
+// shopping list, which also proves the results are this household's own.
+test("typing searches the household and Enter opens the row", async ({ page }) => {
+  await gotoRevealed(page, "/dashboard");
+  const palette = await openPalette(page);
+  const input = palette.getByRole("combobox", { name: "Type a command" });
+
+  await input.fill(E2E_ITEM.name);
+  await expect(palette.getByRole("option", { name: E2E_ITEM.name })).toBeVisible();
+  await expect(palette.getByText("Inventory", { exact: true }).first()).toBeVisible();
+  await expect(palette.getByRole("option")).toHaveCount(1);
+  await input.press("Enter");
+
+  await expect(page).toHaveURL(new RegExp(`/dashboard/inventory/items/${E2E_ITEM.id}$`));
+});
+
+test("a shopping list is found by name and a miss shows the empty state", async ({ page }) => {
+  await gotoRevealed(page, "/dashboard");
+  const palette = await openPalette(page);
+  const input = palette.getByRole("combobox", { name: "Type a command" });
+
+  await input.fill(E2E_SHOPPING_LIST.name.toLowerCase());
+  await expect(palette.getByRole("option", { name: E2E_SHOPPING_LIST.name })).toBeVisible();
+  await expect(palette.getByText("Shopping lists", { exact: true }).first()).toBeVisible();
+
+  await input.fill("zzzzqq");
+  await expect(palette.getByText("No matching commands.")).toBeVisible();
+  await expect(palette.getByRole("option")).toHaveCount(0);
+
+  await input.fill(E2E_SHOPPING_LIST.name);
+  await palette.getByRole("option", { name: E2E_SHOPPING_LIST.name }).click();
+  await expect(page).toHaveURL(new RegExp(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}$`));
 });

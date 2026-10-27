@@ -88,7 +88,7 @@ function warnIfNoRedisConfigured() {
   );
 }
 
-async function checkRateLimitRedis(key: string, limit: number, windowMs: number): Promise<boolean> {
+async function checkRateLimitRedis(client: Redis, key: string, limit: number, windowMs: number): Promise<boolean> {
   const redisKey = `ratelimit:${key}`;
   // SET NX PX anchors a fresh window to this first attempt, exactly like the
   // in-memory bucket's `resetAt`. When that fails (key already exists),
@@ -96,10 +96,10 @@ async function checkRateLimitRedis(key: string, limit: number, windowMs: number)
   // Redis leaves TTL untouched on INCR — so the window still expires
   // `windowMs` after the *first* attempt, matching the in-memory semantics
   // (a fixed window per key, not a rolling one).
-  const created = await redis!.set(redisKey, 1, { nx: true, px: windowMs });
+  const created = await client.set(redisKey, 1, { nx: true, px: windowMs });
   if (created) return true;
 
-  const count = await redis!.incr(redisKey);
+  const count = await client.incr(redisKey);
   return count <= limit;
 }
 
@@ -126,7 +126,7 @@ export async function checkRateLimit(key: string, limit: number, windowMs: numbe
   }
 
   try {
-    return await checkRateLimitRedis(key, limit, windowMs);
+    return await checkRateLimitRedis(redis, key, limit, windowMs);
   } catch (error) {
     reportError(
       "[rate-limit] Upstash Redis call failed; falling back to the in-memory limiter for this attempt",
