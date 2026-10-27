@@ -108,12 +108,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-13. Make the notification-sync cron proportional to work, not households** (low now, M) —
-      `api/cron/sync-notifications/route.ts:41-65` walks every household in
-      sequential batches of 10, with no `maxDuration`. Pre-select only
-      households with candidates (one query per trigger), export
-      `maxDuration`, and log run duration.
-
 ### Client JS and caching (2026-10-26 measurement)
 
 Measured on a production build with the seeded e2e user in Chromium
@@ -131,21 +125,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-25. Lazy-load dialogs: shared helper + shopping list** (medium, M) —
-      dialogs are most of each heavy page's unused JS, along with Base
-      UI's Combobox (39 KB raw), which only dialogs use. Add one helper
-      that renders a `next/dynamic` dialog only after it has been opened
-      once, works with the Base UI dialog handles the pages already use
-      (`createHandle`, detached triggers), and preloads the chunk on
-      pointer-enter/focus of the trigger and in idle time after
-      hydration (`requestIdleCallback`), so the first open isn't slower
-      than today (DESIGN.md: instant feedback). Apply it first to
-      `src/components/shopping/shopping-list-client.tsx`, which imports
-      nine dialogs up front (receipt scan, put away, import, resolve
-      mappings, reorder sections, rename, save template, partial price,
-      item form). Existing e2e specs for those dialogs must pass
-      unchanged on desktop and mobile; add one asserting a dialog opens
-      on the first tap after a hard load.
 - [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
       the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
       `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
@@ -228,16 +207,6 @@ then MAINT-7 per feature, to avoid churn.
       optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
       `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
       separate PR.
-- [ ] **MAINT-13. Fix documentation drift** (low, S) — REQUIREMENTS.md
-      says react-hook-form is installed (it isn't, `:37-39`); its "Testing →
-      What's covered so far" section cites a missing `AGENT_TASKS.md` and
-      calls meal planning/budget/profile untested (they're well tested);
-      comments in `budget/actions.ts:18-35`, `lib/notifications.ts:16,63`,
-      `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
-      cite a `findOrCreateInventoryItem` that no longer exists. Delete the
-      stray committed `src/components/budget/cost-analyzer.tsx.orig`, and
-      add `*.orig` and `*.rej` to `.gitignore` so a conflict leftover
-      can't be committed again.
 - [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
       exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
       `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
@@ -273,21 +242,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-- [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
-      `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
-      (`mobile`). Both failed once and passed on the retry in the GitHub
-      `End-to-end (Playwright)` job of release PR #666 on `8d2e088`
-      (2026-10-24). Nobody's change is in them. Same failure at
-      `e2e/ui.ts:330`: after `tab.click()`, `expect(tab).toHaveAttribute(
-      "aria-selected", "true")` still reads `false` after 5 s, although
-      the helper already waits for hydration and a patched `replaceState`.
-      Find out what the click races with (a re-render that resets the
-      tab, the `?tab=` URL sync) and fix it in the app or in the helper's
-      waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-dialog.spec.ts:43
-      e2e/recipe-planned-dates.spec.ts:55 --project=mobile
-      --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-58. Flaky: `task-caught-up` the worker's household still has an open task when the spec expects none** (low, S) —
       `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit

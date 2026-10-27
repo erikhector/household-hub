@@ -645,8 +645,8 @@ export async function linkShoppingListItemAction(
 
 /**
  * Creates a brand-new inventory item from a shopping-list item's name and
- * links it — the explicit "create new item" half of the mapping dialog,
- * replacing the old implicit auto-create in findOrCreateInventoryItem.
+ * links it — the explicit "create new item" half of the mapping dialog.
+ * Nothing creates inventory items implicitly from a shopping-list name.
  */
 export async function createInventoryItemFromShoppingListItemAction(
   itemId: string,

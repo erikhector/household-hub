@@ -40,9 +40,9 @@ easy for AI coding agents to work in correctly:
   screen reader announces a link for something that navigates (UX-68); e2e
   finds these with `getByRole("link", …)`. A `role` passed at the call
   site still wins.
-- **react-hook-form + Zod** are installed for future complex forms; the
-  current auth/inventory/shopping forms use React's `useActionState` +
-  native `<form action={...}>` directly, which is enough for their shape.
+- **Zod** validates every form and action input; forms use React's
+  `useActionState` + native `<form action={...}>` directly, which is enough
+  for their shape (react-hook-form is not installed).
 - Prisma's client generator is the new `prisma-client` (Prisma 7), which
   **requires an explicit driver adapter** — see `src/lib/prisma.ts`
   (`@prisma/adapter-pg`). A bare `new PrismaClient()` throws at runtime.
@@ -75,6 +75,30 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Dialogs load on first use (PERF-25).** A dialog is most of a heavy
+  page's unused JS, so a page declares each one's chunk with
+  `createLazyDialogLoader(() => import(...))` (module level, shared; the
+  shopping list's are in `src/components/shopping/lazy-dialogs.ts`) and
+  renders it through `<LazyDialog>` from `src/components/ui/lazy-dialog.tsx`,
+  which mounts the real component the first time it is asked to open and
+  keeps it mounted after. Two ways to ask: a dialog that opens through a
+  Base UI handle (`createDialogHandle`) is opened with
+  `openLazyDialog(handle)` where `handle.open(null)` used to be (the host
+  waits for the chunk and for the Root to attach, because a handle ignores
+  `open()` until one is mounted); a dialog the parent controls with an
+  `open` prop passes `open` to `<LazyDialog>`. The chunk is fetched before
+  it's needed so the first open is no slower than before: in idle time after
+  the host hydrates (`requestIdleCallback`, a short timeout on Safari), and
+  on pointer-enter, focus or touch-start of an opener that spreads
+  `preloadOnIntent(loader)`. A tap that still beats both opens the dialog as
+  soon as the chunk arrives. Openers stay in the page's own chunk: a dialog
+  that owned its trigger either gets a handle plus eager opener buttons (a
+  row's edit form: `ShoppingItemEditTriggers`) or a same-looking stand-in via
+  `fallback` (`LazyReceiptScan`, whose real component mounts with its menu
+  already open). Applied so far to the shopping list page (item form, receipt
+  scan, put away, import, resolve mappings, reorder sections, rename, save
+  template, partial price); `e2e/shopping-lazy-dialogs.spec.ts` covers the
+  first tap after a hard load, with and without the idle prefetch.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -1918,7 +1942,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   link instead of a second "Groceries" appearing on the next trip. It runs
   on the caller's transaction client. The fallback name
   (`GROCERIES_CATEGORY_NAME`) is module-private; callers read
-  `category.name`. Like `findOrCreateInventoryItem`, it trusts its
+  `category.name`. Like every helper that takes a `householdId`, it trusts its
   `householdId` argument and does no auth check of its own; every caller
   must resolve that id from its own `requireHousehold()` call first, never
   from client input.
@@ -7327,9 +7351,14 @@ Exactly seven triggers exist — nothing else creates a notification:
     — meaning opening the bell could trigger an unbounded number of
     `Notification` writes and push sends on what should've been a pure
     read. They now run only from `GET /api/cron/sync-notifications`
-    (`src/app/api/cron/sync-notifications/route.ts`), which iterates every
-    household (`prisma.household.findMany`) and calls both sync functions
-    for each; something external must hit this route on a schedule (see
+    (`src/app/api/cron/sync-notifications/route.ts`), which runs the syncs
+    only for households with something to act on
+    (`findHouseholdIdsWithSyncCandidates` in `src/lib/notifications.ts`: one
+    `household.findMany` per trigger, with the same predicate as that
+    trigger's sync, unioned), so a run's cost follows the work, not the
+    number of households. The route exports `maxDuration = 60` and logs
+    `durationMs` and the household counts on every authorised run (PERF-13);
+    something external must hit this route on a schedule (see
     DEPLOYMENT.md's "Scheduled jobs" section for the Vercel/Railway/Render
     setup). It's protected by a `CRON_SECRET`-checked bearer token, since
     unlike `/api/health` it both writes data and sends push notifications;
@@ -8432,9 +8461,7 @@ UX-14's rapid ticks and the rollback toast.
   Picked for discoverability (the test sits right next to what it covers)
   and because it matches how the rest of this codebase colocates related
   files (e.g. `actions.ts` next to the `page.tsx` that uses it).
-- **What's covered so far** (deliberately scoped to already-stable code that
-  doesn't depend on Wave 1's other in-flight features — see
-  `AGENT_TASKS.md`):
+- **What's covered so far** (the first batch; later features add their own colocated tests):
   - `src/lib/i18n/format.ts` — `format()`/`plural()`, pure functions, no
     mocking needed.
   - `src/lib/session.ts` — `requireHousehold()`'s cookie-fallback logic
@@ -8466,10 +8493,9 @@ UX-14's rapid ticks and the rollback toast.
     inventory and shopping-list CSV `export/route.ts` handlers (household
     tenancy scoping, filename generation, column rendering, and formula-
     injection guarding end to end).
-  - Not covered yet: meal planning, budgeting, profile — out of scope for
-    this task per `AGENT_TASKS.md` (they're other in-flight Wave 1 work and
-    don't exist in a stable form on this branch). Add their tests alongside
-    their own feature work.
+  - Meal planning, budgeting and profile have colocated tests of their own
+    (`actions.test.ts` next to each feature's `actions.ts`, plus the pure
+    calculators in `src/lib/`), added with each feature.
 - **Database isolation**: no test in this suite touches the real database.
   Everything under `src/lib/actions/*.test.ts` and `src/lib/session.test.ts`
   mocks `@/lib/prisma`, `@/lib/auth`, `@/lib/session`, `next/headers`,
@@ -8640,8 +8666,8 @@ UX-14's rapid ticks and the rollback toast.
   visit, "Got it" hides it, stays hidden after a reload).
 - **Waiting on what the user sees, not on the URL**: the e2e flakes fixed
   in Oct 2026 were all a test acting one step ahead of the page. A tab
-  switch that is a `history.replaceState` (BudgetTabs, MealPlanningView)
-  moves the URL at once but renders in a React transition, so a spec
+  switch that is a `history.replaceState` (BudgetTabs) moves the URL at
+  once but renders in a React transition, so a spec
   waits for the tab's `aria-selected` (and, before following a month
   link, for the link's `href`) rather than `toHaveURL` alone. A dialog
   closed from the UI takes its history entry back with an async

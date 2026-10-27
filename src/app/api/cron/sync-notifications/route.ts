@@ -1,7 +1,7 @@
-import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { reportError } from "@/lib/report-error";
 import {
+  findHouseholdIdsWithSyncCandidates,
   syncExpiringSoonNotifications,
   syncMealNotLoggedNotifications,
   syncPutAwayReminders,
@@ -32,6 +32,14 @@ import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
 // comment, though the risk here is stale success/failure status rather than
 // a masked outage.
 export const dynamic = "force-dynamic";
+
+// PERF-13: an explicit execution budget instead of the platform default,
+// which the old walk over every household would eventually outgrow. The run
+// is now proportional to households that have something to sync, but a
+// morning with many expiring items still awaits one push per alert, so give
+// it room. 60 s matches the other long-running routes here
+// (inventory/page.tsx).
+export const maxDuration = 60;
 
 // Caps how many households sync concurrently. Every household's sync
 // (syncMealNotLoggedNotifications + syncExpiringSoonNotifications) makes its
@@ -66,8 +74,14 @@ export async function GET(request: Request) {
     return Response.json({ status: "error", message: "Unauthorized" }, { status: 401 });
   }
 
+  const startedAt = Date.now();
+
   try {
-    const households = await prisma.household.findMany({ select: { id: true } });
+    // Only households with something the syncs could act on (one query per
+    // trigger, see findHouseholdIdsWithSyncCandidates), not every household
+    // in the table: the run's cost follows the work, not the signup count.
+    const householdIds = await findHouseholdIdsWithSyncCandidates();
+    const households = householdIds.map((id) => ({ id }));
 
     // Promise.allSettled, not Promise.all: one household's sync throwing
     // (e.g. a transient DB error, a push provider error) must not abort
@@ -117,6 +131,15 @@ export async function GET(request: Request) {
       });
     }
 
+    // The number to watch against maxDuration above; logged on every
+    // authorised run so a creeping run time shows before it becomes a timeout.
+    logger.info("Notification sync cron finished", {
+      durationMs: Date.now() - startedAt,
+      householdsWithCandidates: households.length,
+      householdsSynced: succeeded,
+      householdsFailed: failedHouseholdIds.length,
+    });
+
     return Response.json(
       {
         status: failedHouseholdIds.length > 0 ? "partial_failure" : "ok",
@@ -128,7 +151,7 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     // Reached only for a failure outside any single household's sync (e.g.
-    // the household lookup itself failing) — same principle as /api/health:
+    // the candidate lookup itself failing) — same principle as /api/health:
     // log the real error server-side, don't leak internals in the response.
     reportError("Notification sync cron failed", error);
 
