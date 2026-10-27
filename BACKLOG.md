@@ -316,6 +316,23 @@ then MAINT-7 per feature, to avoid churn.
       Acceptance: `npx playwright test e2e/log-expense-fast.spec.ts:118
       --project=mobile --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
+      item, blocks an incomplete row, and folds away confident matches",
+      `desktop`) failed once in a full local `ci:local` run of the SEC-4
+      branch (`c1f4461`, based on `origin/next` `2a8d9b6`, 2026-10-27) and
+      passed in the two other full runs of that branch (`a4f4dcf`,
+      `5cf0616`), whose diff touches nothing in recipes. Failing
+      assertion (line 169 region): `getByRole("dialog", { name: "Match
+      ingredients" }).getByRole("group", { name: "1 krm romatmnaai" })
+      .getByText("Nothing close in your pantry, so…")` not found after 5 s.
+      Likely the row's match note renders after an async lookup the spec
+      doesn't wait for. Reproduce with `--repeat-each=30`, find the race,
+      and fix it in the app or the spec's waiting, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:144
+      --project=desktop --repeat-each=30` passes 30/30.
+
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
       covered by MAINT-10 (which lists UI files only). It holds two
