@@ -514,19 +514,6 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-- [ ] **PERF-3. Add missing indexes** (medium, S) — one migration:
-      - `HouseholdMember @@index([userId])`: `requireHousehold`
-        (`src/lib/session.ts:69-78`) looks memberships up by `userId` on
-        every dashboard request and Server Action, but the only index is
-        `@@unique([householdId, userId])` with `userId` second → full scan
-        that grows with total users.
-      - `Transaction @@index([recurringTemplateId])`:
-        `personal-budget-position.ts:227-230` filters by it without
-        `householdId` (cross-household scan), and the template's
-        `onDelete: SetNull` scans again on every delete.
-      - `PersonalTransaction @@index([userId, date])`: needed by PERF-2.
-      - Optionally `PriceHistory @@index([inventoryItemId, date])` for PERF-12.
-      Verify with `EXPLAIN` before/after.
 - [ ] **PERF-2. Month-scope the personal budget loader** (high, M; after PERF-3) —
       `src/lib/personal-budget-position.ts:62-66` reads *every*
       `personalTransaction` (with `category`), and `:106-118` every split
