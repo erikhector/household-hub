@@ -170,6 +170,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   settings, including the "can't delete your only household" reason the
   delete dialog shows. `passwordTooLong` spells out the 72-character limit
   because a Zod message can't carry variables.
+  The household notes board (`notes-actions.ts`), the push actions (quiet
+  hours validation, unknown subscription), the weekly-digest toggle and the
+  barcode scan, link and create-item actions (`lib/actions/barcode.ts`) are
+  converted too. `householdNoteTooLong` spells out the 1000-character limit
+  for the same reason, with a test that it matches `NOTE_BODY_MAX_LENGTH`.
   It has also converted the auth actions (`lib/actions/auth.ts`: signup,
   login, password reset, email verification and its resend, including the
   "if an account exists" confirmations, which stay identical whether or not
