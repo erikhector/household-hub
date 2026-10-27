@@ -7252,7 +7252,10 @@ version or the notes by hand.
   `actions/setup-node` step reads through `node-version-file`;
   `package.json` `engines.node` is `>=22`. `.github/dependabot.yml` opens
   weekly `chore(deps)` PRs for npm and GitHub Actions, minor and patch
-  bumps grouped, majors separate.
+  bumps grouped, majors separate. It skips `@types/node` majors (they
+  follow the Node pin) and ESLint majors until `eslint-config-next`'s
+  plugins support ESLint 10 (MAINT-12). `@types/bcryptjs` is gone:
+  `bcryptjs` 3 ships its own types.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →

@@ -205,8 +205,12 @@ then MAINT-7 per feature, to avoid churn.
 - [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
       the migration drift check, Node pinning and Dependabot are done
       (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
-      `knip` in CI. ESLint 9 is flagged unsupported by `npm ci` — bump to
-      ESLint 10 + matching `eslint-config-next` in a separate PR.
+      `knip` in CI. ESLint 10 waits on `eslint-config-next`'s plugins:
+      `eslint-plugin-react` 7.37, `eslint-plugin-import` 2.32 and
+      `eslint-plugin-jsx-a11y` 6.10 (the latest, 2026-10-27) declare
+      `eslint` peers up to `^9`, so 10 only installs by overriding them.
+      When they support 10, bump `eslint` + `eslint-config-next` in a
+      separate PR and drop the `eslint` ignore in `.github/dependabot.yml`.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
