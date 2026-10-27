@@ -243,17 +243,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-59. Flaky: `planned-expenses` spec times out under full-suite load** (low, S) —
-      `e2e/planned-expenses.spec.ts:82` (`mobile`) hit the 30 s test
-      timeout once in the `ci:local` gate of #694 (`7adc31c`, 2026-10-25)
-      and passed 3 of 3 on a re-run on the same commit; it passed 5 of 5 on
-      clean `next` (`18e4bfe`), so it needs load to show. Nobody's change is
-      in it. Find what the test is waiting on (hydration, a dialog, a
-      response) and fix it in the app or the spec's waiting, never a
-      loosened assertion, a skip or a retry. Acceptance: `npx playwright
-      test e2e/planned-expenses.spec.ts:82 --project=mobile
-      --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
       `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
       gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
