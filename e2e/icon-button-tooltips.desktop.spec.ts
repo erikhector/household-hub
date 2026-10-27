@@ -3,9 +3,8 @@ import { en } from "@/lib/i18n/dictionaries/en";
 import { expectHydrated } from "./ui";
 import { E2E_SHOPPING_LIST } from "./seed-data";
 
-// UX-41d: an icon-only button shows its aria-label as a Tooltip on hover and
-// keyboard focus. Desktop only: the popup is hidden on touch screens, where
-// hover doesn't exist (the label is still the accessible name there).
+// keyboard focus. Desktop only: touch never opens it (the label stays the
+// accessible name there).
 test("an icon-only button shows its label as a tooltip on hover and focus", async ({ page }) => {
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
   const more = page.getByRole("button", { name: en.shoppingList.moreActions });

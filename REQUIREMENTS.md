@@ -6755,7 +6755,7 @@ components directly.
   wraps itself in that Tooltip whenever its size is `icon*` and it has a
   string `aria-label`, showing the same text, so the hint and the accessible
   name come from one prop and cannot drift. `tooltip={false}` opts out. The
-  popup is `pointer-coarse:hidden`, so touch screens are unchanged. Covered
+  popup opens on hover and keyboard focus only (Base UI ignores touch), so phones are unchanged. Covered
   by `e2e/icon-button-tooltips.desktop.spec.ts`.
 - **In between (640 px wide and up, but a tablet or a phone in landscape;
   UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
