@@ -125,16 +125,15 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
-      the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
-      `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
-      missing ingredients, record prep, plan portions, meal entry, move,
-      fill empty days, add to plan); `inventory-header-actions.tsx` (AI
+- [ ] **PERF-26. Lazy-load dialogs on inventory and budgets** (medium, M; after PERF-25) —
+      the same helper on: `inventory-header-actions.tsx` (AI
       shelf scan, stock scan, bulk scan, bulk paste, add item) and the
       item page's change-unit/merge dialogs; the budget pages'
       transaction, recurring-template, planned-expense and
       log-shared-expense dialogs. One PR per page group is fine. Expect
-      30–40% less of each page's own JS.
+      30–40% less of each page's own JS. Meal planning is done (see
+      REQUIREMENTS.md, "Dialogs load on first use"); inventory and
+      budgets remain.
 - [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
       `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
       switcher's menu and create form, and the bottom bar's "More" menu

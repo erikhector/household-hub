@@ -99,6 +99,16 @@ easy for AI coding agents to work in correctly:
   scan, put away, import, resolve mappings, reorder sections, rename, save
   template, partial price); `e2e/shopping-lazy-dialogs.spec.ts` covers the
   first tap after a hard load, with and without the idle prefetch.
+  Also applied to the meal planning page group (PERF-26: `week-planner.tsx`,
+  `recipe-manager.tsx`, `prep-tab.tsx`, `cook-now-list.tsx`; loaders in
+  `src/components/meal-planning/lazy-dialogs.ts`): meal entry (add and edit),
+  cook mode, mark cooked, move, fill empty days, missing ingredients, add to
+  plan, recipe form, record prep and plan portions. Dialogs that used to own
+  their trigger (meal entry, recipe form, record prep, add to plan) now take a
+  `handle`, with the opener button kept in the page (`AddMealSlot` in the
+  planner, `LazyAddToPlan` for the Cook now tab's server-rendered rows).
+  `e2e/meal-planning-lazy-dialogs.spec.ts` covers the first tap and a failed
+  chunk load. Inventory and the budget pages are still to do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
