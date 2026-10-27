@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, type ReactElement } from "react";
-import { Plus } from "lucide-react";
+import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   type DialogHandle,
 } from "@/components/ui/dialog";
 import {
@@ -73,9 +71,10 @@ type CreateProps = CommonProps & {
   // GAP-49: the household's active meal-prep batches. Those with portions
   // left are offered as "From meal prep"; none left, no such option.
   batches?: PreparedBatchData[];
-  // UX-50: an empty week's "Add your first dinner" opens this same dialog
-  // from its own button, in place of the day's "+ Add meal" row.
-  trigger?: ReactElement;
+  // Opened by the day's "+ Add meal" (or UX-50's "Add your first dinner" on
+  // an empty week), which the planner keeps in its own chunk so this dialog
+  // can load on first use (PERF-26).
+  handle: DialogHandle;
 };
 
 type MealTypeLabelKey = "mealTypeBreakfast" | "mealTypeLunch" | "mealTypeDinner" | "mealTypeSnack";
@@ -90,7 +89,7 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
 type EditProps = CommonProps & {
   mode: "edit";
   entry: MealPlanEntryData;
-  // Opened from the planner row's sheet, so no trigger of its own.
+  // Opened from the planner row's sheet.
   handle: DialogHandle;
 };
 
@@ -181,21 +180,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
         setOpen(next);
         setRecipeQuery("");
       }}
-      handle={isEdit ? props.handle : undefined}>
-      {/* Editing opens from the meal's sheet (`handle`); adding is the
-          day's one "+ Add meal". */}
-      {!isEdit && (
-        <DialogTrigger
-          render={
-            props.trigger ?? (
-              <Button type="button" variant="ghost" aria-label={format(dict.addMealAriaLabel, { day: props.dayLabel })} className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11">
-                <Plus className="size-3.5" aria-hidden="true" />
-                {dict.addMeal}
-              </Button>
-            )
-          }
-        />
-      )}
+      handle={props.handle}>
       <DialogContent
         initialFocus={freeformNameRef}
       >

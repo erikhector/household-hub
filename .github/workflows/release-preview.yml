@@ -47,7 +47,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       # PR title and body go through env vars and are never interpolated
       # into the script, so a crafted title can't inject shell commands.

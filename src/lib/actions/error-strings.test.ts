@@ -13,12 +13,8 @@ import { describe, expect, it } from "vitest";
 // has to be deleted and the file is guarded from then on.
 const PENDING = new Set([
   "src/app/dashboard/budget/actions.ts",
-  "src/app/dashboard/household/notes-actions.ts",
   "src/app/dashboard/personal-budget/actions.ts",
-  "src/lib/actions/barcode.ts",
-  "src/lib/actions/digest.ts",
   "src/lib/actions/inventory-scan.ts",
-  "src/lib/actions/push.ts",
   "src/lib/actions/receipt-scan.ts",
 ]);
 

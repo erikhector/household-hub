@@ -89,8 +89,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          # README states Node 22+ as the requirement.
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # Installs dependencies and runs `prisma generate` via the
@@ -151,6 +150,60 @@ jobs:
         if: needs.changes.outputs.e2e == 'false'
         run: npm run build
 
+  # Catches a schema.prisma edit committed without its migration (or a
+  # migration that no longer matches the schema), which `migrate deploy`
+  # alone never notices: it only replays the SQL files. A dropped-column
+  # migration that shipped without its schema change caused the PR #36
+  # outage. Replays every migration on an empty Postgres, then asks Prisma
+  # to diff that database against schema.prisma; `--exit-code` makes any
+  # difference fail the job. (`--from-migrations` would need a shadow
+  # database URL in prisma7.config.ts, which production doesn't use.) Its own job and not required by the rulesets,
+  # so the required "Lint, typecheck, test, build" check is unchanged.
+  migrations:
+    name: Migration drift
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: household
+          POSTGRES_PASSWORD: household
+          POSTGRES_DB: household_hub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U household -d household_hub"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://household:household@localhost:5432/household_hub
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate schema
+        run: npx prisma validate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Check migrations match schema.prisma
+        run: >-
+          npx prisma migrate diff
+          --from-config-datasource
+          --to-schema prisma/schema.prisma
+          --exit-code
+
   # Browser tests against a real Postgres and a production build (see
   # playwright.config.ts and e2e/). A separate job so the fast checks above
   # still report on their own when only this one fails. Only on PRs into
@@ -184,7 +237,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies

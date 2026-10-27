@@ -5,6 +5,8 @@
 // src/app/dashboard/tasks/actions.test.ts.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NOTE_BODY_MAX_LENGTH } from "@/lib/household-notes";
+import { sv } from "@/lib/i18n/dictionaries/sv";
+import { en } from "@/lib/i18n/dictionaries/en";
 
 const {
   requireHouseholdMock,
@@ -32,6 +34,11 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
+// Empty by default so errors fall back to English; a test of a translated
+// error swaps in `sv` for one call.
+const { getDictionaryMock } = vi.hoisted(() => ({ getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})) }));
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: getDictionaryMock, getLocale: vi.fn(async () => "en") }));
+
 const { createNoteAction, deleteNoteAction } = await import("@/app/dashboard/household/notes-actions");
 
 const household = { id: "household-1", name: "The Hectors" };
@@ -56,6 +63,15 @@ describe("createNoteAction", () => {
     expect(householdNoteCreateMock).not.toHaveBeenCalled();
   });
 
+  it("returns the validation error in the user's language", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    getDictionaryMock.mockResolvedValueOnce(sv);
+
+    const result = await createNoteAction({}, formData({ body: "  " }));
+
+    expect(result.error).toBe(sv.errors.noteEmpty);
+  });
+
   it("rejects a missing body field", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
 
@@ -70,7 +86,9 @@ describe("createNoteAction", () => {
 
     const result = await createNoteAction({}, formData({ body: "x".repeat(NOTE_BODY_MAX_LENGTH + 1) }));
 
-    expect(result.error).toBe(`Note must be ${NOTE_BODY_MAX_LENGTH} characters or fewer`);
+    expect(result.error).toBe(en.errors.householdNoteTooLong);
+    // The dictionary text hardcodes the limit; this catches the two drifting apart.
+    expect(en.errors.householdNoteTooLong).toContain(String(NOTE_BODY_MAX_LENGTH));
     expect(householdNoteCreateMock).not.toHaveBeenCalled();
   });
 

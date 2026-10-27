@@ -2,6 +2,7 @@
 // toggle (session user only) and the login-free unsubscribe page's action
 // (signed token only). Prisma and the session are mocked.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 import { createDigestUnsubscribeToken } from "@/lib/digest-unsubscribe-token";
 
 const { userUpdateMock, userUpdateManyMock, requireUserIdMock, revalidatePathMock } = vi.hoisted(() => ({
@@ -15,6 +16,11 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { update: userUpdateMock, updateMany: userUpdateManyMock } } }));
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+
+// Empty by default so errors fall back to English; a test of a translated
+// error swaps in `sv` for one call.
+const { getDictionaryMock } = vi.hoisted(() => ({ getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})) }));
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: getDictionaryMock, getLocale: vi.fn(async () => "en") }));
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
 const { setWeeklyDigestEnabledAction, unsubscribeFromDigestAction } = await import("@/lib/actions/digest");
@@ -46,8 +52,9 @@ describe("setWeeklyDigestEnabledAction", () => {
   });
 
   it("rejects a non-boolean value", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
     const result = await setWeeklyDigestEnabledAction("yes" as unknown as boolean);
-    expect(result.error).toBeDefined();
+    expect(result.error).toBe(sv.errors.invalidInput);
     expect(userUpdateMock).not.toHaveBeenCalled();
   });
 

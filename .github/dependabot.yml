@@ -1,0 +1,26 @@
+# Weekly update PRs for npm packages and the pinned GitHub Actions. Minor and
+# patch bumps are grouped into one PR each so a week doesn't open a dozen;
+# majors stay separate because they need a human look (ESLint, Prisma and
+# Next.js majors have all needed code changes here). PR titles use the
+# `chore(deps)` Conventional Commit form, which doesn't cut a release.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      actions:
+        update-types: [minor, patch]
