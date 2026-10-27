@@ -188,6 +188,14 @@ export const en = {
     empty: "No matching commands.",
     hint: "Arrow keys to move, Enter to run, Esc to close",
     results: { one: "{count} command", other: "{count} commands" },
+    searchRateLimited: "Too many searches. Wait a moment and try again.",
+    groups: {
+      inventory: "Inventory",
+      recipes: "Recipes",
+      shoppingLists: "Shopping lists",
+      tasks: "Tasks",
+      budgetCategories: "Budget categories",
+    },
   },
   whatsNew: {
     title: "What's new",

@@ -267,23 +267,6 @@ then MAINT-7 per feature, to avoid churn.
       passes 30/30.
 
 
-- [ ] **MAINT-64. Flaky: `log-expense-fast` last-used category radio isn't checked after the sheet reopens** (low, S) —
-      `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same
-      sheet, last-used category and Undo", `mobile`) failed once in a
-      full local `ci:local` run on the GAP-57 branch (`45edd5c`, a merge of
-      `origin/next` `3f16968`, 2026-10-26). The same commit passed in a
-      second full run and in a solo re-run, so it only fails under
-      full-suite load. Failing assertion (line 132):
-      `expect(dialog.getByRole("radio", { name: fun.name })).toBeChecked()`
-      expected checked, one line after
-      `expect(dialog.getByLabel("Amount", { exact: true })).toBeFocused()`
-      passed. Likely the sheet reads the remembered category before it has
-      hydrated or before the stored value is applied. Reproduce with
-      `--repeat-each=30`, find the race, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/log-expense-fast.spec.ts:118
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
       `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
       item, blocks an incomplete row, and folds away confident matches",
@@ -300,6 +283,22 @@ then MAINT-7 per feature, to avoid churn.
       assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:144
       --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-67. Flaky: `native-sheets` mobile specs time out opening the add-meal sheet** (low, S) —
+      Five `[mobile]` tests in `e2e/native-sheets.spec.ts` (`:64` flick
+      down on the grabber, `:79` short slow pull, `:125` page behind
+      scales, `:137` reduced motion, `:145` touch open focuses the sheet)
+      failed in the full local `ci:local` run of the `release/2026-10-27-0740`
+      gate (`e2bc21a`, 2026-10-27) and passed when the spec was re-run
+      alone on the same commit. The first failure is a 30 s timeout in
+      `openAddMeal` (line 55) at `trigger.click()` waiting for the "Add
+      your first dinner" button, which points at a click before
+      hydration or before the meal planner has rendered. Reproduce with
+      `--repeat-each=30`, find the race, and fix it in the app or the
+      spec's waiting (`expectHydrated` / `gotoRevealed` in `e2e/ui.ts`),
+      never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/native-sheets.spec.ts
+      --project=mobile --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
@@ -546,15 +545,6 @@ polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) needs an owner decision and sits under
 "Needs a decision before building".
-
-- [ ] **UX-41b. Command palette: household search** (M) — Split from
-      UX-41. A `searchHousehold(query)` Server Action (in
-      `src/lib/actions/`) behind `requireHousehold()` that returns the top
-      few inventory items, recipes, shopping lists, tasks and budget
-      categories by name, every query scoped by householdId, Zod-validated,
-      rate-limited like other read actions, with a unit test for the
-      tenancy scoping. The palette from UX-41a shows them as grouped,
-      debounced results that navigate to the row. Builds on UX-41a (shipped).
 
 - [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
       UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
