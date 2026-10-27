@@ -170,6 +170,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   settings, including the "can't delete your only household" reason the
   delete dialog shows. `passwordTooLong` spells out the 72-character limit
   because a Zod message can't carry variables.
+  It has also converted the auth actions (`lib/actions/auth.ts`: signup,
+  login, password reset, email verification and its resend, including the
+  "if an account exists" confirmations, which stay identical whether or not
+  the account exists) and the profile actions
+  (`dashboard/profile/actions.ts`: name, email, password, delete account).
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
@@ -8102,7 +8107,7 @@ approximating them, so the email never disagrees with the app.
   under that field and takes focus. A taken email also offers Log in
   (prefilled with the email) and Forgot password links. A wrong login
   password is shown under the password field, which takes focus; the email
-  is kept. Server messages stay English (MAINT-7). Covered by
+  is kept. Server messages come back in the request's language (UX-16, MAINT-7). Covered by
   `e2e/auth-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically

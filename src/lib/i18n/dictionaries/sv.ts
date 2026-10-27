@@ -149,6 +149,24 @@ export const sv = {
     budgetStartDayOwnerOnly: "Bara hushållets ägare kan ändra när budgetmånaden börjar",
     chooseBudgetDay: "Välj en dag från {min} till {max}",
     inventorySyncOwnerOnly: "Bara hushållets ägare kan ändra när lagret uppdateras",
+    confirmNewPasswordRequired: "Bekräfta ditt nya lösenord",
+    currentPasswordRequired: "Ange ditt nuvarande lösenord",
+    currentPasswordIncorrect: "Nuvarande lösenord är fel",
+    alreadyYourEmail: "Det är redan din e-postadress",
+    emailTaken: "Det finns redan ett konto med den e-postadressen",
+    invalidEmailOrPassword: "Fel e-postadress eller lösenord",
+    tooManyAttemptsMinutes: "För många försök. Vänta några minuter och försök igen.",
+    unverifiedLogin:
+      "Verifiera din e-postadress innan du loggar in. Kolla din inkorg efter länken, eller skicka den igen nedan.",
+    resetLinkInvalid: "Ogiltig eller utgången återställningslänk",
+    resetLinkExpired: "Den här återställningslänken är ogiltig eller har gått ut. Begär en ny.",
+    verificationLinkInvalid: "Den här verifieringslänken är ogiltig eller har gått ut. Begär en ny.",
+    verificationEmailFailed: "Det gick inte att skicka verifieringsmejlet. Försök igen senare.",
+    // Deliberately the same wording whether or not the account exists, so it
+    // doesn't reveal which emails are registered.
+    resetRequested: "Om det finns ett konto för den e-postadressen har vi skickat en länk för att återställa lösenordet.",
+    verificationResent:
+      "Om kontot behöver verifieras har vi skickat en ny verifieringslänk. Kolla din inkorg.",
   },
   nav: {
     overview: "Översikt",
