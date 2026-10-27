@@ -75,8 +75,14 @@ test("old completed one-offs collapse behind Show N older, and come back on tap"
 });
 
 test("with nothing open, a fresh visit shows the all-caught-up card above Completed", async ({ page }) => {
-  await seedCompleted(`Rake the leaves ${suffix()}`, 1);
+  const raked = `Rake the leaves ${suffix()}`;
+  await seedCompleted(raked, 1);
   await page.goto("/dashboard/tasks");
+
+  // goto() returns before the task list is on screen, and counting the open
+  // rows too early reads zero and skips the loop with tasks still open. The
+  // row seeded above is in the same list, so once it shows, so do they.
+  await expect(page.getByRole("checkbox", { name: `Mark ${raked} as not done` })).toBeVisible();
 
   // Close every open task (the worker's household collects other specs' rows).
   const open = page.getByRole("checkbox", { name: /^Mark .* as done$/ });

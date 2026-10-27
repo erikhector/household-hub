@@ -19,7 +19,6 @@ const PENDING = new Set([
   "src/lib/actions/auth.ts",
   "src/lib/actions/barcode.ts",
   "src/lib/actions/digest.ts",
-  "src/lib/actions/household.ts",
   "src/lib/actions/inventory-scan.ts",
   "src/lib/actions/push.ts",
   "src/lib/actions/receipt-scan.ts",
