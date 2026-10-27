@@ -4,6 +4,7 @@ import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import {
   dismissCookieNotice,
+  expectHydrated,
   expectNoHorizontalOverflow,
   expectTouchTargets,
   openRowSheet,
@@ -93,8 +94,15 @@ async function cleanup(recipeIds: string[]) {
   });
 }
 
+// The menu trigger is server-rendered before it is interactive: under a loaded
+// run goto() and page.reload() return before React has hydrated it, and a click
+// that lands then opens no menu, so "Select meals" is never found and the
+// planner stays out of Select mode (MAINT-61). Every call here follows a goto
+// or a reload, so wait for hydration first.
 async function startSelecting(page: Page) {
-  await page.getByRole("button", { name: "More planner actions" }).click();
+  const more = page.getByRole("button", { name: "More planner actions" });
+  await expectHydrated(more);
+  await more.click();
   await page.getByRole("menuitem", { name: "Select meals" }).click();
 }
 
