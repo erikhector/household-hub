@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.113.5",
+    "date": "2026-10-27",
+    "pr": 771,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list page loads faster, because its pop-up forms now load only when you first open them.\n\nBackground reminders (expiring food, unlogged meals, put-away and the morning menu) now run faster and more reliably as Squirrel grows.\n\nSwitching tabs in the meal planner now reacts instantly, even on a slow connection.\n\nWhen you remove a member or someone leaves, their unused invite links are closed, and shopping list share links and the calendar feed link are reset for safety. You can now also see and close pending invites on the Household page.\n\nLazy-load the shopping list's dialogs (PERF-25)",
+      "sv": "Inköpslistan laddas snabbare, eftersom dess formulär i popup-fönster nu bara hämtas när du öppnar dem första gången.\n\nBakgrundspåminnelser (utgående mat, ologgade måltider, undanplockning och morgonens meny) går nu snabbare och mer tillförlitligt när Squirrel växer.\n\nAtt byta flik i måltidsplaneraren går nu direkt, även med långsam anslutning.\n\nNär du tar bort en medlem, eller någon lämnar hushållet, stängs personens oanvända inbjudningslänkar och delningslänkarna för inköpslistor och kalenderlänken återställs. Du kan också se och stänga väntande inbjudningar på hushållssidan.\n\nLazy-load the shopping list's dialogs (PERF-25)"
+    }
+  },
+  {
     "version": "0.113.4",
     "date": "2026-10-26",
     "pr": 758,
