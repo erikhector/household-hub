@@ -7,6 +7,8 @@
 // low-stock auto-add hook. Prisma is mocked —
 // no database is touched.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   requireHouseholdMock,
@@ -188,6 +190,11 @@ describe("scanStockChangeAction (AUTO-6)", () => {
     expect(await scanStockChangeAction("abc", 1)).toMatchObject({ kind: "error" });
     expect(await scanStockChangeAction("7310865004703", 0)).toMatchObject({ kind: "error" });
     expect(findFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the error in the user's language", async () => {
+    vi.mocked(getDictionary).mockResolvedValueOnce(sv as never);
+    expect(await scanStockChangeAction("abc", 1)).toEqual({ kind: "error", error: sv.errors.invalidBarcode });
   });
 });
 

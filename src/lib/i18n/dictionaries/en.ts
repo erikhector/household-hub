@@ -175,6 +175,13 @@ export const en = {
     resetRequested: "If an account exists for that email, we've sent a password reset link.",
     verificationResent:
       "If that account needs verifying, we've sent a fresh verification link. Check your inbox.",
+    noteEmpty: "Note can't be empty",
+    householdNoteTooLong: "Note must be 1000 characters or fewer",
+    invalidBarcode: "Invalid barcode",
+    invalidChange: "Invalid change",
+    invalidQuietHours: "Invalid quiet hours",
+    quietHoursMustDiffer: "Start and end must differ",
+    subscriptionNotFound: "Subscription not found",
   },
   nav: {
     overview: "Overview",

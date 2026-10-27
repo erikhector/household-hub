@@ -185,14 +185,16 @@ then MAINT-7 per feature, to avoid churn.
       profile, all done. Still English: the string-literal
       `error:` values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19, barcode, receipt and inventory scans, push, digest, household
-      notes),
-      plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
-      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
-      feature at a time, add its keys to `dict.errors` (or a feature
-      namespace, as `template-actions.ts` does), and delete the file from
-      `PENDING`: the test fails if a clean file stays listed. Leave budget
-      until BUDGET-6 is decided.
+      19), plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
+      `savings-goal-calc.ts` and `budget-category-limit.ts`. The receipt and
+      inventory scans (`receipt-scan.ts`, `inventory-scan.ts`) return
+      snake_case codes (`rate_limited`, `invalid_photo`, …) that their
+      clients map to text, so check whether the client already translates
+      them; if so, move both files to `RETURNS_KEYS` in that test instead of
+      converting. Convert a feature at a time, add its keys to `dict.errors`
+      (or a feature namespace, as `template-actions.ts` does), and delete the
+      file from `PENDING`: the test fails if a clean file stays listed. Leave
+      budget until BUDGET-6 is decided.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
