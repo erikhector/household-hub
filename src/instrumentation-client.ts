@@ -1,3 +1,5 @@
+import { sentryDataCollection } from "@/lib/sentry-options";
+
 // Browser-side counterpart to src/instrumentation.ts, using the file
 // convention Next.js 16 uses in place of the older sentry.client.config.ts
 // (see node_modules/next/dist/docs/.../instrumentation-client.md --
@@ -24,6 +26,7 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     Sentry.init({
       dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
       tracesSampleRate: 0,
+      dataCollection: sentryDataCollection,
     });
   });
 }

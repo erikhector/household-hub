@@ -456,14 +456,6 @@ off-screen hits in the budget dialogs. WebKit was not run.
 
 ### Dependencies
 
-- [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
-      Major release (10.73 installed, 11.8 latest). Sentry is wired into
-      the client, server and edge configs plus `instrumentation`; check the
-      v11 migration guide for removed options, then confirm an error still
-      reaches Sentry with no PII added (see the privacy page).
-      Acceptance: `npm run check && npm run build` green; the build emits
-      no new Sentry warnings; REQUIREMENTS.md's monitoring section matches.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`

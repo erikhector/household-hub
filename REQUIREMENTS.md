@@ -75,6 +75,14 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Sentry data collection is pinned to the v10 default.** `@sentry/nextjs`
+  11 replaced `sendDefaultPii` with `dataCollection`, whose unset default
+  collects user info (IP), cookies, request bodies and database query data.
+  Both `Sentry.init` calls (`src/instrumentation.ts`,
+  `src/instrumentation-client.ts`) pass `sentryDataCollection` from
+  `src/lib/sentry-options.ts`, which turns all of that off, so what reaches
+  Sentry still matches the privacy page. `withSentryConfig` is imported from
+  `@sentry/nextjs/config`.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
