@@ -75,6 +75,15 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Sentry sends error details only (DEPS-5).** `@sentry/nextjs` 11 collects user
+  info, cookies, headers, bodies, query strings and stack-frame local
+  variables unless each is opted out, so both `Sentry.init()` calls pass
+  `SENTRY_DATA_COLLECTION` (`src/lib/sentry-data-collection.ts`): Sentry's
+  documented equivalent of v10's `sendDefaultPii: false`, plus local
+  variables, database query data and the AI/MCP categories off. That keeps
+  what the privacy page describes (message, stack trace, page address,
+  browser and device). `sentry-data-collection.test.ts` pins the opt-outs
+  and that the server's `register()` passes them.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
   `createLazyDialogLoader(() => import(...))` (module level, shared; the
@@ -7252,7 +7261,11 @@ version or the notes by hand.
   `actions/setup-node` step reads through `node-version-file`;
   `package.json` `engines.node` is `>=22`. `.github/dependabot.yml` opens
   weekly `chore(deps)` PRs for npm and GitHub Actions, minor and patch
-  bumps grouped, majors separate.
+  bumps grouped, majors separate. It skips `@types/node` majors (they
+  follow the Node pin), ESLint majors until `eslint-config-next`'s
+  plugins support ESLint 10 (MAINT-12), and TypeScript majors until
+  `typescript-eslint` supports 7 (it accepts `<6.1.0`). `@types/bcryptjs` is gone:
+  `bcryptjs` 3 ships its own types.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →

@@ -205,8 +205,12 @@ then MAINT-7 per feature, to avoid churn.
 - [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
       the migration drift check, Node pinning and Dependabot are done
       (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
-      `knip` in CI. ESLint 9 is flagged unsupported by `npm ci` — bump to
-      ESLint 10 + matching `eslint-config-next` in a separate PR.
+      `knip` in CI. ESLint 10 waits on `eslint-config-next`'s plugins:
+      `eslint-plugin-react` 7.37, `eslint-plugin-import` 2.32 and
+      `eslint-plugin-jsx-a11y` 6.10 (the latest, 2026-10-27) declare
+      `eslint` peers up to `^9`, so 10 only installs by overriding them.
+      When they support 10, bump `eslint` + `eslint-config-next` in a
+      separate PR and drop the `eslint` ignore in `.github/dependabot.yml`.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -234,17 +238,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-- [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
-      `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
-      `ci:local` gate of #696 (`6de6c89`, 2026-10-25), a PR that touches
-      only the budget split dialogs. Not yet re-run on clean `next`. Look at
-      the failing assertion in the gate log's first failure output (re-run
-      with `--repeat-each=30` to get it), find what the click races with and
-      fix it in the app or the spec's waiting, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-planner-bulk.spec.ts:101 --project=mobile --repeat-each=30`
-      passes 30/30.
 
 
 - [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
@@ -479,14 +472,6 @@ field. WebKit was not run.
 
 
 ### Dependencies
-
-- [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
-      Major release (10.73 installed, 11.8 latest). Sentry is wired into
-      the client, server and edge configs plus `instrumentation`; check the
-      v11 migration guide for removed options, then confirm an error still
-      reaches Sentry with no PII added (see the privacy page).
-      Acceptance: `npm run check && npm run build` green; the build emits
-      no new Sentry warnings; REQUIREMENTS.md's monitoring section matches.
 
 ### Budget component unification
 
