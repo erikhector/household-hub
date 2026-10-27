@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.114.0",
+    "date": "2026-10-27",
+    "pr": 786,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The command palette (Ctrl+K or Cmd+K) now finds things in your household too. Type a name to jump straight to an inventory item, recipe, shopping list, task or budget category.",
+      "sv": "Kommandopaletten (Ctrl+K eller Cmd+K) hittar nu även saker i hushållet. Skriv ett namn för att hoppa direkt till en lagervara, ett recept, en inköpslista, en uppgift eller en budgetkategori."
+    }
+  },
+  {
     "version": "0.113.6",
     "date": "2026-10-27",
     "pr": 780,
