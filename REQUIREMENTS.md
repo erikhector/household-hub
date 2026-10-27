@@ -7184,6 +7184,18 @@ version or the notes by hand.
   PR's running workflow, and nothing runs on push, since every commit
   reaching `next` or `master` was already checked on its PR. The
   Playwright browsers and `.next/cache` are cached between runs.
+- **Migration drift and tooling pins** (MAINT-12). A `Migration drift`
+  job in `ci.yml` (same code-changed condition as the fast job, not a
+  required check) starts a Postgres service, runs `prisma validate` and
+  `prisma migrate deploy`, then `prisma migrate diff
+  --from-config-datasource --to-schema prisma/schema.prisma --exit-code`.
+  Any difference between what the migrations build and `schema.prisma`
+  fails it, which catches a schema edit committed without its migration.
+  Node is pinned in one place, `.nvmrc` (`22`), which every
+  `actions/setup-node` step reads through `node-version-file`;
+  `package.json` `engines.node` is `>=22`. `.github/dependabot.yml` opens
+  weekly `chore(deps)` PRs for npm and GitHub Actions, minor and patch
+  bumps grouped, majors separate.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →
