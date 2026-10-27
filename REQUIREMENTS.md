@@ -4270,7 +4270,7 @@ where this feature has none.
   are, exactly like the other two features' review step.
 - **An ordered attempt chain, not a single provider pick**
   (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
-  `resolveAttempts()` builds a chain of up to three attempts — Gemini's
+  `resolveAttempts()` (in `src/lib/ai/provider-chain.ts`, the one chain shared with receipt scan and the category fallback, unit-tested with mocked `fetch`) builds a chain of up to three attempts — Gemini's
   primary model (`GEMINI_MODEL`, default the auto-updating
   `gemini-flash-latest` alias), then Gemini's *fallback* model
   (`GEMINI_FALLBACK_MODEL`, default `gemini-flash-lite-latest` — a
@@ -4281,7 +4281,7 @@ where this feature has none.
   (`generativelanguage.googleapis.com`, no card required) makes this
   feature genuinely free to run at a single-household scale, where
   Anthropic's is metered from the first request — see `.env.example` for
-  all three env vars. `callAttempts` walks the chain in order and moves to
+  all three env vars. `runProviderChain` walks the chain in order and moves to
   the *next* entry only when the current one reports itself busy
   (`provider_busy` — see the retry section just below), trying a different
   Gemini model before ever spending real money falling through to
@@ -4307,7 +4307,7 @@ where this feature has none.
   fetch, not its own internal retry loop — a busy response (Gemini: `503
   UNAVAILABLE`, commonly hit on the free-tier Flash model under load;
   Anthropic: `529 overloaded_error`; either: plain rate limiting, `429`)
-  throws `provider_busy` and lets `callAttempts` move on to the next
+  throws `provider_busy` and lets `runProviderChain` move on to the next
   *different* model/provider rather than retrying the same one — that's
   both faster (no artificial backoff delay for a request that isn't being
   identically repeated) and, per Google's own guidance for the 503 case,
@@ -4315,13 +4315,13 @@ where this feature has none.
   `REQUEST_TIMEOUT_MS` is 50s (a live test measured ~40s for one
   successful Gemini free-tier call, comfortably past a shorter timeout)
   and is shared as one deadline across the *entire chain* — before
-  actually starting the next attempt, `callAttempts` checks
+  actually starting the next attempt, `runProviderChain` checks
   `deadlineAt - Date.now()` against `MIN_ATTEMPT_BUDGET_MS` (15s) and
   returns `provider_busy` immediately if another attempt couldn't
   realistically finish in what's left, rather than starting one doomed to
   be aborted mid-flight. That shared deadline firing itself (an attempt
-  slow enough to eat the whole remaining budget) is caught in
-  `scanShelfPhotoAction` as a plain `AbortError` and mapped to the same
+  slow enough to eat the whole remaining budget) is caught by `runProviderChain` (not
+  `scanShelfPhotoAction`) as a plain `AbortError` and mapped to the same
   `provider_busy` message, not the generic failure — the raw
   `{name: "AbortError", message: "This operation was aborted"}` this
   produces if left unmapped is exactly what surfaced in testing before

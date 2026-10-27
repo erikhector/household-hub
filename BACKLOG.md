@@ -182,14 +182,6 @@ then MAINT-7 per feature, to avoid churn.
       namespace, as `template-actions.ts` does), and delete the file from
       `PENDING`: the test fails if a clean file stays listed. Leave budget
       until BUDGET-6 is decided.
-- [ ] **MAINT-8. One tested AI provider chain** (medium, M) —
-      `resolveAttempts`/`callGemini`/`callAnthropic`/deadline-fallback loop
-      is copy-pasted in `lib/actions/inventory-scan.ts:247-480`,
-      `lib/actions/receipt-scan.ts:164-390` and
-      `lib/inventory/ai-category-fallback.ts:107-228`, and none of it has
-      tests. Extract `src/lib/ai/provider-chain.ts`, parameterised by prompt
-      and response schema; unit-test fallback, busy and deadline paths with
-      mocked `fetch`.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
