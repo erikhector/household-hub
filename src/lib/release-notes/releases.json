@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.115.0",
+    "date": "2026-10-27",
+    "pr": 793,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Icon-only buttons now show a small label when you hover over them or tab to them with the keyboard.\n\nSign-in, sign-up, password reset, email verification and profile error messages now show in your language.",
+      "sv": "Knappar med bara en ikon visar nu en liten etikett när du håller muspekaren över dem eller tabbar till dem med tangentbordet.\n\nFelmeddelanden vid inloggning, registrering, återställning av lösenord, verifiering av e-post och i profilen visas nu på ditt språk."
+    }
+  },
+  {
     "version": "0.114.0",
     "date": "2026-10-27",
     "pr": 786,

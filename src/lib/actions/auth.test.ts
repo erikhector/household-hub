@@ -5,6 +5,7 @@
 // next-auth's signIn/signOut, next/headers, next/navigation, email sending)
 // is mocked — no database or real auth session is touched. See
 // REQUIREMENTS.md's "Testing" section.
+import { sv } from "@/lib/i18n/dictionaries/sv";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hashToken } from "@/lib/token-hash";
 import { CURRENT_VERSION } from "@/lib/release-notes";
@@ -51,6 +52,7 @@ const {
   cookieSetMock,
   redirectMock,
   getLocaleMock,
+  getDictionaryMock,
   pushSubscriptionDeleteManyMock,
   txHouseholdCreateMock,
 } = vi.hoisted(() => ({
@@ -97,6 +99,7 @@ const {
     throw new Error(`REDIRECT:${path}`);
   }),
   getLocaleMock: vi.fn(async () => "en"),
+  getDictionaryMock: vi.fn(),
   pushSubscriptionDeleteManyMock: vi.fn(async () => ({ count: 0 })),
 }));
 
@@ -140,7 +143,12 @@ vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 // @/lib/preferences (itself pulling in @/lib/auth + @/lib/prisma) — mock the
 // whole module rather than those transitively, same reasoning as the
 // @/lib/session mock above.
-vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
+// getDictionary is unset by default, so errorText() falls back to English;
+// a test that checks translation resolves it to `sv` for one call.
+vi.mock("@/lib/i18n/get-dictionary", () => ({
+  getLocale: getLocaleMock,
+  getDictionary: getDictionaryMock,
+}));
 vi.mock("next/headers", () => ({
   headers: headersMock,
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
@@ -220,7 +228,14 @@ describe("signupAction validation", () => {
 
   it("rejects an invalid email", async () => {
     const result = await signupAction({}, formData({ ...validSignup, email: "not-an-email" }));
-    expect(result.error).toBe("Enter a valid email");
+    expect(result.error).toBe("Enter a valid email address");
+  });
+
+  it("returns the validation error in the request's language", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const result = await signupAction({}, formData({ ...validSignup, email: "not-an-email" }));
+    expect(result.error).toBe(sv.errors.emailInvalid);
+    expect(result.field).toBe("email");
   });
 
   it("rejects a password shorter than 8 characters", async () => {
@@ -462,7 +477,7 @@ describe("requestPasswordResetAction validation", () => {
   it("rejects an invalid email", async () => {
     const result = await requestPasswordResetAction({}, formData({ email: "not-an-email" }));
 
-    expect(result.error).toBe("Enter a valid email");
+    expect(result.error).toBe("Enter a valid email address");
     expect(findUniqueMock).not.toHaveBeenCalled();
   });
 });

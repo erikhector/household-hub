@@ -12,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { auth, signIn, signOut, EmailNotVerifiedSignin, RateLimitedSignin } from "@/lib/auth";
 import { redeemEmailVerificationToken } from "@/lib/email-verification";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { errorText, fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 import { getLocale } from "@/lib/i18n/get-dictionary";
@@ -54,27 +54,27 @@ const SIGNUP_FIELDS = ["displayName", "householdName", "email", "password", "con
 
 const signupSchema = z
   .object({
-    displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+    displayName: z.string().trim().min(1, v("nameRequired")).max(60, v("displayNameTooLong")),
     householdName: z
       .string()
       .trim()
-      .min(1, "Household name is required")
-      .max(60, "Household name is too long"),
-    email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+      .min(1, v("householdNameRequired"))
+      .max(60, v("householdNameTooLong")),
+    email: z.string().trim().toLowerCase().email(v("emailInvalid")).max(254, v("emailTooLong")),
     password: z
       .string()
-      .min(8, "Password must be at least 8 characters")
-      .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
+      .min(8, v("passwordTooShort"))
+      .max(PASSWORD_MAX_LENGTH, v("passwordTooLong")),
+    confirmPassword: z.string().min(1, v("confirmPasswordRequired")),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
+    message: v("passwordsMismatch"),
     path: ["confirmPassword"],
   });
 
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().max(254, "Enter a valid email"),
-  password: z.string().max(PASSWORD_MAX_LENGTH, "Invalid email or password"),
+  email: z.string().trim().toLowerCase().max(254, v("invalidEmailOrPassword")),
+  password: z.string().max(PASSWORD_MAX_LENGTH, v("invalidEmailOrPassword")),
 });
 
 // The login throttle itself (LOGIN_RATE_LIMIT) lives in src/lib/auth.ts's
@@ -148,15 +148,6 @@ const RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RESEND_VERIFICATION_FOR_LOGIN_RATE_LIMIT = 3;
 const RESEND_VERIFICATION_FOR_LOGIN_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-const GENERIC_RESET_REQUESTED_MESSAGE =
-  "If an account exists for that email, we've sent a password reset link.";
-
-const GENERIC_VERIFICATION_RESENT_MESSAGE =
-  "If that account needs verifying, we've sent a fresh verification link. Check your inbox.";
-
-const UNVERIFIED_LOGIN_MESSAGE =
-  "Please verify your email before signing in. Check your inbox for the link, or resend it below.";
-
 export type SignupState = {
   error?: string;
   // UX-59: which field `error` belongs to, so the form can put it next to
@@ -189,19 +180,18 @@ export async function signupAction(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const field = SIGNUP_FIELDS.find((name) => name === issue?.path[0]);
-    return { error: issue?.message ?? "Invalid input", field };
+    const field = SIGNUP_FIELDS.find((name) => name === parsed.error.issues[0]?.path[0]);
+    return { ...(await zodFail(parsed.error)), field };
   }
   const { displayName, householdName, email, password } = parsed.data;
 
   if (!(await checkRateLimit(`signup:${email}`, SIGNUP_RATE_LIMIT, SIGNUP_RATE_LIMIT_WINDOW_MS))) {
-    return { error: "Too many attempts. Please wait a while and try again." };
+    return await fail("tooManyAttempts");
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: "An account with that email already exists", field: "email", code: "email-taken" };
+    return { ...(await fail("emailTaken")), field: "email", code: "email-taken" };
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -308,7 +298,7 @@ export async function loginAction(
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return { error: "Invalid email or password" };
+    return await fail("invalidEmailOrPassword");
   }
 
   const redirectTo = sanitizeNextPath(formData.get("next"));
@@ -324,13 +314,13 @@ export async function loginAction(
     // and EmailNotVerifiedSignin are themselves AuthError subclasses (see
     // src/lib/auth.ts), so the order matters here.
     if (error instanceof RateLimitedSignin) {
-      return { error: "Too many attempts. Please wait a few minutes and try again." };
+      return await fail("tooManyAttemptsMinutes");
     }
     if (error instanceof EmailNotVerifiedSignin) {
-      return { error: UNVERIFIED_LOGIN_MESSAGE, unverifiedEmail: parsed.data.email };
+      return { ...(await fail("unverifiedLogin")), unverifiedEmail: parsed.data.email };
     }
     if (error instanceof AuthError) {
-      return { error: "Invalid email or password" };
+      return await fail("invalidEmailOrPassword");
     }
     throw error;
   }
@@ -357,7 +347,7 @@ export async function logoutAction(endpoint?: string) {
 export type RequestPasswordResetState = { error?: string; message?: string };
 
 const requestPasswordResetSchema = z.object({
-  email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+  email: z.string().trim().toLowerCase().email(v("emailInvalid")).max(254, v("emailTooLong")),
 });
 
 /**
@@ -375,7 +365,7 @@ export async function requestPasswordResetAction(
 ): Promise<RequestPasswordResetState> {
   const parsed = requestPasswordResetSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   const { email } = parsed.data;
 
@@ -386,7 +376,7 @@ export async function requestPasswordResetAction(
       REQUEST_RESET_RATE_LIMIT_WINDOW_MS,
     ))
   ) {
-    return { error: "Too many attempts. Please wait a while and try again." };
+    return await fail("tooManyAttempts");
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -420,20 +410,20 @@ export async function requestPasswordResetAction(
     }
   }
 
-  return { message: GENERIC_RESET_REQUESTED_MESSAGE };
+  return { message: await errorText("resetRequested") };
 }
 
 const resetPasswordSchema = z
   .object({
-    token: z.string().min(1, "Invalid or expired reset link"),
+    token: z.string().min(1, v("resetLinkInvalid")),
     newPassword: z
       .string()
-      .min(8, "Password must be at least 8 characters")
-      .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
-    confirmPassword: z.string().min(1, "Please confirm your new password"),
+      .min(8, v("passwordTooShort"))
+      .max(PASSWORD_MAX_LENGTH, v("passwordTooLong")),
+    confirmPassword: z.string().min(1, v("confirmNewPasswordRequired")),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords do not match",
+    message: v("passwordsMismatch"),
     path: ["confirmPassword"],
   });
 
@@ -447,7 +437,7 @@ export async function resetPasswordAction(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   const { token, newPassword } = parsed.data;
 
@@ -458,14 +448,14 @@ export async function resetPasswordAction(
       RESET_PASSWORD_RATE_LIMIT_WINDOW_MS,
     ))
   ) {
-    return { error: "Too many attempts. Please wait a few minutes and try again." };
+    return await fail("tooManyAttemptsMinutes");
   }
 
   const resetToken = await prisma.passwordResetToken.findUnique({
     where: { token: hashToken(token) },
   });
   if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
-    return { error: "This password reset link is invalid or has expired. Request a new one." };
+    return await fail("resetLinkExpired");
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
@@ -504,7 +494,7 @@ export async function resetPasswordAction(
       return true;
     });
     if (!redeemed) {
-      return { error: "This password reset link is invalid or has expired. Request a new one." };
+      return await fail("resetLinkExpired");
     }
   } catch (error) {
     return toFriendlyError(error);
@@ -530,11 +520,8 @@ export type VerifyEmailState = {
 };
 
 const verifyEmailSchema = z.object({
-  token: z.string().min(1, "This verification link is invalid or has expired. Request a new one."),
+  token: z.string().min(1, v("verificationLinkInvalid")),
 });
-
-const INVALID_VERIFICATION_LINK_MESSAGE =
-  "This verification link is invalid or has expired. Request a new one.";
 
 /**
  * Idempotent on purpose: a user might click an old verification link twice,
@@ -550,7 +537,7 @@ export async function verifyEmailAction(
 ): Promise<VerifyEmailState> {
   const parsed = verifyEmailSchema.safeParse({ token: formData.get("token") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input", code: "invalid" };
+    return { ...(await zodFail(parsed.error)), code: "invalid" };
   }
   const { token } = parsed.data;
 
@@ -562,7 +549,7 @@ export async function verifyEmailAction(
     ))
   ) {
     return {
-      error: "Too many attempts. Please wait a few minutes and try again.",
+      ...(await fail("tooManyAttemptsMinutes")),
       code: "rateLimited",
     };
   }
@@ -572,7 +559,7 @@ export async function verifyEmailAction(
     include: { user: true },
   });
   if (!verificationToken) {
-    return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
+    return { ...(await fail("verificationLinkInvalid")), code: "invalid" };
   }
 
   if (verificationToken.user.emailVerifiedAt) {
@@ -580,7 +567,7 @@ export async function verifyEmailAction(
   }
 
   if (verificationToken.usedAt || verificationToken.expiresAt < new Date()) {
-    return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
+    return { ...(await fail("verificationLinkInvalid")), code: "invalid" };
   }
 
   // UX-135: a visitor with no session who follows the mailed link is signed
@@ -599,12 +586,12 @@ export async function verifyEmailAction(
       // signIn throws on success has to keep propagating (AGENTS.md).
       if (error instanceof RateLimitedSignin) {
         return {
-          error: "Too many attempts. Please wait a few minutes and try again.",
+          ...(await fail("tooManyAttemptsMinutes")),
           code: "rateLimited",
         };
       }
       if (error instanceof AuthError) {
-        return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
+        return { ...(await fail("verificationLinkInvalid")), code: "invalid" };
       }
       throw error;
     }
@@ -614,7 +601,7 @@ export async function verifyEmailAction(
     const redeemed = await prisma.$transaction((tx) =>
       redeemEmailVerificationToken(tx, verificationToken),
     );
-    if (!redeemed) return { error: INVALID_VERIFICATION_LINK_MESSAGE, code: "invalid" };
+    if (!redeemed) return { ...(await fail("verificationLinkInvalid")), code: "invalid" };
   } catch (error) {
     return { ...(await toFriendlyError(error)), code: "generic" };
   }
@@ -649,7 +636,7 @@ export async function resendVerificationEmailAction(
       RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS,
     ))
   ) {
-    return { error: "Too many attempts. Please wait a while and try again." };
+    return await fail("tooManyAttempts");
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -657,7 +644,7 @@ export async function resendVerificationEmailAction(
   // just confirmed a live session, and the banner that triggers this action
   // only renders when emailVerifiedAt is already known to be null.
   if (!user) {
-    return { error: "Something went wrong. Please try again." };
+    return await fail("generic");
   }
   if (user.emailVerifiedAt) {
     return { sent: true };
@@ -679,7 +666,7 @@ export async function resendVerificationEmailAction(
     const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
     const { error } = await sendVerificationEmail({ to: user.email, verifyUrl, locale: user.locale });
     if (error) {
-      return { error: "Couldn't send the verification email. Please try again later." };
+      return await fail("verificationEmailFailed");
     }
   } catch (error) {
     return toFriendlyError(error);
@@ -691,7 +678,7 @@ export async function resendVerificationEmailAction(
 export type ResendVerificationForLoginState = { error?: string; message?: string };
 
 const resendVerificationForLoginSchema = z.object({
-  email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+  email: z.string().trim().toLowerCase().email(v("emailInvalid")).max(254, v("emailTooLong")),
 });
 
 /**
@@ -710,7 +697,7 @@ export async function resendVerificationEmailForLoginAction(
 ): Promise<ResendVerificationForLoginState> {
   const parsed = resendVerificationForLoginSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   const { email } = parsed.data;
 
@@ -721,7 +708,7 @@ export async function resendVerificationEmailForLoginAction(
       RESEND_VERIFICATION_FOR_LOGIN_RATE_LIMIT_WINDOW_MS,
     ))
   ) {
-    return { error: "Too many attempts. Please wait a while and try again." };
+    return await fail("tooManyAttempts");
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -755,5 +742,5 @@ export async function resendVerificationEmailForLoginAction(
     }
   }
 
-  return { message: GENERIC_VERIFICATION_RESENT_MESSAGE };
+  return { message: await errorText("verificationResent") };
 }

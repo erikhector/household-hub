@@ -170,6 +170,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   settings, including the "can't delete your only household" reason the
   delete dialog shows. `passwordTooLong` spells out the 72-character limit
   because a Zod message can't carry variables.
+  It has also converted the auth actions (`lib/actions/auth.ts`: signup,
+  login, password reset, email verification and its resend, including the
+  "if an account exists" confirmations, which stay identical whether or not
+  the account exists) and the profile actions
+  (`dashboard/profile/actions.ts`: name, email, password, delete account).
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
@@ -6751,6 +6756,12 @@ components directly.
   (`components/ui/tooltip.tsx`, Base UI) instead of a `title`, which touch
   never shows; the footer's What's new and notification bell are marked
   active on their own pages like the section links.
+  **Icon-only buttons everywhere (UX-41d)**: `Button` (`components/ui/button.tsx`)
+  wraps itself in that Tooltip whenever its size is `icon*` and it has a
+  string `aria-label`, showing the same text, so the hint and the accessible
+  name come from one prop and cannot drift. `tooltip={false}` opts out. The
+  popup opens on hover and keyboard focus only (Base UI ignores touch), so phones are unchanged. Covered
+  by `e2e/icon-button-tooltips.desktop.spec.ts`.
 - **In between (640 px wide and up, but a tablet or a phone in landscape;
   UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
   863×393 too. The content column next to the sidebar is `min-w-0`, so a
@@ -8108,7 +8119,7 @@ approximating them, so the email never disagrees with the app.
   under that field and takes focus. A taken email also offers Log in
   (prefilled with the email) and Forgot password links. A wrong login
   password is shown under the password field, which takes focus; the email
-  is kept. Server messages stay English (MAINT-7). Covered by
+  is kept. Server messages come back in the request's language (UX-16, MAINT-7). Covered by
   `e2e/auth-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically

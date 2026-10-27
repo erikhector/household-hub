@@ -186,12 +186,13 @@ then MAINT-7 per feature, to avoid churn.
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
       REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks, the shared list link and household
-      (`lib/actions/household.ts`, done). Still English: the string-literal
+      inventory, meal planning, tasks, the shared list link, household
+      (`lib/actions/household.ts`), auth (`lib/actions/auth.ts`) and
+      profile, all done. Still English: the string-literal
       `error:` values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19, auth 14, barcode, receipt and inventory scans, profile, push,
-      digest, household notes),
+      19, barcode, receipt and inventory scans, push, digest, household
+      notes),
       plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
       `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
       feature at a time, add its keys to `dict.errors` (or a feature
@@ -237,18 +238,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-- [ ] **MAINT-60. Flaky: `meal-prep` shows "2 of 4 portions left" where the spec expects "3 of 4"** (low, S) —
-      `e2e/meal-prep.spec.ts:145` (`desktop`) failed once in the `ci:local`
-      gate of #697 (`afb0cbe`, 2026-10-25): expected "3 of 4 portions
-      left", got "2 of 4". Only `e2e/item-aliases.spec.ts` changed in that
-      PR, so nobody's change is in it. Not yet re-run on clean `next`.
-      Find out whether a portion is taken twice (a double tap or a repeated
-      action), or a row another spec in the same worker leaves behind, and
-      fix it in the app or the spec's setup, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/meal-prep.spec.ts:145 --project=desktop --repeat-each=30`
-      passes 30/30.
 
 - [ ] **MAINT-61. Flaky: `meal-planner-bulk` leaves a dialog or selection open under load** (low, S) —
       `e2e/meal-planner-bulk.spec.ts:101` (`mobile`) failed once in the
@@ -459,6 +448,26 @@ Friday area: household and personal budgets. Swept `desktop`, `mobile`,
 sweeps; every route passes and the popup probe has no phone-size or
 off-screen hits in the budget dialogs. WebKit was not run.
 
+### UX (2026-10-25 scout)
+
+Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
+hits. Signup error paths at 320 px keep input and put errors beside the
+field. WebKit was not run.
+
+- [ ] **UX-148. Cookie notice's "Läs mer" link stretches its line**
+      (impact: low, effort: S) — `src/components/legal/cookie-notice.tsx:103`
+      puts a `touch-target` (inline-flex, min-h-11) link inside the
+      paragraph, so the line holding it grows to 44 px and the two text
+      lines sit far apart (`small-phone` `/signup` sv, bottom notice). Looks
+      like a rendering glitch on the first screen every visitor sees. Move the
+      44 px target to the notice's own row (or pad the link with a negative
+      margin instead of `min-h`) so the paragraph keeps `leading-snug`.
+      Acceptance: in the `mobile` project the notice's paragraph height is
+      under 3 × its line-height, and "Läs mer" and "Uppfattat" both have
+      ≥ 44 px tap targets.
+
 
 ### Dependencies
 
@@ -546,13 +555,6 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       focus search, `j`/`k` move, `x` tick. Ignored while typing in a
       field or with a dialog open. A `?` overlay lists them. Desktop only
       (hidden on touch). e2e spec on the desktop project.
-
-- [ ] **UX-41d. Tooltips on icon-only buttons** (S) — Split from UX-41.
-      A Base UI Tooltip (via a shared `IconButton` or a wrapper in
-      `src/components/ui/`) on every icon-only button, using its existing
-      aria-label text so the two cannot drift. Desktop hover/focus only;
-      mobile unchanged. e2e: hover a known icon button, assert the
-      tooltip.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
@@ -976,6 +978,31 @@ out to be a product-scope question rather than a scoped task should move to
       adds a uniquely named line as one seeded member and sees "Added by"
       with their name as another, in `en` and `sv`, and no label on a
       line the viewer added.
+
+### 2026-10-27 scan
+
+- [ ] **GAP-66. Per-item stock history ("who changed the amount, and when")** (impact: low-med, effort: M) `[schema]` —
+      Grocy's "Stock journal" lists every change to a product (consumed,
+      purchased, spoiled, adjusted) with who made it, and Bring! shows who
+      did what on a shared list. Squirrel's item page shows the current
+      quantity and a few derived dates, but nothing explains why the
+      amount is what it is, so "who used the last of the rice?" or "why
+      does it say 0?" has no answer in a shared household. Add an
+      append-only `InventoryItemEvent` (itemId, householdId, nullable
+      plain-string `userId` with no `@relation` so a leaving member takes
+      no history with them, `delta`, `reason`: `used | restocked |
+      adjusted | cooked | trip`, `createdAt`), written by the existing
+      quantity actions (+/-, quantity sheet, mark cooked, finish trip)
+      and capped to the last 50 per item. Show it as a collapsed "History"
+      list at the bottom of the item page (`/dashboard/inventory/items/[id]`),
+      newest first, "Anna used 1 · 2 days ago". Scope: no chart, no
+      household-wide feed, no backfill, no notification.
+      Acceptance: unit tests that each quantity action writes one event
+      with the session user's id (never one from the client), scoped by
+      `requireHousehold()`, and that the 51st event drops the oldest; an
+      e2e step on `mobile` decrements a uniquely named item and sees
+      "used 1" with the actor's name under History after a reload, in
+      `en` and `sv`.
 
 ## Needs a decision before building
 
