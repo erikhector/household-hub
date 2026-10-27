@@ -979,7 +979,7 @@ out to be a product-scope question rather than a scoped task should move to
       adjusted | cooked | trip`, `createdAt`), written by the existing
       quantity actions (+/-, quantity sheet, mark cooked, finish trip)
       and capped to the last 50 per item. Show it as a collapsed "History"
-      list at the bottom of the item page (`/dashboard/inventory/[id]`),
+      list at the bottom of the item page (`/dashboard/inventory/items/[id]`),
       newest first, "Anna used 1 · 2 days ago". Scope: no chart, no
       household-wide feed, no backfill, no notification.
       Acceptance: unit tests that each quantity action writes one event
