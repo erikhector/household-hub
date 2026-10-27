@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -11,10 +12,9 @@ import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { getRecentPrices } from "@/lib/inventory/recent-prices";
 import { ItemRecentPrices } from "@/components/inventory/item-page/item-recent-prices";
 import { ItemUnitsAndUsage } from "@/components/inventory/item-page/item-units-and-usage";
-import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-dialog";
+import { LazyChangeUnit, LazyMergeInto } from "@/components/inventory/item-page/lazy-item-dialogs";
 import { ItemPageControls } from "@/components/inventory/item-page/item-page-controls";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
-import { MergeIntoDialog } from "@/components/inventory/catalog/merge-into-dialog";
 import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page-origin";
 import { PageTitle } from "@/components/dashboard/page-title";
 
@@ -141,6 +141,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
     : format(fullDict.inventory.lastUpdatedNoUser, { date: updatedDate });
 
   return (
+    <LazyDialogErrorMessage message={fullDict.errors.generic}>
     <div className="flex max-w-3xl min-w-0 flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Link
@@ -170,7 +171,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           <span className="text-sm text-muted-foreground">
             {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${unitLabel(item.unit, fullDict.units)}` })}
           </span>
-          <ChangeUnitDialog
+          <LazyChangeUnit
             item={{
               id: item.id,
               unit: item.unit,
@@ -235,7 +236,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
 
       <ItemAliasList aliases={item.aliases} dict={dict} />
 
-      <MergeIntoDialog
+      <LazyMergeInto
         item={{ id: item.id, name: item.name }}
         origin={origin}
         targets={otherItems.map((other) => ({ id: other.id, label: other.name }))}
@@ -243,5 +244,6 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
         locale={locale}
       />
     </div>
+    </LazyDialogErrorMessage>
   );
 }

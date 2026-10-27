@@ -113,8 +113,17 @@ easy for AI coding agents to work in correctly:
   tab's server-rendered rows). `e2e/meal-planning-lazy-dialogs.spec.ts`
   covers the first tap without the idle prefetch and the failed-load toast
   and retry (with the service worker blocked, since `page.route()` can't
-  see requests it handles). The shopping list (PERF-25), inventory and the
-  budget pages are still to do.
+  see requests it handles). The inventory page group is lazy too
+  (`src/components/inventory/lazy-dialogs.ts`): the header's stock scan,
+  bulk paste, bulk scan, AI shelf scan and Add item, a row's Edit form
+  and the empty state's Add item (`ItemFormDialog`), and the item page's
+  Change unit and Merge into (`LazyChangeUnit` and `LazyMergeInto` in
+  `item-page/lazy-item-dialogs.tsx`, since the page is a Server
+  Component). Those dialogs take a `handle` instead of a `trigger`, and
+  the phone's ⋯ menu and floating Add item open the same single instance
+  the desktop buttons do. `e2e/inventory-lazy-dialogs.spec.ts` covers the
+  first tap and the failed-load retry. The shopping list (PERF-25) and the
+  budget pages (PERF-30) are still to do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`

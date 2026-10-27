@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { MergePreviewBody } from "@/components/inventory/catalog/merge-preview";
@@ -31,12 +31,16 @@ export function MergeIntoDialog({
   targets,
   dict,
   locale,
+  handle,
 }: {
   item: { id: string; name: string };
   origin: ItemPageOrigin;
   targets: { id: string; label: string }[];
   dict: Dictionary["inventory"]["catalog"];
   locale: Locale;
+  // Opened by the item page's "Merge into…" button (LazyMergeInto), which stays
+  // in the page's own chunk so this dialog loads on first use (PERF-26).
+  handle: DialogHandle;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -49,14 +53,7 @@ export function MergeIntoDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button type="button" variant="outline" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-8 max-sm:min-h-11 pointer-coarse:min-h-11 w-fit py-1 whitespace-normal">
-            {dict.mergeInto}
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{format(dict.mergeIntoTitle, { name: item.name })}</DialogTitle>
