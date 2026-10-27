@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory, waitForUndoableDelete } from "./ui";
+import { collectErrors, dismissCookieNotice, expectHydrated, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory, waitForUndoableDelete } from "./ui";
 
 // GAP-49 meal prep, end to end: record a batch on the Prep tab, spread its
 // portions over the planner, give one back, eat one, discard the rest; and
@@ -335,7 +335,9 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
 
     // Add a meal on the planner from the batch.
     await page.goto(`/dashboard/meal-planning?week=${key(week)}`);
-    await page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true }).click();
+    const firstDinner = page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true });
+    await expectHydrated(firstDinner);
+    await firstDinner.click();
     const add = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
     await add.getByRole("combobox", { name: "Recipe" }).click();
     await page.getByRole("option", { name: "From meal prep" }).click();
