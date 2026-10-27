@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets, openRowSheet, waitForUndoableDelete } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTouchTargets, openRowSheet, waitForUndoableDelete } from "./ui";
 
 // The planner's meals and the Recipes tab's recipes are one tappable row
 // each, opening a sheet of labelled actions with delete set apart (DESIGN.md
@@ -274,7 +274,9 @@ test("the add-meal sheet names the day, filters recipes as you type and lists fa
       await client.query(`UPDATE "MealPlanEntry" SET "consumedAt" = now() WHERE "recipeId" = $1`, [ids[2]]);
     });
     await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
-    await page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true }).click();
+    const firstDinner = page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true });
+    await expectHydrated(firstDinner);
+    await firstDinner.click();
     // "Add dinner · Wed 12": the slot and the day, not just "Add a meal".
     const dialog = page.getByRole("dialog", { name: /^Add dinner · \w+ \d+$/ });
     await expect(dialog).toBeVisible();

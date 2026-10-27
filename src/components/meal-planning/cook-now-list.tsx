@@ -3,7 +3,7 @@ import { ChefHat, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 import { Badge } from "@/components/ui/badge";
-import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
+import { LazyAddToPlan } from "@/components/meal-planning/lazy-add-to-plan";
 import { format, plural } from "@/lib/i18n/format";
 import type { CookableRecipeData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -91,7 +91,7 @@ export function CookNowList({
                     </p>
                   )}
                 </div>
-                <AddToPlanDialog
+                <LazyAddToPlan
                   dict={dict}
                   recipeId={fullRecipe.id}
                   recipeName={fullRecipe.name}
