@@ -75,6 +75,15 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Sentry sends error details only.** `@sentry/nextjs` 11 collects user
+  info, cookies, headers, bodies, query strings and stack-frame local
+  variables unless each is opted out, so both `Sentry.init()` calls pass
+  `SENTRY_DATA_COLLECTION` (`src/lib/sentry-data-collection.ts`): Sentry's
+  documented equivalent of v10's `sendDefaultPii: false`, plus local
+  variables, database query data and the AI/MCP categories off. That keeps
+  what the privacy page describes (message, stack trace, page address,
+  browser and device). `sentry-data-collection.test.ts` pins the opt-outs
+  and that the server's `register()` passes them.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
   `createLazyDialogLoader(() => import(...))` (module level, shared; the
