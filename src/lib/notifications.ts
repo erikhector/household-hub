@@ -832,6 +832,60 @@ export async function syncTonightsDinnerNudge(householdId: string, now: Date = n
   );
 }
 
+// PERF-13: the households `/api/cron/sync-notifications` needs to run the
+// four syncs above for, so the cron's cost follows how much work exists, not
+// how many households are registered. One `household.findMany` per trigger,
+// each with the same predicate as the sync's own candidate query (kept side
+// by side so they can't drift), run in parallel and unioned. A match only
+// means "might have work": the syncs still do their own dedupe (an
+// already-alerted item, a reminder not yet due), so a false positive costs a
+// no-op sync, while a false negative would silently drop a notification.
+// Hence the predicates are never narrower than the syncs' own.
+export async function findHouseholdIdsWithSyncCandidates(now: Date = new Date()): Promise<string[]> {
+  const today = new Date(toDateKey(now));
+  const expiryThreshold = new Date(now.getTime() + EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000);
+  const putAwaySince = new Date(now.getTime() - INCOMING_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
+
+  const [mealNotLogged, expiringSoon, putAway, tonightsDinner] = await Promise.all([
+    prisma.household.findMany({
+      where: {
+        mealPlans: { some: { entries: { some: { date: { lt: today }, consumedAt: null, notification: null } } } },
+      },
+      select: { id: true },
+    }),
+    prisma.household.findMany({
+      where: { inventoryItems: { some: { quantity: { gt: 0 }, expiresAt: { lte: expiryThreshold } } } },
+      select: { id: true },
+    }),
+    prisma.household.findMany({
+      where: {
+        shoppingLists: {
+          some: {
+            status: { in: ["ACTIVE", "COMPLETED"] },
+            items: {
+              some: {
+                purchased: true,
+                putAwayAt: null,
+                OR: [{ checkedOffAt: { gte: putAwaySince } }, { checkedOffAt: null, priceRecordedAt: { gte: putAwaySince } }],
+              },
+            },
+          },
+        },
+      },
+      select: { id: true },
+    }),
+    prisma.household.findMany({
+      where: {
+        members: { some: { user: { tonightsDinnerNudge: true } } },
+        mealPlans: { some: { entries: { some: { date: today, consumedAt: null } } } },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  return [...new Set([...mealNotLogged, ...expiringSoon, ...putAway, ...tonightsDinner].map((household) => household.id))];
+}
+
 // The bell's data source (src/app/dashboard/layout.tsx) — a pure read, no
 // writes or push sends. The MEAL_NOT_LOGGED/EXPIRING_SOON background syncs
 // that used to run inline here on every call now run only from

@@ -29,6 +29,7 @@ const {
   shoppingListItemFindManyMock,
   priceHistoryFindManyMock,
   userFindManyMock,
+  householdFindManyMock,
   sendPushToHouseholdMock,
   sendPushToHouseholdMembersMock,
 } = vi.hoisted(() => ({
@@ -45,6 +46,7 @@ const {
   shoppingListItemFindManyMock: vi.fn(),
   priceHistoryFindManyMock: vi.fn(),
   userFindManyMock: vi.fn(),
+  householdFindManyMock: vi.fn(),
   sendPushToHouseholdMock: vi.fn(),
   sendPushToHouseholdMembersMock: vi.fn(),
 }));
@@ -67,6 +69,7 @@ vi.mock("@/lib/prisma", () => ({
     shoppingListItem: { findMany: shoppingListItemFindManyMock },
     priceHistory: { findMany: priceHistoryFindManyMock },
     user: { findMany: userFindManyMock },
+    household: { findMany: householdFindManyMock },
   },
 }));
 
@@ -119,6 +122,7 @@ const {
   syncExpiringSoonNotifications,
   syncPutAwayReminders,
   syncTonightsDinnerNudge,
+  findHouseholdIdsWithSyncCandidates,
   getActiveNotifications,
 } = await import("@/lib/notifications");
 const { prisma } = await import("@/lib/prisma");
@@ -1144,5 +1148,46 @@ describe("getActiveNotifications (tonight's dinner)", () => {
     expect(await getActiveNotifications("household-1")).toEqual([
       { id: "n1", kind: "tonightsDinner", weekStartKey: "2026-08-31", names: ["Lasagna", "Salad"] },
     ]);
+  });
+});
+
+describe("findHouseholdIdsWithSyncCandidates", () => {
+  it("runs one household query per trigger and returns the union without duplicates", async () => {
+    householdFindManyMock
+      .mockResolvedValueOnce([{ id: "h1" }, { id: "h2" }])
+      .mockResolvedValueOnce([{ id: "h2" }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "h3" }, { id: "h1" }]);
+
+    const ids = await findHouseholdIdsWithSyncCandidates(new Date("2026-03-10T06:00:00Z"));
+
+    expect(householdFindManyMock).toHaveBeenCalledTimes(4);
+    expect([...ids].sort()).toEqual(["h1", "h2", "h3"]);
+  });
+
+  it("returns nothing when no household has work", async () => {
+    householdFindManyMock.mockResolvedValue([]);
+
+    expect(await findHouseholdIdsWithSyncCandidates()).toEqual([]);
+  });
+
+  it("filters each trigger with the same predicate as its sync", async () => {
+    householdFindManyMock.mockResolvedValue([]);
+    const now = new Date("2026-03-10T06:00:00Z");
+
+    await findHouseholdIdsWithSyncCandidates(now);
+
+    const wheres = householdFindManyMock.mock.calls.map((call) => call[0].where);
+    expect(wheres[0].mealPlans.some.entries.some).toEqual({
+      date: { lt: new Date("2026-03-10") },
+      consumedAt: null,
+      notification: null,
+    });
+    expect(wheres[1].inventoryItems.some.quantity).toEqual({ gt: 0 });
+    expect(wheres[1].inventoryItems.some.expiresAt.lte.getTime()).toBeGreaterThan(now.getTime());
+    expect(wheres[2].shoppingLists.some.status).toEqual({ in: ["ACTIVE", "COMPLETED"] });
+    expect(wheres[2].shoppingLists.some.items.some).toMatchObject({ purchased: true, putAwayAt: null });
+    expect(wheres[3].members.some.user).toEqual({ tonightsDinnerNudge: true });
+    expect(wheres[3].mealPlans.some.entries.some).toEqual({ date: new Date("2026-03-10"), consumedAt: null });
   });
 });

@@ -7337,9 +7337,14 @@ Exactly seven triggers exist — nothing else creates a notification:
     — meaning opening the bell could trigger an unbounded number of
     `Notification` writes and push sends on what should've been a pure
     read. They now run only from `GET /api/cron/sync-notifications`
-    (`src/app/api/cron/sync-notifications/route.ts`), which iterates every
-    household (`prisma.household.findMany`) and calls both sync functions
-    for each; something external must hit this route on a schedule (see
+    (`src/app/api/cron/sync-notifications/route.ts`), which runs the syncs
+    only for households with something to act on
+    (`findHouseholdIdsWithSyncCandidates` in `src/lib/notifications.ts`: one
+    `household.findMany` per trigger, with the same predicate as that
+    trigger's sync, unioned), so a run's cost follows the work, not the
+    number of households. The route exports `maxDuration = 60` and logs
+    `durationMs` and the household counts on every authorised run (PERF-13);
+    something external must hit this route on a schedule (see
     DEPLOYMENT.md's "Scheduled jobs" section for the Vercel/Railway/Render
     setup). It's protected by a `CRON_SECRET`-checked bearer token, since
     unlike `/api/health` it both writes data and sends push notifications;
