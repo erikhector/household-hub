@@ -30,15 +30,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PeriodSwitcher } from "@/components/period-switcher";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
-import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
-import { FillEmptyDaysDialog } from "@/components/meal-planning/fill-empty-days-dialog";
+import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
+import {
+  loadAddToPlanDialog,
+  loadCookModeDialog,
+  loadFillEmptyDaysDialog,
+  loadMarkCookedDialog,
+  loadMealEntryDialog,
+  loadMissingIngredientsDialog,
+  loadMoveMealDialog,
+} from "@/components/meal-planning/lazy-dialogs";
 import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
-import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
-import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
-import { MarkCookedDialog, type PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
-import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
+import type { PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
 import { MealPlanSearch } from "@/components/meal-planning/meal-plan-search";
-import { MoveMealDialog } from "@/components/meal-planning/move-meal-dialog";
 import { BulkMealBar } from "@/components/meal-planning/bulk-meal-bar";
 import { bulkEditMealEntriesAction } from "@/app/dashboard/meal-planning/bulk-meal-actions";
 import {
@@ -353,24 +357,34 @@ export function WeekPlanner({
       {/* GAP-59: below the sticky week bar, not in it, so the bar stays one
           row on a phone. */}
       <MealPlanSearch dict={dict} locale={locale} />
-      {fillOpen && (
-        <FillEmptyDaysDialog
-          dict={dict}
-          weekStartKey={weekStartKey}
-          emptyDays={emptyDays}
-          recipes={recipes}
-          plannedRecipeIds={plannedRecipeIds}
-          onClose={() => setFillOpen(false)}
-        />
-      )}
-      {missingOpen && (
-        <MissingIngredientsDialog
-          dict={dict}
-          weekStartKey={weekStartKey}
-          activeShoppingLists={activeShoppingLists}
-          onClose={() => setMissingOpen(false)}
-        />
-      )}
+      {/* PERF-26: both dialogs load on first use. They stay mounted only
+          while open (the proposal and the preview are made fresh each time). */}
+      <LazyDialog loader={loadFillEmptyDaysDialog} open={fillOpen} onLoadError={() => setFillOpen(false)}>
+        {(FillEmptyDays) =>
+          fillOpen && (
+            <FillEmptyDays
+              dict={dict}
+              weekStartKey={weekStartKey}
+              emptyDays={emptyDays}
+              recipes={recipes}
+              plannedRecipeIds={plannedRecipeIds}
+              onClose={() => setFillOpen(false)}
+            />
+          )
+        }
+      </LazyDialog>
+      <LazyDialog loader={loadMissingIngredientsDialog} open={missingOpen} onLoadError={() => setMissingOpen(false)}>
+        {(MissingIngredients) =>
+          missingOpen && (
+            <MissingIngredients
+              dict={dict}
+              weekStartKey={weekStartKey}
+              activeShoppingLists={activeShoppingLists}
+              onClose={() => setMissingOpen(false)}
+            />
+          )
+        }
+      </LazyDialog>
 
       {entries.length === 0 ? (
         // UX-50 / M6: a week with nothing planned is one empty state with
@@ -381,7 +395,7 @@ export function WeekPlanner({
         <MascotEmptyState
           alt={dict.mascotAlt}
           action={
-            <MealEntryDialog
+            <AddMealSlot
               key="first-dinner"
               dict={dict}
               weekStartKey={weekStartKey}
@@ -391,12 +405,7 @@ export function WeekPlanner({
               recipes={recipes}
               recipeCooked={recipeCooked}
               batches={batches}
-              trigger={
-                <Button type="button">
-                  <Plus className="size-4" />
-                  {dict.addFirstDinner}
-                </Button>
-              }
+              firstDinner
             />
           }
         >
@@ -454,7 +463,7 @@ export function WeekPlanner({
                   />
                 ))}
                 {!selectMode && (
-                  <MealEntryDialog
+                  <AddMealSlot
                     key={openSlot}
                     dict={dict}
                     weekStartKey={weekStartKey}
@@ -495,25 +504,29 @@ export function WeekPlanner({
           onChanged={exitSelectMode}
         />
       )}
-      {leftoversPlan && (
-        <AddToPlanDialog
-          key={leftoversPlan.batchId}
-          dict={dict}
-          recipeId={leftoversPlan.recipeId}
-          recipeName={leftoversPlan.recipeName}
-          defaultPortions={leftoversPlan.servings}
-          plannerWeekStartKey={weekStartKey}
-          defaultDate={leftoversPlan.date}
-          hint={dict.planLeftoversHint}
-          preparedBatchId={leftoversPlan.batchId}
-          controlled={{
-            open: true,
-            onOpenChange: (next) => {
-              if (!next) setLeftoversPlan(null);
-            },
-          }}
-        />
-      )}
+      <LazyDialog loader={loadAddToPlanDialog} open={leftoversPlan !== null} onLoadError={() => setLeftoversPlan(null)}>
+        {(AddToPlan) =>
+          leftoversPlan && (
+            <AddToPlan
+              key={leftoversPlan.batchId}
+              dict={dict}
+              recipeId={leftoversPlan.recipeId}
+              recipeName={leftoversPlan.recipeName}
+              defaultPortions={leftoversPlan.servings}
+              plannerWeekStartKey={weekStartKey}
+              defaultDate={leftoversPlan.date}
+              hint={dict.planLeftoversHint}
+              preparedBatchId={leftoversPlan.batchId}
+              controlled={{
+                open: true,
+                onOpenChange: (next) => {
+                  if (!next) setLeftoversPlan(null);
+                },
+              }}
+            />
+          )
+        }
+      </LazyDialog>
     </div>
   );
 }
@@ -580,7 +593,7 @@ function MealEntryRow({
   // closing that dialog lands back on the planner, not on a stale sheet.
   function openFromSheet(handle: DialogHandle) {
     setSheetOpen(false);
-    handle.open(null);
+    openLazyDialog(handle);
   }
 
   // GAP-49: "Don't use prep" gives the slot's portions back to its batch and
@@ -761,31 +774,114 @@ function MealEntryRow({
         </DialogContent>
       </Dialog>
 
+      {/* PERF-26: each row's dialogs load on first use. */}
       {cookRecipe && (
-        <CookModeDialog
-          dict={dict}
-          locale={locale}
-          recipe={cookRecipe}
-          portions={entry.portions}
-          handle={dialogs.cook}
-          onDone={!cooked && entry.recipeId ? () => dialogs.markCooked.open(null) : undefined}
-        />
+        <LazyDialog loader={loadCookModeDialog} handle={dialogs.cook}>
+          {(CookMode) => (
+            <CookMode
+              dict={dict}
+              locale={locale}
+              recipe={cookRecipe}
+              portions={entry.portions}
+              handle={dialogs.cook}
+              onDone={!cooked && entry.recipeId ? () => openLazyDialog(dialogs.markCooked) : undefined}
+            />
+          )}
+        </LazyDialog>
       )}
       {!cooked && entry.recipeId && (
-        <MarkCookedDialog dict={dict} entry={entry} onPlanLeftovers={onPlanLeftovers} handle={dialogs.markCooked} />
+        <LazyDialog loader={loadMarkCookedDialog} handle={dialogs.markCooked}>
+          {(MarkCooked) => (
+            <MarkCooked dict={dict} entry={entry} onPlanLeftovers={onPlanLeftovers} handle={dialogs.markCooked} />
+          )}
+        </LazyDialog>
       )}
       {!cooked && (
         <>
-          <MealEntryDialog dict={dict} recipes={recipes} mode="edit" entry={entry} handle={dialogs.edit} />
-          <MoveMealDialog
-            dict={dict}
-            entry={entry}
-            label={label}
-            plannerWeekStartKey={weekStartKey}
-            handle={dialogs.move}
-          />
+          <LazyDialog loader={loadMealEntryDialog} handle={dialogs.edit}>
+            {(MealEntry) => <MealEntry dict={dict} recipes={recipes} mode="edit" entry={entry} handle={dialogs.edit} />}
+          </LazyDialog>
+          <LazyDialog loader={loadMoveMealDialog} handle={dialogs.move}>
+            {(MoveMeal) => (
+              <MoveMeal
+                dict={dict}
+                entry={entry}
+                label={label}
+                plannerWeekStartKey={weekStartKey}
+                handle={dialogs.move}
+              />
+            )}
+          </LazyDialog>
         </>
       )}
+    </>
+  );
+}
+
+// PERF-26: a day's "+ Add meal" (or an empty week's "Add your first dinner")
+// and the meal form behind it. The button stays in the planner's own chunk;
+// the form loads on first use, warmed on pointer-enter or focus.
+function AddMealSlot({
+  dict,
+  weekStartKey,
+  dateKey,
+  dayLabel,
+  mealType,
+  recipes,
+  recipeCooked,
+  batches,
+  firstDinner = false,
+}: {
+  dict: MealPlanningDict;
+  weekStartKey: string;
+  dateKey: string;
+  dayLabel: string;
+  mealType: MealType;
+  recipes: RecipeData[];
+  recipeCooked: Record<string, RecipeCookedStats>;
+  batches: PreparedBatchData[];
+  /** The empty week's one next step: a primary button, not the day's row. */
+  firstDinner?: boolean;
+}) {
+  const [handle] = useState(() => createDialogHandle());
+  const open = () => openLazyDialog(handle);
+  const intent = preloadOnIntent(loadMealEntryDialog);
+  return (
+    <>
+      {firstDinner ? (
+        <Button type="button" aria-haspopup="dialog" onClick={open} {...intent}>
+          <Plus className="size-4" />
+          {dict.addFirstDinner}
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          aria-label={format(dict.addMealAriaLabel, { day: dayLabel })}
+          aria-haspopup="dialog"
+          className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11"
+          onClick={open}
+          {...intent}
+        >
+          <Plus className="size-3.5" aria-hidden="true" />
+          {dict.addMeal}
+        </Button>
+      )}
+      <LazyDialog loader={loadMealEntryDialog} handle={handle}>
+        {(MealEntry) => (
+          <MealEntry
+            dict={dict}
+            weekStartKey={weekStartKey}
+            dateKey={dateKey}
+            dayLabel={dayLabel}
+            mealType={mealType}
+            recipes={recipes}
+            recipeCooked={recipeCooked}
+            batches={batches}
+            handle={handle}
+          />
+        )}
+      </LazyDialog>
     </>
   );
 }

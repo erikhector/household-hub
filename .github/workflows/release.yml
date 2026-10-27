@@ -50,7 +50,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       # Retries rather than relying on a concurrency group: GitHub keeps only
       # one *pending* run per group and cancels the rest, so three quick

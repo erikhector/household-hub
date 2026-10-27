@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +64,7 @@ export function RecordPrepDialog({
   recipes,
   maxDishes,
   onPlanPortions,
+  handle,
 }: {
   dict: MealPlanningDict;
   recipes: RecipeData[];
@@ -73,6 +74,9 @@ export function RecordPrepDialog({
   maxDishes: number;
   // Opens the Plan portions dialog for a batch this prep just recorded.
   onPlanPortions: (batchId: string) => void;
+  // Opened by the Prep tab's "Record prep" button, which stays in the tab's
+  // own chunk so this dialog can load on first use (PERF-26).
+  handle: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
   const [dishes, setDishes] = useState<DishRow[]>(() => [newDish()]);
@@ -216,15 +220,7 @@ export function RecordPrepDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button type="button">
-            <Plus />
-            {dict.prepRecordButton}
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.prepRecordDialogTitle}</DialogTitle>

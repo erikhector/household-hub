@@ -26,6 +26,7 @@ import type { ItemUnitConversionLike } from "@/lib/units";
 import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
 import { parseMissingIngredientsRange, weekRange } from "@/app/dashboard/meal-planning/missing-ingredients";
 import { PageTitle } from "@/components/dashboard/page-title";
+import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -551,6 +552,8 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   const weekStartKey = toDateKey(weekStart);
 
   return (
+    // PERF-26: what a lazily loaded dialog says when its chunk can't be fetched.
+    <LazyDialogErrorMessage message={dict.errors.generic}>
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>{dict.mealPlanning.title}</PageTitle>
@@ -591,5 +594,6 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         }
       />
     </div>
+    </LazyDialogErrorMessage>
   );
 }

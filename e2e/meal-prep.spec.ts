@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory, waitForUndoableDelete } from "./ui";
+import { collectErrors, dismissCookieNotice, expectHydrated, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory, waitForUndoableDelete } from "./ui";
 
 // GAP-49 meal prep, end to end: record a batch on the Prep tab, spread its
 // portions over the planner, give one back, eat one, discard the rest; and
@@ -117,7 +117,10 @@ async function planFreeformDinner(day: Date, name: string) {
 // Records one dish of `recipeName` on the Prep tab, stepping its portions
 // from the recipe's two servings up to `portions`.
 async function recordPrep(page: Page, recipeName: string, portions: number, eatBy?: string) {
-  await page.getByRole("button", { name: "Record prep" }).filter({ visible: true }).click();
+  // The dialog loads on first use (PERF-26), so the tap must land on a hydrated button.
+  const record = page.getByRole("button", { name: "Record prep" }).filter({ visible: true });
+  await expectHydrated(record);
+  await record.click();
   const dialog = page.getByRole("dialog", { name: "Record prep" });
   await dialog.getByRole("combobox", { name: "Recipe" }).click();
   await page.getByRole("option", { name: recipeName, exact: true }).click();
@@ -335,7 +338,9 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
 
     // Add a meal on the planner from the batch.
     await page.goto(`/dashboard/meal-planning?week=${key(week)}`);
-    await page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true }).click();
+    const firstDinner = page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true });
+    await expectHydrated(firstDinner);
+    await firstDinner.click();
     const add = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
     await add.getByRole("combobox", { name: "Recipe" }).click();
     await page.getByRole("option", { name: "From meal prep" }).click();

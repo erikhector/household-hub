@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type ReactElement } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Link2, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   type DialogHandle,
 } from "@/components/ui/dialog";
 import {
@@ -212,7 +211,6 @@ export function RecipeFormDialog({
   allRecipes,
   ingredientNames,
   ingredientUnits,
-  trigger,
   handle,
   startAtReview = false,
 }: {
@@ -222,9 +220,9 @@ export function RecipeFormDialog({
   allRecipes: RecipeData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
-  /** Omit when the form is opened through `handle` (the recipe sheet). */
-  trigger?: ReactElement;
-  handle?: DialogHandle;
+  /** Opened through a handle (the recipe sheet's Edit, or the Recipes tab's
+   * "New recipe"), so the opener can stay in the page's chunk (PERF-26). */
+  handle: DialogHandle;
   /** "Review ingredient matches" (MATCH-5): open an existing recipe
    * straight at step 2, with every row's current link as its decision. */
   startAtReview?: boolean;
@@ -535,7 +533,6 @@ export function RecipeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} longForm handle={handle}>
-      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent
         className="sm:max-w-md"
         initialFocus={nameInputRef}

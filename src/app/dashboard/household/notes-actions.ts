@@ -13,15 +13,15 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { NOTE_BODY_MAX_LENGTH } from "@/lib/household-notes";
 
 const createNoteSchema = z.object({
   body: z
     .string()
     .trim()
-    .min(1, "Note can't be empty")
-    .max(NOTE_BODY_MAX_LENGTH, `Note must be ${NOTE_BODY_MAX_LENGTH} characters or fewer`),
+    .min(1, v("noteEmpty"))
+    .max(NOTE_BODY_MAX_LENGTH, v("householdNoteTooLong")),
 });
 
 export async function createNoteAction(
@@ -32,7 +32,7 @@ export async function createNoteAction(
 
   const parsed = createNoteSchema.safeParse({ body: formData.get("body") ?? "" });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   try {

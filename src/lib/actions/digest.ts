@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { unsubscribeFromDigestByToken } from "@/lib/digest-unsubscribe";
 
 // GAP-27: the weekly digest opt-in. Per user, not per household — it's the
@@ -14,7 +14,7 @@ import { unsubscribeFromDigestByToken } from "@/lib/digest-unsubscribe";
 export async function setWeeklyDigestEnabledAction(enabled: boolean): Promise<ActionState> {
   const userId = await requireUserId();
 
-  if (typeof enabled !== "boolean") return { error: "Invalid input" };
+  if (typeof enabled !== "boolean") return await fail("invalidInput");
 
   try {
     await prisma.user.update({ where: { id: userId }, data: { weeklyDigestEnabled: enabled } });
