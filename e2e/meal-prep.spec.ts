@@ -117,7 +117,10 @@ async function planFreeformDinner(day: Date, name: string) {
 // Records one dish of `recipeName` on the Prep tab, stepping its portions
 // from the recipe's two servings up to `portions`.
 async function recordPrep(page: Page, recipeName: string, portions: number, eatBy?: string) {
-  await page.getByRole("button", { name: "Record prep" }).filter({ visible: true }).click();
+  // The dialog loads on first use (PERF-26), so the tap must land on a hydrated button.
+  const record = page.getByRole("button", { name: "Record prep" }).filter({ visible: true });
+  await expectHydrated(record);
+  await record.click();
   const dialog = page.getByRole("dialog", { name: "Record prep" });
   await dialog.getByRole("combobox", { name: "Recipe" }).click();
   await page.getByRole("option", { name: recipeName, exact: true }).click();
