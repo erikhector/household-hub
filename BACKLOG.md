@@ -267,23 +267,6 @@ then MAINT-7 per feature, to avoid churn.
       passes 30/30.
 
 
-- [ ] **MAINT-64. Flaky: `log-expense-fast` last-used category radio isn't checked after the sheet reopens** (low, S) —
-      `e2e/log-expense-fast.spec.ts:118` ("personal budget: the same
-      sheet, last-used category and Undo", `mobile`) failed once in a
-      full local `ci:local` run on the GAP-57 branch (`45edd5c`, a merge of
-      `origin/next` `3f16968`, 2026-10-26). The same commit passed in a
-      second full run and in a solo re-run, so it only fails under
-      full-suite load. Failing assertion (line 132):
-      `expect(dialog.getByRole("radio", { name: fun.name })).toBeChecked()`
-      expected checked, one line after
-      `expect(dialog.getByLabel("Amount", { exact: true })).toBeFocused()`
-      passed. Likely the sheet reads the remembered category before it has
-      hydrated or before the stored value is applied. Reproduce with
-      `--repeat-each=30`, find the race, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/log-expense-fast.spec.ts:118
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
       `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
       item, blocks an incomplete row, and folds away confident matches",
