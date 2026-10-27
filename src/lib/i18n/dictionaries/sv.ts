@@ -179,6 +179,14 @@ export const sv = {
     empty: "Inga matchande kommandon.",
     hint: "Piltangenter för att flytta, Retur för att köra, Esc för att stänga",
     results: { one: "{count} kommando", other: "{count} kommandon" },
+    searchRateLimited: "För många sökningar. Vänta en stund och försök igen.",
+    groups: {
+      inventory: "Lager",
+      recipes: "Recept",
+      shoppingLists: "Inköpslistor",
+      tasks: "Uppgifter",
+      budgetCategories: "Budgetkategorier",
+    },
   },
   whatsNew: {
     title: "Nyheter",
