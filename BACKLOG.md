@@ -215,14 +215,6 @@ then MAINT-7 per feature, to avoid churn.
       optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
       `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
       separate PR.
-- [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
-      exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
-      `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
-      `CALENDAR_FEED_*_DAYS`, `MAX_LEFTOVER_SERVINGS`, `SWISH_*`); non-null
-      assertions in `lib/rate-limit.ts:97,100`, `tasks/page.tsx:38`,
-      `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
-      `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
-      with a typed `isOneOf(values)` guard.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after

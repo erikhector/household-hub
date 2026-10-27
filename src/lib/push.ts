@@ -18,8 +18,8 @@ const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 // .env.example for how to generate a key pair.
 const configured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 
-if (configured) {
-  webpush.setVapidDetails(process.env.APP_URL || "mailto:support@squirrel.app", VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(process.env.APP_URL || "mailto:support@squirrel.app", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
 
 type PushPayload = {

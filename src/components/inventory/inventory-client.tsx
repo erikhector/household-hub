@@ -37,8 +37,19 @@ import {
 import { setInventoryViewPrefsAction } from "@/lib/actions/preferences";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
+import { isOneOf } from "@/lib/is-one-of";
 
 const ALL = "__all__";
+
+// Value lists for the filter selects. Typed against the unions so a typo
+// fails to compile, and used with isOneOf to narrow a Select's plain-string
+// value instead of asserting it.
+const STATUS_FILTERS = ["in", "low", "out", "expiring", "expired"] as const satisfies readonly InventoryStatusFilter[];
+const UPDATED_FILTERS = ["all", "today", "week", "stale30", "stale90"] as const satisfies readonly UpdatedFilter[];
+const GROUP_BY_VALUES = ["none", "category", "location", "both"] as const satisfies readonly InventoryGroupBy[];
+const isStatusFilter = isOneOf(STATUS_FILTERS);
+const isUpdatedFilter = isOneOf(UPDATED_FILTERS);
+const isGroupBy = isOneOf(GROUP_BY_VALUES);
 const UNASSIGNED = "__unassigned__";
 
 // Stale filters (least-recently-touched first) surface the items most worth
@@ -141,7 +152,7 @@ export function InventoryClient({
       if (category !== ALL && item.category !== category) return false;
       if (location === UNASSIGNED && item.location) return false;
       if (location !== ALL && location !== UNASSIGNED && (item.location ?? "") !== location) return false;
-      if (status !== ALL && !matchesStatusFilter(item, status as InventoryStatusFilter, now)) {
+      if (status !== ALL && isStatusFilter(status) && !matchesStatusFilter(item, status, now)) {
         return false;
       }
       if (!matchesUpdatedFilter(item, updatedFilter, now)) return false;
@@ -285,12 +296,12 @@ export function InventoryClient({
                   <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
                     <SelectTrigger aria-labelledby="mobile-status-label" className="w-full">
                       <SelectValue>
-                        {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as InventoryStatusFilter])}
+                        {(v: string) => (isStatusFilter(v) ? statusLabels[v] : dict.allStatuses)}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL}>{dict.allStatuses}</SelectItem>
-                      {(Object.keys(statusLabels) as InventoryStatusFilter[]).map((s) => (
+                      {STATUS_FILTERS.map((s) => (
                         <SelectItem key={s} value={s}>
                           {statusLabels[s]}
                         </SelectItem>
@@ -300,12 +311,12 @@ export function InventoryClient({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label id="mobile-updated-label" className="text-xs font-medium text-muted-foreground">{dict.updatedFilterLabel}</Label>
-                  <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter((v as UpdatedFilter) ?? "all")}>
+                  <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter(isUpdatedFilter(v) ? v : "all")}>
                     <SelectTrigger aria-labelledby="mobile-updated-label" className="w-full">
-                      <SelectValue>{(v: string) => updatedFilterLabels[v as UpdatedFilter]}</SelectValue>
+                      <SelectValue>{(v: string) => (isUpdatedFilter(v) ? updatedFilterLabels[v] : "")}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(updatedFilterLabels) as UpdatedFilter[]).map((f) => (
+                      {UPDATED_FILTERS.map((f) => (
                         <SelectItem key={f} value={f}>
                           {updatedFilterLabels[f]}
                         </SelectItem>
@@ -315,12 +326,12 @@ export function InventoryClient({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-muted-foreground">{dict.groupByLabel}</span>
-                  <Select value={groupBy} onValueChange={(v) => setGroupBy((v as InventoryGroupBy) ?? "none")}>
+                  <Select value={groupBy} onValueChange={(v) => setGroupBy(isGroupBy(v) ? v : "none")}>
                     <SelectTrigger className="w-full">
-                      <SelectValue>{(v: string) => groupByLabels[v as InventoryGroupBy]}</SelectValue>
+                      <SelectValue>{(v: string) => (isGroupBy(v) ? groupByLabels[v] : "")}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(groupByLabels) as InventoryGroupBy[]).map((g) => (
+                      {GROUP_BY_VALUES.map((g) => (
                         <SelectItem key={g} value={g}>
                           {groupByLabels[g]}
                         </SelectItem>
@@ -375,38 +386,38 @@ export function InventoryClient({
           <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
             <SelectTrigger className="w-40 shrink-0">
               <SelectValue>
-                {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as InventoryStatusFilter])}
+                {(v: string) => (isStatusFilter(v) ? statusLabels[v] : dict.allStatuses)}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>{dict.allStatuses}</SelectItem>
-              {(Object.keys(statusLabels) as InventoryStatusFilter[]).map((s) => (
+              {STATUS_FILTERS.map((s) => (
                 <SelectItem key={s} value={s}>
                   {statusLabels[s]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter((v as UpdatedFilter) ?? "all")}>
+          <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter(isUpdatedFilter(v) ? v : "all")}>
             <SelectTrigger className="w-48 shrink-0">
               <SelectValue>
-                {(v: string) => `${dict.updatedFilterLabel}: ${updatedFilterLabels[v as UpdatedFilter]}`}
+                {(v: string) => `${dict.updatedFilterLabel}: ${(isUpdatedFilter(v) ? updatedFilterLabels[v] : "")}`}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(updatedFilterLabels) as UpdatedFilter[]).map((f) => (
+              {UPDATED_FILTERS.map((f) => (
                 <SelectItem key={f} value={f}>
                   {updatedFilterLabels[f]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={groupBy} onValueChange={(v) => setGroupBy((v as InventoryGroupBy) ?? "none")}>
+          <Select value={groupBy} onValueChange={(v) => setGroupBy(isGroupBy(v) ? v : "none")}>
             <SelectTrigger className="w-44 shrink-0">
-              <SelectValue>{(v: string) => `${dict.groupByLabel}: ${groupByLabels[v as InventoryGroupBy]}`}</SelectValue>
+              <SelectValue>{(v: string) => `${dict.groupByLabel}: ${(isGroupBy(v) ? groupByLabels[v] : "")}`}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(groupByLabels) as InventoryGroupBy[]).map((g) => (
+              {GROUP_BY_VALUES.map((g) => (
                 <SelectItem key={g} value={g}>
                   {groupByLabels[g]}
                 </SelectItem>

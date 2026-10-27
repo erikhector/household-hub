@@ -34,7 +34,7 @@ export function localHourIn(timeZone: string | null | undefined, now: Date): num
   }
 }
 
-export function isValidQuietHour(hour: unknown): hour is number {
+function isValidQuietHour(hour: unknown): hour is number {
   return typeof hour === "number" && Number.isInteger(hour) && hour >= 0 && hour <= 23;
 }
 
