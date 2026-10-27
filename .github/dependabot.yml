@@ -25,6 +25,10 @@ updates:
       # 9. Drop this once they support 10 (MAINT-12).
       - dependency-name: eslint
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 fails `npm ci`: typescript-eslint accepts only
+      # `>=4.8.4 <6.1.0`. Drop this once it supports 7.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
