@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
-import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { ShoppingListClient } from "@/components/shopping/shopping-list-client";
 import { getStockStatus } from "@/lib/stock-status";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
@@ -152,8 +151,6 @@ export default async function ShoppingListDetailPage(
   ].sort();
 
   return (
-    // PERF-25: what a lazily loaded dialog says when its chunk can't be fetched.
-    <LazyDialogErrorMessage message={dict.errors.generic}>
     <ShoppingListClient
       list={{
         ...list,
@@ -202,6 +199,5 @@ export default async function ShoppingListDetailPage(
       }
       nextListId={activeDefault && activeDefault.id !== list.id ? activeDefault.id : null}
     />
-    </LazyDialogErrorMessage>
   );
 }

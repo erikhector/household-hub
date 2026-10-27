@@ -75,30 +75,6 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
-- **Dialogs load on first use (PERF-25).** A dialog is most of a heavy
-  page's unused JS, so a page declares each one's chunk with
-  `createLazyDialogLoader(() => import(...))` (module level, shared; the
-  shopping list's are in `src/components/shopping/lazy-dialogs.ts`) and
-  renders it through `<LazyDialog>` from `src/components/ui/lazy-dialog.tsx`,
-  which mounts the real component the first time it is asked to open and
-  keeps it mounted after. Two ways to ask: a dialog that opens through a
-  Base UI handle (`createDialogHandle`) is opened with
-  `openLazyDialog(handle)` where `handle.open(null)` used to be (the host
-  waits for the chunk and for the Root to attach, because a handle ignores
-  `open()` until one is mounted); a dialog the parent controls with an
-  `open` prop passes `open` to `<LazyDialog>`. The chunk is fetched before
-  it's needed so the first open is no slower than before: in idle time after
-  the host hydrates (`requestIdleCallback`, a short timeout on Safari), and
-  on pointer-enter, focus or touch-start of an opener that spreads
-  `preloadOnIntent(loader)`. A tap that still beats both opens the dialog as
-  soon as the chunk arrives. Openers stay in the page's own chunk: a dialog
-  that owned its trigger either gets a handle plus eager opener buttons (a
-  row's edit form: `ShoppingItemEditTriggers`) or a same-looking stand-in via
-  `fallback` (`LazyReceiptScan`, whose real component mounts with its menu
-  already open). Applied so far to the shopping list page (item form, receipt
-  scan, put away, import, resolve mappings, reorder sections, rename, save
-  template, partial price); `e2e/shopping-lazy-dialogs.spec.ts` covers the
-  first tap after a hard load, with and without the idle prefetch.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
