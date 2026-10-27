@@ -461,7 +461,7 @@ dialog sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
 hits. Signup error paths at 320 px keep input and put errors beside the
 field. WebKit was not run.
 
-- [ ] **UX-138. Cookie notice's "Läs mer" link stretches its line**
+- [ ] **UX-148. Cookie notice's "Läs mer" link stretches its line**
       (impact: low, effort: S) — `src/components/legal/cookie-notice.tsx:103`
       puts a `touch-target` (inline-flex, min-h-11) link inside the
       paragraph, so the line holding it grows to 44 px and the two text
