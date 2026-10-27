@@ -131,30 +131,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-
-- [ ] **PERF-23. Keep `releases.json` out of the client bundle** (high, S) —
-      `src/components/dashboard/sidebar.tsx:18` and `bottom-nav.tsx:31`
-      import `CURRENT_VERSION` from `@/lib/release-notes`, which imports
-      the whole release history (135 KB raw, 39 KB gz) to print "v0.111.0".
-      That is 12% of the JS every page loads. The release workflow
-      rewrites the file on every release, so the chunk holding it changes
-      name each time and every user downloads it again after each release.
-      Pass the version from `src/app/dashboard/layout.tsx` (a Server
-      Component) as a prop instead. Check `mark-release-seen.tsx` too: it
-      only needs the cookie constants, so move those to a module that
-      doesn't import the JSON. Acceptance: `next analyze` shows no
-      `releases.json` in any `/dashboard` client chunk.
-- [ ] **PERF-24. Keep zod out of the meal-planning client bundle, again** (medium, S) —
-      PERF-7 removed it; it's back (98 KB raw, 30 KB gz, ~28% of the
-      page's own JS). `missing-ingredients-dialog.tsx`,
-      `record-prep-dialog.tsx` and `plan-portions-dialog.tsx` import
-      constants from `src/app/dashboard/meal-planning/missing-ingredients.ts`
-      and `leftovers.ts`, which also define zod schemas. Move the
-      constants and shared types to zod-free modules the way PERF-7 did
-      with `recipe-tags.ts`. Add a guard so it can't creep back: a unit
-      test that walks the imports of every `"use client"` file under
-      `src/components/` and fails on a path to `zod` (or a lint rule
-      with the same effect).
 - [ ] **PERF-26. Lazy-load dialogs on meal planning, inventory and budgets** (medium, M; after PERF-25) —
       the same helper on: `week-planner.tsx`, `recipe-manager.tsx`,
       `prep-tab.tsx`, `cook-now-list.tsx` (recipe form, cook mode,
@@ -174,19 +150,6 @@ comes from Playwright's `page.coverage`.
       only leaves the shared JS once page dialogs are lazy too
       (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
       20–40 KB gz off every page.
-- [ ] **PERF-28. Cache hashed static assets in the service worker** (medium, S; after PERF-23) —
-      `src/lib/service-worker.js` passes JS/CSS straight to the network,
-      so an installed app relies on the HTTP cache, which phones (iOS in
-      particular) evict aggressively; a cold launch then downloads the
-      full 325 KB gz again. Add a cache-first fetch handler for
-      `/_next/static/*` only: the filenames are content hashes, so a
-      cached copy can never be stale. Pages, RSC requests, API routes and
-      Server Actions stay network-only, which keeps the file's reasoning
-      for not precaching an app shell intact. On `activate`, delete files
-      the current build no longer references (or cap the cache by
-      entries) so it doesn't grow forever. Update the comment block that
-      says the worker has no versioned assets. Do after PERF-23, or the
-      release-notes chunk misses on every release.
 - [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
       `MealPlanningView` and `BudgetTabs` render every tab on the server
       and hide the inactive ones with `hidden`, so all four tabs' JS
@@ -201,24 +164,15 @@ comes from Playwright's `page.coverage`.
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Items 3, 6 and 7 all
-touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-6 → MAINT-3,
+tests passing, no `any`/`@ts-ignore` in app code. Items 3 and 7 both
+touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
 - [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
       lines / 29 exports, test file 2,850 lines. Follow the meal-planning
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
       put-away), `receipt-` and `store-order-actions.ts`, tests split the
-      same way. Do after MAINT-2/5/6.
-- [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
-      ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
-      error hits the error boundary: `planner-actions.ts` (add/update/move/
-      delete entry, copy/undo-copy week — e.g. `:65-88`), `recipe-actions.ts`
-      (create/update/delete/favorite), `lib/actions/push.ts` (all 4),
-      `notifications.ts` dismiss/dismiss-all, `updatePasswordAction`,
-      shopping link/unlink/apply-receipt/complete,
-      `addMissingIngredientsToShoppingListAction`. Consider a
-      `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
+      same way. Do after MAINT-2/5.
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
@@ -305,26 +259,6 @@ then MAINT-7 per feature, to avoid churn.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
-- [ ] **MAINT-54. Flaky: `recipe-ingredients` water default ("Don't track") fails under full-suite load** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:194` (`desktop`). Failed in the
-      release gate's full `ci:local` run on `fbeb1fb` (release PR #651,
-      2026-10-24) and passed on a solo rerun of the same commit. Nobody's
-      change is in it. The failing assertion wasn't recorded: reproduce
-      with the repeat run, read the snapshot, and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:194
-      --project=desktop --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-55. Flaky: `ux-51` footer language button doesn't show it is busy until the change is saved** (low, S) —
-      `e2e/ux-51.spec.ts:104` (`mobile`). Failed in the release gate's
-      full `ci:local` run on `fbeb1fb` (release PR #651, 2026-10-24; a
-      `toHaveCSS` assertion) and passed on a solo rerun of the same
-      commit. Nobody's change is in it. Reproduce with the repeat run and
-      fix it in the app or the spec's waiting, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-51.spec.ts:104
-      --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-57. Flaky: `openRecipesTab` leaves the Recipes tab unselected after the click on a phone** (low, S) —
       `e2e/recipe-dialog.spec.ts:43` and `e2e/recipe-planned-dates.spec.ts:55`
       (`mobile`). Both failed once and passed on the retry in the GitHub
@@ -344,8 +278,9 @@ then MAINT-7 per feature, to avoid churn.
       `e2e/task-caught-up.spec.ts:77` "with nothing open, a fresh visit
       shows the all-caught-up card above Completed" (`mobile`). Failed once
       and passed on the retry in the GitHub `End-to-end (Playwright)` job
-      of release PR #689 (run 40184348720, 2026-10-25). Nobody's change is
-      in it. The failing assertion is the Postgres poll near line 111,
+      of release PR #689 (run 40184348720, 2026-10-25). Seen again, same
+      outcome (failed, passed on the retry), in the GitHub job of release
+      PR #754 (2026-10-26). Nobody's change is in it. The failing assertion is the Postgres poll near line 111,
       `expect(received).toBe(0)`: the count of open `HouseholdTask` rows
       for `E2E_HOUSEHOLD` is still 1 after the 5 s predicate timeout. This
       spec was already touched by MAINT-40 (#585, wait for each tick's

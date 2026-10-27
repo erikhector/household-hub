@@ -33,7 +33,7 @@ import {
   parseMissingIngredientsRange,
   weekRange,
   type MissingIngredientsRange,
-} from "@/app/dashboard/meal-planning/missing-ingredients";
+} from "@/app/dashboard/meal-planning/missing-ingredients-range";
 import { format, plural } from "@/lib/i18n/format";
 import { findSubstitutionKey, type SubstitutionKey } from "@/lib/inventory/substitutions";
 import type { ActiveShoppingListOption, MissingIngredientData } from "@/components/meal-planning/types";

@@ -1251,6 +1251,16 @@ describe("unlinkShoppingListItemAction", () => {
     expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
   });
 
+  it("returns a friendly error when the write fails (MAINT-6)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateMock.mockRejectedValueOnce(new Error("connection reset"));
+
+    const result = await unlinkShoppingListItemAction("item-1");
+
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("connection reset");
+  });
+
   it("clears the item's inventory link", async () => {
     shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
     shoppingListItemUpdateMock.mockResolvedValue({});
@@ -1976,9 +1986,10 @@ describe("applyReceiptScanAction", () => {
     shoppingListFindFirstMock.mockResolvedValue(baseList);
     transactionMock.mockRejectedValueOnce(new Error("boom"));
 
-    await expect(
-      applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10 }]),
-    ).rejects.toThrow("boom");
+    // MAINT-6: a failed transaction is a friendly `{ error }`, not a throw.
+    const result = await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10 }]);
+    expect(result.error).toBeTruthy();
+    expect(result.error).not.toContain("boom");
     expect(recordPriceSpikesMock).not.toHaveBeenCalled();
   });
 

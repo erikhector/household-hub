@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
+import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { dismissCookieNotice, gotoRevealed, openRecipesTab, openRowSheet } from "./ui";
 
 // MATCH-1: saving a recipe no longer creates inventory items behind the
@@ -58,6 +59,19 @@ async function fillIngredient(page: Page, name: string, quantity: string, unit: 
   // Leave the name field so its suggestion list closes.
   await dialog.getByPlaceholder("Qty").fill(quantity);
   await dialog.getByPlaceholder("Unit").fill(unit);
+}
+
+// A save that needs no review closes the dialog and lists the recipe. Wait
+// on those, not on `getByRole("dialog")` going to zero: the app closes the
+// sheet at once, but Base UI keeps it mounted (data-ending-style) until its
+// exit animation reports finished, and on a starved runner that stayed
+// past the 5 s expect timeout with the saved recipe already listed behind
+// it (MAINT-54). The review step must never have shown, and the history
+// back() the close issues must have landed before the next goto.
+async function expectSavedWithoutReview(page: Page, recipeName: string) {
+  await expect(page.getByText(recipeName, { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Match ingredients" })).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 }
 
 test("a recipe whose ingredients all match saves without a review step", async ({ page }) => {
@@ -194,7 +208,9 @@ test("the review step creates a new item, blocks an incomplete row, and folds aw
 test("water defaults to Don't track, saves without creating an item, and isn't asked about again", async ({
   page,
 }) => {
-  const dialog = await openNewRecipe(page, unique("Bread"));
+  const firstName = unique("Bread");
+  const secondName = unique("Porridge");
+  const dialog = await openNewRecipe(page, firstName);
   await fillIngredient(page, "vatten", "3", "dl");
   await dialog.getByRole("button", { name: "Create recipe" }).click();
 
@@ -204,13 +220,13 @@ test("water defaults to Don't track, saves without creating an item, and isn't a
   await expect(row.getByRole("button", { name: "Don't track" })).toHaveAttribute("aria-pressed", "true");
   await expect(row.getByText(/cooking, shopping and cost skip it/)).toBeVisible();
   await review.getByRole("button", { name: "Create recipe" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectSavedWithoutReview(page, firstName);
 
   // The answer is remembered: the next recipe with water saves straight away.
-  const second = await openNewRecipe(page, unique("Porridge"));
+  const second = await openNewRecipe(page, secondName);
   await fillIngredient(page, "Vatten", "5", "dl");
   await second.getByRole("button", { name: "Create recipe" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectSavedWithoutReview(page, secondName);
 
   // And no "vatten" item was ever created.
   await searchInventory(page, "vatten");

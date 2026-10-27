@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.113.4",
+    "date": "2026-10-26",
+    "pr": 758,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The installed app now opens faster after your phone clears its cache, because it keeps its own copy of the app's code files.",
+      "sv": "Den installerade appen öppnas nu snabbare när telefonen har rensat sitt cacheminne, eftersom appen sparar en egen kopia av sina kodfiler."
+    }
+  },
+  {
+    "version": "0.113.3",
+    "date": "2026-10-26",
+    "pr": 754,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed: a database hiccup while saving a recipe, planning a meal, changing your password or dismissing a notification now shows a short \"try again\" message instead of an error page.",
+      "sv": "Åtgärdat: ett tillfälligt databasfel när du sparar ett recept, planerar en måltid, byter lösenord eller stänger en avisering visar nu ett kort meddelande om att försöka igen i stället för en felsida."
+    }
+  },
+  {
+    "version": "0.113.2",
+    "date": "2026-10-26",
+    "pr": 746,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The app loads a little faster, because the list of past releases is no longer downloaded on every page.\n\nThe meal planner now loads faster because a validation library no longer ships with the page.",
+      "sv": "Appen laddas lite snabbare, eftersom listan över tidigare versioner inte längre hämtas på varje sida.\n\nMåltidsplaneraren laddas snabbare eftersom ett valideringsbibliotek inte längre skickas med sidan."
+    }
+  },
+  {
     "version": "0.113.1",
     "date": "2026-10-26",
     "pr": 733,

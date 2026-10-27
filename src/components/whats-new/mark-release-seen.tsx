@@ -8,7 +8,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LAST_SEEN_RELEASE_COOKIE, LAST_SEEN_RELEASE_COOKIE_MAX_AGE } from "@/lib/release-notes";
+import { LAST_SEEN_RELEASE_COOKIE, LAST_SEEN_RELEASE_COOKIE_MAX_AGE } from "@/lib/release-notes/cookie";
 
 export function MarkReleaseSeen({ version, alreadySeen }: { version: string; alreadySeen: boolean }) {
   const router = useRouter();

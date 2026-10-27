@@ -7,7 +7,6 @@
 // pure "sum required, subtract on-hand, keep the shortfall" step, plus the
 // date-range validation both the preview action and the dialog share.
 
-import { z } from "zod";
 import type { MissingIngredientData } from "@/components/meal-planning/types";
 import { round2 } from "@/lib/math";
 import {
@@ -17,62 +16,16 @@ import {
   unitsAreComparable,
   type ItemUnitConversionLike,
 } from "@/lib/units";
-import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 
-// --- Date range (GAP-32) -----------------------------------------------------
-//
-// The bridge used to be hard-scoped to one MealPlan.weekStartDate. It now
-// takes any half-open `[from, to)` range of `yyyy-mm-dd` day keys, so a
-// household can build one shopping list for e.g. the next two weeks before a
-// big trip (the Plan to Eat / Mealime pattern). "This week" is simply
-// `[weekStart, weekStart + 7)` — see weekRange below. Half-open so adjacent
-// ranges never double-count a day, and so it maps 1:1 onto a Prisma
-// `{ gte, lt }` filter on MealPlanEntry.date.
-//
-// Capped at 31 days: long enough for "the whole month" or two weeks away,
-// short enough that one preview can't fan out into expanding hundreds of
-// planned recipes (each entry is its own recursive expandRecipeIngredients
-// walk). The dialog validates the same way before calling, but the server
-// action is what enforces it — a Server Action is a public endpoint.
-export const MAX_MISSING_INGREDIENTS_RANGE_DAYS = 31;
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-// A real calendar day, not just the right shape — "2026-02-31" matches the
-// regex, but `new Date` would silently roll it over into March.
-const dayKeySchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((key) => {
-    const date = parseDateKey(key);
-    return !Number.isNaN(date.getTime()) && toDateKey(date) === key;
-  });
-
-const missingIngredientsRangeSchema = z
-  .object({ from: dayKeySchema, to: dayKeySchema })
-  .transform(({ from, to }) => ({ from: parseDateKey(from), to: parseDateKey(to) }))
-  .refine(({ from, to }) => {
-    const days = Math.round((to.getTime() - from.getTime()) / MS_PER_DAY);
-    return days >= 1 && days <= MAX_MISSING_INGREDIENTS_RANGE_DAYS;
-  });
-
-// `to` is exclusive — see the half-open note above.
-export type MissingIngredientsRange = { from: string; to: string };
-
-// Parses an untrusted `{ from, to }` into UTC-midnight Dates, or null when
-// it isn't a non-empty range of at most MAX_MISSING_INGREDIENTS_RANGE_DAYS
-// days. Shared by previewMissingIngredientsAction and the dialog's
-// custom-range inputs so both agree on what's valid.
-export function parseMissingIngredientsRange(input: unknown): { from: Date; to: Date } | null {
-  const parsed = missingIngredientsRangeSchema.safeParse(input);
-  return parsed.success ? parsed.data : null;
-}
-
-// The visible planner week as a range — the dialog's default, and exactly
-// the single MealPlan the bridge was scoped to before GAP-32.
-export function weekRange(weekStartKey: string): MissingIngredientsRange {
-  return { from: weekStartKey, to: toDateKey(addDays(parseDateKey(weekStartKey), 7)) };
-}
+// The date-range half (GAP-32) lives in missing-ingredients-range.ts so the
+// client dialog can use it without this file's server-only weight; re-exported
+// here so server callers keep one import.
+export {
+  MAX_MISSING_INGREDIENTS_RANGE_DAYS,
+  parseMissingIngredientsRange,
+  weekRange,
+  type MissingIngredientsRange,
+} from "@/app/dashboard/meal-planning/missing-ingredients-range";
 
 export type IngredientNeed = {
   // Identity to aggregate by — the linked InventoryItem's id when known,
