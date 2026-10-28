@@ -25,15 +25,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  TransactionDialog,
-  type MemberOption,
-  type TransactionFormAction,
+import type {
+  MemberOption,
+  TransactionFormAction,
 } from "@/components/budget/transaction-dialog";
-import {
-  LogSharedExpenseDialog,
-  type ShareableHousehold,
-  type SharedExpensePrefill,
+import type {
+  ShareableHousehold,
+  SharedExpensePrefill,
 } from "@/components/personal-budget/log-shared-expense-dialog";
 import {
   PlannedBillAmountLine,
@@ -47,6 +45,7 @@ import { plannedTexts, type BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
+import { LazyTransactionDialog, LazyLogSharedExpenseDialog } from "@/components/budget/lazy-budget-dialogs";
 
 // A household RecurringTemplate the user has opted into a split for (see
 // docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) that's due but not yet
@@ -216,7 +215,7 @@ export function DueRecurringWidget({
                     )}
                   </span>
                 </div>
-                <TransactionDialog
+                <LazyTransactionDialog
                   numberFormat={numberFormat}
                   dict={dict}
                   categories={categories}
@@ -349,7 +348,7 @@ export function DueRecurringWidget({
                   {logSharedDialogDict &&
                     row.logPrefill &&
                     sharedExpenseHouseholds.some((h) => h.id === row.logPrefill!.householdId) && (
-                      <LogSharedExpenseDialog
+                      <LazyLogSharedExpenseDialog
                         numberFormat={numberFormat}
                         dict={logSharedDialogDict}
                         households={sharedExpenseHouseholds}

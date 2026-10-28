@@ -6,14 +6,12 @@ import { AlertCircle, Check, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  PlannedExpenseDialog,
-  type PlannedExpenseFormAction,
+import type {
+  PlannedExpenseFormAction,
 } from "@/components/budget/planned-expense-dialog";
-import {
-  TransactionDialog,
-  type MemberOption,
-  type TransactionFormAction,
+import type {
+  MemberOption,
+  TransactionFormAction,
 } from "@/components/budget/transaction-dialog";
 import { format, plural } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -23,6 +21,7 @@ import type { CategoryRow } from "@/components/budget/category-manager";
 import type { PlannedExpenseStatus, PlannedItemType } from "@/lib/planned-expense-calc";
 import { createMoneyFormat } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { LazyTransactionDialog, LazyPlannedExpenseDialog } from "@/components/budget/lazy-budget-dialogs";
 
 export type PlannedExpenseRow = {
   id: string;
@@ -145,7 +144,7 @@ export function PlannedExpensesPanel({
           </h2>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
-        <PlannedExpenseDialog
+        <LazyPlannedExpenseDialog
           dict={dict}
           kind={kind}
           categories={kindCategories}
@@ -268,7 +267,7 @@ function PlannedExpenseItem({
             updateTransactionAction={updateTransactionAction}
           />
         )}
-        <PlannedExpenseDialog
+        <LazyPlannedExpenseDialog
           dict={dict}
           kind={bill.type}
           categories={kindCategories}
@@ -396,7 +395,7 @@ export function PlannedBillLogPayment({
   updateTransactionAction: TransactionFormAction;
 }) {
   return (
-    <TransactionDialog
+    <LazyTransactionDialog
       numberFormat={numberFormat}
       dict={dict}
       categories={categories}

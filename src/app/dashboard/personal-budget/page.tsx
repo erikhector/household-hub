@@ -5,6 +5,7 @@ import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i1
 import { ExportButton } from "@/components/export/export-button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
+import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
 import { summarizeSharedCosts } from "@/lib/shared-costs-summary";
@@ -490,66 +491,68 @@ async function PersonalBudgetTabsSection({
   );
 
   return (
-    <BudgetTabs
-      dict={dict.personalBudget}
-      locale={locale}
-      monthKey={monthKey}
-      currentMonthKey={currentMonthKey}
-      budgetMonthStartDay={startDay}
-      basePath="/dashboard/personal-budget"
-      categories={categoryRows}
-      safeToSpendAmount={safeToSpend}
-      safeToSpendStatus={safeToSpendStatus}
-      safeToSpendBreakdown={safeToSpendBreakdown}
-      safeToSpendExpectedRecurring={expectedRecurring}
-      safeToSpendProjection={safeToSpendProjection}
-      safeToSpendDaily={safeToSpendDaily}
-      limitAlerts={limitAlerts}
-      householdDebts={householdDebts}
-      dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
-      hasRecurringTemplates={recurringTemplates.some((t) => t.active)}
-      hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}
-      plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
-      sharedDueRows={sharedDueRows}
-      showHouseholdName={showHouseholdName}
-      sharedExpenseHouseholds={sharedExpenseHouseholds}
-      logSharedDialogDict={dict.personalBudget}
-      createTransactionAction={createPersonalTransactionAction}
-      updateTransactionAction={updatePersonalTransactionAction}
-      deleteTransactionAction={deletePersonalTransactionAction}
-      recentCategoryIds={recentCategoryIds(latestTransactions)}
-      onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
-      onLogTemplateAsIs={logPersonalRecurringTemplateAction}
-      savingsGoals={savingsGoals}
-      onboarding={
-        <BudgetOnboarding
-          dict={dict.personalBudget}
-          body={dict.personalBudget.onboarding.body}
-          createCategoryAction={createPersonalCategoryAction}
-          createStarterCategoriesAction={createPersonalStarterCategoriesAction}
-        />
-      }
-      sharedCosts={
-        sharedCostsSummary.hasAny ? (
-          <SharedCostsCard
-            summary={sharedCostsSummary}
-            debts={householdDebts}
-            showHouseholdName={showHouseholdName}
-            transactionsHref={budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions" })}
-            monthLabel={
-              monthKey === currentMonthKey
-                ? undefined
-                : parseMonthKey(monthKey).toLocaleDateString(locale, { month: "long", year: "numeric" })
-            }
+    <LazyDialogErrorMessage message={dict.errors.generic}>
+      <BudgetTabs
+        dict={dict.personalBudget}
+        locale={locale}
+        monthKey={monthKey}
+        currentMonthKey={currentMonthKey}
+        budgetMonthStartDay={startDay}
+        basePath="/dashboard/personal-budget"
+        categories={categoryRows}
+        safeToSpendAmount={safeToSpend}
+        safeToSpendStatus={safeToSpendStatus}
+        safeToSpendBreakdown={safeToSpendBreakdown}
+        safeToSpendExpectedRecurring={expectedRecurring}
+        safeToSpendProjection={safeToSpendProjection}
+        safeToSpendDaily={safeToSpendDaily}
+        limitAlerts={limitAlerts}
+        householdDebts={householdDebts}
+        dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
+        hasRecurringTemplates={recurringTemplates.some((t) => t.active)}
+        hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}
+        plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
+        sharedDueRows={sharedDueRows}
+        showHouseholdName={showHouseholdName}
+        sharedExpenseHouseholds={sharedExpenseHouseholds}
+        logSharedDialogDict={dict.personalBudget}
+        createTransactionAction={createPersonalTransactionAction}
+        updateTransactionAction={updatePersonalTransactionAction}
+        deleteTransactionAction={deletePersonalTransactionAction}
+        recentCategoryIds={recentCategoryIds(latestTransactions)}
+        onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
+        onLogTemplateAsIs={logPersonalRecurringTemplateAction}
+        savingsGoals={savingsGoals}
+        onboarding={
+          <BudgetOnboarding
             dict={dict.personalBudget}
-            locale={locale}
+            body={dict.personalBudget.onboarding.body}
+            createCategoryAction={createPersonalCategoryAction}
+            createStarterCategoriesAction={createPersonalStarterCategoriesAction}
           />
-        ) : null
-      }
-      manage={manage}
-      transactions={transactionsTab}
-      insights={insights}
-    />
+        }
+        sharedCosts={
+          sharedCostsSummary.hasAny ? (
+            <SharedCostsCard
+              summary={sharedCostsSummary}
+              debts={householdDebts}
+              showHouseholdName={showHouseholdName}
+              transactionsHref={budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions" })}
+              monthLabel={
+                monthKey === currentMonthKey
+                  ? undefined
+                  : parseMonthKey(monthKey).toLocaleDateString(locale, { month: "long", year: "numeric" })
+              }
+              dict={dict.personalBudget}
+              locale={locale}
+            />
+          ) : null
+        }
+        manage={manage}
+        transactions={transactionsTab}
+        insights={insights}
+      />
+    </LazyDialogErrorMessage>
   );
 }
 
