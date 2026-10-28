@@ -122,8 +122,17 @@ easy for AI coding agents to work in correctly:
   `ShoppingItemEditTriggers`) or a same-looking stand-in via `fallback`
   (`LazyReceiptScan`, whose real component mounts with its menu already
   open). `e2e/shopping-lazy-dialogs.spec.ts` covers the first tap and the
-  failed-load toast and retry. Inventory and the budget pages are still to
-  do.
+  failed-load toast and retry.
+  The inventory page group is lazy too
+  (`src/components/inventory/lazy-dialogs.ts`): the header's stock scan,
+  bulk paste, bulk scan, AI shelf scan and Add item, a row's Edit form
+  and the empty state's Add item (`ItemFormDialog`), and the item page's
+  Change unit and Merge into (`LazyChangeUnit` and `LazyMergeInto` in
+  `item-page/lazy-item-dialogs.tsx`, since the page is a Server
+  Component). Those dialogs take a `handle` instead of a `trigger`, and
+  the phone's ⋯ menu and floating Add item open the same single instance
+  the desktop buttons do. `e2e/inventory-lazy-dialogs.spec.ts` covers the
+  first tap and the failed-load retry. The budget pages (PERF-30) are still to do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`

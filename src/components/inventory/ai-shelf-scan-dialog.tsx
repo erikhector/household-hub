@@ -21,7 +21,7 @@
 //   bulkSetInventoryQuantitiesAction, while anything unmatched still goes
 //   through bulkCreateInventoryItemsAction like the add-mode path.
 
-import { useRef, useState, type ChangeEvent, type ReactElement } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 import { Camera, ImageUp, Loader2, Sparkles, X } from "lucide-react";
 import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
@@ -35,7 +35,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -71,14 +71,16 @@ export function AiShelfScanDialog({
   categories,
   locations,
   configured,
-  trigger,
+  handle,
 }: {
   dict: Dictionary["inventory"];
   categories: string[];
   locations: string[];
   /** Whether GEMINI_API_KEY or ANTHROPIC_API_KEY is set server-side — see src/lib/actions/inventory-scan.ts. */
   configured: boolean;
-  trigger: ReactElement;
+  // Opened through this handle by a trigger that stays in the page's own chunk, so
+  // this dialog loads on first use (PERF-26, ui/lazy-dialog.tsx).
+  handle: DialogHandle;
 }) {
   const t = dict.aiShelfScan;
   const [open, setOpen] = useState(false);
@@ -299,8 +301,7 @@ export function AiShelfScanDialog({
         dict={t.discard}
         onDiscard={() => handleOpenChange(false)}
       />
-      <Dialog open={open} onOpenChange={requestOpenChange}>
-        <DialogTrigger render={trigger} />
+      <Dialog open={open} onOpenChange={requestOpenChange} handle={handle}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

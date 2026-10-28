@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type FormEvent, type ReactElement } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { Camera, CameraOff, Loader2, ShoppingCart, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { useBarcodeCamera } from "@/components/shared/use-barcode-camera";
@@ -71,13 +71,15 @@ export function StockScanDialog({
   dict,
   barcodeDict,
   items,
-  trigger,
+  handle,
 }: {
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   /** The household's items, for the "This is…" picker. */
   items: { id: string; name: string }[];
-  trigger: ReactElement;
+  // Opened through this handle by a trigger that stays in the page's own chunk, so
+  // this dialog loads on first use (PERF-26, ui/lazy-dialog.tsx).
+  handle: DialogHandle;
 }) {
   const unitLabel = useUnitLabel();
   const t = dict.stockScan;
@@ -274,8 +276,7 @@ export function StockScanDialog({
   const itemOptions = items.map((item) => ({ id: item.id, label: item.name }));
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t.dialogTitle}</DialogTitle>

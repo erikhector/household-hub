@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { ComboField, type ComboFieldDict } from "@/components/inventory/combo-field";
 import { changeItemUnitAction } from "@/app/dashboard/inventory/items/actions";
@@ -33,11 +33,15 @@ export function ChangeUnitDialog({
   units,
   dict,
   comboDict,
+  handle,
 }: {
   item: UnitChangeItem & { id: string };
   units: string[];
   dict: ItemPageDict;
   comboDict: ComboFieldDict;
+  // Opened by the item page's "Change unit…" button (LazyChangeUnit), which
+  // stays in the page's own chunk so this dialog loads on first use (PERF-26).
+  handle: DialogHandle;
 }) {
   const unitLabel = useUnitLabel();
   const copy = dict.changeUnitDialog;
@@ -76,14 +80,7 @@ export function ChangeUnitDialog({
   const problem = outcome && "problem" in outcome ? dict.errors[outcome.problem] : null;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button type="button" variant="outline" size="sm">
-            {dict.changeUnit}
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
