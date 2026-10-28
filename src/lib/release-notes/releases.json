@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.115.2",
+    "date": "2026-10-28",
+    "pr": 827,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list page loads faster on first visit; its dialogs now load only when you open them.\n\nThe cookie notice's \"Read more\" link no longer pushes its text lines apart on phones.",
+      "sv": "Inköpslistan laddas snabbare första gången; dess dialogrutor hämtas först när du öppnar dem.\n\nLänken \"Läs mer\" i cookie-notisen glesar inte längre ut textraderna på mobilen."
+    }
+  },
+  {
     "version": "0.115.1",
     "date": "2026-10-27",
     "pr": 809,
