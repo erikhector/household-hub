@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 
 // UX-34: native-grade bottom sheets. Every Dialog is a Base UI Drawer
 // (src/components/ui/dialog.tsx): on a phone it drags down to dismiss,
@@ -54,6 +54,11 @@ async function openAddMeal(page: Page, open: "tap" | "click" = "click") {
   // The meal form is a lazy chunk (PERF-26): a tap before hydration is lost,
   // and one after it still has to wait for the chunk under a loaded runner.
   await expectHydrated(trigger);
+  // MAINT-67: hydrated is not enough. Opening a Dialog pushes a history
+  // entry, and if that lands before Next's router has patched
+  // history.replaceState its first commit rewrites the entry and closes the
+  // sheet again (the MAINT-68 race), so wait for the patch as well.
+  await expectRouterPatched(page);
   if (open === "tap") await trigger.tap();
   else await trigger.click();
   const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
