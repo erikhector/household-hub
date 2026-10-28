@@ -228,7 +228,7 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-69. Flaky: `budget-form-autofill` finds no autofill-checked fields in the budget dialogs** (low, S) —
+- [ ] **MAINT-71. Flaky: `budget-form-autofill` finds no autofill-checked fields in the budget dialogs** (low, S) —
       `[desktop]` `e2e/budget-form-autofill.spec.ts:24` ("budget dialogs
       turn autofill off and set the Enter key on the last field") failed
       once and passed on the retry in the GitHub `End-to-end (Playwright)`
