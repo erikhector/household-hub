@@ -7,9 +7,10 @@
 // its own (joinViaInviteSignupAction no longer signs the new account in —
 // see its doc comment), so unlike auth.test.ts this file needs no next-auth
 // stand-in.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hashToken } from "@/lib/token-hash";
 import { computeBillPositions } from "@/lib/settle-up-calc";
+import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
@@ -40,6 +41,7 @@ const {
   redirectMock,
   revalidatePathMock,
   sendHouseholdInviteEmailMock,
+  isEmailConfiguredMock,
   sendVerificationEmailMock,
   getLocaleMock,
   getDictionaryMock,
@@ -99,7 +101,8 @@ const {
     throw new Error(`REDIRECT:${path}`);
   }),
   revalidatePathMock: vi.fn(),
-  sendHouseholdInviteEmailMock: vi.fn(async () => ({})),
+  sendHouseholdInviteEmailMock: vi.fn(async (): Promise<{ error?: string }> => ({})),
+  isEmailConfiguredMock: vi.fn(() => true),
   sendVerificationEmailMock: vi.fn(async () => ({})),
   getLocaleMock: vi.fn(async () => "en"),
   getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})),
@@ -143,6 +146,7 @@ vi.mock("@/lib/session", () => ({
 // can't resolve outside a Next.js build — stub it out.
 vi.mock("@/lib/email", () => ({
   sendHouseholdInviteEmail: sendHouseholdInviteEmailMock,
+  isEmailConfigured: isEmailConfiguredMock,
   sendVerificationEmail: sendVerificationEmailMock,
 }));
 // See the identical note in src/lib/actions/auth.test.ts — avoids pulling in
@@ -526,6 +530,38 @@ describe("sendInviteEmailAction (absoluteAppUrl trust boundary)", () => {
     expect(sendHouseholdInviteEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({ inviteUrl: "http://localhost:3000/join/invite-token" }),
     );
+  });
+});
+
+// MAINT-7: email.ts's `error` is English text for the logs, so the action
+// answers in the user's language instead of passing it through.
+describe("sendInviteEmailAction delivery failures", () => {
+  beforeEach(() => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      userId: "sender-2",
+    });
+    invitationFindFirstMock.mockResolvedValue({
+      id: "invite-1",
+      token: "invite-token",
+      householdId: "household-1",
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    });
+  });
+
+  it("says delivery failed when the provider rejected the send", async () => {
+    sendHouseholdInviteEmailMock.mockResolvedValueOnce({ error: "provider said no" });
+    const result = await sendInviteEmailAction("invite-token", "friend@example.com");
+    expect(result.error).toBe(en.errors.emailSendFailed);
+  });
+
+  it("says email isn't set up when no provider is configured, in Swedish for a Swedish user", async () => {
+    sendHouseholdInviteEmailMock.mockResolvedValueOnce({ error: "Email delivery isn't configured" });
+    isEmailConfiguredMock.mockReturnValueOnce(false);
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const result = await sendInviteEmailAction("invite-token", "friend@example.com");
+    expect(result.error).toBe(sv.errors.emailNotConfigured);
   });
 });
 

@@ -252,7 +252,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   ownership transfer, leaving or deleting a household, and the owner-only
   settings, including the "can't delete your only household" reason the
   delete dialog shows. `passwordTooLong` spells out the 72-character limit
-  because a Zod message can't carry variables.
+  because a Zod message can't carry variables. The invite email's delivery
+  failure (`sendInviteEmailAction`) is `emailNotConfigured` or `emailSendFailed`
+  rather than the English text `lib/email.ts` returns for its logs. The receipt
+  and shelf photo scans (`receipt-scan.ts`, `inventory-scan.ts`) return
+  snake_case codes their dialogs already map to `dict` text, and
+  `parse-import-csv.ts` returns codes the same way, so those are guarded as
+  `RETURNS_KEYS` in the test instead of converted.
   The household notes board (`notes-actions.ts`), the push actions (quiet
   hours validation, unknown subscription), the weekly-digest toggle and the
   barcode scan, link and create-item actions (`lib/actions/barcode.ts`) are
@@ -7010,27 +7016,39 @@ components directly.
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
-- **Landing page (UX-58)**: `src/app/page.tsx` leads with the product. The
-  hero pairs the pitch with `PhonePreview`
-  (`src/components/landing/phone-preview.tsx`): a shopping list in a phone
-  frame, headed by the BrandBadge, with grouped rows, "Low stock" badges,
-  the default list's "Fills itself" badge and a struck-through "Purchased"
-  row. It is drawn from tokens and the `landing.preview` strings rather
-  than a screenshot, so it follows the locale and theme and can't go
-  stale; it's one `role="img"` with a descriptive label and nothing inside
-  it is interactive. From `lg` it sits beside the pitch; on a phone it
-  follows the buttons, with the hero's top padding and gaps tightened so
-  its top half (mascot, list name, first rows) is in the first screen.
-  Six feature cards cover pantry, shopping lists (with share links),
-  meals (recipes, import, cook mode), tasks (repeating and rotating, plus
-  the calendar feed), scanning (barcode, receipt, shelf) and budgets
-  (household, splitting, personal), so the grid fills evenly at two and
-  three columns; their icon tiles use the `chart-*` tokens. The copy
-  claims only what's true: no "example data" (a new household starts
-  empty; sample data is an opt-in on the overview, UX-136) and no "less than a minute" (signup
-  waits on email verification). Covered by `e2e/landing.spec.ts` (the
-  preview at least 40% on screen without scrolling, every feature named,
-  no empty grid cell at 1280 px, Swedish preview).
+- **Landing page (UX-58, fridge-door redesign)**: `src/app/page.tsx`
+  leads with the product, framed as a fridge door. The hero greets
+  "Dear household," in handwriting (Caveat, loaded only here through
+  `src/components/landing/handwriting.ts`) over "Take everything off the
+  fridge.", with "fridge" in `primary` on a honey underline. Beside it
+  (below it on a phone) `FridgeDoor` (`src/components/landing/fridge-door.tsx`)
+  draws the door: the brand spelled in bobbing letter magnets with the
+  BrandBadge as a magnet, then `PhonePreview`
+  (`src/components/landing/phone-preview.tsx`, the tokens-drawn shopping
+  list in a phone frame, one `role="img"` with a descriptive label) hanging
+  first so it's in the first screen at any size, flanked from `sm` by a taco
+  note and a budget note, then a ruled shopping list, a "Bins out — WHOSE
+  TURN??" sticky note and a receipt. The notes are the household's own
+  scribbles (`landing.fridge`, written per language rather than
+  translated) and pure decoration: each is `aria-hidden` and nothing on the
+  door but the phone is announced. They're paper in both themes: the
+  `note-*` tokens (and the `night-*` ones below) hold one value in light
+  and dark, and only the door's `fridge`/`fridge-handle` enamel changes;
+  every ink/ground pair is in `globals-contrast.test.ts`. A deep purple
+  "night" band then re-homes three notes beside the feature that replaces
+  each (shopping list → shopping lists, the bins note → chores, the
+  receipt → budgets); the other three features (pantry, meals, scanning)
+  are pinned cards under "Also on the door, now in your pocket", so every
+  part of the app is still named. "How it works" follows unchanged, and the
+  closing call to action is a yellow sticky note ("Note to self: Get the
+  household in order."). Motion (the magnets' bob, notes straightening on
+  hover) runs only under `motion-safe`. The copy claims only what's true: no
+  "example data" (a new household starts empty; sample data is an opt-in on
+  the overview, UX-136) and no "less than a minute" (signup waits on email
+  verification). Covered by `e2e/landing.spec.ts` (the preview at least 40%
+  on screen without scrolling, every feature named, the headline and the
+  notes hidden from screen readers, the three re-homed notes, the sticky
+  note leading to sign-up, the Swedish preview and headline).
 - **404 and invalid-link titles (UX-65)**: `src/app/not-found.tsx` is a
   Server Component that checks the session. A logged-out visitor gets the
   `StatusCard` (brand mark, compass icon, "Page not found") with a "Go to

@@ -10,7 +10,7 @@ import bcrypt from "bcryptjs";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold, requireUserId } from "@/lib/session";
-import { sendHouseholdInviteEmail, sendVerificationEmail } from "@/lib/email";
+import { isEmailConfigured, sendHouseholdInviteEmail, sendVerificationEmail } from "@/lib/email";
 import type { ActionState, SignupState } from "@/lib/actions/auth";
 import { errorText, fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { hashToken } from "@/lib/token-hash";
@@ -134,12 +134,16 @@ export async function sendInviteEmailAction(token: string, email: string): Promi
   // own locale (getLocale() reads their stored account preference, since
   // they're signed in here) is the best available signal.
   const locale = await getLocale();
-  return sendHouseholdInviteEmail({
+  const sent = await sendHouseholdInviteEmail({
     to: parsed.data.email,
     householdName: household.name,
     inviteUrl,
     locale,
   });
+  // email.ts returns English text meant for logs (and the provider's own
+  // message), so the user gets a translated message instead.
+  if (sent.error) return await fail(isEmailConfigured() ? "emailSendFailed" : "emailNotConfigured");
+  return {};
 }
 
 async function getValidInvitation(token: string) {

@@ -125,16 +125,29 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
-      `MealPlanningView` and `BudgetTabs` render every tab on the server
-      and hide the inactive ones with `hidden`, so all four tabs' JS
-      downloads and hydrates before the visible one is interactive. That
-      keeps tab switches instant, which is worth keeping. Try wrapping the
-      inactive tabs in React 19's `<Activity mode="hidden">` and record:
-      whether the visible tab becomes interactive sooner (long-task time
-      under 4× CPU), whether hidden tabs still render on the server, and
-      whether tab state survives a switch as it does now. Ends in a
-      follow-up item or a note here explaining why not.
+**`<Activity>` for the hidden tabs: tried, not worth shipping (PERF-29,
+2026-10-28).** Wrapping the inactive tabs of `MealPlanningView` and
+`BudgetTabs` in `<Activity mode="hidden">` (React 19.3.1, Next 16.4.3,
+production build, Chromium at 4× CPU, 5 loads per page, median) made the
+visible tab bar hydrate no faster in any way that clears the noise:
+time to hydrated tab bar 1770 to 1803 ms (meal planning, desktop), 1968
+to 1701 (meal planning, phone), 1967 to 1782 (budget, desktop) and 1899
+to 1779 (budget, phone), where single runs vary by about 200 ms. Long-task
+time before that point fell by 50 to 90 ms (579 to 511, 598 to 507, 540
+to 476, 549 to 460 ms), about 10 to 16%. The server HTML shrank 15 to 17%
+(161 to 136 KB and 168 to 139 KB) because hidden panels' markup is no
+longer streamed, while their text is still in the page (the markers I
+searched for were all present, so the Flight payload still carries it).
+State survives a switch (the Recipes search text was kept). It does not
+cut the downloaded JS (all four tabs' chunks are still in the payload),
+which the item above says dominates, so the gain is a small slice of
+hydration work, and it costs the hidden tabs' server-rendered DOM
+(nothing to find-in-page or print before hydration) and pauses their
+effects while hidden. Not worth that for about 80 ms; revisit if the
+tab bodies get heavier or if per-tab code splitting (loading a tab's JS
+on first open) is ever wanted, since `<Activity>` is the way to keep the
+state when that lands. The measurement spec was a throwaway and is not
+kept.
 
 ### Maintainability (2026-09-26 audit)
 
@@ -152,21 +165,18 @@ then MAINT-7 per feature, to avoid churn.
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
       REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks, the shared list link, household
-      (`lib/actions/household.ts`), auth (`lib/actions/auth.ts`) and
-      profile, all done. Still English: the string-literal
-      `error:` values and Zod messages in the files on `PENDING` in
+      inventory, meal planning, tasks, the shared list link, household,
+      auth and profile, the invite email, and checked the receipt and shelf
+      scans and `parse-import-csv.ts` (codes their clients already
+      translate), all done. Still English: the string-literal `error:`
+      values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19), plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
-      `savings-goal-calc.ts` and `budget-category-limit.ts`. The receipt and
-      inventory scans (`receipt-scan.ts`, `inventory-scan.ts`) return
-      snake_case codes (`rate_limited`, `invalid_photo`, …) that their
-      clients map to text, so check whether the client already translates
-      them; if so, move both files to `RETURNS_KEYS` in that test instead of
-      converting. Convert a feature at a time, add its keys to `dict.errors`
-      (or a feature namespace, as `template-actions.ts` does), and delete the
-      file from `PENDING`: the test fails if a clean file stays listed. Leave
-      budget until BUDGET-6 is decided.
+      19), plus `lib/recipe-import.ts` (MAINT-65 is splitting it),
+      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
+      feature at a time, add its keys to `dict.errors` (or a feature
+      namespace, as `template-actions.ts` does), and delete the file from
+      `PENDING`: the test fails if a clean file stays listed. Leave budget
+      until BUDGET-6 is decided.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (now 1,107 lines; the
       row, price, printable and cleared components are already out): pull
@@ -437,7 +447,8 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       field or with a dialog open. A `?` overlay lists them. Desktop only
       (hidden on touch). e2e spec on the desktop project.
 
-- [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
+- [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
+      how baselines are made — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
       most-used screens:
       - dashboard, inventory, shopping list and detail, meal planner,
@@ -447,6 +458,29 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       - with masked timestamps and a tolerance threshold.
 
       A diff fails the PR until a human approves the new baseline.
+
+      **Blocked (autopilot-build, 2026-10-28): baselines can't be made
+      deterministic from an agent session.** `toHaveScreenshot` compares
+      pixels, so the PNGs must come from the same Chromium build and font
+      set as the GitHub `ubuntu-latest` runner. The agent sandbox has a
+      different prebuilt Chromium (`/opt/pw-browsers`, `playwright.config.ts`
+      falls back to it) and a different font set, and `playwright install`
+      isn't allowed there, so baselines committed from it would fail on
+      the first CI run (or force a loose tolerance that hides real
+      regressions). Also open: seeded data is date-relative (greetings,
+      weekday headers, due dates), so more than timestamps need masking
+      or a frozen clock.
+      **Question for the owner:** OK to generate baselines on the runner
+      itself? Proposed: a `workflow_dispatch` "Update screenshots"
+      workflow (a human-only edit to `.github/workflows/`) that runs
+      `playwright test --update-snapshots` on the e2e job's image and
+      commits the PNGs to the PR branch; a normal e2e run then compares,
+      only on PRs into `master`, in a separate `visual` project with
+      `maxDiffPixelRatio` ~0.01, `page.clock` frozen, `animations:
+      "disabled"` and masks. Keeping the set small (10 screens x
+      light/dark x en/sv x mobile/desktop is 80 PNGs; suggest desktop+mobile
+      en light plus sv/dark on mobile only, about 30) keeps runtime and
+      repo size reasonable. Once decided, this is a buildable M.
 
 ---
 
