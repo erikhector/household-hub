@@ -65,10 +65,9 @@ import { LimitAlerts, type LimitAlertRow } from "@/components/budget/limit-alert
 import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import { DueRecurringWidget, type SharedDueRow } from "@/components/budget/due-recurring-widget";
 import { MonthNavigator } from "@/components/budget/month-navigator";
-import { TransactionDialog, type MemberOption, type TransactionFormAction } from "@/components/budget/transaction-dialog";
-import {
-  LogSharedExpenseDialog,
-  type ShareableHousehold,
+import type { MemberOption, TransactionFormAction } from "@/components/budget/transaction-dialog";
+import type {
+  ShareableHousehold,
 } from "@/components/personal-budget/log-shared-expense-dialog";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
@@ -86,6 +85,7 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { BudgetStartDayProvider } from "@/components/budget/budget-period-context";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { parseBudgetTab, type BudgetTab } from "@/lib/budget-url";
+import { LazyTransactionDialog, LazyLogSharedExpenseDialog } from "@/components/budget/lazy-budget-dialogs";
 
 export type { BudgetTab };
 type Tab = BudgetTab;
@@ -315,7 +315,7 @@ export function BudgetTabs({
           <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
             {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (() => {
               const dialog = (
-                <LogSharedExpenseDialog
+                <LazyLogSharedExpenseDialog
                   numberFormat={numberFormat}
                   dict={logSharedDialogDict}
                   households={sharedExpenseHouseholds}
@@ -340,7 +340,7 @@ export function BudgetTabs({
                 possible. */}
             {hasCategories && (
               <PrimaryAction>
-                <TransactionDialog
+                <LazyTransactionDialog
                   numberFormat={numberFormat}
                   dict={dict}
                   categories={categories}

@@ -14,15 +14,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  RecurringTemplateDialog,
-  type RecurringTemplateFormAction,
-  type RecurringTemplateRow,
+import type {
+  RecurringTemplateFormAction,
+  RecurringTemplateRow,
 } from "@/components/budget/recurring-template-dialog";
-import {
-  TransactionDialog,
-  type MemberOption,
-  type TransactionFormAction,
+import type {
+  MemberOption,
+  TransactionFormAction,
 } from "@/components/budget/transaction-dialog";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -30,6 +28,7 @@ import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
+import { LazyTransactionDialog, LazyRecurringTemplateDialog } from "@/components/budget/lazy-budget-dialogs";
 
 export type RecurringTemplateListRow = RecurringTemplateRow & {
   categoryName: string;
@@ -137,7 +136,7 @@ export function RecurringTemplatesPanel({
           <h2 className="font-heading text-base font-semibold">{dict.recurring.title}</h2>
           <p className="text-sm text-muted-foreground">{dict.recurring.subtitle}</p>
         </div>
-        <RecurringTemplateDialog
+        <LazyRecurringTemplateDialog
           numberFormat={numberFormat}
           dict={dict}
           categories={categories}
@@ -179,7 +178,7 @@ export function RecurringTemplatesPanel({
                   })
                 }
                 primary={
-                  <TransactionDialog
+                  <LazyTransactionDialog
                     numberFormat={numberFormat}
                     dict={dict}
                     categories={categories}
@@ -433,7 +432,7 @@ function TemplateRow({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <RecurringTemplateDialog
+      <LazyRecurringTemplateDialog
         numberFormat={numberFormat}
         dict={dict}
         categories={categories}

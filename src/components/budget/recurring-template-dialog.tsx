@@ -1,17 +1,17 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ReactElement } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
+  type DialogHandle,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Combobox,
@@ -81,7 +81,7 @@ export function RecurringTemplateDialog({
   dict,
   categories,
   members,
-  trigger,
+  handle,
   template,
   createAction,
   updateAction,
@@ -95,7 +95,9 @@ export function RecurringTemplateDialog({
    * (which has no members at all, BUDGET-2) simply never sees the split
    * section, the same way a genuinely single-member household wouldn't. */
   members?: MemberOption[];
-  trigger: ReactElement;
+  // Opened through this handle by a trigger that stays in the page's own chunk, so
+  // this dialog loads on first use (PERF-30, ui/lazy-dialog.tsx).
+  handle: DialogHandle;
   template?: RecurringTemplateRow;
   /** createRecurringTemplateAction/updateRecurringTemplateAction (household)
    * or createPersonalRecurringTemplateAction/updatePersonalRecurringTemplateAction
@@ -156,13 +158,13 @@ export function RecurringTemplateDialog({
 
   return (
     <Dialog
+      handle={handle}
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (next) resetForTemplate();
       }}
     >
-      <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>

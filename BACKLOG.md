@@ -125,18 +125,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-30. Lazy-load dialogs on the budget pages** (medium, M) —
-      the rest of PERF-26 (inventory is done; see REQUIREMENTS.md, "Dialogs
-      load on first use"). Same helper on `TransactionDialog` (used by
-      `transaction-list.tsx`, `budget-tabs.tsx`,
-      `planned-expenses-panel.tsx`, `recurring-templates-panel.tsx` and
-      `due-recurring-widget.tsx`), `RecurringTemplateDialog`,
-      `PlannedExpenseDialog` and `LogSharedExpenseDialog`
-      (`budget-tabs.tsx`, `due-recurring-widget.tsx`), which own their
-      trigger today: give them a `handle` and keep the opener in the page,
-      as the inventory dialogs now do. Wrap the budget and personal budget
-      pages in `LazyDialogErrorMessage`. One PR per page group is fine. The
-      meal planning group cut its route's JS by 17% gz.
 - [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
       `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
       switcher's menu and create form, and the bottom bar's "More" menu

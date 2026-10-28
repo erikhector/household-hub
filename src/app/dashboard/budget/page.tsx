@@ -5,6 +5,7 @@ import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i1
 import { format } from "@/lib/i18n/format";
 import { ExportButton } from "@/components/export/export-button";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
+import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { CategoryManager } from "@/components/budget/category-manager";
 import {
@@ -1033,54 +1034,56 @@ async function BudgetTabsSection({
   );
 
   return (
-    <BudgetTabs
-      dict={dict.budget}
-      locale={locale}
-      currencyCode={currencyCode}
-      monthKey={monthKey}
-      currentMonthKey={currentMonthKey}
-      budgetMonthStartDay={startDay}
-      basePath="/dashboard/budget"
-      householdParam={householdParam}
-      readOnly={readOnly}
-      categories={categoryRows}
-      safeToSpendAmount={safeToSpend}
-      safeToSpendStatus={safeToSpendStatus}
-      safeToSpendBreakdown={safeToSpendBreakdown}
-      safeToSpendExpectedRecurring={expectedRecurring}
-      safeToSpendProjection={safeToSpendProjection}
-      safeToSpendDaily={safeToSpendDaily}
-      limitAlerts={limitAlerts}
-      dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
-      hasRecurringTemplates={activeRecurringTemplates.length > 0}
-      hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}
-      plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
-      members={memberOptions}
-      currentMemberId={currentMemberId}
-      createTransactionAction={createTransactionAction}
-      updateTransactionAction={updateTransactionAction}
-      deleteTransactionAction={deleteTransactionAction}
-      recentCategoryIds={recentCategoryIds(latestTransactions)}
-      onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
-      onLogTemplateAsIs={logRecurringTemplateAction}
-      savingsGoals={savingsGoals}
-      onboarding={<BudgetOnboarding
-          dict={dict.budget}
-          body={format(dict.budget.onboarding.body, { household: householdName })}
-          currency={{
-            currencyCode,
-            canChange: canChangeCurrency,
-            locale,
-            dict: dict.budget.onboarding,
-            currencyDict: dict.household.currency,
-          }}
-          createCategoryAction={createCategoryAction}
-          createStarterCategoriesAction={createStarterCategoriesAction}
-        />}
-      manage={manage}
-      transactions={transactionsTab}
-      insights={insights}
-    />
+    <LazyDialogErrorMessage message={dict.errors.generic}>
+      <BudgetTabs
+        dict={dict.budget}
+        locale={locale}
+        currencyCode={currencyCode}
+        monthKey={monthKey}
+        currentMonthKey={currentMonthKey}
+        budgetMonthStartDay={startDay}
+        basePath="/dashboard/budget"
+        householdParam={householdParam}
+        readOnly={readOnly}
+        categories={categoryRows}
+        safeToSpendAmount={safeToSpend}
+        safeToSpendStatus={safeToSpendStatus}
+        safeToSpendBreakdown={safeToSpendBreakdown}
+        safeToSpendExpectedRecurring={expectedRecurring}
+        safeToSpendProjection={safeToSpendProjection}
+        safeToSpendDaily={safeToSpendDaily}
+        limitAlerts={limitAlerts}
+        dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
+        hasRecurringTemplates={activeRecurringTemplates.length > 0}
+        hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}
+        plannedDue={plannedExpenseRows.filter((r) => isPlannedItemCounted(r.status, r.type))}
+        members={memberOptions}
+        currentMemberId={currentMemberId}
+        createTransactionAction={createTransactionAction}
+        updateTransactionAction={updateTransactionAction}
+        deleteTransactionAction={deleteTransactionAction}
+        recentCategoryIds={recentCategoryIds(latestTransactions)}
+        onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
+        onLogTemplateAsIs={logRecurringTemplateAction}
+        savingsGoals={savingsGoals}
+        onboarding={<BudgetOnboarding
+            dict={dict.budget}
+            body={format(dict.budget.onboarding.body, { household: householdName })}
+            currency={{
+              currencyCode,
+              canChange: canChangeCurrency,
+              locale,
+              dict: dict.budget.onboarding,
+              currencyDict: dict.household.currency,
+            }}
+            createCategoryAction={createCategoryAction}
+            createStarterCategoriesAction={createStarterCategoriesAction}
+          />}
+        manage={manage}
+        transactions={transactionsTab}
+        insights={insights}
+      />
+    </LazyDialogErrorMessage>
   );
 }
 
