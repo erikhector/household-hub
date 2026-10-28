@@ -2,12 +2,11 @@
 
 import { useActionState, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -76,8 +75,6 @@ export function ShoppingItemFormDialog({
   units,
   dict,
   barcodeDict,
-  editAriaLabel,
-  matchItemLabel,
   handle,
 }: {
   mode: "create" | "edit";
@@ -92,12 +89,8 @@ export function ShoppingItemFormDialog({
   dict: ShoppingListDict;
   /** Required in create mode. */
   barcodeDict?: Dictionary["barcodeScanner"];
-  /** Required in edit mode. */
-  editAriaLabel?: string;
-  /** Required in edit mode. */
-  matchItemLabel?: string;
-  /** Create mode only: open through this handle (e.g. from the list's
-   * overflow menu) instead of rendering the "+" button. */
+  /** Open through this handle (the list's overflow menu, a row's edit
+   * buttons) instead of rendering the "+" button. Required in edit mode. */
   handle?: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
@@ -246,60 +239,19 @@ export function ShoppingItemFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
-      {mode === "create" ? (
-        !handle && (
-          <DialogTrigger
-            render={
-              <Button className="gap-1.5">
-                <Plus className="size-4" />
-                <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
-              </Button>
-            }
-          />
-        )
-      ) : (
-        <>
-          <DialogTrigger
-            render={
-              <Button
-                data-swipe-edit
-                variant="ghost"
-                size="icon"
-                // Phones reach it through the row's ⋯ (RowActionsMenu) or
-                // its left swipe instead.
-                className="size-7 shrink-0 text-muted-foreground hover:text-foreground max-sm:hidden"
-                aria-label={editAriaLabel}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-            }
-          />
-          {item?.inventoryItemId === null && (
-            <DialogTrigger
-              nativeButton={false}
-              render={
-                // `warning` is the tinted pair (text on its own 10% tint)
-                // that clears contrast in light mode, where bare
-                // text-warning on the card didn't; the icon means the
-                // state isn't carried by colour alone. `order-first` puts
-                // it in the leading slot the category chip takes on a
-                // linked row, so a row's controls always read
-                // [chip or match][price][edit][delete] (UX-22). Accepted
-                // trade-off: tab order puts it after the price, because the
-                // trigger shares a Dialog root with the edit button and
-                // can't be rendered ahead of PriceTag without splitting it
-                // from its dialog; all three stay adjacent on one row.
-                <Badge
-                  variant="warning"
-                  className="touch-target order-first shrink-0 cursor-pointer justify-center"
-                >
-                  <TriangleAlert aria-hidden />
-                  {matchItemLabel}
-                </Badge>
-              }
-            />
-          )}
-        </>
+      {/* Create mode without a handle keeps its own "+" button. Edit mode
+          always opens through a handle: its pencil and "match item" openers
+          live in ShoppingItemEditTriggers, outside this lazily loaded chunk
+          (PERF-25), so a row costs two buttons rather than a whole form. */}
+      {mode === "create" && !handle && (
+        <DialogTrigger
+          render={
+            <Button className="gap-1.5">
+              <Plus className="size-4" />
+              <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
+            </Button>
+          }
+        />
       )}
       <DialogContent>
         {mode === "create" ? (

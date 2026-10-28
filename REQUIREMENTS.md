@@ -113,8 +113,17 @@ easy for AI coding agents to work in correctly:
   tab's server-rendered rows). `e2e/meal-planning-lazy-dialogs.spec.ts`
   covers the first tap without the idle prefetch and the failed-load toast
   and retry (with the service worker blocked, since `page.route()` can't
-  see requests it handles). The shopping list (PERF-25), inventory and the
-  budget pages are still to do.
+  see requests it handles).
+  The shopping list (PERF-25) uses it too: item form, receipt scan, put
+  away, import, resolve mappings, reorder sections, rename, save template
+  and partial price (loaders in `src/components/shopping/lazy-dialogs.ts`).
+  Openers stay in the page's own chunk: a dialog that owned its trigger
+  either gets a handle plus eager opener buttons (a row's edit form:
+  `ShoppingItemEditTriggers`) or a same-looking stand-in via `fallback`
+  (`LazyReceiptScan`, whose real component mounts with its menu already
+  open). `e2e/shopping-lazy-dialogs.spec.ts` covers the first tap and the
+  failed-load toast and retry. Inventory and the budget pages are still to
+  do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`

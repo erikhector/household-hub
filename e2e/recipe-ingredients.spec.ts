@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
-import { dismissCookieNotice, gotoRevealed, openRecipesTab, openRowSheet } from "./ui";
+import { dismissCookieNotice, expectHydrated, gotoRevealed, openRecipesTab, openRowSheet } from "./ui";
 
 // MATCH-1: saving a recipe no longer creates inventory items behind the
 // user's back. Rows the matcher is sure about save straight away; anything
@@ -47,7 +47,9 @@ async function openNewRecipe(page: Page, name: string) {
   // the tab open on the server, and gotoRevealed waits for its streamed
   // Suspense boundary to land before the button is looked for.
   await gotoRevealed(page, "/dashboard/meal-planning?tab=recipes");
-  await page.getByRole("button", { name: "New recipe" }).click();
+  const newRecipe = page.getByRole("button", { name: "New recipe" });
+  await expectHydrated(newRecipe);
+  await newRecipe.click();
   const dialog = page.getByRole("dialog", { name: "New recipe" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
   return dialog;
