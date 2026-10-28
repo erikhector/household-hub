@@ -233,22 +233,6 @@ then MAINT-7 per feature, to avoid churn.
       (a Suspense split, larger than S).
 
 
-- [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
-      item, blocks an incomplete row, and folds away confident matches",
-      `desktop`) failed once in a full local `ci:local` run of the SEC-4
-      branch (`c1f4461`, based on `origin/next` `2a8d9b6`, 2026-10-27) and
-      passed in the two other full runs of that branch (`a4f4dcf`,
-      `5cf0616`), whose diff touches nothing in recipes. Failing
-      assertion (line 169 region): `getByRole("dialog", { name: "Match
-      ingredients" }).getByRole("group", { name: "1 krm romatmnaai" })
-      .getByText("Nothing close in your pantry, so…")` not found after 5 s.
-      Likely the row's match note renders after an async lookup the spec
-      doesn't wait for. Reproduce with `--repeat-each=30`, find the race,
-      and fix it in the app or the spec's waiting, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:144
-      --project=desktop --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-67. Flaky: `native-sheets` mobile specs time out opening the add-meal sheet** (low, S) —
       Five `[mobile]` tests in `e2e/native-sheets.spec.ts` (`:64` flick
