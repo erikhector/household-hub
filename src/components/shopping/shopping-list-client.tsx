@@ -135,6 +135,10 @@ const ADDED_HIGHLIGHT_MS = 2000;
 const LEAVE_MS = 250;
 
 
+// UX-36: how often queued ticks are retried while the browser claims to be
+// online but the requests keep failing.
+const QUEUED_TICK_RETRY_MS = 10_000;
+
 const subscribeNever = () => () => {};
 
 export function ShoppingListClient({
@@ -459,9 +463,23 @@ export function ShoppingListClient({
         if (settled) router.refresh();
       });
     };
+    const replayWhenVisible = () => {
+      if (document.visibilityState === "visible") replay();
+    };
     replay();
     window.addEventListener("online", replay);
-    return () => window.removeEventListener("online", replay);
+    document.addEventListener("visibilitychange", replayWhenVisible);
+    // A "dead zone" (the radio says online, requests fail) never fires an
+    // `online` event and leaves hasQueuedTicks true, so this effect wouldn't
+    // run again: the pass stops at the first failed request and the queue
+    // would sit until a reload. Retry on a timer while anything is queued;
+    // a pass already running makes the extra call a no-op.
+    const retry = window.setInterval(replay, QUEUED_TICK_RETRY_MS);
+    return () => {
+      window.removeEventListener("online", replay);
+      document.removeEventListener("visibilitychange", replayWhenVisible);
+      window.clearInterval(retry);
+    };
   }, [hasQueuedTicks, router, dict.saveFailedToast]);
   const pathname = usePathname();
   const putAwayParam = useSearchParams().get("putAway");
