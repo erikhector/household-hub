@@ -213,19 +213,6 @@ then MAINT-7 per feature, to avoid churn.
 
 
 
-- [ ] **MAINT-69. Flaky: `inventory-lazy-dialogs` failed-chunk retry fails once, then passes** (low, S) —
-      `e2e/inventory-lazy-dialogs.spec.ts:50` ("a failed chunk load says so,
-      and the next tap retries", `desktop`) failed in one full `ci:local`
-      run of the PERF-27 branch (`7a40cf4`, 2026-10-28) and passed in a
-      third full run on the same commit and in 162/162 focused runs
-      (`--repeat-each=10`, desktop and mobile). Likely the same
-      click-before-hydration or history-patch race as MAINT-67/MAINT-68
-      (`expectHydrated`, `expectRouterPatched` in `e2e/ui.ts`). Reproduce
-      with `--repeat-each=30` under load, find the race, and fix it in the
-      app or the spec's waiting, never a loosened assertion, a skip or a
-      retry.
-      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-70. Flaky: `recipe-planned-dates` Recipes tab stays unselected after the click** (low, S) —
       `e2e/recipe-planned-dates.spec.ts:55` (`mobile`) failed once in the
       full `ci:local` gate of the MAINT-68 branch (`5f576e5`,
