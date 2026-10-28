@@ -213,21 +213,6 @@ then MAINT-7 per feature, to avoid churn.
 
 
 
-- [ ] **MAINT-67. Flaky: `native-sheets` mobile specs time out opening the add-meal sheet** (low, S) —
-      Five `[mobile]` tests in `e2e/native-sheets.spec.ts` (`:64` flick
-      down on the grabber, `:79` short slow pull, `:125` page behind
-      scales, `:137` reduced motion, `:145` touch open focuses the sheet)
-      failed in the full local `ci:local` run of the `release/2026-10-27-0740`
-      gate (`e2bc21a`, 2026-10-27) and passed when the spec was re-run
-      alone on the same commit. The first failure is a 30 s timeout in
-      `openAddMeal` (line 55) at `trigger.click()` waiting for the "Add
-      your first dinner" button, which points at a click before
-      hydration or before the meal planner has rendered. Reproduce with
-      `--repeat-each=30`, find the race, and fix it in the app or the
-      spec's waiting (`expectHydrated` / `gotoRevealed` in `e2e/ui.ts`),
-      never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/native-sheets.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-69. Flaky: `inventory-lazy-dialogs` failed-chunk retry fails once, then passes** (low, S) —
       `e2e/inventory-lazy-dialogs.spec.ts:50` ("a failed chunk load says so,
       and the next tap retries", `desktop`) failed in one full `ci:local`
