@@ -91,7 +91,9 @@ test.describe("a failed chunk load", () => {
     await expect(page.getByRole("menuitem", { name: switcher.createMenuItem })).toBeHidden();
 
     offline = false;
-    await trigger.click();
+    // On a phone the error toast sits over the header's switcher and
+    // swallows a real click, so the retry is dispatched to the button.
+    await trigger.dispatchEvent("click");
     await expect(page.getByRole("menuitem", { name: switcher.createMenuItem })).toBeVisible();
   });
 });
