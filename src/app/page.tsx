@@ -47,17 +47,17 @@ export default async function Home() {
     {
       icon: ShoppingCart,
       ...landing.features.shoppingLists,
-      note: <ShoppingNote dict={landing.fridge.shoppingNote} className="w-52 -rotate-3" />,
+      note: <ShoppingNote dict={landing.fridge.shoppingNote} className="w-52 max-w-full -rotate-3" />,
     },
     {
       icon: ListChecks,
       ...landing.features.tasks,
-      note: <ChoresNote dict={landing.fridge.choresNote} className="w-48 rotate-3" />,
+      note: <ChoresNote dict={landing.fridge.choresNote} className="w-48 max-w-full rotate-3" />,
     },
     {
       icon: Wallet,
       ...landing.features.budget,
-      note: <ReceiptNote dict={landing.fridge.receipt} className="w-44 -rotate-2" />,
+      note: <ReceiptNote dict={landing.fridge.receipt} className="w-44 max-w-full -rotate-2" />,
     },
   ];
   const magnets = [
@@ -96,9 +96,11 @@ export default async function Home() {
             a phone, where the door puts the phone-framed list first so it's
             in the first screen. UX-28: in landscape on a phone (≈ 400 px
             tall) the greeting hides and the padding tightens so "Get
-            started free" stays on screen. */}
+            started free" stays on screen. UX-9: at 200% text a single word
+            of the headline is wider than a phone, so the column is capped
+            at the screen and breaks long words rather than scrolling. */}
         <section className="flex w-full max-w-6xl flex-col items-center gap-8 px-4 pt-4 pb-16 sm:pt-10 sm:pb-24 lg:flex-row lg:items-center lg:justify-between lg:gap-14 [@media(max-height:500px)]:pt-2">
-          <div className="flex max-w-xl flex-col items-start gap-5 sm:gap-6">
+          <div className="flex w-full max-w-xl min-w-0 flex-col items-start gap-5 break-words sm:gap-6">
             <p
               className={cn(
                 handwriting.className,
@@ -107,9 +109,9 @@ export default async function Home() {
             >
               {landing.heroEyebrow}
             </p>
-            <h1 className="font-heading text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-7xl lg:text-[5.5rem] [@media(max-height:500px)]:text-5xl">
+            <h1 className="max-w-full font-heading text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-7xl lg:text-[5.5rem] [@media(max-height:500px)]:text-5xl">
               {landing.heroPrefix}
-              <span className="relative inline-block text-primary">
+              <span className="relative inline-block max-w-full text-primary">
                 {landing.heroHighlight}
                 {/* The full stop sits before the underline: Chrome puts a
                     space around an <svg> in the heading's accessible name. */}
@@ -168,7 +170,7 @@ export default async function Home() {
                   key={title}
                   className="grid grid-cols-1 items-center justify-items-center gap-6 rounded-3xl bg-night-foreground/5 p-6 ring-1 ring-night-foreground/10 sm:p-8 md:grid-cols-[16rem_auto_1fr] md:justify-items-start"
                 >
-                  <div className="flex justify-center md:w-full">{note}</div>
+                  <div className="flex w-full min-w-0 justify-center">{note}</div>
                   <ArrowRight aria-hidden="true" className="size-10 rotate-90 text-night-accent md:rotate-0" />
                   <div className="flex max-w-md flex-col items-center gap-3 text-center md:items-start md:text-left">
                     <span className="flex size-11 items-center justify-center rounded-xl bg-night-foreground/10 text-night-accent">
