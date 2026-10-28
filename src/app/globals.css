@@ -59,8 +59,8 @@
    has-[[data-primary-action]] padding utility. */
 @media (width < 40rem) {
   [data-app-main]:has([data-bulk-bar]) {
-    padding-bottom: calc(11.25rem + min(2.125rem, env(safe-area-inset-bottom)) + var(--cookie-notice-h, 0px));
-    scroll-padding-bottom: calc(11.25rem + min(2.125rem, env(safe-area-inset-bottom)) + var(--cookie-notice-h, 0px));
+    padding-bottom: calc(7.5rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
+    scroll-padding-bottom: calc(7.5rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
   }
   [data-app-main]:has([data-bulk-bar]) [data-primary-action] {
     display: none;
@@ -139,6 +139,13 @@
 }
 
 :root {
+  /* UX-150: the phone bottom bar's real height, home-indicator inset
+     included. This is the first-paint estimate (one icon row + one label
+     line at 100% text); BottomNav measures itself and overrides it, so
+     everything docked above the bar (floating buttons, bulk bars, the
+     cookie strip, main's bottom padding) follows it when 200% text makes
+     the bar taller. */
+  --bottom-nav-h: calc(3.75rem + min(2.125rem, env(safe-area-inset-bottom)));
   --background: oklch(0.98 0.008 300);
   --foreground: oklch(0.24 0.035 290);
   --card: oklch(0.995 0.004 300);

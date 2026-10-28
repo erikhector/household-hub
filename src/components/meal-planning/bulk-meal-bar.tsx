@@ -118,7 +118,7 @@ export function BulkMealBar({
     <div
       role="region"
       aria-label={dict.bulkBarLabel}
-      className="sticky bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px)+0.5rem)] z-30 flex flex-col gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur-sm sm:bottom-4 print:hidden"
+      className="sticky bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px)+0.5rem)] z-30 flex flex-col gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur-sm sm:bottom-4 print:hidden"
     >
       <div className="flex items-center justify-between gap-2">
         <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium">
