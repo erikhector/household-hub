@@ -46,6 +46,8 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
   await page.getByRole("button", { name: "More list actions" }).click();
   await page.getByRole("menuitem", { name: "Add item" }).click();
   const add = page.getByRole("dialog", { name: "Add an item" });
+  // The dialog is a lazy chunk (PERF-25): evaluateAll doesn't wait for it.
+  await expect(add).toBeVisible();
   await expectFieldsAtLeast16px(add);
   const addUnit = add.locator("#add-item-unit");
   await addUnit.fill("pcs");
@@ -58,6 +60,7 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
   // row shows its Edit icon and the ⋯ is hidden.
   await clickRowAction(page, { button: "Edit Apples", menu: "More actions for Apples", item: "Edit" });
   const edit = page.getByRole("dialog");
+  await expect(edit).toBeVisible();
   await expectFieldsAtLeast16px(edit);
   const unit = edit.locator("#edit-item-unit");
   await expect(unit).toHaveValue("pcs");

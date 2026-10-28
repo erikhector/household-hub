@@ -44,7 +44,9 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
 
   // UX-50: an empty week has no per-day cards; its one button opens the same
   // dialog, for the first open day.
-  await page.getByRole("button", { name: "Add your first dinner" }).click();
+  const first = page.getByRole("button", { name: "Add your first dinner" });
+  await expectHydrated(first);
+  await first.click();
   const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
   await dialog.getByRole("combobox", { name: "Meal" }).click();
   await page.getByRole("option", { name: "Lunch" }).click();

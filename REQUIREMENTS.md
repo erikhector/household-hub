@@ -113,8 +113,17 @@ easy for AI coding agents to work in correctly:
   tab's server-rendered rows). `e2e/meal-planning-lazy-dialogs.spec.ts`
   covers the first tap without the idle prefetch and the failed-load toast
   and retry (with the service worker blocked, since `page.route()` can't
-  see requests it handles). The shopping list (PERF-25), inventory and the
-  budget pages are still to do.
+  see requests it handles).
+  The shopping list (PERF-25) uses it too: item form, receipt scan, put
+  away, import, resolve mappings, reorder sections, rename, save template
+  and partial price (loaders in `src/components/shopping/lazy-dialogs.ts`).
+  Openers stay in the page's own chunk: a dialog that owned its trigger
+  either gets a handle plus eager opener buttons (a row's edit form:
+  `ShoppingItemEditTriggers`) or a same-looking stand-in via `fallback`
+  (`LazyReceiptScan`, whose real component mounts with its menu already
+  open). `e2e/shopping-lazy-dialogs.spec.ts` covers the first tap and the
+  failed-load toast and retry. Inventory and the budget pages are still to
+  do.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -7041,7 +7050,7 @@ components directly.
   `--cookie-notice-h`, so the button rides above it, and public pages pad
   the body by `--cookie-notice-space`, which is not published over
   `/dashboard` (the shell scrolls inside itself, so the document must not
-  grow); both are set by `CookieNotice` and removed on dismissal, covered by `cookie-notice-room.mobile.spec.ts`)
+  grow); both are set by `CookieNotice` and removed on dismissal, covered by `cookie-notice-room.mobile.spec.ts`, which also holds the message to under three line-heights with 44 px "Läs mer" and dismiss targets: the link's hit area comes from inline vertical padding, not `touch-target`, so it doesn't stretch its line, UX-148)
   still shares the bottom edge, so e2e specs that tap a primary action on
   a phone call `dismissCookieNotice` first, and `expectTargetsApart`
   doesn't pair the floating button with the content scrolling under it.
