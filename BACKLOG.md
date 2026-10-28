@@ -125,16 +125,29 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
-      `MealPlanningView` and `BudgetTabs` render every tab on the server
-      and hide the inactive ones with `hidden`, so all four tabs' JS
-      downloads and hydrates before the visible one is interactive. That
-      keeps tab switches instant, which is worth keeping. Try wrapping the
-      inactive tabs in React 19's `<Activity mode="hidden">` and record:
-      whether the visible tab becomes interactive sooner (long-task time
-      under 4× CPU), whether hidden tabs still render on the server, and
-      whether tab state survives a switch as it does now. Ends in a
-      follow-up item or a note here explaining why not.
+**`<Activity>` for the hidden tabs: tried, not worth shipping (PERF-29,
+2026-10-28).** Wrapping the inactive tabs of `MealPlanningView` and
+`BudgetTabs` in `<Activity mode="hidden">` (React 19.3.1, Next 16.4.3,
+production build, Chromium at 4× CPU, 5 loads per page, median) made the
+visible tab bar hydrate no faster in any way that clears the noise:
+time to hydrated tab bar 1770 to 1803 ms (meal planning, desktop), 1968
+to 1701 (meal planning, phone), 1967 to 1782 (budget, desktop) and 1899
+to 1779 (budget, phone), where single runs vary by about 200 ms. Long-task
+time before that point fell by 50 to 90 ms (579 to 511, 598 to 507, 540
+to 476, 549 to 460 ms), about 10 to 16%. The server HTML shrank 15 to 17%
+(161 to 136 KB and 168 to 139 KB) because hidden panels' markup is no
+longer streamed, while their text is still in the page (the markers I
+searched for were all present, so the Flight payload still carries it).
+State survives a switch (the Recipes search text was kept). It does not
+cut the downloaded JS (all four tabs' chunks are still in the payload),
+which the item above says dominates, so the gain is a small slice of
+hydration work, and it costs the hidden tabs' server-rendered DOM
+(nothing to find-in-page or print before hydration) and pauses their
+effects while hidden. Not worth that for about 80 ms; revisit if the
+tab bodies get heavier or if per-tab code splitting (loading a tab's JS
+on first open) is ever wanted, since `<Activity>` is the way to keep the
+state when that lands. The measurement spec was a throwaway and is not
+kept.
 
 ### Maintainability (2026-09-26 audit)
 
