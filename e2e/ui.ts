@@ -318,6 +318,20 @@ export async function expectHydrated(target: Locator) {
     .toBe(true);
 }
 
+/** Waits until Next's app router has patched history.replaceState, which it
+ * does in a passive effect after hydration. expectHydrated is not enough
+ * before a click that changes history or the URL: a Dialog pushes a history
+ * entry when it opens, and if that lands before the router's patch the
+ * router's first commit rewrites the entry and the dialog is closed again
+ * (MAINT-68: the Add-meal dialog opened and vanished, so the next locator
+ * inside it waited out the 30 s timeout). Call it after expectHydrated and
+ * before clicking a control that opens a dialog or switches a URL-driven tab. */
+export async function expectRouterPatched(page: Page) {
+  await expect
+    .poll(() => page.evaluate(() => !/\[native code\]/.test(window.history.replaceState.toString())))
+    .toBe(true);
+}
+
 /** Opens the meal planner's Recipes tab and waits until it is the open one.
  * The tab bar is server-rendered before it is interactive: under a loaded run
  * goto() returns before React has hydrated it, and a click that lands then
@@ -334,9 +348,7 @@ export async function expectHydrated(target: Locator) {
 export async function openRecipesTab(page: Page) {
   const tab = page.getByRole("tab", { name: "Recipes" });
   await expectHydrated(tab);
-  await expect
-    .poll(() => page.evaluate(() => !/\[native code\]/.test(window.history.replaceState.toString())))
-    .toBe(true);
+  await expectRouterPatched(page);
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }

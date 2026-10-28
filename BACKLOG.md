@@ -249,22 +249,6 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-68. Flaky: `meal-plan-search` times out clicking the Add-meal dialog's Recipe combobox** (low, S) —
-      `e2e/meal-plan-search.spec.ts:14` ("search finds a custom meal planned
-      two weeks ahead and links to its week", `desktop`) failed in the full
-      `ci:local` run of the MAINT-66 branch (`54239d1`, 2026-10-28) and
-      4 of 30 times with `--repeat-each=30` on clean `origin/next`
-      (`0c5cd37`), the others passing. Failure: `locator.click` times out
-      after 30 s at line 25 on the dialog's "Recipe" combobox. Likely a
-      click before hydration or before the dialog's lazy content is ready
-      (PERF-26's PR #821 added `expectHydrated` to this spec for the same
-      symptom, so check whether it already covers it). Find the race and
-      fix it in the app or the spec's waiting (`expectHydrated` /
-      `gotoRevealed` in `e2e/ui.ts`), never a loosened assertion, a skip
-      or a retry.
-      Acceptance: `npx playwright test e2e/meal-plan-search.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
       covered by MAINT-10 (which lists UI files only). It holds two

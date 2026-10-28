@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectRouterPatched } from "./ui";
 
 // GAP-59: search the whole meal plan from the planner, not week by week.
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -22,6 +22,7 @@ test("search finds a custom meal planned two weeks ahead and links to its week",
     await page.goto(`/dashboard/meal-planning?week=${targetWeek}`);
     const addMeal = page.getByRole("button", { name: /^Add (your first dinner|meal, )/ }).first();
     await expectHydrated(addMeal);
+    await expectRouterPatched(page);
     await addMeal.click();
     const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
     await dialog.getByRole("combobox", { name: "Recipe" }).click();
