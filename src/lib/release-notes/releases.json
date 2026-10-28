@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.116.0",
+    "date": "2026-10-28",
+    "pr": 833,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The inventory page loads a little faster, especially on slower phones: the scan, import and add item forms are now fetched only when you need them.\n\nYour personal budget now suggests a starter set of categories (salary, eating out, subscriptions and more). Pick the ones you want and add them in one tap.",
+      "sv": "Lagersidan laddas lite snabbare, särskilt på långsammare telefoner: formulären för skanning, import och nya varor hämtas först när du behöver dem.\n\nDin personliga budget föreslår nu ett startpaket med kategorier (lön, äta ute, prenumerationer med mera). Välj de du vill ha och lägg till dem med ett tryck."
+    }
+  },
+  {
     "version": "0.115.2",
     "date": "2026-10-28",
     "pr": 827,
