@@ -125,27 +125,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-30. Lazy-load dialogs on the budget pages** (medium, M) —
-      the rest of PERF-26 (inventory is done; see REQUIREMENTS.md, "Dialogs
-      load on first use"). Same helper on `TransactionDialog` (used by
-      `transaction-list.tsx`, `budget-tabs.tsx`,
-      `planned-expenses-panel.tsx`, `recurring-templates-panel.tsx` and
-      `due-recurring-widget.tsx`), `RecurringTemplateDialog`,
-      `PlannedExpenseDialog` and `LogSharedExpenseDialog`
-      (`budget-tabs.tsx`, `due-recurring-widget.tsx`), which own their
-      trigger today: give them a `handle` and keep the opener in the page,
-      as the inventory dialogs now do. Wrap the budget and personal budget
-      pages in `LazyDialogErrorMessage`. One PR per page group is fine. The
-      meal planning group cut its route's JS by 17% gz.
-- [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
-      `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
-      switcher's menu and create form, and the bottom bar's "More" menu
-      hydrate on every page but only appear after a tap or ⌘K. Keep the
-      triggers and the ⌘K listener eager; load the popups with the
-      lazy-dialog helper. Base UI's drawer, menu, tooltip and positioning code
-      only leaves the shared JS once page dialogs are lazy too
-      (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
-      20–40 KB gz off every page.
 - [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
       `MealPlanningView` and `BudgetTabs` render every tab on the server
       and hide the inactive ones with `hidden`, so all four tabs' JS
@@ -249,22 +228,6 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-68. Flaky: `meal-plan-search` times out clicking the Add-meal dialog's Recipe combobox** (low, S) —
-      `e2e/meal-plan-search.spec.ts:14` ("search finds a custom meal planned
-      two weeks ahead and links to its week", `desktop`) failed in the full
-      `ci:local` run of the MAINT-66 branch (`54239d1`, 2026-10-28) and
-      4 of 30 times with `--repeat-each=30` on clean `origin/next`
-      (`0c5cd37`), the others passing. Failure: `locator.click` times out
-      after 30 s at line 25 on the dialog's "Recipe" combobox. Likely a
-      click before hydration or before the dialog's lazy content is ready
-      (PERF-26's PR #821 added `expectHydrated` to this spec for the same
-      symptom, so check whether it already covers it). Find the race and
-      fix it in the app or the spec's waiting (`expectHydrated` /
-      `gotoRevealed` in `e2e/ui.ts`), never a loosened assertion, a skip
-      or a retry.
-      Acceptance: `npx playwright test e2e/meal-plan-search.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
       covered by MAINT-10 (which lists UI files only). It holds two
@@ -436,6 +399,46 @@ Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
 dialog sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
 hits. Signup error paths at 320 px keep input and put errors beside the
 field. WebKit was not run.
+
+### UX (2026-10-28 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
+hits (its one "Collapse sheet 64x16" hit is the sheet grabber, whose
+`after:` pseudo-element already gives it the 44 px target). The two items
+below come from `text-200-dashboard-meal-planning.png`. WebKit was not run.
+
+- [ ] **UX-149. Week/month switcher overlaps its label at 200% text** (impact:
+      med, effort: S) — `/dashboard/meal-planning` at 200% root font on Pixel 7:
+      the `‹ ›` links and the date "Oct 26 – Nov 1, 2026" draw on top of each
+      other and the label is cut off at the left edge.
+      `src/components/period-switcher.tsx:54-79` lets the arrow links shrink
+      (no `shrink-0`) and the label `truncate`s inside a `min-w-0` box that sits
+      beside the "⋯" button (`week-planner.tsx:310-320`), so the flex row
+      squeezes the arrows instead of the text. The household and personal
+      budgets use the same component. Breaks DESIGN.md's text-resize rule
+      (UX-9) and M3 (targets stay 44 px). Fix: `shrink-0` on both arrows, and
+      let the label wrap to two lines instead of truncating the period.
+      Acceptance: in the `mobile` project with the root font set to 200%, the
+      meal planner's previous/next links and the week label have
+      non-intersecting bounding boxes, each link is still 44 × 44 px, and the
+      label's full text is visible (not ellipsized).
+- [ ] **UX-150. Bottom bar splits its labels mid-word at 200% text** (impact:
+      low, effort: S) — at 200% text on Pixel 7 the five tabs read "Overvi/ew",
+      "Invento/ry", "Shoppi/ng list", "Meal plan/ning" (same screenshot), and
+      the meal planner's "Add your first dinner" FAB wraps to two lines and
+      slides under the taller bar. `src/components/dashboard/bottom-nav.tsx:139`
+      uses `break-words hyphens-auto`, which breaks anywhere when a word is
+      wider than its fifth of the bar. Breaks DESIGN.md's text-resize rule
+      (UX-9). Fix: cap the tab labels' size (`text-[clamp(...)]`, or
+      `max-w` + `truncate` with the full name as `aria-label`) so a name never
+      splits, and offset floating buttons by the bar's real height (a CSS
+      variable set from the bar), not a fixed `bottom-` value. Verify the FAB
+      overlap on a real run first: the full-page screenshot may exaggerate it.
+      Acceptance: in the `mobile` project at 200% root font, no bottom-bar label
+      wraps inside a word (each label is one line or breaks at spaces only) and
+      the FAB's bounding box doesn't intersect the bar's.
 
 
 ### Dependencies

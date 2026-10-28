@@ -16,12 +16,12 @@ import {
 } from "@/components/ui/table";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  TransactionDialog,
-  type MemberOption,
-  type TransactionFormAction,
-  type TransactionRow,
+import type {
+  MemberOption,
+  TransactionFormAction,
+  TransactionRow,
 } from "@/components/budget/transaction-dialog";
+import { LazyTransactionDialog } from "@/components/budget/lazy-budget-dialogs";
 import { format } from "@/lib/i18n/format";
 import { remainingDue } from "@/lib/settle-up-calc";
 import type { ActionState } from "@/lib/actions/auth";
@@ -486,7 +486,7 @@ export function TransactionList({
             </TableCell>
             <TableCell>
               <div className="flex items-center justify-end gap-1">
-                <TransactionDialog
+                <LazyTransactionDialog
                   numberFormat={numberFormat}
                   dict={dict}
                   categories={categories}
@@ -636,7 +636,7 @@ function TransactionPhoneRow({
   return (
     <li>
       <SwipeRow editLabel={dict.swipe.edit} deleteLabel={dict.swipe.delete} onDelete={onRemove} disabled={readOnly}>
-        <TransactionDialog
+        <LazyTransactionDialog
           numberFormat={numberFormat}
           dict={dict}
           categories={categories}

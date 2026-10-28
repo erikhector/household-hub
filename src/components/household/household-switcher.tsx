@@ -1,73 +1,43 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { useState, type ComponentProps } from "react";
+import { ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createHouseholdAction, switchHouseholdAction } from "@/lib/actions/household";
-import type { ActionState } from "@/lib/actions/auth";
+import { LazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
+import { loadHouseholdSwitcherMenu } from "@/components/dashboard/lazy-shell";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { PendingLabel } from "@/components/ui/pending-label";
 
-type HouseholdOption = { id: string; name: string; role: string };
+export type HouseholdOption = { id: string; name: string; role: string };
 
-const initialState: ActionState = {};
-
-// Controlled by the switcher: the dropdown item opens it, and it lives outside
-// the menu's content because that unmounts as soon as the menu closes.
-function CreateHouseholdDialog({
+/**
+ * The switcher's button. Rendered twice with the same look: here as the
+ * stand-in every page ships, and inside the lazy menu (household-switcher-menu
+ * .tsx) once its chunk is mounted, where Base UI adds its own props and ref.
+ */
+export function HouseholdSwitcherTrigger({
+  current,
   dict,
-  open,
-  setOpen,
-}: {
-  dict: Dictionary["household"]["switcher"];
-  open: boolean;
-  setOpen: (open: boolean) => void;
-}) {
-  const [state, formAction, pending] = useActionState(async (
-    prevState: ActionState,
-    formData: FormData,
-  ) => {
-    const result = await createHouseholdAction(prevState, formData);
-    if (!result.error) setOpen(false);
-    return result;
-  }, initialState);
-
+  ...props
+}: { current: HouseholdOption; dict: Dictionary["household"]["switcher"] } & ComponentProps<typeof Button>) {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{dict.createNew}</DialogTitle>
-        </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="new-household-name">{dict.nameLabel}</Label>
-            <Input autoComplete="off" enterKeyHint="done" id="new-household-name" name="name" required maxLength={60} />
-          </div>
-          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-          <DialogFooter>
-            <Button type="submit" disabled={pending}>
-              <PendingLabel pending={pending} busy={dict.creating} idle={dict.create} />
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    // UX-47: Button's base `shrink-0 whitespace-nowrap` beat the name's
+    // `min-w-0 line-clamp-*`, so a long name kept its full width and
+    // pushed the chevron and "+" off the phone (or over the page on
+    // desktop). `shrink` + `whitespace-normal` let the trigger give
+    // way so the name clamps; `title` carries the full name.
+    <Button
+      variant="ghost"
+      className="h-auto min-w-0 shrink flex-col items-start px-2 py-1 text-left whitespace-normal"
+      {...props}
+    >
+      <span className="text-xs font-medium text-muted-foreground">{dict.label}</span>
+      <span className="flex min-w-0 max-w-full items-center gap-1 font-semibold">
+        <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1" title={current.name}>
+          {current.name}
+        </span>
+        <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+      </span>
+    </Button>
   );
 }
 
@@ -80,63 +50,35 @@ export function HouseholdSwitcher({
   households: HouseholdOption[];
   dict: Dictionary["household"]["switcher"];
 }) {
-  const [isPending, startTransition] = useTransition();
-  const [createOpen, setCreateOpen] = useState(false);
-  const switcherDict = dict;
+  // PERF-27: the dropdown and the create form load on the first tap (see
+  // household-switcher-menu.tsx). Until then the trigger is a stand-in that
+  // asks for the real one, which mounts with its menu already open, so the
+  // first tap still lands on the list. The chunk is normally fetched in idle
+  // time long before that.
+  const [requested, setRequested] = useState(false);
 
   return (
     // UX-46: no standalone "+" any more. On a phone it sat in the header of
     // every page and read as "add an item here" but created a household, so
     // "Create household" is the last item of the dropdown instead.
     <div className="flex w-full min-w-0 items-center gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            // UX-47: Button's base `shrink-0 whitespace-nowrap` beat the name's
-            // `min-w-0 line-clamp-*`, so a long name kept its full width and
-            // pushed the chevron and "+" off the phone (or over the page on
-            // desktop). `shrink` + `whitespace-normal` let the trigger give
-            // way so the name clamps; `title` carries the full name.
-            <Button
-              variant="ghost"
-              className="h-auto min-w-0 shrink flex-col items-start px-2 py-1 text-left whitespace-normal"
-            >
-              <span className="text-xs font-medium text-muted-foreground">{switcherDict.label}</span>
-              <span className="flex min-w-0 max-w-full items-center gap-1 font-semibold">
-                <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1" title={current.name}>
-                  {current.name}
-                </span>
-                <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
-              </span>
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="start" className="max-w-[16rem]">
-          {households.map((h) => (
-            <DropdownMenuItem
-              key={h.id}
-              className="min-w-0"
-              disabled={isPending || h.id === current.id}
-              onClick={() => startTransition(() => switchHouseholdAction(h.id))}
-            >
-              <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1" title={h.name}>
-                {h.name}
-              </span>
-              {h.id === current.id && (
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                  {switcherDict.current}
-                </span>
-              )}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" />
-            {switcherDict.createMenuItem}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <CreateHouseholdDialog dict={switcherDict} open={createOpen} setOpen={setCreateOpen} />
+      <LazyDialog
+        loader={loadHouseholdSwitcherMenu}
+        open={requested}
+        onLoadError={() => setRequested(false)}
+        fallback={
+          <HouseholdSwitcherTrigger
+            current={current}
+            dict={dict}
+            type="button"
+            aria-haspopup="menu"
+            onClick={() => setRequested(true)}
+            {...preloadOnIntent(loadHouseholdSwitcherMenu)}
+          />
+        }
+      >
+        {(Menu) => <Menu current={current} households={households} dict={dict} />}
+      </LazyDialog>
     </div>
   );
 }
