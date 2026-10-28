@@ -91,6 +91,21 @@
 
 @theme inline {
   --animate-tick-pop: tick-pop 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-magnet-bob: magnet-bob 4s ease-in-out infinite;
+  --color-note-paper: var(--note-paper);
+  --color-note-line: var(--note-line);
+  --color-note-yellow: var(--note-yellow);
+  --color-note-pink: var(--note-pink);
+  --color-note-mint: var(--note-mint);
+  --color-note-green: var(--note-green);
+  --color-note-ink: var(--note-ink);
+  --color-note-red: var(--note-red);
+  --color-fridge: var(--fridge);
+  --color-fridge-handle: var(--fridge-handle);
+  --color-night: var(--night);
+  --color-night-foreground: var(--night-foreground);
+  --color-night-muted: var(--night-muted);
+  --color-night-accent: var(--night-accent);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-nunito);
@@ -193,6 +208,25 @@
   --status-tint: 10%;
   --gradient-start: #f3ecfb;
   --gradient-end: #fefcff;
+  /* The landing page's fridge door. Paper is paper in either theme, so the
+     notes (and the dark ink written on them) don't change with .dark; only
+     the door's enamel and handle do. The "night" band is the deep purple
+     section the notes are re-homed in, the same in both themes too. Each
+     ink/ground pair is guarded in globals-contrast.test.ts. */
+  --note-paper: oklch(0.99 0.006 90);
+  --note-line: oklch(0.86 0.05 260);
+  --note-yellow: oklch(0.92 0.11 92);
+  --note-pink: oklch(0.88 0.08 345);
+  --note-mint: oklch(0.91 0.07 180);
+  --note-green: oklch(0.9 0.09 145);
+  --note-ink: oklch(0.28 0.07 270);
+  --note-red: oklch(0.5 0.19 0);
+  --fridge: oklch(0.995 0.004 300);
+  --fridge-handle: oklch(0.87 0.03 295);
+  --night: oklch(0.2 0.08 300);
+  --night-foreground: oklch(0.985 0.01 300);
+  --night-muted: oklch(0.82 0.05 300);
+  --night-accent: oklch(0.84 0.13 80);
 }
 
 .dark {
@@ -238,6 +272,8 @@
   --status-tint: 20%;
   --gradient-start: #180828;
   --gradient-end: #0a0414;
+  --fridge: oklch(0.26 0.03 290);
+  --fridge-handle: oklch(0.4 0.04 290);
 }
 
 @layer base {
@@ -366,6 +402,17 @@
   }
   100% {
     scale: 1;
+  }
+}
+/* The landing page's letter magnets: a slow bob, staggered per letter.
+   FridgeDoor plays it only under motion-safe. */
+@keyframes magnet-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -5px;
   }
 }
 @keyframes vt-fade-in {
