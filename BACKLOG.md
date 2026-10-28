@@ -447,7 +447,8 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       field or with a dialog open. A `?` overlay lists them. Desktop only
       (hidden on touch). e2e spec on the desktop project.
 
-- [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
+- [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
+      how baselines are made — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
       most-used screens:
       - dashboard, inventory, shopping list and detail, meal planner,
@@ -457,6 +458,29 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       - with masked timestamps and a tolerance threshold.
 
       A diff fails the PR until a human approves the new baseline.
+
+      **Blocked (autopilot-build, 2026-10-28): baselines can't be made
+      deterministic from an agent session.** `toHaveScreenshot` compares
+      pixels, so the PNGs must come from the same Chromium build and font
+      set as the GitHub `ubuntu-latest` runner. The agent sandbox has a
+      different prebuilt Chromium (`/opt/pw-browsers`, `playwright.config.ts`
+      falls back to it) and a different font set, and `playwright install`
+      isn't allowed there, so baselines committed from it would fail on
+      the first CI run (or force a loose tolerance that hides real
+      regressions). Also open: seeded data is date-relative (greetings,
+      weekday headers, due dates), so more than timestamps need masking
+      or a frozen clock.
+      **Question for the owner:** OK to generate baselines on the runner
+      itself? Proposed: a `workflow_dispatch` "Update screenshots"
+      workflow (a human-only edit to `.github/workflows/`) that runs
+      `playwright test --update-snapshots` on the e2e job's image and
+      commits the PNGs to the PR branch; a normal e2e run then compares,
+      only on PRs into `master`, in a separate `visual` project with
+      `maxDiffPixelRatio` ~0.01, `page.clock` frozen, `animations:
+      "disabled"` and masks. Keeping the set small (10 screens x
+      light/dark x en/sv x mobile/desktop is 80 PNGs; suggest desktop+mobile
+      en light plus sv/dark on mobile only, about 30) keeps runtime and
+      repo size reasonable. Once decided, this is a buildable M.
 
 ---
 
