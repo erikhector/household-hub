@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ReactElement } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
+  type DialogHandle,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Combobox,
@@ -78,7 +78,7 @@ export function PlannedExpenseDialog({
   kind,
   categories,
   members,
-  trigger,
+  handle,
   bill,
   createAction,
   updateAction,
@@ -94,7 +94,9 @@ export function PlannedExpenseDialog({
   /** Every member of the household; the split section only shows with more
    * than one, like RecurringTemplateDialog's. */
   members: MemberOption[];
-  trigger: ReactElement;
+  // Opened through this handle by a trigger that stays in the page's own chunk, so
+  // this dialog loads on first use (PERF-30, ui/lazy-dialog.tsx).
+  handle: DialogHandle;
   bill?: PlannedExpenseRow;
   createAction: PlannedExpenseFormAction;
   updateAction: PlannedExpenseFormAction;
@@ -167,13 +169,13 @@ export function PlannedExpenseDialog({
 
   return (
     <Dialog
+      handle={handle}
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (next) resetForBill();
       }}
     >
-      <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? t.editDialogTitle : t.addDialogTitle}</DialogTitle>

@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { dismissCookieNotice, openRecipesTab } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched, openRecipesTab } from "./ui";
 
 // UX-10 follow-up (DESIGN.md M1): on a 412 px phone, a combobox squeezed into
 // a two- or three-column row lost its text to its own 44 px buttons — the
@@ -35,8 +35,16 @@ async function expectComboboxesHaveRoom(dialog: Locator) {
 
 async function openAddItem(page: Page) {
   await page.goto("/dashboard/inventory");
-  await page.getByRole("button", { name: "Add item" }).first().click();
-  return page.getByRole("dialog", { name: "Add inventory item" });
+  // A click before hydration (and the router's history patch) opens nothing
+  // or opens a dialog the router then closes; the combobox count below is a
+  // plain evaluate that doesn't wait, so it read 0.
+  const add = page.getByRole("button", { name: "Add item" }).first();
+  await expectHydrated(add);
+  await expectRouterPatched(page);
+  await add.click();
+  const dialog = page.getByRole("dialog", { name: "Add inventory item" });
+  await expect(dialog).toBeVisible();
+  return dialog;
 }
 
 test("the add inventory item dialog gives every combobox room on a phone", async ({ page, context, baseURL }) => {

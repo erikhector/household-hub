@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState, type ReactElement } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
+  type DialogHandle,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -188,7 +188,7 @@ export function TransactionDialog({
   members,
   currentMemberId,
   monthKey,
-  trigger,
+  handle,
   transaction,
   prefillFromTemplate,
   createAction,
@@ -216,7 +216,9 @@ export function TransactionDialog({
    * Ignored while editing an existing transaction, which always keeps its
    * own date. */
   monthKey?: string;
-  trigger: ReactElement;
+  // Opened through this handle by a trigger that stays in the page's own chunk, so
+  // this dialog loads on first use (PERF-30, ui/lazy-dialog.tsx).
+  handle: DialogHandle;
   transaction?: TransactionRow;
   prefillFromTemplate?: TransactionTemplatePrefill;
   /** createTransactionAction/updateTransactionAction (household) or
@@ -374,13 +376,13 @@ export function TransactionDialog({
 
   return (
     <Dialog
+      handle={handle}
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (next) resetForTransaction();
       }}
     >
-      <DialogTrigger render={trigger} />
       <DialogContent
         // UX-109: a new transaction opens on Amount with the number keypad,
         // even on a touch open (the sheet exists to type it).
