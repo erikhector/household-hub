@@ -12,6 +12,8 @@ import { Prisma } from "@/generated/prisma/client";
 const {
   requireUserIdMock,
   categoryFindFirstMock,
+  categoryFindManyMock,
+  categoryCreateManyMock,
   categoryCreateMock,
   categoryUpdateMock,
   categoryDeleteMock,
@@ -34,6 +36,8 @@ const {
 } = vi.hoisted(() => ({
   requireUserIdMock: vi.fn(),
   categoryFindFirstMock: vi.fn(),
+  categoryFindManyMock: vi.fn(),
+  categoryCreateManyMock: vi.fn(),
   categoryCreateMock: vi.fn(),
   categoryUpdateMock: vi.fn(),
   categoryDeleteMock: vi.fn(),
@@ -59,6 +63,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     personalBudgetCategory: {
       findFirst: categoryFindFirstMock,
+      findMany: categoryFindManyMock,
+      createMany: categoryCreateManyMock,
       create: categoryCreateMock,
       update: categoryUpdateMock,
       delete: categoryDeleteMock,
@@ -94,6 +100,7 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: vi.fn(async () => (
 
 const {
   createPersonalCategoryAction,
+  createPersonalStarterCategoriesAction,
   updatePersonalCategoryAction,
   deletePersonalCategoryAction,
   createPersonalTransactionAction,
@@ -126,6 +133,66 @@ afterEach(() => {
 requireUserIdMock.mockResolvedValue(userId);
 transactionFindManyMock.mockResolvedValue([]);
 userFindUniqueMock.mockResolvedValue({ personalBudgetMonthStartDay: 1 });
+
+describe("createPersonalStarterCategoriesAction", () => {
+  it("rejects an empty item list", async () => {
+    const result = await createPersonalStarterCategoriesAction([]);
+    expect(result.error).toBeTruthy();
+    expect(categoryCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid type", async () => {
+    const result = await createPersonalStarterCategoriesAction([
+      { name: "Salary", type: "BOGUS" as never },
+    ]);
+    expect(result.error).toBeTruthy();
+    expect(categoryCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes the batch create (and the existing-name lookup) to the caller's own userId", async () => {
+    categoryFindManyMock.mockResolvedValue([]);
+    categoryCreateManyMock.mockResolvedValue({ count: 2 });
+
+    const result = await createPersonalStarterCategoriesAction([
+      { name: "Salary", type: "INCOME" },
+      { name: "Eating out", type: "EXPENSE" },
+    ]);
+
+    expect(result).toEqual({ added: 2 });
+    expect(categoryFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { userId } }));
+    expect(categoryCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { userId, name: "Salary", type: "INCOME" },
+        { userId, name: "Eating out", type: "EXPENSE" },
+      ],
+    });
+  });
+
+  it("skips categories the user already has (case-insensitive) and repeats within the batch", async () => {
+    categoryFindManyMock.mockResolvedValue([{ name: "salary" }]);
+    categoryCreateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await createPersonalStarterCategoriesAction([
+      { name: "Salary", type: "INCOME" },
+      { name: "Clothes", type: "EXPENSE" },
+      { name: "clothes", type: "EXPENSE" },
+    ]);
+
+    expect(result).toEqual({ added: 1 });
+    expect(categoryCreateManyMock).toHaveBeenCalledWith({
+      data: [{ userId, name: "Clothes", type: "EXPENSE" }],
+    });
+  });
+
+  it("returns added: 0 without calling createMany when everything already exists", async () => {
+    categoryFindManyMock.mockResolvedValue([{ name: "Salary" }]);
+
+    const result = await createPersonalStarterCategoriesAction([{ name: "Salary", type: "INCOME" }]);
+
+    expect(result).toEqual({ added: 0 });
+    expect(categoryCreateManyMock).not.toHaveBeenCalled();
+  });
+});
 
 describe("createPersonalCategoryAction", () => {
   it("rejects a duplicate name for this user (case-insensitive)", async () => {

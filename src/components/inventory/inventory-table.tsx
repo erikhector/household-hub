@@ -27,7 +27,9 @@ import {
   deleteInventoryItemAction,
 } from "@/app/dashboard/inventory/actions";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
-import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
+import { createDialogHandle } from "@/components/ui/dialog";
+import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
+import { loadItemFormDialog } from "@/components/inventory/lazy-dialogs";
 import { QuickAddDisclosure } from "@/components/inventory/quick-add-bar";
 import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +113,8 @@ export function InventoryTable({
   const local = useLocalRowChanges(serverItems);
   const items = applyLocalRowChanges(serverItems, local.changes, (item) => item);
   const containerRef = useFlipList<HTMLDivElement>(view);
+  // PERF-26: the empty state's Add item form loads on first use.
+  const [addHandle] = useState(() => createDialogHandle());
   const [rawSelected, setSelected] = useState<Set<string>>(new Set());
   const [bulkField, setBulkField] = useState<BulkEditableField>("location");
   const [bulkValue, setBulkValue] = useState("");
@@ -135,21 +139,31 @@ export function InventoryTable({
         <MascotEmptyState
           alt={dict.mascotAlt}
           action={
-            <ItemFormDialog
-              mode="create"
-              categories={categories}
-              locations={locations}
-              units={units}
-              dict={dict}
-              barcodeDict={barcodeDict}
-              aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
-              trigger={
-                <Button className="gap-1.5">
-                  <Plus className="size-4" />
-                  {dict.addItem}
-                </Button>
-              }
-            />
+            <>
+              <Button
+                className="gap-1.5"
+                aria-haspopup="dialog"
+                onClick={() => openLazyDialog(addHandle)}
+                {...preloadOnIntent(loadItemFormDialog)}
+              >
+                <Plus className="size-4" />
+                {dict.addItem}
+              </Button>
+              <LazyDialog loader={loadItemFormDialog} handle={addHandle}>
+                {(ItemFormDialog) => (
+                  <ItemFormDialog
+                    mode="create"
+                    categories={categories}
+                    locations={locations}
+                    units={units}
+                    dict={dict}
+                    barcodeDict={barcodeDict}
+                    aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
+                    handle={addHandle}
+                  />
+                )}
+              </LazyDialog>
+            </>
           }
         >
           <div>

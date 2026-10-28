@@ -124,6 +124,12 @@ export async function loadLazyDialog(
 
 type Host = { request: () => void }
 const hosts = new WeakMap<DialogHandle, Host>()
+// Opens that arrived before the host's effect registered it. React attaches an
+// opener's onClick at hydration but runs the host's passive effect a moment
+// later, and a tap in that gap used to fall through to handle.open(), which a
+// Base UI handle ignores until a Root is mounted, so the first tap did
+// nothing. The host serves these when it registers.
+const earlyOpens = new WeakSet<DialogHandle>()
 
 /**
  * Opens the dialog behind `handle`: through its <LazyDialog> host (which loads
@@ -133,7 +139,10 @@ const hosts = new WeakMap<DialogHandle, Host>()
 export function openLazyDialog(handle: DialogHandle) {
   const host = hosts.get(handle)
   if (host) host.request()
-  else handle.open(null)
+  else {
+    earlyOpens.add(handle)
+    handle.open(null)
+  }
 }
 
 /**
@@ -197,7 +206,7 @@ export function LazyDialog<C extends Component>({
 
   React.useEffect(() => {
     if (!handle) return
-    hosts.set(handle, {
+    const host: Host = {
       request: () => {
         // Already mounted by an earlier open: nothing to wait for.
         if (mounted.current) return handle.open(null)
@@ -205,7 +214,9 @@ export function LazyDialog<C extends Component>({
         setRequested(true)
         loadAndRender()
       },
-    })
+    }
+    hosts.set(handle, host)
+    if (earlyOpens.delete(handle)) host.request()
     return () => {
       hosts.delete(handle)
     }

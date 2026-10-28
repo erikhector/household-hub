@@ -1,3 +1,4 @@
+import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { withCommonUnits } from "@/lib/units";
 import { Suspense, cache } from "react";
 import Link from "next/link";
@@ -273,6 +274,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
     // The header row also stays stacked until `lg`: its action buttons
     // alone are ~640 px wide. Mobile is unaffected (already scrolls via
     // `main` itself — see layout.tsx).
+    <LazyDialogErrorMessage message={dict.errors.generic}>
     <div className="flex flex-col gap-6 roomy:h-[calc(100dvh-4rem)] roomy:min-h-0">
       <div className="flex flex-col gap-3 sm:shrink-0 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -318,5 +320,6 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         />
       </Suspense>
     </div>
+    </LazyDialogErrorMessage>
   );
 }

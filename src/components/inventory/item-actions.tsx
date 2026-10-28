@@ -11,7 +11,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
+import { createDialogHandle } from "@/components/ui/dialog";
+import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
+import { loadItemFormDialog } from "@/components/inventory/lazy-dialogs";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table-utils";
@@ -73,6 +75,8 @@ export function ItemActions({
   // without rendering the dialog inside the menu popup (which would unmount
   // it as the menu closes).
   const editRef = React.useRef<HTMLButtonElement | null>(null);
+  // PERF-26: the edit form loads on first use; the button below stays here.
+  const [editHandle] = React.useState(() => createDialogHandle());
   return (
     <div className="flex items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2">
       {/* Desktop: show individual controls */}
@@ -151,30 +155,36 @@ export function ItemActions({
           left swipe (SwipeRow) shows them too, so a visible icon would be a
           third copy. The edit button stays mounted there, hidden, as the
           one the menu and the swipe both click. */}
-      <ItemFormDialog
-        mode="edit"
-        item={item}
-        categories={categories}
-        locations={locations}
-        units={units}
-        members={members}
-        locale={locale}
-        dict={dict}
-        barcodeDict={barcodeDict}
-        trigger={
-          <Button
-            variant="ghost"
-            size="icon"
-            ref={editRef}
-            data-swipe-edit
-            className={cn(size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
-            aria-label={dict.editAriaLabel}
-            title={dict.edit}
-          >
-            <Pencil className="size-3.5" />
-          </Button>
-        }
-      />
+      <Button
+        variant="ghost"
+        size="icon"
+        ref={editRef}
+        data-swipe-edit
+        className={cn(size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
+        aria-label={dict.editAriaLabel}
+        aria-haspopup="dialog"
+        title={dict.edit}
+        onClick={() => openLazyDialog(editHandle)}
+        {...preloadOnIntent(loadItemFormDialog)}
+      >
+        <Pencil className="size-3.5" />
+      </Button>
+      <LazyDialog loader={loadItemFormDialog} handle={editHandle}>
+        {(ItemFormDialog) => (
+          <ItemFormDialog
+            mode="edit"
+            item={item}
+            categories={categories}
+            locations={locations}
+            units={units}
+            members={members}
+            locale={locale}
+            dict={dict}
+            barcodeDict={barcodeDict}
+            handle={editHandle}
+          />
+        )}
+      </LazyDialog>
       {/* UX-49: Delete removes at once and offers Undo in a toast, instead
           of a "can't be undone" confirm. */}
       <Button

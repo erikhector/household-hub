@@ -125,13 +125,18 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-26. Lazy-load dialogs on inventory and budgets** (medium, M) —
-      the same helper on: `inventory-header-actions.tsx` (AI
-      shelf scan, stock scan, bulk scan, bulk paste, add item) and the
-      item page's change-unit/merge dialogs; the budget pages'
-      transaction, recurring-template, planned-expense and
-      log-shared-expense dialogs. One PR per page group is fine. The
-      meal planning group (done) cut its route's JS by 17% gz.
+- [ ] **PERF-30. Lazy-load dialogs on the budget pages** (medium, M) —
+      the rest of PERF-26 (inventory is done; see REQUIREMENTS.md, "Dialogs
+      load on first use"). Same helper on `TransactionDialog` (used by
+      `transaction-list.tsx`, `budget-tabs.tsx`,
+      `planned-expenses-panel.tsx`, `recurring-templates-panel.tsx` and
+      `due-recurring-widget.tsx`), `RecurringTemplateDialog`,
+      `PlannedExpenseDialog` and `LogSharedExpenseDialog`
+      (`budget-tabs.tsx`, `due-recurring-widget.tsx`), which own their
+      trigger today: give them a `handle` and keep the opener in the page,
+      as the inventory dialogs now do. Wrap the budget and personal budget
+      pages in `LazyDialogErrorMessage`. One PR per page group is fine. The
+      meal planning group cut its route's JS by 17% gz.
 - [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
       `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
       switcher's menu and create form, and the bottom bar's "More" menu
@@ -189,7 +194,7 @@ then MAINT-7 per feature, to avoid churn.
       state into hooks); `dashboard/budget/page.tsx` (967 lines:
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
-      with PERF-12 and BUDGET-5/6.
+      with PERF-12 and BUDGET-6.
 - [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
       the migration drift check, Node pinning and Dependabot are done
       (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
@@ -228,22 +233,6 @@ then MAINT-7 per feature, to avoid churn.
       (a Suspense split, larger than S).
 
 
-- [ ] **MAINT-66. Flaky: `recipe-ingredients` review step doesn't show "Nothing close in your pantry" for a new-item row** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:144` ("the review step creates a new
-      item, blocks an incomplete row, and folds away confident matches",
-      `desktop`) failed once in a full local `ci:local` run of the SEC-4
-      branch (`c1f4461`, based on `origin/next` `2a8d9b6`, 2026-10-27) and
-      passed in the two other full runs of that branch (`a4f4dcf`,
-      `5cf0616`), whose diff touches nothing in recipes. Failing
-      assertion (line 169 region): `getByRole("dialog", { name: "Match
-      ingredients" }).getByRole("group", { name: "1 krm romatmnaai" })
-      .getByText("Nothing close in your pantry, so…")` not found after 5 s.
-      Likely the row's match note renders after an async lookup the spec
-      doesn't wait for. Reproduce with `--repeat-each=30`, find the race,
-      and fix it in the app or the spec's waiting, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts:144
-      --project=desktop --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-67. Flaky: `native-sheets` mobile specs time out opening the add-meal sheet** (low, S) —
       Five `[mobile]` tests in `e2e/native-sheets.spec.ts` (`:64` flick
@@ -260,6 +249,21 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-68. Flaky: `meal-plan-search` times out clicking the Add-meal dialog's Recipe combobox** (low, S) —
+      `e2e/meal-plan-search.spec.ts:14` ("search finds a custom meal planned
+      two weeks ahead and links to its week", `desktop`) failed in the full
+      `ci:local` run of the MAINT-66 branch (`54239d1`, 2026-10-28) and
+      4 of 30 times with `--repeat-each=30` on clean `origin/next`
+      (`0c5cd37`), the others passing. Failure: `locator.click` times out
+      after 30 s at line 25 on the dialog's "Recipe" combobox. Likely a
+      click before hydration or before the dialog's lazy content is ready
+      (PERF-26's PR #821 added `expectHydrated` to this spec for the same
+      symptom, so check whether it already covers it). Find the race and
+      fix it in the app or the spec's waiting (`expectHydrated` /
+      `gotoRevealed` in `e2e/ui.ts`), never a loosened assertion, a skip
+      or a retry.
+      Acceptance: `npx playwright test e2e/meal-plan-search.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
 
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
@@ -435,24 +439,6 @@ field. WebKit was not run.
 
 
 ### Dependencies
-
-### Budget component unification
-
-The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
-Server Components) stays separate by design — only the Client/presentational
-components merge. See the archived spike for the full file-pair inventory and
-the recommended "shared base + thin wrapper" shape.
-
-- [ ] **BUDGET-5. Personal starter categories, then merge `BudgetOnboarding`/`PersonalBudgetOnboarding`**
-      (impact: med, effort: M) — ⚠️ money surface. Give personal budget a
-      short personal-oriented starter set (not the household one) offered
-      through the same one-click `StarterCategoryPicker` as household
-      onboarding, then merge the two onboarding components. Both
-      languages. Keep the merge in the same PR only if it stays small;
-      otherwise ship the set first.
-      Acceptance: a fresh personal budget shows the starter picker; picking
-      two categories creates them and the picker disappears.
-      Decided 2026-10-20 by owner: option 1. See #398.
 
 ---
 

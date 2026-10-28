@@ -37,8 +37,14 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 // A name no pantry item resembles (and no remembered alias answers, since
 // nothing here is saved), so step 2 always shows it for review.
+// Long on purpose. The matcher scores bigram overlap and suggests anything
+// at 0.35 or more, so a 10-letter name could land on a pantry item by luck
+// (the seeded "Tomatoes" shares om/ma/at with "romatmnaai", 0.375) and the
+// row would show a suggestion instead of "Nothing close". At 24 letters a
+// 7-bigram name needs 6 shared bigrams to reach 0.35, which random letters
+// don't do.
 const nonsenseName = () =>
-  Array.from({ length: 10 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+  Array.from({ length: 24 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
 
 test("the new recipe dialog scrolls as one sheet on both steps", async ({ page }) => {
   await page.goto("/dashboard/meal-planning");

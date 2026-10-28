@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type ReactElement } from "react";
+import { useId, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
 import { bulkCreateInventoryItemsAction } from "@/app/dashboard/inventory/actions";
@@ -37,12 +37,14 @@ export function BulkPasteDialog({
   dict,
   categories,
   locations,
-  trigger,
+  handle,
 }: {
   dict: Dictionary["inventory"];
   categories: string[];
   locations: string[];
-  trigger: ReactElement;
+  // Opened through this handle by a trigger that stays in the page's own chunk, so
+  // this dialog loads on first use (PERF-26, ui/lazy-dialog.tsx).
+  handle: DialogHandle;
 }) {
   const t = dict.pasteList;
   const [open, setOpen] = useState(false);
@@ -149,8 +151,7 @@ export function BulkPasteDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{step === "paste" ? t.dialogTitle : t.reviewTitle}</DialogTitle>

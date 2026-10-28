@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState, useTransition, type ReactElement } from "react";
+import { useActionState, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
 import { toast } from "sonner";
@@ -47,7 +47,7 @@ export function ItemFormDialog({
   locale,
   dict,
   barcodeDict,
-  trigger,
+  handle,
   aiCategoryFallbackEnabled = false,
   existingItems,
 }: {
@@ -62,7 +62,9 @@ export function ItemFormDialog({
   locale?: Locale;
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
-  trigger: ReactElement;
+  // Opened through this handle by a trigger that stays in the page's own chunk, so
+  // this dialog loads on first use (PERF-26, ui/lazy-dialog.tsx).
+  handle: DialogHandle;
   /** AUTO-2b(a): whether a Gemini/Anthropic key is configured, so the
    * create-mode category hint can disclose the AI fallback — never shown
    * on a deployment where it can't actually run (see AiShelfScanDialog's
@@ -207,8 +209,7 @@ export function ItemFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} longForm>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle} longForm>
       <DialogContent
         initialFocus={nameInputRef}
       >

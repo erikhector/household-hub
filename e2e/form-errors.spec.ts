@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_USER } from "./seed";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, expectHydrated } from "./ui";
 
 // UX-13: React 19 resets an uncontrolled form once its action settles, even
 // when the action came back with an error. The forms remember what was
@@ -55,7 +55,11 @@ test.describe("logged out", () => {
 test("save & add another keeps quantity and threshold but clears expiry and use-within", async ({ page }) => {
   const t = en.inventory;
   await page.goto("/dashboard/inventory");
-  await page.getByRole("button", { name: t.addItem }).first().click();
+  // The dialog's chunk loads on first use (PERF-26): wait for the button to be
+  // hydrated, or the click lands on server HTML and does nothing.
+  const add = page.getByRole("button", { name: t.addItem }).first();
+  await expectHydrated(add);
+  await add.click();
   const dialog = page.getByRole("dialog", { name: t.addDialogTitle });
 
   await dialog.getByLabel(t.nameLabel, { exact: true }).fill(`Kept values ${Date.now().toString(36)}`);

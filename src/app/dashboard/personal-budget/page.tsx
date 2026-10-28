@@ -5,7 +5,7 @@ import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i1
 import { ExportButton } from "@/components/export/export-button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
-import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
+import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
 import { summarizeSharedCosts } from "@/lib/shared-costs-summary";
 import { CategoryManager } from "@/components/budget/category-manager";
@@ -62,6 +62,7 @@ import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
 import { BudgetMonthSetting } from "@/components/budget/budget-month-setting";
 import {
   createPersonalCategoryAction,
+  createPersonalStarterCategoriesAction,
   deletePersonalCategoryAction,
   updatePersonalCategoryAction,
 } from "./actions";
@@ -521,9 +522,11 @@ async function PersonalBudgetTabsSection({
       onLogTemplateAsIs={logPersonalRecurringTemplateAction}
       savingsGoals={savingsGoals}
       onboarding={
-        <PersonalBudgetOnboarding
+        <BudgetOnboarding
           dict={dict.personalBudget}
+          body={dict.personalBudget.onboarding.body}
           createCategoryAction={createPersonalCategoryAction}
+          createStarterCategoriesAction={createPersonalStarterCategoriesAction}
         />
       }
       sharedCosts={
