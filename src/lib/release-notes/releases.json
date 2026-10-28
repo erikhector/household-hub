@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.116.3",
+    "date": "2026-10-28",
+    "pr": 860,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The week and month switchers no longer overlap their date when your phone's text size is set to the largest setting.",
+      "sv": "Vecko- och månadsväljarna lägger sig inte längre ovanpå datumet när telefonens textstorlek är inställd på största läget."
+    }
+  },
+  {
     "version": "0.116.2",
     "date": "2026-10-28",
     "pr": 849,
