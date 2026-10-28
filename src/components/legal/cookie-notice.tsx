@@ -94,7 +94,7 @@ export function CookieNotice({
       className={cn(
         "fixed inset-x-0 z-40 flex print:hidden items-center gap-2 border-t bg-popover px-3 py-1 text-xs text-popover-foreground sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:gap-3 sm:rounded-xl sm:border sm:p-4 sm:text-sm sm:shadow-lg",
         aboveBottomNav
-          ? "bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))]"
+          ? "bottom-[var(--bottom-nav-h)]"
           : "bottom-0 pb-[max(0.25rem,env(safe-area-inset-bottom))]",
       )}
     >

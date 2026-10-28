@@ -289,7 +289,7 @@ export function InventoryTable({
         // `sm:contents`, and Clear selection is ordered last.
         <div
           data-bulk-bar=""
-          className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] max-sm:shadow-[0_-4px_12px_-6px_rgb(0_0_0/0.25)] print:hidden"
+          className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] max-sm:shadow-[0_-4px_12px_-6px_rgb(0_0_0/0.25)] print:hidden"
         >
           <div className="flex items-center gap-2 sm:contents">
             <span className="text-sm font-medium max-sm:min-w-0 max-sm:flex-1 max-sm:truncate">
