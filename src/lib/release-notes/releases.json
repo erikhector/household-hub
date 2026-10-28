@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.116.1",
+    "date": "2026-10-28",
+    "pr": 842,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Adding and editing transactions, recurring items and planned bills on the budget pages now loads faster, because those forms are only fetched when you open them.\n\nPages open a little faster: the search palette and the household and \"More\" menus now load only when you open them.",
+      "sv": "Budgetsidorna laddas snabbare: formulären för transaktioner, återkommande poster och planerade räkningar hämtas först när du öppnar dem.\n\nSidorna öppnas lite snabbare: sökpaletten samt hushålls- och \"Mer\"-menyerna laddas först när du öppnar dem."
+    }
+  },
+  {
     "version": "0.116.0",
     "date": "2026-10-28",
     "pr": 833,

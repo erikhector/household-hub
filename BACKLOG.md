@@ -228,6 +228,30 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-69. Flaky: `inventory-lazy-dialogs` failed-chunk retry fails once, then passes** (low, S) —
+      `e2e/inventory-lazy-dialogs.spec.ts:50` ("a failed chunk load says so,
+      and the next tap retries", `desktop`) failed in one full `ci:local`
+      run of the PERF-27 branch (`7a40cf4`, 2026-10-28) and passed in a
+      third full run on the same commit and in 162/162 focused runs
+      (`--repeat-each=10`, desktop and mobile). Likely the same
+      click-before-hydration or history-patch race as MAINT-67/MAINT-68
+      (`expectHydrated`, `expectRouterPatched` in `e2e/ui.ts`). Reproduce
+      with `--repeat-each=30` under load, find the race, and fix it in the
+      app or the spec's waiting, never a loosened assertion, a skip or a
+      retry.
+      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-70. Flaky: `recipe-planned-dates` Recipes tab stays unselected after the click** (low, S) —
+      `e2e/recipe-planned-dates.spec.ts:55` (`mobile`) failed once in the
+      full `ci:local` gate of the MAINT-68 branch (`5f576e5`,
+      2026-10-28): the Recipes tab's `aria-selected` stayed false after the
+      click, although `openRecipesTab` had already waited for the router's
+      history patch. It passed 15/15 on mobile on rerun and in the next
+      full gate, so the cause is not understood. Reproduce with
+      `--repeat-each=30` under load and find the race in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-planned-dates.spec.ts
+      --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-71. Flaky: `budget-form-autofill` finds no autofill-checked fields in the budget dialogs** (low, S) —
       `[desktop]` `e2e/budget-form-autofill.spec.ts:24` ("budget dialogs
       turn autofill off and set the Enter key on the last field") failed
