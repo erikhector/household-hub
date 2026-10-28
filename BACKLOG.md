@@ -125,15 +125,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-27. Lazy-load the dashboard shell's popups** (medium, S; after PERF-26) —
-      `CommandPalette` (`src/app/dashboard/layout.tsx`), the household
-      switcher's menu and create form, and the bottom bar's "More" menu
-      hydrate on every page but only appear after a tap or ⌘K. Keep the
-      triggers and the ⌘K listener eager; load the popups with the
-      lazy-dialog helper. Base UI's drawer, menu, tooltip and positioning code
-      only leaves the shared JS once page dialogs are lazy too
-      (`ui/dialog.tsx` uses the drawer), hence the ordering. Estimate
-      20–40 KB gz off every page.
 - [ ] **PERF-29. Spike: `<Activity>` for the hidden budget and meal-planning tabs** (S) —
       `MealPlanningView` and `BudgetTabs` render every tab on the server
       and hide the inactive ones with `hidden`, so all four tabs' JS

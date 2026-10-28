@@ -8,6 +8,7 @@ import {
   EmailVerificationBanner,
   EMAIL_VERIFICATION_DISMISSED_COOKIE,
 } from "@/components/dashboard/email-verification-banner";
+import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { UnitsProvider } from "@/components/units-provider";
 import { requireHousehold } from "@/lib/session";
@@ -109,6 +110,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // printout to its first screenful, so the column and `main` go back to
     // plain document flow, and the chrome (Sidebar, header, BottomNav, the
     // email banner, each hiding itself) drops out so only the page prints.
+    // PERF-27: the shell's popups load on first use; a failed load toasts.
+    <LazyDialogErrorMessage message={dict.errors.generic}>
     <div className="flex flex-1">
       <Sidebar
         defaultExpanded={sidebarExpanded}
@@ -167,5 +170,6 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
       <CommandPalette dict={dict.commandPalette} nav={dict.nav} />
       <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} version={CURRENT_VERSION} />
     </div>
+    </LazyDialogErrorMessage>
   );
 }
