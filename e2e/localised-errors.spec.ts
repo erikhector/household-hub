@@ -59,5 +59,18 @@ for (const [locale, storageState, t] of [
 
       await expect(page.getByText(t.errors.nameRequired)).toBeVisible();
     });
+    // MAINT-7: the invite email's delivery failure is the action's own text,
+    // not the English one email.ts logs. The e2e server has no Resend key.
+    test("a failed invite email says so in the user's language", async ({ page }) => {
+      await page.goto("/dashboard/household");
+      const invite = page.getByRole("button", { name: t.household.invite.button });
+      await expectHydrated(invite);
+      await invite.click();
+      const email = page.getByRole("textbox", { name: t.household.invite.emailPlaceholder });
+      await email.fill("someone@squirrel.test");
+      await email.press("Enter");
+
+      await expect(page.locator("[data-sonner-toast]").getByText(t.errors.emailNotConfigured)).toBeVisible();
+    });
   });
 }

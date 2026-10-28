@@ -117,6 +117,8 @@ export const sv = {
     billSplitSumMismatch: "De delade beloppen måste summera till räkningens belopp",
     // MAINT-7: household and invite actions (household.ts).
     inviteNotFound: "Inbjudan hittades inte",
+    emailNotConfigured: "Mejlutskick är inte konfigurerat på den här servern. Kopiera inbjudningslänken och skicka den själv.",
+    emailSendFailed: "Vi kunde inte skicka mejlet just nu. Kopiera inbjudningslänken och skicka den själv.",
     tooManyInviteEmails: "För många inbjudningsmejl har skickats. Vänta en stund och försök igen.",
     inviteLinkInvalid: "Inbjudningslänken är ogiltig eller har gått ut",
     inviteLinkMalformed: "Ogiltig inbjudningslänk",
