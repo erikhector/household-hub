@@ -228,6 +228,22 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-69. Flaky: `budget-form-autofill` finds no autofill-checked fields in the budget dialogs** (low, S) —
+      `[desktop]` `e2e/budget-form-autofill.spec.ts:24` ("budget dialogs
+      turn autofill off and set the Enter key on the last field") failed
+      once and passed on the retry in the GitHub `End-to-end (Playwright)`
+      job of the `release/2026-10-28-1028` gate (`cde7d5e`, 2026-10-28; the
+      local `ci:local` run of the same commit was clean). The first
+      failure is `expect(count).toBeGreaterThan(0)` with 0 received in
+      `expectNoAutofill` (line 18, called from line 52): the dialog's
+      fields weren't in the DOM yet. The budget dialogs became lazy-loaded
+      in PERF-30 (#838), so the spec probably counts fields before the
+      lazy chunk has rendered. Reproduce with `--repeat-each=30`, wait for
+      the dialog's fields to render (or the dialog to be visible) before
+      counting, in the spec's waiting or the app, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/budget-form-autofill.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
       covered by MAINT-10 (which lists UI files only). It holds two
