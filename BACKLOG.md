@@ -401,21 +401,6 @@ hits (its one "Collapse sheet 64x16" hit is the sheet grabber, whose
 `after:` pseudo-element already gives it the 44 px target). The two items
 below come from `text-200-dashboard-meal-planning.png`. WebKit was not run.
 
-- [ ] **UX-149. Week/month switcher overlaps its label at 200% text** (impact:
-      med, effort: S) — `/dashboard/meal-planning` at 200% root font on Pixel 7:
-      the `‹ ›` links and the date "Oct 26 – Nov 1, 2026" draw on top of each
-      other and the label is cut off at the left edge.
-      `src/components/period-switcher.tsx:54-79` lets the arrow links shrink
-      (no `shrink-0`) and the label `truncate`s inside a `min-w-0` box that sits
-      beside the "⋯" button (`week-planner.tsx:310-320`), so the flex row
-      squeezes the arrows instead of the text. The household and personal
-      budgets use the same component. Breaks DESIGN.md's text-resize rule
-      (UX-9) and M3 (targets stay 44 px). Fix: `shrink-0` on both arrows, and
-      let the label wrap to two lines instead of truncating the period.
-      Acceptance: in the `mobile` project with the root font set to 200%, the
-      meal planner's previous/next links and the week label have
-      non-intersecting bounding boxes, each link is still 44 × 44 px, and the
-      label's full text is visible (not ellipsized).
 
 ### Dependencies
 

@@ -54,13 +54,18 @@ export function PeriodSwitcher({
       <Link
         href={prevHref}
         aria-label={dict.previous}
-        className={buttonVariants({ variant: "ghost", size: "icon-lg" })}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "shrink-0 max-sm:size-[44px] pointer-coarse:size-[44px]")}
       >
         <ChevronLeft className="size-5" />
       </Link>
-      <div className="flex min-w-0 flex-col items-center">
-        <p className="truncate font-heading text-lg font-semibold">{label}</p>
-        {sublabel && <p className="truncate text-sm text-muted-foreground">{sublabel}</p>}
+      <div className="flex flex-col items-center">
+        {/* UX-149: the period is the headline, so it wraps (to two lines at
+            200% text) instead of truncating. Its column has no min-w-0, so it
+            never gets narrower than its longest word. The arrows are shrink-0 and a
+            fixed 44 px (not rem, which doubles at 200% text and left no room
+            for the label), so the row squeezes neither. */}
+        <p className="text-balance text-center font-heading text-lg font-semibold">{label}</p>
+        {sublabel && <p className="text-balance text-center text-sm text-muted-foreground">{sublabel}</p>}
         {!isCurrent && (
           <Link
             href={currentHref}
@@ -73,7 +78,7 @@ export function PeriodSwitcher({
       <Link
         href={nextHref}
         aria-label={dict.next}
-        className={buttonVariants({ variant: "ghost", size: "icon-lg" })}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "shrink-0 max-sm:size-[44px] pointer-coarse:size-[44px]")}
       >
         <ChevronRight className="size-5" />
       </Link>

@@ -2156,8 +2156,9 @@ every lookup the old one did.
   week switcher uses too, so months and weeks share one placement, size
   and set of accessible names ("Previous month" / "Previous week", "Next
   …", "This month" / "This week"). It reads as
-  `‹  October 2026  ›`: two 44 px arrow links flanking the month name set
-  in `heading`, with a "This month" link under the name only once you've
+  `‹  October 2026  ›`: two 44 px arrow links (`shrink-0`, UX-149) flanking
+  the month name set in `heading`, which wraps rather than truncating so
+  a 200% text size never puts the arrows on top of it, with a "This month" link under the name only once you've
   paged away from the current month (the server passes its own month key
   as `currentMonthKey`, so render and hydration agree). Every link is
   built by `budgetHref` (`src/lib/budget-url.ts`) and keeps the open tab
