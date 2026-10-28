@@ -54,13 +54,16 @@ export function PeriodSwitcher({
       <Link
         href={prevHref}
         aria-label={dict.previous}
-        className={buttonVariants({ variant: "ghost", size: "icon-lg" })}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "shrink-0")}
       >
         <ChevronLeft className="size-5" />
       </Link>
       <div className="flex min-w-0 flex-col items-center">
-        <p className="truncate font-heading text-lg font-semibold">{label}</p>
-        {sublabel && <p className="truncate text-sm text-muted-foreground">{sublabel}</p>}
+        {/* UX-149: the period is the headline, so it wraps (to two lines at
+            200% text) instead of truncating, and the arrows beside it are
+            shrink-0 so a tight row squeezes the text, never the targets. */}
+        <p className="text-balance text-center font-heading text-lg font-semibold">{label}</p>
+        {sublabel && <p className="text-balance text-center text-sm text-muted-foreground">{sublabel}</p>}
         {!isCurrent && (
           <Link
             href={currentHref}
@@ -73,7 +76,7 @@ export function PeriodSwitcher({
       <Link
         href={nextHref}
         aria-label={dict.next}
-        className={buttonVariants({ variant: "ghost", size: "icon-lg" })}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "shrink-0")}
       >
         <ChevronRight className="size-5" />
       </Link>

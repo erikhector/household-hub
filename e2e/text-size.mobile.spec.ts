@@ -87,6 +87,34 @@ for (const locale of LOCALES) {
     });
   });
 
+  // UX-149: the week switcher's arrows used to shrink under the label and
+  // draw on top of it, with the date cut off at the left edge.
+  test.describe(`meal planner week switcher at 200% text (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    test("arrows and the week label do not intersect", async ({ page, context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+      await page.goto("/dashboard/meal-planning");
+      await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.waitForLoadState("networkidle");
+      const links = page.locator("main a[href*='meal-planning?week=']");
+      const label = page.locator("main p.font-heading").first();
+      const [a, b, l] = await Promise.all([
+        links.first().boundingBox(),
+        links.nth(1).boundingBox(),
+        label.boundingBox(),
+      ]);
+      for (const arrow of [a!, b!]) {
+        expect(arrow.width).toBeGreaterThanOrEqual(44);
+        expect(arrow.height).toBeGreaterThanOrEqual(44);
+        const apart = arrow.x + arrow.width <= l!.x + 0.5 || l!.x + l!.width <= arrow.x + 0.5;
+        expect(apart, "arrow and label boxes intersect").toBe(true);
+      }
+      expect(l!.x).toBeGreaterThanOrEqual(0);
+      const ellipsized = await label.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+      expect(ellipsized, "label text is cut off").toBe(false);
+    });
+  });
+
   test.describe(`public pages at 200% text (${locale})`, () => {
     test.use({ storageState: { cookies: [], origins: [] } });
     test.beforeEach(async ({ context, baseURL }) => {
