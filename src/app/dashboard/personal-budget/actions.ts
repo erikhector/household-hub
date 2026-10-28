@@ -77,6 +77,63 @@ export async function createPersonalCategoryAction(
   return {};
 }
 
+// BUDGET-5: the personal counterpart of the household budget's
+// createStarterCategoriesAction (same schema and dedupe rules), scoped by the
+// caller's userId. Names are skipped case-insensitively against the user's
+// existing categories and within the batch, so a double click or a re-pick
+// never errors. Starter categories carry no limit, rollover or goal.
+const starterCategorySchema = z.object({
+  items: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(60),
+        type: z.enum(["INCOME", "EXPENSE", "SAVINGS"]),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+
+export async function createPersonalStarterCategoriesAction(
+  items: { name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" }[],
+): Promise<{ error?: string; added?: number }> {
+  const userId = await requireUserId();
+
+  const parsed = starterCategorySchema.safeParse({ items });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  let added = 0;
+  try {
+    const existing = await prisma.personalBudgetCategory.findMany({
+      where: { userId },
+      select: { name: true },
+    });
+    const existingNames = new Set(existing.map((c) => c.name.trim().toLowerCase()));
+
+    const seen = new Set<string>();
+    const toAdd = parsed.data.items.filter((item) => {
+      const key = item.name.toLowerCase();
+      if (existingNames.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (toAdd.length > 0) {
+      await prisma.personalBudgetCategory.createMany({
+        data: toAdd.map((item) => ({ userId, name: item.name, type: item.type })),
+      });
+    }
+    added = toAdd.length;
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/personal-budget");
+  return { added };
+}
+
 const updateCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),

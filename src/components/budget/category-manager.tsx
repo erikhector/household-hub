@@ -344,8 +344,8 @@ export function AddCategoryDialog({
   dict: CategoryManagerDict;
   /** createCategoryAction / createPersonalCategoryAction — see
    * CategoryFormAction's doc comment. Also the one prop callers that only
-   * ever render this dialog on its own (BudgetOnboarding/
-   * PersonalBudgetOnboarding, when there are zero categories yet) need to
+   * ever render this dialog on its own (BudgetOnboarding,
+   * when there are zero categories yet) need to
    * thread through from their own page. */
   createAction: CategoryFormAction;
 }) {

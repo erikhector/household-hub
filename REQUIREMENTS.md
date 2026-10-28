@@ -3463,10 +3463,8 @@ living only under `src/components/budget/`:
 same component. `CategoryManager`/`AddCategoryDialog` followed in BUDGET-3
 (see "CategoryManager (BUDGET-3)" below), and `BudgetTabs`/
 `PersonalBudgetTabs` followed in BUDGET-4 (see "BudgetTabs (BUDGET-4)"
-below). `BudgetOnboarding`/`PersonalBudgetOnboarding` stay duplicated for
-now — they differ in more than a mechanical way (a missing starter-category
-picker on the personal side) and need a product decision first; that's
-BUDGET-5 in `BACKLOG.md`.
+below). `BudgetOnboarding`/`PersonalBudgetOnboarding` merged last, in BUDGET-5
+(see "Personal starter categories (BUDGET-5)" below).
 
 **What stayed separate, on purpose.** The two Prisma model families
 (`BudgetCategory`/`Transaction`/`RecurringTemplate`/`RecurringTemplateAck`
@@ -3567,10 +3565,9 @@ BUDGET-4/5 — because their zero-categories empty state renders
 deleted and both pages import the same `BudgetTabs`. This completes the
 BUDGET-2 → BUDGET-3 → BUDGET-4 sequence from
 `docs/archive/PERSONAL_BUDGET_UNIFICATION.md`. `BudgetOnboarding`/
-`PersonalBudgetOnboarding` (BUDGET-5) is the one pair left, gated on a
-product decision; each page builds its own onboarding element and passes it
-in as the `onboarding` `ReactNode`, so `BudgetTabs` doesn't care which one
-it gets.
+`PersonalBudgetOnboarding` was the one pair left (merged in BUDGET-5, below);
+each page builds its own onboarding element and passes it in as the
+`onboarding` `ReactNode`, so `BudgetTabs` doesn't care which one it gets.
 
 **What each budget is for (UX-110).** On phones the subtitle is hidden, so
 each budget page shows one short purpose line under its title instead
@@ -3580,6 +3577,30 @@ it."). The two first-run cards differ in the same way: the household card
 names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
 categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
+
+#### Personal starter categories (BUDGET-5)
+
+A fresh personal budget offers a one-click starter set through the same
+`StarterCategoryPicker` as household onboarding, so the first screen is no
+longer a blank "add a category" form. The set is short and for your own
+money, not the household's (`personalBudget.starterCategories`): Salary
+(income), Eating out, Subscriptions, Clothes, Fun money (expenses) and
+Savings, in English and Swedish. All start selected; deselect what you don't
+want, then "Add {n} categories" creates them in one batch and the first-run
+card goes away. `createPersonalStarterCategoriesAction`
+(`src/app/dashboard/personal-budget/actions.ts`) is the personal twin of
+`createStarterCategoriesAction`: Zod-validated (1-20 items), scoped by the
+caller's `userId`, names deduped case-insensitively against the user's
+existing categories and within the batch, no limit/rollover/goal set.
+
+**Onboarding merge.** `PersonalBudgetOnboarding` is deleted; both pages render
+`BudgetOnboarding` (`src/components/budget/budget-onboarding.tsx`), passing
+their own dictionary slice, formatted `body`, create-category and
+starter-category actions. The household-only currency row is the optional
+`currency` prop (the personal budget has no currency of its own). The picker
+takes its create action as a prop instead of importing the household one.
+This finishes the BUDGET-2 to BUDGET-5 sequence. Tested in
+`e2e/personal-starter-categories.spec.ts` and the personal `actions.test.ts`.
 
 **Shared costs before a personal budget exists (UX-112).** A member with no
 personal categories but a share of a split household expense (or a balance

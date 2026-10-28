@@ -18,14 +18,31 @@ import { useState, useTransition } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createStarterCategoriesAction } from "@/app/dashboard/budget/actions";
 import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type StarterCategoryType = "INCOME" | "EXPENSE" | "SAVINGS";
 
-export function StarterCategoryPicker({ dict }: { dict: Dictionary["budget"] }) {
+// Both budgets share this picker (BUDGET-5): each passes its own dictionary
+// slice (its own starter set and strings) and its own create action
+// (createStarterCategoriesAction / createPersonalStarterCategoriesAction),
+// so the household set never leaks into a personal budget or the reverse.
+export type StarterCategoryPickerDict = Pick<
+  Dictionary["budget"],
+  "starterCategories" | "categories"
+>;
+export type StarterCategoriesAction = (
+  items: { name: string; type: StarterCategoryType }[],
+) => Promise<{ error?: string; added?: number }>;
+
+export function StarterCategoryPicker({
+  dict,
+  createAction,
+}: {
+  dict: StarterCategoryPickerDict;
+  createAction: StarterCategoriesAction;
+}) {
   const items = dict.starterCategories.items;
   const [selected, setSelected] = useState<Set<string>>(new Set(items.map((item) => item.id)));
   const [isPending, startTransition] = useTransition();
@@ -58,7 +75,7 @@ export function StarterCategoryPicker({ dict }: { dict: Dictionary["budget"] }) 
       return;
     }
     startTransition(async () => {
-      const result = await createStarterCategoriesAction(
+      const result = await createAction(
         toAdd.map((item) => ({ name: item.name, type: item.type as StarterCategoryType })),
       );
       if (result.error) {

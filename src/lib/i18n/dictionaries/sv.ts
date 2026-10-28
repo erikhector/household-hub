@@ -3044,6 +3044,28 @@ export const sv = {
       title: "Sätt igång din budget",
       body: "Pengar som bara är dina — ingen annan i hushållet ser dem. Lägg till en kategori för att börja registrera dina inkomster, utgifter och sparande; du kan alltid lägga till fler senare.",
     },
+    starterCategories: {
+      heading: "Eller lägg till ett startpaket",
+      description: "Välj de kategorier du vill ha och lägg till dem alla på en gång.",
+      addSelected: {
+        one: "Lägg till {count} kategori",
+        other: "Lägg till {count} kategorier",
+      },
+      addedToast: {
+        one: "La till {count} kategori",
+        other: "La till {count} kategorier",
+      },
+      allAlreadyAdded: "De kategorierna finns redan i din budget.",
+      noneSelected: "Välj minst en kategori att lägga till.",
+      items: [
+        { id: "salary", name: "Lön", type: "INCOME" },
+        { id: "eating-out", name: "Äta ute", type: "EXPENSE" },
+        { id: "subscriptions", name: "Prenumerationer", type: "EXPENSE" },
+        { id: "clothes", name: "Kläder", type: "EXPENSE" },
+        { id: "fun-money", name: "Fickpengar", type: "EXPENSE" },
+        { id: "savings", name: "Sparande", type: "SAVINGS" },
+      ],
+    },
     shared: {
       sharedBadge: "Delad",
       yourShare: "Din andel",

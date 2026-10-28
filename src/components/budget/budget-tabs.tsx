@@ -42,12 +42,10 @@
 // them (unlike the
 // props below, which this component *does* read and branch on).
 //
-// BudgetOnboarding/PersonalBudgetOnboarding (the empty-categories state)
-// stay two separate components — see BACKLOG.md's BUDGET-5, which is a
-// product decision (a personal starter-category set, reusing household's, or
-// staying manual-only) not a mechanical merge — but threading the already-
-// built element through as a prop here, the same way manage/transactions/
-// insights already work, needs no decision at all.
+// BudgetOnboarding (the empty-categories state) is one component for both
+// budgets (BUDGET-5); each page builds the element with its own copy and
+// actions and threads it through as a prop here, the same way manage/
+// transactions/insights already work.
 //
 // `readOnly` (the household page is showing a household other than the
 // active one via `?household=`, see src/lib/budget-household-view.ts): every
@@ -247,8 +245,7 @@ export function BudgetTabs({
   /** GAP-22's SavingsGoals card, prebuilt by the page like `insights`
    * (it renders nothing when no SAVINGS category has a goal). */
   savingsGoals?: ReactNode;
-  /** BudgetOnboarding or PersonalBudgetOnboarding, prebuilt by the page —
-   * see this file's doc comment on why these stay separate components. */
+  /** BudgetOnboarding, prebuilt by the page with its own copy and actions. */
   onboarding: ReactNode;
   /** UX-112, personal budget only: the shared-costs card, prebuilt by the
    * page and shown above `onboarding` while there are no categories. */

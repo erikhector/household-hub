@@ -189,7 +189,7 @@ then MAINT-7 per feature, to avoid churn.
       state into hooks); `dashboard/budget/page.tsx` (967 lines:
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
-      with PERF-12 and BUDGET-5/6.
+      with PERF-12 and BUDGET-6.
 - [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
       the migration drift check, Node pinning and Dependabot are done
       (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
@@ -435,24 +435,6 @@ field. WebKit was not run.
 
 
 ### Dependencies
-
-### Budget component unification
-
-The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
-Server Components) stays separate by design — only the Client/presentational
-components merge. See the archived spike for the full file-pair inventory and
-the recommended "shared base + thin wrapper" shape.
-
-- [ ] **BUDGET-5. Personal starter categories, then merge `BudgetOnboarding`/`PersonalBudgetOnboarding`**
-      (impact: med, effort: M) — ⚠️ money surface. Give personal budget a
-      short personal-oriented starter set (not the household one) offered
-      through the same one-click `StarterCategoryPicker` as household
-      onboarding, then merge the two onboarding components. Both
-      languages. Keep the merge in the same PR only if it stays small;
-      otherwise ship the set first.
-      Acceptance: a fresh personal budget shows the starter picker; picking
-      two categories creates them and the picker disappears.
-      Decided 2026-10-20 by owner: option 1. See #398.
 
 ---
 
