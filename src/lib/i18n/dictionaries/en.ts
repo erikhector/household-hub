@@ -123,6 +123,8 @@ export const en = {
     billSplitSumMismatch: "The split amounts must add up to the bill's amount",
     // MAINT-7: household and invite actions (household.ts).
     inviteNotFound: "Invite not found",
+    emailNotConfigured: "Email delivery isn't set up on this server. Copy the invite link and send it yourself.",
+    emailSendFailed: "We couldn't send the email just now. Copy the invite link and send it yourself.",
     tooManyInviteEmails: "Too many invite emails sent. Please wait a while and try again.",
     inviteLinkInvalid: "This invite link is invalid or has expired",
     inviteLinkMalformed: "Invalid invite link",

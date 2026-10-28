@@ -152,21 +152,18 @@ then MAINT-7 per feature, to avoid churn.
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
       REQUIREMENTS.md "Internationalization") and converted shopping list,
-      inventory, meal planning, tasks, the shared list link, household
-      (`lib/actions/household.ts`), auth (`lib/actions/auth.ts`) and
-      profile, all done. Still English: the string-literal
-      `error:` values and Zod messages in the files on `PENDING` in
+      inventory, meal planning, tasks, the shared list link, household,
+      auth and profile, the invite email, and checked the receipt and shelf
+      scans and `parse-import-csv.ts` (codes their clients already
+      translate), all done. Still English: the string-literal `error:`
+      values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19), plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
-      `savings-goal-calc.ts` and `budget-category-limit.ts`. The receipt and
-      inventory scans (`receipt-scan.ts`, `inventory-scan.ts`) return
-      snake_case codes (`rate_limited`, `invalid_photo`, …) that their
-      clients map to text, so check whether the client already translates
-      them; if so, move both files to `RETURNS_KEYS` in that test instead of
-      converting. Convert a feature at a time, add its keys to `dict.errors`
-      (or a feature namespace, as `template-actions.ts` does), and delete the
-      file from `PENDING`: the test fails if a clean file stays listed. Leave
-      budget until BUDGET-6 is decided.
+      19), plus `lib/recipe-import.ts` (MAINT-65 is splitting it),
+      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
+      feature at a time, add its keys to `dict.errors` (or a feature
+      namespace, as `template-actions.ts` does), and delete the file from
+      `PENDING`: the test fails if a clean file stays listed. Leave budget
+      until BUDGET-6 is decided.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (now 1,107 lines; the
       row, price, printable and cleared components are already out): pull

@@ -252,7 +252,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   ownership transfer, leaving or deleting a household, and the owner-only
   settings, including the "can't delete your only household" reason the
   delete dialog shows. `passwordTooLong` spells out the 72-character limit
-  because a Zod message can't carry variables.
+  because a Zod message can't carry variables. The invite email's delivery
+  failure (`sendInviteEmailAction`) is `emailNotConfigured` or `emailSendFailed`
+  rather than the English text `lib/email.ts` returns for its logs. The receipt
+  and shelf photo scans (`receipt-scan.ts`, `inventory-scan.ts`) return
+  snake_case codes their dialogs already map to `dict` text, and
+  `parse-import-csv.ts` returns codes the same way, so those are guarded as
+  `RETURNS_KEYS` in the test instead of converted.
   The household notes board (`notes-actions.ts`), the push actions (quiet
   hours validation, unknown subscription), the weekly-digest toggle and the
   barcode scan, link and create-item actions (`lib/actions/barcode.ts`) are

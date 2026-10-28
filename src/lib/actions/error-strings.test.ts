@@ -14,14 +14,19 @@ import { describe, expect, it } from "vitest";
 const PENDING = new Set([
   "src/app/dashboard/budget/actions.ts",
   "src/app/dashboard/personal-budget/actions.ts",
+]);
+
+// These answer with codes that their client dialogs map to text, so a
+// literal there is not user-facing English: inventory/items/actions.ts
+// ("invalid", "tooMany"), and the two photo scans ("not_configured",
+// "rate_limited", "photo_too_large", "invalid_photo"), which
+// ai-shelf-scan-dialog.tsx and receipt-scan-dialog.tsx turn into
+// `dict` strings.
+const RETURNS_KEYS = new Set([
+  "src/app/dashboard/inventory/items/actions.ts",
   "src/lib/actions/inventory-scan.ts",
   "src/lib/actions/receipt-scan.ts",
 ]);
-
-// inventory/items/actions.ts answers with dictionary keys ("invalid",
-// "tooMany") that its client dialog maps to text, so a literal there is not
-// user-facing English.
-const RETURNS_KEYS = new Set(["src/app/dashboard/inventory/items/actions.ts"]);
 
 const root = path.resolve(__dirname, "../../..");
 
