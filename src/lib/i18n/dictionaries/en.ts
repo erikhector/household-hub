@@ -3767,15 +3767,18 @@ export const en = {
   },
   landing: {
     logIn: "Log in",
-    heroBadge: "One home for your whole household",
-    heroPrefix: "Run your household like a ",
-    heroHighlight: "dream team",
-    heroSuffix: ", not a scramble",
+    // The fridge-door hero: a handwritten greeting over the headline, which
+    // is split so "fridge" can carry the brand colour and its underline.
+    heroEyebrow: "Dear household,",
+    heroPrefix: "Take everything off the ",
+    heroHighlight: "fridge",
+    heroSuffix: ".",
     heroDescription:
-      "Track what's in the pantry, auto-generate shopping lists, plan meals, and keep the budget honest — all in one playful place, shared with everyone at home.",
+      "The scribbled list, the chore rota, the receipts and the recipe tabs — Squirrel turns them into one shared app that keeps itself up to date.",
     getStarted: "Get started free",
     freeNote: "Free for the whole household — invite everyone, no extra seats",
-    ctaTitle: "Ready to get your household in order?",
+    ctaEyebrow: "Note to self:",
+    ctaTitle: "Get the household in order.",
     // UX-58: no "less than a minute" — signup waits on an emailed
     // verification link (UX-135), so promise only what's always true.
     ctaDescription: "Free to set up — no credit card, no chores.",
@@ -3803,6 +3806,53 @@ export const en = {
         coffee: { name: "Coffee", qty: "1" },
       },
     },
+    // The notes stuck to the fridge door in the hero, handwritten. They're
+    // decoration (hidden from screen readers), written the way a household
+    // scribbles, so each language gets its own wording rather than a
+    // translation. The receipt's prices are part of the scribble too.
+    fridge: {
+      shoppingNote: {
+        title: "Shopping!!",
+        bananas: "bananas",
+        oatMilk: "oat milk (2?)",
+        pasta: "pasta — check cupboard",
+        coffee: "coffee",
+        spinach: "spinach",
+      },
+      choresNote: {
+        title: "Bins out —",
+        question: "WHOSE TURN??",
+        aside: "(not me again)",
+      },
+      receipt: {
+        shop: "Corner shop",
+        items: {
+          oatMilk: { name: "Oat milk", price: "18.90" },
+          pasta: { name: "Pasta", price: "24.50" },
+          bananas: { name: "Bananas", price: "21.00" },
+          coffee: { name: "Coffee", price: "64.95" },
+        },
+        total: { name: "Total", price: "129.35" },
+        whoPaid: "who paid??",
+      },
+      tacoNote: {
+        title: "taco Tuesday?",
+        need: "need: tortillas, lime, beans",
+      },
+      budgetNote: {
+        title: "food budget",
+        amount: "~3 000 kr??",
+        aside: "ask Sam about the split",
+      },
+    },
+    // The dark band under the hero: three fridge notes, each next to the
+    // part of Squirrel that replaces it.
+    swap: {
+      eyebrow: "Out with the old —",
+      titlePrefix: "Every note on the fridge has a ",
+      titleHighlight: "better home.",
+    },
+    moreTitle: "Also on the door, now in your pocket",
     // UX-58: six cards so the three-column grid has no empty cell, and
     // between them every part of the app: budgets share one card so tasks,
     // recipes and scanning get theirs.

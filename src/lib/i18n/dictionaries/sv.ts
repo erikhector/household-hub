@@ -3612,15 +3612,16 @@ export const sv = {
   },
   landing: {
     logIn: "Logga in",
-    heroBadge: "Ett hem för hela hushållet",
-    heroPrefix: "Kör ditt hushåll som ett riktigt ",
-    heroHighlight: "drömlag",
-    heroSuffix: ", inte i panik",
+    heroEyebrow: "Kära hushåll,",
+    heroPrefix: "Ta ner allt från ",
+    heroHighlight: "kylskåpet",
+    heroSuffix: ".",
     heroDescription:
-      "Håll koll på vad som finns i lagret, skapa inköpslistor automatiskt, planera måltider och håll koll på budgeten — allt på ett lekfullt ställe, delat med hela hushållet.",
+      "Den klottrade listan, städschemat, kvittona och receptflikarna — Squirrel gör dem till en delad app som håller sig själv uppdaterad.",
     getStarted: "Kom igång gratis",
     freeNote: "Gratis för hela hushållet — bjud in alla, inga extra platser",
-    ctaTitle: "Redo att få ordning på hushållet?",
+    ctaEyebrow: "Kom ihåg:",
+    ctaTitle: "Få ordning på hushållet.",
     ctaDescription: "Gratis att komma igång — inget kreditkort, inga sysslor.",
     ctaButton: "Skapa ditt hushåll",
     preview: {
@@ -3643,6 +3644,47 @@ export const sv = {
         coffee: { name: "Kaffe", qty: "1" },
       },
     },
+    fridge: {
+      shoppingNote: {
+        title: "Handla!!",
+        bananas: "bananer",
+        oatMilk: "havredryck (2?)",
+        pasta: "pasta — kolla skåpet",
+        coffee: "kaffe",
+        spinach: "spenat",
+      },
+      choresNote: {
+        title: "Soporna —",
+        question: "VEMS TUR??",
+        aside: "(inte jag igen)",
+      },
+      receipt: {
+        shop: "Närbutiken",
+        items: {
+          oatMilk: { name: "Havredryck", price: "18,90" },
+          pasta: { name: "Pasta", price: "24,50" },
+          bananas: { name: "Bananer", price: "21,00" },
+          coffee: { name: "Kaffe", price: "64,95" },
+        },
+        total: { name: "Totalt", price: "129,35" },
+        whoPaid: "vem betalade??",
+      },
+      tacoNote: {
+        title: "tacofredag?",
+        need: "behövs: tortillas, lime, bönor",
+      },
+      budgetNote: {
+        title: "matbudget",
+        amount: "~3 000 kr??",
+        aside: "fråga Sam om delningen",
+      },
+    },
+    swap: {
+      eyebrow: "Ut med det gamla —",
+      titlePrefix: "Varje lapp på kylskåpet har ett ",
+      titleHighlight: "bättre hem.",
+    },
+    moreTitle: "Också på dörren, nu i fickan",
     features: {
       pantry: {
         title: "Lager som håller koll på sig själv",
