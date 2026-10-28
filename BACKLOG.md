@@ -125,18 +125,6 @@ per-page splitting helps the cold start and hydration on slow phones,
 not tab switches. Re-measure before and after each item.
 `npx next analyze` attributes chunks to modules; JS coverage per route
 comes from Playwright's `page.coverage`.
-- [ ] **PERF-25. Lazy-load the shopping list's dialogs** (medium, M) —
-      the helper (`src/components/ui/lazy-dialog.tsx`) shipped with the
-      meal planning page group (PERF-26); apply it to
-      `src/components/shopping/shopping-list-client.tsx`, which imports
-      nine dialogs up front (receipt scan, put away, import, resolve
-      mappings, reorder sections, rename, save template, partial price,
-      item form). #743 did this and was reverted (#766) only because its
-      failed-chunk e2e check let the app's service worker fetch the chunk
-      past `page.route()`; `1ab2ab4` is a good starting point, with
-      `test.use({ serviceWorkers: "block" })` around that check (as in
-      `e2e/meal-planning-lazy-dialogs.spec.ts`). Existing e2e specs for
-      those dialogs must pass unchanged on desktop and mobile.
 - [ ] **PERF-30. Lazy-load dialogs on the budget pages** (medium, M) —
       the rest of PERF-26 (inventory is done; see REQUIREMENTS.md, "Dialogs
       load on first use"). Same helper on `TransactionDialog` (used by
@@ -277,19 +265,6 @@ then MAINT-7 per feature, to avoid churn.
       never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
-
-- [ ] **MAINT-68. Flaky: `motion` "a completed task moves to Completed at tap time" sees a late layout shift** (low, S) —
-      `e2e/motion.spec.ts:242` (`desktop`) failed once in the `ci:local`
-      gate of #773 (`1df4959`, 2026-10-27), a PR that touches only the
-      meal planning page: CLS 0.0103 outside the 500 ms after input, the
-      moved node a task swipe row (`data-swipe-row`). It passed 5/5 when
-      re-run alone on the same commit. Find what moves the row late under
-      load (the FLIP move to Completed finishing after the input window, or
-      a revalidation re-render) and fix it in the app or the spec's waiting
-      (`expectHydrated` / `gotoRevealed` in `e2e/ui.ts`), never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/motion.spec.ts:242 --project=desktop --repeat-each=30` passes
-      30/30 with three workers busy.
 
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
@@ -462,18 +437,6 @@ Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
 dialog sweeps; all 268 + 132 tests pass and the popup probe has no phone-size
 hits. Signup error paths at 320 px keep input and put errors beside the
 field. WebKit was not run.
-
-- [ ] **UX-148. Cookie notice's "Läs mer" link stretches its line**
-      (impact: low, effort: S) — `src/components/legal/cookie-notice.tsx:103`
-      puts a `touch-target` (inline-flex, min-h-11) link inside the
-      paragraph, so the line holding it grows to 44 px and the two text
-      lines sit far apart (`small-phone` `/signup` sv, bottom notice). Looks
-      like a rendering glitch on the first screen every visitor sees. Move the
-      44 px target to the notice's own row (or pad the link with a negative
-      margin instead of `min-h`) so the paragraph keeps `leading-snug`.
-      Acceptance: in the `mobile` project the notice's paragraph height is
-      under 3 × its line-height, and "Läs mer" and "Uppfattat" both have
-      ≥ 44 px tap targets.
 
 
 ### Dependencies

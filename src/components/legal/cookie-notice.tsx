@@ -98,9 +98,18 @@ export function CookieNotice({
           : "bottom-0 pb-[max(0.25rem,env(safe-area-inset-bottom))]",
       )}
     >
+      {/* The link stays a plain inline box: `touch-target` (inline-flex,
+          min-h-11) would grow the line that holds it to 44 px and spread the
+          two text lines apart (UX-148). Vertical padding on an inline box
+          widens its hit area (and bounding box) without changing the line
+          height, so the paragraph keeps `leading-snug` and the link still
+          reaches 44 px (a little side padding for short words) below `sm` or under a coarse pointer (M3). */}
       <p className="flex-1 leading-snug text-muted-foreground">
         {dict.message}{" "}
-        <Link href="/privacy#cookies" className="touch-target text-foreground underline underline-offset-4">
+        <Link
+          href="/privacy#cookies"
+          className="text-foreground underline underline-offset-4 max-sm:-mx-1 max-sm:px-1 max-sm:py-4 pointer-coarse:-mx-1 pointer-coarse:px-1 pointer-coarse:py-4"
+        >
           {dict.learnMore}
         </Link>
       </p>

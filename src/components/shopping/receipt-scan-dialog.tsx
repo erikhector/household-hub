@@ -108,6 +108,7 @@ export function ReceiptScanDialog({
   dict,
   onApplied,
   aliases = [],
+  defaultMenuOpen = false,
 }: {
   listId: string;
   /** Rows a receipt line may be matched to — unticked ones, plus (in
@@ -123,6 +124,9 @@ export function ReceiptScanDialog({
   onApplied?: () => void;
   /** MATCH-5: the household's learned item names (see matchReceiptLines). */
   aliases?: ItemAliasLike[];
+  /** PERF-25: LazyReceiptScan shows a stand-in button until this chunk is
+   * loaded; the tap that asked for it mounts this with the scan menu open. */
+  defaultMenuOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -564,7 +568,7 @@ export function ReceiptScanDialog({
         onChange={onFileSelected}
       />
       <div className="flex flex-col gap-1">
-        <DropdownMenu>
+        <DropdownMenu defaultOpen={defaultMenuOpen}>
           <DropdownMenuTrigger
             render={
               <Button type="button" variant="outline" disabled={pendingItems.length === 0}>
