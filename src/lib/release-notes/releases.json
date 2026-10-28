@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.117.0",
+    "date": "2026-10-28",
+    "pr": 867,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The front page has a fresh new look: a fridge door full of scribbled notes, and how Squirrel takes each one off your hands.\n\nIf an invitation email can't be sent, the message now appears in your language.",
+      "sv": "Startsidan har fått ett nytt utseende: en kylskåpsdörr full av klottrade lappar, och hur Squirrel tar hand om var och en av dem.\n\nOm ett inbjudningsmejl inte kan skickas visas meddelandet nu på ditt språk."
+    }
+  },
+  {
     "version": "0.116.3",
     "date": "2026-10-28",
     "pr": 860,
