@@ -1,5 +1,5 @@
 // A small, fixed conversion table for the handful of metric/US measures
-// recipes and inventory actually use (see KNOWN_UNITS in recipe-import.ts
+// recipes and inventory actually use (see KNOWN_UNITS in recipe-import/parse-ingredient.ts
 // for the same vocabulary). This deliberately does NOT attempt to be a
 // general unit system: volume and weight are never convertible into each
 // other (that needs ingredient-specific density, e.g. cups of flour vs
