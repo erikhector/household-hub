@@ -87,7 +87,12 @@ import {
 import { computeNetBalances, remainingDue, simplifyDebts } from "@/lib/settle-up-calc";
 import { swishNumbersForPayer } from "@/lib/swish";
 import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
-import { createCategoryAction, deleteCategoryAction, updateCategoryAction } from "./actions";
+import {
+  createCategoryAction,
+  createStarterCategoriesAction,
+  deleteCategoryAction,
+  updateCategoryAction,
+} from "./actions";
 import { PageTitle } from "@/components/dashboard/page-title";
 
 // An item needs at least this many recorded prices before its trend is
@@ -1061,12 +1066,16 @@ async function BudgetTabsSection({
       savingsGoals={savingsGoals}
       onboarding={<BudgetOnboarding
           dict={dict.budget}
-          currencyDict={dict.household.currency}
-          locale={locale}
-          currencyCode={currencyCode}
-          canChangeCurrency={canChangeCurrency}
-          householdName={householdName}
+          body={format(dict.budget.onboarding.body, { household: householdName })}
+          currency={{
+            currencyCode,
+            canChange: canChangeCurrency,
+            locale,
+            dict: dict.budget.onboarding,
+            currencyDict: dict.household.currency,
+          }}
           createCategoryAction={createCategoryAction}
+          createStarterCategoriesAction={createStarterCategoriesAction}
         />}
       manage={manage}
       transactions={transactionsTab}

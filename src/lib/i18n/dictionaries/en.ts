@@ -3185,6 +3185,30 @@ export const en = {
       title: "Let's set up your budget",
       body: "Money that's only yours — no one else in the household sees it. Add a category to start logging your income, expenses, and savings; you can always add more later.",
     },
+    // BUDGET-5: a short set for your own money (not the household's rent and
+    // groceries), offered through the same StarterCategoryPicker.
+    starterCategories: {
+      heading: "Or add a starter set",
+      description: "Pick the categories you want, then add them all at once.",
+      addSelected: {
+        one: "Add {count} category",
+        other: "Add {count} categories",
+      },
+      addedToast: {
+        one: "Added {count} category",
+        other: "Added {count} categories",
+      },
+      allAlreadyAdded: "Those categories are already in your budget.",
+      noneSelected: "Pick at least one category to add.",
+      items: [
+        { id: "salary", name: "Salary", type: "INCOME" },
+        { id: "eating-out", name: "Eating out", type: "EXPENSE" },
+        { id: "subscriptions", name: "Subscriptions", type: "EXPENSE" },
+        { id: "clothes", name: "Clothes", type: "EXPENSE" },
+        { id: "fun-money", name: "Fun money", type: "EXPENSE" },
+        { id: "savings", name: "Savings", type: "SAVINGS" },
+      ],
+    },
     shared: {
       // Merged inline into the normal due list and transaction list (see
       // PersonalDueRecurringWidget/PersonalTransactionList) rather than a
