@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_ITEM } from "./seed-data";
-import { clickRowAction, dismissCookieNotice, holdServerActions } from "./ui";
+import { clickRowAction, dismissCookieNotice, expectHydrated, holdServerActions } from "./ui";
 
 // UX-33: the motion system. Two kinds of motion, two recorders:
 //
@@ -20,7 +20,14 @@ const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 type VtAnimation = { pseudo: string; keyframes: string; duration: number };
 type Flip = { id: string; key: string };
-type Recorder = { __vt: VtAnimation[][]; __flips: Flip[]; __cls: number; __shifted: string[]; __skipped: number };
+type Recorder = {
+  __vt: VtAnimation[][];
+  __flips: Flip[];
+  __cls: number;
+  __shifted: string[];
+  __skipped: number;
+  __lastInput: number;
+};
 
 test.beforeEach(async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -31,9 +38,13 @@ test.beforeEach(async ({ page, context, baseURL }) => {
     w.__cls = 0;
     w.__shifted = [];
     w.__skipped = 0;
+    w.__lastInput = 0;
+    // For the failure message: how long after the last tap a shift came.
+    addEventListener("click", () => (w.__lastInput = performance.now()), { capture: true });
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as unknown as {
         value: number;
+        startTime: number;
         hadRecentInput: boolean;
         sources: { node?: Node }[];
       }[]) {
@@ -41,7 +52,8 @@ test.beforeEach(async ({ page, context, baseURL }) => {
         w.__cls += entry.value;
         // What moved, for the failure message.
         for (const source of entry.sources) {
-          w.__shifted.push((source.node as Element | undefined)?.outerHTML?.slice(0, 160) ?? String(source.node?.nodeName));
+          const what = (source.node as Element | undefined)?.outerHTML?.slice(0, 160) ?? String(source.node?.nodeName);
+          w.__shifted.push(`${what} (${Math.round(entry.startTime - w.__lastInput)} ms after the last tap)`);
         }
       }
     }).observe({ type: "layout-shift", buffered: true });
@@ -249,6 +261,21 @@ test("a completed task moves to Completed at tap time", async ({ page }) => {
   await expect(box).toBeVisible();
 
   await resetRecording(page);
+  // The tick waits TICK_MS (a timer) before the row moves, and the move only
+  // counts as "at tap time" if that timer fires inside the 500 ms the browser
+  // leaves after a tap. Tap on a quiet main thread: the new row hydrated, and
+  // two frames and an idle slot past whatever the add left behind (its dialog
+  // closing, the list refreshing), so a loaded runner's backlog doesn't push
+  // the timer out of the window. See MAINT-68.
+  await expectHydrated(box);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => requestIdleCallback(() => resolve(), { timeout: 2000 })),
+        ),
+      ),
+  );
   const held = await holdServerActions(page, "/dashboard/tasks");
   await box.click();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();

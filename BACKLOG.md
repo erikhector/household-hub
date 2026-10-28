@@ -261,19 +261,6 @@ then MAINT-7 per feature, to avoid churn.
       Acceptance: `npx playwright test e2e/native-sheets.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
 
-- [ ] **MAINT-68. Flaky: `motion` "a completed task moves to Completed at tap time" sees a late layout shift** (low, S) —
-      `e2e/motion.spec.ts:242` (`desktop`) failed once in the `ci:local`
-      gate of #773 (`1df4959`, 2026-10-27), a PR that touches only the
-      meal planning page: CLS 0.0103 outside the 500 ms after input, the
-      moved node a task swipe row (`data-swipe-row`). It passed 5/5 when
-      re-run alone on the same commit. Find what moves the row late under
-      load (the FLIP move to Completed finishing after the input window, or
-      a revalidation re-render) and fix it in the app or the spec's waiting
-      (`expectHydrated` / `gotoRevealed` in `e2e/ui.ts`), never a loosened
-      assertion, a skip or a retry. Acceptance: `npx playwright test
-      e2e/motion.spec.ts:242 --project=desktop --repeat-each=30` passes
-      30/30 with three workers busy.
-
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
       covered by MAINT-10 (which lists UI files only). It holds two
