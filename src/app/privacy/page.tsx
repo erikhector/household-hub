@@ -117,7 +117,7 @@ export default async function PrivacyPage() {
                     <dd className="font-mono break-all">{entry.name}</dd>
                     <dt className="text-muted-foreground">Type</dt>
                     <dd>
-                      {entry.kind === "cookie" ? "Cookie" : "Local storage"},{" "}
+                      {entry.kind === "cookie" ? "Cookie" : entry.kind === "cache" ? "Offline cache" : "Local storage"},{" "}
                       {entry.category === "necessary" ? "necessary" : "preference"}
                     </dd>
                     <dt className="text-muted-foreground">Purpose</dt>

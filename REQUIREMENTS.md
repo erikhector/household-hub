@@ -8081,6 +8081,43 @@ Covered by `e2e/swipe-rows.mobile.spec.ts` (touch is driven through
 Chromium's DevTools protocol, since Playwright has no touch-drag API) and
 the unit tests beside `swipe-row-calc.ts` and `deferred-delete.ts`.
 
+### Offline shopping list (UX-36)
+
+The shopping list survives a dead zone in a store. Ticks only: adds, price
+edits and every other page stay online-only (decided 2026-10-15, see
+PRODUCT.md).
+
+- **Reads**: `src/lib/service-worker.js` serves a navigation to
+  `/dashboard/shopping-list/<id>` network first and keeps the last good
+  response (status 200, not a redirect) in the `squirrel-shopping-list-v1`
+  Cache Storage bucket, keyed by path, at most 5 lists. With no network the
+  copy is served instead of the "You're offline" page; with none cached the
+  old fallback still shows. Other pages, RSC fetches, API routes, Server
+  Actions and auth are never cached.
+- **Queue**: with `navigator.onLine === false`, or while ticks are already
+  waiting (so they go in order), a tick (a row's checkbox or the Next up
+  dock) goes into a queue instead of calling `togglePurchasedAction`. The
+  row moves at once like any tick, and a chip ("3 changes waiting to sync",
+  `role="status"`) shows under the back link. The queue is one entry per row
+  holding the wanted state (`src/lib/shopping/offline-tick-queue.ts`): last
+  write wins, and an entry equal to the server's own value is dropped.
+  It's kept in `localStorage` (`shopping.offlineTicks`, listed in
+  `cookie-inventory.ts` and on the privacy page) so a reload keeps it, read
+  through `useSyncExternalStore` (`offline-tick-queue-store.ts`).
+- **Replay**: on the `online` event, and on opening a list with entries
+  left over, each entry is sent in order through `replayTickAction(itemId,
+  purchased)`. That action toggles only when the row differs from the wish,
+  so a repeat or a row someone else already ticked is a no-op, and a row
+  deleted meanwhile (or foreign to the household) answers `{}`, skipped
+  silently. A request that never arrives stops the replay and keeps the
+  rest; an answer with an error drops that entry with the "couldn't save"
+  toast. The page is then refreshed to show what the server holds.
+- **Logout** (`useLogout`) deletes the cached list and clears the queue
+  (`src/lib/shopping/offline-cache.ts`).
+- Covered by `e2e/shopping-offline.spec.ts` (offline tick, chip, back
+  online, persisted after reload; offline reload of a visited list) and the
+  `replayTickAction` and queue unit tests.
+
 ### Browser floor (UX-29)
 
 The minimum browser is whatever renders the design tokens: `oklch()` and

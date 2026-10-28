@@ -11,6 +11,7 @@ import {
   ArrowUpDown,
   CheckCheck,
   ChevronDown,
+  CloudOff,
   ClipboardPaste,
   Copy,
   Download,
@@ -61,6 +62,7 @@ import {
   resetCategoryOrderAction,
   saveCategoryOrderAction,
   putAwayItemsAction,
+  replayTickAction,
   togglePurchasedAction,
   unarchiveShoppingListAction,
   uncompleteShoppingListAction,
@@ -86,6 +88,14 @@ import {
   tickStarted,
   type TickOverlay,
 } from "@/lib/shopping/tick-overlay";
+import { queuedPurchased, queueTick } from "@/lib/shopping/offline-tick-queue";
+import {
+  getQueuedTicks,
+  getServerQueuedTicks,
+  replayQueuedTicks,
+  setQueuedTicks,
+  subscribeQueuedTicks,
+} from "@/lib/shopping/offline-tick-queue-store";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
@@ -226,9 +236,14 @@ export function ShoppingListClient({
   // away at once, or waiting in the cart in put-away mode), so the "Put
   // away" button comes with the tap rather than when the server answers.
   const local = useLocalRowChanges(list.items);
+  // UX-36: ticks made offline wait in a queue on this device (see
+  // offline-tick-queue.ts). A queued wish outranks the overlay, which only
+  // knows about saves on their way, so the row keeps showing it until the
+  // replay has saved it and the server's own list says the same.
+  const queuedTicks = useSyncExternalStore(subscribeQueuedTicks, getQueuedTicks, getServerQueuedTicks);
   const items = applyLocalRowChanges(
     list.items.map((item) => {
-      const purchased = shownPurchased(ticks, item.id, item.purchased);
+      const purchased = queuedPurchased(queuedTicks, item.id) ?? shownPurchased(ticks, item.id, item.purchased);
       return purchased === item.purchased ? item : withLocalTick(item, purchased, defersToPutAway, new Date());
     }),
     local.changes,
@@ -297,6 +312,14 @@ export function ShoppingListClient({
     // that's already all ticked, or deleting its last row, stays quiet.
     if (ticking && isActive && pendingItems.length === 1 && pendingItems[0].id === item.id) setCelebrate(true);
     setLeavingRow(item.id, ticking && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    // UX-36: with no connection (or ticks already waiting, which must go
+    // first so the order holds) the tap joins the queue instead of calling
+    // the server. The row moves at once like any tick; the chip says it is
+    // waiting. `item` is what the row shows, so `ticking` is the wish.
+    if (!navigator.onLine || getQueuedTicks().length > 0) {
+      setQueuedTicks(queueTick(getQueuedTicks(), item.id, ticking, serverPurchased(tickState.items, item.id)));
+      return;
+    }
     setTickState((current) => ({
       ...current,
       overlay: tickStarted(current.overlay, item.id, serverPurchased(current.items, item.id)),
@@ -418,6 +441,28 @@ export function ShoppingListClient({
   // cleared-state tracking below, so it opens in the same render. Closing
   // the dialog strips the param again, so the next tap is a change too.
   const router = useRouter();
+  // UX-36: save the queued ticks as soon as there is a connection: when the
+  // browser says it is back, when the list opens with some left over from
+  // before, and when a tap was queued while the connection was fine (ticks
+  // already waiting). The server rows are re-fetched afterwards so the list
+  // shows what was really saved (a row someone else ticked meanwhile, a
+  // deleted row gone).
+  const hasQueuedTicks = queuedTicks.length > 0;
+  useEffect(() => {
+    if (!hasQueuedTicks) return;
+    const replay = () => {
+      if (!navigator.onLine) return;
+      void replayQueuedTicks(
+        ({ itemId, purchased }) => replayTickAction(itemId, purchased),
+        () => toast.error(dict.saveFailedToast),
+      ).then((settled) => {
+        if (settled) router.refresh();
+      });
+    };
+    replay();
+    window.addEventListener("online", replay);
+    return () => window.removeEventListener("online", replay);
+  }, [hasQueuedTicks, router, dict.saveFailedToast]);
   const pathname = usePathname();
   const putAwayParam = useSearchParams().get("putAway");
   const [seenPutAwayParam, setSeenPutAwayParam] = useState<string | null>(null);
@@ -633,6 +678,16 @@ export function ShoppingListClient({
         <ArrowLeft className="size-3.5" />
         {dict.backToAll}
       </Link>
+
+      {hasQueuedTicks && (
+        <p
+          role="status"
+          className="inline-flex w-fit items-center gap-2 rounded-full border bg-muted px-3 py-1.5 text-sm text-muted-foreground"
+        >
+          <CloudOff className="size-4" aria-hidden />
+          {format(plural(queuedTicks.length, dict.offlineQueued), { count: queuedTicks.length })}
+        </p>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

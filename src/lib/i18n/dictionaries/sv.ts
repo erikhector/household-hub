@@ -739,6 +739,12 @@ export const sv = {
     add: "Lägg till",
     deleteItemAriaLabel: "Ta bort {name}",
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    // UX-36: bockar som görs utan täckning väntar på den här enheten och
+    // synkas när anslutningen är tillbaka.
+    offlineQueued: {
+      one: "{count} ändring väntar på synk",
+      other: "{count} ändringar väntar på synk",
+    },
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {

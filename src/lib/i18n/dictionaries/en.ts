@@ -781,6 +781,12 @@ export const en = {
     add: "Add",
     deleteItemAriaLabel: "Remove {name}",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // UX-36: ticks made with no signal wait on this device and sync when
+    // the connection is back; the chip says how many are waiting.
+    offlineQueued: {
+      one: "{count} change waiting to sync",
+      other: "{count} changes waiting to sync",
+    },
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {
