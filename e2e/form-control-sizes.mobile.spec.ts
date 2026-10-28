@@ -14,9 +14,6 @@ import { clickRowAction, dismissCookieNotice, expectHydrated } from "./ui";
 test.skip(({ isMobile }) => !isMobile, "touch font-size rule: a mouse on desktop is deliberately text-sm");
 
 async function expectFieldsAtLeast16px(dialog: Locator) {
-  // The budget dialogs load on first use (PERF-30): wait for the form to be
-  // in before measuring it.
-  await expect(dialog.locator("input, textarea, [role=combobox]").first()).toBeVisible();
   const fields = await dialog.locator("input, textarea, [role=combobox]").evaluateAll((els) =>
     els
       .filter((el) => {
@@ -87,6 +84,8 @@ test("budget transaction and recurring dialogs use 16px fields", async ({ page, 
     const addTransaction = page.getByRole("button", { name: "Add transaction" }).first();
     await expectHydrated(addTransaction);
     await addTransaction.click();
+    // The dialog loads on first use (PERF-30): wait for its form before measuring.
+    await expect(page.getByLabel("Amount", { exact: true })).toBeVisible();
     await expectFieldsAtLeast16px(page.getByRole("dialog"));
     await page.keyboard.press("Escape");
 
