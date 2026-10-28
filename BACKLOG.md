@@ -464,22 +464,6 @@ below come from `text-200-dashboard-meal-planning.png`. WebKit was not run.
       meal planner's previous/next links and the week label have
       non-intersecting bounding boxes, each link is still 44 × 44 px, and the
       label's full text is visible (not ellipsized).
-- [ ] **UX-150. Bottom bar splits its labels mid-word at 200% text** (impact:
-      low, effort: S) — at 200% text on Pixel 7 the five tabs read "Overvi/ew",
-      "Invento/ry", "Shoppi/ng list", "Meal plan/ning" (same screenshot), and
-      the meal planner's "Add your first dinner" FAB wraps to two lines and
-      slides under the taller bar. `src/components/dashboard/bottom-nav.tsx:139`
-      uses `break-words hyphens-auto`, which breaks anywhere when a word is
-      wider than its fifth of the bar. Breaks DESIGN.md's text-resize rule
-      (UX-9). Fix: cap the tab labels' size (`text-[clamp(...)]`, or
-      `max-w` + `truncate` with the full name as `aria-label`) so a name never
-      splits, and offset floating buttons by the bar's real height (a CSS
-      variable set from the bar), not a fixed `bottom-` value. Verify the FAB
-      overlap on a real run first: the full-page screenshot may exaggerate it.
-      Acceptance: in the `mobile` project at 200% root font, no bottom-bar label
-      wraps inside a word (each label is one line or breaks at spaces only) and
-      the FAB's bounding box doesn't intersect the bar's.
-
 
 ### Dependencies
 
