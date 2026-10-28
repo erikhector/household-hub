@@ -133,6 +133,18 @@ easy for AI coding agents to work in correctly:
   the phone's ⋯ menu and floating Add item open the same single instance
   the desktop buttons do. `e2e/inventory-lazy-dialogs.spec.ts` covers the
   first tap and the failed-load retry. The budget pages (PERF-30) are still to do.
+  The dashboard shell's popups (PERF-27) are lazy on every page
+  (`src/components/dashboard/lazy-shell.ts`): the command palette
+  (`command-palette.tsx` keeps only the ⌘K listener and the `open` state;
+  the dialog is `command-palette-dialog.tsx`), the household switcher's
+  menu and create form (`household-switcher-menu.tsx`) and the bottom bar's
+  More menu (`bottom-nav-more-menu.tsx`). A Base UI menu positions against
+  the trigger inside its Root, so the two menus use the `LazyReceiptScan`
+  shape: the trigger stays in the shell as a same-looking stand-in, and a tap
+  mounts the real menu with `defaultOpen`. The dashboard layout wraps the
+  shell in `LazyDialogErrorMessage`. `e2e/shell-lazy-popups.spec.ts` and
+  `e2e/shell-lazy-more-menu.mobile.spec.ts` cover the first press or tap
+  and the failed-load retry.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
