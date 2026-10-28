@@ -168,9 +168,9 @@ then MAINT-7 per feature, to avoid churn.
       file from `PENDING`: the test fails if a clean file stays listed. Leave
       budget until BUDGET-6 is decided.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
-      `components/shopping/shopping-list-client.tsx` (1,095 lines: move
-      `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
-      state into hooks); `dashboard/budget/page.tsx` (967 lines:
+      `components/shopping/shopping-list-client.tsx` (now 1,107 lines; the
+      row, price, printable and cleared components are already out): pull
+      its state into hooks; `dashboard/budget/page.tsx` (967 lines:
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
       with PERF-12 and BUDGET-6.
