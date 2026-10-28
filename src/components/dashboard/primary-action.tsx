@@ -23,7 +23,7 @@ export function PrimaryAction({ children }: { children: ReactNode }) {
       data-primary-action=""
       // max-w + whitespace-normal + min-h: a long Swedish label at 200% text
       // wraps inside the screen instead of running off its left edge.
-      className="max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+0.75rem+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:max-w-[calc(100vw-2rem)] max-sm:[&_:is(button,a)]:h-auto max-sm:[&_:is(button,a)]:min-h-12 max-sm:[&_:is(button,a)]:max-w-full max-sm:[&_:is(button,a)]:rounded-full max-sm:[&_:is(button,a)]:px-5 max-sm:[&_:is(button,a)]:whitespace-normal print:hidden"
+      className="max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(var(--bottom-nav-h)+0.75rem+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:max-w-[calc(100vw-2rem)] max-sm:[&_:is(button,a)]:h-auto max-sm:[&_:is(button,a)]:min-h-12 max-sm:[&_:is(button,a)]:max-w-full max-sm:[&_:is(button,a)]:rounded-full max-sm:[&_:is(button,a)]:px-5 max-sm:[&_:is(button,a)]:whitespace-normal print:hidden"
     >
       {children}
     </div>

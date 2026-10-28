@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, use, useState } from "react";
+import { Suspense, use, useLayoutEffect, useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -50,9 +50,28 @@ export function BottomNav({
   const pathname = usePathname();
   const moreActive = isMoreMenuActive(pathname);
   const [moreRequested, setMoreRequested] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+
+  // UX-150: publish the bar's real height (its labels grow with the text
+  // size, so 3.75rem is only right at 100%) so floating buttons and <main>'s
+  // bottom padding clear it instead of assuming a fixed value. The default
+  // in globals.css covers the first paint.
+  useLayoutEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--bottom-nav-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--bottom-nav-h");
+    };
+  }, []);
 
   const moreClassName = cn(
-    "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-xs font-medium transition-transform duration-150 ease-out active:scale-90",
+    "relative z-10 flex min-w-0 flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-xs font-medium transition-transform duration-150 ease-out active:scale-90",
     moreActive ? "text-primary" : "text-muted-foreground",
   );
   const moreContent = (
@@ -73,7 +92,7 @@ export function BottomNav({
       </span>
       {/* Same label box as the links' (leading-tight), so the five labels
           share one baseline (UX-52). */}
-      <span className="w-full text-center leading-tight">{dict.nav.more}</span>
+      <span className="w-full truncate text-center leading-tight">{dict.nav.more}</span>
     </>
   );
 
@@ -100,7 +119,7 @@ export function BottomNav({
     //
     // The view-transition-name keeps the bar still and on top while a page
     // or list animates underneath it (UX-33, see globals.css).
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background [view-transition-name:app-bottom-nav] pb-[min(2.125rem,env(safe-area-inset-bottom))] sm:hidden print:hidden">
+    <nav ref={navRef} className="fixed inset-x-0 bottom-0 z-40 border-t bg-background [view-transition-name:app-bottom-nav] pb-[min(2.125rem,env(safe-area-inset-bottom))] sm:hidden print:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden
@@ -137,7 +156,10 @@ export function BottomNav({
               >
                 <Icon className="size-5" />
               </span>
-              <span className="w-full text-center leading-tight break-words hyphens-auto">{dict.nav[key]}</span>
+              {/* One line, ellipsis when the name outgrows its fifth of the bar (UX-150):
+                  the old break-words hyphens-auto split names mid-word at 200%
+                  text. The full name stays the link's accessible name. */}
+              <span className="w-full truncate text-center leading-tight">{dict.nav[key]}</span>
             </Link>
           );
         })}

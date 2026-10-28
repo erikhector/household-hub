@@ -213,6 +213,46 @@ then MAINT-7 per feature, to avoid churn.
 
 
 
+- [ ] **MAINT-69. Flaky: `inventory-lazy-dialogs` failed-chunk retry fails once, then passes** (low, S) —
+      `e2e/inventory-lazy-dialogs.spec.ts:50` ("a failed chunk load says so,
+      and the next tap retries", `desktop`) failed in one full `ci:local`
+      run of the PERF-27 branch (`7a40cf4`, 2026-10-28) and passed in a
+      third full run on the same commit and in 162/162 focused runs
+      (`--repeat-each=10`, desktop and mobile). Likely the same
+      click-before-hydration or history-patch race as MAINT-67/MAINT-68
+      (`expectHydrated`, `expectRouterPatched` in `e2e/ui.ts`). Reproduce
+      with `--repeat-each=30` under load, find the race, and fix it in the
+      app or the spec's waiting, never a loosened assertion, a skip or a
+      retry.
+      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-70. Flaky: `recipe-planned-dates` Recipes tab stays unselected after the click** (low, S) —
+      `e2e/recipe-planned-dates.spec.ts:55` (`mobile`) failed once in the
+      full `ci:local` gate of the MAINT-68 branch (`5f576e5`,
+      2026-10-28): the Recipes tab's `aria-selected` stayed false after the
+      click, although `openRecipesTab` had already waited for the router's
+      history patch. It passed 15/15 on mobile on rerun and in the next
+      full gate, so the cause is not understood. Reproduce with
+      `--repeat-each=30` under load and find the race in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-planned-dates.spec.ts
+      --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-71. Flaky: `budget-form-autofill` finds no autofill-checked fields in the budget dialogs** (low, S) —
+      `[desktop]` `e2e/budget-form-autofill.spec.ts:24` ("budget dialogs
+      turn autofill off and set the Enter key on the last field") failed
+      once and passed on the retry in the GitHub `End-to-end (Playwright)`
+      job of the `release/2026-10-28-1028` gate (`cde7d5e`, 2026-10-28; the
+      local `ci:local` run of the same commit was clean). The first
+      failure is `expect(count).toBeGreaterThan(0)` with 0 received in
+      `expectNoAutofill` (line 18, called from line 52): the dialog's
+      fields weren't in the DOM yet. The budget dialogs became lazy-loaded
+      in PERF-30 (#838), so the spec probably counts fields before the
+      lazy chunk has rendered. Reproduce with `--repeat-each=30`, wait for
+      the dialog's fields to render (or the dialog to be visible) before
+      counting, in the spec's waiting or the app, never a loosened
+      assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/budget-form-autofill.spec.ts
+      --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
       1,249 lines in one file, past the 800-line smell threshold and not
       covered by MAINT-10 (which lists UI files only). It holds two
@@ -409,22 +449,6 @@ below come from `text-200-dashboard-meal-planning.png`. WebKit was not run.
       meal planner's previous/next links and the week label have
       non-intersecting bounding boxes, each link is still 44 × 44 px, and the
       label's full text is visible (not ellipsized).
-- [ ] **UX-150. Bottom bar splits its labels mid-word at 200% text** (impact:
-      low, effort: S) — at 200% text on Pixel 7 the five tabs read "Overvi/ew",
-      "Invento/ry", "Shoppi/ng list", "Meal plan/ning" (same screenshot), and
-      the meal planner's "Add your first dinner" FAB wraps to two lines and
-      slides under the taller bar. `src/components/dashboard/bottom-nav.tsx:139`
-      uses `break-words hyphens-auto`, which breaks anywhere when a word is
-      wider than its fifth of the bar. Breaks DESIGN.md's text-resize rule
-      (UX-9). Fix: cap the tab labels' size (`text-[clamp(...)]`, or
-      `max-w` + `truncate` with the full name as `aria-label`) so a name never
-      splits, and offset floating buttons by the bar's real height (a CSS
-      variable set from the bar), not a fixed `bottom-` value. Verify the FAB
-      overlap on a real run first: the full-page screenshot may exaggerate it.
-      Acceptance: in the `mobile` project at 200% root font, no bottom-bar label
-      wraps inside a word (each label is one line or breaks at spaces only) and
-      the FAB's bounding box doesn't intersect the bar's.
-
 
 ### Dependencies
 

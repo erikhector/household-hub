@@ -8294,8 +8294,13 @@ approximating them, so the email never disagrees with the app.
   header), grids use `minmax(min(16rem,100%),1fr)` so a column never exceeds
   the screen, user-text buttons (`Merge into <name>`, landing CTAs) opt out of
   `Button`'s `whitespace-nowrap` with `h-auto whitespace-normal`, and
-  bottom-nav labels use `hyphens-auto` so a long word breaks at a syllable,
-  not mid-letter. Covered by `e2e/text-size.mobile.spec.ts`, which sets
+  bottom-nav labels stay on one line and truncate with an ellipsis (UX-150;
+  the old `break-words hyphens-auto` split names mid-word, "Overvi/ew").
+  `BottomNav` publishes its measured height as `--bottom-nav-h` (default in
+  `globals.css`: 3.75rem + the capped safe-area inset), and everything docked
+  above the bar (floating primary action, bulk bars, shopping mode, the cookie
+  strip, `<main>`'s bottom padding) offsets by that variable, never a fixed
+  `bottom-` value. Covered by `e2e/text-size.mobile.spec.ts`, which sets
   `html { font-size: 200% }` and runs `expectNoHorizontalOverflow` on every
   route in `e2e/routes.ts`, in English and Swedish.
 - Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
