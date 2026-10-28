@@ -1,4 +1,4 @@
-// SEC-2: recipe-import.test.ts fakes node:http/https so it can exercise
+// SEC-2: recipe-import/fetch.test.ts fakes node:http/https so it can exercise
 // fetchRecipeHtml's SSRF/DNS-rebinding guard without a real connection, but
 // a fake can only prove it satisfies whatever contract *it* was coded to
 // expect — not Node's actual one. (The first version of createPinnedPublicLookup
