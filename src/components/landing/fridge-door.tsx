@@ -79,7 +79,7 @@ export function ReceiptNote({ dict, className }: { dict: FridgeDict["receipt"]; 
   return (
     <div
       aria-hidden="true"
-      className={cn(note, "bg-note-paper px-3.5 pt-4 pb-5 font-mono text-[0.7rem] leading-relaxed text-note-ink uppercase", className)}
+      className={cn(note, "bg-note-paper px-3.5 pt-4 pb-5 font-mono text-xs leading-relaxed text-note-ink uppercase", className)}
       // The torn, zig-zag bottom edge of a till roll.
       style={{
         clipPath:
