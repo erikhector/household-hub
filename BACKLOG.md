@@ -168,9 +168,9 @@ then MAINT-7 per feature, to avoid churn.
       file from `PENDING`: the test fails if a clean file stays listed. Leave
       budget until BUDGET-6 is decided.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
-      `components/shopping/shopping-list-client.tsx` (1,095 lines: move
-      `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
-      state into hooks); `dashboard/budget/page.tsx` (967 lines:
+      `components/shopping/shopping-list-client.tsx` (now 1,107 lines; the
+      row, price, printable and cleared components are already out): pull
+      its state into hooks; `dashboard/budget/page.tsx` (967 lines:
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
       with PERF-12 and BUDGET-6.
@@ -213,19 +213,6 @@ then MAINT-7 per feature, to avoid churn.
 
 
 
-- [ ] **MAINT-69. Flaky: `inventory-lazy-dialogs` failed-chunk retry fails once, then passes** (low, S) —
-      `e2e/inventory-lazy-dialogs.spec.ts:50` ("a failed chunk load says so,
-      and the next tap retries", `desktop`) failed in one full `ci:local`
-      run of the PERF-27 branch (`7a40cf4`, 2026-10-28) and passed in a
-      third full run on the same commit and in 162/162 focused runs
-      (`--repeat-each=10`, desktop and mobile). Likely the same
-      click-before-hydration or history-patch race as MAINT-67/MAINT-68
-      (`expectHydrated`, `expectRouterPatched` in `e2e/ui.ts`). Reproduce
-      with `--repeat-each=30` under load, find the race, and fix it in the
-      app or the spec's waiting, never a loosened assertion, a skip or a
-      retry.
-      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-70. Flaky: `recipe-planned-dates` Recipes tab stays unselected after the click** (low, S) —
       `e2e/recipe-planned-dates.spec.ts:55` (`mobile`) failed once in the
       full `ci:local` gate of the MAINT-68 branch (`5f576e5`,
@@ -237,39 +224,6 @@ then MAINT-7 per feature, to avoid churn.
       spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-planned-dates.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-71. Flaky: `budget-form-autofill` finds no autofill-checked fields in the budget dialogs** (low, S) —
-      `[desktop]` `e2e/budget-form-autofill.spec.ts:24` ("budget dialogs
-      turn autofill off and set the Enter key on the last field") failed
-      once and passed on the retry in the GitHub `End-to-end (Playwright)`
-      job of the `release/2026-10-28-1028` gate (`cde7d5e`, 2026-10-28; the
-      local `ci:local` run of the same commit was clean). The first
-      failure is `expect(count).toBeGreaterThan(0)` with 0 received in
-      `expectNoAutofill` (line 18, called from line 52): the dialog's
-      fields weren't in the DOM yet. The budget dialogs became lazy-loaded
-      in PERF-30 (#838), so the spec probably counts fields before the
-      lazy chunk has rendered. Reproduce with `--repeat-each=30`, wait for
-      the dialog's fields to render (or the dialog to be visible) before
-      counting, in the spec's waiting or the app, never a loosened
-      assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/budget-form-autofill.spec.ts
-      --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-65. Split `lib/recipe-import.ts` into parse and fetch modules** (impact: low, effort: M) —
-      1,249 lines in one file, past the 800-line smell threshold and not
-      covered by MAINT-10 (which lists UI files only). It holds two
-      unrelated jobs: HTML parsing (JSON-LD `:72-:545`, ingredient strings
-      `:146-:450`, microdata `:564-:775`, heuristic headings `:777-:900`)
-      and the SSRF-guarded fetch (`isPrivateOrReservedIPv4/6`,
-      `validateRecipeUrl`, `createPinnedPublicLookup`, `fetchRecipeHtml`,
-      `:903-:1249`). Split into `lib/recipe-import/parse-*.ts` (ingredient
-      parsing, JSON-LD, microdata, heuristic) and `lib/recipe-import/fetch.ts`
-      (the network guard), keeping `lib/recipe-import.ts` as a re-exporting
-      entry point so `recipe-actions.ts` and the tests don't change import
-      paths. Split `recipe-import.test.ts` (1,173 lines) the same way. The
-      SSRF guard is security-sensitive: move it verbatim, no behaviour
-      change, and keep `_setPrivateAddressCheckForTests` working.
-      Acceptance: no behaviour change; every existing `recipe-import*` test
-      passes unmodified apart from import paths, and no file under
-      `lib/recipe-import/` exceeds ~500 lines.
 
 
 ### UX (2026-09-26 scout)
@@ -434,21 +388,6 @@ hits (its one "Collapse sheet 64x16" hit is the sheet grabber, whose
 `after:` pseudo-element already gives it the 44 px target). The two items
 below come from `text-200-dashboard-meal-planning.png`. WebKit was not run.
 
-- [ ] **UX-149. Week/month switcher overlaps its label at 200% text** (impact:
-      med, effort: S) — `/dashboard/meal-planning` at 200% root font on Pixel 7:
-      the `‹ ›` links and the date "Oct 26 – Nov 1, 2026" draw on top of each
-      other and the label is cut off at the left edge.
-      `src/components/period-switcher.tsx:54-79` lets the arrow links shrink
-      (no `shrink-0`) and the label `truncate`s inside a `min-w-0` box that sits
-      beside the "⋯" button (`week-planner.tsx:310-320`), so the flex row
-      squeezes the arrows instead of the text. The household and personal
-      budgets use the same component. Breaks DESIGN.md's text-resize rule
-      (UX-9) and M3 (targets stay 44 px). Fix: `shrink-0` on both arrows, and
-      let the label wrap to two lines instead of truncating the period.
-      Acceptance: in the `mobile` project with the root font set to 200%, the
-      meal planner's previous/next links and the week label have
-      non-intersecting bounding boxes, each link is still 44 × 44 px, and the
-      label's full text is visible (not ellipsized).
 
 ### Dependencies
 

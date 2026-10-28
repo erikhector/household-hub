@@ -2156,8 +2156,9 @@ every lookup the old one did.
   week switcher uses too, so months and weeks share one placement, size
   and set of accessible names ("Previous month" / "Previous week", "Next
   …", "This month" / "This week"). It reads as
-  `‹  October 2026  ›`: two 44 px arrow links flanking the month name set
-  in `heading`, with a "This month" link under the name only once you've
+  `‹  October 2026  ›`: two 44 px arrow links (`shrink-0`, UX-149) flanking
+  the month name set in `heading`, which wraps rather than truncating so
+  a 200% text size never puts the arrows on top of it, with a "This month" link under the name only once you've
   paged away from the current month (the server passes its own month key
   as `currentMonthKey`, so render and hydration agree). Every link is
   built by `budgetHref` (`src/lib/budget-url.ts`) and keeps the open tab
@@ -5082,9 +5083,14 @@ React state to support this) so the user can review and edit before
 submitting the normal create/save action, per the "never auto-save an
 imported recipe" requirement.
 
-- **Parsing** (`src/lib/recipe-import.ts`, pure functions, no network,
+- **Module layout** (MAINT-65): `src/lib/recipe-import.ts` only re-exports;
+  the code is in `src/lib/recipe-import/` (`parse-ingredient.ts`,
+  `parse-jsonld.ts`, `parse-microdata.ts`, `parse-heuristic.ts`, shared
+  `html.ts`, the tier order in `parse.ts`, and the SSRF-guarded network
+  code in `fetch.ts`), with a colocated `*.test.ts` per module.
+- **Parsing** (`src/lib/recipe-import/parse-*.ts`, pure functions, no network,
   unit-tested with inline HTML/JSON fixtures in
-  `src/lib/recipe-import.test.ts`): a regex extracts every `<script
+  `src/lib/recipe-import/parse*.test.ts`): a regex extracts every `<script
   type="application/ld+json">` block's contents (`extractJsonLdBlocks`);
   each is `JSON.parse`d (retrying after a light HTML-entity decode for sites
   that escape their own JSON-LD) and scanned for an object whose `@type`
@@ -5205,7 +5211,7 @@ imported recipe" requirement.
   arrive. One consequence of not using `fetch`: no `Accept-Encoding` is
   sent, so responses arrive uncompressed rather than via `fetch`'s automatic
   gzip/br negotiation — heavier over the wire, but still capped at 3MB and
-  this only ever fetches one page per import. `recipe-import.test.ts`
+  this only ever fetches one page per import. `recipe-import/fetch.test.ts`
   exercises this network-dependent path by mocking `node:dns`/`node:http`/
   `node:https` (never a real connection) — covering the DNS-rebinding guard
   and the abort timer staying armed through the body read — while the pure

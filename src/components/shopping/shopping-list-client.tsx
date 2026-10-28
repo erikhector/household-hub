@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useActionState, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   Archive,
   ArchiveRestore,
   ArrowUpDown,
-  Check,
   CheckCheck,
   ChevronDown,
   ClipboardPaste,
@@ -26,18 +25,14 @@ import {
   ScrollText,
   Share2,
   Trash2,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useTickFeedback } from "@/lib/tick-feedback";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { createDialogHandle } from "@/components/ui/dialog";
 import { LazyDialog, openLazyDialog } from "@/components/ui/lazy-dialog";
 import { LazyReceiptScan } from "@/components/shopping/lazy-receipt-scan";
-import { ShoppingItemEditTriggers } from "@/components/shopping/shopping-item-edit-triggers";
 import {
   loadImportListDialog,
   loadPartialPriceDialog,
@@ -57,11 +52,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
-import { CategoryChip } from "@/components/shopping/category-chip";
-import { NextUpDock, ProgressRing } from "@/components/shopping/shopping-mode";
+import { NextUpDock } from "@/components/shopping/shopping-mode";
 import {
   completeShoppingListAction,
-  createShoppingListAction,
   deleteShoppingListAction,
   deleteShoppingListItemAction,
   generateFromLowStockAction,
@@ -71,22 +64,19 @@ import {
   togglePurchasedAction,
   unarchiveShoppingListAction,
   uncompleteShoppingListAction,
-  updateShoppingListItemPriceAction,
 } from "@/app/dashboard/shopping-list/actions";
 import { format, plural } from "@/lib/i18n/format";
 import { tripDurationMinutes } from "@/lib/shopping/trip-summary";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
-import { SwipeRow } from "@/components/shared/swipe-row";
-import { RowActionsMenu } from "@/components/shared/row-actions-menu";
 import { archiveListWithUndo } from "@/components/shopping/archive-list";
 import { startUndoableDelete } from "@/components/shared/start-undoable-delete";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
-import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
+import { groupPendingItemsByCategory } from "@/lib/shopping/shopping-mode-grouping";
 import type { StoreOrder } from "@/lib/shopping/store-order";
 import { countPriced, sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
-import { nextUp, shoppingProgress, type ShoppingProgress } from "@/lib/shopping/shopping-progress";
+import { nextUp, shoppingProgress } from "@/lib/shopping/shopping-progress";
 import {
   hasTicksInFlight,
   NO_TICKS,
@@ -105,9 +95,18 @@ import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
 import { canNativeShare } from "@/components/ui/copy-link-button";
-import { formatShoppingItemLabel, formatShoppingListText } from "@/lib/shopping-list-text";
+import { formatShoppingListText } from "@/lib/shopping-list-text";
 import { PageTitle } from "@/components/dashboard/page-title";
-import { MascotEmptyState, MascotMark } from "@/components/brand/mascot-empty-state";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
+import { PrintableList } from "@/components/shopping/printable-list";
+import { ClearedState, CompletedActions } from "@/components/shopping/cleared-state";
+import { ShoppingRow } from "@/components/shopping/shopping-row";
+import type {
+  InventoryItemOption,
+  ShoppingListData,
+  ShoppingListDict,
+  ShoppingListItemRow,
+} from "@/components/shopping/shopping-list-types";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -125,54 +124,6 @@ const ADDED_HIGHLIGHT_MS = 2000;
 // layout shift (CLS) forgives.
 const LEAVE_MS = 250;
 
-type ShoppingListItemRow = {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  purchased: boolean;
-  addedAutomatically: boolean;
-  inventoryItemId: string | null;
-  // The linked InventoryItem's category (AUTO-3, [id]/page.tsx's query),
-  // null when there's no link yet. Drives shopping mode's grouping below,
-  // and each editable row's CategoryChip (AUTO-2b) for correcting it.
-  category: string | null;
-  // AUTO-4: defaulted from the linked InventoryItem's lastKnownPrice at
-  // creation (per-unit, unmultiplied by quantity — see the create paths in
-  // actions.ts), then only ever changed by an explicit correction via
-  // PriceTag below or an actual receipt price. null means no price is known
-  // yet — the row shows nothing rather than "≈ 0".
-  estimatedPrice: number | null;
-  // GAP-5: optional free-text hint, set from ShoppingItemFormDialog's edit
-  // mode. null when there isn't one (never "").
-  note: string | null;
-  // The linked InventoryItem's barcode (AUTO-6), null without a link or a
-  // stored code. Only ReceiptScanDialog reads it, to match a receipt line
-  // that prints an EAN exactly (AUTO-11).
-  barcode: string | null;
-  // The put-away flow's state (see ShoppingListItem.putAwayAt): a ticked
-  // row with no putAwayAt is still on its way home and waits in the
-  // PutAwayDialog; priceRecordedAt says a receipt already priced it.
-  putAwayAt: Date | null;
-  priceRecordedAt: Date | null;
-  // When the row was ticked, for the trip summary's duration (UX-81). null
-  // for a receipt-applied row or one ticked before the column existed.
-  checkedOffAt: Date | null;
-  // The linked InventoryItem's current location, the put-away dialog's
-  // "stays where it is" placeholder.
-  location: string | null;
-};
-
-type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
-
-type ShoppingListData = {
-  id: string;
-  name: string;
-  status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
-  items: ShoppingListItemRow[];
-};
-
-type ShoppingListDict = Dictionary["shoppingList"];
 
 const subscribeNever = () => () => {};
 
@@ -1152,638 +1103,5 @@ export function ShoppingListClient({
         <NextUpDock next={nextUpItems} progress={progress} dict={dict.shoppingMode} onTick={toggleItem} />
       )}
     </div>
-  );
-}
-
-/**
- * GAP-24's paper copy: what's still left to buy, grouped under the same
- * category headers as shopping mode (AUTO-3's groupPendingItemsByCategory,
- * so aisle order matches the screen), in big black-on-white single-column
- * text for a fridge door or a trolley handle. `hidden print:block`: it
- * never shows on screen, and the column above hides everything else on
- * paper. Purchased items, prices, badges and the estimated total are left
- * out on purpose. They're for the phone, and on paper they'd just be noise
- * between the things you still need. Each row gets an empty box to tick
- * with a pen, and break-inside-avoid keeps a category header from being
- * stranded at the bottom of a page without its items.
- */
-function PrintableList({
-  name,
-  groups,
-  dict,
-}: {
-  name: string;
-  groups: ShoppingModeGroup<ShoppingListItemRow>[];
-  dict: ShoppingListDict;
-}) {
-  const unitLabel = useUnitLabel();
-  return (
-    <section data-print-list className="hidden bg-white text-black print:block">
-      <h1 className="mb-6 border-b-2 border-black pb-2 font-heading text-4xl font-bold">{name}</h1>
-      {groups.length === 0 ? (
-        <p className="text-2xl">{dict.printEmpty}</p>
-      ) : (
-        groups.map((group) => (
-          <div key={group.key ?? ""} className="mb-6 break-inside-avoid">
-            <h2 className="mb-2 text-lg font-bold uppercase tracking-wide">{group.label}</h2>
-            <ul className="flex flex-col gap-2">
-              {group.items.map((item) => (
-                <li key={item.id} className="flex items-baseline gap-3 text-2xl leading-snug">
-                  <span aria-hidden className="inline-block size-5 shrink-0 translate-y-0.5 border-2 border-black" />
-                  <span>
-                    {formatShoppingItemLabel(item, unitLabel)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))
-      )}
-    </section>
-  );
-}
-
-/**
- * The "All done" moment: the ring full with a tick in it, and the one next
- * step as the primary action. UX-37: with ticked rows still waiting to be
- * put away (ON_PUT_AWAY households), that step is putting them away, which
- * finishes the list once confirmed; otherwise it's "Done shopping" (AUTO-5).
- * It pops in (motion-safe only).
- */
-function ClearedState({
-  dict,
-  progress,
-  celebrate,
-  onDismiss,
-  onDone,
-  awaitingPutAway,
-  tripSummary,
-  onPutAway,
-  onReview,
-  isPending,
-}: {
-  dict: ShoppingListDict;
-  progress: ShoppingProgress;
-  /** UX-38: the last item was just ticked here, so the squirrel fills the ring instead of the check. */
-  celebrate: boolean;
-  onDismiss: () => void;
-  /** AUTO-5: completes the list in one tap, with Undo on the toast. */
-  onDone?: () => void;
-  awaitingPutAway: number;
-  /** UX-81: the trip in one line. */
-  tripSummary: string;
-  /** Puts everything away with the defaults (and finishes the list). */
-  onPutAway: () => void;
-  /** Opens the put-away sheet instead, to adjust rows first. */
-  onReview: () => void;
-  isPending: boolean;
-}) {
-  return (
-    <div className="list-bleed relative flex flex-col items-center gap-1.5 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
-      {progress.total > 0 ? (
-        // UX-38: on the tick that cleared the list, the squirrel rises into
-        // the full ring once and then holds still: no confetti, sound or
-        // count. It sits over the ring as a sibling, not inside it, because a
-        // progressbar's children are hidden from screen readers and the mark
-        // has a name to announce. motion-safe keeps it a static image under
-        // prefers-reduced-motion.
-        <div className="relative mb-2 grid place-items-center">
-          <ProgressRing progress={progress} dict={dict.shoppingMode} className="size-20">
-            {!celebrate && (
-              <Check aria-hidden className="size-8 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-500" />
-            )}
-          </ProgressRing>
-          {celebrate && (
-            <MascotMark
-              alt={dict.mascotAlt}
-              className="absolute size-12 rounded-full motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:zoom-in-75 motion-safe:duration-700"
-            />
-          )}
-        </div>
-      ) : (
-        <CheckCheck className="size-5 text-muted-foreground" />
-      )}
-      <p className="font-heading text-xl font-semibold">{dict.clearedTitle}</p>
-      <p className="text-sm text-muted-foreground">
-        {awaitingPutAway > 0
-          ? format(plural(awaitingPutAway, dict.shoppingMode.waitingToPutAway), { count: awaitingPutAway })
-          : dict.clearedDescription}
-      </p>
-      {progress.total > 0 && <p className="text-sm font-medium tabular-nums">{tripSummary}</p>}
-      {awaitingPutAway > 0 ? (
-        <>
-          <Button className="mt-3" disabled={isPending} onClick={onPutAway}>
-            <PackageCheck className="size-4" />
-            {dict.putAway.everything}
-          </Button>
-          <Button variant="ghost" size="sm" disabled={isPending} onClick={onReview}>
-            {dict.putAway.reviewFirst}
-          </Button>
-        </>
-      ) : (
-        onDone && (
-          <Button className="mt-3" disabled={isPending} onClick={onDone}>
-            {dict.doneShopping}
-          </Button>
-        )
-      )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-2 top-2 size-7 text-muted-foreground"
-        aria-label={dict.clearedDismissAriaLabel}
-        onClick={onDismiss}
-      >
-        <X className="size-3.5" />
-      </Button>
-    </div>
-  );
-}
-
-/**
- * UX-81: where a finished trip lands. The list below it is the read-only,
- * struck-through record; this card says the trip is over and offers the two
- * places to go next. "Start next list" opens the household's active default
- * list when there is one (where unbought rows were carried to), and only
- * creates a fresh dated list when there isn't.
- */
-function CompletedActions({
-  dict,
-  tripSummary,
-  nextListId,
-}: {
-  dict: ShoppingListDict;
-  tripSummary: string;
-  nextListId: string | null;
-}) {
-  const [, createAction, creating] = useActionState(createShoppingListAction, {});
-  return (
-    <div className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-      <div>
-        <p className="font-heading text-lg font-semibold">{dict.tripCompleteTitle}</p>
-        <p className="text-sm text-muted-foreground tabular-nums">{tripSummary}</p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {nextListId ? (
-          <Button render={<Link href={`/dashboard/shopping-list/${nextListId}`} />}>{dict.startNextList}</Button>
-        ) : (
-          <form action={createAction}>
-            <Button type="submit" disabled={creating}>
-              {dict.startNextList}
-            </Button>
-          </form>
-        )}
-        <Button variant="outline" render={<Link href="/dashboard/shopping-list" />}>
-          {dict.backToLists}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ShoppingRow({
-  item,
-  onToggle,
-  onDelete,
-  leaving = false,
-  highlighted = false,
-  editable,
-  isPending,
-  startTransition,
-  inventoryItems,
-  categories,
-  units,
-  dict,
-  numberFormat,
-  awaitingPutAway = false,
-  groupedByCategory = false,
-}: {
-  /** `purchased` is already the optimistic value (see ShoppingListClient). */
-  item: ShoppingListItemRow;
-  /** The optimistic tick, owned by ShoppingListClient. */
-  onToggle: () => void;
-  /** UX-49: removes the item with an Undo toast, owned by ShoppingListClient. */
-  onDelete: (item: ShoppingListItemRow) => void;
-  /** UX-37: just ticked, animating out of its aisle towards "In the cart". */
-  leaving?: boolean;
-  /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
-  awaitingPutAway?: boolean;
-  highlighted?: boolean;
-  /** The row sits under its category's group header (the pending section),
-   * so its own category chip would only repeat that header (UX-22). */
-  groupedByCategory?: boolean;
-  /** UX-84: told when a swipe-delete hides (or Undo restores) this row, so
-   * its aisle can hide its header too instead of leaving it alone. */
-  onHiddenChange?: (itemId: string, hidden: boolean) => void;
-  editable: boolean;
-  isPending: boolean;
-  startTransition: (fn: () => void) => void;
-  inventoryItems: InventoryItemOption[];
-  categories: string[];
-  units: string[];
-  dict: ShoppingListDict;
-  numberFormat: Intl.NumberFormat;
-}) {
-  const unitLabel = useUnitLabel();
-  const needsMapping = item.inventoryItemId === null;
-  const purchased = item.purchased;
-  // UX-54: the box fills (with a haptic) before the row moves.
-  const { ticking, tick } = useTickFeedback();
-  // UX-37: an unticked row on an ACTIVE list is shopping mode proper — the
-  // row you're reading at arm's length in the aisle — so it gets large
-  // type. Ticked rows (In the cart) and read-only lists stay compact.
-  const large = editable && !purchased;
-  // UX-79: on a phone a large row whose controls are only price and ⋯ keeps
-  // them on the name's line, so it is one 56 px line instead of two (118 px)
-  // and a 15-item list shows more than 2-3 rows above the dock. A row that
-  // also carries a chip or the "Match item" badge keeps the stacked second
-  // line: those are too wide to share a 412 px line with a readable name.
-  const inline = large && !needsMapping && !(item.category !== null && !groupedByCategory);
-  // PERF-25: the edit form is a lazily loaded chunk, so its openers (the pencil,
-  // "Match item", the ⋯ menu's Edit and the swipe) reach it through this
-  // row's own handle instead of sharing a Dialog root with it.
-  const [editHandle] = useState(() => createDialogHandle());
-
-  // A just-added row scrolls into view if the list is long enough to have
-  // hidden it ("nearest" leaves it alone if it's already on screen). New
-  // rows always land at the bottom of the pending section, so the sticky add
-  // line above never covers them; the phone BottomNav below is cleared by
-  // main's scroll-padding in the dashboard layout, and the shopping-mode
-  // dock above it by the row's scroll-margin (--shopping-dock, set by
-  // NextUpDock while it's shown). Both sit on SwipeRow's root and that's
-  // what scrolls: its `overflow-hidden` makes it a scroll container, and
-  // Chrome clips a target's scroll-margin to the inner scroller it's in, so
-  // a margin on the row inside it never reached `main`.
-  const rowRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!highlighted) return;
-    const row = rowRef.current;
-    (row?.closest<HTMLElement>("[data-swipe-row]") ?? row)?.scrollIntoView({ block: "nearest" });
-  }, [highlighted]);
-
-  return (
-    <SwipeRow
-      className={cn(
-        "list-bleed rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]",
-        // MAINT-39: a leaving row takes no room in the aisle from the tap
-        // on (zero height, the list's 0.5rem gap cancelled by the negative
-        // margin, drawn back at its own place by `top-2`), so the rows below
-        // move up at tap time, inside the 500 ms the layout-shift metric
-        // forgives. Removing it from the DOM after LEAVE_MS then moves
-        // nothing. Holding its full height until that timer fired meant a
-        // busy main thread could run the timer late and the rows below
-        // jumped, as a real layout shift. No z-index: the rows rising into
-        // its place come later in the DOM, so they paint over it as it
-        // fades. Kept on top, SwipeRow's opaque content background (which
-        // doesn't fade) hid the next row for most of its glide.
-        leaving && "top-2 -mt-2 h-0 overflow-visible",
-      )}
-      // UX-33: the row glides when the list moves; not while it's leaving
-      // its aisle, which has its own animation (it then arrives in "In the
-      // cart" as a new row and rises in there).
-      flipKey={leaving ? undefined : item.id}
-      // MAINT-19: the optimistic overlay already lists this item in "In the
-      // cart", so the fading aisle copy must not be a second checkbox for
-      // a screen reader (or a test) to find.
-      inert={leaving}
-      // A read-only (completed or archived) list has nothing to swipe to.
-      primaryLabel={editable ? (purchased ? dict.swipe.untick : dict.swipe.tick) : undefined}
-      primaryIcon={<Check className="size-4" />}
-      editLabel={editable ? dict.swipe.edit : undefined}
-      deleteLabel={dict.swipe.delete}
-      onDelete={editable ? () => onDelete(item) : undefined}
-      disabled={isPending}
-    >
-      <div
-        ref={rowRef}
-        className={cn(
-          "relative flex flex-col gap-1 rounded-md border transition-colors duration-700",
-          // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
-          // mode) — rows are tapped one-handed, phone in the other hand, so
-          // this is when it matters most; a read-only list stays compact.
-          editable ? "px-3 py-3" : "px-3 py-2",
-          large && "min-h-14",
-          inline && "max-sm:py-1",
-          highlighted && "border-primary/50 bg-primary/10",
-          // UX-37: the just-ticked row drops and fades towards "In the cart"
-          // below for LEAVE_MS, then moves there. motion-safe only; under
-          // reduced motion it isn't held back at all (see toggleItem).
-          leaving &&
-            "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-4 motion-safe:fill-mode-forwards motion-safe:duration-250",
-        )}
-      >
-        {/* Below sm the row stacks: the name gets the full width on its own
-            line and the controls drop to a second line, indented under it.
-            On one line, the shrink-0 controls (category chip, price — wider
-            since GAP-13 added a currency symbol — edit, delete) left a phone
-            only a few pixels of truncated name, the one part of the row you
-            actually need to read in the aisle. */}
-        <div
-          className={cn(
-            "flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2",
-            inline && "max-sm:flex-row max-sm:items-center max-sm:gap-1",
-          )}
-        >
-          <label
-            className={cn(
-              "flex min-w-0 flex-1 items-center gap-3",
-              // Stretches the label to the row's full height so tapping
-              // anywhere on the row (not just the checkbox glyph) toggles
-              // purchased — the label/input pairing (Checkbox is a native
-              // <input type="checkbox">) already gives this keyboard and
-              // screen-reader semantics for free, no extra handler needed.
-              editable && "cursor-pointer self-stretch max-sm:min-h-11 pointer-coarse:min-h-11",
-              // UX-37: and past the label to the whole row — its padding, the
-              // note and the hint lines too — via a pseudo-element spread over
-              // the row (the row is `relative`, the label isn't). Hit-testing
-              // a label's ::after is the label, so it's the same native
-              // toggle; the controls column sits above it (`relative z-10`).
-              editable && "after:absolute after:inset-0 after:rounded-md after:content-['']",
-            )}
-          >
-            <Checkbox
-              checked={purchased || ticking}
-              data-ticking={ticking || undefined}
-              disabled={isPending || !editable}
-              // z-[1]: above the label's row-wide ::after (painted after it),
-              // so a tap on the box itself lands on the box.
-              className={cn(editable && "z-[1] size-5", large && "max-sm:size-6 pointer-coarse:size-6")}
-              data-swipe-primary
-              onChange={() => (purchased ? onToggle() : tick(onToggle))}
-            />
-            <span
-              className={cn(
-                "min-w-0 flex-1 break-words sm:truncate",
-                large && "text-base max-sm:text-lg pointer-coarse:text-lg",
-                purchased && "text-muted-foreground line-through",
-              )}
-              title={formatShoppingItemLabel(item, unitLabel)}
-            >
-              {formatShoppingItemLabel(item, unitLabel)}
-            </span>
-            {item.addedAutomatically && (
-              <Badge variant="secondary" className="shrink-0">
-                {dict.lowStockBadge}
-              </Badge>
-            )}
-            {awaitingPutAway && (
-              <Badge variant="outline" className="shrink-0">
-                {dict.putAway.awaitingBadge}
-              </Badge>
-            )}
-            {!editable && needsMapping && (
-              <Badge variant="outline" className="shrink-0 border-dashed">
-                {dict.needsMappingBadge}
-              </Badge>
-            )}
-          </label>
-          {/* Outside the label on purpose (AUTO-4) — anything inside it would
-              also toggle the checkbox on tap, since Checkbox is a native
-              <input> the label is already wired to. Rendered even on a
-              non-editable (view-only) row, just without the tap-to-correct
-              affordance, since the estimate itself is still worth showing.
-              `relative z-10` lifts it above the label's row-wide hit area
-              (UX-37), so these controls still get their own taps. */}
-          <div
-            className={cn(
-              "relative z-10 flex shrink-0 flex-wrap items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2 empty:hidden sm:pl-0",
-              editable ? "pl-8" : "pl-7",
-              large && "max-sm:pl-9",
-              inline && "max-sm:flex-nowrap max-sm:pl-0",
-            )}
-          >
-            {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
-                Only on an editable, linked row — an unlinked one has no
-                category yet (the mapping flow picks one), and a read-only
-                list already shows each row's category as its group header.
-                Rows under a group header skip it for the same reason
-                (UX-22), so it shows on the flat Purchased section. */}
-            {editable && item.category !== null && !groupedByCategory && (
-              <CategoryChip
-                itemId={item.id}
-                itemName={item.name}
-                category={item.category}
-                categories={categories}
-                disabled={isPending}
-                dict={dict.categoryChip}
-              />
-            )}
-            <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} hideAddOnPhone={inline} />
-            {editable && (
-              <>
-                <ShoppingItemEditTriggers
-                  handle={editHandle}
-                  unlinked={item.inventoryItemId === null}
-                  editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
-                  matchItemLabel={dict.matchItemButton}
-                />
-                <LazyDialog loader={loadShoppingItemFormDialog} handle={editHandle}>
-                  {(ShoppingItemFormDialog) => (
-                    <ShoppingItemFormDialog
-                      mode="edit"
-                      item={item}
-                      inventoryItems={inventoryItems}
-                      categories={categories}
-                      units={units}
-                      dict={dict}
-                      handle={editHandle}
-                    />
-                  )}
-                </LazyDialog>
-                {/* UX-49: removes at once with the swipe's Undo toast, not a
-                    "can't be undone" confirm for an item that is one tap to
-                    add back. */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  data-row-delete
-                  className="size-7 text-muted-foreground hover:text-destructive max-sm:hidden"
-                  disabled={isPending}
-                  aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-                  onClick={() => onDelete(item)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-                {/* On a phone the Edit and Delete icons above are hidden
-                    (the row's left swipe shows both) and this ⋯ is their
-                    tap path, clicking those same buttons. */}
-                <RowActionsMenu
-                  label={format(dict.rowActionsAriaLabel, { name: item.name })}
-                  editLabel={dict.swipe.edit}
-                  deleteLabel={dict.swipe.delete}
-                  // UX-79: an inline row has no room for "Add price" beside
-                  // the name, so the ⋯ carries it (the ≈ price button, once
-                  // there is one, stays on the row to correct it).
-                  priceLabel={inline && item.estimatedPrice == null ? dict.addPriceLabel : undefined}
-                  disabled={isPending}
-                />
-              </>
-            )}
-          </div>
-        </div>
-        {/* GAP-5: the note as a muted second line, indented past the checkbox
-            (size-5 + gap-3 on an editable row, size-6 on a large one on a
-            phone, size-4 + gap-3 otherwise) so it lines up under the item name.
-            Outside the label, but on an editable row the label's row-wide hit
-            area (UX-37) covers it, so tapping it ticks the row like any other
-            part of it. Wrapped rather than truncated — unlike the name, the
-            note is the part someone needs to read in the aisle. */}
-        {item.note && (
-          <p
-            className={cn(
-              "text-xs break-words whitespace-pre-line text-muted-foreground",
-              editable ? "pl-8" : "pl-7",
-              large && "max-sm:pl-9",
-            )}
-          >
-            {item.note}
-          </p>
-        )}
-        {/* Persistent, always-visible explanation for as long as the item
-            stays unlinked — the "Match item" badge above (in
-            ShoppingItemFormDialog) is easy to miss on its own, so this spells
-            out the consequence (buying it won't update pantry stock) right
-            under the item the moment it's added, rather than only at
-            list-completion time (see unresolvedNotice). */}
-        {editable && needsMapping && (
-          <p className="pl-7 text-xs text-muted-foreground">{dict.needsMappingHint}</p>
-        )}
-      </div>
-    </SwipeRow>
-  );
-}
-
-/**
- * The row's "≈ 24 kr" (AUTO-4) — muted, tappable text that swaps for a
- * small inline input on tap, following the same "tap a value to correct it
- * in place" idea as, say, an inventory quantity stepper, just with no prior
- * example of an inline-edited text field in this codebase to match exactly.
- * A save round-trips through updateShoppingListItemPriceAction; until it
- * resolves the input just sits there disabled rather than optimistically
- * updating, since a bad round trip here would otherwise show a corrected
- * price that didn't actually save.
- *
- * Read-only (not editable) rows still render the plain "≈ price" text when
- * one is set — the estimate is informational even once a list is completed
- * or archived — just without the tap affordance, matching every other
- * per-row edit control's editable-only gating.
- */
-function PriceTag({
-  item,
-  editable,
-  isPending,
-  startTransition,
-  numberFormat,
-  dict,
-  hideAddOnPhone = false,
-}: {
-  item: ShoppingListItemRow;
-  editable: boolean;
-  isPending: boolean;
-  startTransition: (fn: () => void) => void;
-  numberFormat: Intl.NumberFormat;
-  dict: ShoppingListDict;
-  hideAddOnPhone?: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(() => (item.estimatedPrice != null ? String(item.estimatedPrice) : ""));
-
-  if (!editable) {
-    return item.estimatedPrice != null ? (
-      <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
-        ≈ {numberFormat.format(item.estimatedPrice)}
-      </span>
-    ) : null;
-  }
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        className={cn(
-          "touch-target shrink-0 justify-center rounded px-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline tabular-nums",
-          // UX-79: on an inline row it's reached from the row's ⋯ instead
-          // (RowActionsMenu clicks this same button, so the inline editor
-          // is the one a tap opens).
-          hideAddOnPhone && item.estimatedPrice == null && "max-sm:hidden",
-        )}
-        data-price-edit
-        disabled={isPending}
-        onClick={() => {
-          setDraft(item.estimatedPrice != null ? String(item.estimatedPrice) : "");
-          setEditing(true);
-        }}
-        aria-label={
-          item.estimatedPrice != null
-            ? format(dict.editPriceAriaLabel, { name: item.name })
-            : format(dict.addPriceAriaLabel, { name: item.name })
-        }
-      >
-        {item.estimatedPrice != null ? `≈ ${numberFormat.format(item.estimatedPrice)}` : dict.addPriceLabel}
-      </button>
-    );
-  }
-
-  function save() {
-    const price = Number(draft.replace(",", "."));
-    if (draft.trim() === "" || !Number.isFinite(price) || price < 0) {
-      toast.error(dict.priceInvalid);
-      return;
-    }
-    startTransition(async () => {
-      const result = await updateShoppingListItemPriceAction(item.id, price);
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      setEditing(false);
-    });
-  }
-
-  return (
-    <form
-      className="flex shrink-0 items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save();
-      }}
-    >
-      <Input
-        type="number"
-        min={0}
-        step="any"
-        inputMode="decimal"
-        autoFocus
-        value={draft}
-        disabled={isPending}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setEditing(false);
-        }}
-        className="w-24 px-2"
-        aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
-      />
-      <Button
-        type="submit"
-        size="icon"
-        variant="ghost"
-        className="size-7"
-        disabled={isPending}
-        aria-label={dict.savePriceAriaLabel}
-      >
-        <Check className="size-3.5" />
-      </Button>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className="size-7 text-muted-foreground"
-        disabled={isPending}
-        onClick={() => setEditing(false)}
-        aria-label={dict.cancelPriceAriaLabel}
-      >
-        <X className="size-3.5" />
-      </Button>
-    </form>
   );
 }

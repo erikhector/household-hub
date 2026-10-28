@@ -14,8 +14,11 @@ async function expectNoAutofill(dialog: Locator) {
   const fields = dialog.locator(
     'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([aria-hidden="true"])',
   );
+  // The budget dialogs are lazy-loaded (PERF-30): the dialog can be open
+  // before its chunk has rendered the form, so wait for the first field
+  // instead of counting once (MAINT-71 saw 0 fields on a loaded runner).
+  await expect.poll(() => fields.count()).toBeGreaterThan(0);
   const count = await fields.count();
-  expect(count).toBeGreaterThan(0);
   for (let i = 0; i < count; i++) {
     await expect(fields.nth(i)).toHaveAttribute("autocomplete", "off");
   }

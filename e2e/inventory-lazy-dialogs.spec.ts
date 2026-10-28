@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 import { E2E_ITEM } from "./seed-data";
 
 // PERF-26: the inventory dialogs (header actions, the row's edit form, the
@@ -28,6 +28,7 @@ test.describe("without the idle prefetch", () => {
     await page.goto("/dashboard/inventory");
     const add = page.getByRole("button", { name: t.addItem, exact: true });
     await expectHydrated(add);
+    await expectRouterPatched(page);
     await add.click();
     await expect(page.getByRole("dialog", { name: t.addDialogTitle })).toBeVisible();
   });
@@ -36,6 +37,7 @@ test.describe("without the idle prefetch", () => {
     await page.goto(`/dashboard/inventory/items/${E2E_ITEM.id}`);
     const button = page.getByRole("button", { name: t.itemPage.changeUnit });
     await expectHydrated(button);
+    await expectRouterPatched(page);
     await button.click();
     await expect(page.getByRole("dialog", { name: t.itemPage.changeUnitDialog.title })).toBeVisible();
   });
@@ -54,6 +56,10 @@ test.describe("a failed chunk load", () => {
     await page.goto("/dashboard/inventory");
     const add = page.getByRole("button", { name: t.addItem, exact: true });
     await expectHydrated(add);
+    // The retry's tap opens a dialog, which pushes a history entry: before the
+    // app router has patched history.replaceState its first commit rewrites
+    // that entry and closes the dialog again (MAINT-69, same race as MAINT-68).
+    await expectRouterPatched(page);
 
     // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
     let offline = true;
