@@ -140,8 +140,14 @@ test("an uncertain ingredient is reviewed, linked to the suggestion, and never b
 // letters rather than a shared prefix, since the desktop and mobile runs
 // share one household and a common prefix would fuzzily match the item the
 // other run created.
+// Long on purpose. The matcher scores bigram overlap and suggests anything
+// at 0.35 or more, so a 10-letter name could land on a pantry item by luck
+// (the seeded "Tomatoes" shares om/ma/at with "romatmnaai", 0.375) and the
+// row would show a suggestion instead of "Nothing close". At 24 letters a
+// 7-bigram name needs 6 shared bigrams to reach 0.35, which random letters
+// don't do.
 const nonsenseName = () =>
-  Array.from({ length: 10 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+  Array.from({ length: 24 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
 
 test("the review step creates a new item, blocks an incomplete row, and folds away confident matches", async ({
   page,
