@@ -2,7 +2,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, E2E_SHOPPING_LIST } from "./seed-data";
-import { clickRowAction, dismissCookieNotice } from "./ui";
+import { clickRowAction, dismissCookieNotice, expectHydrated } from "./ui";
 
 // UX-10 (DESIGN.md M4): a focused field under 16 px makes iOS zoom the page,
 // and a unit field too narrow for its own buttons shows "p" for "pcs". Every
@@ -14,6 +14,9 @@ import { clickRowAction, dismissCookieNotice } from "./ui";
 test.skip(({ isMobile }) => !isMobile, "touch font-size rule: a mouse on desktop is deliberately text-sm");
 
 async function expectFieldsAtLeast16px(dialog: Locator) {
+  // The budget dialogs load on first use (PERF-30): wait for the form to be
+  // in before measuring it.
+  await expect(dialog.locator("input, textarea, [role=combobox]").first()).toBeVisible();
   const fields = await dialog.locator("input, textarea, [role=combobox]").evaluateAll((els) =>
     els
       .filter((el) => {
@@ -81,7 +84,9 @@ test("budget transaction and recurring dialogs use 16px fields", async ({ page, 
       [categoryId, E2E_HOUSEHOLD.id],
     );
     await page.goto("/dashboard/budget");
-    await page.getByRole("button", { name: "Add transaction" }).first().click();
+    const addTransaction = page.getByRole("button", { name: "Add transaction" }).first();
+    await expectHydrated(addTransaction);
+    await addTransaction.click();
     await expectFieldsAtLeast16px(page.getByRole("dialog"));
     await page.keyboard.press("Escape");
 
