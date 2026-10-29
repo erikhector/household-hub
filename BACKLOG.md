@@ -688,36 +688,6 @@ out to be a product-scope question rather than a scoped task should move to
       saves the seeded week, applies it to the next empty week and asserts
       the entries show, on desktop and mobile.
 
-### 2026-10-15 scan
-
-- [ ] **GAP-54. Import a recipe from a photo (cookbook page, recipe card)** (impact: med, effort: M) —
-      Plan to Eat's late-2025 update added photo scanning of recipe cards
-      and cookbook pages. Squirrel imports only from a URL
-      (REQUIREMENTS.md, "Recipe import from URL",
-      `src/lib/recipe-import.ts`), so a paper recipe or a screenshot is
-      retyped by hand. Add a "Import from a photo" button beside the URL
-      input in `RecipeFormDialog`, reusing the vision receipt-scan
-      upload and provider path (`scanReceiptPhotoAction` in
-      `src/lib/actions/receipt-scan.ts` and its `resolveAttempts`/
-      `callAttempts`/`callGemini`/`callAnthropic` helpers; no new third
-      party, no stored image) to extract name, instructions and
-      ingredient rows into the same pre-fill state. Same stance as the
-      URL import: never auto-save, the user reviews and edits first, and
-      a failed or empty parse shows an error toast and leaves the form
-      untouched. Gate it on the same check as that action:
-      `resolveAttempts` is empty (`not_configured`) when neither
-      `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set. The Tesseract OCR
-      fallback in `src/lib/receipt-parsing.ts` is receipt-specific and is
-      not used here, so with neither key set the button is hidden. Fold
-      the photo parser's output through the existing ingredient-line
-      parser so units and quantities match URL imports.
-      Acceptance: unit tests for the output-to-prefill mapping and the
-      unconfigured/failed-parse paths plus the tenancy check on the
-      action; an e2e step (AI mocked as in the receipt specs) uploads a
-      fixture image in the dialog and asserts the name and ingredient
-      rows are pre-filled and nothing is saved until Save, on desktop
-      and mobile.
-
 ### 2026-10-16 scan
 
 - [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —

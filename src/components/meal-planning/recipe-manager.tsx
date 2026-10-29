@@ -82,6 +82,7 @@ export function RecipeManager({
   ingredientNames,
   ingredientUnits,
   plannerWeekStartKey,
+  photoImportConfigured,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -102,6 +103,9 @@ export function RecipeManager({
   // The week shown in the Planner tab, so AddToPlanDialog can say when it
   // saves into another week (UX-92).
   plannerWeekStartKey: string;
+  // GAP-54: a vision provider key is set, so the recipe form offers
+  // "Import from a photo".
+  photoImportConfigured: boolean;
 }) {
   // MATCH-6: the item page links a recipe as `?tab=recipes&recipe=<id>`,
   // which opens the list searched down to that recipe.
@@ -141,6 +145,7 @@ export function RecipeManager({
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
       plannerWeekStartKey={plannerWeekStartKey}
+      photoImportConfigured={photoImportConfigured}
       openEditOnMount={editNewId === recipe.id}
       onEditOpened={() => setEditNewId(null)}
       onDuplicated={setEditNewId}
@@ -185,6 +190,7 @@ export function RecipeManager({
             ingredientNames={ingredientNames}
             ingredientUnits={ingredientUnits}
             handle={newRecipeHandle}
+            photoImportConfigured={photoImportConfigured}
           />
         )}
       </LazyDialog>
@@ -264,6 +270,7 @@ function RecipeRow({
   ingredientNames,
   ingredientUnits,
   plannerWeekStartKey,
+  photoImportConfigured,
   openEditOnMount,
   onEditOpened,
   onDuplicated,
@@ -279,6 +286,7 @@ function RecipeRow({
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
   plannerWeekStartKey: string;
+  photoImportConfigured: boolean;
   openEditOnMount: boolean;
   onEditOpened: () => void;
   onDuplicated: (recipeId: string) => void;
@@ -736,6 +744,7 @@ function RecipeRow({
             ingredientNames={ingredientNames}
             ingredientUnits={ingredientUnits}
             handle={dialogs.edit}
+            photoImportConfigured={photoImportConfigured}
           />
         )}
       </LazyDialog>
