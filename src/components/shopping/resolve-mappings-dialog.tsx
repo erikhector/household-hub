@@ -20,7 +20,7 @@ import { format, plural } from "@/lib/i18n/format";
 import {
   resolveShoppingListMappingsAction,
   type MappingResolution,
-} from "@/app/dashboard/shopping-list/actions";
+} from "@/app/dashboard/shopping-list/smart-add-actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
 

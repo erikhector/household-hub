@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { smartAddShoppingListItemsAction } from "@/app/dashboard/shopping-list/actions";
+import { smartAddShoppingListItemsAction } from "@/app/dashboard/shopping-list/smart-add-actions";
 import { findItemByBarcodeAction } from "@/lib/actions/barcode";
 import { BarcodeScannerButton } from "@/components/shared/barcode-scanner";
 import { format, plural } from "@/lib/i18n/format";

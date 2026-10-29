@@ -7,7 +7,7 @@ const { toast, archive, unarchive } = vi.hoisted(() => ({
 }));
 
 vi.mock("sonner", () => ({ toast }));
-vi.mock("@/app/dashboard/shopping-list/actions", () => ({
+vi.mock("@/app/dashboard/shopping-list/list-actions", () => ({
   archiveShoppingListAction: archive,
   unarchiveShoppingListAction: unarchive,
 }));

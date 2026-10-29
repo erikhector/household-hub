@@ -3,7 +3,7 @@
 // at all, since these actions take none. All I/O (Prisma, next/cache,
 // recordOutOfStockTransition) is mocked — no database call is made. See
 // REQUIREMENTS.md's "Testing" section and the identical mocked-Prisma
-// convention in src/app/dashboard/shopping-list/actions.test.ts.
+// convention in src/app/dashboard/shopping-list/list-actions.test.ts.
 //
 // The critical case here is toggleItemViaShareTokenAction rejecting an
 // itemId that doesn't belong to the token's own ShoppingList — that

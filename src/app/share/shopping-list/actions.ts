@@ -133,7 +133,7 @@ export async function getShoppingListByShareToken(token: string): Promise<Shared
 
 /**
  * Unauthenticated equivalent of togglePurchasedAction
- * (src/app/dashboard/shopping-list/actions.ts) — replicates its exact side
+ * (src/app/dashboard/shopping-list/purchase-actions.ts) — replicates its exact side
  * effects, just reached via a share token instead of requireHousehold():
  * flip `purchased` and stamp `checkedOffAt` (AUTO-9); then, by the list's
  * household's `inventorySyncMode`, either leave the stock for the put-away
