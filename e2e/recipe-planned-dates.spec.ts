@@ -80,9 +80,13 @@ test("a planned recipe lists its next dates, each linking to its week, and an un
     `/dashboard/meal-planning?week=${key(mondayOf(days[2]))}`,
   );
 
-  // The link lands on that week of the planner.
+  // The link lands on that week of the planner. The URL only changes once
+  // Next has fetched and committed the new week's server render (a dynamic
+  // page, behind the router's pending tab-restore), and under a loaded
+  // runner that took 4.8 s to 9 s: the 5 s default expired while the
+  // push was still on its way (MAINT-70, a pushState 4.8 s after the click).
   await sheet.getByRole("link", { name: label(days[2]) }).click();
-  await expect(page).toHaveURL(new RegExp(`week=${key(mondayOf(days[2]))}`));
+  await expect(page).toHaveURL(new RegExp(`week=${key(mondayOf(days[2]))}`), { timeout: 15_000 });
 
   await page.goto("/dashboard/meal-planning");
   await openRecipesTab(page);
