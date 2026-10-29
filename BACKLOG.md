@@ -155,19 +155,6 @@ Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
 tests passing, no `any`/`@ts-ignore` in app code. Item 7 does the
 shopping-list actions per feature, in the files MAINT-3 split them into.
 
-- [ ] **MAINT-72. Flaky: `inventory-lazy-dialogs` retry tap still doesn't open the Add inventory item dialog** (low, S) —
-      `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so,
-      and the next tap retries"), line 80: `getByRole("dialog", { name:
-      t.addDialogTitle })` not found after the offline route is removed.
-      Sighted on release commit a480760 (the MAINT-71 fix, #893): failed then
-      passed on the `desktop` retry in the GitHub e2e job, and failed on
-      `mobile` in a local `ci:local` run, passing on a re-run. So #893 did not
-      remove the flake; trace where the retry tap races the chunk load.
-      The fix is in the app or the test's waiting, never a skip, a retry or a
-      looser assertion. Acceptance: `npx playwright test
-      e2e/inventory-lazy-dialogs.spec.ts --project=mobile --repeat-each=30`
-      (and `desktop`) passes 30/30.
-
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
