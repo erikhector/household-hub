@@ -904,23 +904,6 @@ out to be a product-scope question rather than a scoped task should move to
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
 
-- [ ] **PERF-21. Keep recently visited pages in the browser for 15 s**
-      (impact: med, effort: S) — Next 16 keeps no client copy of dynamic
-      pages (`staleTimes.dynamic` defaults to 0), so every switch between
-      bottom-bar tabs is a full server render plus that page's queries,
-      even for a tab seen seconds ago. Set
-      `experimental.staleTimes: { dynamic: 15 }` in `next.config.ts`. Your
-      own edits still show at once (an action's `revalidatePath` clears this
-      cache); another household member's change can take up to 15 s to
-      appear on navigation (a reload always shows it). The flag is marked
-      experimental. If PERF-22 goes ahead, `cacheLife`'s `stale` value
-      controls this instead.
-      Decided 2026-10-26 by autopilot-product: 15 s window. Why: tab
-      switching feels instant while a two-person shop sees the other's tick
-      within seconds, and it is one config line to revert. See PRODUCT.md.
-      Acceptance: the config change plus an e2e check that an edit still
-      shows after navigating away and back.
-
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
 Each is clearly valuable but needs a paid third-party service, developer

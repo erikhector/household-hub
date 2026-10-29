@@ -121,6 +121,18 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "6mb",
     },
+    // PERF-21: keep a dynamic page's RSC payload in the browser's client
+    // cache for 15 s (Next 16's default is 0, so every bottom-bar tab switch
+    // was a full server render plus the page's queries). A Server Action's
+    // revalidatePath/revalidateTag clears this cache, so the user's own edits
+    // show at once; only another household member's change can wait up to 15 s
+    // to appear on a client navigation (a reload always fetches fresh).
+    // `static` stays at its 5 min default. Marked experimental by Next; to
+    // revert, delete this block. If PERF-22 lands, cacheLife's `stale` value
+    // takes over.
+    staleTimes: {
+      dynamic: 15,
+    },
   },
   // Dev-only build-activity badge (bottom-left "N" indicator, never shown in
   // a production build) overlaps the sidebar's "Log out" link on desktop and
