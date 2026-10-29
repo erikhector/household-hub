@@ -12,7 +12,9 @@ const {
   personalAckFindManyMock,
   householdMemberFindManyMock,
   transactionFindManyMock,
-  settlementFindManyMock,
+  settlementGroupByMock,
+  transactionGroupByMock,
+  queryRawMock,
   templateSplitFindManyMock,
   templateAckFindManyMock,
   templateFindManyMock,
@@ -25,7 +27,9 @@ const {
   personalAckFindManyMock: vi.fn(),
   householdMemberFindManyMock: vi.fn(),
   transactionFindManyMock: vi.fn(),
-  settlementFindManyMock: vi.fn(),
+  settlementGroupByMock: vi.fn(),
+  transactionGroupByMock: vi.fn(),
+  queryRawMock: vi.fn(),
   templateSplitFindManyMock: vi.fn(),
   templateAckFindManyMock: vi.fn(),
   templateFindManyMock: vi.fn(),
@@ -40,8 +44,9 @@ vi.mock("@/lib/prisma", () => ({
     personalRecurringTemplate: { findMany: personalTemplateFindManyMock },
     personalRecurringTemplateAck: { findMany: personalAckFindManyMock },
     householdMember: { findMany: householdMemberFindManyMock },
-    transaction: { findMany: transactionFindManyMock },
-    memberSettlement: { findMany: settlementFindManyMock },
+    transaction: { findMany: transactionFindManyMock, groupBy: transactionGroupByMock },
+    memberSettlement: { groupBy: settlementGroupByMock },
+    $queryRaw: queryRawMock,
     recurringTemplateSplit: { findMany: templateSplitFindManyMock },
     recurringTemplateAck: { findMany: templateAckFindManyMock },
     recurringTemplate: { findMany: templateFindManyMock },
@@ -52,6 +57,94 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { loadPersonalBudgetPosition } from "./personal-budget-position";
+import { computeMemberPosition, isSettledBill } from "./settle-up-calc";
+
+// PERF-2: the loader reads each table the narrow way (a date window, an
+// aggregate, an unsettled-bills id query), so these tests keep a small
+// in-memory copy of the data and answer those queries by actually applying
+// the `where` they were given. That makes every test below also a check that
+// the narrowed queries still find what the old read-everything loader did.
+type AnyRow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+let fakePersonal: AnyRow[] = [];
+let fakeBills: AnyRow[] = [];
+let fakeSettlements: AnyRow[] = [];
+
+const inRange = (date: Date, filter?: { gte?: Date; lt?: Date }) =>
+  (!filter?.gte || date >= filter.gte) && (!filter?.lt || date < filter.lt);
+const hasMember = (bill: AnyRow, ids: string[]) =>
+  bill.splits.some((s: AnyRow) => ids.includes(s.householdMemberId));
+// Newest first, ties by input order (createdAt isn't set on fixtures).
+const newestFirst = (rows: AnyRow[]) => [...rows].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+function setPersonalTransactions(rows: AnyRow[]) {
+  fakePersonal = rows;
+  personalTransactionFindManyMock.mockImplementation(async ({ where }: AnyRow) =>
+    newestFirst(fakePersonal).filter((t) => inRange(t.date, where.date)),
+  );
+}
+
+function setBills(rows: AnyRow[]) {
+  fakeBills = rows;
+  transactionFindManyMock.mockImplementation(async ({ where }: AnyRow) => {
+    const mine = where.splits?.some?.householdMemberId?.in as string[] | undefined;
+    // Unsettled bills, by id (after the raw id query).
+    if (where.id?.in) {
+      return newestFirst(fakeBills)
+        .filter((b) => where.id.in.includes(b.id) && inRange(b.date, where.date))
+        .map((b) => ({ amount: b.amount, date: b.date, splits: b.splits }));
+    }
+    // The latest bill per template: exact (template, date) pairs.
+    if (where.OR) {
+      return newestFirst(fakeBills).filter(
+        (b) =>
+          hasMember(b, mine!) &&
+          where.OR.some((o: AnyRow) => o.recurringTemplateId === b.recurringTemplateId && o.date.getTime() === b.date.getTime()),
+      );
+    }
+    // The shared templates' own bills, for their period status.
+    if (where.recurringTemplateId?.in) {
+      return fakeBills.filter(
+        (b) => where.recurringTemplateId.in.includes(b.recurringTemplateId) && inRange(b.date, where.date),
+      );
+    }
+    // The viewed period's split bills.
+    return newestFirst(fakeBills).filter((b) => hasMember(b, mine!) && inRange(b.date, where.date));
+  });
+  // The latest date per template among bills split with the user.
+  transactionGroupByMock.mockImplementation(async ({ where }: AnyRow) => {
+    const mine = where.splits.some.householdMemberId.in as string[];
+    const latest = new Map<string, Date>();
+    for (const b of fakeBills) {
+      const id = b.recurringTemplateId as string | undefined;
+      if (!id || where.recurringTemplateId.notIn.includes(id)) continue;
+      if (!inRange(b.date, where.date) || !hasMember(b, mine)) continue;
+      const seen = latest.get(id);
+      if (!seen || b.date > seen) latest.set(id, b.date);
+    }
+    return [...latest].map(([recurringTemplateId, date]) => ({ recurringTemplateId, _max: { date } }));
+  });
+  // The ids of bills the user is in that aren't settled (the raw SQL).
+  queryRawMock.mockImplementation(async (_strings: unknown, memberIds: string[]) =>
+    fakeBills
+      .filter((b) => hasMember(b, memberIds) && !isSettledBill({ amount: b.amount, splits: b.splits }))
+      .map((b) => ({ id: b.id })),
+  );
+}
+
+function setSettlements(rows: AnyRow[]) {
+  fakeSettlements = rows;
+  settlementGroupByMock.mockImplementation(async ({ where }: AnyRow) => {
+    const sums = new Map<string, AnyRow>();
+    for (const t of fakeSettlements) {
+      if (!inRange(t.date, where.date)) continue;
+      const key = `${t.fromMemberId}>${t.toMemberId}`;
+      const sum = sums.get(key);
+      if (sum) sum._sum.amount += t.amount;
+      else sums.set(key, { fromMemberId: t.fromMemberId, toMemberId: t.toMemberId, _sum: { amount: t.amount } });
+    }
+    return [...sums.values()];
+  });
+}
 
 const monthStart = new Date(2026, 8, 1); // September 2026
 const monthEnd = new Date(2026, 9, 1);
@@ -111,7 +204,7 @@ afterEach(() => {
 
 describe("loadPersonalBudgetPosition", () => {
   it("combines own and shared money, carried debts and what's still due", async () => {
-    personalTransactionFindManyMock.mockResolvedValue([
+    setPersonalTransactions([
       personalTx("Salary", "INCOME", 30000, 5),
       personalTx("Groceries", "EXPENSE", 2000, 6),
       // Planned 5000, saved 3000: only the 3000 counts, nothing stays due.
@@ -126,7 +219,7 @@ describe("loadPersonalBudgetPosition", () => {
     householdMemberFindManyMock.mockResolvedValue([
       { id: "m-me", household: { id: "h1", name: "Home" } },
     ]);
-    transactionFindManyMock.mockResolvedValue([
+    setBills([
       // September rent: I paid my half, my partner hasn't paid theirs yet.
       {
         id: "rent",
@@ -147,7 +240,7 @@ describe("loadPersonalBudgetPosition", () => {
       },
     ]);
     // Paid 400 of the August debt back in September.
-    settlementFindManyMock.mockResolvedValue([
+    setSettlements([
       { fromMemberId: "m-me", toMemberId: "m-p", amount: 400, date: new Date(2026, 8, 10) },
     ]);
     templateSplitFindManyMock.mockResolvedValue([]);
@@ -191,13 +284,13 @@ describe("loadPersonalBudgetPosition", () => {
     // no template split — September's bills were split by hand when logged.
     const octoberStart = new Date(2026, 9, 1);
     const octoberEnd = new Date(2026, 10, 1);
-    personalTransactionFindManyMock.mockResolvedValue([]);
+    setPersonalTransactions([]);
     personalTemplateFindManyMock.mockResolvedValue([]);
     personalAckFindManyMock.mockResolvedValue([]);
     householdMemberFindManyMock.mockResolvedValue([
       { id: "m-me", household: { id: "h1", name: "Home" } },
     ]);
-    transactionFindManyMock.mockResolvedValue([
+    setBills([
       {
         id: "sep-rent",
         amount: 12000,
@@ -228,7 +321,7 @@ describe("loadPersonalBudgetPosition", () => {
         splits: [split("m-me", "Me", 0, 800), split("m-p", "Partner", 800, 0)],
       },
     ]);
-    settlementFindManyMock.mockResolvedValue([]);
+    setSettlements([]);
     templateSplitFindManyMock.mockResolvedValue([]);
     templateAckFindManyMock.mockResolvedValue([]);
     const template = (id: string, name: string, amount: number, latestBillId: string) => ({
@@ -260,7 +353,7 @@ describe("loadPersonalBudgetPosition", () => {
     // Scoped to the user's own households.
     expect(templateFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: { in: ["tpl-rent", "tpl-power"] }, householdId: { in: ["h1"] } },
+        where: { id: { in: ["tpl-power", "tpl-rent"] }, householdId: { in: ["h1"] } },
       }),
     );
     expect(position.sharedDueRows).toEqual([
@@ -287,13 +380,13 @@ describe("loadPersonalBudgetPosition", () => {
     const octoberStart = new Date(2026, 9, 1);
     const octoberEnd = new Date(2026, 10, 1);
     const setup = () => {
-      personalTransactionFindManyMock.mockResolvedValue([]);
+      setPersonalTransactions([]);
       personalTemplateFindManyMock.mockResolvedValue([]);
       personalAckFindManyMock.mockResolvedValue([]);
       householdMemberFindManyMock.mockResolvedValue([
         { id: "m-me", household: { id: "h1", name: "Home", budgetMonthStartDay: 25 } },
       ]);
-      transactionFindManyMock.mockResolvedValue([
+      setBills([
         {
           id: "sep-rent",
           amount: 12000,
@@ -304,7 +397,7 @@ describe("loadPersonalBudgetPosition", () => {
           splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
         },
       ]);
-      settlementFindManyMock.mockResolvedValue([]);
+      setSettlements([]);
       templateSplitFindManyMock.mockResolvedValue([]);
       templateAckFindManyMock.mockResolvedValue([]);
       templateFindManyMock.mockResolvedValue([
@@ -349,13 +442,13 @@ describe("loadPersonalBudgetPosition", () => {
   it("drops a hand-split bill once a later one is logged without the user", async () => {
     // Rent was split with me in August, but September's was logged unsplit
     // (it never reaches the split-bill query). October must not show it.
-    personalTransactionFindManyMock.mockResolvedValue([]);
+    setPersonalTransactions([]);
     personalTemplateFindManyMock.mockResolvedValue([]);
     personalAckFindManyMock.mockResolvedValue([]);
     householdMemberFindManyMock.mockResolvedValue([
       { id: "m-me", household: { id: "h1", name: "Home" } },
     ]);
-    transactionFindManyMock.mockResolvedValue([
+    setBills([
       {
         id: "aug-rent",
         amount: 12000,
@@ -366,7 +459,7 @@ describe("loadPersonalBudgetPosition", () => {
         splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
       },
     ]);
-    settlementFindManyMock.mockResolvedValue([]);
+    setSettlements([]);
     templateSplitFindManyMock.mockResolvedValue([]);
     templateAckFindManyMock.mockResolvedValue([]);
     templateFindManyMock.mockResolvedValue([
@@ -400,7 +493,7 @@ describe("loadPersonalBudgetPosition", () => {
     // Viewing October with nothing logged: the salary template and my share
     // of a household's split income template (a rented-out room, say) are
     // both still due, alongside the gym bill.
-    personalTransactionFindManyMock.mockResolvedValue([]);
+    setPersonalTransactions([]);
     personalTemplateFindManyMock.mockResolvedValue([
       personalTemplate("Salary", "INCOME", 30000),
       personalTemplate("Gym", "EXPENSE", 300),
@@ -409,8 +502,8 @@ describe("loadPersonalBudgetPosition", () => {
     householdMemberFindManyMock.mockResolvedValue([
       { id: "m-me", household: { id: "h1", name: "Home" } },
     ]);
-    transactionFindManyMock.mockResolvedValue([]);
-    settlementFindManyMock.mockResolvedValue([]);
+    setBills([]);
+    setSettlements([]);
     templateSplitFindManyMock.mockResolvedValue([
       {
         recurringTemplateId: "tpl-room",
@@ -460,7 +553,7 @@ describe("loadPersonalBudgetPosition", () => {
     // "October" with day 25 is 25 Sep to 24 Oct, so the gym paid on 3 Oct is
     // October's: posted and counted, not still due. On calendar months the
     // period would start 1 Sep and the gym would still show as due.
-    personalTransactionFindManyMock.mockResolvedValue([
+    setPersonalTransactions([
       { ...personalTx("Gym", "EXPENSE", 300, 1, "Gym"), date: new Date(2026, 9, 3) },
     ]);
     personalTemplateFindManyMock.mockResolvedValue([personalTemplate("Gym", "EXPENSE", 300)]);
@@ -484,7 +577,7 @@ describe("loadPersonalBudgetPosition", () => {
   });
 
   it("works with no household at all", async () => {
-    personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 1000, 5)]);
+    setPersonalTransactions([personalTx("Salary", "INCOME", 1000, 5)]);
     personalTemplateFindManyMock.mockResolvedValue([]);
     personalAckFindManyMock.mockResolvedValue([]);
     householdMemberFindManyMock.mockResolvedValue([]);
@@ -506,7 +599,7 @@ describe("loadPersonalBudgetPosition", () => {
   });
 
   it("projects the number to month end from everyday spending only (UX-39)", async () => {
-    personalTransactionFindManyMock.mockResolvedValue([
+    setPersonalTransactions([
       personalTx("Salary", "INCOME", 3000, 1),
       personalTx("Food", "EXPENSE", 100, 2),
       personalTx("Coffee", "EXPENSE", 50, 9),
@@ -537,7 +630,7 @@ describe("loadPersonalBudgetPosition", () => {
     // them have gone and 22 are left, today included. Measured against the
     // calendar month instead, 3 Oct would be outside a period starting
     // 25 Sep and both figures would vanish.
-    personalTransactionFindManyMock.mockResolvedValue([
+    setPersonalTransactions([
       personalTx("Salary", "INCOME", 3000, 26),
       { ...personalTx("Food", "EXPENSE", 90, 1), date: new Date(2026, 9, 2) },
     ]);
@@ -565,7 +658,7 @@ describe("loadPersonalBudgetPosition", () => {
     expect(position.safeToSpendDaily).toEqual({ perDay: 2910 / 22, daysLeft: 22 });
   });
   it("holds back what is still unspent of a category's monthly limit (UX-138)", async () => {
-    personalTransactionFindManyMock.mockResolvedValue([
+    setPersonalTransactions([
       personalTx("Salary", "INCOME", 10000, 1),
       // 1200 of the 3000 food limit spent, so 1800 stays held back.
       { ...personalTx("Food", "EXPENSE", 1200, 2), categoryId: "cat-food" },
@@ -594,12 +687,12 @@ describe("loadPersonalBudgetPosition", () => {
 
   describe("planned bills (BUDGET-8)", () => {
     function setup(plannedSplits: unknown[]) {
-      personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 30000, 5)]);
+      setPersonalTransactions([personalTx("Salary", "INCOME", 30000, 5)]);
       personalTemplateFindManyMock.mockResolvedValue([]);
       personalAckFindManyMock.mockResolvedValue([]);
       householdMemberFindManyMock.mockResolvedValue([{ id: "m1", household: { id: "h1", name: "Home" } }]);
-      transactionFindManyMock.mockResolvedValue([]);
-      settlementFindManyMock.mockResolvedValue([]);
+      setBills([]);
+      setSettlements([]);
       templateSplitFindManyMock.mockResolvedValue([]);
       templateAckFindManyMock.mockResolvedValue([]);
       templateFindManyMock.mockResolvedValue([]);
@@ -662,7 +755,7 @@ describe("loadPersonalBudgetPosition", () => {
 
   describe("personal planned bills", () => {
     function setup(bills: unknown[]) {
-      personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 30000, 5)]);
+      setPersonalTransactions([personalTx("Salary", "INCOME", 30000, 5)]);
       personalTemplateFindManyMock.mockResolvedValue([]);
       personalAckFindManyMock.mockResolvedValue([]);
       householdMemberFindManyMock.mockResolvedValue([]);
@@ -748,6 +841,280 @@ describe("loadPersonalBudgetPosition", () => {
           },
         }),
       );
+    });
+  });
+  // PERF-2: the loader reads a window and aggregates instead of the whole
+  // history. These pin down that the narrower reads give the numbers the full
+  // history would.
+  describe("reads a window, not the whole history (PERF-2)", () => {
+    const octoberStart = new Date(2026, 9, 1);
+    const octoberEnd = new Date(2026, 10, 1);
+
+    function datedTx(
+      id: string,
+      categoryId: string,
+      type: "INCOME" | "EXPENSE" | "SAVINGS",
+      amount: number,
+      date: Date,
+      isRecurring = false,
+    ) {
+      return { id, categoryId, category: { name: categoryId }, type, amount, date, isRecurring, recurringTemplateId: null };
+    }
+
+    function quietDefaults(withHousehold: boolean) {
+      personalTemplateFindManyMock.mockResolvedValue([]);
+      personalAckFindManyMock.mockResolvedValue([]);
+      householdMemberFindManyMock.mockResolvedValue(
+        withHousehold ? [{ id: "m-me", household: { id: "h1", name: "Home" } }] : [],
+      );
+      templateSplitFindManyMock.mockResolvedValue([]);
+      templateAckFindManyMock.mockResolvedValue([]);
+      templateFindManyMock.mockResolvedValue([]);
+    }
+
+    const load = () =>
+      loadPersonalBudgetPosition({
+        userId: "user-1",
+        monthStart: octoberStart,
+        monthEnd: octoberEnd,
+        sharedLabel: "Shared",
+        now: new Date(2026, 9, 10, 12),
+      });
+
+    it("asks the database for the viewed month and a 12-month window, never the whole history", async () => {
+      setPersonalTransactions([datedTx("Salary", "pc-salary", "INCOME", 100, new Date(2026, 9, 5))]);
+      quietDefaults(false);
+
+      await load();
+
+      const wheres = personalTransactionFindManyMock.mock.calls.map(([args]) => args.where);
+      expect(wheres).toEqual([
+        { userId: "user-1", date: { gte: octoberStart, lt: octoberEnd } },
+        // 12 months back, to the end of the year the month starts in (a
+        // YEARLY template is posted by a bill anywhere in its year).
+        { userId: "user-1", date: { gte: new Date(2025, 9, 1), lt: new Date(2027, 0, 1) } },
+      ]);
+    });
+
+    it("gives the same numbers whether or not years of older history exist", async () => {
+      const recent = [
+        datedTx("Salary", "pc-salary", "INCOME", 30000, new Date(2026, 9, 5)),
+        datedTx("Food", "pc-food", "EXPENSE", 2000, new Date(2026, 9, 6)),
+        datedTx("Buffer", "pc-buffer", "SAVINGS", 1500, new Date(2026, 9, 7)),
+        // Feeds the "not yet logged" estimate: a recurring bill in September
+        // and none yet in October.
+        datedTx("Phone", "pc-phone", "EXPENSE", 400, new Date(2026, 8, 3), true),
+        // Rollover: food is capped at 3000/month and only 1000 was spent in
+        // August.
+        datedTx("Food-aug", "pc-food", "EXPENSE", 1000, new Date(2026, 7, 9)),
+      ];
+      // Two and a half more years behind it (to June 2025), all before the window.
+      const old = Array.from({ length: 30 }, (_, i) => [
+        datedTx(`old-in-${i}`, "pc-salary", "INCOME", 30000, new Date(2023, i, 5)),
+        datedTx(`old-food-${i}`, "pc-food", "EXPENSE", 5000, new Date(2023, i, 6)),
+        datedTx(`old-phone-${i}`, "pc-phone", "EXPENSE", 999, new Date(2023, i, 3), true),
+      ]).flat();
+      personalCategoryFindManyMock.mockResolvedValue([
+        {
+          id: "pc-food",
+          type: "EXPENSE",
+          monthlyLimit: 3000,
+          rolloverEnabled: true,
+          createdAt: new Date(2020, 0, 1),
+        },
+      ]);
+      quietDefaults(false);
+
+      setPersonalTransactions(recent);
+      const withoutHistory = await load();
+      setPersonalTransactions([...recent, ...old]);
+      const withHistory = await load();
+
+      const { lookbackTransactions: a, ...restWithout } = withoutHistory;
+      const { lookbackTransactions: b, ...restWith } = withHistory;
+      expect(restWith).toEqual(restWithout);
+      // The old rows never reached the calcs.
+      expect(b).toEqual(a);
+      // Sanity: the estimate and the held-back envelope are really in play.
+      expect(restWith.expectedRecurring.map((e) => e.categoryName)).toContain("pc-phone");
+      expect(restWith.safeToSpendBreakdown.stillBudgeted).toBeGreaterThan(0);
+    });
+
+    it("counts a YEARLY shared bill logged later in the viewed year as posted", async () => {
+      setPersonalTransactions([]);
+      quietDefaults(true);
+      templateSplitFindManyMock.mockResolvedValue([
+        {
+          householdMemberId: "m-me",
+          recurringTemplateId: "tpl-insurance",
+          amountOwed: 500,
+          recurringTemplate: {
+            id: "tpl-insurance",
+            householdId: "h1",
+            categoryId: "cat-ins",
+            category: { name: "Insurance" },
+            name: "Insurance",
+            amount: 1000,
+            type: "EXPENSE",
+            frequency: "YEARLY",
+            active: true,
+            createdAt: new Date(2020, 0, 1),
+            splits: [
+              { householdMemberId: "m-me", amountOwed: 500 },
+              { householdMemberId: "m-p", amountOwed: 500 },
+            ],
+          },
+        },
+      ]);
+      setSettlements([]);
+      // Paid in December, after the viewed October, in the same calendar year.
+      setBills([
+        {
+          id: "ins-dec",
+          amount: 1000,
+          type: "EXPENSE",
+          date: new Date(2026, 11, 20),
+          recurringTemplateId: "tpl-insurance",
+          category: { name: "Insurance" },
+          splits: [split("m-me", "Me", 500, 500), split("m-p", "Partner", 500, 500)],
+        },
+      ]);
+
+      const position = await load();
+
+      expect(position.sharedDueRows).toEqual([]);
+    });
+
+    describe("shared debts", () => {
+      // Years of settled bills, one old bill still open and an old repayment:
+      // owedFromEarlier must equal what the full history gives.
+      const bills = [
+        ...Array.from({ length: 60 }, (_, i) => ({
+          id: `settled-${i}`,
+          amount: 1000,
+          type: "EXPENSE",
+          date: new Date(2022, 0, 1 + i * 20),
+          category: { name: "Groceries" },
+          splits: [split("m-me", "Me", 500, 500), split("m-p", "Partner", 500, 500)],
+        })),
+        // Partner paid all of an old bill: I owe 700.
+        {
+          id: "open-old",
+          amount: 1400,
+          type: "EXPENSE",
+          date: new Date(2023, 4, 2),
+          category: { name: "Dinner" },
+          splits: [split("m-me", "Me", 700, 0), split("m-p", "Partner", 700, 1400)],
+        },
+        // Neither has paid this one yet: my share is owed to the bill.
+        {
+          id: "unpaid-sep",
+          amount: 600,
+          type: "EXPENSE",
+          date: new Date(2026, 8, 15),
+          category: { name: "Internet" },
+          splits: [split("m-me", "Me", 300, 0), split("m-p", "Partner", 300, 0)],
+        },
+        // After the viewed month: must not count.
+        {
+          id: "future",
+          amount: 800,
+          type: "EXPENSE",
+          date: new Date(2026, 10, 3),
+          category: { name: "Future" },
+          splits: [split("m-me", "Me", 400, 0), split("m-p", "Partner", 400, 800)],
+        },
+      ];
+      const repayments = [
+        { fromMemberId: "m-me", toMemberId: "m-p", amount: 200, date: new Date(2023, 6, 1) },
+        { fromMemberId: "m-me", toMemberId: "m-p", amount: 100, date: new Date(2026, 8, 20) },
+        { fromMemberId: "m-me", toMemberId: "m-p", amount: 999, date: new Date(2026, 10, 9) },
+      ];
+
+      it("matches the position computed over every bill and repayment", async () => {
+        setPersonalTransactions([]);
+        quietDefaults(true);
+        setBills(bills);
+        setSettlements(repayments);
+
+        const position = await load();
+
+        const dated = bills.map((b) => ({ amount: b.amount, date: b.date, splits: b.splits }));
+        const atStart = computeMemberPosition({ memberId: "m-me", transactions: dated, transfers: repayments, asOf: octoberStart });
+        const atEnd = computeMemberPosition({ memberId: "m-me", transactions: dated, transfers: repayments, asOf: octoberEnd });
+        // 700 - 200 - 100 owed to Partner, plus my 300 of the unpaid bill.
+        expect(atStart).toEqual({ memberBalance: -400, owedToBills: 300 });
+        expect(position.safeToSpendBreakdown.owedFromEarlier).toBe(
+          Math.max(0, -atStart.memberBalance) + atStart.owedToBills,
+        );
+        expect(position.householdDebts).toEqual([
+          { householdId: "h1", householdName: "Home", owedToMembers: -atEnd.memberBalance, owedToBills: atEnd.owedToBills },
+        ]);
+      });
+
+      it("loads only the bills that are still open, and repayments as sums", async () => {
+        setPersonalTransactions([]);
+        quietDefaults(true);
+        setBills(bills);
+        setSettlements(repayments);
+
+        await load();
+
+        // Only the open bills are fetched in full, never the 60 settled ones.
+        const openFetch = transactionFindManyMock.mock.calls
+          .map(([args]) => args.where)
+          .find((where) => where.id);
+        expect(openFetch.id.in.sort()).toEqual(["future", "open-old", "unpaid-sep"]);
+        expect(openFetch.date).toEqual({ lt: octoberEnd });
+        // One grouped repayment query per cut-off, scoped to the user's members.
+        expect(settlementGroupByMock.mock.calls.map(([args]) => args.where.date)).toEqual([
+          { lt: octoberStart },
+          { lt: octoberEnd },
+        ]);
+        expect(settlementGroupByMock.mock.calls[0][0].where.OR).toEqual([
+          { fromMemberId: { in: ["m-me"] } },
+          { toMemberId: { in: ["m-me"] } },
+        ]);
+      });
+
+      it("finds a template's latest hand-split bill however old it is", async () => {
+        setPersonalTransactions([]);
+        quietDefaults(true);
+        setSettlements([]);
+        setBills([
+          {
+            id: "rent-2023",
+            amount: 12000,
+            type: "EXPENSE",
+            date: new Date(2023, 2, 1),
+            recurringTemplateId: "tpl-rent",
+            category: { name: "Rent" },
+            splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
+          },
+        ]);
+        templateFindManyMock.mockResolvedValue([
+          {
+            id: "tpl-rent",
+            householdId: "h1",
+            categoryId: "cat-rent",
+            category: { name: "Rent" },
+            name: "Rent",
+            amount: 12000,
+            type: "EXPENSE",
+            frequency: "MONTHLY",
+            active: true,
+            createdAt: new Date(2023, 0, 1),
+            transactions: [{ id: "rent-2023" }],
+          },
+        ]);
+
+        const position = await load();
+
+        expect(position.sharedDueRows).toEqual([expect.objectContaining({ id: "tpl-rent", amount: 6000 })]);
+        expect(transactionGroupByMock).toHaveBeenCalledWith(
+          expect.objectContaining({ by: ["recurringTemplateId"], _max: { date: true } }),
+        );
+      });
     });
   });
 });

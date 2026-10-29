@@ -1970,7 +1970,8 @@ every lookup the old one did.
   yearly reset keeps it cheap and consistent: the carry needs at most the 11
   months before the viewed one, which the household page already has in its
   12-month `recurringLookbackTransactions` window and the personal page in
-  its loader's full transaction list, so rollover adds no query. Within a
+  its loader's 12-month `lookbackTransactions` window, so rollover adds no
+  query. Within a
   year carried(M+1) = max(0, carried(M) + limit − spent(M)) always holds,
   which a rolling 12-month window wouldn't guarantee. There's no limit
   history and no record of when rollover was switched on, so the *current*
@@ -2011,7 +2012,7 @@ every lookup the old one did.
   therefore asks for the whole remainder, never a division by zero. "Saved
   so far" is the category's **all-time** `SAVINGS` total, floored at 0. The
   household page sums it with one `transaction.groupBy`, and the personal
-  page sums the loader's full transaction list, so it adds no query there. A
+  page with one `personalTransaction.groupBy` (PERF-2). A
   `SavingsGoals` card on the Overview tab (under Safe to spend, and only when
   some savings category has a goal) shows each goal as "saved / goal", a bar
   in the calm savings colour and a line such as "Save ~X/month to reach this
@@ -2868,9 +2869,31 @@ Component page function can't itself be unit-tested.
     debt to other members plus their unpaid share of older bills, from
     `computeMemberPosition` in `settle-up-calc.ts` as of `monthStart`.
     Money others owe the user from earlier months is *not* added back,
-    since it isn't spendable until they pay. `TransactionSplit.amountPaid`
+    since it isn't spendable until they pay. The loader doesn't read every
+    split bill the user was ever in (PERF-2): it loads only the bills that
+    aren't settled (the same `isSettledBill` negation as the household
+    page's PERF-12 query, a settled bill having an all-zero position) and
+    the repayments summed per pair with a `groupBy`, before the month's
+    start and its end. `TransactionSplit.amountPaid`
     isn't dated, so paying off an old bill's remainder counts as if it had
     been paid on time.
+  - **Window (PERF-2)**: the loader (`loadPersonalBudgetPosition`) reads
+    the viewed month's `PersonalTransaction` rows for the list and totals,
+    and a second, narrower read of 12 calendar months back from the
+    month's start (to the end of the calendar year it starts in, since a
+    `YEARLY` template is posted by a bill anywhere in its year) for the
+    calcs that look beyond the month: the "not yet logged" estimate, the
+    template statuses, the `UX-138` envelopes, and the page's category
+    rollover and sparklines (returned as `lookbackTransactions`). It used
+    to read the user's entire history on every dashboard and Personal
+    Budget load. The month's split bills are a month-scoped read too; the
+    latest bill per template for the hand-split fallback below is found
+    with a `groupBy` on each template's latest date. The page reads the
+    fixed trend's own recurring-bill rows from the trend window and the
+    all-time savings per category with a `groupBy`. The numbers are the
+    same as before (equivalence is covered in
+    `personal-budget-position.test.ts` and was checked against the old
+    loader on randomised multi-year data).
   - Due payments and due savings include the user's share of shared
     recurring items that are still due (the "Rent pops up" rows). A
     household `RecurringTemplate` is shared with the user when it has a

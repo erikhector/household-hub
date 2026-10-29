@@ -409,19 +409,6 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-- [ ] **PERF-2. Month-scope the personal budget loader** (high, M; after PERF-3) —
-      `src/lib/personal-budget-position.ts:62-66` reads *every*
-      `personalTransaction` (with `category`), and `:106-118` every split
-      household transaction before month end with nested member→user
-      includes; it runs on every `/dashboard` home load
-      (`dashboard/page.tsx:57`) and on `/dashboard/personal-budget`. Apply
-      SCALE-F's household-budget pattern: month-scoped list/totals, a
-      12-month lookback for rollover and the fixed trend
-      (`personal-budget/page.tsx:217,330`), `groupBy` + `_sum` for all-time
-      savings, and a SQL aggregate (`groupBy` on `TransactionSplit`) for
-      "owed from earlier months". Verify with 3 years × 100/month seeded.
- No schema change of its own beyond PERF-3's index.
-
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)
