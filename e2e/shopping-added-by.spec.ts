@@ -19,7 +19,7 @@ const lineRow = (page: Page, name: string) =>
 
 async function addLine(page: Page, name: string) {
   await page.goto(LIST_URL);
-  const addBox = page.getByRole("combobox", { name: /Add to the list|Lägg till i listan/ });
+  const addBox = page.getByRole("combobox", { name: /Add to the list|Lägg till på listan/ });
   await addBox.fill(name);
   await addBox.press("Enter");
   // Wait for the row before moving on: the add runs in a transition and a
