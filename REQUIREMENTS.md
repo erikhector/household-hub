@@ -4910,10 +4910,27 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   each uncooked row becomes a checkbox row (the whole row is the 44 px
   target), the "+ Add meal" buttons and the shopping-list primary action are
   hidden, and a bar (`BulkMealBar`, `src/components/meal-planning/bulk-meal-bar.tsx`)
-  shows the count with **Move to…**, **Portions…**, **Remove** and **Done**.
-  On a phone the bar sticks just above the bottom nav. Cooked rows stay
-  visible but have no checkbox and say "Cooked, can't be changed" (the same
-  rule as single move and edit).
+  shows the count with **Mark eaten**, **Move to…**, **Portions…**,
+  **Remove** and **Done**. On a phone the bar is `fixed`, docked on top of
+  the bottom nav, with its four actions two by two (Remove in the corner
+  away from Mark eaten), and `data-bulk-bar="meals"` makes `<main>` reserve
+  its 11rem (globals.css) so the last day scrolls out from under it. It
+  used to be `sticky`, which iOS Safari left floating mid-screen; the
+  inventory bar moved to the same footing in UX-123. From `sm` it sticks to
+  the bottom of the planner in one row. Cooked rows stay visible but have
+  no checkbox and say "Cooked, can't be changed" ("Eaten, can't be changed"
+  for a meal from meal prep), the same rule as single move and edit.
+  - **Mark eaten** marks every selected meal eating from a prep batch eaten
+    (`canMarkEaten`): those were cooked at prep time, so it only sets
+    `consumedAt` (guarded on `consumedAt: null` and a batch still linked;
+    a meal changed since the read fails the lot) and clears Cook soon, as a
+    single "Mark as eaten" does. Meals that cook fresh are skipped, since
+    their ingredients come off inventory through the per-meal review, and
+    the toast says so ("1 isn't from meal prep: mark it cooked on its
+    own"). The button is disabled until a prepped meal is ticked. Its Undo,
+    `undoBulkMarkEatenAction`, clears `consumedAt` again on those ids
+    (household-checked, all or nothing, and only on entries still linked to
+    a batch).
   - **Move to…** asks for a date and a slot ("Keep each meal's slot" by
     default, or one meal type for all). The earliest selected meal lands on
     that date and every other one keeps its distance from it
@@ -4927,7 +4944,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   - **Remove** hides the rows at once and sends the delete when its Undo
     toast closes (like a single Remove, UX-49); a meal eating from a batch
     gives its portions back, in the same transaction.
-  - All three are one Server Action, `bulkEditMealEntriesAction`
+  - All four are one Server Action, `bulkEditMealEntriesAction`
     (`bulk-meal-actions.ts`), taking entry ids and the edit (never a
     household id). It is all-or-nothing: an id that isn't in the session's
     household rejects the whole batch with "Meal not found" before anything
@@ -5698,13 +5715,15 @@ landed earlier (PR #179, see the data model above). No browser storage.
   never drive the count negative: the second matches no row and throws
   `PrepAssignError("prepNotEnoughPortions")`, which rolls the whole
   transaction back. Then per slot it finds or creates that week's
-  `MealPlan` and either creates a linked entry or links the slot's existing
-  entry, but only when every entry there is this dish, unlinked and not
-  yet cooked ("lasagna on Thursday" becomes "lasagna from the batch").
-  Another dish, a freeform meal, another batch's slot or a cooked meal is
-  the household's plan, so the slot is taken (`prepSlotTaken`). That link
-  is guarded too (`preparedBatchId: null, consumedAt: null` in the filter).
-  All slots land or none do.
+  `MealPlan`. If the slot plans this dish fresh (unlinked, not yet
+  cooked), it links that entry ("lasagna on Thursday" becomes "lasagna
+  from the batch"). Otherwise it creates a linked entry. Another dish, a freeform meal, another batch's slot or a cooked meal is
+  the household's plan and stays, and the portion is added beside it as
+  a new linked entry (owner feedback: prepped food goes wherever it is
+  eaten, next to another dish or a meal already planned). The link to a
+  fresh entry is guarded (`preparedBatchId: null, consumedAt: null` in the
+  filter); if that entry changed since the read, the portion gets its own
+  entry instead. All slots land or none do.
 - **Returning: an optimistic write.** Unplanning, deleting or editing a
   linked entry gives its portions back through `returnEntryPortionsInTx`,
   after the caller has reset or deleted the entry with a filter on the
@@ -5763,23 +5782,21 @@ landed earlier (PR #179, see the data model above). No browser storage.
   `loadPlanSlotsAction` rather than the page's `?week=`, so paging weeks
   never moves the Planner tab, and selections are kept across weeks so
   one save can plan this week's dinners and next Monday's lunch. Each day
-  lists its four meal slots, grouped by day on phones. A slot is
-  selectable when it's empty or only plans this dish fresh (the same rule
-  `assignInTx` re-checks on save); a slot with something else shows that
-  dish's name, disabled, with a "Taken" label (never greying alone).
+  lists its four meal slots, grouped by day on phones. Every slot is
+  selectable; one that already plans something shows the dish's name
+  under the slot, and the portion is planned beside it (see Assigning).
   **Days before today are hidden** (UX-100): prepped food can't be
   eaten in the past, so the first week lists today onward, Previous week
-  is disabled there, and the first pickable slot is scrolled into view
-  when a week loads (the server would still accept a past slot,
+  is disabled there (the server would still accept a past slot,
   harmlessly). A selected slot gets a portions stepper
   (default 1), and a live "3 of 5 left after this" counter turns into
   "2 portions too many — only 5 left" and disables save when over. Each
   save is capped at 28 selected slots in total, however many weeks they
   span (`assignPortionsSchema`; 28 is one week of four meals a day). The
   dialog doesn't guard the cap, so a save with a 29th slot is rejected by
-  the server as invalid input. When a save fails (out of portions, a slot
-  taken since it was read), nothing was written, so the dialog reloads
-  the week and drops selections that are no longer selectable. When the
+  the server as invalid input. When a save fails (out of portions,
+  say), nothing was written, so the dialog reloads the week and keeps the
+  selection. When the
   request never arrives (offline, weak signal), loading and saving both
   catch the rejection and show "Couldn't reach the server. Check your
   connection and try again." with a retry, in the dialog rather than the
@@ -5796,8 +5813,9 @@ landed earlier (PR #179, see the data model above). No browser storage.
   while uneaten, its sheet has a "Don't use prep" button
   (`unassignBatchPortionAction`): the meal stays planned, cooks fresh, and
   its portions go back to the batch. Its cook button reads "Mark as eaten"
-  with a fork-and-knife icon.
-  That dialog has no ingredient checklist and no leftovers field, since
+  with a fork-and-knife icon, and once eaten the row says "Eaten" ("Äten")
+  rather than the "Cooked" a fresh meal shows: it was cooked at prep time.
+  The "Mark as eaten" dialog has no ingredient checklist and no leftovers field, since
   the ingredients came off at prep time and the portions off the batch
   when the slot was planned. It posts no item rows, and its undo passes
   none, so even an entry edited while the dialog was open can't credit
@@ -5855,11 +5873,11 @@ landed earlier (PR #179, see the data model above). No browser storage.
   entry eaten without deduction, leftovers creating a batch, copy week
   without links). `e2e/meal-prep.spec.ts` runs on desktop and mobile. The
   first test records a batch (ingredients off inventory), opens Plan
-  portions from the toast, checks past days are hidden (Previous week disabled) and a slot
-  with another dish is greyed with its name and a "Taken" label, steps portions to the cap,
-  sees the overdraw message, saves, reloads for the count and the Prepped
-  badges, deletes one slot to get its portion back, marks the other eaten
-  with inventory unchanged, and discards. The second checks the dashboard
+  portions from the toast, checks past days are hidden (Previous week disabled) and that a slot
+  with another dish names it and can still be picked, plans a lunch and that dinner, steps portions to the cap,
+  sees the overdraw message, saves, reloads for the count, the Prepped
+  badges and the other dish still planned, deletes one slot to get its portion back, marks the other eaten
+  with inventory unchanged (its row now says "Eaten"), and discards. The second checks the dashboard
   card and its link, adds a planner meal "From meal prep", and gives it
   back with "Don't use prep".
 

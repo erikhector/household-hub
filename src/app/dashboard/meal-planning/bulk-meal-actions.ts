@@ -9,7 +9,8 @@ import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-ty
 import { getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { BatchChangedError, returnEntryPortionsInTx } from "@/app/dashboard/meal-planning/prep-assign";
-import { canRePortion, mapBulkMove, splitCooked } from "@/app/dashboard/meal-planning/bulk-meal-calc";
+import { canMarkEaten, canRePortion, mapBulkMove, splitCooked } from "@/app/dashboard/meal-planning/bulk-meal-calc";
+import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -39,6 +40,7 @@ const bulkSchema = z.discriminatedUnion("op", [
     portions: z.number().int().min(1, v("portionsMin")).max(1_000),
   }),
   z.object({ op: z.literal("remove"), entryIds: entryIdsSchema }),
+  z.object({ op: z.literal("eaten"), entryIds: entryIdsSchema }),
 ]);
 
 export type BulkMealEdit = z.input<typeof bulkSchema>;
@@ -56,6 +58,8 @@ export type BulkMealResult = ActionState & {
   /** Cooked (or, for portions, not re-portionable) meals left alone. */
   skipped?: number;
   restore?: BulkMealRestore[];
+  /** The meals a bulk "Mark eaten" marked, for its Undo. */
+  eatenIds?: string[];
 };
 
 // GAP-56: one Server Action for the planner's Select mode. All-or-nothing in
@@ -172,6 +176,37 @@ export async function bulkEditMealEntriesAction(input: BulkMealEdit): Promise<Bu
     };
   }
 
+  if (edit.op === "eaten") {
+    const targets = editable.filter(canMarkEaten);
+    if (targets.length === 0) return await fail("bulkNothingToChange");
+    try {
+      await prisma.$transaction(async (tx) => {
+        // Guarded like the single mark: a meal eaten, or unlinked to cook
+        // fresh, since the read above fails the batch rather than being
+        // marked without its ingredients coming off.
+        const marked = await tx.mealPlanEntry.updateMany({
+          where: { id: { in: targets.map((t) => t.id) }, consumedAt: null, preparedBatchId: { not: null } },
+          data: { consumedAt: new Date() },
+        });
+        if (marked.count !== targets.length) throw new BatchChangedError();
+        // GAP-51: eaten, so off the Cook soon shelf, as markMealEntryCookedAction does.
+        for (const recipeId of new Set(targets.map((t) => t.recipeId))) {
+          await clearCookSoon(tx, household.id, recipeId);
+        }
+      });
+    } catch (error) {
+      if (error instanceof BatchChangedError) return await fail("generic");
+      return toFriendlyError(error);
+    }
+    revalidatePath(MEAL_PLANNING_PATH);
+    revalidatePath("/dashboard");
+    return {
+      changed: targets.length,
+      skipped: entries.length - targets.length,
+      eatenIds: targets.map((t) => t.id),
+    };
+  }
+
   // remove: an uneaten meal planned from a batch gives its portions back,
   // like deleteMealEntryAction, all in one transaction so a batch that moved
   // under us rolls the whole removal back.
@@ -267,5 +302,36 @@ export async function undoBulkMealEditAction(restore: BulkMealRestore[]): Promis
   }
 
   revalidatePath(MEAL_PLANNING_PATH);
+  return {};
+}
+
+// The Undo on the bulk "Mark eaten" toast. Marking a batch meal eaten changed
+// nothing but consumedAt (see markMealEntryCookedAction), so that's all this
+// puts back, and only on meals still eating from a batch: one unlinked since
+// had its ingredients come off when it was cooked fresh, and isn't ours to
+// un-cook. Same all-or-nothing tenancy rule as the edit.
+export async function undoBulkMarkEatenAction(entryIds: string[]): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = entryIdsSchema.safeParse(entryIds);
+  if (!parsed.success) return await fail("invalidInput");
+
+  const ids = [...new Set(parsed.data)];
+  const found = await prisma.mealPlanEntry.count({
+    where: { id: { in: ids }, mealPlan: { householdId: household.id } },
+  });
+  if (found !== ids.length) return await fail("mealNotFound");
+
+  try {
+    await prisma.mealPlanEntry.updateMany({
+      where: { id: { in: ids }, preparedBatchId: { not: null }, consumedAt: { not: null } },
+      data: { consumedAt: null },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard");
   return {};
 }

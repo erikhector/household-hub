@@ -271,7 +271,7 @@ export async function assignBatchPortionsAction(input: {
   try {
     await prisma.$transaction((tx) => assignInTx(tx, household.id, batch, slots));
   } catch (error) {
-    // Expected outcomes (out of portions, slot taken) roll the transaction
+    // Expected outcomes (out of portions) roll the transaction
     // back like any error, but are the household's to fix, not a bug.
     if (error instanceof PrepAssignError) return await fail(error.key);
     return toFriendlyError(error);
@@ -287,17 +287,13 @@ export async function assignBatchPortionsAction(input: {
 // The Plan portions dialog walks week by week without leaving the Prep tab,
 // so it reads each week's entries itself rather than through the page's
 // ?week= param (which drives the Planner tab). Just enough per entry for the
-// dialog to tell a free or reusable slot (empty, or this dish planned fresh)
-// from a taken one, and to name what's in a taken one. assignInTx re-checks
-// every slot on save, so a slot that changes after this read still can't be
-// overwritten.
+// dialog to name what a slot already plans: every slot is pickable, and
+// assignInTx adds the portion beside whatever is there (or eats this dish's
+// fresh plan from the batch), so nothing here gates the choice.
 export type PlanSlotEntry = {
   date: string;
   mealType: MealType;
-  recipeId: string | null;
   label: string;
-  preparedBatchId: string | null;
-  consumed: boolean;
 };
 
 export async function loadPlanSlotsAction(
@@ -314,10 +310,7 @@ export async function loadPlanSlotsAction(
       select: {
         date: true,
         mealType: true,
-        recipeId: true,
         freeformName: true,
-        preparedBatchId: true,
-        consumedAt: true,
         recipe: { select: { name: true } },
       },
       orderBy: [{ date: "asc" }, { id: "asc" }],
@@ -326,10 +319,7 @@ export async function loadPlanSlotsAction(
       entries: entries.map((entry) => ({
         date: toDateKey(entry.date),
         mealType: entry.mealType,
-        recipeId: entry.recipeId,
         label: entry.recipe?.name ?? entry.freeformName ?? "",
-        preparedBatchId: entry.preparedBatchId,
-        consumed: entry.consumedAt !== null,
       })),
     };
   } catch (error) {
