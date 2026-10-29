@@ -84,6 +84,17 @@ easy for AI coding agents to work in correctly:
   what the privacy page describes (message, stack trace, page address,
   browser and device). `sentry-data-collection.test.ts` pins the opt-outs
   and that the server's `register()` passes them.
+- **Recently visited pages stay in the browser for 15 s (PERF-21).**
+  `next.config.ts` sets `experimental.staleTimes.dynamic` to 15 (Next 16's
+  default is 0), so switching back to a tab seen seconds ago reuses its
+  cached payload instead of a server render plus the page's queries. A
+  Server Action's `revalidatePath` clears this client cache, so your own
+  edits show at once; another household member's change can take up to 15 s
+  to appear on a client navigation (a reload always shows it). `static`
+  keeps its 5 min default. The flag is experimental in Next; reverting is
+  deleting the block. If PERF-22 goes ahead, `cacheLife`'s `stale` value
+  controls this instead. `e2e/flows.spec.ts` ("an edit still shows after
+  navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
   `createLazyDialogLoader(() => import(...))` (module level, shared; the
