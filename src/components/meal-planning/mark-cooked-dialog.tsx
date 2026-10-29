@@ -16,7 +16,7 @@ import {
   previewCookedIngredientsAction,
   undoMarkMealEntryCookedAction,
 } from "@/app/dashboard/meal-planning/cooking-actions";
-import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
+import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/item-actions";
 import { Input } from "@/components/ui/input";
 import { suggestLeftoversDayAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { toDateKey } from "@/app/dashboard/meal-planning/date-utils";

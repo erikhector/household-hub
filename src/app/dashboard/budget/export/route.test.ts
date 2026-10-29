@@ -1,7 +1,7 @@
 // Tests the /dashboard/budget/export Route Handler. Prisma, requireHousehold,
 // and getDictionary are mocked — no database is touched, same pattern as
 // src/app/dashboard/profile/export-data/route.test.ts and
-// src/app/dashboard/shopping-list/actions.test.ts's getDictionary mock. See
+// src/app/dashboard/shopping-list/list-actions.test.ts's getDictionary mock. See
 // REQUIREMENTS.md's "Data export (CSV)" subsection: the household is always
 // re-derived server-side via requireHousehold() (never a client-supplied
 // id), and only the current calendar month's transactions

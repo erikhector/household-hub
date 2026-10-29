@@ -1,7 +1,10 @@
 "use client";
 
 import { toast } from "sonner";
-import { archiveShoppingListAction, unarchiveShoppingListAction } from "@/app/dashboard/shopping-list/actions";
+import {
+  archiveShoppingListAction,
+  unarchiveShoppingListAction,
+} from "@/app/dashboard/shopping-list/list-actions";
 
 // UX-49: archiving a list used to be silent. It's one tap and easily
 // mistaken for something else, so it now says what happened and offers the

@@ -54,19 +54,23 @@ import {
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { NextUpDock } from "@/components/shopping/shopping-mode";
+import { deleteShoppingListItemAction } from "@/app/dashboard/shopping-list/item-actions";
 import {
   completeShoppingListAction,
   deleteShoppingListAction,
-  deleteShoppingListItemAction,
   generateFromLowStockAction,
-  resetCategoryOrderAction,
-  saveCategoryOrderAction,
+  unarchiveShoppingListAction,
+  uncompleteShoppingListAction,
+} from "@/app/dashboard/shopping-list/list-actions";
+import {
   putAwayItemsAction,
   replayTickAction,
   togglePurchasedAction,
-  unarchiveShoppingListAction,
-  uncompleteShoppingListAction,
-} from "@/app/dashboard/shopping-list/actions";
+} from "@/app/dashboard/shopping-list/purchase-actions";
+import {
+  resetCategoryOrderAction,
+  saveCategoryOrderAction,
+} from "@/app/dashboard/shopping-list/store-order-actions";
 import { format, plural } from "@/lib/i18n/format";
 import { tripDurationMinutes } from "@/lib/shopping/trip-summary";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";

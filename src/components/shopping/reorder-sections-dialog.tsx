@@ -13,7 +13,7 @@ import {
   DialogTitle,
   type DialogHandle,
 } from "@/components/ui/dialog";
-import { saveCategoryOrderAction } from "@/app/dashboard/shopping-list/actions";
+import { saveCategoryOrderAction } from "@/app/dashboard/shopping-list/store-order-actions";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 

@@ -2,7 +2,7 @@
 // src/app/dashboard/shopping-list/share-actions.ts. All I/O (Prisma,
 // requireHousehold, next/headers, next/cache) is mocked — no database or
 // network call is made. See REQUIREMENTS.md's "Testing" section and the
-// identical convention in src/app/dashboard/shopping-list/actions.test.ts /
+// identical convention in src/app/dashboard/shopping-list/list-actions.test.ts /
 // src/lib/actions/household.test.ts (whose sendInviteEmailAction tests this
 // module's absoluteAppUrl mirrors).
 import { afterEach, describe, expect, it, vi } from "vitest";

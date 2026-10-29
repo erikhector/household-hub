@@ -1745,7 +1745,7 @@ every lookup the old one did.
     stands in for "last bought".
   - **Commit path**: one batch Server Action,
     `smartAddShoppingListItemsAction(listId, rows)`
-    (`src/app/dashboard/shopping-list/actions.ts`), up to 50 rows,
+    (`src/app/dashboard/shopping-list/smart-add-actions.ts`), up to 50 rows,
     `ACTIVE` list only. Unlike the paste import, every row ends up linked:
     a picked suggestion's id (ignored unless it's this household's), else
     `matchSmartAddInventoryItem`: an exact normalized name, else the
@@ -2282,7 +2282,7 @@ data.
 `CostAnalyzer` (`src/components/budget/cost-analyzer.tsx`) surfaces grocery
 cost trends from `PriceHistory`, which is populated whenever a shopping list
 item is marked purchased with an estimated price
-(`togglePurchasedAction`, `src/app/dashboard/shopping-list/actions.ts`). Like
+(`togglePurchasedAction`, `src/app/dashboard/shopping-list/purchase-actions.ts`). Like
 `PeriodSummary`, it's a plain presentational component — all aggregation
 (grouping `PriceHistory` rows by month and by `inventoryItemId`) happens in
 `src/app/dashboard/budget/page.tsx`'s Server Component, scoped via
@@ -2394,8 +2394,22 @@ item is marked purchased with an estimated price
 
 ### Shopping-list → budget expense link
 
+**Code layout (MAINT-3).** The dashboard shopping-list Server Actions are
+split by concern under `src/app/dashboard/shopping-list/`, each with a
+colocated `*.test.ts`: `list-actions.ts` (create, rename, archive, delete,
+generate from low stock, complete, uncomplete), `item-actions.ts` (add,
+edit, price, link, category, import, delete, auto-add undo),
+`smart-add-actions.ts` (smart-add bar and mapping resolution),
+`purchase-actions.ts` (tick, offline replay, put-away), `receipt-actions.ts`
+(scan and manual registration) and `store-order-actions.ts` (learned
+section order), beside the existing `share-actions.ts`, `template-actions.ts`
+and `repurchase-actions.ts`. Helpers more than one file needs live in plain
+modules, since a `"use server"` file can't export them: `inventory-lookup.ts`,
+`expense-log.ts` and `price-schema.ts`. There is no `actions.ts` barrel:
+callers import from the file that owns the action.
+
 Completing a shopping list (`completeShoppingListAction` in
-`src/app/dashboard/shopping-list/actions.ts`) automatically logs a single
+`src/app/dashboard/shopping-list/list-actions.ts`) automatically logs a single
 expense `Transaction` for that list, in the household's chosen shopping
 category ("Groceries" unless changed, see "Shopping expense category"
 above), on top of its existing
@@ -2517,7 +2531,7 @@ top of it. No migration was needed.
   optional "Store" text input next to the currency picker — one store for
   the *whole* receipt, not per line, since a single receipt is always from
   one store. `applyReceiptScanAction` and `registerReceiptAction`
-  (`src/app/dashboard/shopping-list/actions.ts`) both take it as a trailing
+  (`src/app/dashboard/shopping-list/receipt-actions.ts`) both take it as a trailing
   optional `store` parameter, trim it (empty/whitespace-only collapses to
   `null`, same as leaving it blank), and stamp every `PriceHistory` row the
   call writes with it.
@@ -4242,7 +4256,7 @@ below.
   single fixed constant. GAP-13's `Household.currencyCode` is a display
   label only and deliberately doesn't change what receipts convert to. If a receipt's detected
   (or user-corrected) currency differs, `applyReceiptScanAction`
-  (`src/app/dashboard/shopping-list/actions.ts`) fetches a live rate from
+  (`src/app/dashboard/shopping-list/receipt-actions.ts`) fetches a live rate from
   **Frankfurter** (`frankfurter.dev`, free ECB reference rates, no API key)
   via `fetchExchangeRate` (`src/lib/exchange-rate.ts`) and converts every
   matched line before saving; a failed fetch (offline, API down) reports an
@@ -5408,7 +5422,7 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   it never creates an inventory item (MATCH-1). Items (or unlinked names)
   already pending (unpurchased) on the target list are skipped rather than
   duplicated, mirroring `generateFromLowStockAction`'s
-  existing dedupe in `src/app/dashboard/shopping-list/actions.ts`. On
+  existing dedupe in `src/app/dashboard/shopping-list/list-actions.ts`. On
   success the dialog closes and a `sonner` toast confirms which list the
   items were added to.
 - **Substitution hints (GAP-25)**: a missing ingredient with a common,

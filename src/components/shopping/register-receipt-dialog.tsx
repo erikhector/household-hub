@@ -47,7 +47,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
-import { registerReceiptAction } from "@/app/dashboard/shopping-list/actions";
+import { registerReceiptAction } from "@/app/dashboard/shopping-list/receipt-actions";
 import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { isAutoAccepted, matchReceiptLines } from "@/lib/shopping/receipt-match";
