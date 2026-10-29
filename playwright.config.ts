@@ -155,6 +155,14 @@ export default defineConfig({
         // Auth.js then rejects the login callback with a config error.
         // CRON_SECRET lets a spec call /api/cron/sync-notifications
         // (e2e/tonights-dinner-nudge.spec.ts), which reads the same fallback.
-        env: { AUTH_TRUST_HOST: "true", CRON_SECRET: process.env.CRON_SECRET || "e2e-cron-secret" },
+        // GEMINI_API_KEY is a placeholder that makes the recipe form show
+        // "Import from a photo" (GAP-54); every call it would trigger is
+        // mocked at the Server Action POST (e2e/recipe-photo-import.spec.ts),
+        // so no provider is ever contacted. Only when no real key is set.
+        env: {
+          AUTH_TRUST_HOST: "true",
+          CRON_SECRET: process.env.CRON_SECRET || "e2e-cron-secret",
+          GEMINI_API_KEY: process.env.GEMINI_API_KEY || "e2e-placeholder-key",
+        },
       },
 });
