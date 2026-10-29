@@ -185,12 +185,12 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `PENDING`: the test fails if a clean file stays listed. Leave budget
       until BUDGET-6 is decided.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
-      `components/shopping/shopping-list-client.tsx` (now 1,107 lines; the
-      row, price, printable and cleared components are already out): pull
-      its state into hooks; `dashboard/budget/page.tsx` (967 lines:
-      `BudgetTabsSection` runs 10+ queries inline — extract a
-      `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
-      with PERF-12 and BUDGET-6.
+      the shopping part is done (`shopping-list-client.tsx` keeps its
+      rendering and action handlers; its tick, put-away, cleared, highlight
+      and share-text state is in `components/shopping/use-shopping-list-state.ts`).
+      Left: `dashboard/budget/page.tsx` (967 lines: `BudgetTabsSection`
+      runs 10+ queries inline — extract a `loadBudgetTabsData()` into
+      `src/lib/budget/`). Conflicts with PERF-12 and BUDGET-6.
 - [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
       the migration drift check, Node pinning and Dependabot are done
       (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
