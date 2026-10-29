@@ -95,7 +95,7 @@ const itemQuantity = (itemId: string) =>
   });
 
 // Another dish already planned in a slot, which the Plan portions dialog
-// must grey out.
+// names and still lets a portion join.
 async function planFreeformDinner(day: Date, name: string) {
   const id = suffix();
   const monday = mondayOf(day);
@@ -217,20 +217,18 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await expect(dialog.getByRole("group", { name: dayGroupName(targetWeek) })).toBeVisible();
   await expect(dialog.getByRole("checkbox")).toHaveCount(28);
 
-  // The dinner with something else planned is greyed out, and says what.
-  const takenDinner = dialog
+  // The dinner with something else planned says what, and can still be
+  // picked: the portion is planned beside it (owner feedback).
+  const busyDinner = dialog
     .getByRole("group", { name: dayGroupName(takenDinnerDay) })
     .getByRole("checkbox", { name: `Dinner ${takeaway}` });
-  await expect(takenDinner).toBeDisabled();
-  // ...and a visible "Taken" label, not only the greying (UX-100).
-  await expect(
-    dialog.getByRole("group", { name: dayGroupName(takenDinnerDay) }).getByText("Taken", { exact: true }),
-  ).toBeVisible();
+  await expect(busyDinner).toBeEnabled();
 
-  // Two lunches, one of them stepped up to 3: the batch's 4 are all used.
-  const freeLunches = dialog.getByRole("checkbox", { name: "Lunch", exact: true, disabled: false });
+  // A lunch and that dinner, one of them stepped up to 3: the batch's 4 are
+  // all used.
+  const freeLunches = dialog.getByRole("checkbox", { name: "Lunch", exact: true });
   await freeLunches.nth(0).check();
-  await freeLunches.nth(1).check();
+  await busyDinner.check();
   await expect(dialog.getByText("2 of 4 left after this")).toBeVisible();
   const more = dialog.getByRole("button", { name: "One portion more" }).first();
   await more.click();
@@ -242,10 +240,10 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await expect(save).toBeEnabled();
 
   // A third slot overdraws the batch: the footer says so and Save is off.
-  await freeLunches.nth(2).check();
+  await freeLunches.nth(1).check();
   await expect(dialog.getByText("1 portion too many — only 4 left")).toBeVisible();
   await expect(save).toBeDisabled();
-  await freeLunches.nth(2).uncheck();
+  await freeLunches.nth(1).uncheck();
   await expect(dialog.getByText("0 of 4 left after this")).toBeVisible();
 
   // Back down to one portion each, and save.
@@ -269,6 +267,8 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await page.goto(`/dashboard/meal-planning?week=${key(targetWeek)}`);
   await expect(plannedNames(page, recipeName)).toHaveCount(2);
   await expect(preppedBadges(plannedNames(page, recipeName))).toHaveCount(2);
+  // The takeaway is still planned for that dinner, beside the portion.
+  await expect(page.getByRole("button", { name: new RegExp(`^Dinner ${takeaway}`) })).toBeVisible();
 
   // Removing one planned meal gives its portion back to the batch.
   await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Remove meal" }).click();
@@ -292,8 +292,9 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await eatenSubmit.click();
   await expect(eaten).toHaveCount(0);
   await expect(page.getByText("Marked as eaten", { exact: true })).toBeVisible();
-  // The row now says it's eaten, and its sheet no longer offers to eat it.
-  await expect(plannedNames(page, recipeName).locator("xpath=ancestor::button[1]")).toContainText("Cooked");
+  // The row now says it's eaten (not cooked: that was at prep time), and its
+  // sheet no longer offers to eat it.
+  await expect(plannedNames(page, recipeName).locator("xpath=ancestor::button[1]")).toContainText("Eaten");
   await expect(
     (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as eaten" }),
   ).toHaveCount(0);

@@ -639,10 +639,12 @@ function MealEntryRow({
         {dict.prepPreppedBadge}
       </Badge>
     )}
+    {/* A prepped meal was cooked at prep time, so what this records is
+        that it was eaten (as its "Mark as eaten" button says). */}
     {cooked && (
       <span className="flex shrink-0 items-center gap-1 text-xs text-success">
         <CheckCircle2 className="size-3.5" aria-hidden="true" />
-        {dict.mealCookedBadgeLabel}
+        {prepped ? dict.mealEatenBadgeLabel : dict.mealCookedBadgeLabel}
       </span>
     )}
     </>
@@ -656,7 +658,7 @@ function MealEntryRow({
       return (
         <div className="flex min-h-11 w-full items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-sm text-muted-foreground">
           {rowBody}
-          <span className="sr-only">{dict.bulkCookedLocked}</span>
+          <span className="sr-only">{prepped ? dict.bulkEatenLocked : dict.bulkCookedLocked}</span>
         </div>
       );
     }

@@ -38,7 +38,6 @@ export const en = {
     prepUndoAlreadyPlanned: "Some of these portions are already planned. Unplan them first.",
     prepBatchNotFound: "Batch not found",
     prepNotEnoughPortions: "Not enough portions left in this batch",
-    prepSlotTaken: "That meal slot already has something planned",
     invalidWeek: "Invalid week",
     invalidDateRange: "Invalid date range",
     invalidSectionOrder: "Invalid section order",
@@ -1930,9 +1929,11 @@ export const en = {
     },
     bulkSelectHint: "Tap meals to select them",
     bulkCookedLocked: "Cooked, can't be changed",
+    bulkEatenLocked: "Eaten, can't be changed",
     bulkDone: "Done",
     bulkMove: "Move to…",
     bulkPortions: "Portions…",
+    bulkMarkEaten: "Mark eaten",
     bulkRemove: "Remove",
     bulkMoveTitle: "Move selected meals",
     bulkMoveHint: "The earliest selected meal goes to this day. The others keep their distance from it.",
@@ -1956,6 +1957,14 @@ export const en = {
     bulkSkippedNote: {
       one: "{count} left as it was",
       other: "{count} left as they were",
+    },
+    bulkEatenToast: {
+      one: "Marked {count} meal eaten",
+      other: "Marked {count} meals eaten",
+    },
+    bulkEatenSkippedNote: {
+      one: "{count} isn't from meal prep: mark it cooked on its own",
+      other: "{count} aren't from meal prep: mark them cooked one by one",
     },
     bulkUndoneToast: "Changes undone",
     adding: "Adding…",
@@ -2249,6 +2258,7 @@ export const en = {
     markCookedUnavailableForCustomMeal:
       "Custom meals aren't linked to a recipe, so there's nothing to mark as cooked",
     mealCookedBadgeLabel: "Cooked",
+    mealEatenBadgeLabel: "Eaten",
     markCookedDialogTitle: "Mark as cooked",
     markCookedDialogHint: "Review and adjust the inventory this used, then confirm.",
     loadingCookedIngredients: "Checking linked inventory…",
@@ -2360,14 +2370,13 @@ export const en = {
     prepRecordUndoneToast: "Undone — inventory restored",
     // The Plan portions dialog: spreading a batch's portions over the week.
     prepPlanDialogTitle: "Plan portions of {recipe}",
-    prepPlanDialogHint: "Tick the meals that eat from this batch. Slots with something else planned are marked Taken.",
+    prepPlanDialogHint: "Tick the meals that eat from this batch. A meal with something else planned gets the portion beside it.",
     prepSlotPortions: "Portions for {meal}, {day}",
     prepLeftAfter: "{left} of {remaining} left after this",
     prepTooManyPortions: {
       one: "{count} portion too many — only {remaining} left",
       other: "{count} portions too many — only {remaining} left",
     },
-    prepSlotTakenBadge: "Taken",
     prepLoadingWeek: "Loading the week…",
     prepRetry: "Try again",
     prepConnectionError: "Couldn't reach the server. Check your connection and try again.",

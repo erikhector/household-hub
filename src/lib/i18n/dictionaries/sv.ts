@@ -32,7 +32,6 @@ export const sv = {
     prepUndoAlreadyPlanned: "Några av portionerna är redan planerade. Ta bort dem från planen först.",
     prepBatchNotFound: "Satsen hittades inte",
     prepNotEnoughPortions: "Det finns inte tillräckligt med portioner kvar i satsen",
-    prepSlotTaken: "Den måltiden har redan något planerat",
     invalidWeek: "Ogiltig vecka",
     invalidDateRange: "Ogiltigt datumintervall",
     invalidSectionOrder: "Ogiltig ordning på avdelningarna",
@@ -1826,9 +1825,11 @@ export const sv = {
     },
     bulkSelectHint: "Tryck på måltider för att markera dem",
     bulkCookedLocked: "Lagad, kan inte ändras",
+    bulkEatenLocked: "Äten, kan inte ändras",
     bulkDone: "Klar",
     bulkMove: "Flytta till…",
     bulkPortions: "Portioner…",
+    bulkMarkEaten: "Markera äten",
     bulkRemove: "Ta bort",
     bulkMoveTitle: "Flytta markerade måltider",
     bulkMoveHint: "Den tidigaste markerade måltiden flyttas till den här dagen. De andra behåller avståndet till den.",
@@ -1852,6 +1853,14 @@ export const sv = {
     bulkSkippedNote: {
       one: "{count} lämnades som den var",
       other: "{count} lämnades som de var",
+    },
+    bulkEatenToast: {
+      one: "Markerade {count} måltid som äten",
+      other: "Markerade {count} måltider som ätna",
+    },
+    bulkEatenSkippedNote: {
+      one: "{count} är inte från matlådorna: markera den som lagad för sig",
+      other: "{count} är inte från matlådorna: markera dem som lagade en i taget",
     },
     bulkUndoneToast: "Ändringarna ångrade",
     adding: "Lägger till…",
@@ -2131,6 +2140,7 @@ export const sv = {
     markCookedUnavailableForCustomMeal:
       "Egna måltider är inte kopplade till ett recept, så det finns inget att markera som lagat",
     mealCookedBadgeLabel: "Lagad",
+    mealEatenBadgeLabel: "Äten",
     markCookedDialogTitle: "Markera som lagad",
     markCookedDialogHint: "Granska och justera lagret detta använde, bekräfta sedan.",
     loadingCookedIngredients: "Kontrollerar kopplat lager…",
@@ -2241,14 +2251,13 @@ export const sv = {
     prepRecordUndoneToast: "Ångrat — lagret återställt",
     // Dialogen Planera portioner: fördela en matlådas portioner över veckan.
     prepPlanDialogTitle: "Planera portioner av {recipe}",
-    prepPlanDialogHint: "Bocka för måltiderna som ska ätas från matlådan. Måltider där något annat redan är planerat är markerade Upptagen.",
+    prepPlanDialogHint: "Bocka för måltiderna som ska ätas från matlådan. Finns något annat planerat läggs portionen till bredvid.",
     prepSlotPortions: "Portioner till {meal}, {day}",
     prepLeftAfter: "{left} av {remaining} kvar efter detta",
     prepTooManyPortions: {
       one: "{count} portion för mycket — bara {remaining} kvar",
       other: "{count} portioner för mycket — bara {remaining} kvar",
     },
-    prepSlotTakenBadge: "Upptagen",
     prepLoadingWeek: "Laddar veckan…",
     prepRetry: "Försök igen",
     prepConnectionError: "Kunde inte nå servern. Kontrollera anslutningen och försök igen.",
