@@ -65,6 +65,7 @@ export const sv = {
     ingredientUnitTooLong: "Ingrediensenheter får vara högst {max} tecken",
     ingredientQuantityPositive: "Ingrediensmängder måste vara större än 0",
     taskNotFound: "Uppgiften hittades inte",
+    skipNeedsRepeat: "Bara återkommande uppgifter kan hoppas över",
     memberNotFound: "Medlemmen hittades inte",
     onlyRepeatingTurns: "Bara återkommande uppgifter kan turas om",
     pickTwoPeople: "Välj minst två personer som turas om",
@@ -2296,6 +2297,10 @@ export const sv = {
     },
     nextDueLabel: "Nästa gång {date}",
     deleteTaskAriaLabel: "Ta bort {title}",
+    // GAP-60: "Skip this time" on an open repeating task.
+    skipTaskAriaLabel: "Hoppa över {title} den här gången",
+    skippedLabel: "Överhoppad",
+    skippedToast: '"{title}" överhoppad den här gången',
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
@@ -2349,6 +2354,7 @@ export const sv = {
       save: "Spara",
       saving: "Sparar…",
       delete: "Ta bort",
+      skip: "Hoppa över den här gången",
     },
   },
   budget: {

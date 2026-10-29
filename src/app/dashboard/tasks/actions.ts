@@ -13,7 +13,7 @@ import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { getTimeZone } from "@/lib/get-time-zone";
-import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { isClosedBySkipOnly, isTaskOpen, skippedUntilFor } from "@/app/dashboard/tasks/recurrence";
 import { parseDueDateInput } from "@/app/dashboard/tasks/task-due";
 import {
   MAX_ROTATION_MEMBERS,
@@ -221,7 +221,8 @@ export async function updateTaskAction(
         // is how "every Thursday" is set (edit on a Thursday). Saving the same
         // interval leaves the anchor alone; dropping the repeat clears it.
         ...(resolved.data.recurrenceIntervalDays === null
-          ? { recurrenceAnchorAt: null }
+          ? // GAP-60: a one-off has no schedule to skip, so a leftover skip goes too.
+            { recurrenceAnchorAt: null, skippedUntil: null }
           : resolved.data.recurrenceIntervalDays !== (task.recurrenceIntervalDays ?? null) && {
               recurrenceAnchorAt: new Date(),
             }),
@@ -248,6 +249,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       previousCompletedByMemberId: true,
       recurrenceIntervalDays: true,
       recurrenceAnchorAt: true,
+      skippedUntil: true,
       createdAt: true,
       assignedToMemberId: true,
       rotationMemberIds: true,
@@ -257,7 +259,8 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
   if (!task) return await fail("taskNotFound");
 
   const now = new Date();
-  const nextCompleted = isTaskOpen(task, now, await getTimeZone());
+  const timeZone = await getTimeZone();
+  const nextCompleted = isTaskOpen(task, now, timeZone);
   const rotating = isRotating(task);
   // Compare-and-set: the completion and rotating-undo writes below only
   // apply if the task still has the `completedAt` read above. Without it,
@@ -266,7 +269,13 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
   // A write that matches nothing means someone else already toggled it, so
   // it's treated as a no-op success rather than an error — the revalidate
   // below still refreshes the caller's stale view.
-  const unchangedSinceRead = { id: task.id, householdId: household.id, completedAt: task.completedAt };
+  // GAP-60: `skippedUntil` is part of the same read, for the same reason.
+  const unchangedSinceRead = {
+    id: task.id,
+    householdId: household.id,
+    completedAt: task.completedAt,
+    skippedUntil: task.skippedUntil,
+  };
 
   try {
     if (nextCompleted) {
@@ -305,9 +314,17 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
           // never-done task) so un-ticking can put it back.
           previousCompletedAt: task.completedAt,
           previousCompletedByMemberId: task.completedByMemberId,
+          // GAP-60: a tick after a skip has run out starts the schedule afresh.
+          skippedUntil: null,
           ...rotationData,
         },
       });
+    } else if (isClosedBySkipOnly(task, now, timeZone)) {
+      // GAP-60: the task is closed by a skip alone, so reopening it undoes
+      // just the skip. completedAt and its completer are the real last
+      // completion; the restore below would overwrite them with whatever
+      // the last tick parked in previousCompletedAt.
+      await prisma.householdTask.updateMany({ where: unchangedSinceRead, data: { skippedUntil: null } });
     } else {
       // Un-completing is an undo, so it puts back exactly what the tick
       // overwrote (UX-102): the earlier completedAt and its completer, or
@@ -331,6 +348,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
         completedByMemberId: restoredBy,
         previousCompletedAt: null,
         previousCompletedByMemberId: null,
+        skippedUntil: null,
       };
       if (rotating) {
         // Also hand the turn back to whoever had it before the completion
@@ -353,6 +371,76 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
         await prisma.householdTask.updateMany({ where: unchangedSinceRead, data: restoreData });
       }
     }
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/tasks");
+  return {};
+}
+
+/**
+ * GAP-60: "Skip this time" on a repeating task that is open now. The
+ * schedule moves on for one interval without a completion being logged:
+ * `completedAt` and `completedByMemberId` stay as they were, since they
+ * feed the weekly recap and "Last done by".
+ */
+export async function skipTaskAction(taskId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const task = await prisma.householdTask.findFirst({
+    where: { id: taskId, householdId: household.id },
+    select: {
+      id: true,
+      completedAt: true,
+      recurrenceIntervalDays: true,
+      recurrenceAnchorAt: true,
+      skippedUntil: true,
+      createdAt: true,
+    },
+  });
+  if (!task) return await fail("taskNotFound");
+  if (task.recurrenceIntervalDays === null) return await fail("skipNeedsRepeat");
+
+  const now = new Date();
+  // Already closed (ticked, or skipped by someone a moment earlier): nothing
+  // to skip. A quiet success, like a double toggle, with the revalidate below
+  // refreshing the caller's stale view.
+  if (isTaskOpen(task, now, await getTimeZone())) {
+    try {
+      await prisma.householdTask.updateMany({
+        // Compare-and-set, so two members skipping at once skip once.
+        where: { id: task.id, householdId: household.id, skippedUntil: task.skippedUntil },
+        data: { skippedUntil: skippedUntilFor(now, task.recurrenceIntervalDays) },
+      });
+    } catch (error) {
+      return toFriendlyError(error);
+    }
+  }
+
+  revalidatePath("/dashboard/tasks");
+  return {};
+}
+
+/**
+ * GAP-60: the Undo of a skip. `previousSkippedUntil` is what the column held
+ * before the skip. A task can only be skipped while open, so that is always
+ * null or a moment already past; anything later is refused rather than
+ * letting a caller close a task for as long as it likes.
+ */
+export async function unskipTaskAction(taskId: string, previousSkippedUntil: Date | null): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = z.date().nullable().safeParse(previousSkippedUntil);
+  if (!parsed.success || (parsed.data !== null && parsed.data.getTime() > Date.now())) {
+    return await fail("invalidInput");
+  }
+
+  try {
+    await prisma.householdTask.updateMany({
+      where: { id: taskId, householdId: household.id },
+      data: { skippedUntil: parsed.data },
+    });
   } catch (error) {
     return toFriendlyError(error);
   }
