@@ -223,28 +223,6 @@ then MAINT-7 per feature, to avoid churn.
 
 
 
-- [ ] **MAINT-70. Flaky: `recipe-planned-dates` Recipes tab stays unselected after the click** (low, S) —
-      `e2e/recipe-planned-dates.spec.ts:55` (`mobile`) failed once in the
-      full `ci:local` gate of the MAINT-68 branch (`5f576e5`,
-      2026-10-28): the Recipes tab's `aria-selected` stayed false after the
-      click, although `openRecipesTab` had already waited for the router's
-      history patch. It passed 15/15 on mobile on rerun and in the next
-      full gate, so the cause is not understood. Reproduce with
-      `--repeat-each=30` under load and find the race in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-planned-dates.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
-      Investigated 2026-10-29 (`next` at `3d79c50`, which has MAINT-57's
-      local tab state): not reproduced in 120 mobile runs (30, 30 and 60
-      at 8, 6 and 14 workers, the last two with 8 and 16 busy-loop processes
-      on 4 cores). Untested suspect: Next's `HistoryUpdater` rewrites the
-      URL to the router state's `canonicalUrl` on every router commit, so a
-      commit that carries the pre-click URL (a refetch dispatched before the
-      click) reverts `?tab=` after the restore transition committed it;
-      `MealPlanningView` then sees the param change `recipes` -> none and
-      sets the tab back to the planner. If it recurs, capture the trace
-      (`--trace=retain-on-failure`) and look for a `replaceState` call
-      without `tab=recipes` after the click before touching the app or spec.
 - [ ] **MAINT-71. Flaky: `inventory-lazy-dialogs` retry tap doesn't open the Add inventory item dialog** (low, S) —
       `e2e/inventory-lazy-dialogs.spec.ts:73` ("a failed chunk load says so,
       and the next tap retries", `mobile`) failed once in the full
