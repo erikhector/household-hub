@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.120.1",
+    "date": "2026-10-29",
+    "pr": 905,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Pre-cooked meals can now be planned in any meal, even next to something already planned. Several of them can be marked as eaten at once, and they show \"Eaten\" instead of \"Cooked\". On iPhone, the bar for editing several meals now stays at the bottom of the screen.",
+      "sv": "Matlådor kan nu planeras på vilken måltid som helst, även bredvid något som redan är planerat. Flera kan markeras som ätna på en gång, och de visar \"Äten\" i stället för \"Lagad\". På iPhone ligger nu fältet för att ändra flera måltider kvar längst ned på skärmen."
+    }
+  },
+  {
     "version": "0.120.0",
     "date": "2026-10-29",
     "pr": 901,
