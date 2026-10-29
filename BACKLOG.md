@@ -155,6 +155,19 @@ Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
 tests passing, no `any`/`@ts-ignore` in app code. Item 7 does the
 shopping-list actions per feature, in the files MAINT-3 split them into.
 
+- [ ] **MAINT-72. Flaky: `inventory-lazy-dialogs` retry tap still doesn't open the Add inventory item dialog** (low, S) —
+      `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so,
+      and the next tap retries"), line 80: `getByRole("dialog", { name:
+      t.addDialogTitle })` not found after the offline route is removed.
+      Sighted on release commit a480760 (the MAINT-71 fix, #893): failed then
+      passed on the `desktop` retry in the GitHub e2e job, and failed on
+      `mobile` in a local `ci:local` run, passing on a re-run. So #893 did not
+      remove the flake; trace where the retry tap races the chunk load.
+      The fix is in the app or the test's waiting, never a skip, a retry or a
+      looser assertion. Acceptance: `npx playwright test
+      e2e/inventory-lazy-dialogs.spec.ts --project=mobile --repeat-each=30`
+      (and `desktop`) passes 30/30.
+
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
@@ -675,36 +688,6 @@ out to be a product-scope question rather than a scoped task should move to
       saves the seeded week, applies it to the next empty week and asserts
       the entries show, on desktop and mobile.
 
-### 2026-10-15 scan
-
-- [ ] **GAP-54. Import a recipe from a photo (cookbook page, recipe card)** (impact: med, effort: M) —
-      Plan to Eat's late-2025 update added photo scanning of recipe cards
-      and cookbook pages. Squirrel imports only from a URL
-      (REQUIREMENTS.md, "Recipe import from URL",
-      `src/lib/recipe-import.ts`), so a paper recipe or a screenshot is
-      retyped by hand. Add a "Import from a photo" button beside the URL
-      input in `RecipeFormDialog`, reusing the vision receipt-scan
-      upload and provider path (`scanReceiptPhotoAction` in
-      `src/lib/actions/receipt-scan.ts` and its `resolveAttempts`/
-      `callAttempts`/`callGemini`/`callAnthropic` helpers; no new third
-      party, no stored image) to extract name, instructions and
-      ingredient rows into the same pre-fill state. Same stance as the
-      URL import: never auto-save, the user reviews and edits first, and
-      a failed or empty parse shows an error toast and leaves the form
-      untouched. Gate it on the same check as that action:
-      `resolveAttempts` is empty (`not_configured`) when neither
-      `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set. The Tesseract OCR
-      fallback in `src/lib/receipt-parsing.ts` is receipt-specific and is
-      not used here, so with neither key set the button is hidden. Fold
-      the photo parser's output through the existing ingredient-line
-      parser so units and quantities match URL imports.
-      Acceptance: unit tests for the output-to-prefill mapping and the
-      unconfigured/failed-parse paths plus the tenancy check on the
-      action; an e2e step (AI mocked as in the receipt specs) uploads a
-      fixture image in the dialog and asserts the name and ingredient
-      rows are pre-filled and nothing is saved until Save, on desktop
-      and mobile.
-
 ### 2026-10-16 scan
 
 - [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
@@ -973,22 +956,3 @@ credentials only the product owner can provision, or an architecture call.
       shopping list in a store with bad signal — the strongest use case)
       vs. what must always be fresh (auth, money).
 
-- [ ] **MAINT-63. Flaky: `recipe-form-order` recipe form order and 44 px tag chips check fails once, then passes on retry** (low, S) —
-      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe
-      order, labelled, with 44 px tag chips", `mobile`) failed and then
-      passed on the one retry of the GitHub `End-to-end (Playwright)` job
-      of release commit `e1e5230` (2026-10-25). It passed in the full
-      local `ci:local` run of the same commit. 2026-10-29: could not
-      reproduce. 30/30 and then 40/40 passed on `mobile` with
-      `--retries=0` (the second under 8 CPU burners and 6 workers on 4
-      cores). The mobile sheet only slides and fades in (no scale), and
-      the position check is relative to the dialog body, so neither
-      measurement should move while it animates; suspect a CI-only
-      stall (hydration of the New recipe button after the tab click).
-      Needs the failing assertion from a CI log. Get the failing assertion with `--repeat-each=30`, find
-      what the position or chip-height measurement races with (the sheet
-      still animating in, or the Recipes tab not selected yet) and fix it
-      in the app or the spec's waiting, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/recipe-form-order.spec.ts:11 --project=mobile --repeat-each=30`
-      passes 30/30.

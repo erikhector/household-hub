@@ -5313,6 +5313,26 @@ imported recipe" requirement.
   warning-styled "Review before saving" notice (`importLowConfidence`, in
   both dictionaries) instead, saying the fields were guessed from the
   page's layout and may be incomplete or wrong.
+- **Import from a photo (GAP-54)**: an "Import from a photo" button in the
+  same box as the URL input (create and edit) reads a cookbook page, recipe
+  card or screenshot. The client resizes the image (`fileToResizedDataUrl`)
+  and calls `importRecipeFromPhotoAction`
+  (`src/app/dashboard/meal-planning/recipe-photo-actions.ts`), which uses
+  the receipt scan's vision provider chain (`resolveAttempts` /
+  `runProviderChain`, Gemini then Anthropic; no new third party, the photo
+  is never stored, 20 calls/hour per household under
+  `recipe-photo-import:<householdId>`). The model returns the title, the
+  ingredient lines as printed and the method steps
+  (`src/lib/recipe-import/photo.ts`); each line then goes through
+  `parseIngredientLine`, so units and quantities match a URL import. It
+  never saves: success pre-fills the same form state and shows a "check
+  every field against the original" toast; a failed or empty read shows an
+  error toast and leaves the form untouched. There is no OCR fallback (the
+  Tesseract one is receipt-specific), so with neither `GEMINI_API_KEY` nor
+  `ANTHROPIC_API_KEY` set the button is hidden. Unit tests:
+  `photo.test.ts`, `recipe-photo-actions.test.ts`; e2e:
+  `e2e/recipe-photo-import.spec.ts` (the action is mocked; Playwright's
+  webServer sets a placeholder `GEMINI_API_KEY` so the button shows).
 
 ### Meal-plan → shopping-list bridge
 
