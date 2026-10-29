@@ -5,7 +5,7 @@
 // renders the result.
 //
 // Per-unit, unmultiplied by quantity — the same convention
-// completeShoppingListAction (src/app/dashboard/shopping-list/actions.ts)
+// completeShoppingListAction (src/app/dashboard/shopping-list/list-actions.ts)
 // already uses when it sums estimatedPrice into the Groceries expense at
 // list completion (see REQUIREMENTS.md's "Shopping-list → budget expense
 // link"). Keeping the two summations identical means this header total

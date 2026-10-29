@@ -4,7 +4,7 @@ import { findInventoryMatches, type InventoryMatchCandidate } from "@/lib/item-m
 // Only auto-link on a fuzzy match this confident — a typo or a trailing
 // size/brand ("Milk 1L" vs "Milk") should still resolve automatically, but
 // anything softer is safer left for the user to confirm via the edit dialog.
-// Lives here rather than in shopping-list/actions.ts so every bulk path
+// Lives here rather than in shopping-list/item-actions.ts so every bulk path
 // (import/paste there, GAP-4's templates in template-actions.ts) links with
 // the exact same threshold — a "use server" file can't export a constant.
 export const AUTO_FUZZY_MATCH_MIN_SCORE = 0.6;

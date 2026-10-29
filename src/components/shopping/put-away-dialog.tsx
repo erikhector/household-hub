@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
-import { putAwayItemsAction, type PutAwayEntry } from "@/app/dashboard/shopping-list/actions";
+import { putAwayItemsAction, type PutAwayEntry } from "@/app/dashboard/shopping-list/purchase-actions";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";

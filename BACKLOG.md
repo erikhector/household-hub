@@ -152,15 +152,9 @@ kept.
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Items 3 and 7 both
-touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-3,
-then MAINT-7 per feature, to avoid churn.
+tests passing, no `any`/`@ts-ignore` in app code. Item 7 does the
+shopping-list actions per feature, in the files MAINT-3 split them into.
 
-- [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
-      lines / 29 exports, test file 2,850 lines. Follow the meal-planning
-      precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
-      put-away), `receipt-` and `store-order-actions.ts`, tests split the
-      same way. Do after MAINT-2/5.
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see

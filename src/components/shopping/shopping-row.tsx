@@ -12,7 +12,7 @@ import { LazyDialog } from "@/components/ui/lazy-dialog";
 import { ShoppingItemEditTriggers } from "@/components/shopping/shopping-item-edit-triggers";
 import { loadShoppingItemFormDialog } from "@/components/shopping/lazy-dialogs";
 import { CategoryChip } from "@/components/shopping/category-chip";
-import { updateShoppingListItemPriceAction } from "@/app/dashboard/shopping-list/actions";
+import { updateShoppingListItemPriceAction } from "@/app/dashboard/shopping-list/item-actions";
 import { format } from "@/lib/i18n/format";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { SwipeRow } from "@/components/shared/swipe-row";

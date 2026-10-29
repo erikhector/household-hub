@@ -1,6 +1,6 @@
 // Server-only: fetches a live currency-conversion rate from Frankfurter
 // (https://frankfurter.dev), a free ECB-rates API that needs no API key or
-// signup. Used by applyReceiptScanAction (shopping-list/actions.ts) to
+// signup. Used by applyReceiptScanAction (shopping-list/receipt-actions.ts) to
 // convert a scanned receipt's currency to HOUSEHOLD_BASE_CURRENCY
 // (src/lib/currency.ts) before recording it.
 
