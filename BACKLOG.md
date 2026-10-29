@@ -245,6 +245,17 @@ then MAINT-7 per feature, to avoid churn.
       sets the tab back to the planner. If it recurs, capture the trace
       (`--trace=retain-on-failure`) and look for a `replaceState` call
       without `tab=recipes` after the click before touching the app or spec.
+- [ ] **MAINT-71. Flaky: `inventory-lazy-dialogs` retry tap doesn't open the Add inventory item dialog** (low, S) —
+      `e2e/inventory-lazy-dialogs.spec.ts:73` ("a failed chunk load says so,
+      and the next tap retries", `mobile`) failed once in the full
+      `ci:local` gate of the UX-36 branch (`f9a7c8d`, 2026-10-29): the
+      `Add inventory item` dialog was not visible within 5 s after the
+      retry tap. The same code passed the gate earlier and the spec passed
+      `--repeat-each=3`; the diff did not touch inventory. Get the failing
+      step with `--repeat-each=30` under load and fix it in the app or the
+      spec's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts
+      --project=mobile --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -664,22 +675,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-28 scan
 
-- [ ] **GAP-40. Current pantry value snapshot** (impact: low-medium, effort: S) —
-      Grocy shows a running "stock value" for everything currently on the
-      shelf, not just spending history. Squirrel already records
-      `InventoryItem.lastKnownPrice` (`prisma/schema.prisma:297`, filled in
-      by `togglePurchasedAction`/receipt scanning), but nothing sums it: the
-      Cost analyzer tab (REQUIREMENTS.md, "Cost analyzer") only shows
-      spending-over-time and GAP-17's expired-waste value, both about money
-      already spent, never what's presently in stock. A household has no
-      single number for "what's my pantry worth right now" — useful for
-      insurance/moving estimates and just satisfying to see. No schema
-      change needed. Acceptance: a card (inventory page or Cost analyzer)
-      showing `Σ quantity × lastKnownPrice` across current stock, with a
-      note distinguishing items with no recorded price rather than silently
-      treating them as free; an e2e test asserts the figure renders and
-      updates after an item's quantity changes.
-
 - [ ] **GAP-41. Itemized expense splitting (assign receipt lines, not just the total)** `[!]` —
       needs a product decision. Splitwise's itemization lets a group split
       a bill by who actually had which line item, not just an even or
@@ -846,28 +841,6 @@ out to be a product-scope question rather than a scoped task should move to
       opened earlier, opened later than sealed, no shelf-life set); an e2e
       step on `mobile` marks a uniquely named item Opened with 3 days,
       sees it under "expiring", reloads and still sees it, in `en` and `sv`.
-
-### 2026-10-26 scan
-
-- [ ] **GAP-65. Show who added a line on a shared shopping list** (impact: low-med, effort: S) `[schema]` —
-      Bring! keeps an activity log on a shared list ("Anna added milk")
-      so two people filling the same list can tell what came from whom
-      and don't ask "did you add the oats?". Squirrel records who ticked
-      a row (`ShoppingListItem.checkedOffByUserId`,
-      `prisma/schema.prisma:650`) but not who added it, so the list can't
-      show it. Add a nullable plain-string `addedByUserId` (mirroring
-      `checkedOffByUserId`, no `@relation`, so a leaving member takes no
-      history with them), set by the add actions in
-      `src/app/dashboard/shopping-list/actions.ts` and left null for
-      share-link adds and older rows. Show it as a muted "Added by Anna"
-      in the row's secondary line only when the household has 2+ members
-      and the adder isn't the viewer; no new screen, no notification.
-      Scope: no activity feed, no chat or reactions.
-      Acceptance: unit tests that the add action stores the session
-      user's id and never one from the client; an e2e step on `mobile`
-      adds a uniquely named line as one seeded member and sees "Added by"
-      with their name as another, in `en` and `sv`, and no label on a
-      line the viewer added.
 
 ### 2026-10-27 scan
 
@@ -1064,8 +1037,14 @@ credentials only the product owner can provision, or an architecture call.
       order, labelled, with 44 px tag chips", `mobile`) failed and then
       passed on the one retry of the GitHub `End-to-end (Playwright)` job
       of release commit `e1e5230` (2026-10-25). It passed in the full
-      local `ci:local` run of the same commit. Not yet re-run with
-      repeats. Get the failing assertion with `--repeat-each=30`, find
+      local `ci:local` run of the same commit. 2026-10-29: could not
+      reproduce. 30/30 and then 40/40 passed on `mobile` with
+      `--retries=0` (the second under 8 CPU burners and 6 workers on 4
+      cores). The mobile sheet only slides and fades in (no scale), and
+      the position check is relative to the dialog body, so neither
+      measurement should move while it animates; suspect a CI-only
+      stall (hydration of the New recipe button after the tab click).
+      Needs the failing assertion from a CI log. Get the failing assertion with `--repeat-each=30`, find
       what the position or chip-height measurement races with (the sheet
       still animating in, or the Recipes tab not selected yet) and fix it
       in the app or the spec's waiting, never a loosened assertion, a

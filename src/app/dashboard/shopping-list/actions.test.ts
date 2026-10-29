@@ -574,12 +574,42 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     const result = await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk", quantity: "1" }));
 
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1, unit: "pcs" },
+      data: { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1, unit: "pcs" },
     });
     expect(result.autoLinkedName).toBe("milk");
     // An exact match already resolved it — no need to fetch every inventory
     // item just to try the fuzzy fallback too.
     expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("stores the session user as addedByUserId and ignores any id the client sends (GAP-65)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", name: "milk" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await addAdHocItemAction(
+      {},
+      formData({ listId: "list-1", name: "Milk", quantity: "1", addedByUserId: "someone-else" }),
+    );
+    await quickAddShoppingListItemAction("list-1", "Eggs", 2);
+
+    expect(shoppingListItemCreateMock).toHaveBeenCalledTimes(2);
+    for (const [arg] of shoppingListItemCreateMock.mock.calls) {
+      expect(arg.data.addedByUserId).toBe("user-1");
+    }
+  });
+
+  it("leaves addedByUserId unset on lines generated from low stock (GAP-65)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Milk", unit: "l", quantity: 0, lowStockThreshold: 2, lastKnownPrice: null },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+
+    await generateFromLowStockAction("list-1");
+
+    const data = shoppingListItemCreateManyMock.mock.calls[0][0].data;
+    expect(data[0].addedByUserId).toBeUndefined();
   });
 
   it("defaults estimatedPrice from the linked item's lastKnownPrice (AUTO-4)", async () => {
@@ -617,7 +647,7 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     const result = await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk 1L", quantity: "1" }));
 
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk 1L", quantity: 1, unit: "l" },
+      data: { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: "inv-1", name: "Milk 1L", quantity: 1, unit: "l" },
     });
     expect(result.autoLinkedName).toBe("Milk");
   });
@@ -637,7 +667,7 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     const result = await addAdHocItemAction({}, formData({ listId: "list-1", name: "Tomatoe", quantity: "1" }));
 
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: { shoppingListId: "list-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" },
+      data: { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" },
     });
     expect(result.autoLinkedName).toBeUndefined();
   });
@@ -677,6 +707,7 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
       data: {
         shoppingListId: "list-1",
+        addedByUserId: "user-1",
         inventoryItemId: "inv-new",
         name: "Kycklingfilé",
         quantity: 0.556,
@@ -695,7 +726,7 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
 
     expect(inventoryItemCreateMock).not.toHaveBeenCalled();
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: { shoppingListId: "list-1", inventoryItemId: "inv-existing", name: "Milk", quantity: 1, unit: "l" },
+      data: { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: "inv-existing", name: "Milk", quantity: 1, unit: "l" },
     });
   });
 });
@@ -733,8 +764,8 @@ describe("importShoppingListItemsAction", () => {
     expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
       data: [
-        { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1, unit: "l" },
-        { shoppingListId: "list-1", inventoryItemId: null, name: "Mystery item", quantity: 2, unit: "kg" },
+        { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1, unit: "l" },
+        { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: null, name: "Mystery item", quantity: 2, unit: "kg" },
       ],
     });
     expect(result).toEqual({ added: 2 });
@@ -776,7 +807,7 @@ describe("importShoppingListItemsAction", () => {
     await importShoppingListItemsAction("list-1", [{ name: "Tomatoe", quantity: 1 }]);
 
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
-      data: [{ shoppingListId: "list-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" }],
+      data: [{ shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" }],
     });
   });
 
@@ -849,9 +880,9 @@ describe("smartAddShoppingListItemsAction", () => {
       },
     });
     expect(shoppingListItemCreateMock.mock.calls.map(([arg]) => arg.data)).toEqual([
-      { shoppingListId: "list-1", inventoryItemId: "inv-bread", name: "bröd", quantity: 1, unit: "pcs" },
-      { shoppingListId: "list-1", inventoryItemId: "inv-milk", name: "mjölk", quantity: 2, unit: "l" },
-      { shoppingListId: "list-1", inventoryItemId: "new-Apples", name: "Apples", quantity: 6, unit: "pcs" },
+      { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: "inv-bread", name: "bröd", quantity: 1, unit: "pcs" },
+      { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: "inv-milk", name: "mjölk", quantity: 2, unit: "l" },
+      { shoppingListId: "list-1", addedByUserId: "user-1", inventoryItemId: "new-Apples", name: "Apples", quantity: 6, unit: "pcs" },
     ]);
     expect(result).toEqual({ addedIds: ["row-1", "row-2", "row-3"], alreadyOnList: [] });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/list-1");
