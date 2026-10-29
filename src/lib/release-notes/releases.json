@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.118.0",
+    "date": "2026-10-29",
+    "pr": 872,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now keep ticking items on your shopping list when you lose signal in the store. Your ticks wait on your phone and save themselves when you're back online, and the list you last opened still opens without a connection.\n\nThe dashboard and Personal Budget load faster for people who have used the app for a long time. Your numbers are unchanged.",
+      "sv": "Du kan nu fortsätta bocka av varor på inköpslistan när du tappar täckning i butiken. Dina bockar väntar i telefonen och sparas av sig själva när du är online igen, och listan du senast öppnade går att öppna utan uppkoppling.\n\nÖversikten och Privat budget laddas snabbare för dig som använt appen länge. Dina siffror är oförändrade."
+    }
+  },
+  {
     "version": "0.117.0",
     "date": "2026-10-28",
     "pr": 867,
