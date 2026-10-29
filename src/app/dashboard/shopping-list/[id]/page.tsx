@@ -52,7 +52,7 @@ async function RepurchaseSuggestionsSection({
 export default async function ShoppingListDetailPage(
   props: PageProps<"/dashboard/shopping-list/[id]">,
 ) {
-  const [{ household }, dict, locale, { id }] = await Promise.all([
+  const [{ household, userId }, dict, locale, { id }] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
@@ -80,7 +80,7 @@ export default async function ShoppingListDetailPage(
   //
   // The repurchase chips (AUTO-10), the heaviest read here, don't gate the
   // page at all any more — see RepurchaseSuggestionsSection above.
-  const [list, items, inventoryItems, lastPurchased, aliases, activeDefault] = await Promise.all([
+  const [list, items, inventoryItems, lastPurchased, aliases, activeDefault, members] = await Promise.all([
     prisma.shoppingList.findFirst({ where: { id, householdId: household.id } }),
     prisma.shoppingListItem.findMany({
       where: { shoppingListId: id, shoppingList: { householdId: household.id } },
@@ -129,6 +129,10 @@ export default async function ShoppingListDetailPage(
       where: { householdId: household.id, isDefault: true, status: "ACTIVE" },
       select: { id: true, name: true },
     }),
+    prisma.householdMember.findMany({
+      where: { householdId: household.id },
+      select: { userId: true, user: { select: { displayName: true } } },
+    }),
   ]);
   if (!list) notFound();
 
@@ -136,6 +140,12 @@ export default async function ShoppingListDetailPage(
   const lastPurchasedById = new Map(
     lastPurchased.map((row) => [row.inventoryItemId, row._max.createdAt?.getTime() ?? null]),
   );
+
+  // GAP-65: "Added by Anna" only when there is someone else to tell apart
+  // from, and never on the viewer's own lines.
+  const memberNames = new Map(members.map((m) => [m.userId, m.user.displayName]));
+  const addedByName = (adderId: string | null) =>
+    members.length >= 2 && adderId && adderId !== userId ? (memberNames.get(adderId) ?? null) : null;
 
   const smartAddCandidates: SmartAddCandidate[] = inventoryItems.map((item) => ({
     id: item.id,
@@ -161,6 +171,7 @@ export default async function ShoppingListDetailPage(
           const inventoryItem = item.inventoryItemId ? inventoryById.get(item.inventoryItemId) : undefined;
           return {
             ...item,
+            addedByName: addedByName(item.addedByUserId),
             category: inventoryItem?.category ?? null,
             barcode: inventoryItem?.barcode ?? null,
             // Its location too, as the put-away dialog's "stays where it

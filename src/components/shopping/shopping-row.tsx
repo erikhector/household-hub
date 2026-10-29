@@ -324,6 +324,20 @@ export function ShoppingRow({
             {item.note}
           </p>
         )}
+        {/* GAP-65: who put the line on a shared list. Only the server-resolved
+            name is passed in, so it is absent on your own lines and in a
+            one-person household. Same indent as the note above. */}
+        {item.addedByName && (
+          <p
+            className={cn(
+              "text-xs break-words text-muted-foreground",
+              editable ? "pl-8" : "pl-7",
+              large && "max-sm:pl-9",
+            )}
+          >
+            {format(dict.addedBy, { name: item.addedByName })}
+          </p>
+        )}
         {/* Persistent, always-visible explanation for as long as the item
             stays unlinked — the "Match item" badge above (in
             ShoppingItemFormDialog) is easy to miss on its own, so this spells

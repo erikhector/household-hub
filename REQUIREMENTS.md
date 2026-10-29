@@ -1129,7 +1129,17 @@ every lookup the old one did.
   quantity 0) and links it — there is no such thing as an unlinked shopping
   list item going forward. `completeShoppingListAction` re-runs that
   find-or-create for any item that still lacks a link, as a defensive
-  guarantee at the point the user considers the list "done". A purchase
+  guarantee at the point the user considers the list "done". **Who added a
+  line (GAP-65)**: the user-driven add paths (`addAdHocItemAction`,
+  `quickAddShoppingListItemAction`, `importShoppingListItemsAction`,
+  `smartAddShoppingListItemsAction`, and the repurchase chips) store the
+  session user in `ShoppingListItem.addedByUserId`, a plain nullable string
+  with no relation (like `checkedOffByUserId`, so a leaving member takes no
+  history with them). It stays null for share-link adds, automatic adds
+  (low stock, meal plan), receipt rows and rows from before the column. The
+  detail page resolves it to a display name on the server and a row shows a
+  muted "Added by Anna" line under its name only when the household has 2+
+  members and the adder is not the viewer. A purchase
   **increments** the linked inventory item's quantity by the purchased
   amount (and records a `PriceHistory` row if an estimated price was
   given) — but *when* depends on the household's `inventorySyncMode` (see

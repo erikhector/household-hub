@@ -946,6 +946,7 @@ export const sv = {
       save: "Spara",
     },
     needsMappingBadge: "Behöver kopplas",
+    addedBy: "Tillagd av {name}",
     needsMappingHint: "Ny i ditt skafferi — koppla den eller lägg till den som en ny vara så uppdateras lagret när du köper den.",
     needsMappingToast: "{name} är ny i ditt skafferi — koppla den eller lägg till den som en ny vara för att hålla lagret synkat.",
     matchItemButton: "Koppla vara",
