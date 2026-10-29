@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.120.0",
+    "date": "2026-10-29",
+    "pr": 901,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes can now be imported from a photo of a cookbook page, recipe card or screenshot. Review the filled-in fields, then save. (Needs the AI service to be set up.)",
+      "sv": "Du kan nu importera recept från ett foto av en kokboksida, ett receptkort eller en skärmbild. Granska de ifyllda fälten och spara sedan. (Kräver att AI-tjänsten är konfigurerad.)"
+    }
+  },
+  {
     "version": "0.119.1",
     "date": "2026-10-29",
     "pr": 895,
