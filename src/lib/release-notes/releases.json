@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.119.1",
+    "date": "2026-10-29",
+    "pr": 895,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Switching between pages you just visited is now instant. Your own changes still show straight away; changes made by someone else in your household can take up to 15 seconds to appear when you switch pages.",
+      "sv": "Det går nu snabbare att växla mellan sidor du nyss besökt. Dina egna ändringar syns direkt; ändringar som någon annan i hushållet gör kan ta upp till 15 sekunder att dyka upp när du byter sida."
+    }
+  },
+  {
     "version": "0.119.0",
     "date": "2026-10-29",
     "pr": 879,
