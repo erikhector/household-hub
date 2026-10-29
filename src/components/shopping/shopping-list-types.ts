@@ -7,6 +7,12 @@ export type ShoppingListItemRow = {
   unit: string;
   purchased: boolean;
   addedAutomatically: boolean;
+  // GAP-65: the display name of whoever added the line, only when it is worth
+  // showing: the household has 2+ members and the adder is somebody else than
+  // the viewer. Resolved on the server so the client never sees user ids; null
+  // otherwise (own line, solo household, share-link/automatic/older rows, or
+  // an adder who has since left).
+  addedByName: string | null;
   inventoryItemId: string | null;
   // The linked InventoryItem's category (AUTO-3, [id]/page.tsx's query),
   // null when there's no link yet. Drives shopping mode's grouping below,

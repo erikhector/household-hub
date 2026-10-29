@@ -344,6 +344,7 @@ const addItemSchema = z.object({
  */
 async function createAdHocShoppingListItem(
   householdId: string,
+  userId: string,
   listId: string,
   name: string,
   quantity: number,
@@ -380,6 +381,8 @@ async function createAdHocShoppingListItem(
   const item = await prisma.shoppingListItem.create({
     data: {
       shoppingListId: list.id,
+      // GAP-65: the session user, never a client value.
+      addedByUserId: userId,
       inventoryItemId: inventoryItem?.id ?? null,
       name,
       quantity,
@@ -407,7 +410,7 @@ export async function addAdHocItemAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState & { autoLinkedName?: string; needsMapping?: boolean }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = addItemSchema.safeParse({
     listId: formData.get("listId"),
@@ -422,6 +425,7 @@ export async function addAdHocItemAction(
   try {
     const result = await createAdHocShoppingListItem(
       household.id,
+      userId,
       parsed.data.listId,
       parsed.data.name,
       parsed.data.quantity,
@@ -460,7 +464,7 @@ export async function quickAddShoppingListItemAction(
   quantity: number,
   newItemDetails?: { category: string; unit: string },
 ): Promise<ActionState & { item?: { id: string; name: string } }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = quickAddSchema.safeParse({
     listId,
@@ -476,6 +480,7 @@ export async function quickAddShoppingListItemAction(
   try {
     const result = await createAdHocShoppingListItem(
       household.id,
+      userId,
       parsed.data.listId,
       parsed.data.name,
       parsed.data.quantity,
@@ -801,7 +806,7 @@ export async function importShoppingListItemsAction(
   listId: string,
   items: { name: string; quantity: number; unit?: string }[],
 ): Promise<ActionState & { added?: number }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = importItemsSchema.safeParse({ listId, items });
   if (!parsed.success) {
@@ -830,6 +835,7 @@ export async function importShoppingListItemsAction(
       const inventoryItem = linkInventoryItem(item.name);
       return {
         shoppingListId: list.id,
+        addedByUserId: userId,
         inventoryItemId: inventoryItem?.id ?? null,
         name: item.name,
         quantity: item.quantity,
@@ -892,7 +898,7 @@ export async function smartAddShoppingListItemsAction(
   listId: string,
   items: { name: string; quantity: number; unit?: string; inventoryItemId?: string }[],
 ): Promise<ActionState & { addedIds?: string[]; alreadyOnList?: string[] }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = smartAddSchema.safeParse({ listId, items });
   if (!parsed.success) {
@@ -996,6 +1002,7 @@ export async function smartAddShoppingListItemsAction(
           const created = await tx.shoppingListItem.create({
             data: {
               shoppingListId: list.id,
+              addedByUserId: userId,
               inventoryItemId: row.inventoryItemId ?? createdIds.get(row.newKey!) ?? null,
               name: row.name,
               quantity: row.quantity,

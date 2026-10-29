@@ -29,7 +29,7 @@ export async function addRepurchaseSuggestionAction(
   listId: string,
   inventoryItemId: string,
 ): Promise<ActionState & { itemId?: string }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const [list, inventoryItem] = await Promise.all([
     prisma.shoppingList.findFirst({
@@ -62,6 +62,7 @@ export async function addRepurchaseSuggestionAction(
     const created = await prisma.shoppingListItem.create({
       data: {
         shoppingListId: list.id,
+        addedByUserId: userId,
         inventoryItemId: inventoryItem.id,
         name: inventoryItem.name,
         quantity: lastPurchase?.quantity ?? 1,

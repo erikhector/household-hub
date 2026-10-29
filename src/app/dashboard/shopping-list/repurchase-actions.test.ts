@@ -74,6 +74,7 @@ describe("addRepurchaseSuggestionAction", () => {
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
       data: {
         shoppingListId: "list-1",
+        addedByUserId: "user-1",
         inventoryItemId: "inv-coffee",
         name: "Coffee",
         quantity: 2,

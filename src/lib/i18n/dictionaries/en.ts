@@ -1004,6 +1004,7 @@ export const en = {
       save: "Save",
     },
     needsMappingBadge: "Needs mapping",
+    addedBy: "Added by {name}",
     needsMappingHint: "New to your pantry — match it or add it as a new item so buying it updates your stock.",
     needsMappingToast: "{name} is new to your pantry — match it or add it as a new item to keep stock in sync.",
     matchItemButton: "Match item",

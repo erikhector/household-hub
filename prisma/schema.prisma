@@ -656,6 +656,11 @@ model ShoppingListItem {
   // ticks (no account) and rows ticked before this column existed — the
   // reminder then goes to the whole household.
   checkedOffByUserId String?
+  // GAP-65: who added the line (the add actions only), so a shared list can
+  // show "Added by Anna". Plain string, no @relation, same reasoning as
+  // checkedOffByUserId. null for share-link adds, automatic adds (low
+  // stock, meal plan), receipt rows and rows added before this column.
+  addedByUserId      String?
   // When this row's stock actually landed in inventory: the put-away step
   // (putAwayItemsAction), or the tick itself for an ON_CHECK household, or
   // "Register receipt" (already home). A row that's `purchased` with this
