@@ -729,7 +729,8 @@ describe("planner actions × prepared batches (GAP-49)", () => {
     preparedBatchFindFirstMock.mockResolvedValue(batch);
     preparedBatchUpdateManyMock.mockResolvedValue({ count: 1 });
     mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
-    mealPlanEntryFindManyMock.mockResolvedValue([]);
+    // Nothing of this dish planned fresh in the slot.
+    mealPlanEntryFindFirstMock.mockResolvedValue(null);
     mealPlanEntryCreateMock.mockResolvedValue({ id: "entry-new" });
 
     const result = await addMealEntryAction(

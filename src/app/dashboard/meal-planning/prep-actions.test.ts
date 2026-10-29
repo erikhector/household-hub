@@ -462,7 +462,7 @@ describe("assignBatchPortionsAction", () => {
     preparedBatchFindFirstMock.mockResolvedValue(batch);
     preparedBatchUpdateManyMock.mockResolvedValue({ count: 1 });
     mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
-    mealPlanEntryFindManyMock.mockResolvedValue([]);
+    mealPlanEntryFindFirstMock.mockResolvedValue(null);
     mealPlanEntryUpdateManyMock.mockResolvedValue({ count: 1 });
     let entrySeq = 0;
     mealPlanEntryCreateMock.mockImplementation(async () => ({ id: `entry-${++entrySeq}` }));
@@ -521,8 +521,18 @@ describe("assignBatchPortionsAction", () => {
       create: { householdId: household.id, weekStartDate: monday },
       select: { id: true },
     });
-    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { mealPlanId: "plan-1", date: wed, mealType: "DINNER" } }),
+    // It looks for this dish planned fresh in the slot, nothing broader.
+    expect(mealPlanEntryFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          mealPlanId: "plan-1",
+          date: wed,
+          mealType: "DINNER",
+          recipeId: batch.recipeId,
+          preparedBatchId: null,
+          consumedAt: null,
+        },
+      }),
     );
     expect(mealPlanEntryCreateMock).toHaveBeenCalledWith({
       data: {
@@ -552,9 +562,7 @@ describe("assignBatchPortionsAction", () => {
   });
 
   it("links an existing unlinked entry of the same recipe", async () => {
-    mealPlanEntryFindManyMock.mockResolvedValue([
-      { id: "entry-planned", recipeId: batch.recipeId, preparedBatchId: null, consumedAt: null },
-    ]);
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-planned" });
 
     const result = await assignBatchPortionsAction({
       batchId: batch.id,
@@ -569,41 +577,37 @@ describe("assignBatchPortionsAction", () => {
     });
   });
 
-  it("rolls back when one slot is taken by another dish", async () => {
-    mealPlanEntryFindManyMock
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        { id: "entry-pizza", recipeId: "recipe-pizza", preparedBatchId: null, consumedAt: null },
-      ]);
+  // Owner feedback: prepped food goes wherever it's eaten. Another dish, a
+  // custom meal, another batch's portion or an eaten meal in the slot stays,
+  // and the portion is planned beside it (assignInTx only looks for this
+  // dish planned fresh, so none of those match).
+  it("adds the portion beside whatever else the slot plans", async () => {
+    const result = await assignBatchPortionsAction({
+      batchId: batch.id,
+      slots: [{ date: "2026-10-14", mealType: "DINNER", portions: 1 }],
+    });
+
+    expect(result).toEqual({});
+    expect(mealPlanEntryUpdateManyMock).not.toHaveBeenCalled();
+    expect(mealPlanEntryCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ date: wed, mealType: "DINNER", preparedBatchId: batch.id }),
+      }),
+    );
+  });
+
+  it("creates its own entry when the fresh one was linked or cooked since the read", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-planned" });
+    mealPlanEntryUpdateManyMock.mockResolvedValue({ count: 0 });
 
     const result = await assignBatchPortionsAction({
       batchId: batch.id,
-      slots: [
-        { date: "2026-10-14", mealType: "DINNER", portions: 2 },
-        { date: "2026-10-15", mealType: "DINNER", portions: 2 },
-      ],
+      slots: [{ date: "2026-10-14", mealType: "DINNER", portions: 2 }],
     });
 
-    expect(result).toEqual({ error: "That meal slot already has something planned" });
-    // The transaction callback rejected, so the decrement and the first
-    // slot's create are rolled back with it.
-    await expect(transactionMock.mock.results[0].value).rejects.toThrow();
-    expect(revalidatePathMock).not.toHaveBeenCalled();
-  });
-
-  it("treats a slot with a linked or cooked entry of the same recipe as taken", async () => {
-    for (const taken of [
-      { id: "e1", recipeId: batch.recipeId, preparedBatchId: "batch-2", consumedAt: null },
-      { id: "e2", recipeId: batch.recipeId, preparedBatchId: null, consumedAt: new Date() },
-    ]) {
-      mealPlanEntryFindManyMock.mockResolvedValueOnce([taken]);
-      const result = await assignBatchPortionsAction({
-        batchId: batch.id,
-        slots: [{ date: "2026-10-14", mealType: "DINNER", portions: 1 }],
-      });
-      expect(result).toEqual({ error: "That meal slot already has something planned" });
-    }
-    expect(mealPlanEntryUpdateManyMock).not.toHaveBeenCalled();
+    expect(result).toEqual({});
+    expect(mealPlanEntryCreateMock).toHaveBeenCalledTimes(1);
+    expect(mealPlanEntryCreateMock.mock.calls[0][0].data).toMatchObject({ preparedBatchId: batch.id, portions: 2 });
   });
 
   it("rejects an invalid payload before touching the database", async () => {
@@ -1042,22 +1046,8 @@ describe("loadPlanSlotsAction", () => {
     );
     expect(result).toEqual({
       entries: [
-        {
-          date: "2026-10-12",
-          mealType: "DINNER",
-          recipeId: "recipe-a",
-          label: "Lasagna",
-          preparedBatchId: "batch-1",
-          consumed: false,
-        },
-        {
-          date: "2026-10-13",
-          mealType: "LUNCH",
-          recipeId: null,
-          label: "Takeaway",
-          preparedBatchId: null,
-          consumed: true,
-        },
+        { date: "2026-10-12", mealType: "DINNER", label: "Lasagna" },
+        { date: "2026-10-13", mealType: "LUNCH", label: "Takeaway" },
       ],
     });
   });

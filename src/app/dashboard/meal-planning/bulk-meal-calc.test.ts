@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRePortion, dayDiff, mapBulkMove, splitCooked } from "@/app/dashboard/meal-planning/bulk-meal-calc";
+import { canMarkEaten, canRePortion, dayDiff, mapBulkMove, splitCooked } from "@/app/dashboard/meal-planning/bulk-meal-calc";
 
 describe("dayDiff", () => {
   it("counts whole days, across a month end and a DST change", () => {
@@ -68,5 +68,12 @@ describe("canRePortion", () => {
     expect(canRePortion({ recipeId: "r", preparedBatchId: null })).toBe(true);
     expect(canRePortion({ recipeId: null, preparedBatchId: null })).toBe(false);
     expect(canRePortion({ recipeId: "r", preparedBatchId: "b" })).toBe(false);
+  });
+});
+
+describe("canMarkEaten", () => {
+  it("takes only meals eating from a prepared batch", () => {
+    expect(canMarkEaten({ preparedBatchId: "b1" })).toBe(true);
+    expect(canMarkEaten({ preparedBatchId: null })).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -35,15 +35,6 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
 // A slot is one day's meal, the unit assignBatchPortionsAction hands
 // portions to. Keyed as `yyyy-mm-dd|MEALTYPE`.
 const slotKey = (date: string, mealType: MealType) => `${date}|${mealType}`;
-
-// The same rule as assignInTx (prep-assign.ts), which re-checks it on save:
-// an empty slot, or one that only plans this dish fresh, can eat from the
-// batch. Anything else there is the household's plan and stays put.
-function isSelectable(entries: PlanSlotEntry[], recipeId: string): boolean {
-  return entries.every(
-    (entry) => entry.recipeId === recipeId && entry.preparedBatchId === null && !entry.consumed,
-  );
-}
 
 // GAP-49: spreads a batch's portions over the planner, a week at a time.
 // Opened from a batch card's "Plan portions" (and the Record prep toast) by
@@ -97,17 +88,6 @@ export function PlanPortionsDialog({
         return;
       }
       setWeeks((prev) => ({ ...prev, [week]: result.entries }));
-      // A slot picked before a reload (after "That meal slot already has
-      // something planned") may be taken now; drop it rather than send it
-      // again and fail the same way.
-      setSelected((prev) => {
-        const next = { ...prev };
-        for (const entry of result.entries) {
-          const key = slotKey(entry.date, entry.mealType);
-          if (key in next && !isSelectable(entriesInSlot(result.entries, key), batch.recipeId)) delete next[key];
-        }
-        return next;
-      });
     });
   }
 
@@ -207,19 +187,6 @@ export function PlanPortionsDialog({
   // today's week (prep-tab starts at the later of now and the cook date).
   const isFirstWeek = toDateKey(weekStart) <= todayKey;
   const days = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i))).filter((date) => date >= todayKey);
-  // The first slot that can be ticked in the shown week. When today's early
-  // meals are taken it can sit below the fold, so it is scrolled into view
-  // once the week has loaded.
-  const firstFreeKey = entries
-    ? days
-        .flatMap((date) => MEAL_TYPES.map((mealType) => slotKey(date, mealType)))
-        .find((key) => isSelectable(entriesInSlot(entries, key), batch.recipeId))
-    : undefined;
-  const firstFreeRef = useRef<HTMLLIElement | null>(null);
-  const weekLoaded = entries !== undefined;
-  useEffect(() => {
-    firstFreeRef.current?.scrollIntoView({ block: "nearest" });
-  }, [weekStartKey, weekLoaded]);
 
   return (
     <Dialog open={controlled.open} onOpenChange={controlled.onOpenChange}>
@@ -281,28 +248,17 @@ export function PlanPortionsDialog({
                     {MEAL_TYPES.map((mealType) => {
                       const key = slotKey(date, mealType);
                       const inSlot = entriesInSlot(entries, key);
-                      const selectable = isSelectable(inSlot, batch.recipeId);
                       const portions = selected[key];
                       const isSelected = portions !== undefined;
                       const mealLabel = dict[mealTypeDictKey[mealType]];
                       const dishes = inSlot.map((entry) => entry.label).filter(Boolean).join(", ");
                       return (
-                        <li
-                          key={mealType}
-                          ref={key === firstFreeKey ? firstFreeRef : undefined}
-                          className="flex min-h-11 items-center gap-3"
-                        >
+                        <li key={mealType} className="flex min-h-11 items-center gap-3">
                           {/* M3: the whole label is the 44px tap target. */}
-                          <label
-                            className={
-                              selectable
-                                ? "flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3"
-                                : "flex min-h-11 min-w-0 flex-1 cursor-not-allowed items-center gap-3 text-muted-foreground"
-                            }
-                          >
+                          <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3">
                             <Checkbox
                               checked={isSelected}
-                              disabled={!selectable || saving}
+                              disabled={saving}
                               onChange={(e) => toggle(key, e.target.checked)}
                             />
                             <span className="flex min-w-0 flex-col">
@@ -314,13 +270,6 @@ export function PlanPortionsDialog({
                               )}
                             </span>
                           </label>
-                          {/* Taken is said in words, not only by greying
-                              (DESIGN.md: never colour alone). */}
-                          {!selectable && (
-                            <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                              {dict.prepSlotTakenBadge}
-                            </span>
-                          )}
                           {isSelected && (
                             <PortionStepper
                               value={portions}
