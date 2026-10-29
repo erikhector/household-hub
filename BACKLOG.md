@@ -438,8 +438,8 @@ actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
 charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline in the shop) needs an owner decision and sits under
-"Needs a decision before building".
+UX-36 (offline ticks in the shop) shipped; UX-36b parks offline adds
+and price edits.
 
 - [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
       UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
@@ -483,29 +483,6 @@ UX-36 (offline in the shop) needs an owner decision and sits under
       repo size reasonable. Once decided, this is a buildable M.
 
 ---
-
-- [ ] **UX-36. Offline in the shop** (L) — first version: the active shopping
-      list survives a dead zone, ticks sync later.
-      - Cache the open shopping list and shopping mode for offline reads
-        (service worker, `src/lib/service-worker.js`, which today shows
-        only the offline page). Only the shopping list is cached; auth,
-        money and everything else stay network-only.
-      - Queue only **ticks (check/uncheck)** while offline and replay them
-        on reconnect, with a visible "3 changes waiting" chip. Conflict
-        rule: last write wins per item, and an item deleted meanwhile is
-        skipped silently.
-      - Offline adds and price edits are parked as a later item: they need
-        id/merge rules that ticks don't.
-      - Use the existing optimistic rows (UX-14) as the foundation. Any
-        browser storage for the queue goes in `cookie-inventory.ts` and is
-        cleared on logout.
-      Acceptance: an e2e test loads the list, goes offline
-      (`context.setOffline(true)`), ticks an item, sees the chip, goes
-      online and asserts the tick persisted after reload, on desktop and
-      mobile.
-      Decided 2026-10-15 by autopilot-product: ticks-only offline queue on
-      the shopping list. Why: it's the in-store case Bring! and AnyList
-      cover and the smallest slice with no merge conflicts. See PRODUCT.md.
 
 ### Server caching (2026-10-22 review)
 
@@ -920,6 +897,16 @@ out to be a product-scope question rather than a scoped task should move to
       `en` and `sv`.
 
 ## Needs a decision before building
+
+- [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
+      (ticks only, shipped). Adding an item or editing a price with no
+      signal needs client-made ids and merge rules (a duplicate name added
+      on two phones, a price edit on a row someone deleted) that ticks
+      don't. Decide those rules before building; the queue and replay in
+      `src/lib/shopping/offline-tick-queue*.ts` are the foundation.
+      Acceptance: an e2e test goes offline, adds an item and edits a price,
+      sees them in the chip count, goes online and asserts both persisted
+      after reload, on desktop and mobile.
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
       decision — ICA, Hemköp and Willys already deliver digital receipts

@@ -262,6 +262,7 @@ const {
   setShoppingListItemCategoryAction,
   resolveShoppingListMappingsAction,
   togglePurchasedAction,
+  replayTickAction,
   putAwayItemsAction,
   applyReceiptScanAction,
   deleteShoppingListItemAction,
@@ -1488,6 +1489,65 @@ describe("resolveShoppingListMappingsAction", () => {
     expect(result).toEqual({ resolvedCount: 1 });
     expect(inventoryItemCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ name: "Ägg", category: "Dairy & eggs" }) }),
+    );
+  });
+});
+
+describe("replayTickAction", () => {
+  const row = (purchased: boolean) => ({
+    id: "item-1",
+    shoppingListId: "list-1",
+    purchased,
+    quantity: 1,
+    estimatedPrice: null,
+    inventoryItem: null,
+  });
+
+  it("skips a row that is gone (deleted meanwhile, or not this household's) without an error", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await replayTickAction("item-1", true);
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the row already has the wanted state", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(row(true));
+
+    const result = await replayTickAction("item-1", true);
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("ticks a row that differs from the wish", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(row(false));
+
+    await replayTickAction("item-1", true);
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item-1" }, data: expect.objectContaining({ purchased: true }) }),
+    );
+  });
+
+  it("unticks a row that differs from the wish", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(row(true));
+
+    await replayTickAction("item-1", false);
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item-1" }, data: expect.objectContaining({ purchased: false }) }),
+    );
+  });
+
+  it("looks the row up scoped to the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    await replayTickAction("item-1", true);
+
+    expect(shoppingListItemFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item-1", shoppingList: { householdId: "household-1" } } }),
     );
   });
 });
