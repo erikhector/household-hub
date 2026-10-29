@@ -234,6 +234,17 @@ then MAINT-7 per feature, to avoid churn.
       spec's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-planned-dates.spec.ts
       --project=mobile --repeat-each=30` passes 30/30.
+      Investigated 2026-10-29 (`next` at `3d79c50`, which has MAINT-57's
+      local tab state): not reproduced in 120 mobile runs (30, 30 and 60
+      at 8, 6 and 14 workers, the last two with 8 and 16 busy-loop processes
+      on 4 cores). Untested suspect: Next's `HistoryUpdater` rewrites the
+      URL to the router state's `canonicalUrl` on every router commit, so a
+      commit that carries the pre-click URL (a refetch dispatched before the
+      click) reverts `?tab=` after the restore transition committed it;
+      `MealPlanningView` then sees the param change `recipes` -> none and
+      sets the tab back to the planner. If it recurs, capture the trace
+      (`--trace=retain-on-failure`) and look for a `replaceState` call
+      without `tab=recipes` after the click before touching the app or spec.
 
 
 ### UX (2026-09-26 scout)
