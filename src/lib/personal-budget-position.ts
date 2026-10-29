@@ -53,6 +53,79 @@ import {
   type DatedSplitTransaction,
 } from "@/lib/settle-up-calc";
 
+// PERF-2: how far behind the viewed period the user's own transactions are
+// read. Same trade-off as the household budget's RECURRING_LOOKBACK_MONTHS
+// (src/app/dashboard/budget/page.tsx, SCALE-F): the "not yet logged" estimate
+// looks for a category's latest recurring expense dated before the period,
+// the YEARLY template status needs its calendar year, GAP-21's category
+// rollover reaches back to January of the viewed year (at most 11 months,
+// src/lib/budget-rollover-calc.ts) and the sparkline history 6 months. 12
+// months covers all of them, so the loader no longer reads every
+// transaction the user ever logged.
+const LOOKBACK_MONTHS = 12;
+
+// The split bills that can still move the user's balance: every bill with a
+// share for one of `memberIds` that isn't settled. A settled bill (everyone
+// paid exactly their share and nothing is left on it) gets an all-zero
+// position from computeBillPositions, so leaving it out cannot change
+// "owed from earlier months" or the debts line; see isSettledBill in
+// src/lib/settle-up-calc.ts, which the HAVING clause negates exactly (the
+// household Budget page's loadUnsettledSplitBills does the same, PERF-12).
+// One grouped query finds the ids, so the work scales with the bills still
+// open rather than with every bill the user ever shared. The member ids come
+// from the user's own memberships (never the client) and are bound as one
+// array parameter.
+async function loadUnsettledSplitBills(memberIds: string[], monthEnd: Date) {
+  const unsettled = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT t."id"
+    FROM "Transaction" t
+    JOIN "TransactionSplit" s ON s."transactionId" = t."id"
+    WHERE EXISTS (
+      SELECT 1 FROM "TransactionSplit" mine
+      WHERE mine."transactionId" = t."id" AND mine."householdMemberId" = ANY(${memberIds}::text[])
+    )
+    GROUP BY t."id", t."amount"
+    HAVING bool_or(s."amountPaid" <> s."amountOwed")
+        OR t."amount" - sum(s."amountPaid") > 0.005
+  `;
+  if (unsettled.length === 0) return [];
+  // The viewed period's end is applied here, as a plain Prisma filter, so no
+  // JS Date is ever bound into the raw SQL's timestamp comparison.
+  return prisma.transaction.findMany({
+    where: { id: { in: unsettled.map((row) => row.id) }, date: { lt: monthEnd } },
+    select: {
+      amount: true,
+      date: true,
+      splits: { select: { householdMemberId: true, amountOwed: true, amountPaid: true } },
+    },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+  });
+}
+
+// Repayments between members dated before `before`, summed per (payer,
+// receiver) pair in the database: computeMemberPosition only adds each one to
+// the payer and subtracts it from the receiver, so one summed transfer per
+// pair gives the same balance as one per row (sumTransfersByPair in
+// settle-up-calc.ts, PERF-12). Bounded by members², however many repayments
+// were logged. Dated at the epoch so the calc's own `date >= asOf` skip never
+// fires: the WHERE clause has already applied it.
+async function loadSettlementSums(memberIds: string[], before: Date): Promise<DatedMemberTransfer[]> {
+  const sums = await prisma.memberSettlement.groupBy({
+    by: ["fromMemberId", "toMemberId"],
+    where: {
+      date: { lt: before },
+      OR: [{ fromMemberId: { in: memberIds } }, { toMemberId: { in: memberIds } }],
+    },
+    _sum: { amount: true },
+  });
+  return sums.map((s) => ({
+    fromMemberId: s.fromMemberId,
+    toMemberId: s.toMemberId,
+    amount: s._sum.amount ?? 0,
+    date: new Date(0),
+  }));
+}
+
 export async function loadPersonalBudgetPosition({
   userId,
   monthStart,
@@ -78,11 +151,38 @@ export async function loadPersonalBudgetPosition({
    * shared "Rent" don't merge into one row. */
   sharedLabel: string;
 }) {
-  const [transactions, recurringTemplates, recurringTemplateAcks, memberships, ownPlannedExpenses, limitedCategories] = await Promise.all([
+  // PERF-2: the viewed period's rows for the list and totals, plus a trailing
+  // window behind them for the calcs that need to see further than the
+  // period — see LOOKBACK_MONTHS. The window ends at the later of the
+  // period's end and the end of the calendar year the period starts in,
+  // since a YEARLY template counts as posted by a bill logged anywhere in
+  // that year (getPeriodKey); nothing else reads a row dated after the
+  // period. A calendar-month floor can only reach further back than a
+  // payday period's start would.
+  const lookbackStart = new Date(monthStart.getFullYear(), monthStart.getMonth() - LOOKBACK_MONTHS, 1);
+  const yearEnd = new Date(monthStart.getFullYear() + 1, 0, 1);
+  const lookbackEnd = yearEnd > monthEnd ? yearEnd : monthEnd;
+  const [monthTransactions, lookbackTransactions, recurringTemplates, recurringTemplateAcks, memberships, ownPlannedExpenses, limitedCategories] = await Promise.all([
     prisma.personalTransaction.findMany({
-      where: { userId },
+      where: { userId, date: { gte: monthStart, lt: monthEnd } },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       include: { category: true },
+    }),
+    // Narrowed with `select`: the calcs need no description or full category
+    // row. Same order as the list, since computeSafeToSpend breaks a
+    // same-day tie by the first row it meets.
+    prisma.personalTransaction.findMany({
+      where: { userId, date: { gte: lookbackStart, lt: lookbackEnd } },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: {
+        categoryId: true,
+        category: { select: { name: true } },
+        type: true,
+        amount: true,
+        date: true,
+        isRecurring: true,
+        recurringTemplateId: true,
+      },
     }),
     // Recurring bill templates — mirrors the household budget's, see
     // src/lib/recurring-template-calc.ts.
@@ -148,18 +248,23 @@ export async function loadPersonalBudgetPosition({
   // common case").
   const showHouseholdName = memberships.length > 1;
 
-  // Every split bill the user is part of, up to the end of the viewed month
-  // — not just this month's. Older ones are what "owed from earlier months"
-  // is made of; only bills with a split row for the user can move their
-  // balance, so nothing else needs fetching. Every member's split row comes
-  // along (not just the user's), since how much the user owes the bill vs.
-  // the other members depends on what everyone paid.
-  const [sharedTransactions, settlements] =
+  // PERF-2: what the shared section needs, each piece read the narrow way
+  // instead of loading every split bill the user was ever part of:
+  // - this period's bills with a split row for the user, with every member's
+  //   row (how much the user owes the bill vs. the other members depends on
+  //   what everyone paid) and names, for the posted rows below;
+  // - the bills before the end of the period that aren't settled yet, which
+  //   are all that "owed from earlier months" and the debts line are made of
+  //   (loadUnsettledSplitBills);
+  // - repayments summed per pair, before the period's start and its end
+  //   (loadSettlementSums);
+  // - the shared templates' explicit splits, for 3b.
+  const [monthSharedTransactions, unsettledBills, settlementsAtStart, settlementsAtEnd, sharedTemplateSplits] =
     householdMemberIds.length > 0
       ? await Promise.all([
           prisma.transaction.findMany({
             where: {
-              date: { lt: monthEnd },
+              date: { gte: monthStart, lt: monthEnd },
               splits: { some: { householdMemberId: { in: householdMemberIds } } },
             },
             include: {
@@ -168,22 +273,32 @@ export async function loadPersonalBudgetPosition({
             },
             orderBy: [{ date: "desc" }, { createdAt: "desc" }],
           }),
-          prisma.memberSettlement.findMany({
-            where: {
-              date: { lt: monthEnd },
-              OR: [{ fromMemberId: { in: householdMemberIds } }, { toMemberId: { in: householdMemberIds } }],
+          loadUnsettledSplitBills(householdMemberIds, monthEnd),
+          loadSettlementSums(householdMemberIds, monthStart),
+          loadSettlementSums(householdMemberIds, monthEnd),
+          // Shared RecurringTemplates the user has a split row in — see 3b.
+          prisma.recurringTemplateSplit.findMany({
+            where: { householdMemberId: { in: householdMemberIds } },
+            include: {
+              recurringTemplate: {
+                include: {
+                  category: { select: { name: true } },
+                  // Every member's share, not just this user's — "Log payment"
+                  // pre-fills the whole bill's split from these.
+                  splits: true,
+                },
+              },
             },
           }),
         ])
-      : [[], []];
+      : [[], [], [], [], []];
 
-  const myMemberIdIn = (tx: (typeof sharedTransactions)[number]) =>
+  const myMemberIdIn = (tx: { splits: { householdMemberId: string }[] }) =>
     tx.splits.find((s) => householdMemberIds.includes(s.householdMemberId))?.householdMemberId;
 
   // 3a: already-posted split transactions this month.
   const sharedPostedRows: SharedPostedRow[] = [];
-  for (const tx of sharedTransactions) {
-    if (tx.date < monthStart) continue;
+  for (const tx of monthSharedTransactions) {
     const memberId = myMemberIdIn(tx);
     if (!memberId) continue;
     const mySplit = tx.splits.find((s) => s.householdMemberId === memberId)!;
@@ -214,20 +329,10 @@ export async function loadPersonalBudgetPosition({
 
   // Debts: per household, what was still owed when the month started (feeds
   // the headline) and where things stand at the end of it (shown below it).
-  const datedTransactions: DatedSplitTransaction[] = sharedTransactions.map((tx) => ({
+  const datedTransactions: DatedSplitTransaction[] = unsettledBills.map((tx) => ({
     amount: tx.amount,
     date: tx.date,
-    splits: tx.splits.map((s) => ({
-      householdMemberId: s.householdMemberId,
-      amountOwed: s.amountOwed,
-      amountPaid: s.amountPaid,
-    })),
-  }));
-  const datedTransfers: DatedMemberTransfer[] = settlements.map((s) => ({
-    fromMemberId: s.fromMemberId,
-    toMemberId: s.toMemberId,
-    amount: s.amount,
-    date: s.date,
+    splits: tx.splits,
   }));
   let owedFromEarlier = 0;
   const householdDebts: HouseholdDebt[] = [];
@@ -235,14 +340,14 @@ export async function loadPersonalBudgetPosition({
     const atStart = computeMemberPosition({
       memberId: m.id,
       transactions: datedTransactions,
-      transfers: datedTransfers,
+      transfers: settlementsAtStart,
       asOf: monthStart,
     });
     owedFromEarlier += Math.max(0, -atStart.memberBalance) + atStart.owedToBills;
     const atEnd = computeMemberPosition({
       memberId: m.id,
       transactions: datedTransactions,
-      transfers: datedTransfers,
+      transfers: settlementsAtEnd,
       asOf: monthEnd,
     });
     if (atEnd.memberBalance !== 0 || atEnd.owedToBills !== 0) {
@@ -268,27 +373,45 @@ export async function loadPersonalBudgetPosition({
   //   pre-fills a split from the template's.
   // A template that has never been split with the user stays invisible (no
   // retroactive backfill).
-  const sharedTemplateSplits =
+  const explicitTemplateIds = new Set(sharedTemplateSplits.map((s) => s.recurringTemplateId));
+  // The latest bill per template that was split with the user (up to the end
+  // of the viewed month), for the templates with no explicit split. PERF-2:
+  // found in two steps instead of walking every bill the user ever shared —
+  // each template's latest date in one grouped query, then just the bills on
+  // those dates, newest first so a same-day tie is broken by createdAt like
+  // the full list was.
+  const latestBillDates =
     householdMemberIds.length > 0
-      ? await prisma.recurringTemplateSplit.findMany({
-          where: { householdMemberId: { in: householdMemberIds } },
-          include: {
-            recurringTemplate: {
-              include: {
-                category: { select: { name: true } },
-                // Every member's share, not just this user's — "Log payment"
-                // pre-fills the whole bill's split from these.
-                splits: true,
-              },
-            },
+      ? await prisma.transaction.groupBy({
+          by: ["recurringTemplateId"],
+          where: {
+            date: { lt: monthEnd },
+            recurringTemplateId: { not: null, notIn: [...explicitTemplateIds] },
+            splits: { some: { householdMemberId: { in: householdMemberIds } } },
           },
+          _max: { date: true },
         })
       : [];
-  const explicitTemplateIds = new Set(sharedTemplateSplits.map((s) => s.recurringTemplateId));
-  // sharedTransactions is newest first, so the first bill seen per template
-  // is its latest one (up to the end of the viewed month).
-  const latestSplitBillByTemplate = new Map<string, (typeof sharedTransactions)[number]>();
-  for (const tx of sharedTransactions) {
+  const latestBillCandidates =
+    latestBillDates.length > 0
+      ? await prisma.transaction.findMany({
+          where: {
+            OR: latestBillDates.flatMap((row) =>
+              row._max.date ? [{ recurringTemplateId: row.recurringTemplateId, date: row._max.date }] : [],
+            ),
+            splits: { some: { householdMemberId: { in: householdMemberIds } } },
+          },
+          select: {
+            id: true,
+            amount: true,
+            recurringTemplateId: true,
+            splits: { select: { householdMemberId: true, amountOwed: true } },
+          },
+          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        })
+      : [];
+  const latestSplitBillByTemplate = new Map<string, (typeof latestBillCandidates)[number]>();
+  for (const tx of latestBillCandidates) {
     if (!tx.recurringTemplateId || explicitTemplateIds.has(tx.recurringTemplateId)) continue;
     if (!latestSplitBillByTemplate.has(tx.recurringTemplateId)) {
       latestSplitBillByTemplate.set(tx.recurringTemplateId, tx);
@@ -304,7 +427,7 @@ export async function loadPersonalBudgetPosition({
           include: {
             category: { select: { name: true } },
             // The template's latest bill overall, split or not. Bills the
-            // user has no split row in never reach sharedTransactions, so
+            // user has no split row in are never candidates above, so
             // without this a household that split rent once and then
             // stopped would keep the user owing half of it every month.
             transactions: {
@@ -350,7 +473,10 @@ export async function loadPersonalBudgetPosition({
   const [sharedTemplateTransactions, sharedTemplateAcks] = await Promise.all([
     sharedTemplateIds.length > 0
       ? prisma.transaction.findMany({
-          where: { recurringTemplateId: { in: sharedTemplateIds } },
+          // Only the window around the viewed period: a bill counts as
+          // posted by sharing the template's period (week, month or year of
+          // the reference date), which never reaches outside it.
+          where: { recurringTemplateId: { in: sharedTemplateIds }, date: { gte: lookbackStart, lt: lookbackEnd } },
           select: { recurringTemplateId: true, date: true },
         })
       : Promise.resolve([]),
@@ -484,9 +610,8 @@ export async function loadPersonalBudgetPosition({
     }));
 
   // --- Totals ----------------------------------------------------------------
-  // Scoped to the selected month — see the household budget's identical
-  // monthTransactions comment (src/app/dashboard/budget/page.tsx).
-  const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
+  // Scoped to the selected month (monthTransactions, queried above) — see the
+  // household budget's identical comment (src/app/dashboard/budget/page.tsx).
 
   // This month's shared shares (sharedPostedRows, the user's own
   // amountOwed) count toward the totals below alongside their own
@@ -538,7 +663,7 @@ export async function loadPersonalBudgetPosition({
   const activeRecurringTemplates = recurringTemplates.filter((t) => t.active);
   const templateStatusRows = computeTemplateStatuses({
     templates: activeRecurringTemplates,
-    transactions: transactions.map((t) => ({
+    transactions: lookbackTransactions.map((t) => ({
       recurringTemplateId: t.recurringTemplateId,
       date: t.date,
     })),
@@ -556,7 +681,7 @@ export async function loadPersonalBudgetPosition({
   // src/lib/safe-to-spend-calc.ts — fed this user's own transactions and
   // recurring items.
   const { expectedRecurring: personalExpectedRecurring } = computeSafeToSpend({
-    transactions: transactions.map((t) => ({
+    transactions: lookbackTransactions.map((t) => ({
       categoryId: t.categoryId,
       categoryName: t.category.name,
       type: t.type,
@@ -605,7 +730,7 @@ export async function loadPersonalBudgetPosition({
 
   const limitEnvelopes = categoryEnvelopes({
     categories: limitedCategories,
-    transactions,
+    transactions: lookbackTransactions,
     monthStart,
     monthEnd,
     startDay,
@@ -639,7 +764,9 @@ export async function loadPersonalBudgetPosition({
   const safeToSpendDaily = dailyAllowance({ safeToSpend, monthStart, monthEnd, today: now });
 
   return {
-    transactions,
+    // The trailing window (see LOOKBACK_MONTHS), not the whole history: what
+    // the page's category rollover and sparklines read.
+    lookbackTransactions,
     monthTransactions,
     recurringTemplates,
     templateStatusRows,
