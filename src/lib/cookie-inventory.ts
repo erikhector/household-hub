@@ -41,7 +41,19 @@ export const TASKS_FILTER_STORAGE_KEY = "tasks.filter";
 
 export type PreferenceStorageKey = typeof TASKS_FILTER_STORAGE_KEY;
 
-export type StorageKind = "cookie" | "localStorage";
+// UX-36: the service worker's Cache Storage bucket holding the shopping list
+// page you last opened, so it still opens in a dead zone. Declared here for
+// the drift guard; src/lib/service-worker.js (which can't import) repeats the
+// name and src/lib/shopping/offline-cache.ts clears it on logout.
+export const SHOPPING_LIST_CACHE_NAME = "squirrel-shopping-list-v1";
+
+// UX-36: the shopping list's offline tick queue (src/lib/shopping/
+// offline-tick-queue.ts). Not a preference: it is the ticks the user made
+// with no signal, waiting for the connection so they can be saved. Removed
+// as each one syncs, and on logout.
+export const SHOPPING_TICK_QUEUE_STORAGE_KEY = "shopping.offlineTicks";
+
+export type StorageKind = "cookie" | "localStorage" | "cache";
 export type StorageCategory = "necessary" | "preference";
 
 export type StorageEntry = {
@@ -193,6 +205,22 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     category: "preference",
     purpose: "Remembers that you've dismissed the weekly task recap for a given week on the Tasks tab.",
     duration: "Until you clear site data",
+  },
+  {
+    name: SHOPPING_TICK_QUEUE_STORAGE_KEY,
+    kind: "localStorage",
+    category: "necessary",
+    purpose:
+      "Holds the items you ticked on the shopping list while offline, until you are back online and they can be saved.",
+    duration: "Until they sync, or you log out",
+  },
+  {
+    name: SHOPPING_LIST_CACHE_NAME,
+    kind: "cache",
+    category: "necessary",
+    purpose:
+      "Keeps a copy of the shopping list you last opened on this device so it still opens when you have no signal. Nothing else is kept offline.",
+    duration: "Until you log out or clear site data",
   },
   {
     name: TASKS_FILTER_STORAGE_KEY,

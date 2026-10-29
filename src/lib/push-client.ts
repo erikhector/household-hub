@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { logoutAction } from "@/lib/actions/auth";
+import { clearOfflineShoppingData } from "@/lib/shopping/offline-cache";
 
 // Only the browser's own pushManager knows this device's subscription (see
 // push-notifications-card.tsx's identical reasoning) — null here just means
@@ -34,6 +35,8 @@ export function useLogout() {
     startTransition(async () => {
       const subscription = await getCurrentPushSubscription();
       await subscription?.unsubscribe().catch(() => {});
+      // UX-36: the offline shopping copy and tick queue go with the session.
+      await clearOfflineShoppingData();
       await logoutAction(subscription?.endpoint);
     });
   }

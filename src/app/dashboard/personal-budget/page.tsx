@@ -114,7 +114,7 @@ async function PersonalBudgetTabsSection({
   // headline number all come from one loader shared with the dashboard's
   // "Your budget" card, so the two can't drift apart — see
   // src/lib/personal-budget-position.ts.
-  const [categories, position, sharedTrendSplits, latestTransactions] = await Promise.all([
+  const [categories, position, sharedTrendSplits, ownTrendTransactions, savedSums, latestTransactions] = await Promise.all([
     prisma.personalBudgetCategory.findMany({
       where: { userId },
       orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -147,6 +147,21 @@ async function PersonalBudgetTabsSection({
         transaction: { select: { type: true, date: true, recurringTemplateId: true } },
       },
     }),
+    // PERF-2: the user's own recurring-bill transactions for the same trend
+    // window. The loader only reads a trailing window behind the viewed
+    // month, which ends before today's when a past month is open, so the
+    // trend has its own bounded query rather than the whole history.
+    prisma.personalTransaction.findMany({
+      where: { userId, recurringTemplateId: { not: null }, date: { gte: fixedTrendStart } },
+      select: { type: true, amount: true, date: true, recurringTemplateId: true },
+    }),
+    // GAP-22: all-time savings per category, summed by the database (see
+    // savedByCategory below).
+    prisma.personalTransaction.groupBy({
+      by: ["categoryId"],
+      where: { userId, type: "SAVINGS" },
+      _sum: { amount: true },
+    }),
     // UX-109: the user's last-logged categories, for the Add transaction
     // sheet (see the household page's identical query).
     prisma.personalTransaction.findMany({
@@ -157,7 +172,7 @@ async function PersonalBudgetTabsSection({
     }),
   ]);
   const {
-    transactions,
+    lookbackTransactions,
     monthTransactions,
     recurringTemplates,
     templateStatusRows,
@@ -289,12 +304,7 @@ async function PersonalBudgetTabsSection({
   // src/lib/personal-fixed-insights.ts.
   const fixedInsights = computePersonalFixedInsights({
     templates: recurringTemplates,
-    transactions: transactions.map((t) => ({
-      type: t.type,
-      amount: t.amount,
-      date: t.date,
-      recurringTemplateId: t.recurringTemplateId,
-    })),
+    transactions: ownTrendTransactions,
     sharedTemplates: sharedFixedTemplates,
     sharedTransactions: sharedTrendSplits.map((s) => ({
       type: s.transaction.type,
@@ -405,11 +415,11 @@ async function PersonalBudgetTabsSection({
     withCategoryRollover(
       withCategoryLimits(expenseByCategory, categories),
       categories,
-      transactions,
+      lookbackTransactions,
       monthStart,
       startDay,
     ),
-    transactions,
+    lookbackTransactions,
     monthStart,
     "EXPENSE",
     SPEND_HISTORY_MONTHS,
@@ -432,10 +442,9 @@ async function PersonalBudgetTabsSection({
       // GAP-12 — see the household page's identical comment. The
       // shared-household mirror rows (`shared:` ids) never match a
       // personal category, so they keep their plain proportional bar.
-      // GAP-21: the loader's `transactions` is the user's whole history, so
-      // the carried balance (at most back to January — see
-      // src/lib/budget-rollover-calc.ts) needs no extra query either.
-      // UX-39: each row's sparkline, from the same whole history.
+      // GAP-21: the carried balance (at most back to January — see
+      // src/lib/budget-rollover-calc.ts) and UX-39's sparklines both read
+      // the loader's 12-month trailing window, so they need no extra query.
       expenseByCategory={expenseRows}
       // Its label month (the 1st of the month the period is named for),
       // like the household page's: with a payday start day the period's
@@ -454,17 +463,12 @@ async function PersonalBudgetTabsSection({
     />
   );
 
-  // GAP-22 — see the household page's identical card. The loader's
-  // `transactions` is already the user's whole history, so each category's
-  // all-time savings are summed here rather than with another query. It
-  // holds only the user's own PersonalTransactions (the shared-household
-  // mirror is kept separately), so nothing household-side counts towards a
-  // personal goal.
-  const savedByCategory = new Map<string, number>();
-  for (const t of transactions) {
-    if (t.type !== "SAVINGS") continue;
-    savedByCategory.set(t.categoryId, (savedByCategory.get(t.categoryId) ?? 0) + t.amount);
-  }
+  // GAP-22 — see the household page's identical card. Each category's
+  // all-time savings, summed by the database (savedSums above) now that the
+  // loader no longer holds the whole history. Only the user's own
+  // PersonalTransactions (the shared-household mirror is kept separately), so
+  // nothing household-side counts towards a personal goal.
+  const savedByCategory = new Map<string, number>(savedSums.map((r) => [r.categoryId, r._sum.amount ?? 0]));
   const savingsGoals = (
     <SavingsGoals
       goals={savingsGoalRows(categories, savedByCategory, now)}

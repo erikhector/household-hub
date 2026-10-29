@@ -1250,6 +1250,37 @@ export async function togglePurchasedAction(
   return autoAdded ? { autoAdded: [autoAdded] } : {};
 }
 
+const replayTickSchema = z.object({ itemId: z.string().min(1), purchased: z.boolean() });
+
+/**
+ * UX-36: saves one tick that was made offline. The queue (see
+ * src/lib/shopping/offline-tick-queue.ts) holds what the person wanted the
+ * row to be, not a toggle, because the row may have changed since: another
+ * member ticked it, or an earlier replay already did. So this only toggles
+ * when the row differs from the wish, which makes a replay safe to repeat
+ * (last write wins, never a double flip). A row deleted (or from another
+ * household, which is indistinguishable) is skipped silently with `{}`,
+ * unlike togglePurchasedAction's "Item not found": nobody should be told
+ * about an item they can no longer see.
+ */
+export async function replayTickAction(
+  itemId: string,
+  purchased: boolean,
+): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
+  const { household } = await requireHousehold();
+
+  const parsed = replayTickSchema.safeParse({ itemId, purchased });
+  if (!parsed.success) return await zodFail(parsed.error);
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: parsed.data.itemId, shoppingList: { householdId: household.id } },
+    select: { purchased: true },
+  });
+  if (!item || item.purchased === parsed.data.purchased) return {};
+
+  return await togglePurchasedAction(parsed.data.itemId);
+}
+
 export type PutAwayEntry = {
   itemId: string;
   /** "Didn't get it after all": the row is un-ticked instead. */

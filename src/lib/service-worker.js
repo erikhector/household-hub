@@ -64,8 +64,9 @@ self.addEventListener("notificationclick", (event) => {
 // entire local-data-sync layer, not a service worker change. What's in
 // scope-sized reach instead: never show the browser's bare connection-error
 // page for a full page load. Full-page navigations get that fallback; the
-// only other thing the worker touches is `/_next/static/*` (see "Hashed
-// static assets" below). RSC data fetches, API routes and server actions
+// only other things the worker touches are `/_next/static/*` (see "Hashed
+// static assets" below) and, since UX-36, a copy of the last shopping list
+// page opened (see "Shopping list pages" below). RSC data fetches, API routes and server actions
 // pass straight through untouched, network-only.
 const OFFLINE_CACHE_NAME = "squirrel-offline-v1";
 const OFFLINE_CACHE_URL = "/~offline-fallback";
@@ -178,6 +179,56 @@ async function cacheFirstStatic(event) {
   return response;
 }
 
+// --- Shopping list pages (UX-36) -----------------------------------------------
+//
+// The one authenticated page kept for offline reads: the shopping list the
+// person last opened (`/dashboard/shopping-list/<id>`, which also carries
+// shopping mode), so it still opens in a store's dead zone. Everything else
+// stays network-only: other pages, RSC fetches, API routes, Server Actions,
+// auth and money. Network first, so a connection always gets the live list
+// and the copy is only what a failed request falls back to. Ticks made while
+// offline are queued by the page itself (src/lib/shopping/offline-tick-queue.ts),
+// not by this worker.
+//
+// The copy is private household data, so it's wiped on logout
+// (src/lib/shopping/offline-cache.ts deletes this cache by name) and it's
+// listed in src/lib/cookie-inventory.ts. Keep the name in sync with
+// SHOPPING_LIST_CACHE_NAME there. Only the few most recent lists are kept.
+const SHOPPING_CACHE_NAME = "squirrel-shopping-list-v1";
+const SHOPPING_CACHE_MAX = 5;
+const SHOPPING_PATH = /^\/dashboard\/shopping-list\/[^/]+\/?$/;
+
+// Keyed by path alone, so `?putAway=1` and other query strings share a copy.
+function shoppingCacheKey(url) {
+  return new Request(`${url.origin}${url.pathname.replace(/\/$/, "")}`);
+}
+
+async function networkFirstShoppingList(event, url) {
+  const key = shoppingCacheKey(url);
+  try {
+    const response = await fetch(event.request);
+    // Only a real page: a redirect (an expired session bouncing to /login)
+    // or an error must never overwrite the copy.
+    if (response.status === 200 && !response.redirected && response.type === "basic") {
+      const copy = response.clone();
+      event.waitUntil(
+        caches.open(SHOPPING_CACHE_NAME).then(async (cache) => {
+          await cache.delete(key);
+          await cache.put(key, copy);
+          const keys = await cache.keys();
+          await Promise.all(keys.slice(0, Math.max(0, keys.length - SHOPPING_CACHE_MAX)).map((old) => cache.delete(old)));
+        }),
+      );
+    }
+    return response;
+  } catch (error) {
+    const cache = await caches.open(SHOPPING_CACHE_NAME);
+    const cached = await cache.match(key, { ignoreVary: true });
+    if (cached) return cached;
+    throw error;
+  }
+}
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     Promise.all([
@@ -209,8 +260,14 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.mode !== "navigate") return;
 
+  const navigateUrl = new URL(event.request.url);
+  const isShoppingList =
+    event.request.method === "GET" &&
+    navigateUrl.origin === self.location.origin &&
+    SHOPPING_PATH.test(navigateUrl.pathname);
+
   event.respondWith(
-    fetch(event.request).catch(async () => {
+    (isShoppingList ? networkFirstShoppingList(event, navigateUrl) : fetch(event.request)).catch(async () => {
       const preferSwedish = (event.request.headers.get("Accept-Language") || "").toLowerCase().startsWith("sv");
       const cached = await caches.match(preferSwedish ? `${OFFLINE_CACHE_URL}-sv` : OFFLINE_CACHE_URL);
       return cached || Response.error();
