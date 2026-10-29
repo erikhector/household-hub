@@ -1059,8 +1059,14 @@ credentials only the product owner can provision, or an architecture call.
       order, labelled, with 44 px tag chips", `mobile`) failed and then
       passed on the one retry of the GitHub `End-to-end (Playwright)` job
       of release commit `e1e5230` (2026-10-25). It passed in the full
-      local `ci:local` run of the same commit. Not yet re-run with
-      repeats. Get the failing assertion with `--repeat-each=30`, find
+      local `ci:local` run of the same commit. 2026-10-29: could not
+      reproduce. 30/30 and then 40/40 passed on `mobile` with
+      `--retries=0` (the second under 8 CPU burners and 6 workers on 4
+      cores). The mobile sheet only slides and fades in (no scale), and
+      the position check is relative to the dialog body, so neither
+      measurement should move while it animates; suspect a CI-only
+      stall (hydration of the New recipe button after the tab click).
+      Needs the failing assertion from a CI log. Get the failing assertion with `--repeat-each=30`, find
       what the position or chip-height measurement races with (the sheet
       still animating in, or the Recipes tab not selected yet) and fix it
       in the app or the spec's waiting, never a loosened assertion, a
