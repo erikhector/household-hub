@@ -216,20 +216,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       (a Suspense split, larger than S).
 
 
-
-- [ ] **MAINT-71. Flaky: `inventory-lazy-dialogs` retry tap doesn't open the Add inventory item dialog** (low, S) —
-      `e2e/inventory-lazy-dialogs.spec.ts:73` ("a failed chunk load says so,
-      and the next tap retries", `mobile`) failed once in the full
-      `ci:local` gate of the UX-36 branch (`f9a7c8d`, 2026-10-29): the
-      `Add inventory item` dialog was not visible within 5 s after the
-      retry tap. The same code passed the gate earlier and the spec passed
-      `--repeat-each=3`; the diff did not touch inventory. Get the failing
-      step with `--repeat-each=30` under load and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
-
-
 ### UX (2026-09-26 scout)
 
 Found by loading every dashboard route at 390×844 and 1280×800, in English
