@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.119.0",
+    "date": "2026-10-29",
+    "pr": 879,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On a shared shopping list, each line now shows who added it, so you no longer have to ask \"did you add the oats?\".",
+      "sv": "På en delad inköpslista visas nu vem som lade till varje rad, så du slipper fråga \"la du till havren?\"."
+    }
+  },
+  {
     "version": "0.118.0",
     "date": "2026-10-29",
     "pr": 872,
