@@ -142,7 +142,7 @@ export function PhonePreview({
   }, [dict, oatMilkOnList, bananasTicked]);
 
   return (
-    <div className={cn("relative mx-auto w-full max-w-sm", className)} data-phase={phase}>
+    <div className={cn("relative mx-auto w-full max-w-sm lg:max-w-lg", className)} data-phase={phase}>
       {/* The notes sit on the frame's edges (above the speaker slot, and on
           the right edge beside the rows), never over the list name. */}
       <StickyNote shown={oatMilkOnList} className="-top-3 left-0 -rotate-6">
@@ -152,15 +152,17 @@ export function PhonePreview({
         role="img"
         aria-label={dict.label}
         inert
-        className="mx-auto w-80 max-w-full rounded-4xl bg-muted p-2.5 ring-1 ring-foreground/10 select-none"
+        className="mx-auto w-80 max-w-full rounded-4xl bg-muted p-2.5 ring-1 ring-foreground/10 select-none lg:w-[26rem]"
       >
-        {/* The screen is a fixed-height, clipped box, so the list fills it
+        {/* From lg the frame is a phone's CSS width (26 rem), since the view
+            inside lays itself out for the visitor's viewport, not the frame.
+            The screen is a fixed-height, clipped box, so the list fills it
             like a phone's and the thumb-zone dock (fixed on phones, above a
             bottom bar this frame doesn't have, hence the zeroed
             --bottom-nav-h) pins to the frame's bottom: a transformed
             ancestor is what a fixed descendant positions against. */}
         <div
-          className="relative h-[36rem] transform-gpu overflow-hidden rounded-3xl bg-background px-3 pt-2 pb-3 text-left [--bottom-nav-h:0px]"
+          className="relative h-[36rem] transform-gpu overflow-hidden rounded-3xl bg-background px-3 pt-2 pb-3 text-left [--bottom-nav-h:0px] lg:h-[46rem]"
         >
           {/* The speaker slot, so the frame reads as a phone at a glance. */}
           <span className="mx-auto mb-3 block h-1.5 w-14 rounded-full bg-foreground/15" />
@@ -180,7 +182,7 @@ export function PhonePreview({
           />
         </div>
       </div>
-      <StickyNote shown={bananasTicked} className="top-[52%] right-0 rotate-3">
+      <StickyNote shown={bananasTicked} className="top-[40%] right-0 rotate-3">
         {dict.tickedBy}
       </StickyNote>
     </div>

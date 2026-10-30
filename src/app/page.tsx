@@ -134,7 +134,7 @@ export default async function Home() {
               barcodeDict={dict.barcodeScanner}
               exportLabel={dict.export.button}
               locale={locale}
-              className={cn(rise, "motion-safe:[animation-delay:240ms] lg:max-w-md")}
+              className={cn(rise, "motion-safe:[animation-delay:240ms]")}
             />
           </UnitsProvider>
         </section>
