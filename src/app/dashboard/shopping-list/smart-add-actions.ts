@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, zodFail } from "@/lib/actions/errors";
@@ -171,7 +172,7 @@ export async function smartAddShoppingListItemsAction(
           });
           addedIds.push(created.id);
         }
-      });
+      }, INTERACTIVE_TX_OPTIONS);
       createdInventory = newItems.size > 0;
       if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
     }
@@ -287,7 +288,7 @@ export async function resolveShoppingListMappingsAction(
         shoppingListId = result.shoppingListId;
         if (result.resolved) resolvedCount++;
       }
-    });
+    }, INTERACTIVE_TX_OPTIONS);
     if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
   } catch (error) {
     return toFriendlyError(error);

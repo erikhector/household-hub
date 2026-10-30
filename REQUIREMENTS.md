@@ -62,6 +62,13 @@ easy for AI coding agents to work in correctly:
   `groupBy`, `$queryRaw`) that fails with "Connection terminated
   unexpectedly" is retried once on a fresh connection; writes are never
   retried, since they may already have been applied.
+  **Slow hand-out (BUG-5)**: interactive `prisma.$transaction(async …)` calls
+  in the shopping-list and inventory actions pass `INTERACTIVE_TX_OPTIONS`
+  (`src/lib/db-transaction.ts`: `maxWait` 10 s, `timeout` 15 s) instead of
+  Prisma's 2 s / 5 s defaults, which a slow connection hand-out could
+  exhaust before the first write. The tick action (`togglePurchasedAction`)
+  returns the usual generic error state if the transaction still fails
+  (P2028 included), so the row reverts with a toast instead of a 500.
 - **Sentry is kept out of the root bundle (PERF-8).** The browser SDK is
   only ever loaded through a dynamic `import("@sentry/nextjs")` behind a
   `NEXT_PUBLIC_SENTRY_DSN` check, in `src/instrumentation-client.ts`
