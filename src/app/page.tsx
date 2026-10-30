@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/legal-footer";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { PhonePreview } from "@/components/landing/phone-preview";
+import { UnitsProvider } from "@/components/units-provider";
+import { format } from "@/lib/i18n/format";
 import { handwriting } from "@/components/landing/handwriting";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { buildMetadata } from "@/lib/page-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  const dict = await getDictionary();
+  const [dict, locale] = await Promise.all([getDictionary(), getLocale()]);
   const landing = dict.landing;
 
   // UX-58, list-first: the page makes one promise (the shared shopping list
@@ -122,7 +124,20 @@ export default async function Home() {
               <p className="max-w-xs text-sm text-muted-foreground">{landing.freeNote}</p>
             </div>
           </div>
-          <PhonePreview dict={landing.preview} className={cn(rise, "motion-safe:[animation-delay:240ms] lg:max-w-md")} />
+          {/* The product shot is the share page's real list view with example
+              rows (see PhonePreview), so it takes the same unit labels and
+              dictionary slices the share page gives it. */}
+          <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>
+            <PhonePreview
+              dict={landing.preview}
+              listDict={dict.sharedShoppingList}
+              shoppingMode={dict.shoppingList.shoppingMode}
+              otherCategory={dict.shoppingList.otherCategory}
+              sharedBy={format(dict.sharedShoppingList.sharedBy, { household: landing.preview.household })}
+              locale={locale}
+              className={cn(rise, "motion-safe:[animation-delay:240ms] lg:max-w-md")}
+            />
+          </UnitsProvider>
         </section>
 
         <section className="flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 sm:pb-28">

@@ -7156,15 +7156,24 @@ components directly.
   `/signup` with "Free for the whole household. No card, no ads." as small
   print. Beside it (below it on a phone, still starting in the first
   screen) is `PhonePreview` (`src/components/landing/phone-preview.tsx`):
-  the tokens-drawn "Weekly shop" list in a phone frame, one `role="img"`
-  with a descriptive label, drawn rather than screenshotted so it follows
-  the visitor's language and theme and never goes stale. It plays the
-  page's one piece of motion, a demo loop: the stage clears, oat milk
-  slides onto the list (a row growing from nothing, `ease-spring`) under a
-  handwritten "oat milk → added itself" sticky note, then the bananas tick
-  (`tick-pop`, the app's own checkbox spring) under "Sam ticked the
-  bananas ✓", then it holds and starts over (`LOOP` holds the phase
-  timings; `data-phase` on the wrapper names the phase). The server
+  the share page's real list view, `SharedListView`
+  (`src/components/shopping/shared-list-view.tsx`, extracted from
+  `SharedShoppingListClient` so the public share page and the landing page
+  render the same title row, progress ring, aisle groups and rows), fed
+  six example rows ("Weekly shop", shared by the Lindqvist family) in a
+  phone frame. The frame is one inert `role="img"` with a descriptive
+  label, so nothing inside is focusable or announced, and the view's
+  `decorative` mode draws its title and aisle labels as plain text rather
+  than headings. Being the product's own component, it follows the
+  visitor's language, theme and unit labels (the page wraps it in
+  `UnitsProvider` like the share page does) and can't drift from the app.
+  It plays the page's one piece of motion, a demo loop: the stage clears,
+  oat milk rises onto the list (`landing-rise`) under a handwritten "oat
+  milk → added itself" sticky note, then the bananas tick (`tick-pop`, the
+  checkbox's own spring, via `SharedRowView`'s `ticking`) and move to "In
+  the cart" under "Sam ticked the bananas ✓", then it holds and starts over
+  (`LOOP` holds the phase timings; `data-phase` on the wrapper names the
+  phase). The server
   renders the finished picture ("rest": oat milk on the list, bananas
   ticked, both notes up), so the page is complete before any script runs;
   with `prefers-reduced-motion` the loop never starts and that picture
