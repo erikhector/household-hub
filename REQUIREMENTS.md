@@ -3142,7 +3142,7 @@ scoped to the selected month, so an unpaid August debt silently vanished
 in September.) That is a statement about the numbers, not the queries
 (PERF-12): a bill where every member paid exactly their share and nothing
 is left unpaid has an all-zero position, so `loadUnsettledSplitBills`
-(`budget/page.tsx`) skips it in SQL (`isSettledBill` is the tested
+(`src/lib/budget/load-budget-tabs-data.ts`, MAINT-10) skips it in SQL (`isSettledBill` is the tested
 definition its `HAVING` clause negates), and repayments arrive as one
 `groupBy` sum per payer/receiver pair (`sumTransfersByPair` is the same
 reduction, tested), with only the newest 10 rows fetched for the list. The
