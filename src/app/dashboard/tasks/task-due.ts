@@ -40,7 +40,10 @@ export function todayDayNumber(now: Date, timeZone = "UTC"): number {
  */
 export function getTaskDueDay(task: TaskDueFields, timeZone = "UTC"): number | null {
   if (task.recurrenceIntervalDays !== null) {
-    if (task.completedAt === null) return localDayNumber(task.recurrenceAnchorAt ?? task.createdAt, timeZone);
+    // GAP-60: a never-done task that was skipped is next due when the skip ends.
+    if (task.completedAt === null && (task.skippedUntil ?? null) === null) {
+      return localDayNumber(task.recurrenceAnchorAt ?? task.createdAt, timeZone);
+    }
     const next = getNextDueDate(task, timeZone);
     return next === null ? null : localDayNumber(next, timeZone);
   }

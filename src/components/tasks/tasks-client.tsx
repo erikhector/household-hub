@@ -8,13 +8,13 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Check, Trash2, Repeat, Pencil } from "lucide-react";
+import { Check, Trash2, Repeat, Pencil, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
-import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
-import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
+import { deleteTaskAction, skipTaskAction, toggleTaskCompletedAction, unskipTaskAction } from "@/app/dashboard/tasks/actions";
+import { getNextDueDate, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
 import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
@@ -46,6 +46,10 @@ type TaskRow = {
   completedAt: Date | null;
   createdAt: Date;
   recurrenceAnchorAt: Date | null;
+  /** GAP-60: the end of a "Skip this time", when there is one. */
+  skippedUntil: Date | null;
+  /** GAP-60: closed by a skip that is still running (not by a tick). */
+  skipped: boolean;
   /** UX-133: the local day it is due (days since 1970-01-01), or null. */
   dueDay: number | null;
   /** UX-133: a one-off's chosen date as YYYY-MM-DD, for the edit form. */
@@ -90,9 +94,12 @@ export function TasksClient({
   // in a row never waits on (or greys out behind) an earlier save (UX-14),
   // and a failed one moves its row back at once, with a toast.
   const local = useLocalRowChanges(serverTasks);
-  const allTasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed) =>
-    withLocalCompletion(task, completed, currentMemberId, new Date()),
-  );
+  const allTasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed, change) => {
+    // GAP-60: a skip, and unticking a skipped task (which only undoes the
+    // skip), leave completedAt and its completer alone.
+    if (change.skipped || (!completed && task.skipped)) return withLocalSkip(task, completed && !!change.skipped, new Date());
+    return withLocalCompletion(task, completed, currentMemberId, new Date());
+  });
   // UX-106: "Mine / Everyone", remembered on this device. It only shows (and
   // only applies) to someone who is in a household with a second person; for
   // a household of one it would filter nothing.
@@ -116,6 +123,33 @@ export function TasksClient({
     }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
+      settle(result !== null);
+    })();
+  };
+  // GAP-60: "Skip this time" moves the row to "Completed" at tap time like a
+  // tick, but writes no completion. Undo puts back what the column held, which
+  // for a task that was open is null or a moment already past.
+  const skipTask = (task: TaskRow) => {
+    const previousSkippedUntil = task.skippedUntil;
+    const settle = local.markSkipped(task.id, true);
+    toast(format(dict.skippedToast, { title: task.title }), {
+      duration: 5000,
+      action: {
+        label: dict.swipe.undo,
+        onClick: () => {
+          const settleUndo = local.markSkipped(task.id, false);
+          void (async () => {
+            const result = await settleOptimisticAction(
+              () => unskipTaskAction(task.id, previousSkippedUntil),
+              dict.saveFailedToast,
+            );
+            settleUndo(result !== null);
+          })();
+        },
+      },
+    });
+    void (async () => {
+      const result = await settleOptimisticAction(() => skipTaskAction(task.id), dict.saveFailedToast);
       settle(result !== null);
     })();
   };
@@ -206,6 +240,7 @@ export function TasksClient({
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
                 onDelete={deleteTask}
+                onSkip={skipTask}
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
@@ -244,6 +279,7 @@ export function TasksClient({
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
                 onDelete={deleteTask}
+                onSkip={skipTask}
                 dict={dict}
                 locale={locale}
                 timeZone={timeZone}
@@ -274,6 +310,7 @@ function TaskItemRow({
   memberNameById,
   onToggleCompleted,
   onDelete,
+  onSkip,
   dict,
   locale,
   timeZone,
@@ -284,6 +321,7 @@ function TaskItemRow({
   memberNameById: Map<string, string>;
   onToggleCompleted: (task: TaskRow) => void;
   onDelete: (task: TaskRow) => void;
+  onSkip: (task: TaskRow) => void;
   dict: TasksDict;
   locale: Locale;
   timeZone: string;
@@ -347,6 +385,8 @@ function TaskItemRow({
     task.completed ||
     completerName !== undefined;
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const skipButtonRef = useRef<HTMLButtonElement>(null);
+  const canSkip = !task.completed && task.recurrenceIntervalDays !== null;
 
   return (
     <SwipeRow
@@ -403,13 +443,16 @@ function TaskItemRow({
               {/* Just whose turn is next — never a count or tally of who's
                   done it how often (see REQUIREMENTS.md, "Household tasks"). */}
               {nextInRotationName && <span>{format(dict.rotationNextLabel, { name: nextInRotationName })}</span>}
-              {task.completed && <span>{format(dict.completedByLabel, { name: completerName ?? dict.unassignedBadge })}</span>}
+              {task.skipped && <span>{dict.skippedLabel}</span>}
+              {task.completed && !task.skipped && (
+                <span>{format(dict.completedByLabel, { name: completerName ?? dict.unassignedBadge })}</span>
+              )}
               {/* An open task can still carry a completedByMemberId from before it
                   was reopened (manually, or automatically once its recurrence
                   interval elapsed — see toggleTaskCompletedAction/recurrence.ts):
                   that's real "last done by" history, not stale data, so surface it
                   rather than letting it silently disappear once the task reopens. */}
-              {!task.completed && completerName && (
+              {(!task.completed || task.skipped) && completerName && (
                 <span>{format(dict.lastCompletedByLabel, { name: completerName })}</span>
               )}
             </div>
@@ -437,6 +480,7 @@ function TaskItemRow({
             members={members}
             dict={dict}
             onDelete={() => deleteButtonRef.current?.click()}
+            onSkip={canSkip ? () => skipButtonRef.current?.click() : undefined}
             trigger={
               <Button
                 variant="ghost"
@@ -449,6 +493,21 @@ function TaskItemRow({
               </Button>
             }
           />
+          {/* GAP-60: only a repeating task that is open can be skipped. From sm
+              up it is this icon; on a phone the edit sheet carries the button
+              (same hand-off as Delete), so the row stays one line. */}
+          {canSkip && (
+            <Button
+              ref={skipButtonRef}
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 text-muted-foreground hover:text-foreground max-sm:hidden"
+              aria-label={format(dict.skipTaskAriaLabel, { title: task.title })}
+              onClick={() => onSkip(task)}
+            >
+              <SkipForward className="size-3.5" />
+            </Button>
+          )}
           {/* UX-49: removes at once with the same Undo toast as the swipe,
               not a "can't be undone" confirm for a task that is one tap to
               add back. */}

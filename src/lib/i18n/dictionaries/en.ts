@@ -70,6 +70,7 @@ export const en = {
     ingredientUnitTooLong: "Ingredient units must be {max} characters or fewer",
     ingredientQuantityPositive: "Ingredient quantities must be greater than 0",
     taskNotFound: "Task not found",
+    skipNeedsRepeat: "Only repeating tasks can be skipped",
     memberNotFound: "Member not found",
     onlyRepeatingTurns: "Only repeating tasks can take turns",
     pickTwoPeople: "Pick at least two people to take turns",
@@ -2432,6 +2433,10 @@ export const en = {
       other: "Overdue · {count} days",
     },
     deleteTaskAriaLabel: "Delete {title}",
+    // GAP-60: "Skip this time" on an open repeating task.
+    skipTaskAriaLabel: "Skip {title} this time",
+    skippedLabel: "Skipped",
+    skippedToast: 'Skipped "{title}" this time',
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
@@ -2487,6 +2492,8 @@ export const en = {
       saving: "Saving…",
       // UX-106: on a phone the sheet is the visible path to Delete.
       delete: "Delete",
+      // GAP-60: on a phone the sheet is the visible path to skipping.
+      skip: "Skip this time",
     },
   },
   budget: {

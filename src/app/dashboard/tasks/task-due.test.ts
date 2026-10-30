@@ -18,6 +18,7 @@ const task = (overrides: Partial<TaskDueFields> = {}): TaskDueFields => ({
   recurrenceIntervalDays: null,
   createdAt: new Date("2026-10-01T08:00:00Z"),
   recurrenceAnchorAt: null,
+  skippedUntil: null,
   dueDate: null,
   ...overrides,
 });

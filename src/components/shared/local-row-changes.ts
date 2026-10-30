@@ -29,21 +29,23 @@ import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { unstable_rethrow } from "next/navigation";
 
-export type LocalRowChange = { seq: number; done?: boolean; deleted?: boolean; settled?: boolean };
+// `skipped` (GAP-60) says the `done` flip is a task skip or its undo rather
+// than a tick, so the row closes without a completion being faked.
+export type LocalRowChange = { seq: number; done?: boolean; skipped?: boolean; deleted?: boolean; settled?: boolean };
 export type LocalRowChanges = ReadonlyMap<string, LocalRowChange>;
 
 /** The rows as they should show: deleted ones gone, ticked ones flipped. */
 export function applyLocalRowChanges<T extends { id: string }>(
   rows: readonly T[],
   changes: LocalRowChanges,
-  withDone: (row: T, done: boolean) => T,
+  withDone: (row: T, done: boolean, change: LocalRowChange) => T,
 ): T[] {
   if (changes.size === 0) return [...rows];
   return rows.flatMap((row) => {
     const change = changes.get(row.id);
     if (!change) return [row];
     if (change.deleted) return [];
-    return change.done === undefined ? [row] : [withDone(row, change.done)];
+    return change.done === undefined ? [row] : [withDone(row, change.done, change)];
   });
 }
 
@@ -117,6 +119,7 @@ export function useLocalRowChanges(rows: readonly unknown[]) {
   return {
     changes,
     markDone: (id: string, done: boolean) => mark(id, { done }),
+    markSkipped: (id: string, skipped: boolean) => mark(id, { done: skipped, skipped: true }),
     markDeleted: (id: string) => mark(id, { deleted: true }),
   };
 }
