@@ -87,13 +87,15 @@ export function PhonePreview({ dict, className }: { dict: PreviewDict; className
 
   return (
     <div className={cn("relative mx-auto w-full max-w-sm", className)} data-phase={phase}>
-      <StickyNote shown={oatMilkOnList} className="top-[6%] left-0 -rotate-6">
+      {/* The notes sit on the frame's edges (above the speaker slot, and on
+          the right edge beside the bananas), never over the list name. */}
+      <StickyNote shown={oatMilkOnList} className="-top-3 left-0 -rotate-6">
         {dict.addedItself}
       </StickyNote>
       <div
         role="img"
         aria-label={dict.label}
-        className="mx-auto w-64 max-w-full rounded-4xl bg-muted p-2.5 ring-1 ring-foreground/10 select-none"
+        className="mx-auto w-72 max-w-full rounded-4xl bg-muted p-2.5 ring-1 ring-foreground/10 select-none"
       >
         <div className="flex flex-col gap-3 overflow-hidden rounded-3xl bg-background px-3 pt-2 pb-4 text-left">
           {/* The speaker slot, so the frame reads as a phone at a glance. */}
@@ -144,7 +146,7 @@ export function PhonePreview({ dict, className }: { dict: PreviewDict; className
           </div>
         </div>
       </div>
-      <StickyNote shown={bananasTicked} className="right-0 bottom-[14%] rotate-3">
+      <StickyNote shown={bananasTicked} className="top-[46%] right-0 rotate-3">
         {dict.tickedBy}
       </StickyNote>
     </div>
