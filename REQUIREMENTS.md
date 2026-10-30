@@ -4877,6 +4877,39 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   reuses `undoCopyWeekAction` with the written ids. No schema change.
   `e2e/meal-planner-fill-empty-days.spec.ts` covers cancel, swap, accept
   (entries present after reload) and undo.
+- **Meal-plan templates** (BACKLOG GAP-52): a week of meals saved under a
+  name ("School-week basics") and stamped onto any other week, so a
+  household's favourite rotations survive the week being edited.
+  *Schema*: `MealPlanTemplate` (`householdId`, `name`, `createdAt`;
+  `@@unique([householdId, name])`, cascade with the household) and
+  `MealPlanTemplateEntry` (`dayOffset` 0-6 from Monday, `mealType`,
+  `recipeId` or `freeformName`, `portions`). Deleting a recipe cascades its
+  template entries away. Cooked state and prepared batches are never saved.
+  *Save*: a "Save week as template" item in the planner's ⋯ menu (shown
+  when the week has entries) opens a name dialog (`SaveWeekTemplateDialog`,
+  `src/components/meal-planning/plan-template-dialogs.tsx`).
+  `saveWeekAsTemplateAction` (`template-actions.ts`) reads the household's
+  week, turns each date into its offset (`buildTemplateEntries` in
+  `plan-template-calc.ts`, which drops nameless and out-of-week rows),
+  and refuses an empty week or a name already used (case-insensitive,
+  never an overwrite).
+  *Apply*: a "Plan from template" item (shown when any template exists)
+  opens a picker listing each template with its meal count. Suggest, don't
+  mutate: nothing is written until the row's "Plan this week" is pressed.
+  `applyMealPlanTemplateAction(templateId, weekStart)` checks the template
+  belongs to the household, requires a Monday, re-checks recipe ownership,
+  and skips every slot (date + meal type) that already has an entry
+  (`planTemplateRows`); the `MealPlan` is upserted only if there is a row
+  to write. It returns `{ copied, entryIds }` like `copyWeekAction`, so the
+  "Planned N meals from the template" toast's Undo reuses
+  `undoCopyWeekAction`.
+  *Delete*: the trash button removes a template at once with an Undo toast
+  (`deleteMealPlanTemplateAction` returns a snapshot that
+  `restoreMealPlanTemplateAction` re-validates and recreates, dropping
+  entries whose recipe isn't the household's). Unit tests:
+  `plan-template-calc.test.ts`, `template-actions.test.ts`;
+  `e2e/meal-plan-templates.spec.ts` saves a week and applies it to an empty
+  one.
 - **Editing a meal entry**: an entry that hasn't been cooked yet has a
   pencil button. It opens the same `MealEntryDialog` in `mode="edit"`,
   backed by `updateMealEntryAction`, which changes the entry's recipe or

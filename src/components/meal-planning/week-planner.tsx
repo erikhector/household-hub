@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Unlink, Utensils } from "lucide-react";
+import { ArrowRightLeft, BookmarkPlus, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, LayoutTemplate, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Unlink, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
@@ -35,6 +35,8 @@ import {
   loadAddToPlanDialog,
   loadCookModeDialog,
   loadFillEmptyDaysDialog,
+  loadSaveWeekTemplateDialog,
+  loadPlanFromTemplateDialog,
   loadMarkCookedDialog,
   loadMealEntryDialog,
   loadMissingIngredientsDialog,
@@ -57,6 +59,7 @@ import { format, plural } from "@/lib/i18n/format";
 import type {
   ActiveShoppingListOption,
   MealPlanEntryData,
+  PlanTemplateSummary,
   PreparedBatchData,
   RecipeData,
 } from "@/components/meal-planning/types";
@@ -138,6 +141,7 @@ export function WeekPlanner({
   activeShoppingLists,
   batches,
   missingCount,
+  planTemplates,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -154,6 +158,8 @@ export function WeekPlanner({
   // the server (same diff as the review dialog's first preview). Zero on an
   // empty week or a fully stocked one, which hides the primary action.
   missingCount: number;
+  // GAP-52: the household's saved week templates, for "Plan from template".
+  planTemplates: PlanTemplateSummary[];
 }) {
   // GAP-39: the "Plan leftovers" toast action's dialog. Held here, not in the
   // cooked row, because that row stops rendering MarkCookedDialog the moment
@@ -198,6 +204,9 @@ export function WeekPlanner({
   // inside the ⋯ menu would unmount with the menu, so it lives beside it.
   const [missingOpen, setMissingOpen] = useState(false);
   const [fillOpen, setFillOpen] = useState(false);
+  // GAP-52: the template dialogs, mounted only while open like the two above.
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [pickTemplateOpen, setPickTemplateOpen] = useState(false);
 
   // Leaving the page ends a bulk Remove's Undo window: send the delete now
   // rather than lose it (same as useUndoableDelete).
@@ -341,6 +350,18 @@ export function WeekPlanner({
                 {dict.fillEmptyDays}
               </DropdownMenuItem>
             )}
+            {entries.length > 0 && (
+              <DropdownMenuItem onClick={() => setSaveTemplateOpen(true)}>
+                <BookmarkPlus className="size-4" />
+                {dict.templates.saveMenuItem}
+              </DropdownMenuItem>
+            )}
+            {planTemplates.length > 0 && (
+              <DropdownMenuItem onClick={() => setPickTemplateOpen(true)}>
+                <LayoutTemplate className="size-4" />
+                {dict.templates.pickMenuItem}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => setMissingOpen(true)}>
               <ListPlus className="size-4" />
               {dict.addMissingIngredients}
@@ -369,6 +390,37 @@ export function WeekPlanner({
               recipes={recipes}
               plannedRecipeIds={plannedRecipeIds}
               onClose={() => setFillOpen(false)}
+            />
+          )
+        }
+      </LazyDialog>
+      <LazyDialog
+        loader={loadSaveWeekTemplateDialog}
+        open={saveTemplateOpen}
+        onLoadError={() => setSaveTemplateOpen(false)}
+      >
+        {(SaveWeekTemplate) =>
+          saveTemplateOpen && (
+            <SaveWeekTemplate
+              dict={dict.templates}
+              weekStartKey={weekStartKey}
+              onClose={() => setSaveTemplateOpen(false)}
+            />
+          )
+        }
+      </LazyDialog>
+      <LazyDialog
+        loader={loadPlanFromTemplateDialog}
+        open={pickTemplateOpen}
+        onLoadError={() => setPickTemplateOpen(false)}
+      >
+        {(PlanFromTemplate) =>
+          pickTemplateOpen && (
+            <PlanFromTemplate
+              dict={dict.templates}
+              weekStartKey={weekStartKey}
+              templates={planTemplates}
+              onClose={() => setPickTemplateOpen(false)}
             />
           )
         }

@@ -155,3 +155,6 @@ export type PreparedBatchData = {
   cookedByName: string | null;
   plannedCount: number;
 };
+
+// GAP-52: a saved week template as the planner picker lists it.
+export type PlanTemplateSummary = { id: string; name: string; entryCount: number };
