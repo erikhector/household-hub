@@ -26,7 +26,7 @@
 // (there's no client-side vision model to run this against instead), never
 // written to the database — only the reviewed name/quantity/price rows are,
 // via applyReceiptScanAction/registerReceiptAction
-// (src/app/dashboard/shopping-list/actions.ts), same as an OCR'd line
+// (src/app/dashboard/shopping-list/receipt-actions.ts), same as an OCR'd line
 // always has been.
 
 import { z } from "zod";

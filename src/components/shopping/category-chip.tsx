@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { setShoppingListItemCategoryAction } from "@/app/dashboard/shopping-list/actions";
+import { setShoppingListItemCategoryAction } from "@/app/dashboard/shopping-list/item-actions";
 import { format } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";

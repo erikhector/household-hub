@@ -322,9 +322,8 @@ signInMock.mockImplementation(async (provider: string, options: { email: string;
 
 const { signupAction, loginAction, verifyEmailAction } = await import("@/lib/actions/auth");
 const { createInventoryItemAction } = await import("@/app/dashboard/inventory/actions");
-const { createShoppingListAction, addAdHocItemAction } = await import(
-  "@/app/dashboard/shopping-list/actions"
-);
+const { createShoppingListAction } = await import("@/app/dashboard/shopping-list/list-actions");
+const { addAdHocItemAction } = await import("@/app/dashboard/shopping-list/item-actions");
 const { createCategoryAction, createTransactionAction } = await import(
   "@/app/dashboard/budget/actions"
 );

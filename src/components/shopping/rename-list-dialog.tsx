@@ -12,7 +12,7 @@ import {
   DialogTitle,
   type DialogHandle,
 } from "@/components/ui/dialog";
-import { renameShoppingListAction } from "@/app/dashboard/shopping-list/actions";
+import { renameShoppingListAction } from "@/app/dashboard/shopping-list/list-actions";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";

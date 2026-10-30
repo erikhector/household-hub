@@ -2,7 +2,7 @@
 // src/app/dashboard/tasks/actions.ts, indirectly through the exported Server
 // Actions. All I/O (Prisma, requireHousehold, next/cache) is mocked — no
 // database is touched. Same convention as src/lib/actions/household.test.ts
-// and src/app/dashboard/shopping-list/actions.test.ts.
+// and src/app/dashboard/shopping-list/list-actions.test.ts.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const {

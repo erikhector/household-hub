@@ -44,7 +44,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
-import { applyReceiptScanAction, quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/actions";
+import { quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/item-actions";
+import { applyReceiptScanAction } from "@/app/dashboard/shopping-list/receipt-actions";
 import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
 import { isAutoAccepted, matchReceiptLines } from "@/lib/shopping/receipt-match";
 import type { ItemAliasLike } from "@/lib/item-alias";

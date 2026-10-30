@@ -29,7 +29,7 @@ type DbClient = typeof prisma | Prisma.TransactionClient;
 // What an auto-add hands back to the client so it can show the "Added X to
 // Next shop" toast, and so that toast's Undo can remove exactly the row that
 // was created (see undoAutoAddedItemsAction in
-// src/app/dashboard/shopping-list/actions.ts) — never "whatever is on the
+// src/app/dashboard/shopping-list/item-actions.ts) — never "whatever is on the
 // list for this item", which could be a row a person added by hand.
 export type AutoAddedItem = {
   shoppingListItemId: string;

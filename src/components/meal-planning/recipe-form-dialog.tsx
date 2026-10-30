@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Link2, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Camera, Link2, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +28,12 @@ import {
   importRecipeFromUrlAction,
   previewIngredientMatchesAction,
   updateRecipeAction,
+  type ImportedRecipeIngredient,
   type ImportRecipeState,
   type IngredientPreview,
 } from "@/app/dashboard/meal-planning/recipe-actions";
+import { importRecipeFromPhotoAction } from "@/app/dashboard/meal-planning/recipe-photo-actions";
+import { fileToResizedDataUrl } from "@/lib/image-resize";
 import {
   IngredientReviewStep,
   reviewRowError,
@@ -213,6 +216,7 @@ export function RecipeFormDialog({
   ingredientUnits,
   handle,
   startAtReview = false,
+  photoImportConfigured = false,
 }: {
   dict: MealPlanningDict;
   mode: "create" | "edit";
@@ -226,6 +230,9 @@ export function RecipeFormDialog({
   /** "Review ingredient matches" (MATCH-5): open an existing recipe
    * straight at step 2, with every row's current link as its decision. */
   startAtReview?: boolean;
+  /** GAP-54: a vision provider key is set server-side. Without one the
+   * "Import from a photo" button is hidden (there is no OCR fallback). */
+  photoImportConfigured?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -399,43 +406,73 @@ export function RecipeFormDialog({
   // action wrapper above: state updates happen right after the action
   // resolves, not in a useEffect (which would set state synchronously
   // during a render pass).
+  // Shared by the URL and photo imports (GAP-54): both hand over this shape.
+  const applyImportedRecipe = (recipe: {
+    name: string;
+    instructions: string;
+    ingredients: ImportedRecipeIngredient[];
+    tags?: RecipeTag[];
+  }) => {
+    if (recipe.name) setName(recipe.name);
+    if (recipe.instructions) setInstructions(recipe.instructions);
+    if (recipe.ingredients.length > 0) {
+      setIngredients(
+        // The parser splits the prep note off the name (MATCH-4) and
+        // hands it over as `note`, which the row keeps as its own field.
+        recipe.ingredients.map((ingredient) => ({
+          uid: newUid(),
+          name: ingredient.name,
+          quantity: String(ingredient.quantity),
+          unit: ingredient.unit,
+          unitTouched: true,
+          linkedItemId: null,
+          untracked: false,
+          linkedName: "",
+          // Clamped to the save action's caps, so an unusually long
+          // imported line can't make the whole save fail.
+          rawText: (ingredient.rawText ?? "").slice(0, MAX_RAW_TEXT_LENGTH),
+          note: (ingredient.note ?? "").slice(0, MAX_NOTE_LENGTH),
+        })),
+      );
+    }
+    // Only ever adds: a page's own diet claim (GAP-29) pre-ticks chips
+    // for review, but never un-ticks one the user already chose.
+    if (recipe.tags && recipe.tags.length > 0) {
+      const imported = recipe.tags;
+      setTags((current) => new Set([...current, ...imported]));
+    }
+  };
   const [importState, importFormAction, importPending] = useActionState(async (
     prevState: ImportRecipeState,
     formData: FormData,
   ) => {
     const result = await importRecipeFromUrlAction(prevState, formData);
-    if (result.recipe) {
-      if (result.recipe.name) setName(result.recipe.name);
-      if (result.recipe.instructions) setInstructions(result.recipe.instructions);
-      if (result.recipe.ingredients.length > 0) {
-        setIngredients(
-          // The parser splits the prep note off the name (MATCH-4) and
-          // hands it over as `note`, which the row keeps as its own field.
-          result.recipe.ingredients.map((ingredient) => ({
-            uid: newUid(),
-            name: ingredient.name,
-            quantity: String(ingredient.quantity),
-            unit: ingredient.unit,
-            unitTouched: true,
-            linkedItemId: null,
-            untracked: false,
-            linkedName: "",
-            // Clamped to the save action's caps, so an unusually long
-            // imported line can't make the whole save fail.
-            rawText: (ingredient.rawText ?? "").slice(0, MAX_RAW_TEXT_LENGTH),
-            note: (ingredient.note ?? "").slice(0, MAX_NOTE_LENGTH),
-          })),
-        );
-      }
-      // Only ever adds: a page's own diet claim (GAP-29) pre-ticks chips
-      // for review, but never un-ticks one the user already chose.
-      if (result.recipe.tags.length > 0) {
-        const imported = result.recipe.tags;
-        setTags((current) => new Set([...current, ...imported]));
-      }
-    }
+    if (result.recipe) applyImportedRecipe(result.recipe);
     return result;
   }, initialImportState);
+
+  // GAP-54: "Import from a photo". Resizes client-side (the same canvas
+  // resize as the receipt scan), then the action reads the recipe off it.
+  // A failure toasts and touches nothing; a success pre-fills like the URL
+  // import and still saves nothing until the user submits.
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoPending, setPhotoPending] = useState(false);
+  const importFromPhoto = async (file: File) => {
+    setPhotoPending(true);
+    try {
+      const result = await importRecipeFromPhotoAction(await fileToResizedDataUrl(file));
+      if (result.recipe) {
+        applyImportedRecipe(result.recipe);
+        toast.success(dict.importPhotoSuccess);
+      } else {
+        toast.error(result.error ?? dict.importPhotoErrorFailed);
+      }
+    } catch {
+      toast.error(dict.importPhotoErrorFailed);
+    } finally {
+      setPhotoPending(false);
+    }
+  };
 
   // MATCH-5: "Review ingredient matches" runs the same read-only preview
   // Save does, over the rows as saved. A linked row is sent with its link
@@ -586,6 +623,32 @@ export function RecipeFormDialog({
               {importPending ? dict.importing : dict.importButton}
             </Button>
           </div>
+          {photoImportConfigured && (
+            <>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                aria-label={dict.importPhotoButton}
+                tabIndex={-1}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void importFromPhoto(file);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={photoPending}
+                onClick={() => photoInputRef.current?.click()}
+              >
+                <Camera className="size-3.5" />
+                {photoPending ? dict.importPhotoReading : dict.importPhotoButton}
+              </Button>
+            </>
+          )}
           {importState.error && <p className="text-sm text-destructive">{importState.error}</p>}
           {/* Only a JSON-LD import is the site's own structured data; the
               Microdata and heading-heuristic fallbacks (GAP-31) are guesses,

@@ -6,7 +6,7 @@ import { Check, CheckCheck, PackageCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MascotMark } from "@/components/brand/mascot-empty-state";
 import { ProgressRing } from "@/components/shopping/shopping-mode";
-import { createShoppingListAction } from "@/app/dashboard/shopping-list/actions";
+import { createShoppingListAction } from "@/app/dashboard/shopping-list/list-actions";
 import { format, plural } from "@/lib/i18n/format";
 import type { ShoppingProgress } from "@/lib/shopping/shopping-progress";
 import type { ShoppingListDict } from "@/components/shopping/shopping-list-types";

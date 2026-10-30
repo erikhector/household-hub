@@ -97,6 +97,29 @@ enough to trust.
 
 Parallel-safe except where noted.
 
+### Bugs
+
+- [ ] **BUG-5. Interactive transactions expire at 5 s on slow connection hand-out** (impact: med, effort: S) —
+      Sentry JAVASCRIPT-NEXTJS-4 (2 events, `POST /dashboard/shopping-list/[id]`, the
+      tick/untick action, `purchase-actions.ts:55`; iOS Safari) and
+      JAVASCRIPT-NEXTJS-5 (1 event, a `prisma.inventoryItem.update()` in another
+      `$transaction`), all 2026-10-26 12:30–12:36 UTC on `vercel-production`
+      (fra1): "A query cannot be executed on an expired transaction … 5000 ms,
+      5121 ms passed". The first write of the transaction misses the Prisma
+      default 5 s, so the user's tick fails with a 500 though the work is tiny;
+      that points at connection hand-out (cold function, pooler saturation),
+      not the transaction body. Raise `timeout`/`maxWait` through one shared
+      option on the interactive `prisma.$transaction(async …)` calls
+      (`purchase-actions.ts`, `item-actions.ts`, `list-actions.ts`,
+      `receipt-actions.ts`, `smart-add-actions.ts`, inventory actions), and
+      have the tick action return its normal failure state (toast, row
+      reverts) instead of throwing when the transaction still fails. Check the
+      `DATABASE_POOL_MAX` vs pooler headroom note in `src/lib/prisma.ts:13`
+      (owner-only: pooler dashboard).
+      Acceptance: unit test that the tick action calls `$transaction` with an
+      explicit `timeout` and, when it rejects with a Prisma `P2028`, returns
+      the error state rather than throwing.
+
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
@@ -152,15 +175,9 @@ kept.
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Items 3 and 7 both
-touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-3,
-then MAINT-7 per feature, to avoid churn.
+tests passing, no `any`/`@ts-ignore` in app code. Item 7 does the
+shopping-list actions per feature, in the files MAINT-3 split them into.
 
-- [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
-      lines / 29 exports, test file 2,850 lines. Follow the meal-planning
-      precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
-      put-away), `receipt-` and `store-order-actions.ts`, tests split the
-      same way. Do after MAINT-2/5.
 - [ ] **MAINT-7. Translate the remaining server-returned error messages**
       (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
       `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
@@ -177,13 +194,6 @@ then MAINT-7 per feature, to avoid churn.
       namespace, as `template-actions.ts` does), and delete the file from
       `PENDING`: the test fails if a clean file stays listed. Leave budget
       until BUDGET-6 is decided.
-- [ ] **MAINT-10. Split oversized UI files** (low, M) —
-      `components/shopping/shopping-list-client.tsx` (now 1,107 lines; the
-      row, price, printable and cleared components are already out): pull
-      its state into hooks; `dashboard/budget/page.tsx` (967 lines:
-      `BudgetTabsSection` runs 10+ queries inline — extract a
-      `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
-      with PERF-12 and BUDGET-6.
 - [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
       the migration drift check, Node pinning and Dependabot are done
       (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
@@ -220,42 +230,6 @@ then MAINT-7 per feature, to avoid churn.
       allows it), or (b) restructure the item page so the heading and back
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
-
-
-
-- [ ] **MAINT-70. Flaky: `recipe-planned-dates` Recipes tab stays unselected after the click** (low, S) —
-      `e2e/recipe-planned-dates.spec.ts:55` (`mobile`) failed once in the
-      full `ci:local` gate of the MAINT-68 branch (`5f576e5`,
-      2026-10-28): the Recipes tab's `aria-selected` stayed false after the
-      click, although `openRecipesTab` had already waited for the router's
-      history patch. It passed 15/15 on mobile on rerun and in the next
-      full gate, so the cause is not understood. Reproduce with
-      `--repeat-each=30` under load and find the race in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-planned-dates.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
-      Investigated 2026-10-29 (`next` at `3d79c50`, which has MAINT-57's
-      local tab state): not reproduced in 120 mobile runs (30, 30 and 60
-      at 8, 6 and 14 workers, the last two with 8 and 16 busy-loop processes
-      on 4 cores). Untested suspect: Next's `HistoryUpdater` rewrites the
-      URL to the router state's `canonicalUrl` on every router commit, so a
-      commit that carries the pre-click URL (a refetch dispatched before the
-      click) reverts `?tab=` after the restore transition committed it;
-      `MealPlanningView` then sees the param change `recipes` -> none and
-      sets the tab back to the planner. If it recurs, capture the trace
-      (`--trace=retain-on-failure`) and look for a `replaceState` call
-      without `tab=recipes` after the click before touching the app or spec.
-- [ ] **MAINT-71. Flaky: `inventory-lazy-dialogs` retry tap doesn't open the Add inventory item dialog** (low, S) —
-      `e2e/inventory-lazy-dialogs.spec.ts:73` ("a failed chunk load says so,
-      and the next tap retries", `mobile`) failed once in the full
-      `ci:local` gate of the UX-36 branch (`f9a7c8d`, 2026-10-29): the
-      `Add inventory item` dialog was not visible within 5 s after the
-      retry tap. The same code passed the gate earlier and the spec passed
-      `--repeat-each=3`; the diff did not touch inventory. Get the failing
-      step with `--repeat-each=30` under load and fix it in the app or the
-      spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts
-      --project=mobile --repeat-each=30` passes 30/30.
 
 
 ### UX (2026-09-26 scout)
@@ -739,36 +713,6 @@ out to be a product-scope question rather than a scoped task should move to
       saves the seeded week, applies it to the next empty week and asserts
       the entries show, on desktop and mobile.
 
-### 2026-10-15 scan
-
-- [ ] **GAP-54. Import a recipe from a photo (cookbook page, recipe card)** (impact: med, effort: M) —
-      Plan to Eat's late-2025 update added photo scanning of recipe cards
-      and cookbook pages. Squirrel imports only from a URL
-      (REQUIREMENTS.md, "Recipe import from URL",
-      `src/lib/recipe-import.ts`), so a paper recipe or a screenshot is
-      retyped by hand. Add a "Import from a photo" button beside the URL
-      input in `RecipeFormDialog`, reusing the vision receipt-scan
-      upload and provider path (`scanReceiptPhotoAction` in
-      `src/lib/actions/receipt-scan.ts` and its `resolveAttempts`/
-      `callAttempts`/`callGemini`/`callAnthropic` helpers; no new third
-      party, no stored image) to extract name, instructions and
-      ingredient rows into the same pre-fill state. Same stance as the
-      URL import: never auto-save, the user reviews and edits first, and
-      a failed or empty parse shows an error toast and leaves the form
-      untouched. Gate it on the same check as that action:
-      `resolveAttempts` is empty (`not_configured`) when neither
-      `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set. The Tesseract OCR
-      fallback in `src/lib/receipt-parsing.ts` is receipt-specific and is
-      not used here, so with neither key set the button is hidden. Fold
-      the photo parser's output through the existing ingredient-line
-      parser so units and quantities match URL imports.
-      Acceptance: unit tests for the output-to-prefill mapping and the
-      unconfigured/failed-parse paths plus the tenancy check on the
-      action; an e2e step (AI mocked as in the receipt specs) uploads a
-      fixture image in the dialog and asserts the name and ingredient
-      rows are pre-filled and nothing is saved until Save, on desktop
-      and mobile.
-
 ### 2026-10-16 scan
 
 - [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
@@ -889,6 +833,31 @@ out to be a product-scope question rather than a scoped task should move to
       "used 1" with the actor's name under History after a reload, in
       `en` and `sv`.
 
+### 2026-10-30 scan
+
+- [ ] **GAP-67. Share a recipe link or a list of items to Squirrel from another app** (impact: med, effort: M) —
+      AnyList and Paprika appear in the phone's share sheet: from a browser
+      or a chat you tap Share, pick the app, and the recipe URL (or the
+      pasted ingredients) lands in it. Squirrel's `src/app/manifest.ts` has
+      no `share_target`, so an installed Squirrel never shows up there; to
+      import a recipe you copy the link, open the app, open the recipe
+      dialog and paste it (`recipe-form-dialog.tsx`, "Import from a URL"),
+      and to add a list someone texted you must copy it first and open
+      "Paste a list". Add `share_target` (GET, `action:
+      "/dashboard/share"`, params `title`, `text`, `url`) and a route
+      handler at that path that reads the session (a logged-out sharer goes
+      through login and back) and redirects: a `url` opens the recipe
+      dialog with the import field pre-filled, plain `text` opens the
+      shopping list's "Paste a list" with the text pre-filled. It only
+      pre-fills: nothing is imported or added until the user confirms, as
+      today. Android Chrome and Edge only (iOS Safari has no Web Share
+      Target); say so in REQUIREMENTS.md. No new data, no new storage.
+      Acceptance: a unit test that the handler maps `url` to the recipe
+      redirect and `text` to the list redirect and ignores anything else
+      (no open redirect); an e2e step in the `mobile` project that visits
+      `/dashboard/share?url=…` and sees the import field filled in, in `en`
+      and `sv`. The OS share sheet itself needs a real Android device.
+
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
@@ -953,23 +922,6 @@ out to be a product-scope question rather than a scoped task should move to
       both regions in the dashboards; if they differ, set
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
-
-- [ ] **PERF-21. Keep recently visited pages in the browser for 15 s**
-      (impact: med, effort: S) — Next 16 keeps no client copy of dynamic
-      pages (`staleTimes.dynamic` defaults to 0), so every switch between
-      bottom-bar tabs is a full server render plus that page's queries,
-      even for a tab seen seconds ago. Set
-      `experimental.staleTimes: { dynamic: 15 }` in `next.config.ts`. Your
-      own edits still show at once (an action's `revalidatePath` clears this
-      cache); another household member's change can take up to 15 s to
-      appear on navigation (a reload always shows it). The flag is marked
-      experimental. If PERF-22 goes ahead, `cacheLife`'s `stale` value
-      controls this instead.
-      Decided 2026-10-26 by autopilot-product: 15 s window. Why: tab
-      switching feels instant while a two-person shop sees the other's tick
-      within seconds, and it is one config line to revert. See PRODUCT.md.
-      Acceptance: the config change plus an e2e check that an edit still
-      shows after navigating away and back.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
@@ -1054,22 +1006,3 @@ credentials only the product owner can provision, or an architecture call.
       shopping list in a store with bad signal — the strongest use case)
       vs. what must always be fresh (auth, money).
 
-- [ ] **MAINT-63. Flaky: `recipe-form-order` recipe form order and 44 px tag chips check fails once, then passes on retry** (low, S) —
-      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe
-      order, labelled, with 44 px tag chips", `mobile`) failed and then
-      passed on the one retry of the GitHub `End-to-end (Playwright)` job
-      of release commit `e1e5230` (2026-10-25). It passed in the full
-      local `ci:local` run of the same commit. 2026-10-29: could not
-      reproduce. 30/30 and then 40/40 passed on `mobile` with
-      `--retries=0` (the second under 8 CPU burners and 6 workers on 4
-      cores). The mobile sheet only slides and fades in (no scale), and
-      the position check is relative to the dialog body, so neither
-      measurement should move while it animates; suspect a CI-only
-      stall (hydration of the New recipe button after the tab click).
-      Needs the failing assertion from a CI log. Get the failing assertion with `--repeat-each=30`, find
-      what the position or chip-height measurement races with (the sheet
-      still animating in, or the Recipes tab not selected yet) and fix it
-      in the app or the spec's waiting, never a loosened assertion, a
-      skip or a retry. Acceptance: `npx playwright test
-      e2e/recipe-form-order.spec.ts:11 --project=mobile --repeat-each=30`
-      passes 30/30.

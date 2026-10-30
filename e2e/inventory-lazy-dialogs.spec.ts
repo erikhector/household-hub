@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 import { E2E_ITEM } from "./seed-data";
@@ -62,13 +62,20 @@ test.describe("a failed chunk load", () => {
     await expectRouterPatched(page);
 
     // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
-    let offline = true;
-    await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+    const offline = (route: Route) => route.abort();
+    await page.route("**/_next/static/**/*.js", offline);
     await add.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    offline = false;
+    // Back online: take the route off rather than flipping a flag inside it.
+    // A route that stays (and answers route.continue()) makes the browser
+    // wait on this test process, one round trip per script, for every chunk
+    // the retry fetches. Under a loaded gate that process is as busy as the
+    // server and the browser, and those round trips are what can push the
+    // dialog past the 5 s the tap has to open it (MAINT-71). With the route
+    // gone the retry measures the app's own chunk load, not the harness.
+    await page.unroute("**/_next/static/**/*.js", offline);
     await add.click();
     await expect(page.getByRole("dialog", { name: t.addDialogTitle })).toBeVisible();
   });

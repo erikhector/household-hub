@@ -27,7 +27,7 @@ import {
   linkShoppingListItemAction,
   unlinkShoppingListItemAction,
   updateShoppingListItemAction,
-} from "@/app/dashboard/shopping-list/actions";
+} from "@/app/dashboard/shopping-list/item-actions";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 

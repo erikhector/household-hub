@@ -327,8 +327,13 @@ export async function expectHydrated(target: Locator) {
  * inside it waited out the 30 s timeout). Call it after expectHydrated and
  * before clicking a control that opens a dialog or switches a URL-driven tab. */
 export async function expectRouterPatched(page: Page) {
+  // "Not native code" is not enough (MAINT-72): src/components/ui/dialog-history.ts
+  // wraps replaceState as soon as it is evaluated, before hydration, so the
+  // check passed ~100 ms (more under load) before the router's patch landed
+  // and the race it guards came back. The router's patch is the one that
+  // tests the pushed state for `__NA`, which no other wrapper mentions.
   await expect
-    .poll(() => page.evaluate(() => !/\[native code\]/.test(window.history.replaceState.toString())))
+    .poll(() => page.evaluate(() => window.history.replaceState.toString().includes("__NA")))
     .toBe(true);
 }
 
