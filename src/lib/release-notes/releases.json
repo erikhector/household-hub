@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.123.0",
+    "date": "2026-10-30",
+    "pr": 936,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Pin an important note, like the wifi code or an allergy, to the top of the household notes board so it doesn't get buried. Up to 5 notes can be pinned.",
+      "sv": "Fäst en viktig anteckning, som wifi-koden eller en allergi, högst upp på hushållets anslagstavla så att den inte försvinner. Du kan fästa upp till 5 anteckningar."
+    }
+  },
+  {
     "version": "0.122.0",
     "date": "2026-10-30",
     "pr": 928,
