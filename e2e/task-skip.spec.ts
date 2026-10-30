@@ -174,3 +174,23 @@ test("a one-off task has no skip action", async ({ page }) => {
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
   await expect(page.getByRole("button", { name: `Skip ${title} this time`, exact: true })).toHaveCount(0);
 });
+
+test("a skipped task leaves the overview's Today block", async ({ page }) => {
+  // Both are daily chores last done three days ago, so both are overdue (and
+  // overdue tasks are never cut off by the block's limit); only one is skipped.
+  const skippedTitle = `Feed the fish ${suffix()}`;
+  const openTitle = `Wipe the hob ${suffix()}`;
+  await withClient((client) =>
+    client.query(
+      `INSERT INTO "HouseholdTask" (id, "householdId", title, "recurrenceIntervalDays", "completedAt", "skippedUntil")
+       VALUES ($1, $3, $4, 1, now() - interval '3 days', now() + interval '1 day'),
+              ($2, $3, $5, 1, now() - interval '3 days', NULL)`,
+      [`${ID_PREFIX}${suffix()}`, `${ID_PREFIX}${suffix()}`, E2E_HOUSEHOLD.id, skippedTitle, openTitle],
+    ),
+  );
+
+  await page.goto("/dashboard");
+  const main = page.getByRole("main");
+  await expect(main.getByText(openTitle, { exact: true })).toBeVisible();
+  await expect(main.getByText(skippedTitle, { exact: true })).toHaveCount(0);
+});

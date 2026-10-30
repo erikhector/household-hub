@@ -40,8 +40,12 @@ export type RecurrenceFields = {
   createdAt: Date;
   /** UX-144: the anchor day, re-set when the interval is edited; null falls back to `createdAt`. */
   recurrenceAnchorAt: Date | null;
-  /** GAP-60: closed until this moment by "Skip this time"; null/absent when never skipped. */
-  skippedUntil?: Date | null;
+  /**
+   * GAP-60: closed until this moment by "Skip this time"; null when never
+   * skipped. Required, not optional, so a query that forgets to select it is
+   * a type error instead of a skipped task that silently shows as open.
+   */
+  skippedUntil: Date | null;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

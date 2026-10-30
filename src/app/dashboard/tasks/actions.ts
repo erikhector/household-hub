@@ -436,6 +436,9 @@ export async function unskipTaskAction(taskId: string, previousSkippedUntil: Dat
     return await fail("invalidInput");
   }
 
+  // No compare-and-set on the current skip: if another member skipped it
+  // again in the seconds before this Undo, the Undo clears their skip too.
+  // That costs one extra open task, and the toast's window is short.
   try {
     await prisma.householdTask.updateMany({
       where: { id: taskId, householdId: household.id },

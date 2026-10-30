@@ -20,6 +20,7 @@ const task = (
   recurrenceIntervalDays,
   createdAt: created,
   recurrenceAnchorAt,
+  skippedUntil: null as Date | null,
 });
 
 describe("isTaskOpen", () => {
