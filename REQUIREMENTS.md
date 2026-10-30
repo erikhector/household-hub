@@ -7862,6 +7862,17 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
 (name "Squirrel", `display: "standalone"`, theme/background colors, and
 192/512/512-maskable icons).
 
+- **Home-screen shortcuts** (GAP-68): the manifest declares `shortcuts` for
+  Shopping list, Meal plan and Tasks (`/dashboard/shopping-list`,
+  `/dashboard/meal-planning`, `/dashboard/tasks`), each with a
+  `name`/`short_name` and the 96 px `public/icon-96.png`, so long-pressing
+  the installed icon jumps straight there. Android Chrome/Edge only; iOS
+  ignores them. The names are **English only**: `manifest()` is a static
+  route that doesn't read the locale cookie. `src/app/manifest.test.ts`
+  asserts every shortcut URL starts with `/dashboard/` and has an icon.
+  Nothing new is stored in the browser, so `cookie-inventory.ts` is
+  unchanged.
+
 - **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
   following the guide's "InstallPrompt" example): a three-state card —
   already installed (`display-mode: standalone` matched) shows a static

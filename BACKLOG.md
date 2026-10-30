@@ -836,22 +836,6 @@ out to be a product-scope question rather than a scoped task should move to
       `/dashboard/share?url=…` and sees the import field filled in, in `en`
       and `sv`. The OS share sheet itself needs a real Android device.
 
-- [ ] **GAP-68. Home-screen shortcuts on the installed app (long-press the icon)** (impact: low-med, effort: S) —
-      Bring!, AnyList and Todoist let you long-press the app icon and jump
-      straight to "Shopping list" or "Add task". Squirrel's manifest
-      (`src/app/manifest.ts`) declares no `shortcuts`, so every visit
-      starts at the overview and needs two taps to reach the shopping
-      list, which is the thing people open in the store. Add `shortcuts`
-      for Shopping list, Meal plan and Tasks pointing at the existing
-      routes, with `name`/`short_name` and a 96 px icon each; a manifest
-      can't read the cookie locale, so use the English names and say so in
-      REQUIREMENTS.md (or localise via the manifest route reading the
-      locale cookie, if that is already available there). Android
-      Chrome/Edge only; iOS ignores them.
-      Acceptance: a unit test on `manifest()` that each shortcut `url`
-      starts with `/dashboard/` and has an icon; no UI to test in e2e.
-      Whether the menu appears needs a real Android device.
-
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
