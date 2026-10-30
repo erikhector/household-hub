@@ -430,7 +430,7 @@ sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
 pseudo-element gives the 44 px target). WebKit was not run, and the
 per-action deep dive was not driven this run.
 
-- [ ] **UX-126. Bottom-bar labels lose their meaning at 320 px** (impact:
+- [ ] **UX-151. Bottom-bar labels lose their meaning at 320 px** (impact:
       low, effort: S) — `small-phone-dashboard.png` (every dashboard route):
       the bar reads "Overview, Inventory, Shopping, …Meal plan…, More".
       `bottom-nav.tsx:162` ellipsizes `dict.nav[key]` (UX-150), so "Meal
