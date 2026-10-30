@@ -166,10 +166,10 @@ export function RecipeManager({
   // import field filled in, then strip the param so a reload doesn't reopen
   // it. Nothing is fetched until the user taps Import.
   const sharedUrl = searchParams.get(SHARE_URL_PARAM);
-  const [prefillUrl, setPrefillUrl] = useState("");
+  // Seeded from the URL at mount, so the dialog's first render already has it.
+  const [prefillUrl] = useState(sharedUrl ?? "");
   useEffect(() => {
     if (!sharedUrl) return;
-    setPrefillUrl(sharedUrl);
     openLazyDialog(newRecipeHandle);
     const rest = new URLSearchParams(window.location.search);
     rest.delete(SHARE_URL_PARAM);

@@ -262,11 +262,11 @@ export function ShoppingListClient({
   const router = useRouter();
   const pathname = usePathname();
   const sharedText = useSearchParams().get(SHARE_TEXT_PARAM);
-  const [prefillText, setPrefillText] = useState("");
+  // Seeded from the URL at mount, so the dialog's first render already has it.
+  const [prefillText] = useState(sharedText ?? "");
   useEffect(() => {
     if (!sharedText) return;
     if (isActive) {
-      setPrefillText(sharedText);
       openLazyDialog(dialogs.importList);
     }
     router.replace(pathname, { scroll: false });
