@@ -217,6 +217,7 @@ export function RecipeFormDialog({
   handle,
   startAtReview = false,
   photoImportConfigured = false,
+  initialImportUrl = "",
 }: {
   dict: MealPlanningDict;
   mode: "create" | "edit";
@@ -233,6 +234,9 @@ export function RecipeFormDialog({
   /** GAP-54: a vision provider key is set server-side. Without one the
    * "Import from a photo" button is hidden (there is no OCR fallback). */
   photoImportConfigured?: boolean;
+  /** GAP-67: a link shared to Squirrel from another app. Only fills the
+   * "Import from a URL" field; nothing is fetched until the user taps Import. */
+  initialImportUrl?: string;
 }) {
   const [open, setOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -251,7 +255,7 @@ export function RecipeFormDialog({
       else next.add(tag);
       return next;
     });
-  const [importUrl, setImportUrl] = useState("");
+  const [importUrl, setImportUrl] = useState(initialImportUrl);
   const hasNutrition = (r: RecipeData | undefined) =>
     r != null &&
     (r.caloriesPerServing != null ||
@@ -517,7 +521,7 @@ export function RecipeFormDialog({
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
       setTags(new Set(recipe?.tags ?? []));
-      setImportUrl("");
+      setImportUrl(initialImportUrl);
       setShowNutrition(hasNutrition(recipe));
       setCaloriesPerServing(recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : "");
       setProteinGramsPerServing(

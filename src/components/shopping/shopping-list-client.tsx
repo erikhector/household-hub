@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useEffect, useState, useTransition, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SHARE_TEXT_PARAM } from "@/lib/share-target";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -250,6 +252,25 @@ export function ShoppingListClient({
     saveTemplate: createDialogHandle(),
     renameList: createDialogHandle(),
   }));
+
+  // GAP-67: a list shared to Squirrel from another app arrives as
+  // `?pasteText=…` (src/app/dashboard/share, via the shopping-list page's
+  // redirect to the active list). Open "Paste a list" with the text filled
+  // in, then strip the param so a reload doesn't reopen it. Nothing is added
+  // until the user parses and confirms. A list that's no longer active has no
+  // such dialog, so it just drops the param.
+  const router = useRouter();
+  const pathname = usePathname();
+  const sharedText = useSearchParams().get(SHARE_TEXT_PARAM);
+  const [prefillText, setPrefillText] = useState("");
+  useEffect(() => {
+    if (!sharedText) return;
+    if (isActive) {
+      setPrefillText(sharedText);
+      openLazyDialog(dialogs.importList);
+    }
+    router.replace(pathname, { scroll: false });
+  }, [sharedText, isActive, dialogs, pathname, router]);
 
   const { putAwayMode, setPutAwayMode, closePutAway } = usePutAwayDialog(awaitingPutAway.length);
 
@@ -689,7 +710,7 @@ export function ShoppingListClient({
             )}
           </LazyDialog>
           <LazyDialog loader={loadImportListDialog} handle={dialogs.importList}>
-            {(ImportListDialog) => <ImportListDialog listId={list.id} dict={dict.importList} handle={dialogs.importList} />}
+            {(ImportListDialog) => <ImportListDialog listId={list.id} dict={dict.importList} handle={dialogs.importList} initialText={prefillText} />}
           </LazyDialog>
           <ShareListButton shoppingListId={list.id} dict={dict.shareLink} handle={dialogs.share} />
           <LazyDialog loader={loadReorderSectionsDialog} handle={dialogs.reorderSections}>

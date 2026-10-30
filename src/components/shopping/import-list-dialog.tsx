@@ -41,17 +41,21 @@ export function ImportListDialog({
   dict,
   trigger,
   handle,
+  initialText = "",
 }: {
   listId: string;
   dict: Dictionary["shoppingList"]["importList"];
   /** Omit when opening through `handle` (e.g. from a menu item). */
   trigger?: ReactElement;
   handle?: DialogHandle;
+  /** GAP-67: a list shared to Squirrel from another app. Only fills the
+   * paste box; nothing is parsed or added until the user confirms. */
+  initialText?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("paste");
   const [pasteTab, setPasteTab] = useState<PasteTab>("text");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -63,7 +67,7 @@ export function ImportListDialog({
     if (next) {
       setStep("paste");
       setPasteTab("text");
-      setText("");
+      setText(initialText);
       setCsvFile(null);
       setRows([]);
     }

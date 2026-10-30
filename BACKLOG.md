@@ -766,31 +766,6 @@ out to be a product-scope question rather than a scoped task should move to
       "used 1" with the actor's name under History after a reload, in
       `en` and `sv`.
 
-### 2026-10-30 scan
-
-- [ ] **GAP-67. Share a recipe link or a list of items to Squirrel from another app** (impact: med, effort: M) —
-      AnyList and Paprika appear in the phone's share sheet: from a browser
-      or a chat you tap Share, pick the app, and the recipe URL (or the
-      pasted ingredients) lands in it. Squirrel's `src/app/manifest.ts` has
-      no `share_target`, so an installed Squirrel never shows up there; to
-      import a recipe you copy the link, open the app, open the recipe
-      dialog and paste it (`recipe-form-dialog.tsx`, "Import from a URL"),
-      and to add a list someone texted you must copy it first and open
-      "Paste a list". Add `share_target` (GET, `action:
-      "/dashboard/share"`, params `title`, `text`, `url`) and a route
-      handler at that path that reads the session (a logged-out sharer goes
-      through login and back) and redirects: a `url` opens the recipe
-      dialog with the import field pre-filled, plain `text` opens the
-      shopping list's "Paste a list" with the text pre-filled. It only
-      pre-fills: nothing is imported or added until the user confirms, as
-      today. Android Chrome and Edge only (iOS Safari has no Web Share
-      Target); say so in REQUIREMENTS.md. No new data, no new storage.
-      Acceptance: a unit test that the handler maps `url` to the recipe
-      redirect and `text` to the list redirect and ignores anything else
-      (no open redirect); an e2e step in the `mobile` project that visits
-      `/dashboard/share?url=…` and sees the import field filled in, in `en`
-      and `sv`. The OS share sheet itself needs a real Android device.
-
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36

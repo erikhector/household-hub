@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { SHARE_URL_PARAM } from "@/lib/share-target";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bookmark, CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,10 @@ export function RecipeManager({
 }) {
   // MATCH-6: the item page links a recipe as `?tab=recipes&recipe=<id>`,
   // which opens the list searched down to that recipe.
-  const linkedRecipeId = useSearchParams().get("recipe");
+  const searchParams = useSearchParams();
+  const linkedRecipeId = searchParams.get("recipe");
+  const router = useRouter();
+  const pathname = usePathname();
   const [query, setQuery] = useState(() => recipes.find((recipe) => recipe.id === linkedRecipeId)?.name ?? "");
   // GAP-29: ALL or one RecipeTag key. Combines with the name search (both
   // must match); vegan implies vegetarian/dairy-free via recipeMatchesTag.
@@ -157,6 +161,20 @@ export function RecipeManager({
   // PERF-26: the button stays in this chunk; the form (the page's biggest
   // dialog) loads on first use.
   const [newRecipeHandle] = useState(() => createDialogHandle());
+  // GAP-67: a recipe link shared to Squirrel from another app lands here as
+  // `?importUrl=…` (src/app/dashboard/share). Open "New recipe" with the
+  // import field filled in, then strip the param so a reload doesn't reopen
+  // it. Nothing is fetched until the user taps Import.
+  const sharedUrl = searchParams.get(SHARE_URL_PARAM);
+  const [prefillUrl, setPrefillUrl] = useState("");
+  useEffect(() => {
+    if (!sharedUrl) return;
+    setPrefillUrl(sharedUrl);
+    openLazyDialog(newRecipeHandle);
+    const rest = new URLSearchParams(window.location.search);
+    rest.delete(SHARE_URL_PARAM);
+    router.replace(`${pathname}?${rest.toString()}`, { scroll: false });
+  }, [sharedUrl, newRecipeHandle, pathname, router]);
   const newRecipeButton = (
     <Button
       type="button"
@@ -191,6 +209,7 @@ export function RecipeManager({
             ingredientUnits={ingredientUnits}
             handle={newRecipeHandle}
             photoImportConfigured={photoImportConfigured}
+            initialImportUrl={prefillUrl}
           />
         )}
       </LazyDialog>
