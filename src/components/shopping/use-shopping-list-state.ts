@@ -66,6 +66,7 @@ export function useShoppingTicks({
   defersToPutAway,
   dict,
   autoAddDict,
+  demo = false,
 }: {
   list: ShoppingListData;
   defersToPutAway: boolean;
@@ -73,6 +74,10 @@ export function useShoppingTicks({
   /** AUTO-8: un-checking a row can drop its item back into low stock and
    * onto "Next shop" — see showAutoAddedToast. */
   autoAddDict: Dictionary["inventory"]["autoAdd"];
+  /** The landing page's product shot (ShoppingListClient `demo`): example
+   * rows nobody can tick, so the visitor's offline queue is never read or
+   * replayed from here. */
+  demo?: boolean;
 }) {
   const router = useRouter();
   const isActive = list.status === "ACTIVE";
@@ -120,7 +125,11 @@ export function useShoppingTicks({
   // offline-tick-queue.ts). A queued wish outranks the overlay, which only
   // knows about saves on their way, so the row keeps showing it until the
   // replay has saved it and the server's own list says the same.
-  const queuedTicks = useSyncExternalStore(subscribeQueuedTicks, getQueuedTicks, getServerQueuedTicks);
+  const queuedTicks = useSyncExternalStore(
+    demo ? subscribeNever : subscribeQueuedTicks,
+    demo ? getServerQueuedTicks : getQueuedTicks,
+    getServerQueuedTicks,
+  );
   const items = applyLocalRowChanges(
     list.items.map((item) => {
       const purchased = queuedPurchased(queuedTicks, item.id) ?? shownPurchased(ticks, item.id, item.purchased);

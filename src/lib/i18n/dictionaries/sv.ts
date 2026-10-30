@@ -3686,7 +3686,6 @@ export const sv = {
       label:
         "En delad inköpslista i Squirrel på en mobil: havredryck lägger till sig själv när den tar slut, och en avbockning från en annan medlem syns direkt",
       listName: "Veckohandling",
-      household: "Familjen Lindqvist",
       addedItself: "havredryck → lade till sig själv",
       tickedBy: "Sam bockade av bananerna ✓",
       items: {

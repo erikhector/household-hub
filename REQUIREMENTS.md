@@ -7156,24 +7156,27 @@ components directly.
   `/signup` with "Free for the whole household. No card, no ads." as small
   print. Beside it (below it on a phone, still starting in the first
   screen) is `PhonePreview` (`src/components/landing/phone-preview.tsx`):
-  the share page's real list view, `SharedListView`
-  (`src/components/shopping/shared-list-view.tsx`, extracted from
-  `SharedShoppingListClient` so the public share page and the landing page
-  render the same title row, progress ring, aisle groups and rows), fed
-  six example rows ("Weekly shop", shared by the Lindqvist family) in a
-  phone frame. The frame is one inert `role="img"` with a descriptive
-  label, so nothing inside is focusable or announced, and the view's
-  `decorative` mode draws its title and aisle labels as plain text rather
-  than headings. Being the product's own component, it follows the
-  visitor's language, theme and unit labels (the page wraps it in
-  `UnitsProvider` like the share page does) and can't drift from the app.
-  It plays the page's one piece of motion, a demo loop: the stage clears,
-  oat milk rises onto the list (`landing-rise`) under a handwritten "oat
-  milk → added itself" sticky note, then the bananas tick (`tick-pop`, the
-  checkbox's own spring, via `SharedRowView`'s `ticking`) and move to "In
-  the cart" under "Sam ticked the bananas ✓", then it holds and starts over
-  (`LOOP` holds the phase timings; `data-phase` on the wrapper names the
-  phase). The server
+  the product itself. It renders `ShoppingListClient`, the shopping list's
+  member view (the same component as `/dashboard/shopping-list/[id]`: back
+  link, title, "Register receipt" and the ⋯ menu, the smart add line, the
+  rows by aisle and the thumb-zone dock), in a phone frame, fed six example
+  rows ("Weekly shop") in its `demo` mode. The frame is one inert
+  `role="img"` with a descriptive label, so nothing inside is focusable,
+  tappable or announced; the screen is a fixed-height clipped box with a
+  transform, so the dock, fixed on phones, pins to the frame's bottom.
+  `demo` changes only what would reach outside the frame: the offline tick
+  queue is never read (`useShoppingTicks`'s `demo`), the screen wake lock
+  isn't requested, the title is plain text rather than `PageTitle` (the
+  page has its own h1) and the back link isn't prefetched. Being the
+  product's own component, it follows the visitor's language, theme and
+  unit labels (the page wraps it in `UnitsProvider` like the dashboard
+  layout does) and can't drift from the app. It plays the page's one piece
+  of motion, a demo loop: the stage clears, oat milk arrives as a new row
+  under a handwritten "oat milk → added itself" sticky note, then the
+  bananas tick and glide to "In the cart" (the view's own FLIP move) under
+  "Sam ticked the bananas ✓", then it holds and starts over (`LOOP` holds
+  the phase timings; `data-phase` on the wrapper names the
+  phase). The server  phase). The server
   renders the finished picture ("rest": oat milk on the list, bananas
   ticked, both notes up), so the page is complete before any script runs;
   with `prefers-reduced-motion` the loop never starts and that picture

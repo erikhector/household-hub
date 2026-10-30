@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { SharedListView, SharedRowView, type SharedListViewDict, type SharedListViewItem } from "@/components/shopping/shared-list-view";
+import { useEffect, useMemo, useState } from "react";
+import { ShoppingListClient } from "@/components/shopping/shopping-list-client";
+import type { ShoppingListData, ShoppingListDict, ShoppingListItemRow } from "@/components/shopping/shopping-list-types";
 import { handwriting } from "@/components/landing/handwriting";
 import type { Dictionary } from "@/lib/i18n/dictionaries/en";
 import type { Locale } from "@/lib/i18n/locales";
+import { EMPTY_STORE_ORDER } from "@/lib/shopping/store-order";
 import { cn } from "@/lib/utils";
 
 type PreviewDict = Dictionary["landing"]["preview"];
 
 // The landing page's product shot, and its one piece of motion. It's the
-// real thing: the share page's list view (SharedListView, what a link
-// holder sees in the shop) in a phone frame, fed example rows, so it
-// follows the visitor's language and theme, and can't drift from the
-// product the way a screenshot or a hand-drawn copy would (UX-58). It's a
+// product itself: the shopping list's member view (ShoppingListClient, the
+// same component the dashboard renders at /dashboard/shopping-list/[id])
+// in a phone frame, fed six example rows in its `demo` mode, so it follows
+// the visitor's language, theme and unit labels and can't drift from the
+// app the way a screenshot or a hand-drawn copy would (UX-58). It's a
 // picture, not a control: the frame is one inert `role="img"` with a label
 // for screen readers, so nothing inside is focusable, tappable or
 // announced, and the two sticky notes beside it are aria-hidden.
@@ -23,12 +26,12 @@ type PreviewDict = Dictionary["landing"]["preview"];
 // a visitor with reduced motion keeps, and what a crawler or a thumbnail
 // sees, so the page is complete without a single frame of animation. With
 // motion allowed, the loop starts after mount: "start" clears the stage,
-// then oat milk rises onto the list under its "added itself" note, then
-// the bananas tick (the checkbox's own tick-pop) and move to "In the cart"
-// under Sam's note, then it holds and starts over. Each phase holds for
-// `LOOP`'s milliseconds; the moves run on the motion tokens (DESIGN.md,
-// "Depth, motion and states"). The loop pauses while the tab is hidden and
-// rests on the finished picture meanwhile.
+// then oat milk arrives on the list (a new server row, highlighted the way
+// the view highlights one) under its "added itself" note, then the bananas
+// tick and glide to "In the cart" (the view's own FLIP move) under Sam's
+// note, then it holds and starts over. Each phase holds for `LOOP`'s
+// milliseconds. The loop pauses while the tab is hidden and rests on the
+// finished picture meanwhile.
 type Phase = "rest" | "start" | "added" | "ticked";
 
 const LOOP: ReadonlyArray<readonly [Phase, number]> = [
@@ -37,26 +40,20 @@ const LOOP: ReadonlyArray<readonly [Phase, number]> = [
   ["ticked", 3800],
 ];
 
-// The stored categories are the app's own auto-categories in English;
-// SharedListView labels the aisles in the visitor's language (UX-83).
-const OAT_MILK = "oat-milk";
-const BANANAS = "bananas";
-
 export function PhonePreview({
   dict,
   listDict,
-  shoppingMode,
-  otherCategory,
-  sharedBy,
+  autoAddDict,
+  barcodeDict,
+  exportLabel,
   locale,
   className,
 }: {
   dict: PreviewDict;
-  listDict: SharedListViewDict;
-  shoppingMode: Dictionary["shoppingList"]["shoppingMode"];
-  otherCategory: string;
-  /** "Shared by {household}", formatted by the page. */
-  sharedBy: string;
+  listDict: ShoppingListDict;
+  autoAddDict: Dictionary["inventory"]["autoAdd"];
+  barcodeDict: Dictionary["barcodeScanner"];
+  exportLabel: string;
   locale: Locale;
   className?: string;
 }) {
@@ -88,28 +85,66 @@ export function PhonePreview({
   const oatMilkOnList = phase !== "start";
   const bananasTicked = phase === "rest" || phase === "ticked";
 
-  const row = (id: string, name: string, quantity: number, unit: string, category: string, purchased = false): SharedListViewItem => ({
-    id,
-    name,
-    quantity,
-    unit,
-    purchased,
-    note: null,
-    category,
-  });
-  const items: SharedListViewItem[] = [
-    ...(oatMilkOnList ? [row(OAT_MILK, dict.items.oatMilk, 2, "l", "Dairy & eggs")] : []),
-    row("yogurt", dict.items.yogurt, 1, "pcs", "Dairy & eggs"),
-    row(BANANAS, dict.items.bananas, 6, "pcs", "Produce", bananasTicked),
-    row("spinach", dict.items.spinach, 1, "bag", "Produce"),
-    row("pasta", dict.items.pasta, 500, "g", "Pantry basics"),
-    row("coffee", dict.items.coffee, 1, "pcs", "Pantry basics", true),
-  ];
+  // One list object per phase: the view reconciles its tick overlay
+  // whenever the server rows change identity, so the rows are built once
+  // per phase rather than on every render.
+  const { list, inventoryItems } = useMemo(() => {
+    const now = new Date();
+    // The stored categories are the app's own auto-categories in English;
+    // the view labels the aisles in the visitor's language (UX-83). Every
+    // row is linked to a pantry item, as a household's rows are once the
+    // app knows them, so no row asks to be matched.
+    const row = (
+      id: string,
+      name: string,
+      quantity: number,
+      unit: string,
+      category: string,
+      extra: Partial<ShoppingListItemRow> = {},
+    ): ShoppingListItemRow => ({
+      id: `demo-${id}`,
+      name,
+      quantity,
+      unit,
+      purchased: false,
+      addedAutomatically: false,
+      addedByName: null,
+      inventoryItemId: `demo-item-${id}`,
+      category,
+      estimatedPrice: null,
+      note: null,
+      barcode: null,
+      putAwayAt: null,
+      priceRecordedAt: null,
+      checkedOffAt: null,
+      location: null,
+      ...extra,
+    });
+    const bought = { purchased: true, checkedOffAt: now, putAwayAt: now };
+    const items = [
+      ...(oatMilkOnList ? [row("oat-milk", dict.items.oatMilk, 2, "l", "Dairy & eggs", { addedAutomatically: true })] : []),
+      row("yogurt", dict.items.yogurt, 1, "pcs", "Dairy & eggs"),
+      row("bananas", dict.items.bananas, 6, "pcs", "Produce", bananasTicked ? bought : {}),
+      row("spinach", dict.items.spinach, 1, "bag", "Produce"),
+      row("pasta", dict.items.pasta, 500, "g", "Pantry basics"),
+      row("coffee", dict.items.coffee, 1, "pcs", "Pantry basics", bought),
+    ];
+    const list: ShoppingListData = { id: "demo-list", name: dict.listName, status: "ACTIVE", items };
+    return {
+      list,
+      inventoryItems: items.map((item) => ({
+        id: item.inventoryItemId!,
+        name: item.name,
+        category: item.category!,
+        unit: item.unit,
+      })),
+    };
+  }, [dict, oatMilkOnList, bananasTicked]);
 
   return (
     <div className={cn("relative mx-auto w-full max-w-sm", className)} data-phase={phase}>
       {/* The notes sit on the frame's edges (above the speaker slot, and on
-          the right edge beside the bananas), never over the list name. */}
+          the right edge beside the rows), never over the list name. */}
       <StickyNote shown={oatMilkOnList} className="-top-3 left-0 -rotate-6">
         {dict.addedItself}
       </StickyNote>
@@ -117,36 +152,35 @@ export function PhonePreview({
         role="img"
         aria-label={dict.label}
         inert
-        className="mx-auto w-72 max-w-full rounded-4xl bg-muted p-2.5 ring-1 ring-foreground/10 select-none"
+        className="mx-auto w-80 max-w-full rounded-4xl bg-muted p-2.5 ring-1 ring-foreground/10 select-none"
       >
-        <div className="flex flex-col gap-3 overflow-hidden rounded-3xl bg-background px-3 pt-2 pb-4 text-left">
+        {/* The screen is a fixed-height, clipped box, so the list fills it
+            like a phone's and the thumb-zone dock (fixed on phones, above a
+            bottom bar this frame doesn't have, hence the zeroed
+            --bottom-nav-h) pins to the frame's bottom: a transformed
+            ancestor is what a fixed descendant positions against. */}
+        <div
+          className="relative h-[36rem] transform-gpu overflow-hidden rounded-3xl bg-background px-3 pt-2 pb-3 text-left [--bottom-nav-h:0px]"
+        >
           {/* The speaker slot, so the frame reads as a phone at a glance. */}
-          <span className="mx-auto h-1.5 w-14 rounded-full bg-foreground/15" />
-          <SharedListView
-            decorative
-            name={dict.listName}
-            sharedBy={sharedBy}
-            items={items}
-            otherCategory={otherCategory}
-            locale={locale}
+          <span className="mx-auto mb-3 block h-1.5 w-14 rounded-full bg-foreground/15" />
+          <ShoppingListClient
+            demo
+            list={list}
+            inventoryItems={inventoryItems}
+            smartAddCandidates={[]}
+            categories={["Dairy & eggs", "Produce", "Pantry basics"]}
+            units={["pcs", "l", "g", "bag"]}
             dict={listDict}
-            shoppingMode={shoppingMode}
-            renderRow={(item) => (
-              // Oat milk rises onto the list the way a new row does in the
-              // app; the bananas' tick plays the checkbox's own tick-pop.
-              <div key={item.id} className={cn(item.id === OAT_MILK && phase === "added" && "motion-safe:animate-landing-rise")}>
-                <SharedRowView
-                  item={item}
-                  purchased={item.purchased}
-                  onToggle={() => {}}
-                  ticking={item.id === BANANAS && phase === "ticked"}
-                />
-              </div>
-            )}
+            autoAddDict={autoAddDict}
+            barcodeDict={barcodeDict}
+            exportLabel={exportLabel}
+            locale={locale}
+            storeOrder={EMPTY_STORE_ORDER}
           />
         </div>
       </div>
-      <StickyNote shown={bananasTicked} className="top-[46%] right-0 rotate-3">
+      <StickyNote shown={bananasTicked} className="top-[52%] right-0 rotate-3">
         {dict.tickedBy}
       </StickyNote>
     </div>
@@ -160,7 +194,7 @@ function StickyNote({ shown, className, children }: { shown: boolean; className?
       aria-hidden="true"
       className={cn(
         handwriting.className,
-        "absolute z-10 max-w-[11rem] bg-note-yellow px-3 py-1.5 text-xl leading-tight font-bold text-note-ink shadow-md",
+        "absolute z-40 max-w-[11rem] bg-note-yellow px-3 py-1.5 text-xl leading-tight font-bold text-note-ink shadow-md",
         "transition-[opacity,scale] duration-(--motion-duration-spring) ease-(--motion-ease-spring)",
         shown ? "scale-100 opacity-100" : "scale-75 opacity-0",
         className,

@@ -124,6 +124,7 @@ export function ShoppingListClient({
   carryOverListName = "",
   nextListId = null,
   aliases = [],
+  demo = false,
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -158,6 +159,12 @@ export function ShoppingListClient({
   /** MATCH-5: the household's learned item names, so a receipt line or an
    * unlinked row's suggestion links the way the household taught it. */
   aliases?: ItemAliasLike[];
+  /** UX-58: the landing page's product shot renders this very view with
+   * example rows, inert inside a phone frame (PhonePreview). The view is
+   * the same; only what reaches outside it is off: the offline queue is
+   * never read, the screen wake lock isn't asked for, the title is plain
+   * text (the page has its own h1) and the back link isn't prefetched. */
+  demo?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   // Same formatter as the budget page's amounts (SafeToSpend,
@@ -178,7 +185,7 @@ export function ShoppingListClient({
     toggleItem,
     deleteItem,
     listRef,
-  } = useShoppingTicks({ list, defersToPutAway, dict, autoAddDict });
+  } = useShoppingTicks({ list, defersToPutAway, dict, autoAddDict, demo });
 
   const progress = shoppingProgress(items);
   // Ticked but not yet in inventory — the put-away dialog's rows. Offered on
@@ -395,7 +402,7 @@ export function ShoppingListClient({
     });
 
   // AUTO-3: keep the screen on while there's an ACTIVE list open on a phone.
-  useScreenWakeLock(isActive);
+  useScreenWakeLock(isActive && !demo);
 
   const { isCleared, clearedDismissed, dismissCleared } = useClearedState({
     itemCount: items.length,
@@ -422,6 +429,7 @@ export function ShoppingListClient({
       <PrintableList name={list.name} groups={pendingGroups} dict={dict} />
       <Link
         href="/dashboard/shopping-list"
+        prefetch={demo ? false : undefined}
         className="touch-target inline-flex w-fit items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
@@ -441,11 +449,17 @@ export function ShoppingListClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <PageTitle
-              morph={{ kind: "shopping-list", id: list.id }}
-              onTap={() => openLazyDialog(dialogs.renameList)}
-              tapHint={dict.renameList.titleHint}
-            >{list.name}</PageTitle>
+            {demo ? (
+              <p className="font-heading text-2xl font-semibold tracking-tight break-words max-sm:text-3xl">
+                {list.name}
+              </p>
+            ) : (
+              <PageTitle
+                morph={{ kind: "shopping-list", id: list.id }}
+                onTap={() => openLazyDialog(dialogs.renameList)}
+                tapHint={dict.renameList.titleHint}
+              >{list.name}</PageTitle>
+            )}
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
           {/* AUTO-4: hidden until at least one pending item has a price —

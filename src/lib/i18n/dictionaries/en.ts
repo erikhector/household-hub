@@ -3844,14 +3844,13 @@ export const en = {
     ctaDescription:
       "Sign up, invite the others with one link, and the list is on every phone. In English or Swedish.",
     ctaButton: "Start your list",
-    // The product shot: the share page's real list view with these example
+    // The product shot: the shopping list's own view with these example
     // rows (quantities and aisles are code, in phone-preview.tsx), and the
     // two sticky notes the demo puts up beside the phone.
     preview: {
       label:
         "A shared shopping list in Squirrel on a phone: oat milk adds itself when it runs low, and a tick by another member shows up at once",
       listName: "Weekly shop",
-      household: "The Lindqvist family",
       addedItself: "oat milk → added itself",
       tickedBy: "Sam ticked the bananas ✓",
       items: {

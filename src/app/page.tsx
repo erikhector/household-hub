@@ -5,7 +5,6 @@ import { LegalFooter } from "@/components/legal-footer";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { PhonePreview } from "@/components/landing/phone-preview";
 import { UnitsProvider } from "@/components/units-provider";
-import { format } from "@/lib/i18n/format";
 import { handwriting } from "@/components/landing/handwriting";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
@@ -124,16 +123,16 @@ export default async function Home() {
               <p className="max-w-xs text-sm text-muted-foreground">{landing.freeNote}</p>
             </div>
           </div>
-          {/* The product shot is the share page's real list view with example
-              rows (see PhonePreview), so it takes the same unit labels and
-              dictionary slices the share page gives it. */}
+          {/* The product shot is the shopping list's own member view with
+              example rows (see PhonePreview), so it takes the unit labels and
+              dictionary slices the dashboard page gives it. */}
           <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>
             <PhonePreview
               dict={landing.preview}
-              listDict={dict.sharedShoppingList}
-              shoppingMode={dict.shoppingList.shoppingMode}
-              otherCategory={dict.shoppingList.otherCategory}
-              sharedBy={format(dict.sharedShoppingList.sharedBy, { household: landing.preview.household })}
+              listDict={dict.shoppingList}
+              autoAddDict={dict.inventory.autoAdd}
+              barcodeDict={dict.barcodeScanner}
+              exportLabel={dict.export.button}
               locale={locale}
               className={cn(rise, "motion-safe:[animation-delay:240ms] lg:max-w-md")}
             />
