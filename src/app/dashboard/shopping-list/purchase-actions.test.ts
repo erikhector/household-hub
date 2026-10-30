@@ -87,7 +87,7 @@ const {
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
-  transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
+  transactionMock: vi.fn(async (cb: (tx: unknown) => unknown, _options?: unknown) => {
     const tx = {
       shoppingListItem: {
         create: shoppingListItemCreateMock,
@@ -321,6 +321,49 @@ describe("replayTickAction", () => {
 });
 
 describe("togglePurchasedAction", () => {
+  // BUG-5: Sentry showed the tick failing with Prisma's P2028 ("A query
+  // cannot be executed on an expired transaction … 5000 ms") when the
+  // connection hand-out was slow. The transaction now gets an explicit,
+  // larger budget, and a transaction that still fails comes back as the
+  // normal error state (toast, row reverts) rather than a thrown 500.
+  const plainItem = {
+    id: "item-1",
+    shoppingListId: "list-1",
+    purchased: false,
+    quantity: 1,
+    unit: "pcs",
+    estimatedPrice: null,
+    inventoryItem: null,
+  };
+
+  it("runs the tick transaction with an explicit timeout and maxWait (BUG-5)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(plainItem);
+
+    await togglePurchasedAction("item-1");
+
+    expect(transactionMock).toHaveBeenCalledWith(expect.any(Function), {
+      maxWait: expect.any(Number),
+      timeout: expect.any(Number),
+    });
+    const options = transactionMock.mock.calls[0][1] as { maxWait: number; timeout: number };
+    expect(options.timeout).toBeGreaterThan(5000);
+    expect(options.maxWait).toBeGreaterThan(2000);
+  });
+
+  it("returns the error state instead of throwing when the transaction expires (P2028)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(plainItem);
+    transactionMock.mockRejectedValueOnce(
+      Object.assign(new Error("Transaction API error: A query cannot be executed on an expired transaction."), {
+        code: "P2028",
+      }),
+    );
+
+    const result = await togglePurchasedAction("item-1");
+
+    expect(result.error).toBe("Something went wrong. Please try again.");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
   it("returns 'Item not found' for an item outside the caller's household", async () => {
     shoppingListItemFindFirstMock.mockResolvedValue(null);
 
