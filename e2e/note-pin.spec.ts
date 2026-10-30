@@ -19,6 +19,9 @@ test("a pinned note stays above a newer one until it is unpinned", async ({ page
     await page.getByRole("textbox", { name: "New note" }).fill(body);
     await page.getByRole("button", { name: "Add note" }).click();
     await expect(page.getByText(body)).toBeVisible();
+    // The form clears itself once the action resolves; filling the next note
+    // before that would have the late clear wipe it.
+    await expect(page.getByRole("textbox", { name: "New note" })).toHaveValue("");
   }
 
   const row = (body: string) => page.getByRole("listitem").filter({ hasText: body });
