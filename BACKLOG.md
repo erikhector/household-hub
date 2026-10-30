@@ -97,6 +97,29 @@ enough to trust.
 
 Parallel-safe except where noted.
 
+### Bugs
+
+- [ ] **BUG-5. Interactive transactions expire at 5 s on slow connection hand-out** (impact: med, effort: S) —
+      Sentry JAVASCRIPT-NEXTJS-4 (2 events, `POST /dashboard/shopping-list/[id]`, the
+      tick/untick action, `purchase-actions.ts:55`; iOS Safari) and
+      JAVASCRIPT-NEXTJS-5 (1 event, a `prisma.inventoryItem.update()` in another
+      `$transaction`), all 2026-10-26 12:30–12:36 UTC on `vercel-production`
+      (fra1): "A query cannot be executed on an expired transaction … 5000 ms,
+      5121 ms passed". The first write of the transaction misses the Prisma
+      default 5 s, so the user's tick fails with a 500 though the work is tiny;
+      that points at connection hand-out (cold function, pooler saturation),
+      not the transaction body. Raise `timeout`/`maxWait` through one shared
+      option on the interactive `prisma.$transaction(async …)` calls
+      (`purchase-actions.ts`, `item-actions.ts`, `list-actions.ts`,
+      `receipt-actions.ts`, `smart-add-actions.ts`, inventory actions), and
+      have the tick action return its normal failure state (toast, row
+      reverts) instead of throwing when the transaction still fails. Check the
+      `DATABASE_POOL_MAX` vs pooler headroom note in `src/lib/prisma.ts:13`
+      (owner-only: pooler dashboard).
+      Acceptance: unit test that the tick action calls `$transaction` with an
+      explicit `timeout` and, when it rejects with a Prisma `P2028`, returns
+      the error state rather than throwing.
+
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
