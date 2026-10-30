@@ -37,7 +37,7 @@ update them or add new work there.
 
 ## Agent skills
 
-Three outside skill packs, each with one job. Repo rules (this file,
+Three groups of outside skills, each with one job. Repo rules (this file,
 DESIGN.md, the `.claude/skills/` autopilot and review skills) win over
 all of them on any conflict.
 
@@ -83,7 +83,10 @@ all of them on any conflict.
   directly; don't run its `npx impeccable …` commands. `PRODUCT.md` and
   `DESIGN.md` here are Squirrel's own documents, not Impeccable's
   artifacts: never let `init`, `document`, `extract` or `doctor`
-  rewrite them or create `.impeccable/`.
+  rewrite them or create `.impeccable/`. Impeccable often says to ask
+  with `AskUserQuestion` and wait (in OpenCode, that's the `question`
+  tool). In autopilot sessions, answer those questions from DESIGN.md,
+  PRODUCT.md and the backlog item instead, and never wait on a human.
 
 ## Commands
 

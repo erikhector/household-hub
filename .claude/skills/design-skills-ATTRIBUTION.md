@@ -26,9 +26,11 @@ License: Apache License 2.0, Copyright 2025 Paul Bakaus. Full text in
 `impeccable/LICENSE`; third-party notices in `impeccable/NOTICE.md`.
 
 The same Claude Code build is used for the OpenCode mirror in
-`.agents/skills/`. Upstream's OpenCode build differs only in launcher
-paths and an `allowed-tools` header that pre-approves
-`npx impeccable *`, which would bring back the download dropped below.
+`.agents/skills/`. Upstream's OpenCode build differs in launcher
+paths, in naming OpenCode's `question` tool where this build says
+`AskUserQuestion` (AGENTS.md maps the one to the other), and in an
+`allowed-tools` header that pre-approves `npx impeccable *`, which would
+bring back the download dropped below.
 
 ### Deliberate drops at this pin
 

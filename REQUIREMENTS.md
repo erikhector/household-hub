@@ -9196,7 +9196,7 @@ and "Chaining"):
   number from a trusted account wins, stale ones expire after
   `run_lock_hours`), so a cron run never overlaps a chained or slow one.
 
-Every role works from three outside skill packs with one owner each, so
+Every role works from three groups of outside skills with one owner each, so
 they never compete (AGENTS.md, "Agent skills"):
 
 - **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers),
