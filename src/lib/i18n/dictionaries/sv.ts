@@ -171,6 +171,7 @@ export const sv = {
       "Om kontot behöver verifieras har vi skickat en ny verifieringslänk. Kolla din inkorg.",
     noteEmpty: "Anteckningen kan inte vara tom",
     householdNoteTooLong: "Anteckningen får vara högst 1000 tecken",
+    notePinLimit: "Du kan fästa högst 5 anteckningar. Lossa en först.",
     invalidBarcode: "Ogiltig streckkod",
     invalidChange: "Ogiltig ändring",
     invalidQuietHours: "Ogiltiga tysta timmar",
@@ -449,6 +450,9 @@ export const sv = {
       formerMember: "Tidigare medlem",
       byline: "{name} · {date}",
       deleteAriaLabel: "Ta bort anteckning av {name}",
+      pinned: "Fäst",
+      pinAriaLabel: "Fäst anteckning av {name}",
+      unpinAriaLabel: "Lossa anteckning av {name}",
       confirmDelete: {
         title: "Ta bort anteckningen?",
         description: "Den tas bort för alla i hushållet. Det går inte att ångra.",

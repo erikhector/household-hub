@@ -1,7 +1,7 @@
 "use server";
 
-// GAP-16: the shared household notes board on the Household page. Add +
-// delete only (no edit, pinning or rich text in v1). Same household-scoping
+// GAP-16: the shared household notes board on the Household page. Add,
+// delete and pin (GAP-61); no edit or rich text. Same household-scoping
 // convention as src/app/dashboard/tasks/actions.ts: requireHousehold() first,
 // every query/mutation filtered by householdId from the session, never a
 // household id from the client. Deliberately not a notification trigger — a
@@ -13,8 +13,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError, v, zodFail } from "@/lib/actions/errors";
-import { NOTE_BODY_MAX_LENGTH } from "@/lib/household-notes";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
+import { NOTE_BODY_MAX_LENGTH, NOTE_PIN_MAX } from "@/lib/household-notes";
 
 const createNoteSchema = z.object({
   body: z
@@ -71,6 +71,37 @@ export async function deleteNoteAction(noteId: string): Promise<ActionState> {
   try {
     await prisma.householdNote.deleteMany({
       where: { id: noteId, householdId: household.id },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  return {};
+}
+
+// GAP-61: pin or unpin a note. Same permission as delete: any member, since
+// the board is shared scratch space and a pin is just ordering. At most
+// NOTE_PIN_MAX notes may be pinned so the pins don't become the feed again;
+// the count is read then written without a lock, so two members pinning at
+// the same instant could overshoot by one, which is harmless for a soft cap.
+// Scoped by householdId from the session, so a forged id from another
+// household is a silent no-op.
+export async function setNotePinnedAction(noteId: string, pinned: boolean): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  try {
+    if (pinned) {
+      // Excluding this note makes re-pinning an already pinned one (a double
+      // click) a refresh rather than a cap error at exactly the limit.
+      const others = await prisma.householdNote.count({
+        where: { householdId: household.id, pinnedAt: { not: null }, id: { not: noteId } },
+      });
+      if (others >= NOTE_PIN_MAX) return await fail("notePinLimit");
+    }
+    await prisma.householdNote.updateMany({
+      where: { id: noteId, householdId: household.id },
+      data: { pinnedAt: pinned ? new Date() : null },
     });
   } catch (error) {
     return toFriendlyError(error);
