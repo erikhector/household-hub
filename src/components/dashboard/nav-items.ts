@@ -73,6 +73,9 @@ export const NAV_NEUTRAL_TILE_ACTIVE_CLASS = "bg-primary/15 text-primary";
 export type NavItem = {
   href: string;
   key: NavKey;
+  // UX-151: shorter dictionary key for the bottom bar, where a fifth of 320 px
+  // can't hold "Shopping list". The full name stays the link's aria-label.
+  shortKey?: "shoppingListShort" | "mealPlanningShort";
   icon: ComponentType<{ className?: string }>;
   color?: NavColor;
 };
@@ -80,8 +83,8 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { href: "/dashboard", key: "overview", icon: LayoutDashboard },
   { href: "/dashboard/inventory", key: "inventory", icon: Package, color: "chart-1" },
-  { href: "/dashboard/shopping-list", key: "shoppingList", icon: ShoppingCart, color: "chart-2" },
-  { href: "/dashboard/meal-planning", key: "mealPlanning", icon: CalendarDays, color: "chart-3" },
+  { href: "/dashboard/shopping-list", key: "shoppingList", shortKey: "shoppingListShort", icon: ShoppingCart, color: "chart-2" },
+  { href: "/dashboard/meal-planning", key: "mealPlanning", shortKey: "mealPlanningShort", icon: CalendarDays, color: "chart-3" },
   { href: "/dashboard/tasks", key: "tasks", icon: ListChecks, color: "chart-5" },
   { href: "/dashboard/budget", key: "budget", icon: Wallet, color: "chart-1" },
   { href: "/dashboard/personal-budget", key: "personalBudget", icon: PiggyBank, color: "chart-2" },
