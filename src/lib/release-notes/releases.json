@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.121.0",
+    "date": "2026-10-30",
+    "pr": 923,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Long-press the Squirrel icon on your Android home screen to jump straight to the Shopping list, Meal plan or Tasks.",
+      "sv": "Tryck länge på Squirrel-ikonen på Androids startskärm för att hoppa direkt till Inköpslistan, Måltidsplanen eller Uppgifterna."
+    }
+  },
+  {
     "version": "0.120.1",
     "date": "2026-10-29",
     "pr": 905,
