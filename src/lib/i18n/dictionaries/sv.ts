@@ -182,6 +182,8 @@ export const sv = {
     inventory: "Lager",
     shoppingList: "Inköpslista",
     mealPlanning: "Matplanering",
+    shoppingListShort: "Inköp",
+    mealPlanningShort: "Mat",
     tasks: "Uppgifter",
     budget: "Hushållsbudget",
     personalBudget: "Personlig budget",

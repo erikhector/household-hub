@@ -404,19 +404,6 @@ sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
 pseudo-element gives the 44 px target). WebKit was not run, and the
 per-action deep dive was not driven this run.
 
-- [ ] **UX-151. Bottom-bar labels lose their meaning at 320 px** (impact:
-      low, effort: S) — `small-phone-dashboard.png` (every dashboard route):
-      the bar reads "Overview, Inventory, Shopping, …Meal plan…, More".
-      `bottom-nav.tsx:162` ellipsizes `dict.nav[key]` (UX-150), so "Meal
-      planning" and "Shopping list" are cut to fragments on the smallest
-      phones, and Swedish names are longer. Add short `nav.*Short` labels
-      ("Shopping", "Meals") to both dictionaries for the bar; keep the full
-      name as the link's `aria-label`. Principle: DESIGN.md, labels must be
-      readable (M-rules on small text/legibility).
-      Acceptance: in `mobile` at 320 px width, in `en` and `sv`, no bottom-bar
-      label has `scrollWidth > clientWidth`, and each link keeps its full
-      accessible name.
-
 ### Dependencies
 
 ---

@@ -130,13 +130,14 @@ export function BottomNav({
             opacity: activeIndex === -1 ? 0 : 1,
           }}
         />
-        {primaryMobileNavItems.map(({ href, key, icon: Icon, color }) => {
+        {primaryMobileNavItems.map(({ href, key, shortKey, icon: Icon, color }) => {
           const active = isNavItemActive(pathname, href);
           return (
             <Link
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
+              aria-label={shortKey ? dict.nav[key] : undefined}
               className={cn(
                 "relative z-10 flex min-w-0 flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-xs font-medium transition-transform duration-150 ease-out active:scale-90",
                 active ? "text-primary" : "text-muted-foreground",
@@ -159,7 +160,7 @@ export function BottomNav({
               {/* One line, ellipsis when the name outgrows its fifth of the bar (UX-150):
                   the old break-words hyphens-auto split names mid-word at 200%
                   text. The full name stays the link's accessible name. */}
-              <span className="w-full truncate text-center leading-tight">{dict.nav[key]}</span>
+              <span className="w-full truncate text-center leading-tight">{dict.nav[shortKey ?? key]}</span>
             </Link>
           );
         })}

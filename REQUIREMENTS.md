@@ -8491,7 +8491,10 @@ approximating them, so the email never disagrees with the app.
   the screen, user-text buttons (`Merge into <name>`, landing CTAs) opt out of
   `Button`'s `whitespace-nowrap` with `h-auto whitespace-normal`, and
   bottom-nav labels stay on one line and truncate with an ellipsis (UX-150;
-  the old `break-words hyphens-auto` split names mid-word, "Overvi/ew").
+  the old `break-words hyphens-auto` split names mid-word, "Overvi/ew"). The
+  two long names show `nav.shoppingListShort` / `nav.mealPlanningShort`
+  ("Shopping", "Meals"; "Inköp", "Mat") in the bar, with the full name as
+  the link's `aria-label`, so nothing is clipped at 320 px (UX-151).
   `BottomNav` publishes its measured height as `--bottom-nav-h` (default in
   `globals.css`: 3.75rem + the capped safe-area inset), and everything docked
   above the bar (floating primary action, bulk bars, shopping mode, the cookie

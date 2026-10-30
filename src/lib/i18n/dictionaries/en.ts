@@ -190,6 +190,9 @@ export const en = {
     inventory: "Inventory",
     shoppingList: "Shopping list",
     mealPlanning: "Meal planning",
+    // UX-151: the bottom bar's one-line labels; the full names stay the links' aria-label.
+    shoppingListShort: "Shopping",
+    mealPlanningShort: "Meals",
     tasks: "Tasks",
     budget: "Household budget",
     personalBudget: "Personal budget",
