@@ -87,7 +87,7 @@ const {
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
-  transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
+  transactionMock: vi.fn(async (cb: (tx: unknown) => unknown, _options?: unknown) => {
     const tx = {
       shoppingListItem: {
         create: shoppingListItemCreateMock,
@@ -345,7 +345,7 @@ describe("togglePurchasedAction", () => {
       maxWait: expect.any(Number),
       timeout: expect.any(Number),
     });
-    const options = transactionMock.mock.calls[0][1] as unknown as { maxWait: number; timeout: number };
+    const options = transactionMock.mock.calls[0][1] as { maxWait: number; timeout: number };
     expect(options.timeout).toBeGreaterThan(5000);
     expect(options.maxWait).toBeGreaterThan(2000);
   });
