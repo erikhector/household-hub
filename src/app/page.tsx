@@ -1,24 +1,9 @@
 import Link from "next/link";
-import {
-  Sparkles,
-  Package,
-  ShoppingCart,
-  CalendarDays,
-  ChefHat,
-  ListChecks,
-  ScanBarcode,
-  Wallet,
-  LogIn,
-  ArrowRight,
-  UserPlus,
-  ClipboardList,
-  Share2,
-} from "lucide-react";
+import { ArrowRight, LogIn, Package, Receipt, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/legal-footer";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { PhonePreview } from "@/components/landing/phone-preview";
-import { ChoresNote, FridgeDoor, ReceiptNote, ShoppingNote } from "@/components/landing/fridge-door";
 import { handwriting } from "@/components/landing/handwriting";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
@@ -38,45 +23,28 @@ export default async function Home() {
   const dict = await getDictionary();
   const landing = dict.landing;
 
-  // The fridge-door redesign: three of the six features are shown beside
-  // the fridge note they replace (the dark "swap" band); the other three
-  // are magnets underneath. Between them every part of the app is still
-  // named (UX-58). The magnets' icon tiles take the chart tokens, as before;
-  // on the dark band they take its accent instead.
-  const swaps = [
-    {
-      icon: ShoppingCart,
-      ...landing.features.shoppingLists,
-      note: <ShoppingNote dict={landing.fridge.shoppingNote} className="w-52 max-w-full -rotate-3" />,
-    },
-    {
-      icon: ListChecks,
-      ...landing.features.tasks,
-      note: <ChoresNote dict={landing.fridge.choresNote} className="w-48 max-w-full rotate-3" />,
-    },
-    {
-      icon: Wallet,
-      ...landing.features.budget,
-      note: <ReceiptNote dict={landing.fridge.receipt} className="w-44 max-w-full -rotate-2" />,
-    },
-  ];
-  const magnets = [
-    { icon: Package, ...landing.features.pantry, pin: "bg-chart-1", tile: "text-chart-1 bg-chart-1/15", tilt: "-rotate-2" },
-    { icon: ChefHat, ...landing.features.meals, pin: "bg-chart-2", tile: "text-chart-2 bg-chart-2/15", tilt: "rotate-1" },
-    { icon: ScanBarcode, ...landing.features.scanning, pin: "bg-chart-3", tile: "text-chart-4 bg-chart-4/15", tilt: "-rotate-1" },
-  ];
-
-  const howItWorksSteps = [
-    { icon: UserPlus, ...landing.howItWorks.steps.setup },
-    { icon: ClipboardList, ...landing.howItWorks.steps.stock },
-    { icon: CalendarDays, ...landing.howItWorks.steps.plan },
-    { icon: Share2, ...landing.howItWorks.steps.share },
+  // UX-58, list-first: the page makes one promise (the shared shopping list
+  // that keeps itself up to date), shows it once (the phone preview and its
+  // demo), names the three things the list does for a household every
+  // week, and asks once. The pantry, meals and budget are mentioned as
+  // what's there when you want it, not sold one by one: a new household
+  // starts from the list, and the rest of the app follows from it.
+  const benefits = [
+    { icon: ShoppingCart, ...landing.benefits.list, tile: "text-chart-1 bg-chart-1/15" },
+    { icon: Package, ...landing.benefits.pantry, tile: "text-chart-2 bg-chart-2/15" },
+    { icon: Receipt, ...landing.benefits.receipt, tile: "text-chart-3 bg-chart-3/15" },
   ];
 
   // The landing CTAs carry user text that can wrap in Swedish, so they opt
   // out of the fixed button heights (UX-28) and keep a 44 px floor on touch.
   const ctaClass =
     "h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-11 py-2.5 px-5 text-base whitespace-normal";
+
+  // The hero's entrance: each piece rises in after the one before it, on
+  // the entrance tokens. The delays sit under motion-safe too, because the
+  // reduced-motion block collapses durations but not delays, and a delayed
+  // `both` animation would hold the text invisible until it ran.
+  const rise = "motion-safe:animate-landing-rise";
 
   return (
     <div className="flex flex-1 flex-col">
@@ -92,28 +60,34 @@ export default async function Home() {
       </header>
 
       <main className="flex flex-1 flex-col items-center">
-        {/* The hero: the pitch beside the fridge door from `lg`, above it on
-            a phone, where the door puts the phone-framed list first so it's
-            in the first screen. UX-28: in landscape on a phone (≈ 400 px
-            tall) the greeting hides and the padding tightens so "Get
-            started free" stays on screen. UX-9: at 200% text a single word
-            of the headline is wider than a phone, so the column is capped
-            at the screen and breaks long words rather than scrolling. */}
-        <section className="flex w-full max-w-6xl flex-col items-center gap-8 px-4 pt-4 pb-16 sm:pt-10 sm:pb-24 lg:flex-row lg:items-center lg:justify-between lg:gap-14 [@media(max-height:500px)]:pt-2">
+        {/* The hero: the pitch beside the phone from `lg`, above it on a
+            phone, where the preview still starts in the first screen
+            (e2e/landing.spec.ts). UX-28: in landscape on a phone (≈ 400 px
+            tall) the greeting hides and the padding tightens so the button
+            stays on screen. UX-9: at 200% text a single word of the
+            headline is wider than a phone, so the column is capped at the
+            screen and breaks long words rather than scrolling. */}
+        <section className="flex w-full max-w-6xl flex-col items-center gap-10 px-4 pt-4 pb-16 sm:pt-10 sm:pb-24 lg:flex-row lg:items-center lg:justify-between lg:gap-14 [@media(max-height:500px)]:pt-2">
           <div className="flex w-full max-w-xl min-w-0 flex-col items-start gap-5 break-words sm:gap-6">
             <p
               className={cn(
                 handwriting.className,
+                rise,
                 "-rotate-3 text-3xl font-bold text-primary [@media(max-height:500px)]:hidden",
               )}
             >
               {landing.heroEyebrow}
             </p>
-            <h1 className="max-w-full font-heading text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-7xl lg:text-[5.5rem] [@media(max-height:500px)]:text-5xl">
+            <h1
+              className={cn(
+                rise,
+                "max-w-full font-heading text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-6xl lg:text-7xl motion-safe:[animation-delay:60ms] [@media(max-height:500px)]:text-4xl",
+              )}
+            >
               {landing.heroPrefix}
               <span className="relative inline-block max-w-full text-primary">
                 {landing.heroHighlight}
-                {/* The full stop sits before the underline: Chrome puts a
+                {/* The suffix sits before the underline: Chrome puts a
                     space around an <svg> in the heading's accessible name. */}
                 <span className="text-foreground">{landing.heroSuffix}</span>
                 <svg
@@ -132,116 +106,58 @@ export default async function Home() {
                 </svg>
               </span>
             </h1>
-            <p className="max-w-md text-pretty text-muted-foreground sm:text-lg">{landing.heroDescription}</p>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <p
+              className={cn(
+                rise,
+                "max-w-md text-pretty text-muted-foreground sm:text-lg motion-safe:[animation-delay:120ms]",
+              )}
+            >
+              {landing.heroDescription}
+            </p>
+            <div className={cn(rise, "flex flex-wrap items-center gap-x-5 gap-y-3 motion-safe:[animation-delay:180ms]")}>
               <Button size="lg" className={ctaClass} render={<Link href="/signup" />}>
                 {landing.getStarted}
                 <ArrowRight className="size-4" />
               </Button>
-              <p
-                className={cn(
-                  handwriting.className,
-                  "max-w-xs -rotate-2 text-2xl leading-tight font-medium text-muted-foreground",
-                )}
-              >
-                {landing.freeNote}
-              </p>
+              <p className="max-w-xs text-sm text-muted-foreground">{landing.freeNote}</p>
             </div>
           </div>
-          <FridgeDoor dict={landing.fridge} brand={dict.auth.brand}>
-            <PhonePreview dict={landing.preview} className="relative rotate-2" />
-          </FridgeDoor>
+          <PhonePreview dict={landing.preview} className={cn(rise, "motion-safe:[animation-delay:240ms] lg:max-w-md")} />
         </section>
 
-        <section className="w-full bg-night px-4 py-20 text-night-foreground sm:py-28">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-12">
-            <div>
-              <p className={cn(handwriting.className, "-rotate-2 text-3xl font-bold text-night-accent")}>
-                {landing.swap.eyebrow}
-              </p>
-              <h2 className="mt-3 font-heading text-4xl leading-none font-extrabold tracking-tight text-balance sm:text-6xl">
-                {landing.swap.titlePrefix}
-                <span className="text-night-accent">{landing.swap.titleHighlight}</span>
-              </h2>
-            </div>
-            <ul className="flex flex-col gap-6">
-              {swaps.map(({ icon: Icon, title, description, note }) => (
-                <li
-                  key={title}
-                  className="grid grid-cols-1 items-center justify-items-center gap-6 rounded-3xl bg-night-foreground/5 p-6 ring-1 ring-night-foreground/10 sm:p-8 md:grid-cols-[16rem_auto_1fr] md:justify-items-start"
-                >
-                  <div className="flex w-full min-w-0 justify-center">{note}</div>
-                  <ArrowRight aria-hidden="true" className="size-10 rotate-90 text-night-accent md:rotate-0" />
-                  <div className="flex max-w-md flex-col items-center gap-3 text-center md:items-start md:text-left">
-                    <span className="flex size-11 items-center justify-center rounded-xl bg-night-foreground/10 text-night-accent">
-                      <Icon className="size-5" />
-                    </span>
-                    <h3 className="font-heading text-2xl leading-tight font-bold sm:text-3xl">{title}</h3>
-                    <p className="text-night-muted">{description}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+        <section className="flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 sm:pb-28">
+          <div className="flex flex-col gap-2">
+            <h2 className="max-w-2xl font-heading text-3xl font-extrabold tracking-tight text-balance sm:text-4xl">
+              {landing.benefitsTitle}
+            </h2>
+            <p className="max-w-2xl text-muted-foreground">{landing.benefitsSubtitle}</p>
           </div>
-        </section>
-
-        <section className="flex w-full max-w-6xl flex-col gap-10 px-4 py-20 sm:py-28">
-          <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-            {landing.moreTitle}
-          </h2>
-          <ul className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-            {magnets.map(({ icon: Icon, title, description, pin, tile, tilt }) => (
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
+            {benefits.map(({ icon: Icon, title, description, example, tile }) => (
               <li
                 key={title}
-                className={cn(
-                  "relative flex flex-col gap-3 rounded-3xl bg-card p-6 pt-8 ring-1 ring-foreground/10 transition-transform duration-200 motion-safe:hover:rotate-0",
-                  tilt,
-                )}
+                className="flex flex-col gap-3 rounded-3xl bg-card p-6 ring-1 ring-foreground/10 motion-safe:transition-transform motion-safe:duration-(--motion-duration-base) motion-safe:hover:-translate-y-0.5"
               >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute -top-3 left-1/2 size-7 -translate-x-1/2 rounded-full shadow-md ring-2 ring-note-ink/15 ring-inset",
-                    pin,
-                  )}
-                />
-                <span className={cn("flex size-10 items-center justify-center rounded-xl", tile)}>
+                <span className={cn("flex size-11 items-center justify-center rounded-xl", tile)}>
                   <Icon className="size-5" />
                 </span>
                 <h3 className="font-heading text-xl leading-tight font-bold">{title}</h3>
-                <p className="text-sm text-muted-foreground">{description}</p>
+                <p className="text-muted-foreground">{description}</p>
+                <p
+                  aria-hidden="true"
+                  className={cn(handwriting.className, "mt-auto rounded-xl bg-muted px-3 py-1.5 text-xl font-medium")}
+                >
+                  {example}
+                </p>
               </li>
             ))}
           </ul>
         </section>
 
-        <section className="flex w-full max-w-5xl flex-col gap-8 px-4 pb-20 sm:pb-28">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h2 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-              {landing.howItWorks.title}
-            </h2>
-            <p className="max-w-md text-muted-foreground">{landing.howItWorks.subtitle}</p>
-          </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {howItWorksSteps.map(({ icon: Icon, title, description }, index) => (
-              <div key={title} className="flex flex-col items-center gap-3 text-center">
-                <span className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                  <Icon className="size-6" />
-                  <span className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                    {index + 1}
-                  </span>
-                </span>
-                <h3 className="font-heading text-base font-semibold">{title}</h3>
-                <p className="text-sm text-muted-foreground">{description}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* The closing call to action, as the sticky note you'd leave
-            yourself. Paper in both themes, like the notes on the door. */}
+            yourself. Paper in both themes, like the notes beside the phone. */}
         <section className="w-full px-4 pb-24">
-          <div className="relative mx-auto flex w-full max-w-xl -rotate-1 flex-col items-center gap-4 bg-note-yellow px-6 pt-14 pb-12 text-center text-note-ink shadow-md sm:px-12">
+          <div className="relative mx-auto flex w-full max-w-xl -rotate-1 flex-col items-center gap-4 bg-note-yellow px-6 pt-14 pb-12 text-center text-note-ink shadow-md motion-safe:transition-transform motion-safe:duration-(--motion-duration-base) motion-safe:hover:rotate-0 sm:px-12">
             <span aria-hidden="true" className="absolute -top-3 left-1/2 h-7 w-28 -translate-x-1/2 -rotate-2 bg-note-paper/60" />
             <p className={cn(handwriting.className, "text-3xl font-bold")}>{landing.ctaEyebrow}</p>
             <h2 className="font-heading text-4xl leading-none font-extrabold tracking-tight text-balance sm:text-5xl">
@@ -249,8 +165,8 @@ export default async function Home() {
             </h2>
             <p className="max-w-md">{landing.ctaDescription}</p>
             <Button size="lg" className={cn(ctaClass, "mt-2")} render={<Link href="/signup" />}>
-              <Sparkles className="size-4" />
               {landing.ctaButton}
+              <ArrowRight className="size-4" />
             </Button>
           </div>
         </section>

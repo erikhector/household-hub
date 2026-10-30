@@ -3647,23 +3647,50 @@ export const sv = {
   landing: {
     logIn: "Logga in",
     heroEyebrow: "Kära hushåll,",
-    heroPrefix: "Ta ner allt från ",
-    heroHighlight: "kylskåpet",
+    heroPrefix: "Inköpslistan som ",
+    heroHighlight: "sköter sig själv",
     heroSuffix: ".",
     heroDescription:
-      "Den klottrade listan, städschemat, kvittona och receptflikarna — Squirrel gör dem till en delad app som håller sig själv uppdaterad.",
-    getStarted: "Kom igång gratis",
-    freeNote: "Gratis för hela hushållet — bjud in alla, inga extra platser",
+      "En lista för alla i huset. Bocka av i butiken, och det som börjar ta slut hemma lägger sig på listan igen av sig självt.",
+    getStarted: "Starta din lista",
+    freeNote: "Gratis för hela hushållet. Inget kort, inga annonser.",
+    benefitsTitle: "Tre saker den gör för dig varje vecka",
+    benefitsSubtitle:
+      "Börja med listan. Skafferiet, matplaneringen och budgeten finns där när du vill ha dem, och är aldrig i vägen.",
+    benefits: {
+      list: {
+        title: "En lista, allas mobiler",
+        description:
+          "Skriv \"2 l mjölk, bröd\" så sorteras det per hylla. Den som är i butiken bockar av, de andra ser det direkt.",
+        example: "\"Vem har listan?\" Alla.",
+      },
+      pantry: {
+        title: "Den fyller på sig själv",
+        description:
+          "Berätta vad ni brukar ha hemma. När kaffet börjar ta slut hamnar det på listan innan du står i köket utan.",
+        example: "kaffe · lågt → på listan",
+      },
+      receipt: {
+        title: "Kvittot sköter budgeten",
+        description:
+          "Fota kvittot när du är klar. Summan hamnar i hushållets matkostnad, och det du köpte finns hemma i lagret.",
+        example: "Närbutiken · 129 kr · klart",
+      },
+    },
     ctaEyebrow: "Kom ihåg:",
-    ctaTitle: "Få ordning på hushållet.",
-    ctaDescription: "Gratis att komma igång — inget kreditkort, inga sysslor.",
-    ctaButton: "Skapa ditt hushåll",
+    ctaTitle: "Ta ner listan från kylskåpet.",
+    ctaDescription:
+      "Skapa konto, bjud in de andra med en länk, så finns listan i allas mobiler. På svenska eller engelska.",
+    ctaButton: "Starta din lista",
     preview: {
-      label: "En delad inköpslista i Squirrel på en mobil, där varor med lågt lager läggs till automatiskt",
+      label:
+        "En delad inköpslista i Squirrel på en mobil: havredryck lägger till sig själv när den tar slut, och en avbockning från en annan medlem syns direkt",
       listName: "Veckohandling",
       fillsItself: "Fylls på själv",
       lowStock: "Lågt lager",
       purchased: "Köpt",
+      addedItself: "havredryck → lade till sig själv",
+      tickedBy: "Sam bockade av bananerna ✓",
       sections: {
         dairy: "Mejeri",
         produce: "Frukt & grönt",
@@ -3676,100 +3703,6 @@ export const sv = {
         spinach: { name: "Spenat", qty: "1 påse" },
         pasta: { name: "Pasta", qty: "500 g" },
         coffee: { name: "Kaffe", qty: "1" },
-      },
-    },
-    fridge: {
-      shoppingNote: {
-        title: "Handla!!",
-        bananas: "bananer",
-        oatMilk: "havredryck (2?)",
-        pasta: "pasta — kolla skåpet",
-        coffee: "kaffe",
-        spinach: "spenat",
-      },
-      choresNote: {
-        title: "Soporna —",
-        question: "VEMS TUR??",
-        aside: "(inte jag igen)",
-      },
-      receipt: {
-        shop: "Närbutiken",
-        items: {
-          oatMilk: { name: "Havredryck", price: "18,90" },
-          pasta: { name: "Pasta", price: "24,50" },
-          bananas: { name: "Bananer", price: "21,00" },
-          coffee: { name: "Kaffe", price: "64,95" },
-        },
-        total: { name: "Totalt", price: "129,35" },
-        whoPaid: "vem betalade??",
-      },
-      tacoNote: {
-        title: "tacofredag?",
-        need: "behövs: tortillas, lime, bönor",
-      },
-      budgetNote: {
-        title: "matbudget",
-        amount: "~3 000 kr??",
-        aside: "fråga Sam om delningen",
-      },
-    },
-    swap: {
-      eyebrow: "Ut med det gamla —",
-      titlePrefix: "Varje lapp på kylskåpet har ett ",
-      titleHighlight: "bättre hem.",
-    },
-    moreTitle: "Också på dörren, nu i fickan",
-    features: {
-      pantry: {
-        title: "Lager som håller koll på sig själv",
-        description:
-          "Registrera vad som finns i lagret en gång. Vi flaggar allt som börjar ta slut innan du står utan.",
-      },
-      shoppingLists: {
-        title: "Inköpslistor som byggs av sig själva",
-        description:
-          "Varor med lågt lager hoppar på listan automatiskt, och med en delningslänk kan vem som helst bocka av — inget konto behövs.",
-      },
-      meals: {
-        title: "Måltider, planerade istället för panikartade",
-        description:
-          "Spara recept eller importera dem från en länk, planera veckan mot lagret och följ med i matlagningsläget.",
-      },
-      tasks: {
-        title: "Sysslor som kommer tillbaka",
-        description:
-          "Hushållsuppgifter som upprepas och turas om mellan personer, plus ett kalenderflöde med måltider och förfallodagar för räkningar.",
-      },
-      scanning: {
-        title: "Skanna istället för att skriva",
-        description: "Skanna en streckkod eller ett kvitto för att lägga till saker på några sekunder, eller fota en hel hylla på en gång.",
-      },
-      budget: {
-        title: "Budgetar utan kalkylark",
-        description:
-          "Håll koll på hushållets utgifter, dela gemensamma kostnader rättvist och ha en personlig budget som bara är din.",
-      },
-    },
-    howItWorks: {
-      title: "Så fungerar det",
-      subtitle: "Börja med ett tomt hushåll och fyll på allt eftersom — startpaket och skanning gör det snabbt.",
-      steps: {
-        setup: {
-          title: "Skapa ditt hushåll",
-          description: "Skapa konto, namnge ditt hushåll och bjud in de andra som bor där — eller kör själv.",
-        },
-        stock: {
-          title: "Registrera vad du har",
-          description: "Lägg till några varor i lagret och en inköpslista. Lågt lager flaggas sedan av sig själv.",
-        },
-        plan: {
-          title: "Planera måltider & utgifter",
-          description: "Ställ upp veckans måltider och sätt upp budgetkategorier för inkomster och utgifter.",
-        },
-        share: {
-          title: "Håll er synkade",
-          description: "Alla i hushållet ser samma listor och budget, delade rättvist när utgifter dyker upp.",
-        },
       },
     },
   },
@@ -3822,9 +3755,9 @@ export const sv = {
   // UX-64: texten bakom varje publik sidas <title> och länkförhandsvisning
   // (src/lib/page-metadata.ts). Rotlayouten lägger till " · Squirrel".
   meta: {
-    homeTitle: "Squirrel: styr hushållet som ett drömlag",
+    homeTitle: "Squirrel: inköpslistan som sköter sig själv",
     homeDescription:
-      "Lager, inköpslistor, måltidsplanering, sysslor och budget för hela hushållet, på ett ställe.",
+      "En delad inköpslista för hela hushållet, ett skafferi som fyller på den och ett kvitto som sköter budgeten.",
     privacyTitle: "Integritetspolicy",
     termsTitle: "Användarvillkor",
     joinDescription: "Du har blivit inbjuden till {name} på Squirrel. Skapa ett konto för att gå med i hushållet.",

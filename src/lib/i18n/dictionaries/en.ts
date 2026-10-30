@@ -3803,31 +3803,57 @@ export const en = {
   },
   landing: {
     logIn: "Log in",
-    // The fridge-door hero: a handwritten greeting over the headline, which
-    // is split so "fridge" can carry the brand colour and its underline.
+    // The hero: a handwritten greeting over the one promise the page makes.
+    // The highlight sits on the honey underline; prefix, highlight and
+    // suffix are split so the heading's accessible name reads as one line.
     heroEyebrow: "Dear household,",
-    heroPrefix: "Take everything off the ",
-    heroHighlight: "fridge",
-    heroSuffix: ".",
+    heroPrefix: "The shopping list that ",
+    heroHighlight: "keeps itself",
+    heroSuffix: " up to date.",
     heroDescription:
-      "The scribbled list, the chore rota, the receipts and the recipe tabs — Squirrel turns them into one shared app that keeps itself up to date.",
-    getStarted: "Get started free",
-    freeNote: "Free for the whole household — invite everyone, no extra seats",
+      "One list for everyone in the house. Tick things off in the shop, and whatever runs low at home puts itself back on.",
+    getStarted: "Start your list",
+    freeNote: "Free for the whole household. No card, no ads.",
+    benefitsTitle: "Three things it does for you every week",
+    benefitsSubtitle:
+      "Start with the list. The pantry, the meal plan and the budget are there when you want them, and never in the way.",
+    // Each benefit ends with a handwritten example line, as if scribbled on
+    // the card. They're decoration (aria-hidden), so keep them short.
+    benefits: {
+      list: {
+        title: "One list, everyone's phone",
+        description:
+          "Type \"2 l milk, bread\" and it's sorted into aisles. Whoever is in the shop ticks; the others see it tick.",
+        example: "\"Who's got the list?\" Everyone.",
+      },
+      pantry: {
+        title: "It fills itself",
+        description:
+          "Say what you keep at home. When the coffee runs low, it goes on the list before you're stood in the kitchen without it.",
+        example: "coffee · low → on the list",
+      },
+      receipt: {
+        title: "The receipt does the budget",
+        description:
+          "Snap the receipt when you're done. The total lands in the household's grocery spend, and what you bought is stocked at home.",
+        example: "Corner shop · 129 kr · done",
+      },
+    },
     ctaEyebrow: "Note to self:",
-    ctaTitle: "Get the household in order.",
-    // UX-58: no "less than a minute" — signup waits on an emailed
-    // verification link (UX-135), so promise only what's always true.
-    ctaDescription: "Free to set up — no credit card, no chores.",
-    ctaButton: "Create your household",
-    // UX-58: the phone-framed shopping list in the hero (PhonePreview).
-    // Example rows, not a real household's, so they read naturally in each
-    // language rather than as translations of one list.
+    ctaTitle: "Take the list off the fridge.",
+    ctaDescription:
+      "Sign up, invite the others with one link, and the list is on every phone. In English or Swedish.",
+    ctaButton: "Start your list",
     preview: {
-      label: "A shared shopping list in Squirrel on a phone, with low-stock items added automatically",
+      label:
+        "A shared shopping list in Squirrel on a phone: oat milk adds itself when it runs low, and a tick by another member shows up at once",
       listName: "Weekly shop",
       fillsItself: "Fills itself",
       lowStock: "Low stock",
       purchased: "Purchased",
+      // The two sticky notes the demo puts up beside the phone.
+      addedItself: "oat milk → added itself",
+      tickedBy: "Sam ticked the bananas ✓",
       sections: {
         dairy: "Dairy",
         produce: "Fruit & veg",
@@ -3840,109 +3866,6 @@ export const en = {
         spinach: { name: "Spinach", qty: "1 bag" },
         pasta: { name: "Pasta", qty: "500 g" },
         coffee: { name: "Coffee", qty: "1" },
-      },
-    },
-    // The notes stuck to the fridge door in the hero, handwritten. They're
-    // decoration (hidden from screen readers), written the way a household
-    // scribbles, so each language gets its own wording rather than a
-    // translation. The receipt's prices are part of the scribble too.
-    fridge: {
-      shoppingNote: {
-        title: "Shopping!!",
-        bananas: "bananas",
-        oatMilk: "oat milk (2?)",
-        pasta: "pasta — check cupboard",
-        coffee: "coffee",
-        spinach: "spinach",
-      },
-      choresNote: {
-        title: "Bins out —",
-        question: "WHOSE TURN??",
-        aside: "(not me again)",
-      },
-      receipt: {
-        shop: "Corner shop",
-        items: {
-          oatMilk: { name: "Oat milk", price: "18.90" },
-          pasta: { name: "Pasta", price: "24.50" },
-          bananas: { name: "Bananas", price: "21.00" },
-          coffee: { name: "Coffee", price: "64.95" },
-        },
-        total: { name: "Total", price: "129.35" },
-        whoPaid: "who paid??",
-      },
-      tacoNote: {
-        title: "taco Tuesday?",
-        need: "need: tortillas, lime, beans",
-      },
-      budgetNote: {
-        title: "food budget",
-        amount: "~3 000 kr??",
-        aside: "ask Sam about the split",
-      },
-    },
-    // The dark band under the hero: three fridge notes, each next to the
-    // part of Squirrel that replaces it.
-    swap: {
-      eyebrow: "Out with the old —",
-      titlePrefix: "Every note on the fridge has a ",
-      titleHighlight: "better home.",
-    },
-    moreTitle: "Also on the door, now in your pocket",
-    // UX-58: six cards so the three-column grid has no empty cell, and
-    // between them every part of the app: budgets share one card so tasks,
-    // recipes and scanning get theirs.
-    features: {
-      pantry: {
-        title: "Pantry that watches itself",
-        description:
-          "Log what's in the cupboard once. We'll flag anything running low before you're stuck without it.",
-      },
-      shoppingLists: {
-        title: "Shopping lists that build themselves",
-        description:
-          "Low-stock items hop onto the list automatically, and a share link lets anyone tick things off — no account needed.",
-      },
-      meals: {
-        title: "Meals, planned not panicked",
-        description:
-          "Save recipes or import them from a link, plan the week against the pantry, and follow along in cook mode.",
-      },
-      tasks: {
-        title: "Chores that come back round",
-        description:
-          "Household tasks that repeat and take turns between people, plus a calendar feed of meals and bill due dates.",
-      },
-      scanning: {
-        title: "Scan instead of typing",
-        description: "Scan a barcode or a receipt to add things in seconds, or snap a whole shelf at once.",
-      },
-      budget: {
-        title: "Budgets without the spreadsheet",
-        description:
-          "Track household spending, split shared costs fairly, and keep a personal budget that's just for you.",
-      },
-    },
-    howItWorks: {
-      title: "How it works",
-      subtitle: "Start with an empty household and fill it as you go — starter kits and scanning make it quick.",
-      steps: {
-        setup: {
-          title: "Create your household",
-          description: "Sign up, name your household, and invite whoever else lives there — or use it solo.",
-        },
-        stock: {
-          title: "Log what you have",
-          description: "Add a few pantry items and a shopping list. Low stock flags itself from there on.",
-        },
-        plan: {
-          title: "Plan meals & spending",
-          description: "Line up the week's meals and set up budget categories for income and expenses.",
-        },
-        share: {
-          title: "Stay in sync",
-          description: "Everyone in the household sees the same lists and budget, split fairly when costs come up.",
-        },
       },
     },
   },
@@ -4021,9 +3944,9 @@ export const en = {
   // elsewhere in the dictionary are reused at the call site; these are
   // the ones with no other home. The root layout appends " · Squirrel".
   meta: {
-    homeTitle: "Squirrel: run your household like a dream team",
+    homeTitle: "Squirrel: the shopping list that keeps itself up to date",
     homeDescription:
-      "Inventory, shopping lists, meal planning, tasks and budgets for your whole household, in one place.",
+      "One shared shopping list for the whole household, a pantry that puts things back on it, and a receipt that does the budget.",
     privacyTitle: "Privacy policy",
     termsTitle: "Terms of service",
     joinDescription: "You've been invited to {name} on Squirrel. Create an account to join the household.",

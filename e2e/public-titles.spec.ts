@@ -48,7 +48,7 @@ test.afterAll(cleanup);
 
 // The tab title each route shows, per language.
 const TITLES: Record<string, { en: string; sv: string }> = {
-  "/": { en: "Squirrel: run your household like a dream team", sv: "Squirrel: styr hushållet som ett drömlag" },
+  "/": { en: "Squirrel: the shopping list that keeps itself up to date", sv: "Squirrel: inköpslistan som sköter sig själv" },
   "/login": { en: "Log in · Squirrel", sv: "Logga in · Squirrel" },
   "/privacy": { en: "Privacy policy · Squirrel", sv: "Integritetspolicy · Squirrel" },
   "/terms": { en: "Terms of service · Squirrel", sv: "Användarvillkor · Squirrel" },

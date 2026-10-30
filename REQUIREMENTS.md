@@ -7147,39 +7147,46 @@ components directly.
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
-- **Landing page (UX-58, fridge-door redesign)**: `src/app/page.tsx`
-  leads with the product, framed as a fridge door. The hero greets
-  "Dear household," in handwriting (Caveat, loaded only here through
-  `src/components/landing/handwriting.ts`) over "Take everything off the
-  fridge.", with "fridge" in `primary` on a honey underline. Beside it
-  (below it on a phone) `FridgeDoor` (`src/components/landing/fridge-door.tsx`)
-  draws the door: the brand spelled in bobbing letter magnets with the
-  BrandBadge as a magnet, then `PhonePreview`
-  (`src/components/landing/phone-preview.tsx`, the tokens-drawn shopping
-  list in a phone frame, one `role="img"` with a descriptive label) hanging
-  first so it's in the first screen at any size, flanked from `sm` by a taco
-  note and a budget note, then a ruled shopping list, a "Bins out — WHOSE
-  TURN??" sticky note and a receipt. The notes are the household's own
-  scribbles (`landing.fridge`, written per language rather than
-  translated) and pure decoration: each is `aria-hidden` and nothing on the
-  door but the phone is announced. They're paper in both themes: the
-  `note-*` tokens (and the `night-*` ones below) hold one value in light
-  and dark, and only the door's `fridge`/`fridge-handle` enamel changes;
-  every ink/ground pair is in `globals-contrast.test.ts`. A deep purple
-  "night" band then re-homes three notes beside the feature that replaces
-  each (shopping list → shopping lists, the bins note → chores, the
-  receipt → budgets); the other three features (pantry, meals, scanning)
-  are pinned cards under "Also on the door, now in your pocket", so every
-  part of the app is still named. "How it works" follows unchanged, and the
-  closing call to action is a yellow sticky note ("Note to self: Get the
-  household in order."). Motion (the magnets' bob, notes straightening on
-  hover) runs only under `motion-safe`. The copy claims only what's true: no
-  "example data" (a new household starts empty; sample data is an opt-in on
-  the overview, UX-136) and no "less than a minute" (signup waits on email
-  verification). Covered by `e2e/landing.spec.ts` (the preview at least 40%
-  on screen without scrolling, every feature named, the headline and the
-  notes hidden from screen readers, the three re-homed notes, the sticky
-  note leading to sign-up, the Swedish preview and headline).
+- **Landing page (UX-58, list-first)**: `src/app/page.tsx` makes one
+  promise, shows it once, names three things and asks once, in about two
+  phone screens. The hero greets "Dear household," in handwriting (Caveat,
+  loaded only here through `src/components/landing/handwriting.ts`) over
+  "The shopping list that keeps itself up to date.", with "keeps itself" in
+  `primary` on the honey underline, one sentence, and "Start your list" to
+  `/signup` with "Free for the whole household. No card, no ads." as small
+  print. Beside it (below it on a phone, still starting in the first
+  screen) is `PhonePreview` (`src/components/landing/phone-preview.tsx`):
+  the tokens-drawn "Weekly shop" list in a phone frame, one `role="img"`
+  with a descriptive label, drawn rather than screenshotted so it follows
+  the visitor's language and theme and never goes stale. It plays the
+  page's one piece of motion, a demo loop: the stage clears, oat milk
+  slides onto the list (a row growing from nothing, `ease-spring`) under a
+  handwritten "oat milk → added itself" sticky note, then the bananas tick
+  (`tick-pop`, the app's own checkbox spring) under "Sam ticked the
+  bananas ✓", then it holds and starts over (`LOOP` holds the phase
+  timings; `data-phase` on the wrapper names the phase). The server
+  renders the finished picture ("rest": oat milk on the list, bananas
+  ticked, both notes up), so the page is complete before any script runs;
+  with `prefers-reduced-motion` the loop never starts and that picture
+  stays; while the tab is hidden it pauses on it. The notes are
+  aria-hidden decoration, paper in both themes (`note-*` tokens). Under the
+  hero, "Three things it does for you every week" names the shared list,
+  the pantry that fills it ("It fills itself") and the receipt that does
+  the budget, each card ending in a handwritten example line (aria-hidden),
+  and the pantry, meals and budget are named as what's there when wanted
+  rather than sold one by one. The closing call to action is the yellow
+  sticky note ("Note to self: Take the list off the fridge.") with a second
+  "Start your list". The hero's pieces rise in staggered on the entrance
+  tokens (`landing-rise`; delays under `motion-safe`, since the
+  reduced-motion block collapses durations but not delays); cards and the
+  note lift or straighten on hover under `motion-safe` only. The copy
+  claims only what's true: no "example data" (a new household starts
+  empty; sample data is an opt-in on the overview, UX-136) and no "less
+  than a minute" (signup waits on email verification). Covered by
+  `e2e/landing.spec.ts` (the preview at least 40% on screen without
+  scrolling, the headline with the notes hidden from screen readers, the
+  three benefits named, the demo cycling with motion and resting without,
+  the sticky note leading to sign-up, the Swedish preview and headline).
 - **404 and invalid-link titles (UX-65)**: `src/app/not-found.tsx` is a
   Server Component that checks the session. A logged-out visitor gets the
   `StatusCard` (brand mark, compass icon, "Page not found") with a "Go to

@@ -117,15 +117,10 @@ describe.each(Object.entries(THEMES))("globals.css %s theme", (theme, vars) => {
     pairs.push([`ring (focus) on ${s}`, solid("ring"), solid(s), 3]);
   }
 
-  // The landing page's fridge door: dark ink on every paper note, the red
-  // scribble on the receipt, and the text on the deep purple "night" band.
-  // These tokens hold the same value in both themes.
-  for (const note of ["note-paper", "note-yellow", "note-pink", "note-mint", "note-green"]) {
+  // The landing page's sticky notes: dark ink on paper. These tokens hold
+  // the same value in both themes.
+  for (const note of ["note-paper", "note-yellow"]) {
     pairs.push([`note-ink on ${note}`, solid("note-ink"), solid(note), 4.5]);
-  }
-  pairs.push(["note-red on note-paper", solid("note-red"), solid("note-paper"), 4.5]);
-  for (const fg of ["night-foreground", "night-muted", "night-accent"]) {
-    pairs.push([`${fg} on night`, solid(fg), solid("night"), 4.5]);
   }
 
   // UX-25 (light theme polish) fixed its usages by pointing them at pairs
