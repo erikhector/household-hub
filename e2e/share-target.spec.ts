@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
-import { dismissCookieNotice, LOCALES, setLocaleCookie } from "./ui";
+import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
+import { dismissCookieNotice, LOCALES } from "./ui";
 
 // GAP-67: the OS share sheet needs a real Android device, but what it opens
 // is just /dashboard/share?url=…|text=…, which this spec visits directly. The
@@ -12,9 +13,11 @@ for (const locale of LOCALES) {
   const d = dicts[locale];
 
   test.describe(`share target (${locale})`, () => {
+    // Signed in, the language comes from the account, not the cookie, so
+    // Swedish runs as the seeded Swedish user (e2e/seed.ts).
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
     test.beforeEach(async ({ context, baseURL }) => {
       await dismissCookieNotice(context, baseURL!);
-      await setLocaleCookie(context, baseURL!, locale);
     });
 
     test("a shared link opens the recipe dialog with the import field filled in", async ({ page }) => {
