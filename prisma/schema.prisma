@@ -1626,6 +1626,10 @@ model HouseholdNote {
   authorMemberId String?
   body           String
   createdAt      DateTime @default(now())
+  // GAP-61: when the note was pinned to the top of the board; null = not
+  // pinned. A timestamp rather than a boolean so pinned notes sort
+  // newest-pinned first without a second column.
+  pinnedAt       DateTime?
 
   household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   authorMember HouseholdMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)

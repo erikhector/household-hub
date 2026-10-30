@@ -702,22 +702,6 @@ out to be a product-scope question rather than a scoped task should move to
       and asserts it in the bridge preview and on the list after "Add",
       on desktop and mobile.
 
-### 2026-10-18 scan
-
-- [ ] **GAP-61. Pin a note to the top of the notes board** (impact: low, effort: S) `[schema]` —
-      Cozi's journal and AnyList's meal-plan "pinned entries" both let a
-      lasting fact (the wifi code, the door code, "allergic to nuts")
-      outlive the chronological feed. Squirrel's notes board
-      (`## Household notes board`, GAP-16) is newest-first only, so a
-      standing note sinks under daily chatter. Add `HouseholdNote.pinnedAt
-      DateTime?`; any member may pin or unpin (same permission as delete);
-      pinned notes sort first, newest-pinned first, with a visible
-      "Pinned" label and an accessible Pin/Unpin button, capped at 5
-      pinned so the pins don't become the feed.
-      Acceptance: an action test covers household scoping, the cap and
-      unpin; an e2e step pins a uniquely named note, reloads and sees it
-      above a newer one, then unpins it, on desktop and mobile.
-
 ### 2026-10-23 scan
 
 - [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —

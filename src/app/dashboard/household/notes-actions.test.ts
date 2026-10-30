@@ -4,7 +4,7 @@
 // mocked — no database is touched. Same convention as
 // src/app/dashboard/tasks/actions.test.ts.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NOTE_BODY_MAX_LENGTH } from "@/lib/household-notes";
+import { NOTE_BODY_MAX_LENGTH, NOTE_PIN_MAX } from "@/lib/household-notes";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { en } from "@/lib/i18n/dictionaries/en";
 
@@ -12,12 +12,16 @@ const {
   requireHouseholdMock,
   householdNoteCreateMock,
   householdNoteDeleteManyMock,
+  householdNoteUpdateManyMock,
+  householdNoteCountMock,
   householdMemberFindFirstMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   householdNoteCreateMock: vi.fn(),
   householdNoteDeleteManyMock: vi.fn(),
+  householdNoteUpdateManyMock: vi.fn(),
+  householdNoteCountMock: vi.fn(),
   householdMemberFindFirstMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
@@ -27,6 +31,8 @@ vi.mock("@/lib/prisma", () => ({
     householdNote: {
       create: householdNoteCreateMock,
       deleteMany: householdNoteDeleteManyMock,
+      updateMany: householdNoteUpdateManyMock,
+      count: householdNoteCountMock,
     },
     householdMember: { findFirst: householdMemberFindFirstMock },
   },
@@ -39,7 +45,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 const { getDictionaryMock } = vi.hoisted(() => ({ getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})) }));
 vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: getDictionaryMock, getLocale: vi.fn(async () => "en") }));
 
-const { createNoteAction, deleteNoteAction } = await import("@/app/dashboard/household/notes-actions");
+const { createNoteAction, deleteNoteAction, setNotePinnedAction } = await import("@/app/dashboard/household/notes-actions");
 
 const household = { id: "household-1", name: "The Hectors" };
 
@@ -199,5 +205,77 @@ describe("deleteNoteAction", () => {
 
     expect(result.error).toBe("Something went wrong. Please try again.");
     expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setNotePinnedAction", () => {
+  it("pins a note scoped to the session household with a pinnedAt timestamp", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdNoteCountMock.mockResolvedValue(0);
+
+    const result = await setNotePinnedAction("note-1", true);
+
+    expect(result).toEqual({});
+    expect(householdNoteCountMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", pinnedAt: { not: null }, id: { not: "note-1" } },
+    });
+    expect(householdNoteUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "note-1", householdId: "household-1" },
+      data: { pinnedAt: expect.any(Date) },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+
+  it("refuses a sixth pin and writes nothing", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdNoteCountMock.mockResolvedValue(NOTE_PIN_MAX);
+
+    const result = await setNotePinnedAction("note-6", true);
+
+    expect(result.error).toBe(en.errors.notePinLimit);
+    expect(householdNoteUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("allows pinning while below the cap", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdNoteCountMock.mockResolvedValue(NOTE_PIN_MAX - 1);
+
+    expect(await setNotePinnedAction("note-5", true)).toEqual({});
+    expect(householdNoteUpdateManyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("unpins by clearing pinnedAt, even when the board is at the cap", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdNoteCountMock.mockResolvedValue(NOTE_PIN_MAX);
+
+    const result = await setNotePinnedAction("note-1", false);
+
+    expect(result).toEqual({});
+    expect(householdNoteCountMock).not.toHaveBeenCalled();
+    expect(householdNoteUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "note-1", householdId: "household-1" },
+      data: { pinnedAt: null },
+    });
+  });
+
+  it("scopes by the session household, so another household's note id changes nothing", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdNoteCountMock.mockResolvedValue(0);
+    householdNoteUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await setNotePinnedAction("note-of-another-household", true);
+
+    expect(result).toEqual({});
+    expect(householdNoteUpdateManyMock.mock.calls[0][0].where.householdId).toBe("household-1");
+  });
+
+  it("returns the cap error in the user's language", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdNoteCountMock.mockResolvedValue(NOTE_PIN_MAX);
+    getDictionaryMock.mockResolvedValueOnce(sv);
+
+    const result = await setNotePinnedAction("note-6", true);
+
+    expect(result.error).toBe(sv.errors.notePinLimit);
   });
 });
