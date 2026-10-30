@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRightLeft, Trash2, UsersRound } from "lucide-react";
+import { ArrowRightLeft, Trash2, UsersRound, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,12 +19,13 @@ import { PendingLabel } from "@/components/ui/pending-label";
 import { PortionStepper } from "@/components/meal-planning/portion-stepper";
 import {
   bulkEditMealEntriesAction,
+  undoBulkMarkEatenAction,
   undoBulkMealEditAction,
   type BulkMealEdit,
   type BulkMealResult,
-  type BulkMealRestore,
 } from "@/app/dashboard/meal-planning/bulk-meal-actions";
-import { canRePortion } from "@/app/dashboard/meal-planning/bulk-meal-calc";
+import { canMarkEaten, canRePortion } from "@/app/dashboard/meal-planning/bulk-meal-calc";
+import type { ActionState } from "@/lib/actions/auth";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { format, plural } from "@/lib/i18n/format";
 import type { MealPlanEntryData } from "@/components/meal-planning/types";
@@ -43,14 +44,18 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
 
 const KEEP_SLOT = "KEEP";
 
-// GAP-56: the bar Select mode shows once meals are ticked. On a phone it
-// sticks just above the bottom bar so a thumb reaches Move / Portions /
-// Remove without scrolling back up (DESIGN.md M2); each button is 44 px high
-// (M3) and Remove sits in its own cell, apart from the other two (M2). Move
-// and Portions open a dialog and run one bulk action; both toast with Undo
-// (M7: destroying or reshuffling data is undoable). Remove is handed to the
-// planner, which hides the rows and sends the delete when the toast closes,
-// like a single Remove meal (UX-49).
+// GAP-56: the bar Select mode shows once meals are ticked. On a phone it is
+// docked to the top of the bottom bar so a thumb reaches its actions without
+// scrolling back up (DESIGN.md M2), on the same `fixed` footing as the
+// inventory's bulk bar (UX-123). It used to be `sticky`, which iOS Safari
+// left floating over the middle of the list. `data-bulk-bar="meals"` makes
+// <main> reserve its height (globals.css), so the last day still scrolls out
+// from under it. Each button is 44 px high (M3) and Remove sits in its own
+// cell, in the corner away from Mark eaten (M2). Mark eaten runs at once;
+// Move and Portions open a dialog first. All three toast with Undo (M7:
+// changing data is undoable). Remove is handed to the planner, which hides
+// the rows and sends the delete when the toast closes, like a single Remove
+// meal (UX-49).
 export function BulkMealBar({
   dict,
   selected,
@@ -66,14 +71,18 @@ export function BulkMealBar({
   onChanged: () => void;
 }) {
   const [dialog, setDialog] = useState<"move" | "portions" | null>(null);
+  const [eating, startEating] = useTransition();
   const count = selected.length;
   const none = count === 0;
+  // Only meals from meal prep can be marked eaten in bulk (canMarkEaten), so
+  // the button is off until one is ticked rather than failing on tap.
+  const noneEatable = !selected.some(canMarkEaten);
 
   // Undo is tapped on the same flaky links as the edit, so a rejected call
   // gets the same toast instead of an unhandled rejection (M8).
-  async function undo(restore: BulkMealRestore[]) {
+  async function undo(call: () => Promise<ActionState>) {
     try {
-      const undone = await undoBulkMealEditAction(restore);
+      const undone = await call();
       if (undone.error) toast.error(undone.error);
       else toast.success(dict.bulkUndoneToast);
     } catch (error) {
@@ -85,7 +94,11 @@ export function BulkMealBar({
   // One call that runs a bulk edit, toasts the outcome with an Undo, and
   // returns whether it went through. A dropped connection rejects the call;
   // say so rather than hitting the error boundary (M8).
-  async function run(edit: BulkMealEdit, message: (n: number) => string): Promise<boolean> {
+  async function run(
+    edit: BulkMealEdit,
+    message: (n: number) => string,
+    skippedNote: { one: string; other: string } = dict.bulkSkippedNote,
+  ): Promise<boolean> {
     let result: BulkMealResult;
     try {
       result = await bulkEditMealEntriesAction(edit);
@@ -99,14 +112,15 @@ export function BulkMealBar({
       return false;
     }
     const restore = result.restore ?? [];
+    const eatenIds = result.eatenIds;
     const skipped = result.skipped ?? 0;
     toast.success(message(result.changed ?? 0), {
       duration: 8000,
-      description: skipped > 0 ? format(plural(skipped, dict.bulkSkippedNote), { count: skipped }) : undefined,
+      description: skipped > 0 ? format(plural(skipped, skippedNote), { count: skipped }) : undefined,
       action: {
         label: dict.undoDelete,
         onClick: () => {
-          void undo(restore);
+          void undo(() => (eatenIds ? undoBulkMarkEatenAction(eatenIds) : undoBulkMealEditAction(restore)));
         },
       },
     });
@@ -114,21 +128,42 @@ export function BulkMealBar({
     return true;
   }
 
+  function markEaten() {
+    startEating(async () => {
+      await run(
+        { op: "eaten", entryIds: selected.map((e) => e.id) },
+        (n) => format(plural(n, dict.bulkEatenToast), { count: n }),
+        dict.bulkEatenSkippedNote,
+      );
+    });
+  }
+
   return (
     <div
       role="region"
       aria-label={dict.bulkBarLabel}
-      className="sticky bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px)+0.5rem)] z-30 flex flex-col gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur-sm sm:bottom-4 print:hidden"
+      data-bulk-bar="meals"
+      className="z-30 flex flex-col gap-2 border bg-background/95 p-3 shadow-lg backdrop-blur-sm max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] sm:sticky sm:bottom-4 sm:rounded-xl print:hidden"
     >
       <div className="flex items-center justify-between gap-2">
         <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium">
           {none ? dict.bulkSelectHint : format(plural(count, dict.bulkSelectedCount), { count })}
         </p>
-        <Button type="button" variant="ghost" onClick={onDone}>
+        <Button type="button" variant="ghost" className="max-sm:h-11" onClick={onDone}>
           {dict.bulkDone}
         </Button>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto min-h-11 whitespace-normal"
+          disabled={noneEatable || eating}
+          onClick={markEaten}
+        >
+          <Utensils className="size-4 shrink-0" aria-hidden="true" />
+          {dict.bulkMarkEaten}
+        </Button>
         <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={none} onClick={() => setDialog("move")}>
           <ArrowRightLeft className="size-4 shrink-0" aria-hidden="true" />
           {dict.bulkMove}

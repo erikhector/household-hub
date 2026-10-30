@@ -439,6 +439,9 @@ async function RecipesTabSection({
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
       plannerWeekStartKey={weekStartKey}
+      // GAP-54: same two keys as recipe-photo-actions.ts's provider chain;
+      // there is no OCR fallback, so no key means no button.
+      photoImportConfigured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)}
     />
   );
 }

@@ -65,6 +65,13 @@
   [data-app-main]:has([data-bulk-bar]) [data-primary-action] {
     display: none;
   }
+  /* The planner's Select-mode bar (bulk-meal-bar.tsx) is three 44 px rows
+     (the count with Done, then its four actions two by two) plus gaps and
+     padding, so it reserves 11rem rather than the inventory bar's 7.5rem. */
+  [data-app-main]:has([data-bulk-bar="meals"]) {
+    padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
+    scroll-padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
+  }
 }
 
 /* UX-139: a Card on a dashboard page is a surface too (the budget pages

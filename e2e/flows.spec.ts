@@ -49,6 +49,31 @@ test("add a task and mark it done", async ({ page, context, baseURL }) => {
   await expect(notDone).toBeChecked();
 });
 
+// PERF-21: next.config.ts keeps a visited page in the browser's client cache
+// for 15 s (staleTimes.dynamic). The risk is a stale copy hiding the user's own
+// edit, so add a task, leave the page by a client-side navigation (router.push
+// keeps the cache, unlike goto or reload) and come back: the new task must be
+// there, because the action's revalidatePath cleared the cached copy.
+test("an edit still shows after navigating away and back", async ({ page, context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+  const title = unique("Cached page task");
+  await gotoRevealed(page, "/dashboard/tasks");
+  await page.getByRole("button", { name: "Add task" }).click();
+  await page.getByRole("textbox", { name: "Task title" }).fill(title);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
+
+  const push = (path: string) =>
+    page.evaluate((to) => {
+      (window as unknown as { next: { router: { push: (p: string) => void } } }).next.router.push(to);
+    }, path);
+  await push("/dashboard/profile");
+  await expect(page).toHaveURL(/\/dashboard\/profile/);
+  await push("/dashboard/tasks");
+  await expect(page).toHaveURL(/\/dashboard\/tasks$/);
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
+});
+
 test("create a shopping list and add items to it", async ({ page, context, baseURL }) => {
   // On a phone the cookie notice covers the floating primary action (UX-40).
   await dismissCookieNotice(context, baseURL!);

@@ -1,6 +1,6 @@
 // Pure fuzzy name-matching for mapping a freeform shopping-list item name to
 // an existing InventoryItem — used by the shopping list's "needs mapping"
-// flow (src/app/dashboard/shopping-list/actions.ts,
+// flow (src/app/dashboard/shopping-list/item-actions.ts,
 // src/components/shopping/map-shopping-item-dialog.tsx) instead of the old
 // silent find-or-create-by-exact-name behavior. Dependency-free so it can
 // run both server-side and directly in the client dialog.

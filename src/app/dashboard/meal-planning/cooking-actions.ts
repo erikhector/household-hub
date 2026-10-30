@@ -39,7 +39,7 @@ const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 const MAX_MISSING_INGREDIENT_NAME_LENGTH = 120;
 const MAX_MISSING_INGREDIENT_UNIT_LENGTH = 20;
 // GAP-62: ShoppingListItem.note's cap (SHOPPING_ITEM_NOTE_MAX_LENGTH in
-// shopping-list/actions.ts, a "use server" file that can't export it). A
+// shopping-list/item-actions.ts, a "use server" file that can't export it). A
 // longer ingredient note is cut rather than the row dropped.
 const MAX_MISSING_INGREDIENT_NOTE_LENGTH = 200;
 // The row cap follows the shopping-list side's 300 rather than a recipe's

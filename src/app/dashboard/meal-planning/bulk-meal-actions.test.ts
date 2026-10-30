@@ -13,6 +13,8 @@ const {
   batchUpdateManyMock,
   transactionMock,
   revalidatePathMock,
+  countMock,
+  recipeUpdateManyMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   findManyMock: vi.fn(),
@@ -24,6 +26,8 @@ const {
   batchUpdateManyMock: vi.fn(),
   transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  countMock: vi.fn(),
+  recipeUpdateManyMock: vi.fn(),
 }));
 
 const prismaMock = {
@@ -31,7 +35,9 @@ const prismaMock = {
     findMany: findManyMock,
     updateMany: updateManyMock,
     deleteMany: deleteManyMock,
+    count: countMock,
   },
+  recipe: { updateMany: recipeUpdateManyMock },
   mealPlan: { upsert: planUpsertMock },
   notification: { updateMany: notificationUpdateManyMock },
   preparedBatch: { findFirst: batchFindFirstMock, updateMany: batchUpdateManyMock },
@@ -45,7 +51,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const { bulkEditMealEntriesAction, undoBulkMealEditAction } = await import(
+const { bulkEditMealEntriesAction, undoBulkMealEditAction, undoBulkMarkEatenAction } = await import(
   "@/app/dashboard/meal-planning/bulk-meal-actions"
 );
 
@@ -315,5 +321,92 @@ describe("undoBulkMealEditAction", () => {
     ]);
     expect(result.error).toBe("Meal not found");
     expect(transactionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("bulkEditMealEntriesAction: eaten", () => {
+  it("marks batch meals eaten in one guarded write and skips fresh, custom and cooked ones", async () => {
+    findManyMock.mockResolvedValue([
+      row("p1", "2026-01-05", { preparedBatchId: "b1", preparedPortionsUsed: 1, portions: 1 }),
+      row("p2", "2026-01-06", { preparedBatchId: "b1", preparedPortionsUsed: 1, portions: 1 }),
+      row("fresh", "2026-01-06"),
+      row("custom", "2026-01-06", { recipeId: null }),
+      row("done", "2026-01-07", { preparedBatchId: "b1", consumedAt: new Date() }),
+    ]);
+    updateManyMock.mockResolvedValue({ count: 2 });
+
+    const result = await bulkEditMealEntriesAction({
+      op: "eaten",
+      entryIds: ["p1", "p2", "fresh", "custom", "done"],
+    });
+
+    expect(result).toEqual({ changed: 2, skipped: 3, eatenIds: ["p1", "p2"] });
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["p1", "p2"] }, consumedAt: null, preparedBatchId: { not: null } },
+      data: { consumedAt: expect.any(Date) },
+    });
+    // No inventory is touched: the batch was cooked at prep time.
+    expect(batchUpdateManyMock).not.toHaveBeenCalled();
+    // Off the Cook soon shelf once, for the one recipe.
+    expect(recipeUpdateManyMock).toHaveBeenCalledTimes(1);
+    expect(recipeUpdateManyMock.mock.calls[0][0].where).toMatchObject({ id: "recipe-1", householdId: "household-1" });
+  });
+
+  it("fails the whole batch when a meal was eaten or unlinked after the read", async () => {
+    findManyMock.mockResolvedValue([
+      row("p1", "2026-01-05", { preparedBatchId: "b1", preparedPortionsUsed: 1 }),
+      row("p2", "2026-01-06", { preparedBatchId: "b1", preparedPortionsUsed: 1 }),
+    ]);
+    updateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await bulkEditMealEntriesAction({ op: "eaten", entryIds: ["p1", "p2"] });
+
+    expect(result.error).toBe("Something went wrong. Please try again.");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("errors when no selected meal eats from a batch", async () => {
+    findManyMock.mockResolvedValue([row("fresh", "2026-01-05")]);
+    const result = await bulkEditMealEntriesAction({ op: "eaten", entryIds: ["fresh"] });
+    expect(result.error).toBe("None of the selected meals can be changed");
+    expect(updateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a foreign id before marking anything", async () => {
+    findManyMock.mockResolvedValue([row("p1", "2026-01-05", { preparedBatchId: "b1" })]);
+    const result = await bulkEditMealEntriesAction({ op: "eaten", entryIds: ["p1", "foreign"] });
+    expect(result.error).toBe("Meal not found");
+    expect(findManyMock.mock.calls[0][0].where.mealPlan).toEqual({ householdId: "household-1" });
+    expect(updateManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("undoBulkMarkEatenAction", () => {
+  it("clears consumedAt on the household's batch meals only", async () => {
+    countMock.mockResolvedValue(2);
+
+    const result = await undoBulkMarkEatenAction(["p1", "p2"]);
+
+    expect(result).toEqual({});
+    expect(countMock).toHaveBeenCalledWith({
+      where: { id: { in: ["p1", "p2"] }, mealPlan: { householdId: "household-1" } },
+    });
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["p1", "p2"] }, preparedBatchId: { not: null }, consumedAt: { not: null } },
+      data: { consumedAt: null },
+    });
+  });
+
+  it("rejects a foreign id for the whole batch", async () => {
+    countMock.mockResolvedValue(1);
+    const result = await undoBulkMarkEatenAction(["p1", "foreign"]);
+    expect(result.error).toBe("Meal not found");
+    expect(updateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty list", async () => {
+    const result = await undoBulkMarkEatenAction([]);
+    expect(result.error).toBeDefined();
+    expect(countMock).not.toHaveBeenCalled();
   });
 });

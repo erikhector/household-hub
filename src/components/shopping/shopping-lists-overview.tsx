@@ -29,7 +29,7 @@ import {
   createShoppingListAction,
   deleteShoppingListAction,
   unarchiveShoppingListAction,
-} from "@/app/dashboard/shopping-list/actions";
+} from "@/app/dashboard/shopping-list/list-actions";
 import type { ActionState } from "@/lib/actions/auth";
 import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";

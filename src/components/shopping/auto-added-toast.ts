@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
+import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/item-actions";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { AutoAddedItem } from "@/lib/shopping/default-list";

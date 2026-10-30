@@ -15,7 +15,7 @@ import {
   DialogTrigger,
   type DialogHandle,
 } from "@/components/ui/dialog";
-import { importShoppingListItemsAction } from "@/app/dashboard/shopping-list/actions";
+import { importShoppingListItemsAction } from "@/app/dashboard/shopping-list/item-actions";
 import { parsePastedList } from "@/lib/inventory/parse-pasted-list";
 import { parseImportCsv, type ImportCsvError } from "@/lib/inventory/parse-import-csv";
 import { format, plural } from "@/lib/i18n/format";

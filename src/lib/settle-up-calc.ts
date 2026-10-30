@@ -65,7 +65,7 @@ export function remainingDue(tx: SplitTransaction): number {
  * computeNetBalances changes nothing. PERF-12: the budget page's query uses
  * this to skip settled bills in the database instead of loading every split
  * bill the household ever logged — keep its raw SQL (in
- * loadUnsettledSplitBills, budget/page.tsx) the exact negation of this predicate. The comparison is
+ * loadUnsettledSplitBills, src/lib/budget/load-budget-tabs-data.ts) the exact negation of this predicate. The comparison is
  * deliberately exact (`===`, not EPSILON): a bill with any non-zero
  * difference, however small, stays in so the totals match bit for bit.
  */

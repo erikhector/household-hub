@@ -30,7 +30,7 @@ export async function findSessionMemberId(
 
 export type AssignBatch = { id: string; recipeId: string };
 export type AssignSlot = { date: string; mealType: MealType; portions: number };
-export type PrepAssignErrorKey = "prepNotEnoughPortions" | "prepSlotTaken";
+export type PrepAssignErrorKey = "prepNotEnoughPortions";
 
 /**
  * Thrown inside the transaction so Prisma rolls back everything assignInTx
@@ -48,8 +48,9 @@ type AssignClient = Pick<Prisma.TransactionClient, "preparedBatch" | "mealPlan" 
 
 /**
  * Hands `slots` their portions of `batch`, inside the caller's transaction:
- * one guarded decrement for the total, then per slot either a new linked
- * entry or the link added to the slot's existing plan for the same dish.
+ * one guarded decrement for the total, then per slot either the link added
+ * to the slot's existing plan for the same dish or a new linked entry beside
+ * whatever else is planned there.
  * Returns the created or linked entry ids, in slot order. `batch` must
  * already be known to belong to `householdId`; the decrement re-checks it
  * anyway. Throws PrepAssignError, so the whole assignment lands or none of
@@ -81,41 +82,38 @@ export async function assignInTx(
       select: { id: true },
     });
 
-    const existing = await tx.mealPlanEntry.findMany({
-      where: { mealPlanId: plan.id, date, mealType: slot.mealType },
-      select: { id: true, recipeId: true, preparedBatchId: true, consumedAt: true },
-      orderBy: { id: "asc" },
-    });
     const link = { portions: slot.portions, preparedBatchId: batch.id, preparedPortionsUsed: slot.portions };
 
-    if (existing.length === 0) {
-      const created = await tx.mealPlanEntry.create({
-        data: { mealPlanId: plan.id, date, mealType: slot.mealType, recipeId: batch.recipeId, ...link },
-        select: { id: true },
+    // The slot already plans this dish fresh ("lasagna on Thursday"): eat it
+    // from the batch instead of planning it twice. Guarded like the
+    // decrement, so an entry linked or cooked since this read isn't taken
+    // over; the portion then gets an entry of its own below.
+    const fresh = await tx.mealPlanEntry.findFirst({
+      where: { mealPlanId: plan.id, date, mealType: slot.mealType, recipeId: batch.recipeId, preparedBatchId: null, consumedAt: null },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+    if (fresh) {
+      const linked = await tx.mealPlanEntry.updateMany({
+        where: { id: fresh.id, preparedBatchId: null, consumedAt: null },
+        data: link,
       });
-      entryIds.push(created.id);
-      continue;
+      if (linked.count === 1) {
+        entryIds.push(fresh.id);
+        continue;
+      }
     }
 
-    // The slot already plans this dish fresh ("lasagna on Thursday") — eat
-    // it from the batch instead. Anything else there (another dish, a
-    // freeform meal, a slot already eating from a batch, a cooked meal) is
-    // the household's plan, and silently adding a second meal or replacing
-    // it would lose that, so the slot counts as taken.
-    const reusable = existing.every(
-      (entry) => entry.recipeId === batch.recipeId && entry.preparedBatchId === null && entry.consumedAt === null,
-    );
-    if (!reusable) throw new PrepAssignError("prepSlotTaken");
-
-    // Guarded like the decrement: if the entry was linked or cooked since
-    // the read above, it no longer matches and the slot is taken after all.
-    const target = existing[0];
-    const linked = await tx.mealPlanEntry.updateMany({
-      where: { id: target.id, preparedBatchId: null, consumedAt: null },
-      data: link,
+    // Anything else in the slot (another dish, a custom meal, another
+    // batch's portion, a meal already eaten) stays as it is, and the
+    // portion is added beside it: a household eating two things for dinner,
+    // or a lunch box next to a fresh meal, plans both (owner feedback: the
+    // "Taken" rule stopped prepped food going where it was really eaten).
+    const created = await tx.mealPlanEntry.create({
+      data: { mealPlanId: plan.id, date, mealType: slot.mealType, recipeId: batch.recipeId, ...link },
+      select: { id: true },
     });
-    if (linked.count === 0) throw new PrepAssignError("prepSlotTaken");
-    entryIds.push(target.id);
+    entryIds.push(created.id);
   }
   return entryIds;
 }

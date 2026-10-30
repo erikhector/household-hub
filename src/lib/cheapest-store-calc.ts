@@ -7,7 +7,7 @@
 //
 // `PriceHistory.store` has existed in the schema since AUTO-9's groundwork,
 // but nothing ever wrote it until GAP-6 threaded an optional store name
-// through receipt scan/register (src/app/dashboard/shopping-list/actions.ts). So most rows still have a
+// through receipt scan/register (src/app/dashboard/shopping-list/receipt-actions.ts). So most rows still have a
 // null `store` — this only ever surfaces an item once *it* has at least two
 // rows with a *distinct, non-null* store, the same "enough data to mean
 // something" bar MIN_PRICE_POINTS_FOR_TREND sets for the trend cards above.

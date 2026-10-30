@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.121.0",
+    "date": "2026-10-30",
+    "pr": 923,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Long-press the Squirrel icon on your Android home screen to jump straight to the Shopping list, Meal plan or Tasks.",
+      "sv": "Tryck länge på Squirrel-ikonen på Androids startskärm för att hoppa direkt till Inköpslistan, Måltidsplanen eller Uppgifterna."
+    }
+  },
+  {
+    "version": "0.120.1",
+    "date": "2026-10-29",
+    "pr": 905,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Pre-cooked meals can now be planned in any meal, even next to something already planned. Several of them can be marked as eaten at once, and they show \"Eaten\" instead of \"Cooked\". On iPhone, the bar for editing several meals now stays at the bottom of the screen.",
+      "sv": "Matlådor kan nu planeras på vilken måltid som helst, även bredvid något som redan är planerat. Flera kan markeras som ätna på en gång, och de visar \"Äten\" i stället för \"Lagad\". På iPhone ligger nu fältet för att ändra flera måltider kvar längst ned på skärmen."
+    }
+  },
+  {
+    "version": "0.120.0",
+    "date": "2026-10-29",
+    "pr": 901,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes can now be imported from a photo of a cookbook page, recipe card or screenshot. Review the filled-in fields, then save. (Needs the AI service to be set up.)",
+      "sv": "Du kan nu importera recept från ett foto av en kokboksida, ett receptkort eller en skärmbild. Granska de ifyllda fälten och spara sedan. (Kräver att AI-tjänsten är konfigurerad.)"
+    }
+  },
+  {
+    "version": "0.119.1",
+    "date": "2026-10-29",
+    "pr": 895,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Switching between pages you just visited is now instant. Your own changes still show straight away; changes made by someone else in your household can take up to 15 seconds to appear when you switch pages.",
+      "sv": "Det går nu snabbare att växla mellan sidor du nyss besökt. Dina egna ändringar syns direkt; ändringar som någon annan i hushållet gör kan ta upp till 15 sekunder att dyka upp när du byter sida."
+    }
+  },
+  {
     "version": "0.119.0",
     "date": "2026-10-29",
     "pr": 879,

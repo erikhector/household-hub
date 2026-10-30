@@ -84,6 +84,17 @@ easy for AI coding agents to work in correctly:
   what the privacy page describes (message, stack trace, page address,
   browser and device). `sentry-data-collection.test.ts` pins the opt-outs
   and that the server's `register()` passes them.
+- **Recently visited pages stay in the browser for 15 s (PERF-21).**
+  `next.config.ts` sets `experimental.staleTimes.dynamic` to 15 (Next 16's
+  default is 0), so switching back to a tab seen seconds ago reuses its
+  cached payload instead of a server render plus the page's queries. A
+  Server Action's `revalidatePath` clears this client cache, so your own
+  edits show at once; another household member's change can take up to 15 s
+  to appear on a client navigation (a reload always shows it). `static`
+  keeps its 5 min default. The flag is experimental in Next; reverting is
+  deleting the block. If PERF-22 goes ahead, `cacheLife`'s `stale` value
+  controls this instead. `e2e/flows.spec.ts` ("an edit still shows after
+  navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
   `createLazyDialogLoader(() => import(...))` (module level, shared; the
@@ -1745,7 +1756,7 @@ every lookup the old one did.
     stands in for "last bought".
   - **Commit path**: one batch Server Action,
     `smartAddShoppingListItemsAction(listId, rows)`
-    (`src/app/dashboard/shopping-list/actions.ts`), up to 50 rows,
+    (`src/app/dashboard/shopping-list/smart-add-actions.ts`), up to 50 rows,
     `ACTIVE` list only. Unlike the paste import, every row ends up linked:
     a picked suggestion's id (ignored unless it's this household's), else
     `matchSmartAddInventoryItem`: an exact normalized name, else the
@@ -2282,7 +2293,7 @@ data.
 `CostAnalyzer` (`src/components/budget/cost-analyzer.tsx`) surfaces grocery
 cost trends from `PriceHistory`, which is populated whenever a shopping list
 item is marked purchased with an estimated price
-(`togglePurchasedAction`, `src/app/dashboard/shopping-list/actions.ts`). Like
+(`togglePurchasedAction`, `src/app/dashboard/shopping-list/purchase-actions.ts`). Like
 `PeriodSummary`, it's a plain presentational component — all aggregation
 (grouping `PriceHistory` rows by month and by `inventoryItemId`) happens in
 `src/app/dashboard/budget/page.tsx`'s Server Component, scoped via
@@ -2394,8 +2405,22 @@ item is marked purchased with an estimated price
 
 ### Shopping-list → budget expense link
 
+**Code layout (MAINT-3).** The dashboard shopping-list Server Actions are
+split by concern under `src/app/dashboard/shopping-list/`, each with a
+colocated `*.test.ts`: `list-actions.ts` (create, rename, archive, delete,
+generate from low stock, complete, uncomplete), `item-actions.ts` (add,
+edit, price, link, category, import, delete, auto-add undo),
+`smart-add-actions.ts` (smart-add bar and mapping resolution),
+`purchase-actions.ts` (tick, offline replay, put-away), `receipt-actions.ts`
+(scan and manual registration) and `store-order-actions.ts` (learned
+section order), beside the existing `share-actions.ts`, `template-actions.ts`
+and `repurchase-actions.ts`. Helpers more than one file needs live in plain
+modules, since a `"use server"` file can't export them: `inventory-lookup.ts`,
+`expense-log.ts` and `price-schema.ts`. There is no `actions.ts` barrel:
+callers import from the file that owns the action.
+
 Completing a shopping list (`completeShoppingListAction` in
-`src/app/dashboard/shopping-list/actions.ts`) automatically logs a single
+`src/app/dashboard/shopping-list/list-actions.ts`) automatically logs a single
 expense `Transaction` for that list, in the household's chosen shopping
 category ("Groceries" unless changed, see "Shopping expense category"
 above), on top of its existing
@@ -2517,7 +2542,7 @@ top of it. No migration was needed.
   optional "Store" text input next to the currency picker — one store for
   the *whole* receipt, not per line, since a single receipt is always from
   one store. `applyReceiptScanAction` and `registerReceiptAction`
-  (`src/app/dashboard/shopping-list/actions.ts`) both take it as a trailing
+  (`src/app/dashboard/shopping-list/receipt-actions.ts`) both take it as a trailing
   optional `store` parameter, trim it (empty/whitespace-only collapses to
   `null`, same as leaving it blank), and stamp every `PriceHistory` row the
   call writes with it.
@@ -3117,7 +3142,7 @@ scoped to the selected month, so an unpaid August debt silently vanished
 in September.) That is a statement about the numbers, not the queries
 (PERF-12): a bill where every member paid exactly their share and nothing
 is left unpaid has an all-zero position, so `loadUnsettledSplitBills`
-(`budget/page.tsx`) skips it in SQL (`isSettledBill` is the tested
+(`src/lib/budget/load-budget-tabs-data.ts`, MAINT-10) skips it in SQL (`isSettledBill` is the tested
 definition its `HAVING` clause negates), and repayments arrive as one
 `groupBy` sum per payer/receiver pair (`sumTransfersByPair` is the same
 reduction, tested), with only the newest 10 rows fetched for the list. The
@@ -4242,7 +4267,7 @@ below.
   single fixed constant. GAP-13's `Household.currencyCode` is a display
   label only and deliberately doesn't change what receipts convert to. If a receipt's detected
   (or user-corrected) currency differs, `applyReceiptScanAction`
-  (`src/app/dashboard/shopping-list/actions.ts`) fetches a live rate from
+  (`src/app/dashboard/shopping-list/receipt-actions.ts`) fetches a live rate from
   **Frankfurter** (`frankfurter.dev`, free ECB reference rates, no API key)
   via `fetchExchangeRate` (`src/lib/exchange-rate.ts`) and converts every
   matched line before saving; a failed fetch (offline, API down) reports an
@@ -4885,10 +4910,27 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   each uncooked row becomes a checkbox row (the whole row is the 44 px
   target), the "+ Add meal" buttons and the shopping-list primary action are
   hidden, and a bar (`BulkMealBar`, `src/components/meal-planning/bulk-meal-bar.tsx`)
-  shows the count with **Move to…**, **Portions…**, **Remove** and **Done**.
-  On a phone the bar sticks just above the bottom nav. Cooked rows stay
-  visible but have no checkbox and say "Cooked, can't be changed" (the same
-  rule as single move and edit).
+  shows the count with **Mark eaten**, **Move to…**, **Portions…**,
+  **Remove** and **Done**. On a phone the bar is `fixed`, docked on top of
+  the bottom nav, with its four actions two by two (Remove in the corner
+  away from Mark eaten), and `data-bulk-bar="meals"` makes `<main>` reserve
+  its 11rem (globals.css) so the last day scrolls out from under it. It
+  used to be `sticky`, which iOS Safari left floating mid-screen; the
+  inventory bar moved to the same footing in UX-123. From `sm` it sticks to
+  the bottom of the planner in one row. Cooked rows stay visible but have
+  no checkbox and say "Cooked, can't be changed" ("Eaten, can't be changed"
+  for a meal from meal prep), the same rule as single move and edit.
+  - **Mark eaten** marks every selected meal eating from a prep batch eaten
+    (`canMarkEaten`): those were cooked at prep time, so it only sets
+    `consumedAt` (guarded on `consumedAt: null` and a batch still linked;
+    a meal changed since the read fails the lot) and clears Cook soon, as a
+    single "Mark as eaten" does. Meals that cook fresh are skipped, since
+    their ingredients come off inventory through the per-meal review, and
+    the toast says so ("1 isn't from meal prep: mark it cooked on its
+    own"). The button is disabled until a prepped meal is ticked. Its Undo,
+    `undoBulkMarkEatenAction`, clears `consumedAt` again on those ids
+    (household-checked, all or nothing, and only on entries still linked to
+    a batch).
   - **Move to…** asks for a date and a slot ("Keep each meal's slot" by
     default, or one meal type for all). The earliest selected meal lands on
     that date and every other one keeps its distance from it
@@ -4902,7 +4944,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   - **Remove** hides the rows at once and sends the delete when its Undo
     toast closes (like a single Remove, UX-49); a meal eating from a batch
     gives its portions back, in the same transaction.
-  - All three are one Server Action, `bulkEditMealEntriesAction`
+  - All four are one Server Action, `bulkEditMealEntriesAction`
     (`bulk-meal-actions.ts`), taking entry ids and the edit (never a
     household id). It is all-or-nothing: an id that isn't in the session's
     household rejects the whole batch with "Meal not found" before anything
@@ -5288,6 +5330,26 @@ imported recipe" requirement.
   warning-styled "Review before saving" notice (`importLowConfidence`, in
   both dictionaries) instead, saying the fields were guessed from the
   page's layout and may be incomplete or wrong.
+- **Import from a photo (GAP-54)**: an "Import from a photo" button in the
+  same box as the URL input (create and edit) reads a cookbook page, recipe
+  card or screenshot. The client resizes the image (`fileToResizedDataUrl`)
+  and calls `importRecipeFromPhotoAction`
+  (`src/app/dashboard/meal-planning/recipe-photo-actions.ts`), which uses
+  the receipt scan's vision provider chain (`resolveAttempts` /
+  `runProviderChain`, Gemini then Anthropic; no new third party, the photo
+  is never stored, 20 calls/hour per household under
+  `recipe-photo-import:<householdId>`). The model returns the title, the
+  ingredient lines as printed and the method steps
+  (`src/lib/recipe-import/photo.ts`); each line then goes through
+  `parseIngredientLine`, so units and quantities match a URL import. It
+  never saves: success pre-fills the same form state and shows a "check
+  every field against the original" toast; a failed or empty read shows an
+  error toast and leaves the form untouched. There is no OCR fallback (the
+  Tesseract one is receipt-specific), so with neither `GEMINI_API_KEY` nor
+  `ANTHROPIC_API_KEY` set the button is hidden. Unit tests:
+  `photo.test.ts`, `recipe-photo-actions.test.ts`; e2e:
+  `e2e/recipe-photo-import.spec.ts` (the action is mocked; Playwright's
+  webServer sets a placeholder `GEMINI_API_KEY` so the button shows).
 
 ### Meal-plan → shopping-list bridge
 
@@ -5408,7 +5470,7 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   it never creates an inventory item (MATCH-1). Items (or unlinked names)
   already pending (unpurchased) on the target list are skipped rather than
   duplicated, mirroring `generateFromLowStockAction`'s
-  existing dedupe in `src/app/dashboard/shopping-list/actions.ts`. On
+  existing dedupe in `src/app/dashboard/shopping-list/list-actions.ts`. On
   success the dialog closes and a `sonner` toast confirms which list the
   items were added to.
 - **Substitution hints (GAP-25)**: a missing ingredient with a common,
@@ -5653,13 +5715,15 @@ landed earlier (PR #179, see the data model above). No browser storage.
   never drive the count negative: the second matches no row and throws
   `PrepAssignError("prepNotEnoughPortions")`, which rolls the whole
   transaction back. Then per slot it finds or creates that week's
-  `MealPlan` and either creates a linked entry or links the slot's existing
-  entry, but only when every entry there is this dish, unlinked and not
-  yet cooked ("lasagna on Thursday" becomes "lasagna from the batch").
-  Another dish, a freeform meal, another batch's slot or a cooked meal is
-  the household's plan, so the slot is taken (`prepSlotTaken`). That link
-  is guarded too (`preparedBatchId: null, consumedAt: null` in the filter).
-  All slots land or none do.
+  `MealPlan`. If the slot plans this dish fresh (unlinked, not yet
+  cooked), it links that entry ("lasagna on Thursday" becomes "lasagna
+  from the batch"). Otherwise it creates a linked entry. Another dish, a freeform meal, another batch's slot or a cooked meal is
+  the household's plan and stays, and the portion is added beside it as
+  a new linked entry (owner feedback: prepped food goes wherever it is
+  eaten, next to another dish or a meal already planned). The link to a
+  fresh entry is guarded (`preparedBatchId: null, consumedAt: null` in the
+  filter); if that entry changed since the read, the portion gets its own
+  entry instead. All slots land or none do.
 - **Returning: an optimistic write.** Unplanning, deleting or editing a
   linked entry gives its portions back through `returnEntryPortionsInTx`,
   after the caller has reset or deleted the entry with a filter on the
@@ -5718,23 +5782,21 @@ landed earlier (PR #179, see the data model above). No browser storage.
   `loadPlanSlotsAction` rather than the page's `?week=`, so paging weeks
   never moves the Planner tab, and selections are kept across weeks so
   one save can plan this week's dinners and next Monday's lunch. Each day
-  lists its four meal slots, grouped by day on phones. A slot is
-  selectable when it's empty or only plans this dish fresh (the same rule
-  `assignInTx` re-checks on save); a slot with something else shows that
-  dish's name, disabled, with a "Taken" label (never greying alone).
+  lists its four meal slots, grouped by day on phones. Every slot is
+  selectable; one that already plans something shows the dish's name
+  under the slot, and the portion is planned beside it (see Assigning).
   **Days before today are hidden** (UX-100): prepped food can't be
   eaten in the past, so the first week lists today onward, Previous week
-  is disabled there, and the first pickable slot is scrolled into view
-  when a week loads (the server would still accept a past slot,
+  is disabled there (the server would still accept a past slot,
   harmlessly). A selected slot gets a portions stepper
   (default 1), and a live "3 of 5 left after this" counter turns into
   "2 portions too many — only 5 left" and disables save when over. Each
   save is capped at 28 selected slots in total, however many weeks they
   span (`assignPortionsSchema`; 28 is one week of four meals a day). The
   dialog doesn't guard the cap, so a save with a 29th slot is rejected by
-  the server as invalid input. When a save fails (out of portions, a slot
-  taken since it was read), nothing was written, so the dialog reloads
-  the week and drops selections that are no longer selectable. When the
+  the server as invalid input. When a save fails (out of portions,
+  say), nothing was written, so the dialog reloads the week and keeps the
+  selection. When the
   request never arrives (offline, weak signal), loading and saving both
   catch the rejection and show "Couldn't reach the server. Check your
   connection and try again." with a retry, in the dialog rather than the
@@ -5751,8 +5813,9 @@ landed earlier (PR #179, see the data model above). No browser storage.
   while uneaten, its sheet has a "Don't use prep" button
   (`unassignBatchPortionAction`): the meal stays planned, cooks fresh, and
   its portions go back to the batch. Its cook button reads "Mark as eaten"
-  with a fork-and-knife icon.
-  That dialog has no ingredient checklist and no leftovers field, since
+  with a fork-and-knife icon, and once eaten the row says "Eaten" ("Äten")
+  rather than the "Cooked" a fresh meal shows: it was cooked at prep time.
+  The "Mark as eaten" dialog has no ingredient checklist and no leftovers field, since
   the ingredients came off at prep time and the portions off the batch
   when the slot was planned. It posts no item rows, and its undo passes
   none, so even an entry edited while the dialog was open can't credit
@@ -5810,11 +5873,11 @@ landed earlier (PR #179, see the data model above). No browser storage.
   entry eaten without deduction, leftovers creating a batch, copy week
   without links). `e2e/meal-prep.spec.ts` runs on desktop and mobile. The
   first test records a batch (ingredients off inventory), opens Plan
-  portions from the toast, checks past days are hidden (Previous week disabled) and a slot
-  with another dish is greyed with its name and a "Taken" label, steps portions to the cap,
-  sees the overdraw message, saves, reloads for the count and the Prepped
-  badges, deletes one slot to get its portion back, marks the other eaten
-  with inventory unchanged, and discards. The second checks the dashboard
+  portions from the toast, checks past days are hidden (Previous week disabled) and that a slot
+  with another dish names it and can still be picked, plans a lunch and that dinner, steps portions to the cap,
+  sees the overdraw message, saves, reloads for the count, the Prepped
+  badges and the other dish still planned, deletes one slot to get its portion back, marks the other eaten
+  with inventory unchanged (its row now says "Eaten"), and discards. The second checks the dashboard
   card and its link, adds a planner meal "From meal prep", and gives it
   back with "Don't use prep".
 
@@ -7826,6 +7889,17 @@ patterns (per AGENTS.md's instruction to read this build's own docs rather
 than trust training data). `src/app/manifest.ts` is the app's manifest
 (name "Squirrel", `display: "standalone"`, theme/background colors, and
 192/512/512-maskable icons).
+
+- **Home-screen shortcuts** (GAP-68): the manifest declares `shortcuts` for
+  Shopping list, Meal plan and Tasks (`/dashboard/shopping-list`,
+  `/dashboard/meal-planning`, `/dashboard/tasks`), each with a
+  `name`/`short_name` and the 96 px `public/icon-96.png`, so long-pressing
+  the installed icon jumps straight there. Android Chrome/Edge only; iOS
+  ignores them. The names are **English only**: `manifest()` is a static
+  route that doesn't read the locale cookie. `src/app/manifest.test.ts`
+  asserts every shortcut URL starts with `/dashboard/` and has an icon.
+  Nothing new is stored in the browser, so `cookie-inventory.ts` is
+  unchanged.
 
 - **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
   following the guide's "InstallPrompt" example): a three-state card —

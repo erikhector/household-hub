@@ -43,6 +43,17 @@ export function canRePortion(entry: Pick<BulkEntry, "recipeId" | "preparedBatchI
 }
 
 /**
+ * Bulk "Mark eaten" only takes meals eating from a prepared batch: they were
+ * cooked at prep time, so eating one only records that (the same rule as
+ * markMealEntryCookedAction for a linked entry). A meal that cooks fresh
+ * takes its ingredients off inventory through the review checklist, one
+ * meal at a time, and a custom meal can't be marked at all.
+ */
+export function canMarkEaten(entry: Pick<BulkEntry, "preparedBatchId">): boolean {
+  return entry.preparedBatchId !== null;
+}
+
+/**
  * "Move to…" for a group: the earliest selected meal lands on `targetDate`
  * and every other one keeps its distance from it, so the group keeps its
  * shape (Mon/Tue/Thu moved to start on Wednesday becomes Wed/Thu/Sat). A
