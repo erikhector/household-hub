@@ -37,9 +37,9 @@ update them or add new work there.
 
 ## Agent skills
 
-Two outside skill packs, each with one job. Repo rules (this file,
+Three outside skill packs, each with one job. Repo rules (this file,
 DESIGN.md, the `.claude/skills/` autopilot and review skills) win over
-both on any conflict.
+all of them on any conflict.
 
 - **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers))
   owns the process: brainstorming → planning → test-driven
@@ -67,6 +67,23 @@ both on any conflict.
   `no-comments`), because Superpowers owns process and `no-comments`
   would strip the explanatory comments this repo keeps, and `architect`,
   which needs pstack's unvendored `arena`.
+- **Design skills** supply visual craft for UI work:
+  `frontend-design` ([anthropics/skills](https://github.com/anthropics/skills))
+  for aesthetic direction and typography, and `impeccable`
+  ([pbakaus/impeccable](https://github.com/pbakaus/impeccable)) for
+  shaping, critiquing, auditing and polishing an interface. Both are
+  vendored verbatim in `.claude/skills/` and `.agents/skills/`, with the
+  pins and drops in `design-skills-ATTRIBUTION.md`, under the same rule
+  as pstack: never edit the copies, re-vendor at a new pin. Unlike
+  pstack they trigger on their own for UI work. They work inside
+  DESIGN.md, never against it: Squirrel's existing look and its Mobile
+  UX rules (M1–M10) are the brief, so use them to refine, not to
+  redesign. Impeccable's `scripts/` is not vendored (its launcher
+  downloads and runs a native binary), so it reads project context
+  directly; don't run its `npx impeccable …` commands. `PRODUCT.md` and
+  `DESIGN.md` here are Squirrel's own documents, not Impeccable's
+  artifacts: never let `init`, `document`, `extract` or `doctor`
+  rewrite them or create `.impeccable/`.
 
 ## Commands
 
