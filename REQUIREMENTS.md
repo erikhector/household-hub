@@ -9196,7 +9196,7 @@ and "Chaining"):
   number from a trusted account wins, stale ones expire after
   `run_lock_hours`), so a cron run never overlaps a chained or slow one.
 
-Every role works from two outside skill packs with one owner each, so
+Every role works from three groups of outside skills with one owner each, so
 they never compete (AGENTS.md, "Agent skills"):
 
 - **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers),
@@ -9221,6 +9221,19 @@ they never compete (AGENTS.md, "Agent skills"):
   from `~/.agents/pstack-models.md`; the web session-start hook installs
   the repo's `.agents/pstack-models.md` there, with every role on
   `inherit-parent`, so the loop runs on the session model.
+- **Design skills** supply visual craft for UI work, vendored verbatim
+  in the same two folders with pins and drops in
+  `design-skills-ATTRIBUTION.md`: `frontend-design`
+  ([anthropics/skills](https://github.com/anthropics/skills), pinned
+  `ca45fc4`) for aesthetic direction and typography, and `impeccable`
+  ([pbakaus/impeccable](https://github.com/pbakaus/impeccable), pinned
+  `df3a4ab`, v4.8.0) for shaping, critiquing, auditing and polishing.
+  Unlike pstack they trigger on their own for UI work, inside DESIGN.md
+  and its Mobile UX rules, which stay the brief. Impeccable's `scripts/`
+  is left out because its launcher downloads and runs a native binary,
+  so the skill falls back to reading project context directly. Its
+  `init`, `document`, `extract` and `doctor` commands never rewrite
+  Squirrel's own `PRODUCT.md` or `DESIGN.md`.
 
 The builder coordinator is the human proxy for its sub-agents: they
 never block on a human. Their normal work (commits, pushes, opening and
