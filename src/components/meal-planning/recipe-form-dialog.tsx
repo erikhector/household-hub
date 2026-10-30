@@ -510,9 +510,14 @@ export function RecipeFormDialog({
     requestFocus("title");
   };
 
+  // GAP-67: a shared link belongs to the first open only. Once the dialog
+  // closes it is spent, so reopening starts with an empty import field.
+  const prefillImportUrl = useRef(initialImportUrl);
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     loadId.current++;
+    if (!next) prefillImportUrl.current = "";
     if (next) {
       resetReview();
       setName(recipe?.name ?? "");
@@ -521,7 +526,7 @@ export function RecipeFormDialog({
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
       setTags(new Set(recipe?.tags ?? []));
-      setImportUrl(initialImportUrl);
+      setImportUrl(prefillImportUrl.current);
       setShowNutrition(hasNutrition(recipe));
       setCaloriesPerServing(recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : "");
       setProteinGramsPerServing(

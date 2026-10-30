@@ -14,11 +14,25 @@ export const SHARE_TEXT_PARAM = "pasteText";
 
 // A share is a link or a short list, never a document. The cap keeps a
 // pathological GET (and the redirect Location header) well inside server
-// header limits.
-const MAX_SHARED_LENGTH = 4000;
+// header limits. It counts the percent-encoded length, since that is what
+// the Location header carries: a non-ASCII character (å, an emoji) encodes
+// to 6 to 12 bytes, so a character count alone could overshoot Node's 16KB
+// header limit.
+const MAX_ENCODED_LENGTH = 4000;
 
 function clean(value: string | null | undefined): string {
-  return (value ?? "").trim().slice(0, MAX_SHARED_LENGTH);
+  const trimmed = (value ?? "").trim();
+  if (encodeURIComponent(trimmed).length <= MAX_ENCODED_LENGTH) return trimmed;
+  // Keep whole characters (code points), so a cut never splits a surrogate
+  // pair or a percent escape.
+  let out = "";
+  let size = 0;
+  for (const ch of trimmed) {
+    size += encodeURIComponent(ch).length;
+    if (size > MAX_ENCODED_LENGTH) break;
+    out += ch;
+  }
+  return out;
 }
 
 function asHttpUrl(value: string): string | null {

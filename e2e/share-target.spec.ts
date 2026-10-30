@@ -28,6 +28,13 @@ for (const locale of LOCALES) {
       await expect(dialog.getByLabel(d.mealPlanning.importUrlLabel)).toHaveValue(link);
       // Pre-filled only: the param is stripped so a reload doesn't reopen it.
       await expect(page).not.toHaveURL(/importUrl=/);
+
+      // The share is spent once the dialog closes: reopening starts empty.
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await page.getByRole("button", { name: d.mealPlanning.newRecipe }).first().click();
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByLabel(d.mealPlanning.importUrlLabel)).toHaveValue("");
     });
 
     test("shared text opens the shopping list's paste dialog filled in", async ({ page }) => {

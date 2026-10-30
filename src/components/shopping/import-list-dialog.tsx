@@ -62,12 +62,18 @@ export function ImportListDialog({
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // GAP-67: the shared text belongs to the first open only. Once the dialog
+  // closes it is spent, so reopening "Import list" starts empty instead of
+  // refilling a share the user already dealt with.
+  const prefill = useRef(initialText);
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
+    if (!next) prefill.current = "";
     if (next) {
       setStep("paste");
       setPasteTab("text");
-      setText(initialText);
+      setText(prefill.current);
       setCsvFile(null);
       setRows([]);
     }

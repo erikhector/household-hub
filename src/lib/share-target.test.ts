@@ -47,4 +47,13 @@ describe("resolveShareTarget", () => {
     const target = resolveShareTarget({ text: "a".repeat(100_000) })!;
     expect(target.length).toBeLessThan(5000);
   });
+
+  it("caps the encoded length of a non-ASCII share", () => {
+    for (const unit of ["å", "😀", "ä🥕"]) {
+      const target = resolveShareTarget({ text: unit.repeat(100_000) })!;
+      expect(target.length).toBeLessThan(5000);
+      // Still decodes cleanly: the cut never lands inside an escape.
+      expect(() => decodeURIComponent(target.split("=")[1])).not.toThrow();
+    }
+  });
 });
