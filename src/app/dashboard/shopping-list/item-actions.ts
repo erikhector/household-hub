@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
@@ -334,7 +335,7 @@ export async function linkShoppingListItemAction(
         data: { inventoryItemId: inventoryItem.id },
       });
       if (item.inventoryItemId === null) await learnItemAlias(tx, household.id, item.name, inventoryItem);
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -571,7 +572,7 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
           where: { shoppingListId: item.shoppingListId, purchased: false },
         });
         await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending, userId);
-      });
+      }, INTERACTIVE_TX_OPTIONS);
     }
   } catch (error) {
     return toFriendlyError(error);

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
@@ -135,7 +136,7 @@ export async function createInventoryItemAction(
       await prisma.$transaction(async (tx) => {
         await releaseBarcode(tx, household.id, barcode);
         await tx.inventoryItem.create({ data: { ...data, barcode } });
-      });
+      }, INTERACTIVE_TX_OPTIONS);
     } else {
       await prisma.inventoryItem.create({ data });
     }
@@ -409,7 +410,7 @@ export async function bulkCreateInventoryItemsAction(
         await prisma.$transaction(async (tx) => {
           for (const barcode of seenBarcodes) await releaseBarcode(tx, household.id, barcode);
           await tx.inventoryItem.createMany({ data });
-        });
+        }, INTERACTIVE_TX_OPTIONS);
       } else {
         await prisma.inventoryItem.createMany({ data });
       }

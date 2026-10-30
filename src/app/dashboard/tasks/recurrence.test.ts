@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getNextDueDate, isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import {
+  getNextDueDate,
+  isClosedBySkipOnly,
+  isTaskOpen,
+  skippedUntilFor,
+  withLocalSkip,
+} from "@/app/dashboard/tasks/recurrence";
 
 const createdAt = new Date("2026-08-01T09:00:00.000Z"); // a Saturday
 const STOCKHOLM = "Europe/Stockholm";
@@ -14,6 +20,7 @@ const task = (
   recurrenceIntervalDays,
   createdAt: created,
   recurrenceAnchorAt,
+  skippedUntil: null as Date | null,
 });
 
 describe("isTaskOpen", () => {
@@ -172,5 +179,90 @@ describe("getNextDueDate", () => {
         new Date("2026-08-21T22:00:00.000Z"), // Sat 08-22 00:00 CEST
       );
     });
+  });
+});
+
+// GAP-60: "Skip this time" closes a recurring task until `skippedUntil`
+// without a completion being recorded.
+describe("skippedUntil (GAP-60)", () => {
+  const skipped = (completedAt: Date | null, interval: number | null, skippedUntil: Date | null) => ({
+    ...task(completedAt, interval),
+    skippedUntil,
+  });
+  const skippedUntil = new Date("2026-09-15T12:00:00.000Z");
+
+  describe("isTaskOpen", () => {
+    it("is closed before skippedUntil, never completed or not", () => {
+      const before = new Date("2026-09-15T11:59:59.999Z");
+      expect(isTaskOpen(skipped(null, 1, skippedUntil), before)).toBe(false);
+      expect(isTaskOpen(skipped(new Date("2026-09-01T12:00:00.000Z"), 1, skippedUntil), before)).toBe(false);
+    });
+
+    it("reopens at exactly skippedUntil, and stays open after", () => {
+      expect(isTaskOpen(skipped(null, 1, skippedUntil), skippedUntil)).toBe(true);
+      expect(isTaskOpen(skipped(null, 1, skippedUntil), new Date("2026-09-16T00:00:00.000Z"))).toBe(true);
+      const old = new Date("2026-09-01T12:00:00.000Z");
+      expect(isTaskOpen(skipped(old, 1, skippedUntil), skippedUntil)).toBe(true);
+    });
+
+    it("stays closed by the schedule when that is later than the skip", () => {
+      // Ticked on the 14th, due 00:00 on the 17th; the earlier skip end changes nothing.
+      const completedAt = new Date("2026-09-14T12:00:00.000Z");
+      expect(isTaskOpen(skipped(completedAt, 3, skippedUntil), new Date("2026-09-16T23:00:00.000Z"))).toBe(false);
+    });
+
+    it("ignores a null skippedUntil", () => {
+      expect(isTaskOpen(skipped(null, 1, null), new Date("2026-09-14T12:00:00.000Z"))).toBe(true);
+    });
+
+    it("ignores a leftover skippedUntil on a non-recurring task", () => {
+      expect(isTaskOpen(skipped(null, null, skippedUntil), new Date("2026-09-14T12:00:00.000Z"))).toBe(true);
+    });
+  });
+
+  describe("getNextDueDate", () => {
+    it("is skippedUntil for a never-completed task", () => {
+      expect(getNextDueDate(skipped(null, 2, skippedUntil))).toEqual(skippedUntil);
+    });
+
+    it("is the later of the schedule and the skip", () => {
+      // Schedule: ticked 09-13 + 3 days = 09-16 00:00Z, later than the skip.
+      const completedAt = new Date("2026-09-13T12:00:00.000Z");
+      expect(getNextDueDate(skipped(completedAt, 3, skippedUntil))).toEqual(new Date("2026-09-16T00:00:00.000Z"));
+      // Schedule: ticked 09-01 + 3 days = 09-04, long before the skip ends.
+      expect(getNextDueDate(skipped(new Date("2026-09-01T12:00:00.000Z"), 3, skippedUntil))).toEqual(skippedUntil);
+    });
+
+    it("is still null for a non-recurring task", () => {
+      expect(getNextDueDate(skipped(null, null, skippedUntil))).toBeNull();
+    });
+  });
+
+  describe("isClosedBySkipOnly", () => {
+    const now = new Date("2026-09-14T12:00:00.000Z");
+
+    it("is true when the schedule alone would have the task open", () => {
+      expect(isClosedBySkipOnly(skipped(null, 1, skippedUntil), now)).toBe(true);
+      expect(isClosedBySkipOnly(skipped(new Date("2026-09-01T12:00:00.000Z"), 1, skippedUntil), now)).toBe(true);
+    });
+
+    it("is false when a real completion closes it too, the skip has ended, or there is none", () => {
+      expect(isClosedBySkipOnly(skipped(new Date("2026-09-14T08:00:00.000Z"), 3, skippedUntil), now)).toBe(false);
+      expect(isClosedBySkipOnly(skipped(null, 1, new Date("2026-09-14T11:00:00.000Z")), now)).toBe(false);
+      expect(isClosedBySkipOnly(skipped(null, 1, null), now)).toBe(false);
+    });
+  });
+
+  it("skippedUntilFor is one interval on from now", () => {
+    expect(skippedUntilFor(new Date("2026-09-14T12:00:00.000Z"), 3)).toEqual(new Date("2026-09-17T12:00:00.000Z"));
+  });
+
+  it("withLocalSkip closes the row without faking a completion, and undoes", () => {
+    const now = new Date("2026-09-14T12:00:00.000Z");
+    const row = { completed: false, skipped: false, skippedUntil: null, recurrenceIntervalDays: 2, completedAt: null };
+    const after = withLocalSkip(row, true, now);
+    expect(after).toMatchObject({ completed: true, skipped: true, completedAt: null });
+    expect(after.skippedUntil).toEqual(new Date("2026-09-16T12:00:00.000Z"));
+    expect(withLocalSkip(after, false, now)).toMatchObject({ completed: false, skipped: false, skippedUntil: null });
   });
 });

@@ -45,7 +45,14 @@ vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/get-time-zone", () => ({ getTimeZone: getTimeZoneMock }));
 
-const { createTaskAction, updateTaskAction, toggleTaskCompletedAction, deleteTaskAction } = await import(
+const {
+  createTaskAction,
+  updateTaskAction,
+  toggleTaskCompletedAction,
+  skipTaskAction,
+  unskipTaskAction,
+  deleteTaskAction,
+} = await import(
   "@/app/dashboard/tasks/actions"
 );
 
@@ -68,6 +75,7 @@ const restoredNothing = {
   completedByMemberId: null,
   previousCompletedAt: null,
   previousCompletedByMemberId: null,
+  skippedUntil: null,
 };
 
 afterEach(() => {
@@ -308,6 +316,7 @@ describe("updateTaskAction", () => {
         assignedToMemberId: null,
         recurrenceIntervalDays: null,
         recurrenceAnchorAt: null,
+        skippedUntil: null,
         rotationMemberIds: [],
         rotationPreviousAssigneeId: null,
         dueDate: null,
@@ -333,6 +342,7 @@ describe("toggleTaskCompletedAction", () => {
         previousCompletedByMemberId: true,
         recurrenceIntervalDays: true,
         recurrenceAnchorAt: true,
+        skippedUntil: true,
         createdAt: true,
         assignedToMemberId: true,
         rotationMemberIds: true,
@@ -362,6 +372,7 @@ describe("toggleTaskCompletedAction", () => {
         completedByMemberId: "member-1",
         previousCompletedAt: null,
         previousCompletedByMemberId: null,
+        skippedUntil: null,
       },
     });
   });
@@ -418,6 +429,7 @@ describe("toggleTaskCompletedAction", () => {
         completedByMemberId: "member-1",
         previousCompletedAt: null,
         previousCompletedByMemberId: null,
+        skippedUntil: null,
       },
     });
   });
@@ -529,6 +541,7 @@ describe("toggleTaskCompletedAction", () => {
         completedByMemberId: "member-1",
         previousCompletedAt: earlier,
         previousCompletedByMemberId: "member-2",
+        skippedUntil: null,
       },
     });
   });
@@ -696,6 +709,7 @@ describe("task rotation (GAP-38)", () => {
         previousCompletedByMemberId: null,
         assignedToMemberId: "member-1",
         rotationPreviousAssigneeId: "member-3",
+        skippedUntil: null,
       },
     });
   });
@@ -908,5 +922,136 @@ describe("task due dates (UX-133)", () => {
       where: { id: "task-1" },
       data: expect.objectContaining({ dueDate: null }),
     });
+  });
+});
+
+describe("skipTaskAction (GAP-60)", () => {
+  const openRecurring = {
+    id: "task-1",
+    completedAt: null,
+    recurrenceIntervalDays: 2,
+    recurrenceAnchorAt: null,
+    skippedUntil: null,
+    createdAt: new Date("2026-08-01T09:00:00.000Z"),
+  };
+
+  it("looks the task up within the session household only", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue(null);
+
+    const result = await skipTaskAction("task-in-other-household");
+
+    expect(householdTaskFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "task-in-other-household", householdId: "household-1" } }),
+    );
+    expect(result.error).toBe("Task not found");
+    expect(householdTaskUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a task that does not repeat", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({ ...openRecurring, recurrenceIntervalDays: null });
+
+    const result = await skipTaskAction("task-1");
+
+    expect(result.error).toBe("Only repeating tasks can be skipped");
+    expect(householdTaskUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("sets skippedUntil one interval from now and writes no completion", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue(openRecurring);
+    const before = Date.now();
+
+    const result = await skipTaskAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    const call = householdTaskUpdateManyMock.mock.calls[0][0];
+    expect(call.where).toEqual({ id: "task-1", householdId: "household-1", skippedUntil: null });
+    // Only skippedUntil: completedAt and completedByMemberId feed the recap and "Last done by".
+    expect(Object.keys(call.data)).toEqual(["skippedUntil"]);
+    const until = call.data.skippedUntil.getTime();
+    expect(until).toBeGreaterThanOrEqual(before + 2 * 86_400_000);
+    expect(until).toBeLessThanOrEqual(Date.now() + 2 * 86_400_000);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
+  });
+
+  it("leaves a task that is already closed alone", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...openRecurring,
+      completedAt: new Date(),
+      recurrenceIntervalDays: 7,
+    });
+
+    const result = await skipTaskAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    expect(householdTaskUpdateManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("unskipTaskAction (GAP-60)", () => {
+  it("restores the previous value within the session household", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    const previous = new Date("2020-01-01T00:00:00.000Z");
+
+    await unskipTaskAction("task-1", previous);
+    await unskipTaskAction("task-1", null);
+
+    expect(householdTaskUpdateManyMock).toHaveBeenNthCalledWith(1, {
+      where: { id: "task-1", householdId: "household-1" },
+      data: { skippedUntil: previous },
+    });
+    expect(householdTaskUpdateManyMock).toHaveBeenNthCalledWith(2, {
+      where: { id: "task-1", householdId: "household-1" },
+      data: { skippedUntil: null },
+    });
+  });
+
+  it("refuses a restore date in the future", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+
+    const result = await unskipTaskAction("task-1", new Date(Date.now() + 86_400_000));
+
+    expect(result.error).toBeTruthy();
+    expect(householdTaskUpdateManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleTaskCompletedAction on a skipped task (GAP-60)", () => {
+  const lastDone = new Date("2026-09-01T12:00:00.000Z");
+  const skippedRow = {
+    ...notRotating,
+    id: "task-1",
+    completedAt: lastDone,
+    completedByMemberId: "member-1",
+    previousCompletedAt: null,
+    previousCompletedByMemberId: "member-0",
+    recurrenceIntervalDays: 1,
+    skippedUntil: new Date(Date.now() + 86_400_000),
+  };
+
+  it("un-completing clears skippedUntil and keeps completedAt and its completer", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdTaskFindFirstMock.mockResolvedValue(skippedRow);
+
+    await toggleTaskCompletedAction("task-1");
+
+    const call = householdTaskUpdateManyMock.mock.calls[0][0];
+    expect(call.data).toEqual({ skippedUntil: null });
+    expect(call.where).toMatchObject({ completedAt: lastDone, skippedUntil: skippedRow.skippedUntil });
+  });
+
+  it("clears a skip that has run out when the task is ticked", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdTaskFindFirstMock.mockResolvedValue({ ...skippedRow, skippedUntil: new Date("2026-09-02T00:00:00.000Z") });
+
+    await toggleTaskCompletedAction("task-1");
+
+    const data = householdTaskUpdateManyMock.mock.calls[0][0].data;
+    expect(data).toMatchObject({ skippedUntil: null });
+    expect(data.completedAt).toBeInstanceOf(Date);
   });
 });

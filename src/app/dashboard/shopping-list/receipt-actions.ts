@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { datedName, format, plural } from "@/lib/i18n/format";
@@ -224,7 +225,7 @@ export async function applyReceiptScanAction(
         });
         if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
       }
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -516,7 +517,7 @@ export async function registerReceiptAction(
       });
 
       return { listId: list.id, expense };
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }

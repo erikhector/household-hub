@@ -24,6 +24,12 @@
 //    whenever the interval is edited, so "every Thursday" is a matter of
 //    editing the task on a Thursday. Rows from before the column (null) keep
 //    reading `createdAt`.
+//
+// GAP-60: "Skip this time" closes a recurring task until `skippedUntil`
+// (now + one interval when skipped) without writing `completedAt`, which
+// feeds the weekly recap and "Last done by". The task's next due moment is
+// then the later of the schedule's own and `skippedUntil`, and a tick clears
+// the skip.
 
 import { isTimeZone } from "@/lib/time-zone";
 
@@ -34,6 +40,12 @@ export type RecurrenceFields = {
   createdAt: Date;
   /** UX-144: the anchor day, re-set when the interval is edited; null falls back to `createdAt`. */
   recurrenceAnchorAt: Date | null;
+  /**
+   * GAP-60: closed until this moment by "Skip this time"; null when never
+   * skipped. Required, not optional, so a query that forgets to select it is
+   * a type error instead of a skipped task that silently shows as open.
+   */
+  skippedUntil: Date | null;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -82,12 +94,13 @@ function startOfLocalDay(dayNumber: number, timeZone: string): Date {
   return new Date(wall - offsetMs(first, timeZone));
 }
 
-/**
- * The moment a recurring task becomes due again: a local midnight. Null for
- * a non-recurring task or one that hasn't been completed yet (there's
- * nothing to count forward from).
- */
-export function getNextDueDate(task: RecurrenceFields, timeZone = "UTC"): Date | null {
+/** When a skip made `now` ends: one interval on, the same span a tick would have closed it for. */
+export function skippedUntilFor(now: Date, recurrenceIntervalDays: number): Date {
+  return new Date(now.getTime() + recurrenceIntervalDays * MS_PER_DAY);
+}
+
+/** The schedule's own next due moment, ignoring any skip. */
+function scheduledNextDue(task: RecurrenceFields, timeZone: string): Date | null {
   if (task.completedAt === null || task.recurrenceIntervalDays === null) return null;
 
   const zone = safeTimeZone(timeZone);
@@ -106,17 +119,55 @@ export function getNextDueDate(task: RecurrenceFields, timeZone = "UTC"): Date |
 }
 
 /**
+ * The moment a recurring task becomes due again: a local midnight, or the
+ * end of a skip (GAP-60) when that is later. Null for a non-recurring task
+ * or one that has neither been completed nor skipped (there's nothing to
+ * count forward from).
+ */
+export function getNextDueDate(task: RecurrenceFields, timeZone = "UTC"): Date | null {
+  if (task.recurrenceIntervalDays === null) return null;
+  const scheduled = scheduledNextDue(task, timeZone);
+  const skippedUntil = task.skippedUntil ?? null;
+  if (skippedUntil === null) return scheduled;
+  return scheduled !== null && scheduled > skippedUntil ? scheduled : skippedUntil;
+}
+
+/**
  * Whether the task should currently be treated as open (not completed).
  * A non-recurring task is open iff `completedAt` is null. A recurring task
  * is also open once `now` has reached its next due moment, even though
  * `completedAt` itself is left untouched — the earlier completion still
  * belongs to whatever week it actually happened in (e.g. for the weekly
- * recap).
+ * recap). A skip (GAP-60) closes it until `skippedUntil`, completed or not.
  */
 export function isTaskOpen(task: RecurrenceFields, now: Date, timeZone = "UTC"): boolean {
-  if (task.completedAt === null) return true;
+  if (task.recurrenceIntervalDays === null) return task.completedAt === null;
+  if (task.completedAt === null && (task.skippedUntil ?? null) === null) return true;
 
   const dueAgainAt = getNextDueDate(task, timeZone);
-  if (dueAgainAt === null) return false;
+  if (dueAgainAt === null) return true;
   return now >= dueAgainAt;
+}
+
+/**
+ * Whether the task is closed only because it was skipped (GAP-60): a skip
+ * is running and the schedule alone would have it open. Decides what a tick
+ * on it undoes: just the skip, leaving the real last completion alone.
+ */
+export function isClosedBySkipOnly(task: RecurrenceFields, now: Date, timeZone = "UTC"): boolean {
+  if ((task.skippedUntil ?? null) === null || isTaskOpen(task, now, timeZone)) return false;
+  return isTaskOpen({ ...task, skippedUntil: null }, now, timeZone);
+}
+
+/** A skip as the list shows it before the server answers (the local twin of skipTaskAction and its undo). */
+export function withLocalSkip<
+  T extends { completed: boolean; skipped: boolean; skippedUntil: Date | null; recurrenceIntervalDays: number | null },
+>(task: T, skipped: boolean, now: Date): T {
+  if (!skipped) return { ...task, completed: false, skipped: false, skippedUntil: null };
+  return {
+    ...task,
+    completed: true,
+    skipped: true,
+    skippedUntil: task.recurrenceIntervalDays === null ? null : skippedUntilFor(now, task.recurrenceIntervalDays),
+  };
 }

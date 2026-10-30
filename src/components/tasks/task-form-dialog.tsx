@@ -76,6 +76,7 @@ export function TaskFormDialog({
   dict,
   trigger,
   onDelete,
+  onSkip,
 }: {
   mode: "create" | "edit";
   /** Only meaningful (and required in practice) in edit mode. */
@@ -87,6 +88,9 @@ export function TaskFormDialog({
    *  hands it to its own trash button, so the Undo toast is the same one
    *  the desktop icon shows. */
   onDelete?: () => void;
+  /** Edit mode, an open repeating task only (GAP-60): adds "Skip this time"
+   *  to the sheet, handed to the row's own skip button like Delete is. */
+  onSkip?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(mode === "edit" ? (task?.title ?? "") : "");
@@ -408,6 +412,19 @@ export function TaskFormDialog({
                 Last in the stacked footer, away from Save, and quiet: Save
                 stays the one primary action. The sheet closes first so it
                 unmounts shut when the row goes. */}
+            {mode === "edit" && onSkip && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  handleOpenChange(false);
+                  requestAnimationFrame(onSkip);
+                }}
+              >
+                {dict.editTask.skip}
+              </Button>
+            )}
             {mode === "edit" && onDelete && (
               <Button
                 type="button"

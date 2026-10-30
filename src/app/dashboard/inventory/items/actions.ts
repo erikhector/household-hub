@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
@@ -91,7 +92,7 @@ export async function saveUnitConversionAction(_prevState: ActionState, formData
         create: { inventoryItemId: item.id, fromUnit, factor: parsed.data.factor },
         update: { factor: parsed.data.factor },
       });
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     if (error instanceof ConversionNotFound) return { error: dict.errors.notFound };
     return toFriendlyError(error);
@@ -184,7 +185,7 @@ export async function changeItemUnitAction(_prevState: ActionState, formData: Fo
       await tx.itemUnitConversion.createMany({
         data: plan.conversions.map((conversion) => ({ inventoryItemId: item.id, ...conversion })),
       });
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     if (error instanceof StockChanged) return { error: dict.errors.stockChanged };
     return toFriendlyError(error);
@@ -516,7 +517,7 @@ export async function mergeInventoryItemsAction(input: {
         },
       });
       if (deleted.count !== merged.length) throw new MergeStockChanged();
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     if (error instanceof MergeStockChanged) return { error: dict.stockChanged };
     return toFriendlyError(error);

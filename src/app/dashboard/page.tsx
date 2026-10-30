@@ -94,6 +94,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         completedAt: true,
         recurrenceIntervalDays: true,
         recurrenceAnchorAt: true,
+        skippedUntil: true,
         dueDate: true,
         createdAt: true,
       },

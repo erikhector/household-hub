@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { datedName, format, plural } from "@/lib/i18n/format";
@@ -438,7 +439,7 @@ export async function completeShoppingListAction(
         amount: groceriesTotal,
         description: format(dict.shoppingList.expenseDescription, { name: list.name }),
       });
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -517,7 +518,7 @@ export async function uncompleteShoppingListAction(
           data: { shoppingListId: list.id },
         });
       }
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }

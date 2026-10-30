@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
@@ -117,7 +118,7 @@ export async function togglePurchasedAction(
         });
         await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending, userId);
       }
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -339,7 +340,7 @@ export async function putAwayItemsAction(
           data: { dismissedAt: now },
         });
       }
-    });
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }

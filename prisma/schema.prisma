@@ -1586,6 +1586,10 @@ model HouseholdTask {
   recurrenceIntervalDays Int?
   // UX-144: the anchor day of a weekly-or-longer repeat; null reads as createdAt.
   recurrenceAnchorAt     DateTime?
+  // GAP-60: "Skip this time" on a repeating task. The task counts as closed
+  // until this moment without writing completedAt (which feeds the weekly
+  // recap and "Last done by"); a tick clears it. See recurrence.ts.
+  skippedUntil           DateTime?
   // UX-133: the optional due *day* of a one-off task (a calendar date, no time
   // or zone). A repeating task ignores it: its due day is derived from the
   // schedule (src/app/dashboard/tasks/task-due.ts).

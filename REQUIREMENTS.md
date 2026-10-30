@@ -62,6 +62,13 @@ easy for AI coding agents to work in correctly:
   `groupBy`, `$queryRaw`) that fails with "Connection terminated
   unexpectedly" is retried once on a fresh connection; writes are never
   retried, since they may already have been applied.
+  **Slow hand-out (BUG-5)**: interactive `prisma.$transaction(async …)` calls
+  in the shopping-list and inventory actions pass `INTERACTIVE_TX_OPTIONS`
+  (`src/lib/db-transaction.ts`: `maxWait` 10 s, `timeout` 15 s) instead of
+  Prisma's 2 s / 5 s defaults, which a slow connection hand-out could
+  exhaust before the first write. The tick action (`togglePurchasedAction`)
+  returns the usual generic error state if the transaction still fails
+  (P2028 included), so the row reverts with a toast instead of a 500.
 - **Sentry is kept out of the root bundle (PERF-8).** The browser SDK is
   only ever loaded through a dynamic `import("@sentry/nextjs")` behind a
   `NEXT_PUBLIC_SENTRY_DSN` check, in `src/instrumentation-client.ts`
@@ -6302,6 +6309,7 @@ co-managers, not kids earning rewards.
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
   `completedByMemberId`, nullable `recurrenceIntervalDays`, nullable `recurrenceAnchorAt`,
+  nullable `skippedUntil` (GAP-60),
   `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`,
   nullable `dueDate`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
@@ -6458,6 +6466,33 @@ co-managers, not kids earning rewards.
   shows a mascot "You're all caught up!" card in place of the open section
   (squirrel rises in once; static under reduced motion; no count or
   streak). It clears when a task is open again (Undo, a new task).
+- **Skip this time (GAP-60)**: an open repeating task can be skipped
+  ("we're away, nobody watered the plants") so the schedule moves on without
+  a completion being logged. `HouseholdTask.skippedUntil` (nullable) is set
+  by `skipTaskAction` to now + `recurrenceIntervalDays` and nothing else is
+  written: `completedAt` and `completedByMemberId` stay, because they feed the
+  weekly recap and "Last done by". `recurrence.ts` reads it: `isTaskOpen` is
+  false while `now < skippedUntil` (with or without a `completedAt`),
+  `getNextDueDate` is the later of the schedule's date and `skippedUntil`
+  (and `skippedUntil` itself for a never-done task; `getTaskDueDay` follows),
+  and `isClosedBySkipOnly` tells the two kinds of "closed" apart. Offered
+  only on a repeating task that is open (a one-off is rejected with "Only
+  repeating tasks can be skipped"; a task already closed is a quiet no-op,
+  and the write is a compare-and-set on `skippedUntil` so two members
+  skipping at once skip once). The control is a "Skip {title} this time"
+  icon button from `sm` up and a "Skip this time" button in the edit sheet
+  on a phone (the row stays one line, M6; the sheet button is 44 px). The
+  row moves to "Completed" at tap time with a "Skipped" line, "Next due
+  {date}" and the unchanged "Last done by", and a "Skipped "{title}" this
+  time" toast with Undo (`unskipTaskAction`, which restores the value the
+  column held, always null or a moment already past, and refuses a future
+  one). Ticking the skipped task reopens it: `toggleTaskCompletedAction`
+  clears `skippedUntil` and, when only the skip closed the task, leaves
+  `completedAt` and its completer alone instead of restoring the previous
+  completion; a tick of a task whose skip has run out clears it too, and so
+  does dropping the repeat in the edit dialog. UX-137's anchoring rule is
+  untouched: if it changes, the skip follows it. Covered by
+  `recurrence.test.ts`, `actions.test.ts` and `e2e/task-skip.spec.ts`.
 - **All caught up, and old one-offs that leave (UX-105)**: with no open
   task (and at least one completed) the mascot "You're all caught up!" card
   shows above Completed on every visit, not only right after a tick, so the
@@ -8463,7 +8498,10 @@ approximating them, so the email never disagrees with the app.
   the screen, user-text buttons (`Merge into <name>`, landing CTAs) opt out of
   `Button`'s `whitespace-nowrap` with `h-auto whitespace-normal`, and
   bottom-nav labels stay on one line and truncate with an ellipsis (UX-150;
-  the old `break-words hyphens-auto` split names mid-word, "Overvi/ew").
+  the old `break-words hyphens-auto` split names mid-word, "Overvi/ew"). The
+  two long names show `nav.shoppingListShort` / `nav.mealPlanningShort`
+  ("Shopping", "Meals"; "Inköp", "Mat") in the bar, with the full name as
+  the link's `aria-label`, so nothing is clipped at 320 px (UX-151).
   `BottomNav` publishes its measured height as `--bottom-nav-h` (default in
   `globals.css`: 3.75rem + the capped safe-area inset), and everything docked
   above the bar (floating primary action, bulk bars, shopping mode, the cookie

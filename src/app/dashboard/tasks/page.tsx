@@ -68,6 +68,10 @@ const getTasksData = cache(async (householdId: string) => {
         recurrenceIntervalDays: t.recurrenceIntervalDays,
         completedAt: t.completedAt,
         recurrenceAnchorAt: t.recurrenceAnchorAt,
+        // GAP-60: closed by "Skip this time" and still within it, so the row
+        // says "Skipped" instead of naming a completer.
+        skippedUntil: t.skippedUntil,
+        skipped: completed && t.skippedUntil !== null && now < t.skippedUntil,
         // UX-133: the local day it is due (stored for a one-off, derived from
         // the schedule for a repeat), and the one-off's date for the edit form.
         dueDay: getTaskDueDay(t, timeZone),

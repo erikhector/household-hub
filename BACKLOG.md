@@ -99,26 +99,6 @@ Parallel-safe except where noted.
 
 ### Bugs
 
-- [ ] **BUG-5. Interactive transactions expire at 5 s on slow connection hand-out** (impact: med, effort: S) —
-      Sentry JAVASCRIPT-NEXTJS-4 (2 events, `POST /dashboard/shopping-list/[id]`, the
-      tick/untick action, `purchase-actions.ts:55`; iOS Safari) and
-      JAVASCRIPT-NEXTJS-5 (1 event, a `prisma.inventoryItem.update()` in another
-      `$transaction`), all 2026-10-26 12:30–12:36 UTC on `vercel-production`
-      (fra1): "A query cannot be executed on an expired transaction … 5000 ms,
-      5121 ms passed". The first write of the transaction misses the Prisma
-      default 5 s, so the user's tick fails with a 500 though the work is tiny;
-      that points at connection hand-out (cold function, pooler saturation),
-      not the transaction body. Raise `timeout`/`maxWait` through one shared
-      option on the interactive `prisma.$transaction(async …)` calls
-      (`purchase-actions.ts`, `item-actions.ts`, `list-actions.ts`,
-      `receipt-actions.ts`, `smart-add-actions.ts`, inventory actions), and
-      have the tick action return its normal failure state (toast, row
-      reverts) instead of throwing when the transaction still fails. Check the
-      `DATABASE_POOL_MAX` vs pooler headroom note in `src/lib/prisma.ts:13`
-      (owner-only: pooler dashboard).
-      Acceptance: unit test that the tick action calls `$transaction` with an
-      explicit `timeout` and, when it rejects with a Prisma `P2028`, returns
-      the error state rather than throwing.
 
 ### Security hardening (2026-09-26 audit)
 
@@ -394,6 +374,15 @@ hits (its one "Collapse sheet 64x16" hit is the sheet grabber, whose
 `after:` pseudo-element already gives it the 44 px target). The two items
 below come from `text-200-dashboard-meal-planning.png`. WebKit was not run.
 
+
+### UX (2026-10-29 scout)
+
+Thursday area: tasks, household, members. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
+(its "Collapse sheet 64x16" is the sheet grabber, whose `after:`
+pseudo-element gives the 44 px target). WebKit was not run, and the
+per-action deep dive was not driven this run.
 
 ### Dependencies
 
@@ -714,40 +703,6 @@ out to be a product-scope question rather than a scoped task should move to
       on desktop and mobile.
 
 ### 2026-10-18 scan
-
-- [ ] **GAP-60. "Skip this time" on a recurring task** (impact: low-med, effort: S) `[schema]` —
-      Grocy's chores page lets you skip an execution ("we're away, nobody
-      watered the plants") so the schedule moves on without logging it as
-      done. Squirrel's only ways past a recurring task are to tick it
-      (which records a completion and credits a member in "Last done
-      by") or delete it (which loses the schedule and history).
-      `HouseholdTask` stores no due date: `getNextDueDate`/`isTaskOpen`
-      in `src/app/dashboard/tasks/recurrence.ts` derive it as
-      `completedAt + recurrenceIntervalDays`, and the tick
-      (`toggleTaskCompletedAction`) overwrites `completedAt`, which feeds
-      the weekly recap and "Last done by", so a skip must not write it.
-      Add `HouseholdTask.skippedUntil DateTime?`. A "Skip this time" row
-      action, shown only on recurring tasks that are currently open (no
-      wait on UX-133's overdue concept), sets it to now +
-      `recurrenceIntervalDays` and leaves `completedAt` and
-      `completedByMemberId` untouched, with an Undo toast that restores
-      the previous value. `isTaskOpen` treats the task as closed while
-      `now < skippedUntil`, `getNextDueDate` returns the later of the two
-      dates, and a tick clears `skippedUntil`. The tick's un-complete
-      branch also clears `skippedUntil`, and leaves `completedAt` alone
-      when only the skip closed the task, so clicking a skipped task
-      reopens it without wiping the real last completion. Does not decide
-      UX-137's anchoring question: if that changes the rule, it updates
-      this too.
-      Acceptance: `recurrence.test.ts` pins `isTaskOpen`/`getNextDueDate`
-      with `skippedUntil` before, at and after now (with and without a
-      `completedAt`); an action test covers household scoping, rejection
-      on a non-recurring task, and that `completedAt`/
-      `completedByMemberId` are not written, and that un-completing a
-      skipped task clears `skippedUntil` and keeps `completedAt`; an e2e
-      step skips a uniquely named daily task and sees it leave the open
-      list with "Last done by" unchanged, then undoes it, on desktop and
-      mobile (button name unique per row, 44 px).
 
 - [ ] **GAP-61. Pin a note to the top of the notes board** (impact: low, effort: S) `[schema]` —
       Cozi's journal and AnyList's meal-plan "pinned entries" both let a

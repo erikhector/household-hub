@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { overflowMobileNavItems, primaryMobileNavItems } from "@/components/dashboard/nav-items";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { sv } from "@/lib/i18n/dictionaries/sv";
+import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { gotoRevealed } from "./ui";
+import { dismissCookieNotice, gotoRevealed, LOCALES } from "./ui";
 
 // Mobile only (the `mobile` project in playwright.config.ts): the bottom
 // bar's tabs and its "More" menu between them reach every section, and the
@@ -134,3 +136,29 @@ test("bottom bar tabs share one tile and the active one keeps its hue", async ({
   // The page is marked with the same section hue.
   await expect(page.locator("[data-section-accent='chart-1']")).toBeVisible();
 });
+
+// UX-151: at 320 px a fifth of the bar is 64 px, so "Shopping list" and
+// "Meal planning" were ellipsized to fragments. The bar shows short labels
+// instead, each link keeps its full name as its accessible name, and no label
+// is clipped. English and Swedish (longer words) are both checked.
+for (const locale of LOCALES) {
+  test.describe(`bottom bar labels at 320 px (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    test("no label is clipped and each link keeps its full name", async ({ page, context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+      await page.setViewportSize({ width: 320, height: 640 });
+      await gotoRevealed(page, "/dashboard");
+      const nav = page.locator("nav.fixed.bottom-0");
+      const clipped = await nav.evaluate((el) =>
+        [...el.querySelectorAll<HTMLElement>("a > span:last-child, button > span:last-child")]
+          .filter((span) => span.scrollWidth > span.clientWidth)
+          .map((span) => span.textContent),
+      );
+      expect(clipped, "labels wider than their box").toEqual([]);
+      const dict = locale === "sv" ? sv : en;
+      for (const item of primaryMobileNavItems) {
+        await expect(nav.getByRole("link", { name: dict.nav[item.key], exact: true })).toBeVisible();
+      }
+    });
+  });
+}
