@@ -6540,7 +6540,8 @@ the other one". Cozi's family journal/notes is its most-cited differentiator
 from a pure list/calendar app; this is the minimal version of it.
 
 - **Model**: `HouseholdNote` (`householdId` with `onDelete: Cascade`,
-  nullable `authorMemberId`, `body`, `createdAt`), indexed on `householdId`.
+  nullable `authorMemberId`, `body`, `createdAt`, nullable `pinnedAt`),
+  indexed on `householdId`.
   `authorMemberId` uses `onDelete: SetNull`, the same tradeoff
   `HouseholdTask.completedByMemberId` makes: a member leaving keeps the
   notes they wrote (still useful to everyone else) and the UI shows
@@ -6562,8 +6563,23 @@ from a pure list/calendar app; this is the minimal version of it.
 - **UI** (`src/components/household/household-notes.tsx`): an add form
   above a flat, newest-first list. Each note shows its body (line breaks
   kept), the author's display name (or "Former member") and the date, with
-  the year only when it isn't the current one. Add and delete only — no
-  edit, pinning or rich text in v1.
+  the year only when it isn't the current one. Add, pin and delete — no
+  edit or rich text.
+- **Pinning** (GAP-61): `HouseholdNote.pinnedAt DateTime?` (migration
+  `20261030090000_household_note_pinned_at`), null = not pinned. A lasting
+  fact (the wifi code, "allergic to nuts") shouldn't sink under daily
+  chatter, so pinned notes sort first, newest-pinned first, then the rest
+  newest first (`pinnedAt desc nulls last, createdAt desc`). Each note has
+  a Pin/Unpin icon button (`aria-pressed`, labelled "Pin note by {name}" /
+  "Unpin note by {name}") and a pinned note shows a "Pinned" label.
+  `setNotePinnedAction(noteId, pinned)` is a click action; any member may
+  pin or unpin, the same permission as delete, and it is an `updateMany`
+  on `{ id, householdId }` so another household's id is a silent no-op.
+  At most `NOTE_PIN_MAX` (5, `src/lib/household-notes.ts`) notes can be
+  pinned so the pins don't become the feed; a sixth is refused with the
+  `notePinLimit` error and unpinning is always allowed. The cap check is a
+  count then a write without a lock, so two simultaneous pins can overshoot
+  by one, which is harmless for a soft cap.
 - **Not a notification trigger**: adding a note creates no bell
   notification or push. A bell badge must mean something's wrong (see
   "Notification center"); the notes board is just a page you check.

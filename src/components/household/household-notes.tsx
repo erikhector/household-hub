@@ -2,18 +2,18 @@
 
 // GAP-16: the shared household notes board on the Household page — a flat,
 // reverse-chronological list with an add form above it. Add + delete only:
-// no edit, pinning or rich text in v1 (see notes-actions.ts). Same simple
+// pin to the top (GAP-61), no edit or rich text (see notes-actions.ts). Same simple
 // shape as TasksClient's list rows, and delete goes through the shared
 // ConfirmDialog like every other removal in the app.
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Pin, PinOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createNoteAction, deleteNoteAction } from "@/app/dashboard/household/notes-actions";
+import { createNoteAction, deleteNoteAction, setNotePinnedAction } from "@/app/dashboard/household/notes-actions";
 import type { ActionState } from "@/lib/actions/auth";
 import { NOTE_BODY_MAX_LENGTH } from "@/lib/household-notes";
 import { format } from "@/lib/i18n/format";
@@ -29,6 +29,7 @@ export type HouseholdNoteRow = {
   // onDelete: SetNull) — rendered as dict.formerMember.
   authorName: string | null;
   createdAt: Date;
+  pinned: boolean;
 };
 
 const initialState: ActionState = {};
@@ -46,6 +47,13 @@ export function HouseholdNotes({
   // reset also fires when the action returns a validation error, which would
   // throw away what the user typed. Clearing it only on success keeps it.
   const [body, setBody] = useState("");
+  const [pinPending, startPin] = useTransition();
+  function togglePin(note: HouseholdNoteRow) {
+    startPin(async () => {
+      const result = await setNotePinnedAction(note.id, !note.pinned);
+      if (result.error) toast.error(result.error);
+    });
+  }
   const [state, formAction, pending] = useActionState(async (prevState: ActionState, formData: FormData) => {
     const result = await createNoteAction(prevState, formData);
     if (result.error) {
@@ -113,9 +121,27 @@ export function HouseholdNotes({
                       URL from overflowing the card on a phone. */}
                   <p className="whitespace-pre-wrap break-words text-sm">{note.body}</p>
                   <p className="text-xs text-muted-foreground">
+                    {note.pinned ? (
+                      <span className="mr-1 inline-flex items-center gap-1 font-medium text-foreground">
+                        <Pin className="size-3" aria-hidden="true" />
+                        {dict.pinned}
+                        <span aria-hidden="true"> ·</span>
+                      </span>
+                    ) : null}
                     {format(dict.byline, { name: authorName, date: formatDate(note.createdAt) })}
                   </p>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground"
+                  disabled={pinPending}
+                  aria-pressed={note.pinned}
+                  aria-label={format(note.pinned ? dict.unpinAriaLabel : dict.pinAriaLabel, { name: authorName })}
+                  onClick={() => togglePin(note)}
+                >
+                  {note.pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+                </Button>
                 <ConfirmDialog
                   trigger={
                     <Button

@@ -7,3 +7,7 @@
 // 12, key's under the mat…") but short enough that one note can't turn the
 // board into a document store.
 export const NOTE_BODY_MAX_LENGTH = 1000;
+
+// GAP-61: how many notes may be pinned at once. Pins are for lasting facts
+// (the wifi code, "allergic to nuts"); uncapped they'd become the feed again.
+export const NOTE_PIN_MAX = 5;

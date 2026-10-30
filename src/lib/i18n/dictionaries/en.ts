@@ -179,6 +179,7 @@ export const en = {
       "If that account needs verifying, we've sent a fresh verification link. Check your inbox.",
     noteEmpty: "Note can't be empty",
     householdNoteTooLong: "Note must be 1000 characters or fewer",
+    notePinLimit: "You can pin up to 5 notes. Unpin one first.",
     invalidBarcode: "Invalid barcode",
     invalidChange: "Invalid change",
     invalidQuietHours: "Invalid quiet hours",
@@ -487,6 +488,9 @@ export const en = {
       formerMember: "Former member",
       byline: "{name} · {date}",
       deleteAriaLabel: "Delete note by {name}",
+      pinned: "Pinned",
+      pinAriaLabel: "Pin note by {name}",
+      unpinAriaLabel: "Unpin note by {name}",
       confirmDelete: {
         title: "Delete this note?",
         description: "It's removed for everyone in the household. This can't be undone.",

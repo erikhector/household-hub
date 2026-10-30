@@ -134,11 +134,14 @@ async function HouseholdNotesSection({
 }) {
   const notes = await prisma.householdNote.findMany({
     where: { householdId },
-    orderBy: { createdAt: "desc" },
+    // GAP-61: pinned first (newest-pinned first), then the rest newest first.
+    // Postgres sorts NULLs first on DESC by default, hence nulls: "last".
+    orderBy: [{ pinnedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
     select: {
       id: true,
       body: true,
       createdAt: true,
+      pinnedAt: true,
       authorMember: { select: { user: { select: { displayName: true } } } },
     },
   });
@@ -150,6 +153,7 @@ async function HouseholdNotesSection({
         id: n.id,
         body: n.body,
         createdAt: n.createdAt,
+        pinned: n.pinnedAt !== null,
         authorName: n.authorMember?.user.displayName ?? null,
       }))}
     />
