@@ -750,6 +750,45 @@ out to be a product-scope question rather than a scoped task should move to
       "used 1" with the actor's name under History after a reload, in
       `en` and `sv`.
 
+### 2026-10-31 scan
+
+- [ ] **GAP-67. Bring your recipes from another app: import a Paprika or Plan to Eat export file** (impact: med, effort: M) —
+      Plan to Eat's October 2026 release redesigned its import page to take
+      Paprika, Mela, Crouton and Mealime exports, and Mealie imports Plan
+      to Eat files: switching recipe apps is a one-file job there.
+      Squirrel imports one recipe at a time from a URL
+      (`importRecipeFromUrlAction`, `recipe-actions.ts:1022`) or a photo,
+      so a household with 150 recipes in Paprika has to re-enter each one
+      and, in practice, never moves. Add "Import from a file" to the
+      recipes tab: accept a `.paprikarecipes` export (a zip of gzipped
+      JSON, one per recipe) and a plain Recipe JSON-LD / `.json` file,
+      parse them with a pure function next to `recipe-import.ts` that
+      reuses `parseIngredientString` and `flattenInstructions`, and show
+      a review list ("38 recipes found", untick the ones to skip, flag
+      names already in the household) before anything is saved. Like the
+      URL import it saves nothing until confirmed, caps the file at a few
+      MB and 200 recipes, and runs server-side under `requireHousehold()`
+      with the existing rate limit. Scope: no photos from the archive, no
+      Plan to Eat or Mealime formats until someone asks.
+      Acceptance: unit tests for the Paprika parser (gzipped entry,
+      ingredient lines, steps, a corrupt entry skipped with a count) and
+      for the size and count caps; an e2e step on `mobile` uploads a small
+      fixture archive, sees the review list, imports two of three, and
+      finds them on the recipes tab after a reload, in `en` and `sv`.
+
+- [ ] **GAP-68. Store loyalty-card numbers on a shopping store** `[!]` —
+      Bring! lets members save loyalty cards in the app and show the
+      barcode at the till, one of its most-used extras, and Squirrel
+      already knows each household's stores (price history, trip
+      receipts). A card number is new personal data stored per member
+      (and a barcode render), so it needs the owner's call on whether
+      it is in scope, who can see a card (own only vs household), and
+      the privacy page wording. Recommended: keep not doing it; a
+      wallet app does this better and the data is sensitive.
+      Acceptance (if approved): a per-user card on a store, shown as a
+      Code 128/EAN barcode at full brightness on `mobile`, never
+      visible to other members and never in logs.
+
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
