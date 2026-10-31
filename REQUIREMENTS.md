@@ -8598,6 +8598,10 @@ approximating them, so the email never disagrees with the app.
   two long names show `nav.shoppingListShort` / `nav.mealPlanningShort`
   ("Shopping", "Meals"; "Inköp", "Mat") in the bar, with the full name as
   the link's `aria-label`, so nothing is clipped at 320 px (UX-151).
+  The "Get set up" step cards (UX-152) are size containers that stack (icon
+  tile above the text, chevron hidden) below 15 rem wide; the threshold is in
+  rem, so it only trips at large text, where a title takes at most two lines
+  and a card stays under half the screen (`e2e/overview.spec.ts`).
   `BottomNav` publishes its measured height as `--bottom-nav-h` (default in
   `globals.css`: 3.75rem + the capped safe-area inset), and everything docked
   above the bar (floating primary action, bulk bars, shopping mode, the cookie

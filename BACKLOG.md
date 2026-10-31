@@ -393,19 +393,6 @@ popup probe has no phone-size hits. The `text-200` "clipped" hits on the
 bottom bar's labels are the deliberate ellipsis of UX-150, not a finding.
 WebKit was not run, and the per-action deep dive was not driven this run.
 
-- [ ] **UX-152. "Get set up" step cards leave the text a sliver at 200% text**
-      (impact: med, effort: S) — `text-200-dashboard.png` (Pixel 7, 200% text,
-      `/dashboard`): each step card in `src/components/dashboard/getting-started.tsx`
-      (~line 113) puts a 32 px icon tile, a chevron and `p-3` padding beside
-      the text, so the title wraps at one to two words per line ("Plan this /
-      week's / meals") and the hint runs 8+ lines, making the first-run
-      checklist taller than the screen. Breaks DESIGN.md's content-first
-      hierarchy and the UX-9 200%-text promise.
-      Acceptance: in the `mobile` project with 200% text, a step card's title
-      is at most two lines and the card is under half the viewport height
-      (e.g. stack the icon above the text, or hide the chevron, below a
-      width/text-size threshold); at default size the layout is unchanged.
-
 ### Dependencies
 
 ---
