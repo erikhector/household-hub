@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { clickRowAction, dismissCookieNotice, expectHydrated } from "./ui";
+import { clickRowAction, dismissCookieNotice, expectHydrated, clickListSetting } from "./ui";
 
 // PERF-25: the list page's dialogs are separate chunks, mounted the first time
 // they're asked to open. The first tap after a hard load must still open one
@@ -22,7 +22,7 @@ async function openMoreMenu(page: Page) {
 test("a menu dialog opens on the first tap after a hard load", async ({ page }) => {
   await page.goto(listUrl);
   await openMoreMenu(page);
-  await page.getByRole("menuitem", { name: t.addItem }).click();
+  await clickListSetting(page, t.addItem, t.menuListSettings);
   await expect(page.getByRole("dialog", { name: t.addItemDialogTitle })).toBeVisible();
 });
 
@@ -40,13 +40,13 @@ test("a dialog still opens when idle prefetching never ran", async ({ page }) =>
   });
   await page.goto(listUrl);
   await openMoreMenu(page);
-  await page.getByRole("menuitem", { name: t.renameList.menuItem }).click();
+  await clickListSetting(page, t.renameList.menuItem, t.menuListSettings);
   await expect(page.getByRole("textbox", { name: t.renameList.nameLabel })).toBeVisible();
   // Closing and opening again goes through the already mounted dialog.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("textbox", { name: t.renameList.nameLabel })).toBeHidden();
   await openMoreMenu(page);
-  await page.getByRole("menuitem", { name: t.renameList.menuItem }).click();
+  await clickListSetting(page, t.renameList.menuItem, t.menuListSettings);
   await expect(page.getByRole("textbox", { name: t.renameList.nameLabel })).toBeVisible();
 });
 

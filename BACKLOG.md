@@ -434,7 +434,7 @@ left out.
 - `src/components/budget/safe-to-spend.tsx`: UX-153, UX-154
 - `src/components/inventory/inventory-client.tsx`: UX-155, UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-159, UX-160, UX-168
+  UX-160, UX-168
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
   UX-158, UX-160, UX-164
 
@@ -534,23 +534,6 @@ left out.
       `mobile` e2e asserts the page title is the first text in `main`'s
       viewport for the seeded single-household user; the multi-household
       case still switches.
-
-- [ ] **UX-159. Finish the trip from the dock and split the shopping list
-      ⋯ menu** (impact: high, effort: M) — breaks User-centricity (the
-      in-store task is the shortest path), M6 (rare actions behind a
-      disclosure, ordered) and M2 (destructive apart from primary). The
-      list's ⋯ menu holds 12 items (Rename, Add item, Import list, Add
-      low-stock items, Share, Save as template, Export CSV, Copy as text,
-      Print, Complete list, Archive, Delete); "Complete list", the action
-      every trip ends with, is item 10 in the same group as the two
-      destructive ones (`src/components/shopping/shopping-list-client.tsx`
-      ⋯ menu; report `a7-list-more-menu`). The dock already knows when the
-      ring is full (`shopping-mode.tsx`).
-      Acceptance: when every row is ticked the dock shows a "Finish trip"
-      primary that runs Complete list; the menu is split into "This trip"
-      (Complete, Put away, Share) and "List settings" (submenu or the list
-      page) with Delete alone at the bottom. `mobile` and `desktop` e2e
-      tick all rows and complete the list from the dock.
 
 - [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
       med, effort: M) — breaks M9 ("200 % … without clipping; Swedish

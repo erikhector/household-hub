@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, clickListSetting } from "./ui";
 
 // UX-85: rename a list, and start a new list from a template or a past list.
 // Every test makes its own lists so it neither depends on nor changes the
@@ -45,7 +45,7 @@ test("Rename in the ⋯ menu changes the title and survives a reload", async ({ 
   await makeList(page, before, [unique("Rice")]);
 
   await page.getByRole("button", { name: t.moreActions }).click();
-  await page.getByRole("menuitem", { name: t.renameList.menuItem }).click();
+  await clickListSetting(page, t.renameList.menuItem, t.menuListSettings);
   const field = page.getByRole("textbox", { name: t.renameList.nameLabel });
   await expect(field).toHaveValue(before);
   await field.fill(after);
@@ -117,7 +117,7 @@ test("a new list can start from a template, and its row says Use", async ({ page
   await makeList(page, source, [salsa]);
 
   await page.getByRole("button", { name: t.moreActions }).click();
-  await page.getByRole("menuitem", { name: t.templates.menuItem }).click();
+  await clickListSetting(page, t.templates.menuItem, t.menuListSettings);
   const template = unique("Tacos");
   await page.getByRole("textbox", { name: t.templates.nameLabel }).fill(template);
   await page.getByRole("button", { name: t.templates.save, exact: true }).click();

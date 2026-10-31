@@ -25,6 +25,7 @@ import {
   Printer,
   RotateCcw,
   ScrollText,
+  Settings2,
   Share2,
   Trash2,
 } from "lucide-react";
@@ -48,8 +49,13 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ShareListButton } from "@/components/shopping/share-list-button";
@@ -427,6 +433,7 @@ export function ShoppingListClient({
   // A completed list with nothing left to put away has no "All done" to
   // show: its own card (CompletedActions) says the trip is over instead.
   const showCleared = isCleared && !clearedDismissed && (isActive || awaitingPutAway.length > 0);
+  const canFinishFromDock = isActive && isCleared && purchasedItems.length > 0;
   const showCompleted = list.status === "COMPLETED" && !showCleared && purchasedItems.length > 0;
 
   const { highlightedIds, highlightAdded } = useAddedHighlight();
@@ -528,112 +535,140 @@ export function ShoppingListClient({
               }
             />
             <DropdownMenuContent align="end" className="w-auto min-w-52 print:hidden">
-              {/* UX-85: offered on any status, like Save as template. */}
-              <DropdownMenuItem onClick={() => openLazyDialog(dialogs.renameList)}>
-                <Pencil />
-                {dict.renameList.menuItem}
-              </DropdownMenuItem>
-              {isActive && (
+              {/* UX-159 (M6, M2): the menu leads with what ends a trip, tucks
+                  everything about the list itself behind one disclosure, and
+                  keeps Delete alone at the bottom, apart from the primary
+                  actions. */}
+              {(isActive || awaitingPutAway.length > 0 || pendingItems.length > 0) && (
                 <>
-                  <DropdownMenuItem onClick={() => openLazyDialog(dialogs.addItem)}>
-                    <Plus />
-                    {dict.addItem}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openLazyDialog(dialogs.importList)}>
-                    <ClipboardPaste />
-                    {dict.importList.triggerLabel}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={addLowStock}>
-                    <PackagePlus />
-                    {dict.addLowStock}
-                  </DropdownMenuItem>
-                  {showResolveMappings && (
-                    <DropdownMenuItem onClick={() => openLazyDialog(dialogs.resolveMappings)}>
-                      <Link2 />
-                      {resolveMappingsLabel}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => dialogs.share.open(null)}>
-                    <Share2 />
-                    {dict.shareLink.button}
-                  </DropdownMenuItem>
-                  {reorderSections.length >= 2 && (
-                    <DropdownMenuItem onClick={() => openLazyDialog(dialogs.reorderSections)}>
-                      <ArrowUpDown />
-                      {dict.reorderSections.menuItem}
-                    </DropdownMenuItem>
-                  )}
-                  {hasManualOrder && (
-                    <DropdownMenuItem onClick={resetStoreOrder}>
-                      <RotateCcw />
-                      {dict.reorderSections.resetMenuItem}
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>{dict.menuThisTrip}</DropdownMenuLabel>
+                    {isActive && items.length > 0 && (
+                      <DropdownMenuItem onClick={() => finishTrip(true)}>
+                        <CheckCheck />
+                        {dict.completeList}
+                      </DropdownMenuItem>
+                    )}
+                    {awaitingPutAway.length > 0 && list.status !== "ARCHIVED" && (
+                      <DropdownMenuItem onClick={() => setPutAwayMode("putAway")}>
+                        <PackageCheck />
+                        {format(dict.putAway.button, { count: awaitingPutAway.length })}
+                      </DropdownMenuItem>
+                    )}
+                    {isActive && (
+                      <DropdownMenuItem onClick={() => dialogs.share.open(null)}>
+                        <Share2 />
+                        {dict.shareLink.button}
+                      </DropdownMenuItem>
+                    )}
+                    {pendingItems.length > 0 && (
+                      <>
+                        <DropdownMenuItem onClick={copyListText}>
+                          <Copy />
+                          {dict.copyText}
+                        </DropdownMenuItem>
+                        {canShareText && (
+                          <DropdownMenuItem onClick={shareListText}>
+                            <Share2 />
+                            {dict.shareText}
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    )}
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
                 </>
               )}
-              {/* GAP-4: offered on any status — saving a finished trip as a
-                  template is the common case. */}
-              {items.length > 0 && (
-                <DropdownMenuItem onClick={() => openLazyDialog(dialogs.saveTemplate)}>
-                  <ScrollText />
-                  {dict.templates.menuItem}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
-                <Download />
-                {exportLabel}
-              </DropdownMenuItem>
-              {pendingItems.length > 0 && (
-                <>
-                  <DropdownMenuItem onClick={copyListText}>
-                    <Copy />
-                    {dict.copyText}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Settings2 />
+                  {dict.menuListSettings}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="min-w-52 print:hidden">
+                  {/* UX-85: offered on any status, like Save as template. */}
+                  <DropdownMenuItem onClick={() => openLazyDialog(dialogs.renameList)}>
+                    <Pencil />
+                    {dict.renameList.menuItem}
                   </DropdownMenuItem>
-                  {canShareText && (
-                    <DropdownMenuItem onClick={shareListText}>
-                      <Share2 />
-                      {dict.shareText}
+                  {isActive && (
+                    <>
+                      <DropdownMenuItem onClick={() => openLazyDialog(dialogs.addItem)}>
+                        <Plus />
+                        {dict.addItem}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openLazyDialog(dialogs.importList)}>
+                        <ClipboardPaste />
+                        {dict.importList.triggerLabel}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={addLowStock}>
+                        <PackagePlus />
+                        {dict.addLowStock}
+                      </DropdownMenuItem>
+                      {showResolveMappings && (
+                        <DropdownMenuItem onClick={() => openLazyDialog(dialogs.resolveMappings)}>
+                          <Link2 />
+                          {resolveMappingsLabel}
+                        </DropdownMenuItem>
+                      )}
+                      {reorderSections.length >= 2 && (
+                        <DropdownMenuItem onClick={() => openLazyDialog(dialogs.reorderSections)}>
+                          <ArrowUpDown />
+                          {dict.reorderSections.menuItem}
+                        </DropdownMenuItem>
+                      )}
+                      {hasManualOrder && (
+                        <DropdownMenuItem onClick={resetStoreOrder}>
+                          <RotateCcw />
+                          {dict.reorderSections.resetMenuItem}
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
+                  {/* GAP-4: offered on any status — saving a finished trip as a
+                      template is the common case. */}
+                  {items.length > 0 && (
+                    <DropdownMenuItem onClick={() => openLazyDialog(dialogs.saveTemplate)}>
+                      <ScrollText />
+                      {dict.templates.menuItem}
                     </DropdownMenuItem>
                   )}
-                </>
-              )}
-              {/* GAP-24: the browser's own print dialog, fed by the
-                  print-only PrintableList below — no route, no PDF. */}
-              <DropdownMenuItem onClick={() => window.print()}>
-                <Printer />
-                {dict.print}
-              </DropdownMenuItem>
+                  <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
+                    <Download />
+                    {exportLabel}
+                  </DropdownMenuItem>
+                  {/* GAP-24: the browser's own print dialog, fed by the
+                      print-only PrintableList below — no route, no PDF. */}
+                  <DropdownMenuItem onClick={() => window.print()}>
+                    <Printer />
+                    {dict.print}
+                  </DropdownMenuItem>
+                  {list.status === "ARCHIVED" ? (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        startTransition(async () => {
+                          const result = await unarchiveShoppingListAction(list.id);
+                          if (result.error) toast.error(result.error);
+                        })
+                      }
+                    >
+                      <ArchiveRestore />
+                      {dict.unarchive}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        startTransition(async () => {
+                          await archiveListWithUndo(list.id, dict);
+                        })
+                      }
+                    >
+                      <Archive />
+                      {dict.archive}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSeparator />
-              {isActive && items.length > 0 && (
-                <DropdownMenuItem onClick={() => finishTrip(true)}>
-                  <CheckCheck />
-                  {dict.completeList}
-                </DropdownMenuItem>
-              )}
-              {list.status === "ARCHIVED" ? (
-                <DropdownMenuItem
-                  onClick={() =>
-                    startTransition(async () => {
-                      const result = await unarchiveShoppingListAction(list.id);
-                      if (result.error) toast.error(result.error);
-                    })
-                  }
-                >
-                  <ArchiveRestore />
-                  {dict.unarchive}
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() =>
-                    startTransition(async () => {
-                      await archiveListWithUndo(list.id, dict);
-                    })
-                  }
-                >
-                  <Archive />
-                  {dict.archive}
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem variant="destructive" onClick={() => dialogs.deleteList.open(null)}>
                 <Trash2 />
                 {dict.delete}
@@ -808,9 +843,6 @@ export function ShoppingListClient({
             progress={progress}
             celebrate={celebrate}
             onDismiss={dismissCleared}
-            // Only once something was actually bought — a list that was
-            // simply emptied out has no trip to finish.
-            onDone={isActive && purchasedItems.length > 0 ? () => finishTrip(false) : undefined}
             // UX-37: the bags are in hand — offer the put-away straight from
             // here (finishing the list once it's confirmed), on a list that
             // isn't archived, whether or not it's still ACTIVE.
@@ -924,8 +956,25 @@ export function ShoppingListClient({
 
       {/* UX-37: one-handed reach. Last in the column so, sticky, it rides
           the bottom of the screen in the thumb zone (DESIGN.md M2). */}
-      {isActive && !showCleared && nextUpItems && (
-        <NextUpDock next={nextUpItems} progress={progress} dict={dict.shoppingMode} onTick={toggleItem} />
+      {/* UX-159: every row ticked and nothing left to put away: the same
+          dock stays (so the last tick's settle plays out) and its one primary
+          finishes the trip, the old all-done card's "Done shopping". Only
+          once something was actually bought: a list that was simply emptied
+          out has no trip to finish. Like the menu's "Complete list", it
+          offers the put-away sheet first when ticked rows still wait; the
+          card's "Put everything away" is the no-questions version. */}
+      {isActive && (canFinishFromDock || (!showCleared && nextUpItems)) && (
+        <NextUpDock
+          next={canFinishFromDock ? null : nextUpItems}
+          progress={progress}
+          dict={dict.shoppingMode}
+          onTick={toggleItem}
+          finish={
+            canFinishFromDock
+              ? { onFinish: () => finishTrip(false), disabled: isPending || isTicking }
+              : undefined
+          }
+        />
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, E2E_SHOPPING_LIST } from "./seed-data";
-import { addBillOrIncome, clickRowAction, dismissCookieNotice, expectHydrated } from "./ui";
+import { addBillOrIncome, clickRowAction, dismissCookieNotice, expectHydrated, clickListSetting } from "./ui";
 
 // UX-10 (DESIGN.md M4): a focused field under 16 px makes iOS zoom the page,
 // and a unit field too narrow for its own buttons shows "p" for "pcs". Every
@@ -44,7 +44,7 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
 
   await page.getByRole("button", { name: "More list actions" }).click();
-  await page.getByRole("menuitem", { name: "Add item" }).click();
+  await clickListSetting(page, "Add item");
   const add = page.getByRole("dialog", { name: "Add an item" });
   // The dialog is a lazy chunk (PERF-25): evaluateAll doesn't wait for it.
   await expect(add).toBeVisible();
