@@ -3839,9 +3839,9 @@ share in {month}" rather than "this month") and the same "Your household balance
 with a link to the Transactions tab. Once they have categories the card goes
 and Safe to spend carries the balance as before. The shared-expense action is
 named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
-the household page's "Add transaction", and with no categories it is the
-page's primary action in the `PrimaryAction` slot (floating on phones); once
-Add transaction exists it stays the outline second action. Tested in
+the household page's "Add transaction". It is always the outline, inline
+action (UX-153, it doesn't float): with no categories the starter-set card's
+button is the one solid primary, and once Add transaction exists that is. Tested in
 `e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
 
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
