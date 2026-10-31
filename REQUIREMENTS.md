@@ -2846,6 +2846,18 @@ Component page function can't itself be unit-tested.
   regular bills" (the Manage tab), keeping the month and household in the
   URL. Once there is data the arithmetic carries a one-line legend for the
   "+", "–" and "→" in front of its lines.
+- **No income, no verdict (UX-154)**: `SafeToSpendStatus` has a fourth
+  value, `unset`: a non-negative balance with no income, logged or
+  expected, to judge it against (`deriveSafeToSpend`). It never gets the
+  `success` green of "healthy": the card's colour is `muted-foreground`
+  and its summary is the setup line. Spending without income is still
+  "over". On Home, an `unset` tile has no amount or sign: it reads "Budget
+  not set up yet" in muted text and links to the budget's Transactions
+  tab to add income. On Insights, "Fixed income & costs" with nothing
+  planned and no history is one sentence ("Nothing planned yet. Add your
+  income to see how the month adds up.") and an "Add income" button, in
+  place of a planned "0.00 in, 0.00 out" under a green "room in the
+  budget". `e2e/safe-to-spend-unset.spec.ts` covers both.
 - **Categories near or over their limit (UX-108)**: on the budget
   Overview (household and personal), the rows at the top of the Needs
   attention card right under Safe to spend (budget redesign, Oct 2026: they

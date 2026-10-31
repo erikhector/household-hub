@@ -7,6 +7,9 @@
 // is.
 //
 // - No personal budget yet: the "You" tile is a "Set up" link instead.
+// - A budget with no income (UX-154, status "unset"): the tile has no number,
+//   since a 0.00 in green would vouch for a budget nobody has set up. It
+//   reads "Budget not set up yet" in muted text and links to adding income.
 // - No household budget: no Household tile. The card itself always shows,
 //   since the "You" tile is either a number or the way to set one up.
 // - A balance with another member, either way: the same lines the budget
@@ -23,13 +26,15 @@ import { cn } from "@/lib/utils";
 
 export type SafeToSpendTile = { amount: string; status: SafeToSpendStatus };
 
-const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
+type NumberStatus = Exclude<SafeToSpendStatus, "unset">;
+
+const STATUS_COLOR: Record<NumberStatus, string> = {
   healthy: "text-success",
   tight: "text-warning",
   over: "text-destructive",
 };
 
-const STATUS_ICON: Record<SafeToSpendStatus, ComponentType<{ className?: string; "aria-hidden"?: boolean }>> = {
+const STATUS_ICON: Record<NumberStatus, ComponentType<{ className?: string; "aria-hidden"?: boolean }>> = {
   healthy: CircleCheck,
   tight: TriangleAlert,
   over: CircleAlert,
@@ -40,15 +45,29 @@ const TILE =
 
 function Tile({
   href,
+  incomeHref,
   label,
   tile,
   dict,
 }: {
   href: string;
+  /** Where "unset" sends you: the budget's Transactions tab, to log income. */
+  incomeHref: string;
   label: string;
   tile: SafeToSpendTile;
   dict: Dictionary["dashboard"]["money"];
 }) {
+  if (tile.status === "unset") {
+    return (
+      <Link href={incomeHref} className={TILE}>
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="mt-auto flex items-center gap-1 text-sm font-medium text-muted-foreground">
+          {dict.notSetUp}
+          <ChevronRight className="size-4 shrink-0" aria-hidden />
+        </span>
+      </Link>
+    );
+  }
   const Icon = STATUS_ICON[tile.status];
   return (
     <Link href={href} className={TILE}>
@@ -98,7 +117,13 @@ export function SafeToSpendTiles({
       <CardContent className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           {personal ? (
-            <Tile href="/dashboard/personal-budget" label={dict.you} tile={personal} dict={dict} />
+            <Tile
+              href="/dashboard/personal-budget"
+              incomeHref="/dashboard/personal-budget?tab=transactions"
+              label={dict.you}
+              tile={personal}
+              dict={dict}
+            />
           ) : (
             <Link href="/dashboard/personal-budget" className={TILE} aria-label={dict.setUpAriaLabel}>
               <span className="text-sm text-muted-foreground">{dict.you}</span>
@@ -108,7 +133,15 @@ export function SafeToSpendTiles({
               </span>
             </Link>
           )}
-          {household && <Tile href="/dashboard/budget" label={dict.household} tile={household} dict={dict} />}
+          {household && (
+            <Tile
+              href="/dashboard/budget"
+              incomeHref="/dashboard/budget?tab=transactions"
+              label={dict.household}
+              tile={household}
+              dict={dict}
+            />
+          )}
         </div>
         <HouseholdDebtsList
           debts={debts}
