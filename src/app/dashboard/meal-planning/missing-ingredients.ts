@@ -46,6 +46,9 @@ export type IngredientNeed = {
   // The recipe ingredient's note (GAP-62). Optional so callers that don't
   // care (and older tests) can leave it out.
   note?: string | null;
+  // Week picks: this need comes from a pick, not a meal on a day. A row
+  // every need of which is from picks comes back `fromPicksOnly`.
+  fromPick?: boolean;
 };
 
 // Sums `quantity` per ingredient (key), then splits that total across one
@@ -93,16 +96,17 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
     // GAP-62: a cluster keeps the first non-blank note among its needs, the
     // same "first row wins, never merge text" rule the list's own dedupe
     // uses, so two recipes noting the same item don't glue sentences together.
-    const clusters: { unit: string; required: number; note: string | null }[] = [];
+    const clusters: { unit: string; required: number; note: string | null; fromPicksOnly: boolean }[] = [];
     for (const need of restated) {
       const cluster = clusters.find((c) => unitsAreComparable(c.unit, need.unit));
       const note = need.note?.trim() || null;
       if (cluster) {
         cluster.note ??= note;
+        cluster.fromPicksOnly &&= need.fromPick === true;
         const sameUnit = normalizeUnit(cluster.unit) === normalizeUnit(need.unit);
         cluster.required += sameUnit ? need.quantity : convertQuantity(need.quantity, need.unit, cluster.unit)!;
       } else {
-        clusters.push({ unit: need.unit, required: need.quantity, note });
+        clusters.push({ unit: need.unit, required: need.quantity, note, fromPicksOnly: need.fromPick === true });
       }
     }
 
@@ -134,6 +138,7 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
           missingQuantity: round2(missing),
           unitMismatch,
           note: cluster.note,
+          ...(cluster.fromPicksOnly ? { fromPicksOnly: true as const } : {}),
         });
       }
     }
