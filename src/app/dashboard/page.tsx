@@ -1,61 +1,68 @@
-import Link from "next/link";
-import { ChevronRight, CircleCheck, PiggyBank, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { SampleDataCard } from "@/components/dashboard/sample-data-card";
 import { loadSampleDataState } from "@/lib/sample-data-state";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
-import { SafeToSpend } from "@/components/budget/safe-to-spend";
-import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
-import { summarizeSharedCosts } from "@/lib/shared-costs-summary";
-import { TodayBlock, type TodayTask } from "@/components/dashboard/today-block";
+import { TodayBlock, type TodayMissing, type TodayTask } from "@/components/dashboard/today-block";
+import { ShoppingPantryCard } from "@/components/dashboard/shopping-pantry-card";
+import { SafeToSpendTiles } from "@/components/dashboard/safe-to-spend-tiles";
+import { HomeAddToList } from "@/components/dashboard/home-add-to-list";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
 import { isGettingStartedCelebrated, isGettingStartedDismissed } from "@/lib/getting-started-dismiss";
 import { getTimeZone } from "@/lib/get-time-zone";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
-import { format, plural } from "@/lib/i18n/format";
+import { datedName, format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
 import { periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { daysOverdue, getTaskDueDay, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
-import { getStockStatus } from "@/lib/stock-status";
-import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
 import { createMoneyFormat } from "@/lib/currency";
+import { withCommonUnits } from "@/lib/units";
+import { loadIncomingByItem } from "@/lib/incoming-stock";
 import { parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
+import { COOK_PARAM } from "@/app/dashboard/meal-planning/meal-types";
+import { SETUP_FULL_CARD_MAX_DONE, pickTargetList, pickUseSoon, summarizePantry } from "@/lib/home-summary";
 import { Greeting } from "@/components/dashboard/greeting";
 import { WelcomeToast } from "@/components/dashboard/welcome-toast";
 import { firstName } from "@/lib/greeting";
 import { PageTitle } from "@/components/dashboard/page-title";
+import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 
 // UX-70: how many tasks the Today block lists before "N more".
 const TODAY_TASK_LIMIT = 5;
+// UX-HOME-2: how many "Use soon" chips before "N more".
+const USE_SOON_LIMIT = 5;
+// UX-HOME-3: how many missing ingredients the Today line names before "N more".
+const MISSING_NAMES_LIMIT = 3;
 
-// The "View …" link at the foot of each overview card (UX-26). `mt-auto`
-// pins it to the card's bottom, so side-by-side cards with different amounts
-// of content above (an "out of stock" line in one, not the other) line their
-// buttons up instead of leaving them at different heights. The label may
-// wrap (`whitespace-normal`, `h-auto` over the fixed button height) because
-// on a tablet the three-up row leaves each card ~150px, too narrow for
-// "View shopping lists" on one line: unwrapped, it pushed the chevron out
-// onto the card's border.
-const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto pointer-coarse:h-auto max-sm:min-h-11 pointer-coarse:min-h-11";
+const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Home (UX-HOME-1..4, the Oct 2026 redesign; REQUIREMENTS.md "Home"): the
+// screen that answers "what needs me now?" in about one phone screen. Three
+// cards: Today (dinner, leftovers, tasks), Shopping & pantry, and Safe to
+// spend, plus setup while a household is new. On a phone they stack in that
+// order; from `lg` Today ("doing") takes the left column and the other two
+// ("checking") the right. Everything is loaded here in one parallel batch
+// and handed to the cards as plain values.
 export default async function DashboardOverviewPage(props: PageProps<"/dashboard">) {
-  const [{ household, userId }, dict, locale, searchParams] = await Promise.all([
+  const [{ household, userId }, dict, locale, searchParams, timeZone] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
     props.searchParams,
+    getTimeZone(),
   ]);
   // UX-135: set by the verification link's sign-in (verifyEmailAction).
   const showWelcome = searchParams.welcome === "1";
 
   const now = new Date();
+  // Planner dates are UTC midnights (date-utils.ts), so today is the UTC
+  // date key, like the planner's own "today".
+  const plannerToday = parseDateKey(toDateKey(now));
 
   const [
     user,
@@ -68,12 +75,14 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     personalBudgetCategoryCount,
     personalPosition,
     tonightEntries,
+    tonightMissing,
     householdStepSkipped,
     gettingStartedDismissed,
     gettingStartedCelebrated,
     plannedMealCount,
     prepBatches,
     sampleState,
+    incomingByItem,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
     // UX-70: the tasks that need *you*: yours and the unassigned ones
@@ -100,20 +109,32 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
       },
       orderBy: { createdAt: "asc" },
     }),
-    // Only the columns the low-stock and expiring filters read (the card also
-    // counts the rows) — not every inventory column for every item.
+    // The columns the stock and expiry summaries read, plus what the "Add
+    // to list" dialog offers as names and units — not every inventory
+    // column for every item.
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { id: true, quantity: true, lowStockThreshold: true, expiresAt: true },
-    }),
-    prisma.shoppingList.findMany({
-      where: { householdId: household.id, status: "ACTIVE" },
-      // The rows still to buy: their count for the card, and which inventory
-      // items they restock for its "already on your list" line.
       select: {
         id: true,
         name: true,
-        items: { where: { purchased: false }, select: { inventoryItemId: true } },
+        category: true,
+        unit: true,
+        quantity: true,
+        lowStockThreshold: true,
+        expiresAt: true,
+      },
+    }),
+    prisma.shoppingList.findMany({
+      where: { householdId: household.id, status: "ACTIVE" },
+      // The rows still to buy: their count for the list row, which
+      // inventory items they restock for the "already on the list" line, and
+      // their names, so a missing ingredient already added isn't offered again.
+      select: {
+        id: true,
+        name: true,
+        isDefault: true,
+        createdAt: true,
+        items: { where: { purchased: false }, select: { inventoryItemId: true, name: true } },
       },
     }),
     prisma.householdMember.count({
@@ -129,10 +150,10 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     prisma.personalBudgetCategory.count({ where: { userId } }),
     // The exact same number Personal Budget shows for this month — shared
     // bills, what's owed to household members, due payments and savings
-    // included. See src/lib/personal-budget-position.ts; this card used to
-    // run its own simplified copy of the math that left all of that out.
-    // On the user's own budget month (User.personalBudgetMonthStartDay):
-    // today's period, the one Personal Budget opens on.
+    // included. See src/lib/personal-budget-position.ts. On the user's own
+    // budget month (User.personalBudgetMonthStartDay): today's period, the
+    // one Personal Budget opens on. Also the source of the balances under
+    // the Safe to spend tiles.
     getPersonalBudgetStartDay(userId).then((startDay) => {
       const { start, end } = periodBounds(periodKeyOf(now, startDay), startDay);
       return loadPersonalBudgetPosition({
@@ -143,16 +164,20 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         sharedLabel: dict.personalBudget.shared.sharedBadge,
       });
     }),
-    // Tonight's dinner. Planner dates are UTC midnights (date-utils.ts), so
-    // today is the UTC date key, like the planner's own "today".
+    // Tonight's dinner. The recipe's steps decide whether it has a cook
+    // mode to start.
     prisma.mealPlanEntry.findMany({
-      where: {
-        mealPlan: { householdId: household.id },
-        date: parseDateKey(toDateKey(now)),
-        mealType: "DINNER",
+      where: { mealPlan: { householdId: household.id }, date: plannerToday, mealType: "DINNER" },
+      select: {
+        freeformName: true,
+        portions: true,
+        recipe: { select: { id: true, name: true, instructions: true } },
       },
-      select: { freeformName: true, recipe: { select: { name: true } } },
     }),
+    // UX-HOME-3: what tonight's recipes need that the pantry hasn't got:
+    // the planner's own "Add missing" calculation, for one day's dinner.
+    // With no recipe planned it stops after one small query.
+    loadMissingIngredients(household.id, { from: plannerToday, to: new Date(plannerToday.getTime() + DAY_MS) }, "DINNER"),
     isHouseholdStepSkipped(household.id),
     isGettingStartedDismissed(household.id),
     isGettingStartedCelebrated(household.id),
@@ -160,6 +185,9 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     prisma.mealPlanEntry.count({ where: { mealPlan: { householdId: household.id } } }),
     getActiveBatches(household.id),
     loadSampleDataState(household.id),
+    // Stock ticked off but not put away yet: "Add N" counts it as covered,
+    // as the action behind it does.
+    loadIncomingByItem(prisma, household.id, now),
   ]);
   const budgetCategoryCount = householdBudget.count;
 
@@ -168,7 +196,6 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
   // overdue, due today, due later, undated. The sort is stable too, so the
   // order above breaks ties, and the overdue ones are never cut off by the
   // "N more" limit.
-  const timeZone = await getTimeZone();
   const today = todayDayNumber(now, timeZone);
   const openTasks = sortByUrgency(
     todayTasks
@@ -183,38 +210,74 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     today,
   ).map(({ dueDay, ...task }) => ({ ...task, overdueDays: daysOverdue(dueDay, today) }));
   const shownTasks: TodayTask[] = openTasks.slice(0, TODAY_TASK_LIMIT);
-  const tonight = tonightEntries
+
+  // The list everything on Home adds to: "Add N", "Add to list" and the
+  // missing ingredients all land on the same one.
+  const target = pickTargetList(activeLists);
+  const targetRef = target ? { id: target.id, name: target.name } : null;
+
+  // --- Today ---------------------------------------------------------------
+  const tonightNames = tonightEntries
     .map((entry) => entry.recipe?.name ?? entry.freeformName)
     .filter((name): name is string => !!name);
-  const expiringCount = items.filter(
-    (item) => item.quantity > 0 && getExpiryStatus(item.expiresAt, now.getTime()) !== null,
-  ).length;
-  const safeToSpend = householdBudget.safeToSpend
-    ? {
-        formatted: createMoneyFormat(locale, household.currencyCode).format(householdBudget.safeToSpend.amount),
-        status: householdBudget.safeToSpend.status,
-      }
-    : null;
-
-  const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list.items.length, 0);
-  const onListItemIds = new Set(activeLists.flatMap((list) => list.items.map((row) => row.inventoryItemId)));
-
-  // UX-71: "low" is the inventory filter's own meaning (low but not out), so
-  // the number and the link it sits on agree. Out-of-stock is its own line.
-  const needsRestock = items.filter((item) => getStockStatus(item.quantity, item.lowStockThreshold) !== "in");
-  const lowCount = needsRestock.filter(
-    (item) => getStockStatus(item.quantity, item.lowStockThreshold) === "low",
-  ).length;
-  const outCount = needsRestock.length - lowCount;
-  const alreadyOnListCount = needsRestock.filter((item) => onListItemIds.has(item.id)).length;
-  const lowStockHref = lowCount > 0 ? "/dashboard/inventory?status=low" : "/dashboard/inventory?status=out";
-  // One active list: the card opens it rather than the index.
-  const onlyList = activeLists.length === 1 ? activeLists[0] : null;
+  const tonightRecipes = tonightEntries.filter((entry) => entry.recipe);
+  // Cook mode is for a recipe with steps (the recipe sheet's own rule).
+  const cookable = tonightRecipes.find((entry) => entry.recipe?.instructions?.trim());
+  const dinner =
+    tonightNames.length > 0
+      ? {
+          name: tonightNames.join(", "),
+          // Portions for the one planned recipe; a freeform meal has none
+          // worth naming, and two dinners would need two.
+          detail:
+            tonightEntries.length === 1 && tonightRecipes.length === 1
+              ? format(plural(tonightRecipes[0].portions, dict.dashboard.today.portions), {
+                  count: tonightRecipes[0].portions,
+                })
+              : null,
+          cookHref: cookable
+            ? `/dashboard/meal-planning?tab=recipes&recipe=${cookable.recipe!.id}&${COOK_PARAM}=1`
+            : null,
+        }
+      : null;
+  // Minus what's already waiting on the list Add N fills, matched the way
+  // the action dedupes (by inventory item, else by name), so the line goes
+  // once its ingredients are on the list rather than offering them again.
+  const pendingOnTarget = target?.items ?? [];
+  const onTargetIds = new Set(pendingOnTarget.map((row) => row.inventoryItemId).filter(Boolean));
+  const onTargetNames = new Set(pendingOnTarget.map((row) => row.name.trim().toLowerCase()));
+  const missingItems = tonightMissing.items.filter(
+    (item) => !onTargetIds.has(item.key) && !onTargetNames.has(item.name.trim().toLowerCase()),
+  );
+  const listFormat = new Intl.ListFormat(locale, { type: "conjunction" });
+  const missingNames =
+    missingItems.length <= MISSING_NAMES_LIMIT
+      ? missingItems.map((item) => item.name)
+      : [
+          ...missingItems.slice(0, MISSING_NAMES_LIMIT - 1).map((item) => item.name),
+          format(plural(missingItems.length - (MISSING_NAMES_LIMIT - 1), dict.dashboard.today.missingMore), {
+            count: missingItems.length - (MISSING_NAMES_LIMIT - 1),
+          }),
+        ];
+  const missing: TodayMissing | null =
+    missingItems.length > 0
+      ? {
+          text: format(dict.dashboard.today.missing, { names: listFormat.format(missingNames) }),
+          rows: missingItems.map((item) => ({
+            name: item.name,
+            quantity: item.missingQuantity,
+            unit: item.unit,
+            note: item.note,
+          })),
+          target: targetRef,
+          // What the action names a list it has to start (cooking-actions.ts).
+          newListName: datedName(dict.shoppingList.defaultNamePrefix, locale),
+        }
+      : null;
 
   // GAP-49: batches still holding portions, soonest eat-by first
   // (getActiveBatches' order). An emptied batch whose last portions are only
   // planned stays on the Prep tab, but here it's nothing left to eat.
-  const prepWithPortions = prepBatches.filter((batch) => batch.remainingPortions > 0);
   // Formatted in UTC like the Prep tab, so server and browser name one day.
   const prepDayFormat = new Intl.DateTimeFormat(locale, {
     weekday: "short",
@@ -222,6 +285,54 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     month: "short",
     timeZone: "UTC",
   });
+  const leftovers = prepBatches
+    .filter((batch) => batch.remainingPortions > 0)
+    .slice(0, 3)
+    .map((batch) => ({
+      id: batch.id,
+      name: batch.recipeName,
+      detail: [
+        format(plural(batch.totalPortions, dict.mealPlanning.prepPortionsLeft), {
+          remaining: batch.remainingPortions,
+          total: batch.totalPortions,
+        }),
+        batch.expiryDate
+          ? format(dict.mealPlanning.prepEatBy, { day: prepDayFormat.format(new Date(batch.expiryDate)) })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    }));
+
+  // --- Shopping & pantry ---------------------------------------------------
+  const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list.items.length, 0);
+  const onListItemIds = new Set(activeLists.flatMap((list) => list.items.map((row) => row.inventoryItemId)));
+  const pantry = summarizePantry(items, {
+    onAnyListIds: onListItemIds,
+    targetPendingIds: new Set((target?.items ?? []).map((row) => row.inventoryItemId)),
+    incomingByItem,
+  });
+  // UX-71: the warning links to the inventory filtered to what it names.
+  const lowHref = pantry.lowCount > 0 ? "/dashboard/inventory?status=low" : "/dashboard/inventory?status=out";
+  const useSoon = pickUseSoon(items, now, timeZone, USE_SOON_LIMIT);
+
+  // --- Safe to spend -------------------------------------------------------
+  const personalTile =
+    personalBudgetCategoryCount > 0
+      ? {
+          // Personal amounts carry no currency, as on Personal budget.
+          amount: createMoneyFormat(locale, null).format(personalPosition.safeToSpend),
+          status: personalPosition.safeToSpendStatus,
+        }
+      : null;
+  const householdTile = householdBudget.safeToSpend
+    ? {
+        amount: createMoneyFormat(locale, household.currencyCode).format(householdBudget.safeToSpend.amount),
+        status: householdBudget.safeToSpend.status,
+      }
+    : null;
+  const debts = personalPosition.householdDebts;
+
 
   const gettingStartedSteps: GettingStartedStep[] = [
     {
@@ -234,275 +345,141 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     { key: "shoppingList", href: "/dashboard/shopping-list", done: shoppingListCount > 0 },
     { key: "mealPlan", href: "/dashboard/meal-planning", done: plannedMealCount > 0 },
     { key: "budget", href: "/dashboard/budget", done: budgetCategoryCount > 0 },
-    // No personal-budget step (UX-69): the "Your budget" card below already
-    // is that feature's call to action, and two stacked prompts for one
-    // optional feature were one too many on the first screen.
+    // No personal-budget step (UX-69): the "You" tile's "Set up" already is
+    // that feature's call to action.
   ];
-
-  const sharedCostsSummary = summarizeSharedCosts(
-    personalPosition.sharedPostedRows,
-    personalPosition.householdDebts,
+  const setupDone = gettingStartedSteps.filter((step) => step.done || step.skipped).length;
+  // UX-HOME-4: in the first days setup is the one job, so the full card
+  // leads the page; once it's a strip it follows the cards.
+  const setupFirst = setupDone <= SETUP_FULL_CARD_MAX_DONE;
+  const setup = !gettingStartedDismissed && (
+    <GettingStarted
+      steps={gettingStartedSteps}
+      celebrated={gettingStartedCelebrated}
+      dict={dict.dashboard.gettingStarted}
+    />
   );
 
+  // Today's date as the subtitle, in the user's own time zone (a planning
+  // aid: "is it Thursday already?"). Server-rendered, so it can't drift on
+  // hydration; capitalised because a Swedish weekday is lowercase.
+  const dateLine = new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone,
+  }).format(now);
+  const subtitle = dateLine.charAt(0).toLocaleUpperCase(locale) + dateLine.slice(1);
+
+  const sl = dict.shoppingList;
+
   return (
-    <div className="flex flex-col gap-6">
-      {showWelcome && (
-        <WelcomeToast message={format(dict.dashboard.welcome, { name: firstName(user.displayName) })} />
-      )}
-      <div>
-        <PageTitle>
-          <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
-        </PageTitle>
-        <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
-      </div>
-
-      <TodayBlock
-        tasks={shownTasks}
-        moreTaskCount={openTasks.length - shownTasks.length}
-        tonight={tonight}
-        safeToSpend={safeToSpend}
-        expiringCount={expiringCount}
-        dict={dict.dashboard.today}
-        taskDict={{
-          toggleCompleteAriaLabel: dict.tasks.toggleCompleteAriaLabel,
-          toggleIncompleteAriaLabel: dict.tasks.toggleIncompleteAriaLabel,
-          doneToast: dict.tasks.doneToast,
-          undo: dict.tasks.swipe.undo,
-          saveFailedToast: dict.tasks.saveFailedToast,
-          overdueLabel: dict.tasks.overdueLabel,
-        }}
-      />
-
-      {/* UX-136: opt-in sample data for an empty household, and the way out. */}
-      {(sampleState.hasSample || sampleState.isEmpty) && (
-        <SampleDataCard mode={sampleState.hasSample ? "clear" : "offer"} dict={dict.dashboard.sampleData} />
-      )}
-
-      {!gettingStartedDismissed && (
-        <GettingStarted
-          steps={gettingStartedSteps}
-          celebrated={gettingStartedCelebrated}
-          dict={dict.dashboard.gettingStarted}
-        />
-      )}
-
-      <div>
-        {personalBudgetCategoryCount > 0 ? (
-          <SafeToSpend
-            amount={personalPosition.safeToSpend}
-            status={personalPosition.safeToSpendStatus}
-            breakdown={personalPosition.safeToSpendBreakdown}
-            expectedRecurring={personalPosition.expectedRecurring}
-            householdDebts={personalPosition.householdDebts}
-            showHouseholdName={personalPosition.showHouseholdName}
-            projection={personalPosition.safeToSpendProjection}
-            dailyAllowance={personalPosition.safeToSpendDaily}
-            setupHrefs={{
-              income: "/dashboard/personal-budget?tab=transactions",
-              bills: "/dashboard/personal-budget?tab=manage",
-            }}
+    // PERF-26: what the lazily loaded "Add to list" dialog says when its
+    // chunk can't be fetched.
+    <LazyDialogErrorMessage message={dict.errors.generic}>
+      <div className="flex flex-col gap-6">
+        {showWelcome && (
+          <WelcomeToast message={format(dict.dashboard.welcome, { name: firstName(user.displayName) })} />
+        )}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <PageTitle>
+              <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
+            </PageTitle>
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+          <HomeAddToList
+            label={dict.dashboard.addToList}
+            listId={target?.id ?? null}
+            inventoryItems={items.map(({ id, name, category, unit }) => ({ id, name, category, unit }))}
+            units={withCommonUnits([...new Set(items.map((item) => item.unit))].sort())}
             dict={{
-              ...dict.personalBudget.safeToSpend,
-              title: dict.dashboard.yourBudgetTitle,
+              add: sl.add,
+              addItem: sl.addItem,
+              addItemDialogTitle: sl.addItemDialogTitle,
+              addItemNamePlaceholder: sl.addItemNamePlaceholder,
+              addItemQuantityAriaLabel: sl.addItemQuantityAriaLabel,
+              addItemUnitPlaceholder: sl.addItemUnitPlaceholder,
+              adding: sl.adding,
+              autoLinkedName: sl.autoLinkedName,
+              needsMappingToast: sl.needsMappingToast,
+              editItem: sl.editItem,
+              comboboxNoMatches: sl.comboboxNoMatches,
+              comboboxAddNew: sl.comboboxAddNew,
+              comboboxClear: sl.comboboxClear,
+              comboboxShowSuggestions: sl.comboboxShowSuggestions,
             }}
-            locale={locale}
+            barcodeDict={dict.barcodeScanner}
           />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {/* UX-112: shares and balances come before "set up". */}
-            {sharedCostsSummary.hasAny && (
-              <SharedCostsCard
-                summary={sharedCostsSummary}
-                debts={personalPosition.householdDebts}
-                showHouseholdName={personalPosition.showHouseholdName}
-                transactionsHref="/dashboard/personal-budget?tab=transactions"
-                dict={dict.personalBudget}
-                locale={locale}
-              />
-            )}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2">
-                    <PiggyBank className="size-4 shrink-0" />
-                  </span>
-                  {dict.dashboard.yourBudgetTitle}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-3">
-                <p className="text-sm text-muted-foreground">{dict.personalBudget.onboarding.body}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={CARD_LINK_BUTTON}
-                  render={<Link href="/dashboard/personal-budget" />}
-                >
-                  {dict.dashboard.setUpPersonalBudgetCta}
-                  <ChevronRight className="size-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold tracking-tight">{dict.dashboard.householdSectionTitle}</h2>
-        {memberCount > 0 && (
-          <div className="list-bleed flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            <Users className="size-4 shrink-0" />
-            <span
-              className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1"
-              title={format(plural(memberCount, dict.dashboard.sharedWithIn), {
-                count: memberCount,
-                name: household.name,
-              })}
-            >
-              {format(plural(memberCount, dict.dashboard.sharedWithIn), {
-                count: memberCount,
-                name: household.name,
-              })}
-            </span>
-            <Link href="/dashboard/household" className="touch-target ml-auto shrink-0 justify-end underline underline-offset-4">
-              {dict.dashboard.manage}
-            </Link>
-          </div>
-        )}
-        <div className="list-bleed grid gap-4 sm:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {dict.dashboard.needsRestocking}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-1">
-              {items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{dict.dashboard.nothingTrackedYet}</p>
-              ) : needsRestock.length === 0 ? (
-                <p className="flex items-center gap-2 font-display text-xl font-semibold text-success">
-                  <CircleCheck className="size-6 shrink-0" aria-hidden="true" />
-                  {dict.dashboard.allStockedUp}
-                </p>
-              ) : (
-                <>
-                  {/* UX-169: the stat is everything that needs restocking
-                      (low + out), the thing the household acts on; the split
-                      is its caption. Amber while anything is merely low, red
-                      only when all of it is out of stock. */}
-                  <p
-                    className={`font-display text-3xl font-semibold ${lowCount > 0 ? "text-warning" : "text-destructive"}`}
-                  >
-                    {needsRestock.length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {[
-                      lowCount > 0 ? format(dict.dashboard.lowCaption, { count: lowCount }) : null,
-                      outCount > 0
-                        ? format(plural(outCount, dict.dashboard.outOfStock), { count: outCount })
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  {alreadyOnListCount > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {format(plural(alreadyOnListCount, dict.dashboard.alreadyOnList), {
-                        count: alreadyOnListCount,
-                      })}
-                    </p>
-                  )}
-                </>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className={CARD_LINK_BUTTON}
-                render={<Link href={needsRestock.length === 0 ? "/dashboard/inventory" : lowStockHref} />}
-              >
-                {items.length === 0
-                  ? dict.dashboard.addFirstItem
-                  : format(plural(items.length, dict.dashboard.viewInventoryCount), { count: items.length })}
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {dict.dashboard.shoppingLists}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-1">
-              {activeLists.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{dict.dashboard.noListsYet}</p>
-              ) : (
-                <>
-                  <p className="font-display text-3xl font-semibold text-primary">{pendingShoppingItems}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(plural(activeLists.length, dict.dashboard.itemsToBuyAcross), {
-                      count: activeLists.length,
-                    })}
-                  </p>
-                </>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className={CARD_LINK_BUTTON}
-                render={
-                  <Link href={onlyList ? `/dashboard/shopping-list/${onlyList.id}` : "/dashboard/shopping-list"} />
-                }
-              >
-                {activeLists.length === 0
-                  ? dict.dashboard.startShoppingList
-                  : onlyList
-                    ? format(dict.dashboard.openShoppingList, { name: onlyList.name })
-                    : dict.dashboard.viewShoppingLists}
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
         </div>
-        {prepWithPortions.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {dict.dashboard.mealPrepTitle}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-3">
-              <ul className="flex flex-col gap-2">
-                {prepWithPortions.slice(0, 3).map((batch) => (
-                  <li key={batch.id} className="flex flex-col">
-                    <span className="line-clamp-2 break-words text-sm font-medium text-foreground">
-                      {batch.recipeName}
-                    </span>
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {format(plural(batch.totalPortions, dict.mealPlanning.prepPortionsLeft), {
-                        remaining: batch.remainingPortions,
-                        total: batch.totalPortions,
-                      })}
-                      {batch.expiryDate &&
-                        ` · ${format(dict.mealPlanning.prepEatBy, {
-                          day: prepDayFormat.format(new Date(batch.expiryDate)),
-                        })}`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant="outline"
-                size="sm"
-                className={CARD_LINK_BUTTON}
-                render={<Link href="/dashboard/meal-planning?tab=prep" />}
-              >
-                {dict.dashboard.viewMealPrep}
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
+
+        {setupFirst && setup}
+
+        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+          <div className="flex min-w-0 flex-col gap-6">
+            <TodayBlock
+              tasks={shownTasks}
+              moreTaskCount={openTasks.length - shownTasks.length}
+              dinner={dinner}
+              missing={missing}
+              leftovers={leftovers}
+              dict={dict.dashboard.today}
+              missingDict={{
+                addedToast: dict.mealPlanning.missingIngredientsAddedToast,
+                alreadyOnListToast: dict.mealPlanning.missingIngredientsAlreadyOnListToast,
+                openList: dict.mealPlanning.openShoppingList,
+              }}
+              taskDict={{
+                toggleCompleteAriaLabel: dict.tasks.toggleCompleteAriaLabel,
+                toggleIncompleteAriaLabel: dict.tasks.toggleIncompleteAriaLabel,
+                doneToast: dict.tasks.doneToast,
+                undo: dict.tasks.swipe.undo,
+                saveFailedToast: dict.tasks.saveFailedToast,
+                overdueLabel: dict.tasks.overdueLabel,
+              }}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-6">
+            <ShoppingPantryCard
+              lists={activeLists}
+              pendingCount={pendingShoppingItems}
+              pantry={pantry}
+              hasItems={items.length > 0}
+              lowHref={lowHref}
+              target={targetRef}
+              useSoon={useSoon.shown}
+              moreUseSoonCount={useSoon.moreCount}
+              // UTC, like pickUseSoon's day: a typed date is a UTC midnight.
+              laterDayFormat={new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" })}
+              dict={dict.dashboard.pantry}
+              shoppingDict={{
+                addLowStockAddedToast: sl.addLowStockAddedToast,
+                addLowStockNoneToast: sl.addLowStockNoneToast,
+              }}
+              saveFailedToast={dict.errors.generic}
+            />
+            {/* Always shown: either the "You" tile has a number, or its "Set
+                up" is the personal budget's one call to action on Home
+                (UX-69), even for a household with no budget at all. */}
+            <SafeToSpendTiles
+              personal={personalTile}
+              household={householdTile}
+              debts={debts}
+              showHouseholdName={personalPosition.showHouseholdName}
+              numberFormat={createMoneyFormat(locale, null)}
+              dict={dict.dashboard.money}
+              debtsDict={dict.budget.safeToSpend}
+            />
+          </div>
+        </div>
+
+        {!setupFirst && setup}
+
+        {/* UX-136: opt-in sample data for an empty household, and the way out. */}
+        {(sampleState.hasSample || sampleState.isEmpty) && (
+          <SampleDataCard mode={sampleState.hasSample ? "clear" : "offer"} dict={dict.dashboard.sampleData} />
         )}
       </div>
-    </div>
+    </LazyDialogErrorMessage>
   );
 }

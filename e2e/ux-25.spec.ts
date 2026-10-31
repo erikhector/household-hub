@@ -209,42 +209,29 @@ test("the light theme is actually on", async ({ page }) => {
   await expect(page.locator("html")).not.toHaveClass(/dark/);
 });
 
-test("overview stats meet text contrast in the light theme", async ({ page }) => {
+test("Home's big numbers meet text contrast in the light theme", async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto("/dashboard");
-  // Each stat number with the card behind it: heading text (for the failure
-  // message) plus the two computed colours. Matched by exact card title —
-  // a substring match also caught cards whose buttons echo the heading
-  // ("View shopping lists"). The chart-1/2 fills these wore were 3.5:1 and
-  // 2.9:1 on card. The safe-to-spend card's tinted background doesn't
-  // resolve to a plain colour triple, so it stays out of this math.
-  const headings = ["Needs restocking", "Shopping lists"];
-  // The cards stream in after the page shell (slowest on phones), so wait
-  // for each heading before measuring — otherwise the locator races the
-  // render and finds nothing.
-  for (const heading of headings) {
-    await expect(page.locator("main").getByText(heading, { exact: true })).toBeVisible();
-  }
-  const stats = await page.evaluate((wanted) =>
-    Array.from(document.querySelectorAll('main [data-slot="card"]'))
-      .map((card) => {
-        const title = card.querySelector('[data-slot="card-title"]')?.textContent?.trim() ?? "";
-        if (!wanted.includes(title)) return null;
-        const stat = card.querySelector("p.font-display");
-        if (!stat) return null;
-        const style = getComputedStyle(stat);
-        return {
-          heading: title,
-          fg: style.color,
-          bg: getComputedStyle(card).backgroundColor,
-        };
-      })
-      .filter((s) => s !== null),
-  headings);
-  // Each heading exactly once — no missing card, no double match.
-  expect(stats.map((s) => s.heading).sort()).toEqual([...headings].sort());
+  // Each big number (the list row's count, the safe-to-spend amounts) with
+  // the card behind it: its text (for the failure message) plus the two
+  // computed colours. The chart-1/2 fills the old stat cards wore were
+  // 3.5:1 and 2.9:1 on card. The cards stream in after the page shell
+  // (slowest on phones), so wait for one before measuring — otherwise the
+  // query races the render and finds nothing.
+  await expect(
+    page.locator("main").getByRole("heading", { name: "Shopping & pantry", exact: true }),
+  ).toBeVisible();
+  const stats = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('main [data-slot="card"] .font-heading.tabular-nums')).map((stat) => ({
+      text: stat.textContent?.trim() ?? "",
+      fg: getComputedStyle(stat).color,
+      bg: getComputedStyle(stat.closest('[data-slot="card"]')!).backgroundColor,
+    })),
+  );
+  // The seeded household has an active list, so its count is there.
+  expect(stats.length).toBeGreaterThan(0);
   for (const s of stats) {
-    expect(contrast(s.fg, 1, s.bg), `stat in "${s.heading}…"`).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(s.fg, 1, s.bg), `stat "${s.text}"`).toBeGreaterThanOrEqual(4.5);
   }
   expect(errors).toEqual([]);
 });
