@@ -1953,7 +1953,6 @@ export const en = {
       morePortions: "More portions of {name}",
       addedToast: { one: "Added {count} meal to this week's picks", other: "Added {count} meals to this week's picks" },
       undo: "Undo",
-      undoneToast: "Undone",
       placeTitle: "Place {name}",
       placeMovable: "you can move it later",
       pickedBy: "Picked by {name}",

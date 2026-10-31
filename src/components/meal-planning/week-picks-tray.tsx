@@ -46,7 +46,6 @@ export function PickChip({
   draggable = false,
   onDragStart,
   onDragEnd,
-  ariaLabel,
 }: {
   pick: WeekPickData;
   dict: WeekPicksDict;
@@ -56,7 +55,6 @@ export function PickChip({
   draggable?: boolean;
   onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
   onDragEnd?: () => void;
-  ariaLabel?: string;
 }) {
   return (
     <div role="listitem" data-flip-key={pick.id} className="flex max-w-[78%] shrink-0 snap-start sm:max-w-full">
@@ -64,7 +62,6 @@ export function PickChip({
         type="button"
         onClick={onClick}
         aria-pressed={pressed}
-        aria-label={ariaLabel}
         draggable={draggable || undefined}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}

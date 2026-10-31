@@ -1846,7 +1846,6 @@ export const sv = {
       morePortions: "Fler portioner av {name}",
       addedToast: { one: "La till {count} måltid bland veckans val", other: "La till {count} måltider bland veckans val" },
       undo: "Ångra",
-      undoneToast: "Ångrat",
       placeTitle: "Lägg in {name}",
       placeMovable: "du kan flytta den sen",
       pickedBy: "Vald av {name}",

@@ -5806,6 +5806,16 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   only: it never changes what gets added to the shopping list. No AI, no
   schema change.
 
+**Week picks** count too (see "Week picks" below): `loadMissingIngredients`
+also reads the picks of every `MealPlan` whose week overlaps the range
+(`weekStartDate` after `from − 7 days` and before `to`), scaled by their
+portions exactly like entries, so the planner's "Add N missing" button and
+the review dialog include meals that aren't on a day yet. A row only picks
+need comes back `fromPicksOnly` and the dialog lists those last, under "Not
+on a day yet". A question about one meal of the day (Home's tonight's dinner,
+`mealType`) leaves picks out, since a pick has no slot. The button shows when
+the week has meals on days or picks.
+
 ### Mark meal as cooked → inventory decrement
 
 A "Mark as cooked" button (`MarkCookedDialog`,
@@ -6362,6 +6372,96 @@ recipe that isn't queued and the time it was queued otherwise.
 - **Suggest, don't mutate**: nothing else reads `cookSoonAt`. It doesn't
   change the Cook tab's ranking, "use it up", the shopping list or the
   planner.
+
+### Week picks
+
+Choose the week's meals before deciding which day. On the Planner tab a
+"Picked for this week" tray (`WeekPicksTray`,
+`src/components/meal-planning/week-picks-tray.tsx`) sits above the days and
+holds meals chosen for the visible week but not placed on a day yet.
+
+- **Data**: `MealPlanPick` (migration `meal_plan_picks`): `mealPlanId`,
+  `recipeId?` or `freeformName?`, `portions`, `carriedFromWeek?`,
+  `createdByUserId?` (plain id, resolved to "Picked by Anna" through the
+  household's members), `createdAt`. A separate table rather than a nullable
+  `MealPlanEntry.date`, so no reader of entries (calendar feed, search,
+  recaps, templates, notifications) ever sees an undated row. A pick has no
+  meal slot: the slot is chosen when placing, dinner preselected. Deleting a
+  recipe deletes its picks; clearing sample data keeps a sample week that has
+  picks.
+- **Actions** (`pick-actions.ts`, all click actions, household from
+  `requireHousehold()`, every query scoped through `mealPlan.householdId`):
+  `addPicksAction` (several at once, recipes checked against the household,
+  week's plan found or created; picking leaves Cook soon alone),
+  `undoAddPicksAction`, `removePickAction` (sent when the Undo toast closes),
+  `placePickAction` (deletes the pick and creates the entry in one
+  transaction, in the plan of the date's own week; clears Cook soon like
+  `addMealEntryAction`), `placePicksAction` (Spread's Place all, all or
+  nothing, dinner) and `unplaceEntriesAction` ("Back to picks": entry back
+  to a pick in the same week; refused for a cooked meal or one eaten from
+  meal prep). A pick placed or removed elsewhere meanwhile fails with "That
+  meal isn't in your picks any more".
+- **Tray**: no picks yet: one line and a "Pick meals" button (an empty week
+  keeps its mascot empty state below). With picks: chips with name and
+  portions; on phones one row that scrolls sideways (`ChipScroller`) with
+  edge fades, 44 px arrow buttons that show only when there is more in that
+  direction (the swipe's tap path, M7) and a small track thumb (hidden when
+  everything fits), and newly added picks scroll into view at the end; from
+  `sm` the chips wrap. "Spread over the week" shows when a dinner from today
+  on is free. Once every pick is on a day it collapses to "Every pick is on a
+  day." with "Pick more" (M6). The day grid shows as soon as a week has picks.
+  A pick leaves the tray at tap time and comes back with a toast if the
+  server says no.
+- **Picker** (`PickMealsDialog`): multi-select sheet with search, Cook soon
+  first, then favourites, then all recipes (recently cooked first), a
+  portion stepper per ticked recipe (default its servings), custom meals,
+  and a sticky "Add N meals". Toast with Undo.
+- **Placing**: tapping a chip opens its sheet (`PlacePickDialog`): slot
+  segmented control (Dinner preselected), the week's seven days each saying
+  what's in that slot or "<Slot> free", "Mark as cooked today" for a recipe
+  pick (places it on today's dinner, then the usual Mark as cooked review
+  runs on the new entry; closing the review leaves it planned for today),
+  and "Remove from picks" apart at the bottom (Undo). A day's "+ Add meal"
+  lists "From this week's picks" first, as the same scrolling chip row,
+  placed in the slot chosen there. A placed meal's sheet has "Back to
+  picks". Every place has an Undo.
+- **Spread over the week** (`SpreadPicksDialog`, `suggestSpread` in
+  `src/lib/week-picks-spread.ts`): a preview, nothing saved until "Place
+  all", one Undo puts everything back. Free dinners only (today onwards),
+  three rules each shown as the row's reason: the recipe's usual weekday
+  from cooking history (`habitWeekday`: cooked at least twice on it and on
+  it for at least half its cooks in the last 26 weeks), then the most
+  perishable picks on the earliest days, then pick order. Shuffle rotates
+  the pick-order rows (hidden when it can't change anything). Picks that
+  don't fit stay in the tray, with a note saying how many.
+- **Perishability signal** (`pickFreshness`): per linked, tracked
+  ingredient of the recipe (not its sub-recipes), the days left on an
+  in-stock item's expiry date, or for an item that isn't in stock (so will
+  be bought) its shelf life (`shelfLifeDays` or the category default in
+  `shelf-life.ts`; "never expires" ignored). The shortest wins; a pick
+  counts as perishable at 3 days or fewer (`PERISHABLE_WITHIN_DAYS`, the
+  meat default), so an onion's 5-day produce default doesn't make every
+  recipe jump the queue. No signal means the pick falls to pick order.
+- **Desktop** (fine pointer, `sm` and up): chips and planned meals are
+  draggable; drop a pick on a day (dinner), a meal on another day (keeps its
+  slot, `moveMealEntryAction`) or a meal on the tray (Back to picks). The
+  click path: clicking a chip lifts it (`aria-pressed`), the tray says
+  "Choose a day for …" with "More options" (the pick's sheet) and Cancel,
+  and every day shows "Place here"; Escape puts it down. Touch screens of
+  any width get the sheet instead.
+- **Carry-over** (`carryOverPastPicks`, `week-picks.ts`): when the meal
+  planning page loads, picks still in a week that has ended move to the
+  plan of the week containing today, with `carriedFromWeek` set to the week
+  they came from (kept from the first move if carried twice). Move on read,
+  no cron: the tray is the only place picks show. Each move is guarded on the
+  pick still sitting in a past week, so concurrent loads move it once. Those
+  chips are dashed with a history icon ("From last week" for screen readers
+  and in the pick's sheet), and that load shows "N meals moved over from last
+  week".
+- **Tests**: `pick-actions.test.ts`, `week-picks.test.ts`,
+  `week-picks-spread.test.ts`, the bridge case in `cooking-actions.test.ts`;
+  `e2e/week-picks.spec.ts` (pick → shop count → place → back to picks;
+  spread + undo) and `e2e/week-picks-drag.desktop.spec.ts`.
 
 ### Meal-plan search (GAP-59)
 
