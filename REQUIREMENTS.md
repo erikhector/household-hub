@@ -5358,6 +5358,63 @@ imported recipe" requirement.
   `e2e/recipe-photo-import.spec.ts` (the action is mocked; Playwright's
   webServer sets a placeholder `GEMINI_API_KEY` so the button shows).
 
+### Import recipes from a file (GAP-67)
+
+Switching from another recipe app used to mean re-entering every recipe.
+The Recipes tab has an "Import from a file" button (outline, beside "New
+recipe"; under the empty-state text when there are no recipes yet) that
+opens `RecipeFileImportDialog`
+(`src/components/meal-planning/recipe-file-import-dialog.tsx`, lazy-loaded).
+
+- **Formats**: a Paprika export (`.paprikarecipes`: a zip with one gzipped
+  JSON entry per recipe; plain-JSON entries are accepted too) and plain
+  schema.org Recipe JSON-LD / `.json` (one object, an array, or a
+  `@graph`). The kind is detected from the first bytes, not the file name.
+  Not supported: photos inside the archive (ignored), Plan to Eat, Mealime,
+  Mela and Crouton files.
+- **Parser**: `parseRecipeFile` in `src/lib/recipe-import/parse-file.ts`
+  (pure; re-exported from `recipe-import.ts`). It reads the zip's central
+  directory with `node:zlib` (no new dependency; no zip64 or encryption),
+  maps Paprika's `ingredients` lines through `parseIngredientLine`, JSON-LD
+  through `mapJsonLdToRecipe` / `flattenInstructions`, and takes servings
+  from the first number in Paprika's `servings` or the JSON-LD
+  `recipeYield` (default 4). Paprika's `notes` are appended to the method.
+  Every field is clamped to the bounds a hand-typed recipe has (name 120,
+  method 4000, 100 ingredients, servings 1-1000). An entry that is corrupt,
+  unreadable or has no name is skipped and counted (`skipped`), never
+  failing the file.
+- **Caps**: 5 MB per file (`RECIPE_FILE_MAX_BYTES`, checked on the upload's
+  size before it is read, under the 6 MB Server Action body limit) and 200
+  recipes (`RECIPE_FILE_MAX_RECIPES`, checked on the entry count before
+  anything is inflated). Each entry may inflate to 8 MB and all together to
+  64 MB, so a zip bomb stops early (the entry is skipped, or the file
+  refused as too large). Errors are `empty`, `tooLarge`, `tooMany`,
+  `unsupported`, `noRecipes`, each with its own message in both languages.
+- **Two steps, nothing saved before review**
+  (`src/app/dashboard/meal-planning/recipe-file-actions.ts`, both under
+  `requireHousehold()`, rate limit 30/hour per household under
+  `recipe-file-import:<householdId>`): `previewRecipeFileAction` returns
+  the list ("38 recipes found", ingredient counts, and an "Already in your
+  recipes" badge when the normalized name matches an existing recipe, which
+  starts unticked) plus the skipped count. `importRecipesFromFileAction`
+  receives the file again with the ticked indexes, re-parses it and saves
+  them in one batched transaction; the client never sends recipe content
+  back. Out-of-range, non-numeric and repeated indexes are ignored; none
+  selected is an error.
+- **Ingredients**: saved with their quantity, unit, prep note and original
+  line. A row links to a pantry item only when exactly one item has its
+  normalized name; no inventory item is created by an import (the rest is
+  matched by name when cooking or shopping, as for any unlinked row).
+- No schema change, no new browser storage.
+- **Tests**: `recipe-import/parse-file.test.ts` (gzipped and deflated
+  entries, ingredient lines, steps, a corrupt entry skipped with a count,
+  JSON-LD forms, size and count caps, an inflate bomb, clamping);
+  `recipe-file-actions.test.ts` (tenancy, rate limit, review flags, only
+  ticked saved, pantry linking, index validation);
+  `e2e/recipe-file-import.spec.ts` uploads a three-recipe archive, imports
+  two and finds them after a reload, in `en` and `sv`, on desktop and
+  mobile.
+
 ### Meal-plan → shopping-list bridge
 
 A planned week's primary action (UX-91) is "Add N missing to shopping list",
