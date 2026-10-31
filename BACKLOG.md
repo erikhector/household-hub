@@ -393,7 +393,6 @@ popup probe has no phone-size hits. The `text-200` "clipped" hits on the
 bottom bar's labels are the deliberate ellipsis of UX-150, not a finding.
 WebKit was not run, and the per-action deep dive was not driven this run.
 
-
 ### Dependencies
 
 ---
