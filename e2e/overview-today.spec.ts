@@ -3,10 +3,12 @@ import bcrypt from "bcryptjs";
 import { Client } from "pg";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
-// UX-70: the overview's first screen answers "what needs me now?" with a
-// Today block: your tasks plus the unassigned ones (each with a working
-// tick), tonight's dinner, the household's safe to spend once the budget has
-// categories, and the count of items expiring soon. The block's contents
+// UX-70: Home's first screen answers "what needs me now?" with a Today
+// block: tonight's dinner and your tasks plus the unassigned ones ("Anyone",
+// each with a working tick). Since the Home redesign (UX-HOME-2/4) the
+// household's safe to spend is a tile in the Safe to spend card and the
+// expiring items are Shopping & pantry's "Use soon" chips; this checks they
+// still show beside it on the first screen. The block's contents
 // depend on the household's data, and other specs fill the seeded household
 // as they run, so this gets its own accounts and household (straight to
 // Postgres, logged in through the real form, like overview.spec.ts).
@@ -19,7 +21,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-test("the Today block lists my and unassigned tasks, tonight, safe to spend and expiring items", async ({
+test("the Today block lists tonight and my and unassigned tasks, beside safe to spend and Use soon", async ({
   page,
 }, testInfo) => {
   const tag = `${Date.now().toString(36)}-${testInfo.project.name}`;
@@ -113,19 +115,24 @@ test("the Today block lists my and unassigned tasks, tonight, safe to spend and 
     const shared = main.getByRole("checkbox", { name: "Mark Take out the recycling as done" });
     await expect(mine).toBeInViewport();
     await expect(shared).toBeInViewport();
-    await expect(main.getByText("Unassigned", { exact: true })).toBeVisible();
+    await expect(main.getByText("Anyone", { exact: true })).toBeVisible();
     await expect(main.getByText("Clean the oven")).toHaveCount(0);
     await expect(main.getByText("Already done chore")).toHaveCount(0);
 
-    // Tonight's dinner (not lunch), the household's safe to spend and the
-    // one item about to expire (not the rice).
-    const tonight = main.getByRole("link", { name: /Tonight's dinner:\s*Lentil soup/ });
-    await expect(tonight).toBeInViewport();
+    // Tonight's dinner (not lunch) as the hero line. A freeform meal has no
+    // recipe, so nothing to cook from and no portions.
+    await expect(main.getByRole("heading", { name: "Tonight", exact: true })).toBeInViewport();
+    await expect(main.getByText("Lentil soup", { exact: true })).toBeInViewport();
     await expect(main.getByText("Cold lunch sandwich")).toHaveCount(0);
-    const safe = main.getByRole("link", { name: /Household safe to spend:\s*.*750[.,]00/ });
-    await expect(safe).toBeInViewport();
-    const expiring = main.getByRole("link", { name: "1 item expiring soon" });
-    await expect(expiring).toBeInViewport();
+    await expect(main.getByRole("link", { name: "Start cooking" })).toHaveCount(0);
+    // The household's safe to spend, with its status in words, and the one
+    // item about to expire (not the rice), each in its own card.
+    const safe = main.getByRole("link", { name: /Household\s*.*750[.,]00\s*On track/ });
+    await expect(safe).toBeVisible();
+    // No personal budget yet: the "You" tile is the way to set one up.
+    await expect(main.getByRole("link", { name: "Set up your personal budget" })).toBeVisible();
+    await expect(main.getByRole("link", { name: /Milk\s*· tomorrow/ })).toBeVisible();
+    await expect(main.getByRole("link", { name: /Rice/ })).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
 
     // The tick works: it shows at once, and survives a reload because the
@@ -165,7 +172,7 @@ test("the Today block lists my and unassigned tasks, tonight, safe to spend and 
   }
 });
 
-test("without a budget or expiring items the Today block shows only tasks and dinner", async ({ page }, testInfo) => {
+test("without a budget or expiring items Home shows tasks, Plan dinner and no Safe to spend", async ({ page }, testInfo) => {
   const tag = `${Date.now().toString(36)}-${testInfo.project.name}-quiet`;
   const userId = `e2e-tq-user-${tag}`;
   const householdId = `e2e-tq-household-${tag}`;
@@ -193,11 +200,13 @@ test("without a budget or expiring items the Today block shows only tasks and di
     await expect(page).toHaveURL(/\/dashboard$/);
 
     const main = page.getByRole("main");
-    await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeInViewport();
+    // An empty household: setup leads the page (UX-HOME-4), Today follows.
+    await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
     await expect(main.getByText("No open tasks. Nice work!")).toBeVisible();
-    await expect(main.getByRole("link", { name: /Tonight's dinner:\s*nothing planned/ })).toBeVisible();
-    await expect(main.getByRole("link", { name: /Household safe to spend/ })).toHaveCount(0);
-    await expect(main.getByRole("link", { name: /expiring soon/ })).toHaveCount(0);
+    await expect(main.getByText("Nothing planned yet.")).toBeVisible();
+    await expect(main.getByRole("link", { name: "Plan dinner" })).toHaveAttribute("href", "/dashboard/meal-planning");
+    await expect(main.getByRole("heading", { name: "Safe to spend" })).toHaveCount(0);
+    await expect(main.getByRole("heading", { name: "Use soon" })).toHaveCount(0);
   } finally {
     await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
     await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);

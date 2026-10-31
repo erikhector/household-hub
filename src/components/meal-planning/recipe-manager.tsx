@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { SHARE_URL_PARAM } from "@/lib/share-target";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -55,6 +55,7 @@ import { itemPageHref } from "@/lib/inventory/item-page-origin";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 import { splitCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
+import { COOK_PARAM } from "@/app/dashboard/meal-planning/meal-types";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -122,6 +123,19 @@ export function RecipeManager({
   // GAP-48: the id of a just-duplicated recipe. Its row opens the edit
   // dialog once it exists in the refreshed list, then clears this.
   const [editNewId, setEditNewId] = useState<string | null>(null);
+  // UX-HOME-3: Home's "Start cooking" links here as
+  // `?tab=recipes&recipe=<id>&cook=1`, which opens that recipe's cook mode
+  // straight away. Read once at mount; the param is stripped once it has
+  // opened, so a reload or Back doesn't reopen it.
+  const [cookLinkedId, setCookLinkedId] = useState(() =>
+    searchParams.get(COOK_PARAM) === "1" ? linkedRecipeId : null,
+  );
+  const onCookOpened = useCallback(() => {
+    setCookLinkedId(null);
+    const rest = new URLSearchParams(window.location.search);
+    rest.delete(COOK_PARAM);
+    router.replace(`${pathname}?${rest.toString()}`, { scroll: false });
+  }, [pathname, router]);
   // Same formatter as the shopping list's and budget page's amounts:
   // locale-aware two decimals, with the household's currency symbol once
   // one is set (GAP-13). Built once here rather than per row.
@@ -153,6 +167,8 @@ export function RecipeManager({
       photoImportConfigured={photoImportConfigured}
       openEditOnMount={editNewId === recipe.id}
       onEditOpened={() => setEditNewId(null)}
+      openCookOnMount={cookLinkedId === recipe.id}
+      onCookOpened={onCookOpened}
       onDuplicated={setEditNewId}
     />
   );
@@ -316,6 +332,8 @@ function RecipeRow({
   photoImportConfigured,
   openEditOnMount,
   onEditOpened,
+  openCookOnMount,
+  onCookOpened,
   onDuplicated,
 }: {
   dict: MealPlanningDict;
@@ -332,6 +350,8 @@ function RecipeRow({
   photoImportConfigured: boolean;
   openEditOnMount: boolean;
   onEditOpened: () => void;
+  openCookOnMount: boolean;
+  onCookOpened: () => void;
   onDuplicated: (recipeId: string) => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -520,6 +540,13 @@ function RecipeRow({
     openLazyDialog(dialogs.edit);
     onEditOpened();
   }, [openEditOnMount, dialogs, onEditOpened]);
+  // Only a recipe with steps has a cook mode (the sheet's Cook button below).
+  const canCook = !!recipe.instructions?.trim();
+  useEffect(() => {
+    if (!openCookOnMount) return;
+    if (canCook) openLazyDialog(dialogs.cook);
+    onCookOpened();
+  }, [openCookOnMount, canCook, dialogs, onCookOpened]);
   function openFromSheet(handle: DialogHandle) {
     setSheetOpen(false);
     openLazyDialog(handle);

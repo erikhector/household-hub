@@ -187,7 +187,7 @@ export const en = {
     subscriptionNotFound: "Subscription not found",
   },
   nav: {
-    overview: "Overview",
+    overview: "Home",
     inventory: "Inventory",
     shoppingList: "Shopping list",
     mealPlanning: "Meal planning",
@@ -542,8 +542,7 @@ export const en = {
     },
   },
   dashboard: {
-    title: "Overview",
-    subtitle: "What needs your attention right now.",
+    title: "Home",
     // UX-135: toast after the verification link signs a new user in.
     welcome: "Welcome to Squirrel, {name}",
     greeting: {
@@ -553,65 +552,100 @@ export const en = {
       afternoon: "Good afternoon, {name}",
       evening: "Good evening, {name}",
     },
-    manage: "Manage",
-    sharedWithIn: {
-      one: "Shared with {count} other person in {name}",
-      other: "Shared with {count} other people in {name}",
-    },
     today: {
       title: "Today",
       tasksAriaLabel: "Tasks to do",
-      unassigned: "Unassigned",
+      // UX-HOME-3: a task nobody is assigned to is anybody's.
+      anyone: "Anyone",
       noTasks: "No open tasks. Nice work!",
       viewTasks: "View tasks",
       moreTasks: {
         one: "{count} more task",
         other: "{count} more tasks",
       },
-      tonight: "Tonight's dinner:",
-      nothingPlanned: "nothing planned",
-      safeToSpend: "Household safe to spend:",
-      expiring: {
-        one: "{count} item expiring soon",
-        other: "{count} items expiring soon",
+      tonight: "Tonight",
+      nothingPlanned: "Nothing planned yet.",
+      planDinner: "Plan dinner",
+      startCooking: "Start cooking",
+      portions: {
+        one: "{count} portion",
+        other: "{count} portions",
+      },
+      // "Missing lime and coriander"; {names} is a locale-joined list.
+      missing: "Missing {names}",
+      missingMore: {
+        one: "{count} more",
+        other: "{count} more",
+      },
+      addMissing: "Add {count}",
+      addMissingAriaLabel: {
+        one: "Add {count} missing ingredient to the shopping list",
+        other: "Add {count} missing ingredients to the shopping list",
+      },
+      leftoversAriaLabel: "Leftovers and meal prep",
+    },
+    // UX-HOME-2: the one card for the shopping list and the pantry.
+    pantry: {
+      title: "Shopping & pantry",
+      itemsToBuy: {
+        one: "item to buy",
+        other: "items to buy",
+      },
+      activeLists: {
+        one: "{count} active list",
+        other: "{count} active lists",
+      },
+      startList: "Start a list",
+      startListHint: "Low-stock items hop onto it by themselves.",
+      out: {
+        one: "{count} out",
+        other: "{count} out",
+      },
+      low: {
+        one: "{count} running low",
+        other: "{count} running low",
+      },
+      alreadyOnList: {
+        one: "{count} is already on the list",
+        other: "{count} are already on the list",
+      },
+      allStockedUp: "All stocked up",
+      addLowStock: "Add {count}",
+      addLowStockAriaLabel: {
+        one: "Add {count} low-stock item to {list}",
+        other: "Add {count} low-stock items to {list}",
+      },
+      useSoon: "Use soon",
+      dayExpired: "expired",
+      dayToday: "today",
+      dayTomorrow: "tomorrow",
+      moreUseSoon: {
+        one: "{count} more",
+        other: "{count} more",
       },
     },
-    yourBudgetTitle: "Your personal budget",
-    setUpPersonalBudgetCta: "Set up your personal budget",
-    viewPersonalBudget: "View personal budget",
-    householdSectionTitle: "Your household",
-    lowStockItems: "Low stock items",
-    outOfStock: {
-      one: "{count} out of stock",
-      other: "{count} out of stock",
+    // UX-HOME-4: both safe-to-spend numbers, side by side.
+    money: {
+      title: "Safe to spend",
+      you: "You",
+      household: "Household",
+      setUp: "Set up",
+      setUpAriaLabel: "Set up your personal budget",
+      status: {
+        healthy: "On track",
+        tight: "Tight",
+        over: "Over",
+      },
     },
-    allStockedUp: "All stocked up",
-    alreadyOnList: {
-      one: "{count} already on your list",
-      other: "{count} already on your list",
-    },
-    noListsYet: "No lists yet — start one",
-    startShoppingList: "Start a list",
-    openShoppingList: "Open {name}",
-    nothingTrackedYet: "Nothing tracked yet",
-    addFirstItem: "Add your first item",
-    browseItems: "Browse all items",
-    viewInventory: "View inventory",
-    shoppingLists: "Shopping lists",
-    itemsToBuyAcross: {
-      one: "items to buy across {count} active list",
-      other: "items to buy across {count} active lists",
-    },
-    viewShoppingLists: "View shopping lists",
-    totalItemsTracked: "Total items tracked",
-    inInventory: "in inventory",
-    mealPrepTitle: "Meal prep",
-    viewMealPrep: "View meal prep",
+    addToList: "Add to list",
     gettingStarted: {
       title: "Get set up",
       subtitle: "A few quick steps to get the most out of Squirrel.",
       skip: "Skip this step",
       progress: "{done} of {total} done",
+      // UX-HOME-4: the one-line strip once a few steps are done.
+      stripProgress: "{done} of {total} set up",
+      stripNext: "Next: {step}",
       dismiss: "Hide the setup card",
       doneStep: "Done",
       allSet: {
