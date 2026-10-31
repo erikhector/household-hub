@@ -39,3 +39,9 @@ export const loadRecordPrepDialog = createLazyDialogLoader(() =>
 export const loadPlanPortionsDialog = createLazyDialogLoader(() =>
   import("@/components/meal-planning/plan-portions-dialog").then((m) => m.PlanPortionsDialog),
 );
+export const loadSaveWeekTemplateDialog = createLazyDialogLoader(() =>
+  import("@/components/meal-planning/plan-template-dialogs").then((m) => m.SaveWeekTemplateDialog),
+);
+export const loadPlanFromTemplateDialog = createLazyDialogLoader(() =>
+  import("@/components/meal-planning/plan-template-dialogs").then((m) => m.PlanFromTemplateDialog),
+);

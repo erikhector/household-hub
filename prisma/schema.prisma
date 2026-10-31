@@ -219,7 +219,8 @@ model Household {
   recipes            Recipe[]
   itemAliases        ItemAlias[]
   mealPlans          MealPlan[]
-  budgetCategories   BudgetCategory[]
+  mealPlanTemplates  MealPlanTemplate[]
+  budgetCategories  BudgetCategory[]
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
   // One-off planned bills (BUDGET-8) — see PlannedExpense's doc comment.
@@ -817,6 +818,7 @@ model Recipe {
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
   mealPlanEntries MealPlanEntry[]
+  mealPlanTemplateEntries MealPlanTemplateEntry[]
   // Sub-recipes this recipe includes (e.g. a lasagna's bolognese +
   // béchamel) — see RecipeComponent below.
   components      RecipeComponent[]  @relation("ParentRecipe")
@@ -1031,6 +1033,44 @@ model MealPlanEntry {
 
   @@index([mealPlanId])
   @@index([preparedBatchId])
+}
+
+// GAP-52: a week of meals saved under a name ("School-week basics") so it can
+// be stamped onto any other week, mirroring ShoppingListTemplate. Household-
+// scoped, and the name is unique per household (checked case-insensitively in
+// the action; this is only the backstop for two concurrent saves).
+model MealPlanTemplate {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  createdAt   DateTime @default(now())
+
+  household Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  entries   MealPlanTemplateEntry[]
+
+  @@unique([householdId, name])
+}
+
+// One slot of a MealPlanTemplate: a weekday offset from the week's Monday
+// (0-6) instead of a date, so the template means the same thing on any week.
+// Cascade on recipe delete drops the entry (the template would otherwise
+// carry a nameless slot); a freeform entry has no recipe and is unaffected.
+// consumedAt / preparedBatchId are deliberately not saved: cooked state and
+// a batch's portions belong to the week they happened in.
+model MealPlanTemplateEntry {
+  id           String   @id @default(cuid())
+  templateId   String
+  dayOffset    Int
+  mealType     MealType
+  recipeId     String?
+  freeformName String?
+  portions     Int      @default(4)
+
+  template MealPlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  recipe   Recipe?          @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([recipeId])
 }
 
 // GAP-49 meal prep: one batch-cooked recipe ("8 portions chicken & rice")
