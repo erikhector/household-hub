@@ -619,21 +619,6 @@ left out.
       `/login` reports no landmark violation; `navigation.desktop.spec.ts`
       tabs once and asserts the link is focused.
 
-- [ ] **UX-165. Destructive actions apart from the primary in the recipe
-      sheet and the More menu** (impact: med, effort: S) — breaks M2
-      ("Destructive actions sit apart from the primary action, never next
-      to it where a slip hits them"). In the recipe sheet "Delete recipe"
-      sits ~60 px above the sticky "Cook"; in the phone More menu the red
-      "Log out" is the first row the thumb meets after opening it from the
-      bottom bar (`src/components/meal-planning/recipe-manager.tsx` sheet,
-      `src/components/dashboard/bottom-nav-more-menu.tsx`; report
-      `c2-recipe-open`, `c5-week-more-menu`).
-      Acceptance: Delete lives in the recipe's edit flow or its ⋯ menu, not
-      in the sheet body; Log out is the top row of the More menu (farthest
-      from the thumb) or behind Profile. `mobile` e2e asserts the sheet's
-      footer region has no destructive button and the More menu's last row
-      is not Log out.
-
 - [ ] **UX-166. One header row on the phone inventory** (impact: med,
       effort: M) — breaks M6 ("one task per screen, most important first")
       and Recognition. The phone page stacks a full-width secondary

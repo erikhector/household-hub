@@ -175,7 +175,7 @@ test("the week bar stays on screen down a phone-length week", async ({ page }, t
   await expect(page.getByRole("button", { name: "More planner actions" })).toBeInViewport();
 });
 
-test("a recipe is one row whose sheet has its ingredients and actions, delete set apart", async ({
+test("a recipe is one row whose sheet has its ingredients and actions, delete in the edit form", async ({
   page,
 }, testInfo) => {
   const recipeName = unique("Lentil soup");
@@ -196,12 +196,17 @@ test("a recipe is one row whose sheet has its ingredients and actions, delete se
 
     const sheet = await openRowSheet(page, recipeName);
     await expect(sheet.getByRole("listitem").filter({ hasText: "Lentils" })).toHaveText("250 g Lentils");
-    for (const name of ["Cook", "Edit recipe", "Review ingredient matches", "Copy as text", "Delete recipe"]) {
+    for (const name of ["Cook", "Edit recipe", "Review ingredient matches", "Copy as text"]) {
       await expect(sheet.getByRole("button", { name, exact: true })).toBeVisible();
     }
+    // UX-165 (M2): no destructive button on the sheet; Delete is in Edit.
+    await expect(sheet.getByRole("button", { name: "Delete recipe" })).toHaveCount(0);
+    await expect(sheet.locator('[data-slot="dialog-footer"]').getByRole("button")).toHaveText(["Edit recipe", "Cook"]);
     if (testInfo.project.name === "mobile") await expectTouchTargets(page);
 
-    await sheet.getByRole("button", { name: "Delete recipe" }).click();
+    await sheet.getByRole("button", { name: "Edit recipe" }).click();
+    const form = page.getByRole("dialog", { name: "Edit recipe" });
+    await form.getByRole("button", { name: "Delete recipe" }).click();
     // UX-49: no confirm; the toast offers Undo and the delete follows it.
     await expect(row).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -237,16 +242,7 @@ test("a long recipe's Cook stays on screen in its sheet, above the scrolling ing
     // without scrolling, though the ingredient list runs past the screen.
     await expect(cook).toBeInViewport();
     await expect(sheet.getByRole("button", { name: "Edit recipe" })).toBeInViewport();
-    const remove = sheet.getByRole("button", { name: "Delete recipe" });
-    await expect(remove).not.toBeInViewport();
-
-    // Scrolled to the end, Delete comes into view and Cook is still there.
-    await remove.scrollIntoViewIfNeeded();
-    await expect(remove).toBeInViewport();
-    await expect(cook).toBeInViewport();
-    const cookBox = await cook.boundingBox();
-    const removeBox = await remove.boundingBox();
-    expect(Math.abs(cookBox!.y - (removeBox!.y + removeBox!.height))).toBeGreaterThanOrEqual(8);
+    await expect(sheet.getByRole("button", { name: "Delete recipe" })).toHaveCount(0);
 
     // Opened with a click (a mouse or keyboard), it starts at the top too:
     // focus goes to the title, not to a button down past the ingredients.

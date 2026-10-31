@@ -42,3 +42,15 @@ test.describe("a failed chunk load", () => {
     await expect(page.getByRole("menuitem", { name: en.nav.logOut })).toBeVisible();
   });
 });
+
+// UX-165 (M2): the menu opens upward, so its last row is the one under the
+// thumb. Log out is the top row, not the last.
+test("Log out is the top row of the More menu, not the last", async ({ page }) => {
+  await page.goto("/dashboard");
+  const more = page.getByRole("navigation").getByRole("button", { name: en.nav.more });
+  await expectHydrated(more);
+  await more.click();
+  const rows = page.getByRole("menuitem");
+  await expect(rows.first()).toHaveText(en.nav.logOut);
+  await expect(rows.last()).not.toHaveText(en.nav.logOut);
+});
