@@ -338,9 +338,10 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   Colour follows the series, never a row's position: a list of rows with a
   sparkline each draws them in one quiet colour and marks only the current
   point in `primary`. Money flows keep one colour on every chart (spent
-  `chart-1`, saved `chart-3`, due `chart-2`, left over `chart-5`;
-  `FLOW_FILL` in `chart-colors.ts`), so a colour means the same thing
-  across a page. Categories never take a flow colour: a chart of
+  `chart-1`, saved `chart-3`, due `chart-2`, not spent or saved
+  `chart-5`; `FLOW_FILL` in `chart-colors.ts`), so a colour means the same
+  thing across a page. Green means unspent money, wherever it's drawn
+  (Safe to spend takes `success`, the same family). Categories never take a flow colour: a chart of
   categories (the expenses donut) uses emphasis, one grey with only the
   item in focus in `chart-4`. Scales are solid hairlines (never dashed; dashes mean
   a projection), bars are thin (≤ 24 px) with 4 px rounded ends, and a

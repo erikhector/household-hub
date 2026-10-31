@@ -99,7 +99,9 @@ export function MonthAtAGlance({
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <ul className="flex flex-col gap-3">
+        {/* The rows, not just the bars, are capped: capping only the bars
+            left each change ~480 px from them on a wide screen. */}
+        <ul className="flex max-w-2xl flex-col gap-3">
           {ROWS.map(({ key, label }) => {
             const now = current[key];
             const before = previous[key];
@@ -134,7 +136,7 @@ export function MonthAtAGlance({
                   <span className="shrink-0 font-semibold tabular-nums">{numberFormat.format(now)}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div aria-hidden className="flex min-w-0 max-w-120 flex-1 flex-col gap-0.5">
+                  <div aria-hidden className="flex min-w-0 flex-1 flex-col gap-0.5">
                     {/* A negative amount has no bar: the amount says it. */}
                     <span
                       className={`h-2 rounded-r-[4px] ${EMPHASIS_FILL}`}

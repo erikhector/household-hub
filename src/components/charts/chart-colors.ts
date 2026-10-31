@@ -20,8 +20,9 @@ export function chartFill(index: number): string {
 // (split bar) and Left over (fixed chart), so a colour learnt in one chart
 // meant something else in the next. Money flows now have one fixed colour
 // each, wherever they're drawn: the Safe to spend split bar, the fixed
-// income chart and the savings goals meters. Left over is the green
-// `success` is a text step of, so "left" reads as the good part. Categories
+// income chart and the savings goals meters. Money neither spent nor saved
+// is the green `success` is a text step of, the same family as Safe to
+// spend's own part of the split bar: green always means unspent. Categories
 // never take these: the donut uses the emphasis pair below instead.
 
 /** The fixed colour of each money flow. "kept" (money held back for a
@@ -41,5 +42,7 @@ export const FLOW_FILL = {
 // flow uses, so it never collides with FLOW_FILL on the same page.
 export const EMPHASIS_FILL = "bg-chart-4";
 export const EMPHASIS_STROKE = "stroke-chart-4";
-export const CONTEXT_FILL = "bg-muted-foreground/40";
-export const CONTEXT_STROKE = "stroke-muted-foreground/40";
+// At 50% the context grey is about 2.5:1 on the card: quiet, but still
+// marks a reader can see (every value is also printed beside them).
+export const CONTEXT_FILL = "bg-muted-foreground/50";
+export const CONTEXT_STROKE = "stroke-muted-foreground/50";

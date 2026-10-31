@@ -69,6 +69,7 @@ export function FixedBudgetSummary({
   const monthFormat = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
   const netFixed = monthlyIncome - monthlyExpense;
   const hasTrendData = monthlyTotals.some((m) => m.income > 0 || m.expense > 0 || m.savings > 0);
+  const hasFixedSavings = monthlyTotals.some((m) => m.savings > 0);
   // DESIGN.md: status is tinted text plus an icon and words, never colour
   // alone.
   const StatusIcon = balanceStatus === "balanced" ? CheckCircle2 : AlertTriangle;
@@ -123,16 +124,23 @@ export function FixedBudgetSummary({
               totalLabel={dict.legendIncome}
               series={[
                 { key: "expense", label: dict.legendExpense, fill: FLOW_FILL.spent },
-                { key: "savings", label: dict.legendSavings, fill: FLOW_FILL.saved },
+                // No savings logged against these items in any month: a
+                // "Savings 0.00" key entry for a part never drawn is noise.
+                ...(hasFixedSavings ? [{ key: "savings", label: dict.legendSavings, fill: FLOW_FILL.saved }] : []),
                 { key: "left", label: dict.legendLeft, fill: FLOW_FILL.left },
               ]}
               groups={monthlyTotals.map((point) => ({
                 key: point.month,
                 label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
                 total: point.income,
-                // Negative when costs and savings ran past income: the readout
-                // says so, and the column draws no "left" part.
-                values: [point.expense, point.savings, point.income - point.expense - point.savings],
+                // "Not spent or saved" is negative when costs and savings ran
+                // past income: the readout says so, and the column draws no
+                // part for it.
+                values: [
+                  point.expense,
+                  ...(hasFixedSavings ? [point.savings] : []),
+                  point.income - point.expense - point.savings,
+                ],
               }))}
               locale={locale}
               currencyCode={currencyCode}

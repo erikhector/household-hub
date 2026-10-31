@@ -3770,7 +3770,8 @@ Insights, three Add panels on Manage). No data model changed.
     changes by an amount ("1,200.00 less", `amountChangeOf`), since near
     zero or below it a percentage blows up. The bars share one scale
     across all four rows, are square at the baseline with a 4 px rounded
-    end, and are capped at 480 px wide. A line under the title says the
+    end; the rows themselves are capped at 42 rem so each change stays
+    beside its bars on a wide screen. A line under the title says the
     card counts what was logged, while Safe to spend also counts what's
     still due; the last row isn't called "Left over" so it isn't read as
     Safe to spend. Month names are capitalised where they start the
@@ -3789,8 +3790,8 @@ Insights, three Add panels on Manage). No data model changed.
   - The fixed card is one sentence about the plan, its recurring items
     ("Planned each month: {income} in and {costs} out, so {net} is left
     over", or "{net} more goes out than comes in" for a deficit), a status
-    line with an icon, the savings line, then the trend chart under "What
-    was logged each month". The two can differ (a bill logged at 12,399
+    line with an icon, the savings line, then the trend chart under "Logged
+    against these items each month". The two can differ (a bill logged at 12,399
     against a planned 12,000), so each says which it is. The
   per-item breakdowns sit behind "See what's in it": on Personal Budget
   they're the one place the user's share of each shared bill is listed
@@ -4016,8 +4017,11 @@ library), so household and personal never diverge:
   what was left over (from the baseline up), with "Income" named first in
   the readout (`totalLabel`, each group's `total`), so how much a month left
   is the height of its top part. A part at or below zero draws nothing, and
-  the readout still prints it (a negative "Left over" when costs and
-  savings ran past income). Each month is one button the full height
+  the readout still prints it (a negative "Not spent or saved" when costs
+  and savings ran past income). It counts only transactions logged against
+  recurring items ("Logged against these items each month"), so it can
+  differ from "at a glance", which counts everything logged; the Savings
+  part and its key entry are left out when no month has any. Each month is one button the full height
   of the chart, at least 44 px wide and 8 px apart (M3); tapping selects it
   (`aria-pressed`) and a readout above the bars shows that month's value
   per series with its colour dot, which doubles as the legend. The readout
@@ -4091,7 +4095,7 @@ library), so household and personal never diverge:
   hairline at today, a ringed dot on today's value and a hollow one on the
   projected month end.
 - `CategoryBreakdown` rows are meters: name and amount on one line, the bar
-  (and sparkline) under them, and "of {limit}" with its status under that.
+  (and sparkline) under them, and "Limit {limit}" with its status under that.
   The fill is neutral until near (`warning`) or over (`destructive`) the
   limit, each on a track tinted from its own colour, and status always
   carries the warning icon. Savings goals use the same meter in `chart-3`,

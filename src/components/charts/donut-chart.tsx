@@ -67,8 +67,8 @@ export type DonutDict = {
 };
 
 // "Other" is lighter than the named slices: it's the rest, not a category.
-const OTHER_STROKE = "stroke-muted-foreground/20";
-const OTHER_FILL = "bg-muted-foreground/20";
+const OTHER_STROKE = "stroke-muted-foreground/30";
+const OTHER_FILL = "bg-muted-foreground/30";
 const TONE_TEXT: Record<DonutNoteTone, string> = { warning: "text-warning", destructive: "text-destructive" };
 
 const R = 38;
@@ -196,7 +196,9 @@ export function DonutChart({
       {/* The key, and the way to pick a slice without aiming at it. The
           text stays full strength whatever is picked (dimming it dropped it
           below 4.5:1); the swatches carry the emphasis. */}
-      <ul className="flex flex-col">
+      {/* Capped so a name and its amount stay within one glance on a wide
+          screen (craft-floor: proximity). */}
+      <ul className="mx-auto flex w-full max-w-2xl flex-col">
         {slices.map((slice) => {
           const isSelected = slice.key === selectedKey;
           return (

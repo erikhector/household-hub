@@ -311,7 +311,7 @@ test("Insights' expenses donut lets a category be picked and inspected", async (
   // Its notes, read out as they change: the limit it's measured against.
   // 900 000 of 1 000 000 is near the limit, a status: said in words, and
   // marked on its key row too (design review, Oct 2026).
-  const status = main.getByRole("status").filter({ hasText: /of 1,000,000\.00/ });
+  const status = main.getByRole("status").filter({ hasText: /Limit 1,000,000\.00/ });
   await expect(status).toBeVisible();
   await expect(status).toContainText("Almost at limit");
   await expect(key).toHaveAccessibleName(new RegExp(`^${name}\\s*Almost at limit`));
