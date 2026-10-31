@@ -432,7 +432,7 @@ left out.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/budget/safe-to-spend.tsx`: UX-153, UX-154
-- `src/components/inventory/inventory-client.tsx`: UX-155, UX-166
+- `src/components/inventory/inventory-client.tsx`: UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
   UX-159, UX-160, UX-168
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
@@ -475,20 +475,6 @@ left out.
       add-income action instead of zero tiles. Unit test on the calculator;
       e2e on `/dashboard` with a category and no income asserts no
       `text-success` in the Today block, `desktop` and `mobile`.
-
-- [ ] **UX-155. Label the desktop inventory filter selects and the actions
-      column** (impact: high, effort: S) — breaks Accessibility ("labelled
-      controls"; WCAG 4.1.2, 1.3.1). The five desktop `SelectTrigger
-      className="w-40 shrink-0"` filters have no `aria-label`/
-      `aria-labelledby`, so a screen reader announces only the current value
-      ("All categories"); axe reports `button-name` critical ×5. The mobile
-      twins at `inventory-client.tsx:260-317` use `aria-labelledby`. The
-      table's actions `TableHead` is empty (axe `empty-table-header`).
-      Location: `src/components/inventory/inventory-client.tsx:358,371,387,402,416`,
-      `src/components/inventory/inventory-table.tsx:412`.
-      Acceptance: each desktop filter has the same accessible name as its
-      mobile twin; the actions header has `sr-only` text. `desktop` e2e
-      locates all five by `getByRole("combobox", { name })`.
 
 - [ ] **UX-156. Default low-stock threshold never above the entered
       quantity** (impact: med, effort: S) — breaks Usability ("prevent

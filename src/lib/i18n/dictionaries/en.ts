@@ -1581,6 +1581,7 @@ export const en = {
     columnLocation: "Location",
     columnQuantity: "Quantity",
     columnStatus: "Status",
+    columnActions: "Actions",
     columnLastUpdated: "Last updated",
     lastUpdatedWithUser: "Last updated {date} by {name}",
     lastUpdatedNoUser: "Last updated {date}",
