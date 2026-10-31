@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { createDialogHandle } from "@/components/ui/dialog";
+import { openLazyDialog } from "@/components/ui/lazy-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,17 +19,14 @@ import type {
   RecurringTemplateFormAction,
   RecurringTemplateRow,
 } from "@/components/budget/recurring-template-dialog";
-import type {
-  MemberOption,
-  TransactionFormAction,
-} from "@/components/budget/transaction-dialog";
+import type { MemberOption } from "@/components/budget/transaction-dialog";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
-import { LazyTransactionDialog, LazyRecurringTemplateDialog } from "@/components/budget/lazy-budget-dialogs";
+import { LazyRecurringTemplateDialog } from "@/components/budget/lazy-budget-dialogs";
 
 export type RecurringTemplateListRow = RecurringTemplateRow & {
   categoryName: string;
@@ -52,13 +50,19 @@ const frequencyLabelKey = {
   YEARLY: "frequencyYearly",
 } as const satisfies Record<RecurringTemplateRow["frequency"], keyof BudgetDict>;
 
-export function RecurringTemplatesPanel({
+// The recurring half of the Setup tab's Bills & income card
+// (bills-and-income-panel.tsx), which owns the heading and the one Add
+// button. Budget redesign (Oct 2026): one flat list, most urgent first, with
+// each row's status as a chip, instead of a panel of its own with a status
+// legend and a sub-heading per status ("Due this period", "Accounted for",
+// "Logged", "Paused"). Logging a due item happens on the Overview's Needs
+// attention card, which lists every due row with its Log button; repeating
+// that button here put the same item and action on two tabs.
+export function RecurringTemplateList({
   templates,
   pausedTemplates,
   categories,
   members = [],
-  currentMemberId = "",
-  monthKey,
   dict,
   locale,
   currencyCode,
@@ -68,8 +72,6 @@ export function RecurringTemplatesPanel({
   onUnacknowledge,
   createTemplateAction,
   updateTemplateAction,
-  createTransactionAction,
-  updateTransactionAction,
 }: {
   templates: RecurringTemplateListRow[];
   pausedTemplates: PausedRecurringTemplateRow[];
@@ -78,11 +80,6 @@ export function RecurringTemplatesPanel({
    * identical prop (src/components/budget/transaction-dialog.tsx). The
    * personal budget page (BUDGET-2) omits this entirely. */
   members?: MemberOption[];
-  currentMemberId?: string;
-  /** "YYYY-MM" of the month currently being browsed — threaded to the "Log
-   * transaction" dialog below so a new transaction defaults to a date within
-   * it (F11) instead of always today. */
-  monthKey: string;
   dict: BudgetDict;
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
@@ -101,15 +98,17 @@ export function RecurringTemplatesPanel({
   onUnacknowledge: (id: string) => Promise<ActionState>;
   createTemplateAction: RecurringTemplateFormAction;
   updateTemplateAction: RecurringTemplateFormAction;
-  createTransactionAction: TransactionFormAction;
-  updateTransactionAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
   const numberFormat = createMoneyFormat(locale, currencyCode);
 
-  const due = templates.filter((t) => t.status === "due");
-  const acknowledged = templates.filter((t) => t.status === "acknowledged");
-  const posted = templates.filter((t) => t.status === "posted");
+  // Due first (it wants doing), then accounted for (it can be undone), then
+  // logged; paused last.
+  const ordered = [
+    ...templates.filter((t) => t.status === "due"),
+    ...templates.filter((t) => t.status === "acknowledged"),
+    ...templates.filter((t) => t.status === "posted"),
+  ];
 
   function handleTogglePause(id: string, active: boolean) {
     startTransition(async () => {
@@ -125,189 +124,76 @@ export function RecurringTemplatesPanel({
     });
   }
 
-  const isEmpty = templates.length === 0 && pausedTemplates.length === 0;
+  const rowProps = {
+    dict,
+    numberFormat,
+    isPending,
+    onDelete: handleDelete,
+    onTogglePause: handleTogglePause,
+    categories,
+    members,
+    createTemplateAction,
+    updateTemplateAction,
+  };
 
   return (
-    <div className="list-bleed flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-      {/* UX-118: Add sits top right, as in the category manager, so the
-          three Manage panels share one placement (on a phone too). */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="font-heading text-base font-semibold">{dict.recurring.title}</h2>
-          <p className="text-sm text-muted-foreground">{dict.recurring.subtitle}</p>
-        </div>
-        <LazyRecurringTemplateDialog
-          numberFormat={numberFormat}
-          dict={dict}
-          categories={categories}
-          members={members}
-          createAction={createTemplateAction}
-          updateAction={updateTemplateAction}
-          trigger={
-            <Button variant="outline" size="sm" disabled={categories.length === 0}>
-              {dict.recurring.addTemplate}
-            </Button>
-          }
-        />
-      </div>
-
-      {isEmpty ? (
-        <p className="text-sm text-muted-foreground">{dict.recurring.empty}</p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <p className="text-xs text-muted-foreground">{dict.recurring.statusLegend}</p>
-          <TemplateGroup label={dict.recurring.sectionDue} items={due}>
-            {(template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                dict={dict}
-                numberFormat={numberFormat}
-                isPending={isPending}
-                onDelete={handleDelete}
-                onTogglePause={handleTogglePause}
-                categories={categories}
-                members={members}
-                createTemplateAction={createTemplateAction}
-                updateTemplateAction={updateTemplateAction}
-                onMarkAccountedFor={() =>
-                  startTransition(async () => {
-                    const result = await onAcknowledge(template.id);
-                    if (result.error) toast.error(result.error);
-                    else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
-                  })
-                }
-                primary={
-                  <LazyTransactionDialog
-                    numberFormat={numberFormat}
-                    dict={dict}
-                    categories={categories}
-                    members={members}
-                    currentMemberId={currentMemberId}
-                    monthKey={monthKey}
-                    prefillFromTemplate={{
-                      templateId: template.id,
-                      categoryId: template.categoryId,
-                      amount: template.amount,
-                      description: template.name,
-                      frequency: template.frequency,
-                      splits: template.splits,
-                      dayOfMonth: template.frequency === "MONTHLY" ? template.dayOfMonth : null,
-                    }}
-                    createAction={createTransactionAction}
-                    updateAction={updateTransactionAction}
-                    trigger={
-                      <Button size="sm" variant="secondary">
-                        {dict.dueWidget.log}
-                      </Button>
-                    }
-                  />
-                }
-              />
-            )}
-          </TemplateGroup>
-
-          <TemplateGroup label={dict.recurring.sectionAcknowledged} items={acknowledged}>
-            {(template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                dict={dict}
-                numberFormat={numberFormat}
-                isPending={isPending}
-                onDelete={handleDelete}
-                onTogglePause={handleTogglePause}
-                categories={categories}
-                members={members}
-                createTemplateAction={createTemplateAction}
-                updateTemplateAction={updateTemplateAction}
-                primary={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() =>
-                      startTransition(async () => {
-                        const result = await onUnacknowledge(template.id);
-                        if (result.error) toast.error(result.error);
-                        else toast.success(format(dict.recurring.undoToast, { name: template.name }));
-                      })
-                    }
-                  >
-                    <Undo2 className="size-3.5" />
-                    {dict.recurring.undo}
-                  </Button>
-                }
-              />
-            )}
-          </TemplateGroup>
-
-          <TemplateGroup label={dict.recurring.sectionPosted} items={posted}>
-            {(template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                dict={dict}
-                numberFormat={numberFormat}
-                isPending={isPending}
-                onDelete={handleDelete}
-                onTogglePause={handleTogglePause}
-                categories={categories}
-                members={members}
-                createTemplateAction={createTemplateAction}
-                updateTemplateAction={updateTemplateAction}
-              />
-            )}
-          </TemplateGroup>
-
-          {pausedTemplates.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">
-                {dict.recurring.pausedBadge}
-              </p>
-              <div className="flex flex-col gap-2">
-                {pausedTemplates.map((template) => (
-                  <TemplateRow
-                    key={template.id}
-                    template={{ ...template, status: "due" }}
-                    dict={dict}
-                    numberFormat={numberFormat}
-                    isPending={isPending}
-                    onDelete={handleDelete}
-                    onTogglePause={handleTogglePause}
-                    categories={categories}
-                    members={members}
-                    createTemplateAction={createTemplateAction}
-                    updateTemplateAction={updateTemplateAction}
-                    paused
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    <ul className="flex flex-col gap-2">
+      {ordered.map((template) => (
+        <li key={template.id}>
+          <TemplateRow
+            template={template}
+            {...rowProps}
+            onMarkAccountedFor={
+              template.status === "due"
+                ? () =>
+                    startTransition(async () => {
+                      const result = await onAcknowledge(template.id);
+                      if (result.error) toast.error(result.error);
+                      else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
+                    })
+                : undefined
+            }
+            primary={
+              template.status === "acknowledged" ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await onUnacknowledge(template.id);
+                      if (result.error) toast.error(result.error);
+                      else toast.success(format(dict.recurring.undoToast, { name: template.name }));
+                    })
+                  }
+                >
+                  <Undo2 className="size-3.5" />
+                  {dict.recurring.undo}
+                </Button>
+              ) : undefined
+            }
+          />
+        </li>
+      ))}
+      {pausedTemplates.map((template) => (
+        <li key={template.id}>
+          <TemplateRow template={{ ...template, status: "due" }} {...rowProps} paused />
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function TemplateGroup({
-  label,
-  items,
-  children,
-}: {
-  label: string;
-  items: RecurringTemplateListRow[];
-  children: (template: RecurringTemplateListRow) => ReactNode;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-      <div className="flex flex-col gap-2">{items.map((template) => children(template))}</div>
-    </div>
-  );
-}
+// Status as a chip on the row (tinted text, never colour alone: the chip is
+// a word). Due wants doing, so it's amber; logged is done, so green.
+const STATUS_BADGE = {
+  due: { variant: "warning", label: "sectionDue" },
+  acknowledged: { variant: "secondary", label: "sectionAcknowledged" },
+  posted: { variant: "outline", label: "sectionPosted" },
+} as const satisfies Record<
+  RecurringTemplateListRow["status"],
+  { variant: "warning" | "secondary" | "outline"; label: keyof BudgetDict["recurring"] }
+>;
 
 function TemplateRow({
   template,
@@ -334,8 +220,9 @@ function TemplateRow({
   members: MemberOption[];
   createTemplateAction: RecurringTemplateFormAction;
   updateTemplateAction: RecurringTemplateFormAction;
-  /** The row's one visible action: "Log" when due, "Undo" once accounted
-   * for. A paused row's is Resume; a posted row has none. */
+  /** The row's one visible action: "Undo" once accounted for. A paused
+   * row's is Resume; a due or posted row has none here (due rows are logged
+   * from the Overview's Needs attention card). */
   primary?: ReactNode;
   /** Due rows only: "Mark as accounted for", in the menu. */
   onMarkAccountedFor?: () => void;
@@ -346,10 +233,12 @@ function TemplateRow({
   // one line. Five buttons (log, mark, edit, pause, delete) used to wrap,
   // stranding pause and delete on a second line under the pencil, with
   // delete right beside the others (DESIGN.md M2). Edit and Delete open
-  // their dialogs from the menu: Edit through a hidden trigger (ItemActions'
-  // pattern), Delete through a dialog handle, since a dialog rendered
-  // inside the menu would unmount as the menu closes.
-  const editRef = useRef<HTMLButtonElement | null>(null);
+  // their dialogs from the menu through dialog handles, since a dialog
+  // rendered inside the menu would unmount as the menu closes, and hand
+  // focus back to the "…" button on close (Edit used to click a hidden
+  // aria-hidden trigger, which is where focus then landed).
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const [editHandle] = useState(() => createDialogHandle());
   const [deleteHandle] = useState(() => createDialogHandle());
   const resume = paused ? (
     <Button size="sm" variant="outline" disabled={isPending} onClick={() => onTogglePause(template.id, true)}>
@@ -370,7 +259,16 @@ function TemplateRow({
               {dict.recurring.split?.splitBadge}
             </Badge>
           )}
-          {paused && <Badge variant="outline">{dict.recurring.pausedBadge}</Badge>}
+          {paused ? (
+            <Badge variant="outline">{dict.recurring.pausedBadge}</Badge>
+          ) : (
+            <Badge
+              variant={STATUS_BADGE[template.status].variant}
+              className={template.status === "posted" ? "border-success/30 text-success" : undefined}
+            >
+              {dict.recurring[STATUS_BADGE[template.status].label]}
+            </Badge>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           {numberFormat.format(template.amount)} · {frequencyLabel}
@@ -398,6 +296,7 @@ function TemplateRow({
         <DropdownMenuTrigger
           render={
             <Button
+              ref={moreRef}
               variant="ghost"
               size="icon"
               disabled={isPending}
@@ -414,7 +313,7 @@ function TemplateRow({
               {dict.recurring.markAccountedFor}
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => editRef.current?.click()}>
+          <DropdownMenuItem onClick={() => openLazyDialog(editHandle)}>
             <Pencil />
             {dict.swipe.edit}
           </DropdownMenuItem>
@@ -440,19 +339,12 @@ function TemplateRow({
         template={template}
         createAction={createTemplateAction}
         updateAction={updateTemplateAction}
-        trigger={
-          // Opened from the menu's Edit; not a target of its own.
-          <button
-            ref={editRef}
-            type="button"
-            className="sr-only"
-            tabIndex={-1}
-            aria-hidden="true"
-          />
-        }
+        handle={editHandle}
+        finalFocus={moreRef}
       />
       <ConfirmDialog
         handle={deleteHandle}
+        finalFocus={moreRef}
         title={format(dict.recurring.confirmDelete.title, { name: template.name })}
         description={dict.recurring.confirmDelete.description}
         cancelLabel={dict.recurring.confirmDelete.cancel}

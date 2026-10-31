@@ -2,7 +2,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { addBillOrIncome, dismissCookieNotice } from "./ui";
 
 // UX-147 (DESIGN.md "right keyboard and autofill"): a budget text field must
 // not offer the browser's saved names and contacts (`autocomplete="off"`),
@@ -30,7 +30,7 @@ test("budget dialogs turn autofill off and set the Enter key on the last field",
   baseURL,
 }) => {
   await dismissCookieNotice(context, baseURL!);
-  // "Add recurring item" and "Add transaction" stay disabled until the
+  // Bills & income's Add and "Add transaction" stay disabled until the
   // household has a category, and the seed has none.
   const categoryId = `e2e-autofill-cat-${Date.now().toString(36)}-w${E2E_WORKER}`;
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -50,7 +50,7 @@ test("budget dialogs turn autofill off and set the Enter key on the last field",
     await expect(dialog.getByLabel("Monthly limit")).toHaveAttribute("enterkeyhint", "done");
     await page.keyboard.press("Escape");
 
-    await main.getByRole("button", { name: "Add recurring item", exact: true }).click();
+    await addBillOrIncome(page, "Repeats every month or year");
     dialog = page.getByRole("dialog");
     await expectNoAutofill(dialog);
     await expect(dialog.getByLabel("Due day")).toHaveAttribute("enterkeyhint", "done");

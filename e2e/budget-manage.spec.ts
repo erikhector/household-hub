@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { budgetTag, insertHouseholdCategory, insertHouseholdTemplate, withDb } from "./budget-seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
 
-// Phone pass (Oct 2026), P5: on Manage, a recurring item is one line with
-// its one action and a "More" menu (Delete last, apart), and a category
+// Phone pass (Oct 2026), P5: on Setup, a recurring item is one line with
+// its status and a "More" menu (Delete last, apart), and a category
 // chip is one button that opens its edit sheet, which holds Delete. Chips
 // show names in full when they fit.
 test.beforeEach(async ({ context, baseURL }) => {
@@ -23,7 +23,7 @@ async function seed({ withItem = true } = {}) {
   return { category, item };
 }
 
-test("a recurring item is one line: its action and a More menu", async ({ page, isMobile }) => {
+test("a recurring item is one line: its status and a More menu", async ({ page, isMobile }) => {
   const { item } = await seed();
   await page.goto("/dashboard/budget?tab=manage");
   const main = page.getByRole("main");
@@ -31,10 +31,10 @@ test("a recurring item is one line: its action and a More menu", async ({ page, 
   const more = main.getByRole("button", { name: `More actions for ${item}` });
   await expect(more).toBeVisible();
   const row = more.locator("xpath=..");
-  const log = row.getByRole("button", { name: "Log", exact: true });
-  await expect(log).toBeVisible();
-  const [logBox, moreBox] = [(await log.boundingBox())!, (await more.boundingBox())!];
-  expect(Math.abs(logBox.y + logBox.height / 2 - (moreBox.y + moreBox.height / 2))).toBeLessThan(4);
+  // Budget redesign (Oct 2026): status is a chip, and a due item is logged
+  // from the Overview's Needs attention card, not from here as well.
+  await expect(row.getByText("Due", { exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Log", exact: true })).toHaveCount(0);
   if (isMobile) {
     await expectTargetsApart(row);
     await expectTouchTargets(page);
@@ -48,6 +48,9 @@ test("a recurring item is one line: its action and a More menu", async ({ page, 
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Edit recurring item" })).toBeVisible();
   await page.keyboard.press("Escape");
+  // Focus goes back to the menu's button, not to a hidden trigger.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(more).toBeFocused();
 
   await more.click();
   await page.getByRole("menuitem", { name: "Pause", exact: true }).click();
@@ -86,17 +89,17 @@ test("a category chip shows its whole name and edits, with Delete in the sheet",
   await expect(chip).toHaveCount(0);
 });
 
-// UX-118: the three Add buttons on Manage share one placement, top right
-// of their panel, level with its title.
-test("Add category, Add recurring item and Add planned bill sit top right", async ({ page }) => {
+// UX-118: the Add buttons on Setup share one placement, top right of their
+// card, level with its title. The budget redesign (Oct 2026) left two:
+// Bills & income's and Categories'.
+test("Add category and Bills & income's Add sit top right", async ({ page }) => {
   await seed();
   await page.goto("/dashboard/budget?tab=manage");
   const main = page.getByRole("main");
   const boxes = [];
   for (const [add, title] of [
     ["Add category", "Categories"],
-    ["Add recurring item", "Recurring items"],
-    ["Add planned bill", "Planned bills"],
+    ["Add", "Bills & income"],
   ] as const) {
     const button = main.getByRole("button", { name: add, exact: true });
     await expect(button).toBeVisible();

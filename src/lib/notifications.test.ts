@@ -466,7 +466,7 @@ describe("recordPriceSpikes", () => {
     await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
-      { title: "Price jump", body: "Milk cost 75% more than usual", url: "/dashboard/budget?tab=insights" },
+      { title: "Price jump", body: "Milk cost 75% more than usual", url: "/dashboard/budget?tab=insights&prices=1" },
       "user-1",
     );
   });

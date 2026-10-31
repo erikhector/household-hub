@@ -1,15 +1,17 @@
-// Pure presentational — no client interactivity needed, so this renders
+// Pure presentational — no client interactivity of its own, so this renders
 // straight from the Server Component that fetches/aggregates the data
 // (src/app/dashboard/budget/page.tsx), same as the dashboard overview cards.
-// UX-39: the four totals count to their new value when the month changes
-// (AnimatedNumber, a small client island), and expense rows carrying a
-// `history` draw a spending sparkline.
+// UX-39: expense rows carrying a `history` draw a spending sparkline.
+//
+// Budget redesign (Oct 2026): the four stat cards (income, expenses,
+// remaining, savings) are gone — they repeated Safe to spend on the Overview
+// — and the three breakdowns sit behind one switch (BreakdownSwitch), so
+// "This month" is one card's worth of screen on a phone instead of seven.
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/category-breakdown";
+import { BreakdownSwitch } from "@/components/budget/breakdown-switch";
 import { createMoneyFormat } from "@/lib/currency";
-import { AnimatedNumber } from "@/components/charts/animated-number";
 import { historyMonthLabels } from "@/lib/chart-calc";
 
 export type { CategoryTotal };
@@ -18,7 +20,6 @@ export function PeriodSummary({
   income,
   expense,
   savings,
-  remaining,
   incomeByCategory,
   expenseByCategory,
   savingsByCategory,
@@ -33,12 +34,6 @@ export function PeriodSummary({
   // Neither income nor a cost — money set aside, so it's broken out on its
   // own. See TransactionType's doc comment in schema.prisma.
   savings: number;
-  /** "Remaining after expenses and savings" — the same number as the Safe to
-   * spend card (src/lib/safe-to-spend-calc.ts), so this card and that one
-   * never disagree. It replaced a plain income − expenses "Net" that
-   * ignored savings and anything still due, which made the two cards show
-   * different "what's left" numbers side by side. */
-  remaining: number;
   incomeByCategory: CategoryTotal[];
   expenseByCategory: CategoryTotal[];
   savingsByCategory: CategoryTotal[];
@@ -62,94 +57,67 @@ export function PeriodSummary({
   const history = monthStart
     ? { months: historyMonthLabels(monthStart, locale), label: dict.historyLabel }
     : undefined;
-  const animated = (value: number, showPlus = false) => (
-    <AnimatedNumber value={value} locale={locale} currencyCode={currencyCode} showPlus={showPlus} />
-  );
 
   return (
-    <div className="flex flex-col gap-4">
+    <section aria-labelledby="period-summary-title" className="flex flex-col gap-4">
       <div>
-        <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+        <h2 id="period-summary-title" className="font-heading text-base font-semibold">
+          {dict.title}
+        </h2>
         <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
       </div>
-      {/* Phone pass (Oct 2026): two by two on a phone, at a smaller stat
-          size, instead of four full-width cards one under another. */}
-      <div className="list-bleed grid grid-cols-2 gap-3 *:min-w-0 sm:gap-4 lg:grid-cols-4 [&_p]:break-words">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.income}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold text-success sm:text-3xl">{animated(income)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.expenses}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold text-foreground sm:text-3xl">{animated(expense)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.remaining}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={"text-xl font-semibold sm:text-3xl " + (remaining >= 0 ? "text-success" : "text-destructive")}>
-              {animated(remaining, true)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.savings}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold text-foreground sm:text-3xl">{animated(savings)}</p>
-          </CardContent>
-        </Card>
-      </div>
-      <div className="list-bleed grid gap-4 sm:grid-cols-3">
-        <CategoryBreakdown
-          title={dict.incomeByCategory}
-          items={incomeByCategory}
-          total={income}
-          emptyMessage={dict.noIncome}
-          numberFormat={numberFormat}
-          hrefFor={hrefFor}
-        />
-        <CategoryBreakdown
-          title={dict.expensesByCategory}
-          items={expenseByCategory}
-          total={expense}
-          emptyMessage={dict.noExpenses}
-          numberFormat={numberFormat}
-          // GAP-12: expense rows carrying a `limit` (attached by the page
-          // via withCategoryLimits) draw against it. Income and savings
-          // categories never have one. GAP-21: a rollover row's `carried`
-          // balance is added to that limit and shown under the bar.
-          limitDict={dict}
-          history={history}
-          hrefFor={hrefFor}
-        />
-        <CategoryBreakdown
-          title={dict.savingsByCategory}
-          items={savingsByCategory}
-          total={savings}
-          emptyMessage={dict.noSavings}
-          numberFormat={numberFormat}
-          hrefFor={hrefFor}
-        />
-      </div>
-    </div>
+      <BreakdownSwitch
+        panels={[
+          {
+            value: "expense",
+            label: dict.expenses,
+            content: (
+              <CategoryBreakdown
+                title={`${dict.expensesByCategory} · ${numberFormat.format(expense)}`}
+                items={expenseByCategory}
+                total={expense}
+                emptyMessage={dict.noExpenses}
+                numberFormat={numberFormat}
+                // GAP-12: expense rows carrying a `limit` (attached by the page
+                // via withCategoryLimits) draw against it. Income and savings
+                // categories never have one. GAP-21: a rollover row's `carried`
+                // balance is added to that limit and shown under the bar.
+                limitDict={dict}
+                history={history}
+                hrefFor={hrefFor}
+              />
+            ),
+          },
+          {
+            value: "income",
+            label: dict.income,
+            content: (
+              <CategoryBreakdown
+                title={`${dict.incomeByCategory} · ${numberFormat.format(income)}`}
+                items={incomeByCategory}
+                total={income}
+                emptyMessage={dict.noIncome}
+                numberFormat={numberFormat}
+                hrefFor={hrefFor}
+              />
+            ),
+          },
+          {
+            value: "savings",
+            label: dict.savings,
+            content: (
+              <CategoryBreakdown
+                title={`${dict.savingsByCategory} · ${numberFormat.format(savings)}`}
+                items={savingsByCategory}
+                total={savings}
+                emptyMessage={dict.noSavings}
+                numberFormat={numberFormat}
+                hrefFor={hrefFor}
+              />
+            ),
+          },
+        ]}
+      />
+    </section>
   );
 }
