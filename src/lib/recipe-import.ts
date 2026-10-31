@@ -36,6 +36,15 @@ export { extractJsonLdBlocks, findRecipeNode, flattenInstructions, mapJsonLdToRe
 export { parseMicrodataRecipe } from "./recipe-import/parse-microdata";
 export { parseHeuristicRecipe } from "./recipe-import/parse-heuristic";
 export { parseRecipeFromHtml } from "./recipe-import/parse";
+// GAP-67: recipes from a .paprikarecipes archive or a Recipe JSON-LD file.
+export {
+  parseRecipeFile,
+  RECIPE_FILE_MAX_BYTES,
+  RECIPE_FILE_MAX_RECIPES,
+  type FileRecipe,
+  type RecipeFileError,
+  type RecipeFileResult,
+} from "./recipe-import/parse-file";
 export {
   _setPrivateAddressCheckForTests,
   fetchRecipeHtml,
