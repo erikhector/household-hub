@@ -15,16 +15,18 @@ export default async function SignupPage() {
   const dict = await getDictionary();
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-6 sm:py-12">
-      <Link
-        href="/"
-        className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
-      >
-        <BrandBadge />
-        {dict.auth.brand}
-      </Link>
-      <SignupForm dict={dict.auth.signup} legalDict={dict.legal} />
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-6 sm:py-12">
+      <main className="flex w-full flex-col items-center gap-6">
+        <Link
+          href="/"
+          className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
+        >
+          <BrandBadge />
+          {dict.auth.brand}
+        </Link>
+        <SignupForm dict={dict.auth.signup} legalDict={dict.legal} />
+      </main>
       <LegalFooter dict={dict.legal} />
-    </main>
+    </div>
   );
 }

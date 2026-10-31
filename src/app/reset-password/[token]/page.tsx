@@ -23,32 +23,34 @@ export default async function ResetPasswordPage(props: PageProps<"/reset-passwor
   const email = await getUsablePasswordResetEmail(token);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      {email ? (
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle as="h1" className="text-xl">{dict.auth.resetPassword.pageTitle}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResetPasswordForm token={token} email={email} dict={dict.auth.resetPassword} />
-          </CardContent>
-        </Card>
-      ) : (
-        <StatusCard
-          brand={dict.auth.brand}
-          icon={XCircle}
-          tone="error"
-          title={dict.auth.resetPassword.invalidTitle}
-        >
-          <p className="text-sm text-muted-foreground">
-            {dict.auth.resetPassword.invalidDescription}
-          </p>
-          <StatusCardLink href="/forgot-password">
-            {dict.auth.resetPassword.requestNewLink}
-          </StatusCardLink>
-        </StatusCard>
-      )}
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+      <main className="flex w-full flex-col items-center gap-6">
+        {email ? (
+          <Card className="w-full max-w-sm">
+            <CardHeader>
+              <CardTitle as="h1" className="text-xl">{dict.auth.resetPassword.pageTitle}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResetPasswordForm token={token} email={email} dict={dict.auth.resetPassword} />
+            </CardContent>
+          </Card>
+        ) : (
+          <StatusCard
+            brand={dict.auth.brand}
+            icon={XCircle}
+            tone="error"
+            title={dict.auth.resetPassword.invalidTitle}
+          >
+            <p className="text-sm text-muted-foreground">
+              {dict.auth.resetPassword.invalidDescription}
+            </p>
+            <StatusCardLink href="/forgot-password">
+              {dict.auth.resetPassword.requestNewLink}
+            </StatusCardLink>
+          </StatusCard>
+        )}
+      </main>
       <LegalFooter dict={dict.legal} />
-    </main>
+    </div>
   );
 }

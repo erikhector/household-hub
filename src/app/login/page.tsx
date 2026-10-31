@@ -35,34 +35,36 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const initialEmail = (Array.isArray(emailParam) ? emailParam[0] : emailParam)?.slice(0, 254);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      <Link
-        href="/"
-        className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
-      >
-        <BrandBadge />
-        {dict.auth.brand}
-      </Link>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle as="h1" className="text-xl">{dict.auth.login.welcomeTitle}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {showPasswordResetSuccess && (
-            <p className="mb-4 text-sm text-success">{dict.auth.login.passwordResetSuccess}</p>
-          )}
-          {showAccountDeletedSuccess && (
-            <p className="mb-4 text-sm text-success">{dict.auth.login.accountDeletedSuccess}</p>
-          )}
-          {showSessionExpired && (
-            <p className="mb-4 text-sm text-muted-foreground">
-              {dict.auth.login.sessionExpiredPasswordChanged}
-            </p>
-          )}
-          <LoginForm dict={dict.auth.login} initialEmail={initialEmail} />
-        </CardContent>
-      </Card>
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+      <main className="flex w-full flex-col items-center gap-6">
+        <Link
+          href="/"
+          className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
+        >
+          <BrandBadge />
+          {dict.auth.brand}
+        </Link>
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle as="h1" className="text-xl">{dict.auth.login.welcomeTitle}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {showPasswordResetSuccess && (
+              <p className="mb-4 text-sm text-success">{dict.auth.login.passwordResetSuccess}</p>
+            )}
+            {showAccountDeletedSuccess && (
+              <p className="mb-4 text-sm text-success">{dict.auth.login.accountDeletedSuccess}</p>
+            )}
+            {showSessionExpired && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                {dict.auth.login.sessionExpiredPasswordChanged}
+              </p>
+            )}
+            <LoginForm dict={dict.auth.login} initialEmail={initialEmail} />
+          </CardContent>
+        </Card>
+      </main>
       <LegalFooter dict={dict.legal} />
-    </main>
+    </div>
   );
 }

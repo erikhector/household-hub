@@ -67,6 +67,9 @@ test.describe("auth pages have one main landmark", () => {
       await dismissCookieNotice(context, baseURL!);
       await page.goto(path);
       await expect(page.getByRole("main")).toHaveCount(1);
+      // The legal footer stays outside `main`, or it stops being a
+      // `contentinfo` landmark.
+      await expect(page.getByRole("contentinfo")).toHaveCount(1);
     });
   }
 });

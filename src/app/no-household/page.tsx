@@ -23,25 +23,27 @@ export default async function NoHouseholdPage() {
   const t = dict.auth.noHousehold;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle as="h1" className="text-xl">{t.pageTitle}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <p className="text-sm text-muted-foreground">{t.description}</p>
-          <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold">{t.createHeading}</h2>
-            <CreateFirstHouseholdForm dict={t} />
-          </section>
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold">{t.joinHeading}</h2>
-            <p className="text-sm text-muted-foreground">{t.joinDescription}</p>
-          </section>
-          <LogoutButton className="w-full">{t.logOut}</LogoutButton>
-        </CardContent>
-      </Card>
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+      <main className="flex w-full flex-col items-center gap-6">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle as="h1" className="text-xl">{t.pageTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <p className="text-sm text-muted-foreground">{t.description}</p>
+            <section className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold">{t.createHeading}</h2>
+              <CreateFirstHouseholdForm dict={t} />
+            </section>
+            <section className="flex flex-col gap-2">
+              <h2 className="text-sm font-semibold">{t.joinHeading}</h2>
+              <p className="text-sm text-muted-foreground">{t.joinDescription}</p>
+            </section>
+            <LogoutButton className="w-full">{t.logOut}</LogoutButton>
+          </CardContent>
+        </Card>
+      </main>
       <LegalFooter dict={dict.legal} />
-    </main>
+    </div>
   );
 }

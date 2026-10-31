@@ -29,14 +29,16 @@ export default async function VerifyEmailPage(props: PageProps<"/verify-email/[t
   const [{ token }, session, dict] = await Promise.all([props.params, auth(), getDictionary()]);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      <VerifyEmailClient
-        token={token}
-        brand={dict.auth.brand}
-        isAuthenticated={Boolean(session?.user)}
-        dict={dict.auth.verifyEmail}
-      />
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+      <main className="flex w-full flex-col items-center gap-6">
+        <VerifyEmailClient
+          token={token}
+          brand={dict.auth.brand}
+          isAuthenticated={Boolean(session?.user)}
+          dict={dict.auth.verifyEmail}
+        />
+      </main>
       <LegalFooter dict={dict.legal} />
-    </main>
+    </div>
   );
 }
