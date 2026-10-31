@@ -86,12 +86,15 @@ export function ShoppingPantryCard({
           text in Swedish "Add to list" no longer fits beside the title and
           drops below it, where the grid kept it beside the title and the
           card's overflow-hidden cut it off (M9). items-center lines the title
-          up with the 44 px phone button. */}
+          up with the 44 px phone button. From sm the 32 px button takes -my-1,
+          so it centres on the 24 px title line without making the header
+          taller than Today's: the two cards' headings stay level side by
+          side (e2e/overview.spec.ts). */}
       <CardHeader className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <CardTitle>
           <h2 className="font-heading text-base font-semibold text-foreground">{dict.title}</h2>
         </CardTitle>
-        {addToList && <CardAction className="max-w-full">{addToList}</CardAction>}
+        {addToList && <CardAction className="max-w-full sm:-my-1">{addToList}</CardAction>}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {lists.length === 0 ? (
