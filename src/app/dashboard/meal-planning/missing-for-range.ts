@@ -9,15 +9,19 @@ import {
   portionsMultiplier,
 } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData } from "@/components/meal-planning/types";
+import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
 
 // What the planner's week still needs from the shop: the shared read behind
 // the review dialog's preview action (cooking-actions.ts) and the planner's
 // "Add N missing" button (UX-91, counted on the server in page.tsx so the
 // button never pops in after the week). `range` is already validated by
 // parseMissingIngredientsRange; callers scope it to their own household.
+// `mealType` narrows it to one meal of the day: Home's "Missing …" line
+// (UX-HOME-3) asks about tonight's dinner only, not the day's lunch too.
 export async function loadMissingIngredients(
   householdId: string,
   range: { from: Date; to: Date },
+  mealType?: MealType,
 ): Promise<{ items: MissingIngredientData[] }> {
   // Filters on each entry's own `date` rather than looking up one MealPlan
   // by weekStartDate, so a range can span several weeks' MealPlan rows (or
@@ -33,6 +37,7 @@ export async function loadMissingIngredients(
       mealPlan: { householdId: householdId },
       date: { gte: range.from, lt: range.to },
       recipeId: { not: null },
+      ...(mealType ? { mealType } : {}),
     },
     select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
   });

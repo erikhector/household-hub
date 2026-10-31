@@ -23,7 +23,7 @@ test("Ctrl+K opens the palette, typing filters it and Enter runs the command", a
   const input = palette.getByRole("combobox", { name: "Type a command" });
   await expect(input).toBeFocused();
   await expect(palette.getByRole("option", { name: "Add task" })).toBeVisible();
-  await expect(palette.getByRole("option", { name: "Go to Overview" })).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Go to Home" })).toBeVisible();
 
   await input.fill("household bud");
   await expect(palette.getByRole("option")).toHaveCount(1);

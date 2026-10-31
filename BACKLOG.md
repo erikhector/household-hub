@@ -665,18 +665,6 @@ left out.
       `mobile` e2e adds two unmatched rows and asserts the explanation text
       appears once.
 
-- [ ] **UX-169. The overview's restock tile leads with the alarm**
-      (impact: med, effort: S) — breaks Hierarchy ("the key number or
-      status … is the first thing the eye lands on"). The "Low stock items"
-      tile prints "0" at stat size with "1 out of stock" small and red
-      beneath it; "Total items tracked: 6" gets the same stat treatment as
-      a number nobody acts on (`src/app/dashboard/page.tsx` stat cards,
-      `mobile-en-dashboard.png`).
-      Acceptance: one "Needs restocking" tile whose stat is low + out with
-      the split as its caption; the "Total items tracked" tile is removed
-      or folded into the inventory link text. `overview-stat-cards.spec.ts`
-      asserts the stat equals the seeded low + out count.
-
 - [ ] **UX-170. Scroll affordance on the tabs track** (impact: low,
       effort: S) — breaks Recognition. The budget and meal-planning tabs
       tracks scroll horizontally and clip "Coo" / "Insi" at 320 px and at
