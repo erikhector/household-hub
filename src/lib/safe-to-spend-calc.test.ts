@@ -3,6 +3,7 @@ import {
   computeSafeToSpend,
   computeStillBudgeted,
   deriveSafeToSpend,
+  incomeSplit,
   needsSafeToSpendSetup,
   type SafeToSpendTransaction,
 } from "@/lib/safe-to-spend-calc";
@@ -758,5 +759,50 @@ describe("computeSafeToSpend with category limits (UX-138)", () => {
     const result = computeSafeToSpend(base);
     expect(result.safeToSpend).toBe(10000);
     expect(result.breakdown.stillBudgeted).toBe(0);
+  });
+});
+
+describe("incomeSplit", () => {
+  const breakdown = {
+    income: 30000,
+    dueIncome: 8000,
+    expense: 20000,
+    savings: 3000,
+    owedFromEarlier: 100,
+    duePayments: 399,
+    dueSavings: 500,
+    stillBudgeted: 1000,
+  };
+
+  it("splits logged and expected income into where it goes, in the arithmetic's terms", () => {
+    // 38 000 − 20 000 − 3 000 − 999 − 1 000 = 13 001
+    expect(incomeSplit(breakdown, 13001)).toEqual({
+      parts: [
+        { key: "spent", value: 20000 },
+        { key: "saved", value: 3000 },
+        { key: "due", value: 999 },
+        { key: "budgeted", value: 1000 },
+        { key: "safe", value: 13001 },
+      ],
+      income: 38000,
+      scale: 38000,
+      over: 0,
+    });
+  });
+
+  it("leaves out empty parts", () => {
+    const split = incomeSplit({ ...breakdown, savings: 0, stillBudgeted: 0 }, 17001);
+    expect(split!.parts.map((p) => p.key)).toEqual(["spent", "due", "safe"]);
+  });
+
+  it("scales to what goes out, and says by how much, when that's more than the income", () => {
+    const split = incomeSplit({ ...breakdown, expense: 40000 }, -6999);
+    expect(split!.parts.map((p) => p.key)).toEqual(["spent", "saved", "due", "budgeted"]);
+    expect(split!.scale).toBe(44999);
+    expect(split!.over).toBe(6999);
+  });
+
+  it("is null with no income to split", () => {
+    expect(incomeSplit({ ...breakdown, income: 0, dueIncome: 0 }, -24999)).toBeNull();
   });
 });

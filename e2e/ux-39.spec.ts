@@ -42,7 +42,7 @@ async function seedSpending(): Promise<string> {
        VALUES ($1, $2, $3, $4, 300, 'EXPENSE', 'MONTHLY')`,
       [templateId, E2E_USER.id, billCategoryId, `Phone ${tag}`],
     );
-    // Everyday spending today and two months ago (the sparkline), plus a
+    // Everyday spending today and two months ago ("vs usual"), plus a
     // bill logged from the recurring item last month (the trend chart).
     // Today's row is dated today itself, so the month's pace has a day.
     await client.query(
@@ -69,8 +69,8 @@ async function seedSpending(): Promise<string> {
   return name;
 }
 
-test("safe to spend projects to month end and categories draw a sparkline", async ({ page }) => {
-  await seedSpending();
+test("safe to spend projects to month end and categories compare with usual", async ({ page }) => {
+  const name = await seedSpending();
   const errors = collectErrors(page);
   await page.goto("/dashboard/personal-budget");
   const main = page.getByRole("main");
@@ -88,11 +88,12 @@ test("safe to spend projects to month end and categories draw a sparkline", asyn
     main.getByRole("table", { name: "Safe to spend today and projected for the end of the month" }),
   ).toBeAttached();
 
-  // The category's sparkline names its six months, this month's spend last.
-  // The month's category breakdown lives on Insights.
+  // Chart redesign (Oct 2026): the category's row says how the month
+  // compares with its usual, in words: 123.45 against the 50 two months ago
+  // is 147% more. The month's category breakdown lives on Insights.
   await main.getByRole("tab", { name: "Insights" }).click();
   await expect(
-    main.getByRole("img", { name: /^Last 6 months: .*50\.00, .*123\.45$/ }).first(),
+    main.getByRole("link", { name: new RegExp(name) }).getByText("147% more than usual"),
   ).toBeVisible();
 
   await expectNoHorizontalOverflow(page);

@@ -3011,6 +3011,17 @@ Component page function can't itself be unit-tested.
   nothing changes. A limit alone does not count as data for the empty
   state (`needsSafeToSpendSetup`), so a fresh budget still asks for income
   instead of showing a negative number. Decided in #397 (option 1).
+- **Where the income goes** (chart redesign, Oct 2026): on the budget
+  Overview (`variant="compact"`), under the daily allowance, a bar splits
+  the month's income (logged plus still expected) into Spent, Saved, Still
+  due (due bills and savings plus anything owed from earlier), Kept for
+  limits (`stillBudgeted`) and Safe to spend, titled "Where this month's
+  {amount} goes", with a key that prints every part's amount (`incomeSplit`
+  in `src/lib/safe-to-spend-calc.ts`, the arithmetic's own terms, so the bar
+  and "How we got this number" agree). Safe to spend takes the number's
+  status colour; the other parts are chart tokens in a fixed order. With
+  more going out than coming in, the bar scales to what goes out and a
+  warning line says by how much. No bar without income.
 - **Projected end of month (UX-39)**: in the current month, under the
   number, a small line chart ("At this pace"): solid for what was safe to
   spend at the end of each day so far, dashed from today to the last day at
@@ -3949,7 +3960,13 @@ in `src/components/charts/` (plain CSS bars and inline SVG, no chart
 library), so household and personal never diverge:
 
 - `BarChart` (client): `FixedBudgetSummary`'s trend ("Fixed income and
-  costs by month") and `CostAnalyzer`'s grocery spend. Each month is one button the full height
+  costs by month") and `CostAnalyzer`'s grocery spend. The fixed trend is
+  `stacked`: one column per month, its income split into costs, savings and
+  what was left over (from the baseline up), with "Income" named first in
+  the readout (`totalLabel`, each group's `total`), so how much a month left
+  is the height of its top part. A part at or below zero draws nothing, and
+  the readout still prints it (a negative "Left over" when costs and
+  savings ran past income). Each month is one button the full height
   of the chart, at least 44 px wide and 8 px apart (M3); tapping selects it
   (`aria-pressed`) and a readout above the bars (`role="status"`) shows that
   month's value per series with its colour dot, which doubles as the legend.
@@ -3963,16 +3980,21 @@ library), so household and personal never diverge:
   with 4 px rounded tops; months before the first one with data are left
   out (`trimLeadingEmpty`); with a mouse, pointing at a month previews its
   values in the readout (tapping still selects).
-- `Sparkline`: `CategoryBreakdown` draws one beside each expense row's bar
-  — the category's spending over the last six months, this month last
-  (`withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
-  12-month lookback window or the personal page's whole history; a row with
-  nothing spent in the window gets none). Its accessible name lists the
-  months and amounts. `CostAnalyzer`'s price trends use it too. The line is
-  one quiet colour (`muted-foreground` at 45%) and only this month's point
-  is marked, in `primary` with a ring of the card's colour, so a column of
-  them reads as "is this month high?" (they used to take chart-1 … chart-5
-  by row position, which coloured a row by its rank).
+- **"Vs usual"** (chart redesign, Oct 2026): each expense row in
+  `CategoryBreakdown` says how this month compares with the category's
+  usual — "18% more than usual", "12% less than usual", or "About as usual"
+  within ±10% — with a trend icon, in muted text (more isn't wrong by
+  itself; the limit says when it is). "Usual" is the average of the earlier
+  months in its six-month history that had any spending (`vsUsual` over
+  `withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
+  12-month lookback window or the personal page's whole history); a row
+  with no earlier spending says nothing. It replaced a per-row sparkline,
+  which showed a shape and left the meaning to the reader. The expenses
+  card opens with one sentence on its point: "{name} is {percent}% of what
+  went out."
+- `Sparkline`: `CostAnalyzer`'s price trends. One quiet colour
+  (`muted-foreground` at 45%), with only the latest point marked, in
+  `primary` with a ring of the card's colour.
 - `ProjectionChart`: Safe to spend's projected end-of-month line (see "Safe
   to spend"), in `primary`, with a 10% wash under the days so far, a
   hairline at today, a ringed dot on today's value and a hollow one on the

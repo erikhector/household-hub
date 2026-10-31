@@ -32,6 +32,10 @@
 //   out (trimLeadingEmpty), so a new budget doesn't open on a row of blanks.
 // - **Hover previews.** With a mouse, pointing at a month shows its values
 //   in the readout; tapping still selects (hover is never the only way).
+// - **Stacked** (`stacked`): one column per month whose parts add up to a
+//   whole the readout names first (`totalLabel` and each group's `total`):
+//   FixedBudgetSummary's income, split into costs, savings and what's left.
+//   A part at or below zero draws nothing; the readout still says its value.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chartFill } from "@/components/charts/chart-colors";
@@ -45,6 +49,9 @@ export type BarGroup = {
   label: string;
   /** One value per series, in series order. */
   values: number[];
+  /** Stacked charts: the whole the parts add up to, named in the readout
+   * before them (`totalLabel`). */
+  total?: number;
 };
 
 export function BarChart({
@@ -54,6 +61,8 @@ export function BarChart({
   groups: allGroups,
   locale,
   currencyCode,
+  stacked = false,
+  totalLabel,
 }: {
   /** What the chart shows — the hidden table's caption. */
   caption: string;
@@ -63,6 +72,11 @@ export function BarChart({
   groups: BarGroup[];
   locale: string;
   currencyCode?: string | null;
+  /** Draw each group's values as one stacked column, in series order from
+   * the baseline up. */
+  stacked?: boolean;
+  /** What each group's `total` is ("Income"), shown first in the readout. */
+  totalLabel?: string;
 }) {
   const numberFormat = useMemo(() => createMoneyFormat(locale, currencyCode), [locale, currencyCode]);
   const tickFormat = useMemo(
@@ -74,7 +88,14 @@ export function BarChart({
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const selected = groups.find((g) => g.key === selectedKey) ?? groups[groups.length - 1];
   const shown = groups.find((g) => g.key === hoveredKey) ?? selected;
-  const top = niceCeiling(Math.max(0, ...groups.flatMap((g) => g.values)));
+  const top = niceCeiling(
+    Math.max(
+      0,
+      ...groups.flatMap((g) =>
+        stacked ? [g.values.reduce((sum, v) => sum + Math.max(0, v), 0), g.total ?? 0] : g.values,
+      ),
+    ),
+  );
   const multi = series.length > 1;
 
   // Start with the latest month in view (the right end on a phone).
@@ -84,10 +105,14 @@ export function BarChart({
     if (el) el.scrollLeft = el.scrollWidth;
   }, []);
 
+  const hasTotal = totalLabel != null;
   const describe = (group: BarGroup) =>
     group.label +
     ": " +
-    series.map((s, i) => (multi ? `${s.label} ` : "") + numberFormat.format(group.values[i] ?? 0)).join(", ");
+    [
+      ...(hasTotal ? [`${totalLabel} ${numberFormat.format(group.total ?? 0)}`] : []),
+      ...series.map((s, i) => (multi ? `${s.label} ` : "") + numberFormat.format(group.values[i] ?? 0)),
+    ].join(", ");
 
   // The scale's three lines, top first: 100%, 50% and the baseline.
   const ticks = top > 0 ? [top, top / 2, 0] : [];
@@ -99,6 +124,12 @@ export function BarChart({
         // beside its value, so colour is never the only key (≥ 2 series).
         <div role="status" className="flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-sm font-semibold text-foreground">{shown.label}</span>
+          {hasTotal && (
+            <span className="flex items-center gap-1.5 text-sm">
+              <span className="text-muted-foreground">{totalLabel}</span>
+              <span className="font-semibold tabular-nums">{numberFormat.format(shown.total ?? 0)}</span>
+            </span>
+          )}
           {series.map((s, i) => (
             <span key={s.key} className="flex items-center gap-1.5 text-sm">
               <span aria-hidden className={`size-2.5 shrink-0 rounded-[3px] ${chartFill(i)}`} />
@@ -159,15 +190,34 @@ export function BarChart({
                     (isSelected ? "bg-muted/80" : "hover:bg-muted/50")
                   }
                 >
-                  <span aria-hidden className="flex h-32 w-full items-end justify-center gap-0.5">
-                    {series.map((s, i) => (
-                      <span
-                        key={s.key}
-                        className={`w-full rounded-t-[4px] ${multi ? "max-w-2.5" : "max-w-6"} ${chartFill(i)}`}
-                        style={{ height: `${barHeightPercent(group.values[i] ?? 0, top)}%` }}
-                      />
-                    ))}
-                  </span>
+                  {stacked ? (
+                    // Parts from the baseline up, 2 px of card between them;
+                    // only the topmost drawn part gets the rounded end.
+                    <span aria-hidden className="flex h-32 w-full flex-col-reverse items-center gap-0.5">
+                      {series.map((s, i) => {
+                        const value = group.values[i] ?? 0;
+                        if (value <= 0) return null;
+                        const isTop = !group.values.slice(i + 1).some((v) => v > 0);
+                        return (
+                          <span
+                            key={s.key}
+                            className={`w-full max-w-6 shrink-0 ${isTop ? "rounded-t-[4px]" : ""} ${chartFill(i)}`}
+                            style={{ height: `${(value / top) * 100}%` }}
+                          />
+                        );
+                      })}
+                    </span>
+                  ) : (
+                    <span aria-hidden className="flex h-32 w-full items-end justify-center gap-0.5">
+                      {series.map((s, i) => (
+                        <span
+                          key={s.key}
+                          className={`w-full rounded-t-[4px] ${multi ? "max-w-2.5" : "max-w-6"} ${chartFill(i)}`}
+                          style={{ height: `${barHeightPercent(group.values[i] ?? 0, top)}%` }}
+                        />
+                      ))}
+                    </span>
+                  )}
                   <span
                     aria-hidden
                     className={
@@ -192,6 +242,7 @@ export function BarChart({
           <thead>
             <tr>
               <th scope="col">{groupHeader}</th>
+              {hasTotal && <th scope="col">{totalLabel}</th>}
               {series.map((s) => (
                 <th key={s.key} scope="col">
                   {s.label}
@@ -203,6 +254,7 @@ export function BarChart({
             {groups.map((group) => (
               <tr key={group.key}>
                 <th scope="row">{group.label}</th>
+                {hasTotal && <td>{numberFormat.format(group.total ?? 0)}</td>}
                 {series.map((s, i) => (
                   <td key={s.key}>{numberFormat.format(group.values[i] ?? 0)}</td>
                 ))}

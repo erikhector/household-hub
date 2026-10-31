@@ -3,9 +3,10 @@
 // (recurring template totals by item) so both "how is this split up" views
 // look and behave identically.
 //
-// UX-39: a row with a `history` gets a spending sparkline beside its bar
-// (src/components/charts/): the last few months of that category, this month
-// last and marked, so "is this normal for us?" is one glance away.
+// UX-39: a row with a `history` answers "is this normal for us?". Chart
+// redesign (Oct 2026): in words ("18% more than usual", vsUsual in
+// src/lib/chart-calc.ts) rather than a word-sized sparkline, which showed a
+// shape but left the reader to work out what it meant.
 //
 // UX-115: the bars themselves carry status, not category. DESIGN.md keeps
 // chart colours for marks and status for success/warning/destructive paired
@@ -14,11 +15,11 @@
 // Otherwise a category at 96% could read green and one at 36% pink.
 
 import Link from "next/link";
-import { ChevronRight, TriangleAlert } from "lucide-react";
+import { ChevronRight, Minus, TrendingDown, TrendingUp, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import { limitProgress } from "@/lib/budget-category-limit";
-import { Sparkline } from "@/components/charts/sparkline";
+import { vsUsual } from "@/lib/chart-calc";
 
 export type CategoryTotal = {
   id: string;
@@ -40,12 +41,11 @@ export type CategoryTotal = {
   history?: number[];
 };
 
-/** UX-39: what a row's sparkline needs to name its values for screen
- * readers — one short month label per history entry, and the sentence
- * they go into. */
-export type CategoryHistoryLabels = {
-  months: string[];
-  label: string;
+/** The three ways a row's month compares with its usual (vsUsual). */
+export type CategoryUsualDict = {
+  vsUsualMore: string;
+  vsUsualLess: string;
+  vsUsualSame: string;
 };
 
 /** The two strings a capped row needs — only PeriodSummary's expense
@@ -64,7 +64,8 @@ export function CategoryBreakdown({
   emptyMessage,
   numberFormat,
   limitDict,
-  history,
+  usualDict,
+  note,
   hrefFor,
 }: {
   title: string;
@@ -73,7 +74,11 @@ export function CategoryBreakdown({
   emptyMessage: string;
   numberFormat: Intl.NumberFormat;
   limitDict?: CategoryLimitDict;
-  history?: CategoryHistoryLabels;
+  /** Rows carrying a `history` say how this month compares with usual. */
+  usualDict?: CategoryUsualDict;
+  /** One sentence under the title saying what the list shows ("Rent is 57%
+   * of it"), so the card opens on its point rather than its parts. */
+  note?: string;
   /** Phone pass (Oct 2026), P3: where a row leads — PeriodSummary sends a
    * category's row to the Transactions tab filtered to it. A row without
    * an href (or with no `hrefFor` at all, as in FixedBudgetSummary, whose
@@ -84,6 +89,7 @@ export function CategoryBreakdown({
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {note && <p className="text-sm text-muted-foreground">{note}</p>}
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
@@ -122,10 +128,18 @@ export function CategoryBreakdown({
                 : progress?.near
                   ? "text-warning"
                   : "text-muted-foreground";
-              const sparkline =
-                history && item.history && item.history.length === history.months.length
-                  ? item.history
-                  : null;
+              const usual = usualDict && item.history ? vsUsual(item.history) : null;
+              const usualText = usual
+                ? format(
+                    usual.direction === "more"
+                      ? usualDict!.vsUsualMore
+                      : usual.direction === "less"
+                        ? usualDict!.vsUsualLess
+                        : usualDict!.vsUsualSame,
+                    { percent: usual.percent },
+                  )
+                : null;
+              const UsualIcon = usual?.direction === "more" ? TrendingUp : usual?.direction === "less" ? TrendingDown : Minus;
               const href = hrefFor?.(item) ?? null;
               // Name and amount on one line, the meter (and the trend) under
               // them, and what the amount is measured against under that.
@@ -137,58 +151,58 @@ export function CategoryBreakdown({
                     <span className="min-w-0 truncate font-medium">{item.name}</span>
                     <span className="shrink-0 font-semibold tabular-nums">{numberFormat.format(item.total)}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className={`h-2 min-w-0 flex-1 overflow-hidden rounded-full ${meter.track}`}>
-                      <div
-                        className={`h-full rounded-full ${meter.fill}`}
-                        // A capped category with nothing spent yet shows an
-                        // empty track rather than the 2% sliver an uncapped
-                        // row gets (that sliver only exists so a tiny share
-                        // stays visible next to bigger ones).
-                        style={{ width: `${progress ? share : Math.max(share, 2)}%` }}
-                      />
-                    </div>
-                    {sparkline && history && (
-                      <Sparkline
-                        points={sparkline}
-                        className="h-5 w-14 shrink-0"
-                        label={format(history.label, {
-                          count: sparkline.length,
-                          values: sparkline
-                            .map((v, i) => `${history.months[i]} ${numberFormat.format(v)}`)
-                            .join(", "),
-                        })}
-                      />
-                    )}
+                  <div className={`h-2 overflow-hidden rounded-full ${meter.track}`}>
+                    <div
+                      className={`h-full rounded-full ${meter.fill}`}
+                      // A capped category with nothing spent yet shows an
+                      // empty track rather than the 2% sliver an uncapped
+                      // row gets (that sliver only exists so a tiny share
+                      // stays visible next to bigger ones).
+                      style={{ width: `${progress ? share : Math.max(share, 2)}%` }}
+                    />
                   </div>
-                  {progress && limitDict && available != null && (
-                    <p className={`flex items-center gap-1 text-xs tabular-nums ${statusText}`}>
-                      {/* DESIGN.md: status is never colour alone. */}
-                      {(progress.over || progress.near) && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
-                      <span>
-                        {format(limitDict.ofLimit, { limit: numberFormat.format(available) })}
-                        {progress.over && (
-                          <>
-                            {" · "}
-                            {format(limitDict.overLimitBy, {
-                              amount: numberFormat.format(item.total - available),
-                            })}
-                          </>
-                        )}
-                        {progress.near && (
-                          <>
-                            {" · "}
-                            {limitDict.almostAtLimit}
-                          </>
-                        )}
-                        {carried > 0 && (
-                          <>
-                            {" · "}
-                            {format(limitDict.carriedOver, { amount: numberFormat.format(carried) })}
-                          </>
-                        )}
-                      </span>
-                    </p>
+                  {((progress && limitDict && available != null) || usualText) && (
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs">
+                      {progress && limitDict && available != null ? (
+                        <p className={`flex items-center gap-1 tabular-nums ${statusText}`}>
+                          {/* DESIGN.md: status is never colour alone. */}
+                          {(progress.over || progress.near) && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
+                          <span>
+                            {format(limitDict.ofLimit, { limit: numberFormat.format(available) })}
+                            {progress.over && (
+                              <>
+                                {" · "}
+                                {format(limitDict.overLimitBy, {
+                                  amount: numberFormat.format(item.total - available),
+                                })}
+                              </>
+                            )}
+                            {progress.near && (
+                              <>
+                                {" · "}
+                                {limitDict.almostAtLimit}
+                              </>
+                            )}
+                            {carried > 0 && (
+                              <>
+                                {" · "}
+                                {format(limitDict.carriedOver, { amount: numberFormat.format(carried) })}
+                              </>
+                            )}
+                          </span>
+                        </p>
+                      ) : (
+                        <span />
+                      )}
+                      {usualText && (
+                        // Neutral, never red or green: spending more than usual
+                        // isn't wrong by itself (the limit says when it is).
+                        <p className="flex items-center gap-1 text-muted-foreground tabular-nums">
+                          <UsualIcon className="size-3 shrink-0" aria-hidden />
+                          {usualText}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </>
               );

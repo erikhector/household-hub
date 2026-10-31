@@ -425,13 +425,9 @@ async function PersonalBudgetTabsSection({
       // shared-household mirror rows (`shared:` ids) never match a
       // personal category, so they keep their plain proportional bar.
       // GAP-21: the carried balance (at most back to January — see
-      // src/lib/budget-rollover-calc.ts) and UX-39's sparklines both read
-      // the loader's 12-month trailing window, so they need no extra query.
+      // src/lib/budget-rollover-calc.ts) and UX-39's "vs usual" history both
+      // read the loader's 12-month trailing window, so they need no extra query.
       expenseByCategory={expenseRows}
-      // Its label month (the 1st of the month the period is named for),
-      // like the household page's: with a payday start day the period's
-      // own start is in the month before.
-      monthStart={parseMonthKey(monthKey)}
       savingsByCategory={savingsByCategory}
       // P3: each of the viewer's own categories drills into Transactions,
       // filtered to it, for the same month.

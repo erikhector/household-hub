@@ -74,17 +74,21 @@ export function withSpendHistory<Row extends { id: string }>(
   });
 }
 
-/** Short month names ("May", "jun") for the `months` entries of a
- * withSpendHistory history ending at `monthStart`, in the same order. */
-export function historyMonthLabels(
-  monthStart: Date,
-  locale: string,
-  months: number = SPEND_HISTORY_MONTHS,
-): string[] {
-  const monthFormat = new Intl.DateTimeFormat(locale, { month: "short" });
-  return Array.from({ length: months }, (_, i) =>
-    monthFormat.format(addMonths(monthStart, i - (months - 1))),
-  );
+/** Chart redesign (Oct 2026): how this month compares with the category's
+ * usual, for a breakdown row's "18% more than usual". `history` is a
+ * withSpendHistory history (oldest first, this month last). "Usual" is the
+ * average of the earlier months that had any spending, so months from before
+ * the category was used don't drag it down. Null with no earlier spending to
+ * compare against. Within ±10% counts as "same": small wobbles aren't news. */
+export function vsUsual(history: number[]): { direction: "more" | "less" | "same"; percent: number } | null {
+  if (history.length < 2) return null;
+  const current = history[history.length - 1];
+  const earlier = history.slice(0, -1).filter((v) => v > 0);
+  if (earlier.length === 0) return null;
+  const usual = earlier.reduce((sum, v) => sum + v, 0) / earlier.length;
+  const percent = Math.round(((current - usual) / usual) * 100);
+  if (Math.abs(percent) < 10) return { direction: "same", percent: Math.abs(percent) };
+  return { direction: percent > 0 ? "more" : "less", percent: Math.abs(percent) };
 }
 
 /** What projectMonthEnd needs from a transaction: the discretionary filter

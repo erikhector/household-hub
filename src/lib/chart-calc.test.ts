@@ -5,7 +5,7 @@ import {
   trimLeadingEmpty,
   countUpValue,
   dailyAllowance,
-  historyMonthLabels,
+  vsUsual,
   projectMonthEnd,
   withSpendHistory,
   type ProjectionTransaction,
@@ -77,16 +77,20 @@ describe("withSpendHistory", () => {
   });
 });
 
-describe("historyMonthLabels", () => {
-  it("names the window's months oldest first, ending at the viewed month", () => {
-    expect(historyMonthLabels(new Date(2026, 1, 1), "en")).toEqual([
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-      "Jan",
-      "Feb",
-    ]);
+describe("vsUsual", () => {
+  it("compares this month with the average of earlier months that had spending", () => {
+    // Usual is (400 + 600) / 2 = 500; 590 is 18% more.
+    expect(vsUsual([0, 0, 400, 0, 600, 590])).toEqual({ direction: "more", percent: 18 });
+    expect(vsUsual([500, 500, 500, 250])).toEqual({ direction: "less", percent: 50 });
+  });
+
+  it("calls a change under 10% the same", () => {
+    expect(vsUsual([500, 500, 530])).toEqual({ direction: "same", percent: 6 });
+  });
+
+  it("has nothing to say without earlier spending", () => {
+    expect(vsUsual([0, 0, 0, 300])).toBeNull();
+    expect(vsUsual([300])).toBeNull();
   });
 });
 

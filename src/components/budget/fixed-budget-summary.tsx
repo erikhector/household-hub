@@ -8,8 +8,8 @@
 // so it can be reused for the personal budget too, same trick PeriodSummary
 // already uses.
 //
-// UX-39: the trend is the shared BarChart (src/components/charts/): tap a
-// month to read its income, costs and savings.
+// UX-39: the trend is the shared BarChart (src/components/charts/), stacked:
+// tap a month to read its income and where it went.
 //
 // Budget redesign (Oct 2026): one card — a sentence with the monthly numbers
 // and whether they leave room, then the trend, with the items behind it
@@ -104,18 +104,27 @@ export function FixedBudgetSummary({
         {!hasTrendData ? (
           <p className="text-sm text-muted-foreground">{dict.noTrendData}</p>
         ) : (
+          // Chart redesign (Oct 2026): each month's income as one column,
+          // split into what went to costs, to savings and what was left, so
+          // "how much did the month leave?" is the height of the top part,
+          // not a sum the reader does across three side-by-side bars.
           <BarChart
             caption={dict.trendTitle}
             groupHeader={dict.chartMonth}
+            stacked
+            totalLabel={dict.legendIncome}
             series={[
-              { key: "income", label: dict.legendIncome },
               { key: "expense", label: dict.legendExpense },
               { key: "savings", label: dict.legendSavings },
+              { key: "left", label: dict.legendLeft },
             ]}
             groups={monthlyTotals.map((point) => ({
               key: point.month,
               label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
-              values: [point.income, point.expense, point.savings],
+              total: point.income,
+              // Negative when costs and savings ran past income: the readout
+              // says so, and the column draws no "left" part.
+              values: [point.expense, point.savings, point.income - point.expense - point.savings],
             }))}
             locale={locale}
             currencyCode={currencyCode}

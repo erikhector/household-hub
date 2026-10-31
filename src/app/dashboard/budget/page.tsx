@@ -776,9 +776,8 @@ async function BudgetTabsSection({
       // expense total above. GAP-21: rollover-enabled rows then get their
       // carried balance from earlier months, read from the lookback window
       // (see RECURRING_LOOKBACK_MONTHS) rather than monthTransactions.
-      // UX-39: each row's sparkline comes from the same window.
+      // UX-39: each row's "vs usual" history comes from the same window.
       expenseByCategory={expenseRows}
-      monthStart={parseMonthKey(monthKey)}
       savingsByCategory={savingsByCategory}
       // P3: each of the viewer's own categories drills into Transactions,
       // filtered to it, for the same month.

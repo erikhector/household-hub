@@ -2507,7 +2507,10 @@ export const sv = {
       almostAtLimit: "Nära gränsen",
       carriedOver: "varav {amount} överfört",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Senaste {count} månaderna: {values}",
+      vsUsualMore: "{percent} % mer än vanligt",
+      vsUsualLess: "{percent} % mindre än vanligt",
+      vsUsualSame: "Ungefär som vanligt",
+      topShare: "{name} står för {percent} % av det som gått ut.",
     },
     savingsGoals: {
       title: "Sparmål",
@@ -2552,6 +2555,13 @@ export const sv = {
       lineStillBudgeted: "Ännu budgeterat",
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
+      splitTitle: "Vart månadens {amount} tar vägen",
+      splitSpent: "Spenderat",
+      splitSaved: "Sparat",
+      splitDue: "Ska betalas",
+      splitBudgeted: "Reserverat i gränser",
+      splitSafe: "Säkert att spendera",
+      splitOver: "{amount} mer går ut än kommer in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} för idag, månadens sista dag.",
@@ -2850,6 +2860,7 @@ export const sv = {
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",
+      legendLeft: "Kvar",
       chartMonth: "Månad",
       statusBalanced: "Det lämnar utrymme i budgeten.",
       itemsToggle: "Se vad som ingår",
@@ -2992,7 +3003,10 @@ export const sv = {
       almostAtLimit: "Nära gränsen",
       carriedOver: "varav {amount} överfört",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Senaste {count} månaderna: {values}",
+      vsUsualMore: "{percent} % mer än vanligt",
+      vsUsualLess: "{percent} % mindre än vanligt",
+      vsUsualSame: "Ungefär som vanligt",
+      topShare: "{name} står för {percent} % av det som gått ut.",
     },
     savingsGoals: {
       title: "Sparmål",
@@ -3037,6 +3051,13 @@ export const sv = {
       lineStillBudgeted: "Ännu budgeterat",
       lineRemaining: "Kvar efter utgifter och sparande",
       breakdownToggle: "Så räknade vi",
+      splitTitle: "Vart månadens {amount} tar vägen",
+      splitSpent: "Spenderat",
+      splitSaved: "Sparat",
+      splitDue: "Ska betalas",
+      splitBudgeted: "Reserverat i gränser",
+      splitSafe: "Säkert att spendera",
+      splitOver: "{amount} mer går ut än kommer in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} för idag, månadens sista dag.",
@@ -3256,6 +3277,7 @@ export const sv = {
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",
+      legendLeft: "Kvar",
       chartMonth: "Månad",
       statusBalanced: "Det lämnar utrymme i budgeten.",
       itemsToggle: "Se vad som ingår",

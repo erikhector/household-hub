@@ -27,7 +27,7 @@ test("Overview shows each number once and keeps due items to one line", async ({
   await page.goto("/dashboard/budget");
   const main = page.getByRole("main");
 
-  await expect(main.getByText("Safe to spend", { exact: true })).toBeVisible();
+  await expect(main.getByText("Safe to spend", { exact: true }).first()).toBeVisible();
   // The totals and the arithmetic are a tap away, not on screen.
   const arithmetic = main.getByText("Remaining after expenses and savings", { exact: true }).filter({ visible: true });
   await expect(arithmetic).toHaveCount(0);
@@ -202,4 +202,35 @@ test("a month before the recurring items existed says nothing was due", async ({
   const color = await manage.evaluate((el) => getComputedStyle(el).color);
   const body = await page.locator("body").evaluate((el) => getComputedStyle(el).color);
   expect(color).not.toBe(body);
+});
+
+// Chart redesign (Oct 2026): under the number, a bar splits the month's
+// income into where it goes, with a key that prints every part's amount, so
+// the number explains itself without opening "How we got this number".
+test("Safe to spend shows where the month's income goes", async ({ page, isMobile }) => {
+  const tag = budgetTag();
+  await withDb(async (client) => {
+    await insertHouseholdCategory(client, { id: `e2e-split-inc-${tag}`, name: `Wages ${tag}`, type: "INCOME" });
+    await insertHouseholdCategory(client, { id: `e2e-split-exp-${tag}`, name: `Hardware ${tag}` });
+    await insertHouseholdTransaction(client, {
+      id: `e2e-split-tx-inc-${tag}`,
+      categoryId: `e2e-split-inc-${tag}`,
+      amount: 900000,
+      type: "INCOME",
+    });
+    await insertHouseholdTransaction(client, { id: `e2e-split-tx-exp-${tag}`, categoryId: `e2e-split-exp-${tag}`, amount: 1234 });
+  });
+  await page.goto("/dashboard/budget");
+  const main = page.getByRole("main");
+
+  // The worker's household collects other specs' rows, so the amounts are
+  // checked loosely: the title names the income, and both ends of the key
+  // are there with a number each.
+  await expect(main.getByText(/^Where this month's .+ goes$/)).toBeVisible();
+  const key = main.getByRole("list").filter({ hasText: "Safe to spend" });
+  await expect(key.getByText("Spent", { exact: true })).toBeVisible();
+  await expect(key.getByRole("listitem").filter({ hasText: "Spent" })).toContainText(/\d/);
+  await expect(key.getByRole("listitem").filter({ hasText: "Safe to spend" })).toContainText(/\d/);
+  if (isMobile) await expectTouchTargets(page);
+  await expectNoHorizontalOverflow(page);
 });

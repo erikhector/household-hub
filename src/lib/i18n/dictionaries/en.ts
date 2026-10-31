@@ -2635,7 +2635,12 @@ export const en = {
       almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Last {count} months: {values}",
+      // Chart redesign (Oct 2026): a row's month against its usual, and the
+      // expenses card's one-line takeaway.
+      vsUsualMore: "{percent}% more than usual",
+      vsUsualLess: "{percent}% less than usual",
+      vsUsualSame: "About as usual",
+      topShare: "{name} is {percent}% of what went out.",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -2683,6 +2688,14 @@ export const en = {
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
+      // Chart redesign (Oct 2026): the split bar under the number.
+      splitTitle: "Where this month's {amount} goes",
+      splitSpent: "Spent",
+      splitSaved: "Saved",
+      splitDue: "Still due",
+      splitBudgeted: "Kept for limits",
+      splitSafe: "Safe to spend",
+      splitOver: "{amount} more is going out than coming in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} for today, the last day of the month.",
@@ -2991,6 +3004,7 @@ export const en = {
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      legendLeft: "Left over",
       chartMonth: "Month",
       statusBalanced: "That leaves room in the budget.",
       itemsToggle: "See what's in it",
@@ -3139,7 +3153,12 @@ export const en = {
       almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Last {count} months: {values}",
+      // Chart redesign (Oct 2026): a row's month against its usual, and the
+      // expenses card's one-line takeaway.
+      vsUsualMore: "{percent}% more than usual",
+      vsUsualLess: "{percent}% less than usual",
+      vsUsualSame: "About as usual",
+      topShare: "{name} is {percent}% of what went out.",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -3187,6 +3206,14 @@ export const en = {
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
+      // Chart redesign (Oct 2026): the split bar under the number.
+      splitTitle: "Where this month's {amount} goes",
+      splitSpent: "Spent",
+      splitSaved: "Saved",
+      splitDue: "Still due",
+      splitBudgeted: "Kept for limits",
+      splitSafe: "Safe to spend",
+      splitOver: "{amount} more is going out than coming in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} for today, the last day of the month.",
@@ -3423,6 +3450,7 @@ export const en = {
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      legendLeft: "Left over",
       chartMonth: "Month",
       statusBalanced: "That leaves room in the budget.",
       itemsToggle: "See what's in it",
