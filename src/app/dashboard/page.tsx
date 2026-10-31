@@ -368,33 +368,42 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
             </Link>
           </div>
         )}
-        <div className="list-bleed grid gap-4 sm:grid-cols-3">
+        <div className="list-bleed grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {dict.dashboard.lowStockItems}
+                {dict.dashboard.needsRestocking}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-1">
-              {needsRestock.length === 0 ? (
+              {items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{dict.dashboard.nothingTrackedYet}</p>
+              ) : needsRestock.length === 0 ? (
                 <p className="flex items-center gap-2 font-display text-xl font-semibold text-success">
                   <CircleCheck className="size-6 shrink-0" aria-hidden="true" />
                   {dict.dashboard.allStockedUp}
                 </p>
               ) : (
                 <>
-                  {/* Warning colour only for a real count; a 0 beside an
-                      out-of-stock line is just a number. */}
+                  {/* UX-169: the stat is everything that needs restocking
+                      (low + out), the thing the household acts on; the split
+                      is its caption. Amber while anything is merely low, red
+                      only when all of it is out of stock. */}
                   <p
-                    className={`font-display text-3xl font-semibold ${lowCount > 0 ? "text-warning" : "text-foreground"}`}
+                    className={`font-display text-3xl font-semibold ${lowCount > 0 ? "text-warning" : "text-destructive"}`}
                   >
-                    {lowCount}
+                    {needsRestock.length}
                   </p>
-                  {outCount > 0 && (
-                    <p className="text-sm text-destructive">
-                      {format(plural(outCount, dict.dashboard.outOfStock), { count: outCount })}
-                    </p>
-                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {[
+                      lowCount > 0 ? format(dict.dashboard.lowCaption, { count: lowCount }) : null,
+                      outCount > 0
+                        ? format(plural(outCount, dict.dashboard.outOfStock), { count: outCount })
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                   {alreadyOnListCount > 0 && (
                     <p className="text-sm text-muted-foreground">
                       {format(plural(alreadyOnListCount, dict.dashboard.alreadyOnList), {
@@ -410,7 +419,9 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
                 className={CARD_LINK_BUTTON}
                 render={<Link href={needsRestock.length === 0 ? "/dashboard/inventory" : lowStockHref} />}
               >
-                {dict.dashboard.viewInventory}
+                {items.length === 0
+                  ? dict.dashboard.addFirstItem
+                  : format(plural(items.length, dict.dashboard.viewInventoryCount), { count: items.length })}
                 <ChevronRight className="size-4" />
               </Button>
             </CardContent>
@@ -447,32 +458,6 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
                   : onlyList
                     ? format(dict.dashboard.openShoppingList, { name: onlyList.name })
                     : dict.dashboard.viewShoppingLists}
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {dict.dashboard.totalItemsTracked}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-1">
-              {items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{dict.dashboard.nothingTrackedYet}</p>
-              ) : (
-                <>
-                  <p className="font-display text-3xl font-semibold text-foreground">{items.length}</p>
-                  <p className="text-sm text-muted-foreground">{dict.dashboard.inInventory}</p>
-                </>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className={CARD_LINK_BUTTON}
-                render={<Link href="/dashboard/inventory" />}
-              >
-                {items.length === 0 ? dict.dashboard.addFirstItem : dict.dashboard.browseItems}
                 <ChevronRight className="size-4" />
               </Button>
             </CardContent>

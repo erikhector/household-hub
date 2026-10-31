@@ -580,7 +580,8 @@ export const en = {
     setUpPersonalBudgetCta: "Set up your personal budget",
     viewPersonalBudget: "View personal budget",
     householdSectionTitle: "Your household",
-    lowStockItems: "Low stock items",
+    needsRestocking: "Needs restocking",
+    lowCaption: "{count} low",
     outOfStock: {
       one: "{count} out of stock",
       other: "{count} out of stock",
@@ -595,16 +596,16 @@ export const en = {
     openShoppingList: "Open {name}",
     nothingTrackedYet: "Nothing tracked yet",
     addFirstItem: "Add your first item",
-    browseItems: "Browse all items",
-    viewInventory: "View inventory",
+    viewInventoryCount: {
+      one: "View inventory ({count} item)",
+      other: "View inventory ({count} items)",
+    },
     shoppingLists: "Shopping lists",
     itemsToBuyAcross: {
       one: "items to buy across {count} active list",
       other: "items to buy across {count} active lists",
     },
     viewShoppingLists: "View shopping lists",
-    totalItemsTracked: "Total items tracked",
-    inInventory: "in inventory",
     mealPrepTitle: "Meal prep",
     viewMealPrep: "View meal prep",
     gettingStarted: {

@@ -540,7 +540,8 @@ export const sv = {
     setUpPersonalBudgetCta: "Sätt upp din personliga budget",
     viewPersonalBudget: "Visa personlig budget",
     householdSectionTitle: "Ditt hushåll",
-    lowStockItems: "Varor med lågt lager",
+    needsRestocking: "Behöver fyllas på",
+    lowCaption: "{count} lågt lager",
     outOfStock: {
       one: "{count} slut i lager",
       other: "{count} slut i lager",
@@ -555,16 +556,16 @@ export const sv = {
     openShoppingList: "Öppna {name}",
     nothingTrackedYet: "Inget i lagret än",
     addFirstItem: "Lägg till din första vara",
-    browseItems: "Bläddra bland alla varor",
-    viewInventory: "Visa lager",
+    viewInventoryCount: {
+      one: "Visa lager ({count} vara)",
+      other: "Visa lager ({count} varor)",
+    },
     shoppingLists: "Inköpslistor",
     itemsToBuyAcross: {
       one: "varor att köpa på {count} aktiv lista",
       other: "varor att köpa på {count} aktiva listor",
     },
     viewShoppingLists: "Visa inköpslistor",
-    totalItemsTracked: "Antal varor totalt",
-    inInventory: "i lagret",
     mealPrepTitle: "Matlådor",
     viewMealPrep: "Visa matlådor",
     gettingStarted: {

@@ -218,7 +218,7 @@ test("overview stats meet text contrast in the light theme", async ({ page }) =>
   // ("View shopping lists"). The chart-1/2 fills these wore were 3.5:1 and
   // 2.9:1 on card. The safe-to-spend card's tinted background doesn't
   // resolve to a plain colour triple, so it stays out of this math.
-  const headings = ["Low stock items", "Shopping lists", "Total items tracked"];
+  const headings = ["Needs restocking", "Shopping lists"];
   // The cards stream in after the page shell (slowest on phones), so wait
   // for each heading before measuring — otherwise the locator races the
   // render and finds nothing.

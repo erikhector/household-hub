@@ -566,18 +566,20 @@ outbound email to arbitrary addresses via this app's sending domain.
   `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
   first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
   cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
-- **Overview stat cards (UX-71)**: the three household cards read honestly
-  and each leads somewhere. Low stock counts items strictly *low* (the same
-  meaning as the inventory filter), so the number matches its link
-  (`/dashboard/inventory?status=low`; `?status=out` when only out-of-stock
-  items remain). The number is warning-coloured only above 0, out-of-stock
-  is its own red line, "N already on your list" counts items needing restock
-  with an unpurchased row on an active list, and when nothing needs
-  restocking the card reads "All stocked up" with a check icon. The shopping
-  card opens the list itself when there's exactly one active list, shows
-  "No lists yet — start one" with a "Start a list" button when there are
-  none. Total items tracked links to the inventory ("Add your first item"
-  when empty). Covered by `e2e/overview-stat-cards.spec.ts`.
+- **Overview stat cards (UX-71, UX-169)**: two household cards that read
+  honestly and each lead somewhere. "Needs restocking" leads with low + out
+  of stock as its stat (amber while anything is merely low, red when it is
+  all out of stock), with the split as its caption ("1 low · 1 out of
+  stock"). "N already on your list" counts items needing restock with an
+  unpurchased row on an active list. Nothing needing restock reads "All
+  stocked up" with a check icon, and an empty inventory reads "Nothing
+  tracked yet" with an "Add your first item" button. The button reads "View
+  inventory (N items)", folding in the total that used to be its own stat
+  tile, and opens `/dashboard/inventory?status=low` (`?status=out` when only
+  out-of-stock items remain). The shopping card opens the list itself when
+  there's exactly one active list, and shows "No lists yet — start one" with
+  a "Start a list" button when there are none. Covered by
+  `e2e/overview-stat-cards.spec.ts`.
 
 ## Data model
 

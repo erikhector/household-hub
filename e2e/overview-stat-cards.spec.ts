@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { Client } from "pg";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
-// UX-71: the overview's three household cards tell the truth about their
+// UX-71: the overview's two household cards tell the truth about their
 // numbers and every one of them leads somewhere. Own account and household
 // (like overview.spec.ts) so the counts are exactly what this test inserts.
 
@@ -46,19 +46,19 @@ test.describe("the household stat cards", () => {
         main.locator('[data-slot="card"]').filter({ has: page.getByText(title, { exact: true }) });
 
       // Nothing yet: friendly copy and a way forward, no "0" in warning amber.
-      await expect(card("Low stock items").getByText("All stocked up")).toBeVisible();
-      await expect(card("Low stock items").locator("svg").first()).toBeVisible();
+      await expect(card("Needs restocking").getByText("Nothing tracked yet")).toBeVisible();
+      await expect(card("Needs restocking").getByRole("link", { name: "Add your first item" })).toBeVisible();
       await expect(card("Shopping lists").getByText("No lists yet — start one")).toBeVisible();
       await expect(card("Shopping lists").getByRole("link", { name: "Start a list" })).toBeVisible();
-      await expect(card("Total items tracked").getByText("Nothing tracked yet")).toBeVisible();
-      await expect(card("Total items tracked").getByRole("link", { name: "Add your first item" })).toBeVisible();
+      await expect(main.getByText("Total items tracked")).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
 
       // One low item (already on the list), one out of stock, one list.
       await client.query(
         `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
-         VALUES ($1, $2, 'Flour', 'Pantry', 1, 'kg', 2, now()), ($3, $2, 'Salt', 'Pantry', 0, 'kg', 1, now())`,
-        [`e2e-sc-flour-${tag}`, householdId, `e2e-sc-salt-${tag}`],
+         VALUES ($1, $2, 'Flour', 'Pantry', 1, 'kg', 2, now()), ($3, $2, 'Salt', 'Pantry', 0, 'kg', 1, now()),
+                ($4, $2, 'Rice', 'Pantry', 9, 'kg', 1, now())`,
+        [`e2e-sc-flour-${tag}`, householdId, `e2e-sc-salt-${tag}`, `e2e-sc-rice-${tag}`],
       );
       await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, 'Weekly')`, [
         `e2e-sc-list-${tag}`,
@@ -71,12 +71,15 @@ test.describe("the household stat cards", () => {
       );
       await page.reload();
 
-      const low = card("Low stock items");
+      // UX-169: the stat is low + out (2), not the 3 tracked items, and the
+      // split is its caption.
+      const low = card("Needs restocking");
       await expect(low.getByText("All stocked up")).toHaveCount(0);
-      await expect(low.getByText("1 out of stock")).toBeVisible();
+      await expect(low.locator("p.font-display")).toHaveText("2");
+      await expect(low.getByText("1 low · 1 out of stock")).toBeVisible();
       await expect(low.getByText("1 already on your list")).toBeVisible();
-      await expect(low.getByRole("link", { name: "View inventory" })).toBeVisible();
-      await low.getByRole("link", { name: "View inventory" }).click();
+      await expect(low.getByRole("link", { name: "View inventory (3 items)" })).toBeVisible();
+      await low.getByRole("link", { name: "View inventory (3 items)" }).click();
       await expect(page).toHaveURL(/\/dashboard\/inventory\?status=low/);
 
       await page.goto("/dashboard");
@@ -84,9 +87,6 @@ test.describe("the household stat cards", () => {
       await card("Shopping lists").getByRole("link", { name: "Open Weekly" }).click();
       await expect(page).toHaveURL(new RegExp(`/dashboard/shopping-list/e2e-sc-list-${tag}$`));
 
-      await page.goto("/dashboard");
-      await card("Total items tracked").getByRole("link", { name: "Browse all items" }).click();
-      await expect(page).toHaveURL(/\/dashboard\/inventory$/);
     } finally {
       await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
       await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
