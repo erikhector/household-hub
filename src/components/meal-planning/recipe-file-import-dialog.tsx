@@ -158,7 +158,7 @@ export function RecipeFileImportDialog({ dict, handle }: { dict: MealPlanningDic
                 {format(plural(skipped, dict.importFileSkipped), { count: skipped })}
               </p>
             )}
-            <ul className="max-h-[45vh] divide-y overflow-y-auto rounded-md border">
+            <ul className="divide-y rounded-md border">
               {rows.map((row) => (
                 <li key={row.index}>
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2">
