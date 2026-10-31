@@ -2746,6 +2746,23 @@ export const en = {
         { id: "savings", name: "Savings", type: "SAVINGS" },
       ],
     },
+    // Budget redesign (Oct 2026): the Overview's "{month} at a glance".
+    glance: {
+      title: "{month} at a glance",
+      vsSameDay: "Compared with {month} up to the same day",
+      vsWhole: "Compared with {month}",
+      income: "Income",
+      spent: "Spent",
+      saved: "Saved",
+      left: "Left over",
+      more: "{percent}% more",
+      less: "{percent}% less",
+      same: "About the same",
+      new: "New this month",
+      standOutTitle: "What stands out",
+      standOutMore: "{name}: {percent}% more than usual",
+      standOutLess: "{name}: {percent}% less than usual",
+    },
     dueWidget: {
       // Budget redesign (Oct 2026): one card for everything that wants a
       // look — categories near their limit, then bills and income due.
@@ -3313,6 +3330,23 @@ export const en = {
       paidAriaLabel: "Paid by {name}",
       overpaidWarning: "Payments add up to {paid}, more than the {amount} total.",
       leftDueHint: "{amount} still left to pay.",
+    },
+    // Budget redesign (Oct 2026): the Overview's "{month} at a glance".
+    glance: {
+      title: "{month} at a glance",
+      vsSameDay: "Compared with {month} up to the same day",
+      vsWhole: "Compared with {month}",
+      income: "Income",
+      spent: "Spent",
+      saved: "Saved",
+      left: "Left over",
+      more: "{percent}% more",
+      less: "{percent}% less",
+      same: "About the same",
+      new: "New this month",
+      standOutTitle: "What stands out",
+      standOutMore: "{name}: {percent}% more than usual",
+      standOutLess: "{name}: {percent}% less than usual",
     },
     dueWidget: {
       // Budget redesign (Oct 2026): one card for everything that wants a

@@ -234,3 +234,38 @@ test("Safe to spend shows where the month's income goes", async ({ page, isMobil
   if (isMobile) await expectTouchTargets(page);
   await expectNoHorizontalOverflow(page);
 });
+
+// Budget redesign (Oct 2026): "{Month} at a glance" compares the month so far
+// with the one before — income, spent, saved and left over, each with its
+// change in words — and names the category furthest from its usual.
+test("the Overview compares the month with the one before", async ({ page }) => {
+  const tag = budgetTag();
+  const now = new Date();
+  // Mid-month dates for last month and the two before it, so "Bikes" has a
+  // usual to stand out against whatever day the test runs on.
+  const monthsAgo = (n: number) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - n, 2, 12));
+  await withDb(async (client) => {
+    await insertHouseholdCategory(client, { id: `e2e-glance-cat-${tag}`, name: `Bikes ${tag}` });
+    for (const [n, amount] of [[0, 9000], [1, 100], [2, 100]] as const) {
+      await insertHouseholdTransaction(client, {
+        id: `e2e-glance-tx-${n}-${tag}`,
+        categoryId: `e2e-glance-cat-${tag}`,
+        amount,
+        date: monthsAgo(n),
+      });
+    }
+  });
+  await page.goto("/dashboard/budget");
+  const main = page.getByRole("main");
+
+  const card = main.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { name: /at a glance$/ }) });
+  await expect(card).toBeVisible();
+  await expect(card.getByText(/^Compared with /)).toBeVisible();
+  for (const label of ["Income", "Spent", "Saved", "Left over"]) {
+    const row = card.getByRole("listitem").filter({ has: page.getByText(label, { exact: true }) });
+    // Each row says how it changed, in words.
+    await expect(row).toContainText(/% more|% less|About the same|New this month/);
+  }
+  await expect(card.getByText(new RegExp(`^Bikes ${tag}: \\d+% more than usual$`))).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});

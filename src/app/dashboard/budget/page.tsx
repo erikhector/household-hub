@@ -28,6 +28,8 @@ import {
   type UnpaidBillRow,
 } from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
+import { MonthAtAGlance } from "@/components/budget/month-at-a-glance";
+import { previousCutoff, standOuts, totalsOf } from "@/lib/month-comparison";
 import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
 import { categoriesNearLimit, categoryEnvelopes, withCategoryLimits } from "@/lib/budget-category-limit";
@@ -761,6 +763,28 @@ async function BudgetTabsSection({
       : null,
   }));
 
+  // "{Month} at a glance" on the Overview: this month against the one
+  // before, cut at the same day while this one is running (previousCutoff).
+  // The lookback window already holds last month, so no extra query.
+  const previousPeriod = periodBounds(toMonthKey(addMonths(parseMonthKey(monthKey), -1)), startDay);
+  const cutoff = previousCutoff({ current: { start: monthStart, end: monthEnd }, previous: previousPeriod, today: now });
+  const monthNameFormat = new Intl.DateTimeFormat(locale, { month: "long" });
+  const glance = (
+    <MonthAtAGlance
+      current={{ income, expense, savings, left: income - expense - savings }}
+      previous={totalsOf(
+        recurringLookbackTransactions.filter((t) => t.date >= previousPeriod.start && t.date < cutoff.end),
+      )}
+      partial={cutoff.partial}
+      monthName={monthNameFormat.format(parseMonthKey(monthKey))}
+      previousMonthName={monthNameFormat.format(addMonths(parseMonthKey(monthKey), -1))}
+      standOuts={standOuts(expenseRows)}
+      dict={dict.budget.glance}
+      locale={locale}
+      currencyCode={currencyCode}
+    />
+  );
+
   // Selected month's income/expense/savings breakdown, on Insights. It used
   // to sit on Overview too, where it repeated Safe to spend's totals as four
   // more stat cards (phone pass, Oct 2026).
@@ -890,6 +914,7 @@ async function BudgetTabsSection({
         safeToSpendDaily={safeToSpendDaily}
         limitAlerts={limitAlerts}
         settleUp={hasDebt ? balances : null}
+        glance={glance}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={activeRecurringTemplates.length > 0}
         hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}

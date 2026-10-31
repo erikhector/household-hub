@@ -136,6 +136,7 @@ export function BudgetTabs({
   limitAlerts = [],
   householdDebts = [],
   settleUp,
+  glance,
   dueTemplates,
   hasRecurringTemplates,
   hadRecurringTemplatesInMonth,
@@ -207,6 +208,9 @@ export function BudgetTabs({
    * Overview's Settle up slot. With nothing owed it stays on Insights as a
    * record. */
   settleUp?: ReactNode;
+  /** "{Month} at a glance" (MonthAtAGlance), prebuilt by the page: the month
+   * against the one before, after what needs doing. */
+  glance?: ReactNode;
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
   /** Any active recurring template at all, whatever month is viewed. */
@@ -429,6 +433,7 @@ export function BudgetTabs({
                 numberFormat={numberFormat}
                 dict={dict.safeToSpend}
               />
+              {glance}
               {/* Phone pass (Oct 2026), P4: PeriodSummary ("This month")
                   used to follow here too, repeating Safe to spend's
                   income/expenses/remaining as four more full-width stat

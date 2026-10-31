@@ -3725,7 +3725,22 @@ Insights, three Add panels on Manage). No data model changed.
   3. Settle up: on the household budget, who owes whom (`HouseholdBalances`)
      while somebody owes something; on Personal Budget, "Your household
      balance" (`HouseholdDebtsCard`). Neither shows with nothing owed.
-  4. Savings goals.
+  4. "{Month} at a glance" (`MonthAtAGlance`, `src/lib/month-comparison.ts`):
+     income, spent, saved and left over against the month before, each with
+     this month's amount, the change in words ("8% less", "About the same"
+     within ±5%, "New this month" from nothing) and a pair of bars, this
+     month (`primary`) over last (`muted-foreground` at 35%), on one scale.
+     While the month is running, the previous one is cut at the same day of
+     its period ("Compared with September up to the same day",
+     `previousCutoff`); a finished month is compared with the whole one
+     before. The change is neutral text with an arrow, never red or green.
+     Under it, "What stands out" names the expense category furthest above
+     its usual and the one furthest below (`standOuts`, over `vsUsual`, so
+     nothing under 10%). The household page reads last month from its
+     lookback window; Personal Budget adds the user's share of last month's
+     shared bills (one `TransactionSplit` query), since this month's totals
+     include them. Hidden when neither month has anything logged.
+  5. Savings goals.
 - **Setup**: one Bills & income card (`BillsAndIncomePanel`) with one Add
   button. Its menu asks "Repeats every month or year", "One-off bill" or
   "One-off income" and opens the recurring item, planned bill or planned
