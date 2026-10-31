@@ -217,6 +217,7 @@ export function RecipeFormDialog({
   handle,
   startAtReview = false,
   photoImportConfigured = false,
+  initialImportUrl = "",
 }: {
   dict: MealPlanningDict;
   mode: "create" | "edit";
@@ -233,6 +234,9 @@ export function RecipeFormDialog({
   /** GAP-54: a vision provider key is set server-side. Without one the
    * "Import from a photo" button is hidden (there is no OCR fallback). */
   photoImportConfigured?: boolean;
+  /** GAP-67: a link shared to Squirrel from another app. Only fills the
+   * "Import from a URL" field; nothing is fetched until the user taps Import. */
+  initialImportUrl?: string;
 }) {
   const [open, setOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -251,7 +255,7 @@ export function RecipeFormDialog({
       else next.add(tag);
       return next;
     });
-  const [importUrl, setImportUrl] = useState("");
+  const [importUrl, setImportUrl] = useState(initialImportUrl);
   const hasNutrition = (r: RecipeData | undefined) =>
     r != null &&
     (r.caloriesPerServing != null ||
@@ -506,9 +510,14 @@ export function RecipeFormDialog({
     requestFocus("title");
   };
 
+  // GAP-67: a shared link belongs to the first open only. Once the dialog
+  // closes it is spent, so reopening starts with an empty import field.
+  const prefillImportUrl = useRef(initialImportUrl);
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     loadId.current++;
+    if (!next) prefillImportUrl.current = "";
     if (next) {
       resetReview();
       setName(recipe?.name ?? "");
@@ -517,7 +526,7 @@ export function RecipeFormDialog({
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
       setTags(new Set(recipe?.tags ?? []));
-      setImportUrl("");
+      setImportUrl(prefillImportUrl.current);
       setShowNutrition(hasNutrition(recipe));
       setCaloriesPerServing(recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : "");
       setProteinGramsPerServing(

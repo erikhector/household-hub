@@ -7924,6 +7924,29 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   Nothing new is stored in the browser, so `cookie-inventory.ts` is
   unchanged.
 
+- **Share to Squirrel** (GAP-67): the manifest declares a `share_target`
+  (GET, `action: "/dashboard/share"`, params `title`, `text`, `url`), so an
+  installed Squirrel appears in the phone's share sheet. **Android Chrome and
+  Edge only**: iOS Safari has no Web Share Target. The route handler
+  (`src/app/dashboard/share/route.ts`) sends a logged-out sharer through
+  `/login?next=…` and back, then redirects via `resolveShareTarget`
+  (`src/lib/share-target.ts`): an http(s) `url` (or a `text` that is just one
+  link, which is where Android often puts it) opens Meal planning's Recipes
+  tab with "New recipe" open and the "Import from a URL" field filled in;
+  any other `text` goes to the active shopping list (the default one first,
+  as with `?add=1`) with "Import list" open and the text in the paste box.
+  The `title` is ignored, a non-http(s) `url` is treated as absent, input is
+  capped at 4 000 characters, and the target is always one of those two fixed
+  paths with the shared value as an encoded query param, so it can't be an
+  open redirect; a share with nothing usable lands on `/dashboard`. It only
+  pre-fills: nothing is fetched, parsed or added until the user confirms, and
+  the `importUrl` / `pasteText` param is stripped once the dialog opens. With
+  no active shopping list the text is dropped and the overview shows. No new
+  data or storage (`cookie-inventory.ts` unchanged). Covered by unit tests
+  (`share-target.test.ts`, `share/route.test.ts`, `manifest.test.ts`) and
+  `e2e/share-target.spec.ts` (en/sv, desktop and mobile); the OS share sheet
+  itself needs a real Android device.
+
 - **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
   following the guide's "InstallPrompt" example): a three-state card —
   already installed (`display-mode: standalone` matched) shows a static
@@ -9196,7 +9219,7 @@ and "Chaining"):
   number from a trusted account wins, stale ones expire after
   `run_lock_hours`), so a cron run never overlaps a chained or slow one.
 
-Every role works from two outside skill packs with one owner each, so
+Every role works from three groups of outside skills with one owner each, so
 they never compete (AGENTS.md, "Agent skills"):
 
 - **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers),
@@ -9221,6 +9244,19 @@ they never compete (AGENTS.md, "Agent skills"):
   from `~/.agents/pstack-models.md`; the web session-start hook installs
   the repo's `.agents/pstack-models.md` there, with every role on
   `inherit-parent`, so the loop runs on the session model.
+- **Design skills** supply visual craft for UI work, vendored verbatim
+  in the same two folders with pins and drops in
+  `design-skills-ATTRIBUTION.md`: `frontend-design`
+  ([anthropics/skills](https://github.com/anthropics/skills), pinned
+  `ca45fc4`) for aesthetic direction and typography, and `impeccable`
+  ([pbakaus/impeccable](https://github.com/pbakaus/impeccable), pinned
+  `df3a4ab`, v4.8.0) for shaping, critiquing, auditing and polishing.
+  Unlike pstack they trigger on their own for UI work, inside DESIGN.md
+  and its Mobile UX rules, which stay the brief. Impeccable's `scripts/`
+  is left out because its launcher downloads and runs a native binary,
+  so the skill falls back to reading project context directly. Its
+  `init`, `document`, `extract` and `doctor` commands never rewrite
+  Squirrel's own `PRODUCT.md` or `DESIGN.md`.
 
 The builder coordinator is the human proxy for its sub-agents: they
 never block on a human. Their normal work (commits, pushes, opening and
