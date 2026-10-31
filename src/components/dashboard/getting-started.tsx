@@ -122,11 +122,13 @@ export function GettingStarted({
           >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-sm font-medium">{stripLabel}</span>
-              <span className="text-sm break-words text-muted-foreground">
+              <span className="text-sm break-words text-pretty text-muted-foreground">
                 {format(dict.stripNext, { step: dict.steps[next.key].title })}
               </span>
             </span>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            {/* Hidden on phones: the whole strip is the link, and there the
+                chevron's 24 px beside the X is what made "Next: …" wrap. */}
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground max-sm:hidden" aria-hidden />
           </Link>
           {dismissButton}
         </CardContent>

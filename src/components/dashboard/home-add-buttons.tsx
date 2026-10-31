@@ -55,7 +55,7 @@ export function AddLowStockButton({
       type="button"
       variant="outline"
       size="sm"
-      className="shrink-0"
+      className="ml-auto shrink-0"
       disabled={pending}
       aria-label={ariaLabel}
       onClick={add}
@@ -109,7 +109,7 @@ export function AddMissingButton({
   }, {});
 
   return (
-    <form action={formAction} className="shrink-0">
+    <form action={formAction} className="ml-auto shrink-0">
       <input type="hidden" name="targetListId" value={target?.id ?? NEW_SHOPPING_LIST_SENTINEL} />
       {rows.map((row, i) => (
         <span key={i} hidden>
