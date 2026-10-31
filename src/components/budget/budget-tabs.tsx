@@ -335,18 +335,17 @@ export function BudgetTabs({
                   households={sharedExpenseHouseholds}
                   monthKey={monthKey}
                   trigger={
-                    <Button variant={hasCategories ? "outline" : "default"}>
+                    <Button variant="outline">
                       {logSharedDialogDict.logShared.button}
                     </Button>
                   }
                 />
               );
-              // UX-112: with no category yet, adding a shared expense is the
-              // page's one action, so it takes the primary slot (the floating
-              // button on phones, DESIGN.md M2) exactly where the household
-              // page's "Add transaction" sits. Once Add transaction exists it
-              // is the primary and this stays the quieter second action.
-              return hasCategories ? dialog : <PrimaryAction>{dialog}</PrimaryAction>;
+              // UX-153: always the quiet action. With no category yet the
+              // starter-set card's solid button is the page's one primary
+              // (DESIGN.md Hierarchy), so this neither floats nor fills; once
+              // Add transaction exists it is the primary and this stays second.
+              return dialog;
             })()}
             {/* UX-23: with no category yet there is nothing to log against, and
                 a disabled primary read as broken. The onboarding card on

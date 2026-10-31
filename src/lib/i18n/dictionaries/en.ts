@@ -2523,7 +2523,6 @@ export const en = {
     },
     editTaskAriaLabel: "Edit {title}",
     // UX-106: the "Mine / Everyone" filter above the list.
-    filterLabel: "Show",
     filterMine: "Mine",
     filterEveryone: "Everyone",
     mineEmpty: "Nothing is assigned to you.",

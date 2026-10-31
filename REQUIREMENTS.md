@@ -6803,7 +6803,7 @@ co-managers, not kids earning rewards.
   over to the row's own trash button, so the same confirm dialog opens
   (M7: the sheet is the visible path). From `sm` up the icons stay.
   Above the list, in a household of two or more, an **Everyone / Mine**
-  toggle (`aria-pressed` buttons) shows only the tasks assigned to you
+  switch (a segmented `Tabs` track, UX-153, so it never reads as a second solid button beside "Add task") shows only the tasks assigned to you
   (`filterTasks`, `src/app/dashboard/tasks/task-filter.ts`: open or
   completed; unassigned tasks only show under Everyone). The weekly recap
   stays household-wide. The choice is remembered per device in localStorage
@@ -7601,6 +7601,12 @@ components directly.
   is the primary; "Add note" and "Turn on calendar feed" are `secondary`,
   and the role badge is `secondary` for the owner and `outline` for members.
   Each possible-duplicates group's "Merge" is `secondary`.
+  UX-153: the Tasks "Everyone / Mine" switch is a `Tabs` track; the household
+  budget setup card's "Add income" is `secondary`; the personal budget's
+  "Add shared expense" is always `outline` and inline (it doesn't float), so
+  the starter-set card's "Add N categories" is the one solid button while
+  there are no categories. `e2e/one-primary-action.spec.ts` counts the
+  `bg-primary` buttons on Tasks and both budget pages.
 - **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
   (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
   too) pushes a same-URL history entry while it's open, so Android's back

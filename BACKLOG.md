@@ -431,30 +431,11 @@ Items already open (UX-30, UX-66, UX-89, UX-125, UX-41c, UX-43) were
 left out.
 
 **File conflicts.** Don't build these in parallel:
-- `src/components/budget/safe-to-spend.tsx`: UX-153, UX-154
 - `src/components/inventory/inventory-client.tsx`: UX-155, UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
   UX-159, UX-160, UX-168
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
   UX-158, UX-160, UX-164
-
-- [ ] **UX-153. One primary action per view on tasks, budget overview and
-      personal budget** (impact: high, effort: S) — breaks Hierarchy
-      ("exactly one `primary` action per view"). Tasks renders the active
-      "Everyone / Mine" filter as a solid `default` Button beside the solid
-      "Add task" pill (`src/components/tasks/tasks-client.tsx:207-220`,
-      `mobile-en-dashboard-tasks.png`). The household budget's setup card
-      shows a solid "Add income" while "Add transaction" floats below it
-      (`src/components/budget/safe-to-spend.tsx:208-216`). The personal
-      budget shows a full-width solid "Add 6 categories" with a solid
-      "Add shared expense" pill over it (`budget-tabs.tsx` starter set,
-      `mobile-en-dashboard-personal-budget.png`). `one-primary-action.spec.ts`
-      doesn't cover these states.
-      Acceptance: the tasks filter is a segmented `Tabs` track; "Add
-      income" is `secondary`; the floating pill is hidden or `outline`
-      while the starter-set card is on screen. `one-primary-action.spec.ts`
-      asserts one `bg-primary` button on `/dashboard/tasks` and on both
-      budget pages with no categories, on `desktop` and `mobile`.
 
 - [ ] **UX-154. Neutral safe-to-spend state when the budget has no
       income** (impact: high, effort: S) — breaks Colour ("Safe to spend:
