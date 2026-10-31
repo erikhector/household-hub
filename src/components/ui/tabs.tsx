@@ -23,11 +23,11 @@ import { Button } from "@/components/ui/button"
 // so the ids are wired by hand instead.
 //
 // `size="compact"` is a switch *inside* a card (Insights' Expenses/Income/
-// Savings), which must not read as a second row of page tabs: smaller text,
-// a 28 px pill (32 px on phones) on a tighter track. The 44 px touch height
-// (DESIGN.md M3) comes from a transparent ::after that reaches past the
-// pill, so the track mustn't clip it: its overflow stays visible, which a
-// three-way switch can afford since it never needs to scroll.
+// Savings), which must not read as a second row of page tabs: smaller text
+// and a 28 px pill on a tighter track. On phones and touch screens it keeps
+// the button's own 44 px height (DESIGN.md M3): a shorter pill with a hit
+// area stretched past it measured 32 px in the touch-target check, and the
+// smaller text and track already set it apart from the page tabs.
 export interface TabItem<Value extends string = string> {
   value: Value
   label: React.ReactNode
@@ -100,7 +100,7 @@ function Tabs<Value extends string = string>({
                 className={cn(
                   "shrink-0",
                   compact &&
-                    "relative h-7 px-2.5 max-sm:h-8 pointer-coarse:h-8 after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']",
+                    "h-7 px-2.5",
                   tab.value === value &&
                     "border-foreground/10 bg-card text-foreground shadow-sm hover:bg-card hover:text-foreground"
                 )}
