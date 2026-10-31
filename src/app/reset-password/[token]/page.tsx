@@ -23,7 +23,7 @@ export default async function ResetPasswordPage(props: PageProps<"/reset-passwor
   const email = await getUsablePasswordResetEmail(token);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       {email ? (
         <Card className="w-full max-w-sm">
           <CardHeader>
@@ -49,6 +49,6 @@ export default async function ResetPasswordPage(props: PageProps<"/reset-passwor
         </StatusCard>
       )}
       <LegalFooter dict={dict.legal} />
-    </div>
+    </main>
   );
 }

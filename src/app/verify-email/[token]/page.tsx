@@ -29,7 +29,7 @@ export default async function VerifyEmailPage(props: PageProps<"/verify-email/[t
   const [{ token }, session, dict] = await Promise.all([props.params, auth(), getDictionary()]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <VerifyEmailClient
         token={token}
         brand={dict.auth.brand}
@@ -37,6 +37,6 @@ export default async function VerifyEmailPage(props: PageProps<"/verify-email/[t
         dict={dict.auth.verifyEmail}
       />
       <LegalFooter dict={dict.legal} />
-    </div>
+    </main>
   );
 }

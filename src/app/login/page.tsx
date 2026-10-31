@@ -35,7 +35,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const initialEmail = (Array.isArray(emailParam) ? emailParam[0] : emailParam)?.slice(0, 254);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Link
         href="/"
         className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
@@ -63,6 +63,6 @@ export default async function LoginPage(props: PageProps<"/login">) {
         </CardContent>
       </Card>
       <LegalFooter dict={dict.legal} />
-    </div>
+    </main>
   );
 }

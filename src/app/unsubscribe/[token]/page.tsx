@@ -18,9 +18,9 @@ export default async function DigestUnsubscribePage(props: PageProps<"/unsubscri
   const [{ token }, dict] = await Promise.all([props.params, getDictionary()]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <DigestUnsubscribeClient token={token} brand={dict.auth.brand} dict={dict.digestUnsubscribe} />
       <LegalFooter dict={dict.legal} />
-    </div>
+    </main>
   );
 }

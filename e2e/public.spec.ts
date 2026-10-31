@@ -50,3 +50,23 @@ test.describe("public language toggle", () => {
     await expect(page.getByRole("heading", { name: "Invalid invite" })).toBeVisible();
   });
 });
+
+// UX-164 (axe `landmark-one-main`): the auth and token-link pages wrap their
+// content in one `main`, so a screen-reader user can jump straight to it.
+test.describe("auth pages have one main landmark", () => {
+  for (const path of [
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/join/e2e-invalid-token",
+    "/reset-password/e2e-invalid-token",
+    "/verify-email/e2e-invalid-token",
+    "/unsubscribe/e2e-invalid-token",
+  ]) {
+    test(path, async ({ page, context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+      await page.goto(path);
+      await expect(page.getByRole("main")).toHaveCount(1);
+    });
+  }
+});

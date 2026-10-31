@@ -15,7 +15,7 @@ export default async function SignupPage() {
   const dict = await getDictionary();
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-6 sm:py-12">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-6 sm:py-12">
       <Link
         href="/"
         className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
@@ -25,6 +25,6 @@ export default async function SignupPage() {
       </Link>
       <SignupForm dict={dict.auth.signup} legalDict={dict.legal} />
       <LegalFooter dict={dict.legal} />
-    </div>
+    </main>
   );
 }

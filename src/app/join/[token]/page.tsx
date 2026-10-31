@@ -44,7 +44,7 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
   ]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       {!invitation ? (
         <StatusCard
           brand={dict.auth.brand}
@@ -96,6 +96,6 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
         </>
       )}
       <LegalFooter dict={dict.legal} />
-    </div>
+    </main>
   );
 }

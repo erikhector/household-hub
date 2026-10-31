@@ -7286,6 +7286,14 @@ components directly.
   `nav-items.ts`) on toggle and read server-side in
   `src/app/dashboard/layout.tsx` so the initial render matches — no
   client-side flash.
+- **Skip link and landmarks (UX-164, WCAG 2.4.1)**: the dashboard layout's
+  first focusable element is an `sr-only focus:not-sr-only` "Skip to content"
+  link (`dict.nav.skipToContent`) to `#main-content`, so a keyboard user
+  passes the sidebar's ~16 stops in one Tab. `main` has `tabIndex={-1}` so
+  the link moves focus there. The login, signup, forgot-password,
+  reset-password, verify-email, join, unsubscribe and no-household pages put
+  their content in a `<main>` rather than a plain `div`. Covered by
+  `navigation.desktop.spec.ts` and `public.spec.ts`.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
   and a "More" dropdown menu holding Meal planning, Household, Profile, the

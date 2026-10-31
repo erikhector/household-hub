@@ -23,7 +23,7 @@ export default async function NoHouseholdPage() {
   const t = dict.auth.noHousehold;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle as="h1" className="text-xl">{t.pageTitle}</CardTitle>
@@ -42,6 +42,6 @@ export default async function NoHouseholdPage() {
         </CardContent>
       </Card>
       <LegalFooter dict={dict.legal} />
-    </div>
+    </main>
   );
 }

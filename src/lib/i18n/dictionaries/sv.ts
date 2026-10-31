@@ -179,6 +179,7 @@ export const sv = {
     subscriptionNotFound: "Prenumerationen hittades inte",
   },
   nav: {
+    skipToContent: "Hoppa till innehållet",
     overview: "Översikt",
     inventory: "Lager",
     shoppingList: "Inköpslista",
