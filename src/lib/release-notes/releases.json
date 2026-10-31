@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.126.0",
+    "date": "2026-10-31",
+    "pr": 959,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Get set up\" steps on the overview now stack neatly when your text size is set very large, so the step names and hints are easy to read.\n\nThe budget pages are simpler. Overview shows what's safe to spend, what needs attention and who owes whom. All your bills and income live in one list under Setup. Insights shows one breakdown at a time.\n\nSave a week of meals as a template, like \"School-week basics\", and plan any other week from it with one tap. Meals already in a slot are left alone, and you can undo.\n\nBudget charts are clearer: the monthly bars have a scale, each category's trend highlights this month, and the bars under Insights show at a glance how close you are to a limit.",
+      "sv": "Stegen i \"Kom igång\" på översikten läggs nu snyggt under varandra när textstorleken är mycket stor, så att namn och tips är lätta att läsa.\n\nBudgetsidorna är enklare. Översikten visar vad som är säkert att spendera, vad som behöver göras och vem som är skyldig vem. Alla räkningar och inkomster finns i en lista under Upplägg, och Insikter visar en uppdelning i taget.\n\nSpara en veckas måltider som en mall, till exempel \"Skolveckan\", och planera vilken annan vecka som helst från den med ett tryck. Måltider som redan finns på en plats lämnas som de är, och du kan ångra.\n\nBudgetens diagram är tydligare: månadsstaplarna har en skala, varje kategoris trend markerar den här månaden, och staplarna under Insikter visar direkt hur nära gränsen du är."
+    }
+  },
+  {
     "version": "0.125.0",
     "date": "2026-10-31",
     "pr": 955,
