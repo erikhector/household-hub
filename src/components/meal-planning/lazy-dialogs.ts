@@ -45,3 +45,13 @@ export const loadSaveWeekTemplateDialog = createLazyDialogLoader(() =>
 export const loadPlanFromTemplateDialog = createLazyDialogLoader(() =>
   import("@/components/meal-planning/plan-template-dialogs").then((m) => m.PlanFromTemplateDialog),
 );
+// Week picks' three sheets: the picker, a pick's place sheet and Spread.
+export const loadPickMealsDialog = createLazyDialogLoader(() =>
+  import("@/components/meal-planning/pick-meals-dialog").then((m) => m.PickMealsDialog),
+);
+export const loadPlacePickDialog = createLazyDialogLoader(() =>
+  import("@/components/meal-planning/place-pick-dialog").then((m) => m.PlacePickDialog),
+);
+export const loadSpreadPicksDialog = createLazyDialogLoader(() =>
+  import("@/components/meal-planning/spread-picks-dialog").then((m) => m.SpreadPicksDialog),
+);

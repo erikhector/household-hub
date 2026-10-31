@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -285,42 +285,55 @@ export function MissingIngredientsDialog({
             </p>
 
             <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
-              {items.map((item) => (
-                <div key={item.key} className="flex flex-col gap-0.5 rounded-md bg-muted px-2 py-1.5 text-sm">
-                  <label className="flex items-center gap-2 max-sm:min-h-11 pointer-coarse:min-h-11">
-                    <Checkbox
-                      checked={item.included}
-                      onChange={() => toggleItem(item.key)}
-                    />
-                    <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1" title={item.name}>
-                      {item.name}
-                    </span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {item.missingQuantity} {unitLabel(item.unit)}
-                    </span>
-                    {item.included && (
-                      <>
-                        <input type="hidden" name="itemName" value={item.name} />
-                        <input type="hidden" name="itemQuantity" value={item.missingQuantity} />
-                        <input type="hidden" name="itemUnit" value={item.unit} />
-                        <input type="hidden" name="itemNote" value={item.note ?? ""} />
-                      </>
-                    )}
-                  </label>
-                  {item.note && (
-                    <p className="pl-6 text-xs text-muted-foreground break-words">{item.note}</p>
-                  )}
-                  {item.unitMismatch && (
-                    <p className="pl-6 text-xs text-warning">{dict.missingIngredientUnitMismatchNote}</p>
-                  )}
-                  {item.substitutionKey && (
-                    <p className="pl-6 text-xs text-muted-foreground">
-                      {format(dict.missingIngredientSubstitutionHint, {
-                        substitute: dict.substitutions[item.substitutionKey],
-                      })}
+              {/* Week picks: rows only picks (meals not on a day yet) need
+                  come last, under their own label, so it's clear why a
+                  week with nothing on Tuesday still asks for coriander. */}
+              {[
+                ...items.filter((item) => !item.fromPicksOnly),
+                ...items.filter((item) => item.fromPicksOnly),
+              ].map((item, index, ordered) => (
+                <Fragment key={item.key}>
+                  {item.fromPicksOnly && !ordered[index - 1]?.fromPicksOnly && (
+                    <p className="pt-2 pb-0.5 text-xs font-medium uppercase text-muted-foreground">
+                      {dict.weekPicks.notOnADayYet}
                     </p>
                   )}
-                </div>
+                  <div className="flex flex-col gap-0.5 rounded-md bg-muted px-2 py-1.5 text-sm">
+                    <label className="flex items-center gap-2 max-sm:min-h-11 pointer-coarse:min-h-11">
+                      <Checkbox
+                        checked={item.included}
+                        onChange={() => toggleItem(item.key)}
+                      />
+                      <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1" title={item.name}>
+                        {item.name}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {item.missingQuantity} {unitLabel(item.unit)}
+                      </span>
+                      {item.included && (
+                        <>
+                          <input type="hidden" name="itemName" value={item.name} />
+                          <input type="hidden" name="itemQuantity" value={item.missingQuantity} />
+                          <input type="hidden" name="itemUnit" value={item.unit} />
+                          <input type="hidden" name="itemNote" value={item.note ?? ""} />
+                        </>
+                      )}
+                    </label>
+                    {item.note && (
+                      <p className="pl-6 text-xs text-muted-foreground break-words">{item.note}</p>
+                    )}
+                    {item.unitMismatch && (
+                      <p className="pl-6 text-xs text-warning">{dict.missingIngredientUnitMismatchNote}</p>
+                    )}
+                    {item.substitutionKey && (
+                      <p className="pl-6 text-xs text-muted-foreground">
+                        {format(dict.missingIngredientSubstitutionHint, {
+                          substitute: dict.substitutions[item.substitutionKey],
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </Fragment>
               ))}
             </div>
 
