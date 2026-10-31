@@ -187,6 +187,8 @@ export const en = {
     subscriptionNotFound: "Subscription not found",
   },
   nav: {
+    // UX-164: the keyboard skip link that opens the dashboard.
+    skipToContent: "Skip to content",
     overview: "Home",
     inventory: "Inventory",
     shoppingList: "Shopping list",

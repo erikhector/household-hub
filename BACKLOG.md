@@ -436,7 +436,7 @@ left out.
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
   UX-159, UX-160, UX-168
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
-  UX-158, UX-160, UX-164
+  UX-158, UX-160
 
 - [ ] **UX-153. One primary action per view on tasks, budget overview and
       personal budget** (impact: high, effort: S) — breaks Hierarchy
@@ -606,18 +606,6 @@ left out.
       Acceptance: both use `text-xs` (badge `size-4.5`); the sweep's
       `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
       returns nothing.
-
-- [ ] **UX-164. `main` landmark on auth pages and a skip link in the
-      dashboard** (impact: med, effort: S) — breaks Accessibility ("logical
-      tab order"; WCAG 2.4.1). Login, signup and forgot-password render
-      content in a plain `div` (`src/app/login/page.tsx:38` and siblings;
-      axe `landmark-one-main`, `region` ×7–17). On desktop a keyboard user
-      passes 16 sidebar stops before page content on every route.
-      Acceptance: auth content is wrapped in `<main>`; the dashboard layout's
-      first focusable element is an `sr-only focus:not-sr-only` "Skip to
-      content" link (in both languages) that moves focus to `main`; axe on
-      `/login` reports no landmark violation; `navigation.desktop.spec.ts`
-      tabs once and asserts the link is focused.
 
 - [ ] **UX-165. Destructive actions apart from the primary in the recipe
       sheet and the More menu** (impact: med, effort: S) — breaks M2
