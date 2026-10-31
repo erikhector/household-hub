@@ -18,6 +18,7 @@
 // it's missing" case.
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { PlannedItemType } from "@/lib/planned-expense-calc";
+import type { LimitAlertsDict } from "@/components/budget/limit-alerts";
 
 type HouseholdPlannedDict = Dictionary["budget"]["planned"];
 type PlannedSplitKey = "splitWays" | "splitLabel" | "sharesLabel" | "splitEvenly" | "shareAriaLabel" | "sharesLeftHint" | "sharesOverWarning";
@@ -64,9 +65,10 @@ export type BudgetDict = {
     moreAriaLabel: string;
     noTemplatesBody: string;
     nothingDueBody: string;
-    subtitle: string;
     title: string;
   };
+  // UX-108: the near-or-over-limit rows that lead the Needs attention card.
+  safeToSpend: LimitAlertsDict;
   editAriaLabel: string;
   editTransactionDialogTitle: string;
   emptyTransactions: string;
@@ -137,6 +139,18 @@ export type BudgetDict = {
   logShared?: {
     logPayment: string;
   };
+  // Budget redesign (Oct 2026): the Setup tab's Bills & income card.
+  billsAndIncome: {
+    title: string;
+    subtitle: string;
+    add: string;
+    addRepeating: string;
+    addOneOffBill: string;
+    addOneOffIncome: string;
+    repeatingTitle: string;
+    onceTitle: string;
+    empty: string;
+  };
   recurring: {
     // Household-only: RecurringTemplatesPanel attributes "Mark accounted
     // for" to whoever ran it (F7) — meaningless for a single-user personal
@@ -149,7 +163,6 @@ export type BudgetDict = {
     acknowledgedToast: string;
     add: string;
     addDialogTitle: string;
-    addTemplate: string;
     amountLabel: string;
     confirmDelete: {
       cancel: string;
@@ -162,7 +175,6 @@ export type BudgetDict = {
     dayOfMonthPlaceholder: string;
     dueDayLabel: string;
     editDialogTitle: string;
-    empty: string;
     logAsIs: string;
     loggedAsIsToast: string;
     loggedToast: string;
@@ -189,9 +201,6 @@ export type BudgetDict = {
       splitEvenlyButton: string;
       toggleLabel: string;
     };
-    statusLegend: string;
-    subtitle: string;
-    title: string;
     undo: string;
     undoToast: string;
   };

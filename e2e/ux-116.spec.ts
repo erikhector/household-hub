@@ -45,6 +45,9 @@ test("an empty budget asks for income and regular bills instead of a green zero"
   });
   await page.goto("/dashboard/budget");
   await expect(main.getByText("Add your income and regular bills to see what's safe to spend.")).toBeHidden();
+  // The legend sits with the arithmetic it explains (budget redesign, Oct
+  // 2026), behind "How we got this number".
+  await main.getByText("How we got this number").click();
   await expect(
     main.getByText("+ adds to what's safe to spend, – comes off it, → is set aside as savings."),
   ).toBeVisible();

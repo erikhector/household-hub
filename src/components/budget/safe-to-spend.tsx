@@ -82,10 +82,11 @@ export function SafeToSpend({
   dailyAllowance?: DailyAllowance | null;
   /** Phone pass (Oct 2026), P4. "full" (the dashboard card) shows every
    * line of the arithmetic and what's still due. "compact" (the budget
-   * pages' Overview, where the due widget right below already lists what's
-   * due, with buttons) keeps the number and one totals line, and folds the
-   * arithmetic and caveat into a "How we got this number"
-   * disclosure (DESIGN.md M6), so Overview stops repeating itself. */
+   * pages' Overview, where Needs attention right below already lists what's
+   * due, with buttons) keeps the number, its summary and the daily
+   * allowance, and folds the projection, the arithmetic and caveat into a
+   * "How we got this number" disclosure (DESIGN.md M6), so Overview stops
+   * repeating itself. */
   variant?: "full" | "compact";
   /** UX-116: where the setup state's two actions go (add income, add
    * regular bills). */
@@ -149,8 +150,7 @@ export function SafeToSpend({
           <dd className={`shrink-0 tabular-nums ${STATUS_COLOR[status]}`}>{numberFormat.format(amount)}</dd>
         </div>
       </dl>
-      {/* The compact card already shows the legend under its totals line. */}
-      {variant === "full" && <p className="text-xs text-muted-foreground">{dict.signLegend}</p>}
+      <p className="text-xs text-muted-foreground">{dict.signLegend}</p>
       <p className="text-xs text-muted-foreground">{dict.caveat}</p>
     </>
   );
@@ -237,39 +237,30 @@ export function SafeToSpend({
           })}
         </p>
       )}
-      {projection && <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />}
       {variant === "full" ? (
         <>
+          {projection && <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />}
           {arithmetic}
           {expectedList}
         </>
       ) : (
-        <>
-          {/* One totals line; the rest is a tap away. */}
-          <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {lines.filter((line) => line.alwaysShow).map((line) => (
-              <div key={line.label} className="flex items-baseline gap-1.5">
-                <dt className="text-muted-foreground">{line.label}</dt>
-                <dd className="tabular-nums">
-                  {line.sign}
-                  {numberFormat.format(line.value)}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <p className="text-xs text-muted-foreground">{dict.signLegend}</p>
-          <details className="group">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 self-start text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
-              <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-              {dict.breakdownToggle}
-            </summary>
-            <div className="flex flex-col gap-3 pt-1">
-              {arithmetic}
-              {/* UX-118: the still-due list is the Due card's job right
-                  below; repeating it here listed every item twice. */}
-            </div>
-          </details>
-        </>
+        // Budget redesign (Oct 2026): the compact card is the number, what
+        // it means and what it buys per day, and nothing else. The month-end
+        // projection, the income/expenses/savings totals line and the sign
+        // legend all sat between the number and the next thing to do, so
+        // they now live with the arithmetic behind one tap (DESIGN.md M6).
+        <details className="group">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 self-start text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
+            <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+            {dict.breakdownToggle}
+          </summary>
+          <div className="flex flex-col gap-3 pt-1">
+            {projection && <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />}
+            {arithmetic}
+            {/* UX-118: the still-due list is the Needs attention card's
+                job right below; repeating it here listed every item twice. */}
+          </div>
+        </details>
       )}
     </>
   );
@@ -283,12 +274,17 @@ export function SafeToSpend({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {setup ? setupContent : numberContent}
-        <HouseholdDebtsList
-          debts={householdDebts}
-          showHouseholdName={showHouseholdName}
-          numberFormat={numberFormat}
-          dict={dict}
-        />
+        {/* The budget pages show debts in their own Settle up card under
+            Needs attention (budget-tabs.tsx); only the dashboard's full card
+            still carries them. */}
+        {variant === "full" && (
+          <HouseholdDebtsList
+            debts={householdDebts}
+            showHouseholdName={showHouseholdName}
+            numberFormat={numberFormat}
+            dict={dict}
+          />
+        )}
       </CardContent>
     </Card>
   );

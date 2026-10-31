@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, waitForUndoableDelete } from "./ui";
+import { addBillOrIncome, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, waitForUndoableDelete } from "./ui";
 
 // Planned bills (BUDGET-8): a one-off bill with a due date, added on the
-// Budget page's Manage tab, counted in Safe to spend until it's paid, and
+// Budget page's Setup tab, counted in Safe to spend until it's paid, and
 // paid through the ordinary transaction dialog ("Log payment"). Deleting
 // that transaction puts the bill back to due. The category is seeded straight
 // into Postgres (like personal-budget-shared.spec.ts); the bill itself is
@@ -70,13 +70,13 @@ function todayInputValue() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-// A group of the Planned bills panel ("Due this month", "Paid", …) and the
-// bill's row in it.
-function plannedGroup(page: Page, heading: string) {
-  return page.getByRole("main").getByRole("region", { name: heading });
+// The one-off half of the Setup tab's Bills & income card, and the bill's
+// row in it carrying a status chip ("Due this month", "Paid", …).
+function plannedGroup(page: Page) {
+  return page.getByRole("main").getByRole("region", { name: "Once" });
 }
-function plannedRow(page: Page, heading: string, name: string) {
-  return plannedGroup(page, heading).getByRole("listitem").filter({ hasText: name });
+function plannedRow(page: Page, status: string, name: string) {
+  return plannedGroup(page).getByRole("listitem").filter({ hasText: name }).filter({ hasText: status });
 }
 
 test("adds a planned bill, logs its payment, and un-pays it when the transaction goes", async ({
@@ -94,7 +94,7 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
 
   // --- Add the bill -------------------------------------------------------
   await page.goto("/dashboard/budget?tab=manage");
-  await main.getByRole("button", { name: "Add planned bill" }).click();
+  await addBillOrIncome(page, "One-off bill");
   const dialog = page.getByRole("dialog", { name: "Add planned bill" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Name").fill(name);
@@ -115,7 +115,7 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   await expect(dueRow).toContainText(/3[\s,.]?000/);
   if (testInfo.project.name.startsWith("mobile")) {
     await expectTouchTargets(page);
-    await expectTargetsApart(plannedGroup(page, "Due this month"));
+    await expectTargetsApart(plannedGroup(page));
   }
 
   // --- It counts in Safe to spend ------------------------------------------
@@ -125,7 +125,7 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
 
   // --- It shows in the Overview's due strip ---------------------------------
   // The strip is a card (no landmark role), so find it by its heading.
-  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Needs attention" });
   const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
   await expect(stripRow).toBeVisible();
   await expect(stripRow.getByRole("button", { name: "Log payment" })).toBeVisible();
@@ -147,7 +147,7 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
     ),
   );
   await page.goto("/dashboard/personal-budget");
-  const personalDue = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const personalDue = main.locator('[data-slot="card"]').filter({ hasText: "Needs attention" });
   const shareRow = personalDue.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//a][1]");
   await expect(shareRow).toBeVisible();
   await expect(shareRow.getByText("Shared", { exact: true })).toBeVisible();
@@ -174,7 +174,7 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   await expect(paidRow.getByRole("button", { name: "Log payment" })).toHaveCount(0);
   await expect(plannedRow(page, "Due this month", name)).toHaveCount(0);
 
-  await page.getByRole("tab", { name: "Transactions" }).click();
+  await page.getByRole("tab", { name: "Activity" }).click();
   // The visible copy only: the table (desktop) and the cards (phone) both
   // render, one of them hidden by CSS.
   const txName = main.getByText(name, { exact: true }).filter({ visible: true });
@@ -201,7 +201,7 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   await expect(async () => {
     await page.reload();
   }).toPass();
-  await page.getByRole("tab", { name: "Manage" }).click();
+  await page.getByRole("tab", { name: "Setup" }).click();
   await expect(plannedRow(page, "Due this month", name)).toBeVisible();
   await expect(plannedRow(page, "Paid", name)).toHaveCount(0);
 });
@@ -209,7 +209,7 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
 // A bill due last month but paid this month is still "due" when last month
 // is viewed (past months stay historical), yet it already has its payment:
 // Log payment would only fail and Delete would silently detach that payment,
-// so neither is offered there — in the Manage panel or the due strip.
+// so neither is offered there — on Setup or in Needs attention.
 test("a bill paid after its month shows as paid later, with no Log payment or Delete, in that month", async ({
   page,
 }) => {
@@ -243,7 +243,7 @@ test("a bill paid after its month shows as paid later, with no Log payment or De
   await expect(row.getByRole("button", { name: `Edit ${name}` })).toBeVisible();
 
   await page.getByRole("tab", { name: "Overview" }).click();
-  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Needs attention" });
   const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[contains(@class,'border')][1]");
   await expect(stripRow).toBeVisible();
   await expect(stripRow).toContainText("Paid");
@@ -257,10 +257,9 @@ test("a bill paid after its month shows as paid later, with no Log payment or De
 test("keeps the typed name and category when the server rejects a save", async ({ page }) => {
   const category = await seedCategory();
   const name = `Boiler check ${tag()}`;
-  const main = page.getByRole("main");
 
   await page.goto("/dashboard/budget?tab=manage");
-  await main.getByRole("button", { name: "Add planned bill" }).click();
+  await addBillOrIncome(page, "One-off bill");
   const dialog = page.getByRole("dialog", { name: "Add planned bill" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Amount").fill("450");

@@ -1,6 +1,5 @@
 "use client";
 
-import { useId } from "react";
 import { toast } from "sonner";
 import { AlertCircle, Check, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -45,20 +44,29 @@ export type PlannedExpenseRow = {
 // Most urgent first: what's late, then what's due in the viewed month, then
 // what's coming, then what's settled (paid in the viewed month only — see
 // the page's query).
-const GROUPS = [
-  { status: "overdue", label: "groupOverdue" },
-  { status: "due", label: "groupDue" },
-  { status: "upcoming", label: "groupUpcoming" },
-  { status: "paid", label: "groupPaid" },
-] as const satisfies readonly { status: PlannedExpenseStatus; label: keyof PlannedDict }[];
+const STATUS_ORDER: PlannedExpenseStatus[] = ["overdue", "due", "upcoming", "paid"];
 
-// Planned bills (BUDGET-8) on the Manage tab, under RecurringTemplatesPanel
-// and laid out like it. Serves both budgets: the personal one passes no
-// members (so no split) and its own actions. Rendered twice per budget:
-// once for bills and once for planned income (`kind`), each with only its
-// own rows and categories. Income is never split, so it gets no members.
-export function PlannedExpensesPanel({
-  kind,
+// Status chip per row (the overdue state already has its own icon and words
+// in the amount line, so it gets no chip). Planned income has its own words
+// ("Expected", "Received"), from plannedTexts.
+const STATUS_BADGE = {
+  due: { variant: "warning", label: "groupDue" },
+  upcoming: { variant: "secondary", label: "groupUpcoming" },
+  paid: { variant: "outline", label: "groupPaid" },
+} as const satisfies Record<
+  Exclude<PlannedExpenseStatus, "overdue">,
+  { variant: "warning" | "secondary" | "outline"; label: keyof PlannedDict }
+>;
+
+// Planned bills and planned income (BUDGET-8): the one-off half of the Setup
+// tab's Bills & income card (bills-and-income-panel.tsx), which owns the
+// heading and the one Add button. Serves both budgets: the personal one
+// passes no members (so no split) and its own actions.
+//
+// Budget redesign (Oct 2026): bills and income share one list, most urgent
+// first, each row's status a chip. They used to be two panels of their own,
+// each with a long subtitle, an Add button and a sub-heading per status.
+export function PlannedItemList({
   rows,
   categories,
   members,
@@ -67,18 +75,16 @@ export function PlannedExpensesPanel({
   dict,
   locale,
   currencyCode,
-  createAction,
   updateAction,
+  createAction,
   onDelete,
   createTransactionAction,
   updateTransactionAction,
 }: {
-  /** Which planned items this panel lists and adds. */
-  kind: PlannedItemType;
-  /** Already filtered to `kind`. */
+  /** Bills and planned income together, in any order. */
   rows: PlannedExpenseRow[];
   /** Every budget category: "Log payment" offers them all, like any
-   * transaction; the item's own dialog narrows to categories of `kind`. */
+   * transaction; an item's own dialog narrows to categories of its type. */
   categories: CategoryRow[];
   /** Every household member; `[]` on the personal budget. */
   members: MemberOption[];
@@ -96,7 +102,6 @@ export function PlannedExpensesPanel({
   createTransactionAction: TransactionFormAction;
   updateTransactionAction: TransactionFormAction;
 }) {
-  const t = plannedTexts(dict, kind);
   const numberFormat = createMoneyFormat(locale, currencyCode);
   // Due dates are calendar days stored at UTC noon, so they're shown in UTC:
   // the viewer's own time zone could otherwise move the day.
@@ -106,88 +111,36 @@ export function PlannedExpensesPanel({
     year: "numeric",
     timeZone: "UTC",
   });
-  const kindCategories = categories.filter((c) => c.type === kind);
-  const splitMembers = kind === "INCOME" ? [] : members;
-  const idPrefix = useId();
+  const ordered = [...rows].sort(
+    (a, b) =>
+      STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) ||
+      a.dueDate.getTime() - b.dueDate.getTime(),
+  );
 
-  const rowProps = {
-    dict,
-    numberFormat,
-    dateFormat,
-    categories,
-    kindCategories,
-    members,
-    splitMembers,
-    currentMemberId,
-    monthKey,
-    createAction,
-    updateAction,
-    onDelete,
-    createTransactionAction,
-    updateTransactionAction,
-  };
-
-  // A named region: the bills and the income panel sit on the same tab with
-  // the same group names ("Upcoming"), so a screen reader (and a test) can
-  // tell which one it's in.
   return (
-    <section
-      aria-labelledby={`${idPrefix}-title`}
-      className="list-bleed flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
-    >
-      {/* UX-118: Add sits top right, as in the category manager, so the
-          three Manage panels share one placement (on a phone too). */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h2 id={`${idPrefix}-title`} className="font-heading text-base font-semibold">
-            {t.title}
-          </h2>
-          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
-        </div>
-        <LazyPlannedExpenseDialog
+    <ul className="flex flex-col gap-2">
+      {ordered.map((bill) => (
+        <PlannedExpenseItem
+          key={bill.id}
+          bill={bill}
           dict={dict}
-          kind={kind}
-          categories={kindCategories}
-          members={splitMembers}
+          numberFormat={numberFormat}
+          dateFormat={dateFormat}
+          categories={categories}
+          kindCategories={categories.filter((c) => c.type === bill.type)}
+          members={members}
+          // Income is never split, so it gets no members.
+          splitMembers={bill.type === "INCOME" ? [] : members}
+          currentMemberId={currentMemberId}
+          monthKey={monthKey}
           createAction={createAction}
           updateAction={updateAction}
-          numberFormat={numberFormat}
-          trigger={
-            <Button variant="outline" size="sm" disabled={kindCategories.length === 0}>
-              {t.add}
-            </Button>
-          }
+          onDelete={onDelete}
+          createTransactionAction={createTransactionAction}
+          updateTransactionAction={updateTransactionAction}
         />
-      </div>
-
-      {rows.length === 0 ? (
-        // With no category of this kind the Add button is disabled, so say
-        // what unlocks it rather than inviting a click that can't happen.
-        <p className="text-sm text-muted-foreground">
-          {kindCategories.length === 0 ? t.needsCategory : t.empty}
-        </p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {GROUPS.map(({ status, label }) => {
-            const items = rows.filter((r) => r.status === status);
-            if (items.length === 0) return null;
-            const headingId = `${idPrefix}-${status}`;
-            return (
-              <section key={status} aria-labelledby={headingId} className="flex flex-col gap-2">
-                <h3 id={headingId} className="text-xs font-medium uppercase text-muted-foreground">
-                  {t[label]}
-                </h3>
-                <ul className="flex flex-col gap-2">
-                  {items.map((bill) => (
-                    <PlannedExpenseItem key={bill.id} bill={bill} {...rowProps} />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-      )}
-    </section>
+      ))}
+    </ul>
   );
 }
 
@@ -239,6 +192,14 @@ function PlannedExpenseItem({
               {bill.categoryName}
             </span>
           </Badge>
+          {bill.status !== "overdue" && (
+            <Badge
+              variant={STATUS_BADGE[bill.status].variant}
+              className={bill.status === "paid" ? "border-success/30 text-success" : undefined}
+            >
+              {t[STATUS_BADGE[bill.status].label]}
+            </Badge>
+          )}
           {bill.splits.length > 0 && t.splitWays && (
             <Badge variant="secondary">
               {format(plural(bill.splits.length, t.splitWays), { count: bill.splits.length })}

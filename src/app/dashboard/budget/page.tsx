@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ChevronDown } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { loadBudgetTabsData } from "@/lib/budget/load-budget-tabs-data";
 import { requireHousehold } from "@/lib/session";
@@ -31,19 +32,16 @@ import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
 import { categoriesNearLimit, categoryEnvelopes, withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
-import {
-  RecurringTemplatesPanel,
-  type PausedRecurringTemplateRow,
-  type RecurringTemplateListRow,
+import type {
+  PausedRecurringTemplateRow,
+  RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
+import { BillsAndIncomePanel } from "@/components/budget/bills-and-income-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
 import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
 import { recentCategoryIds } from "@/lib/recent-categories";
-import {
-  PlannedExpensesPanel,
-  type PlannedExpenseRow,
-} from "@/components/budget/planned-expenses-panel";
+import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import {
   createPlannedExpenseAction,
   deletePlannedExpenseAction,
@@ -327,6 +325,7 @@ async function BudgetTabsSection({
   canChangeCurrency,
   householdParam,
   householdName,
+  openPrices,
 }: {
   householdId: string;
   userId: string;
@@ -350,6 +349,9 @@ async function BudgetTabsSection({
   householdParam: string | undefined;
   // UX-110: the viewed household's name, for the onboarding copy.
   householdName: string;
+  // `?prices=1`: open Insights' grocery-prices disclosure, for a price-spike
+  // notification's link.
+  openPrices: boolean;
 }) {
   const {
     categories,
@@ -654,9 +656,9 @@ async function BudgetTabsSection({
     monthsBack: MAX_FIXED_TREND_MONTHS,
     startDay,
   });
-  // Per-item breakdown behind the totals above, for the proportional-bar
-  // visualization of what makes up the fixed budget — same shape/component
-  // as PeriodSummary's per-category breakdown (see category-breakdown.tsx).
+  // Per-item breakdown behind the totals above, folded away under the
+  // trend — same shape/component as PeriodSummary's per-category breakdown
+  // (see category-breakdown.tsx).
   const fixedIncomeBreakdown = computeRecurringBreakdown(recurringTemplates, "INCOME", monthEnd).map(
     (item) => ({ id: item.id, name: item.name, total: item.monthlyAmount }),
   );
@@ -665,16 +667,17 @@ async function BudgetTabsSection({
   );
   const budgetBalanceStatus = computeBudgetBalanceStatus(fixedMonthlySummary);
 
-  // --- Manage tab: recurring items + categories -----------------------------
+  // --- Setup tab: bills & income + categories --------------------------------
   // Grouped together — both are setup/maintenance actions you reach for far
   // less often than logging a transaction, so they share one tab instead of
   // categories being duplicated across the page (see budget-tabs.tsx's doc
-  // comment).
+  // comment). The tab's value stays "manage" so old links keep working.
   const manage = (
     <div className="flex flex-col gap-6">
-      <RecurringTemplatesPanel
+      <BillsAndIncomePanel
         templates={recurringTemplateRows}
         pausedTemplates={pausedRecurringTemplateRows}
+        plannedRows={plannedExpenseRows}
         categories={categoryRows}
         members={memberOptions}
         currentMemberId={currentMemberId}
@@ -683,33 +686,17 @@ async function BudgetTabsSection({
         locale={locale}
         currencyCode={currencyCode}
         onTogglePause={setRecurringTemplateActiveAction}
-        onDelete={deleteRecurringTemplateAction}
+        onDeleteTemplate={deleteRecurringTemplateAction}
         onAcknowledge={acknowledgeTemplatePeriodAction}
         onUnacknowledge={unacknowledgeTemplatePeriodAction}
         createTemplateAction={createRecurringTemplateAction}
         updateTemplateAction={updateRecurringTemplateAction}
+        createPlannedAction={createPlannedExpenseAction}
+        updatePlannedAction={updatePlannedExpenseAction}
+        onDeletePlanned={deletePlannedExpenseAction}
         createTransactionAction={createTransactionAction}
         updateTransactionAction={updateTransactionAction}
       />
-      {(["EXPENSE", "INCOME"] as const).map((kind) => (
-        <PlannedExpensesPanel
-          key={kind}
-          kind={kind}
-          rows={plannedExpenseRows.filter((r) => r.type === kind)}
-          categories={categoryRows}
-          members={memberOptions}
-          currentMemberId={currentMemberId}
-          monthKey={monthKey}
-          dict={dict.budget}
-          locale={locale}
-          currencyCode={currencyCode}
-          createAction={createPlannedExpenseAction}
-          updateAction={updatePlannedExpenseAction}
-          onDelete={deletePlannedExpenseAction}
-          createTransactionAction={createTransactionAction}
-          updateTransactionAction={updateTransactionAction}
-        />
-      ))}
       <CategoryManager
         categories={categoryRows}
         dict={dict.budget}
@@ -782,7 +769,6 @@ async function BudgetTabsSection({
       income={income}
       expense={expense}
       savings={savings}
-      remaining={safeToSpend}
       incomeByCategory={incomeByCategory}
       // GAP-12: attach each category's monthly limit (and add capped
       // categories with nothing spent yet) for the capped-bar rendering.
@@ -822,10 +808,12 @@ async function BudgetTabsSection({
     />
   );
 
-  // UX-114: who owes whom is the one thing on Insights somebody has to act
-  // on (it carries "Clear debt"), so when there is a debt it leads the tab
-  // instead of sitting under every chart. With nothing owed it stays last,
-  // where it's just a record (and the repayment form).
+  // UX-114: who owes whom is the one thing here somebody has to act on (it
+  // carries "Clear debt"). Budget redesign (Oct 2026): when there is a debt
+  // it moves to the Overview, under Needs attention, where the Personal
+  // Budget's "Settle up" link lands; it used to lead Insights, two tabs from
+  // where anyone looks. With nothing owed it stays last on Insights, where
+  // it's just a record (and the repayment history).
   const hasDebt = settlements.length > 0 || unpaidBills.length > 0;
   const balances = hasSplitting ? (
     <HouseholdBalances
@@ -844,7 +832,6 @@ async function BudgetTabsSection({
   ) : null;
   const insights = (
     <div className="flex flex-col gap-6">
-      {hasDebt && balances}
       {periodSummary}
       <FixedBudgetSummary
         monthlyIncome={fixedMonthlySummary.monthlyIncome}
@@ -858,16 +845,27 @@ async function BudgetTabsSection({
         locale={locale}
         currencyCode={currencyCode}
       />
-      {/* SCALE-J: its own Suspense boundary/query — see CostAnalyzerSection's
-          doc comment above. */}
-      <Suspense fallback={<CostAnalyzerSkeleton label={dict.common.loading} />}>
-        <CostAnalyzerSection
-          householdId={householdId}
-          dict={dict.budget.costAnalyzer}
-          locale={locale}
-          currencyCode={currencyCode}
-        />
-      </Suspense>
+      {/* Budget redesign (Oct 2026): up to six cards about groceries,
+          prices, stores, stock and waste — useful, but not what people open
+          a budget's Insights for — so they sit behind one disclosure instead
+          of doubling the tab's length. SCALE-J: its own Suspense
+          boundary/query — see CostAnalyzerSection's doc comment above. */}
+      <details className="group flex flex-col" open={openPrices}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 self-start text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
+          {dict.budget.costAnalyzer.disclosure}
+        </summary>
+        <div className="pt-3">
+          <Suspense fallback={<CostAnalyzerSkeleton label={dict.common.loading} />}>
+            <CostAnalyzerSection
+              householdId={householdId}
+              dict={dict.budget.costAnalyzer}
+              locale={locale}
+              currencyCode={currencyCode}
+            />
+          </Suspense>
+        </div>
+      </details>
       {!hasDebt && balances}
     </div>
   );
@@ -892,6 +890,7 @@ async function BudgetTabsSection({
         safeToSpendProjection={safeToSpendProjection}
         safeToSpendDaily={safeToSpendDaily}
         limitAlerts={limitAlerts}
+        settleUp={hasDebt ? balances : null}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={activeRecurringTemplates.length > 0}
         hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}
@@ -1045,6 +1044,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
           readOnly={readOnly}
           canChangeCurrency={!readOnly && role === "OWNER"}
           householdParam={householdParam}
+          openPrices={searchParams.prices === "1"}
         />
       </Suspense>
     </div>

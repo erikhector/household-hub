@@ -2170,9 +2170,10 @@ every lookup the old one did.
   month's transactions by `categoryId`); the summary components themselves
   are plain presentational functions, not Client Components, since nothing
   on them is interactive. It lives on the Insights tab only (it used to
-  open Overview too, repeating Safe to spend's totals), and its four stat
-  cards, like `FixedBudgetSummary`'s, sit two by two on a phone at a
-  smaller stat size (`text-xl`, `text-3xl` from `sm`). Expense and savings
+  open Overview too, repeating Safe to spend's totals). Budget redesign
+  (Oct 2026): it has no stat cards; its three breakdowns sit behind one
+  Expenses / Income / Savings switch (`BreakdownSwitch`), expenses first,
+  each titled with its total. Expense and savings
   totals are plain `foreground` (DESIGN.md Colour); income stays `success`
   and the remaining total keeps its status colour.
 - **Month navigation**: the Budget page defaults to the current calendar
@@ -2828,11 +2829,12 @@ Component page function can't itself be unit-tested.
   line. It says "Add your income and regular bills to see what's safe to
   spend" with two actions, "Add income" (the Transactions tab) and "Add
   regular bills" (the Manage tab), keeping the month and household in the
-  URL. Once there is data the totals carry a one-line legend for the "+",
-  "–" and "→" in front of them.
+  URL. Once there is data the arithmetic carries a one-line legend for the
+  "+", "–" and "→" in front of its lines.
 - **Categories near or over their limit (UX-108)**: on the budget
-  Overview (household and personal), a "Near or over their limit" card sits
-  right under Safe to spend and lists every capped expense category at 90%
+  Overview (household and personal), the rows at the top of the Needs
+  attention card right under Safe to spend (budget redesign, Oct 2026: they
+  were a card of their own) list every capped expense category at 90%
   or more of its limit (`categoriesNearLimit` in
   `src/lib/budget-category-limit.ts`, `NEAR_LIMIT_PERCENT`). Each row has a
   warning icon, the name, "spent / limit" and either "N over" (red, past
@@ -2951,11 +2953,13 @@ Component page function can't itself be unit-tested.
     counts as a due payment, shown as a "Shared" row with the household's
     name (see "Planned bills"). Unlike shared recurring rows it offers no
     "Log payment" here: a planned bill is logged from the household budget.
-  - Under the number, "Your household balance" shows where the user stands
-    per household at the end of the month (`householdDebts`): what they owe
-    other members or are owed, and their unpaid share of bills, with a
-    "Settle up" link to that household's budget, Insights tab
-    (`?tab=insights`, which `BudgetTabs` reads from the URL).
+  - "Your household balance" shows where the user stands per household at
+    the end of the month (`householdDebts`): what they owe other members or
+    are owed, and their unpaid share of bills, with a "Settle up" link to
+    that household's budget Overview, where who owes whom sits while there
+    is a debt. On Personal Budget's Overview it is its own card under Needs
+    attention (`HouseholdDebtsCard`, budget redesign, Oct 2026); the
+    dashboard's "Your budget" card keeps it under the number.
   - **Insights (BUDGET-7)**: the same shares feed the Insights tab. Its
     month totals and per-category bars come straight from the loader's
     totals, so a split bill's share shows there as "<category> (Shared)".
@@ -3140,9 +3144,10 @@ same way.
 **"Who owes whom"** (`HouseholdBalances`,
 `src/components/budget/household-balances.tsx`) — on the Budget page's
 Insights tab, shown only when the household has more than one member.
-**UX-114:** when something is owed (a simplified transfer or an unpaid bill)
-it is the first card on the tab, ahead of the period summary and charts;
-with nothing owed it stays last.
+**UX-114**, as moved by the budget redesign (Oct 2026): when something is
+owed (a simplified transfer or an unpaid bill) it is on the Overview, under
+Needs attention (`BudgetTabs`' `settleUp` slot), not on Insights; with
+nothing owed it stays last on Insights, as a record.
 Covers every split bill and repayment the household has, not just the
 month on screen: a debt carries over until it's cleared. (It used to be
 scoped to the selected month, so an unpaid August debt silently vanished
@@ -3374,9 +3379,11 @@ settled later.
   the month's end that weren't paid before its start, plus upcoming ones, so
   the query and list don't grow with history.
 
-**UI.** `PlannedExpensesPanel` (`src/components/budget/planned-expenses-panel.tsx`)
-sits in the Manage tab under the recurring items, grouped Overdue, Due this
-month, Upcoming and Paid (paid in the viewed month only). Rows offer Log
+**UI.** `PlannedItemList` (`src/components/budget/planned-expenses-panel.tsx`)
+is the "Once" half of the Setup tab's Bills & income card (see "Budget page
+layout"), bills and planned income in one list ordered Overdue, Due this
+month, Upcoming and Paid (paid in the viewed month only), each row's status
+a chip (overdue shows in its amount line instead). Rows offer Log
 payment, Edit and Delete (confirmed); a row with a linked payment offers
 only Edit. That includes a past month's bill paid later: it still shows as
 due there, with "Paid {date}" after its due date, since a second payment
@@ -3456,8 +3463,8 @@ else sees it, and it never touches a household's numbers.
   amount as the user's own due payments, on Personal Budget and on the
   dashboard's "Your budget" card, which share the loader. It also returns
   them (`plannedExpenses`) for the page.
-- **UI.** The same `PlannedExpensesPanel` and `PlannedExpenseDialog` on
-  Personal Budget's Manage tab, under the recurring items, with
+- **UI.** The same `PlannedItemList` and `PlannedExpenseDialog` on
+  Personal Budget's Setup tab, in its Bills & income card, with
   `members={[]}` (so no split section) and `dict.personalBudget`, whose
   `planned` texts drop the split ones (`PlannedDict` in `budget-dict.ts`
   makes those optional). Outstanding bills also show in the Overview's due
@@ -3514,12 +3521,12 @@ ordinary `INCOME` transaction.
   expected income (`dueIncome`) under its own name. The household Budget page,
   the dashboard's household card (`loadHouseholdSafeToSpend`), the weekly
   digest and `loadPersonalBudgetPosition` all pass each item's type.
-- **UI.** A second `PlannedExpensesPanel` with `kind="INCOME"` sits under
-  Planned bills on each budget's Manage tab, listing only income rows and
-  offering only income categories. Its texts are `dict.budget.plannedIncome`
-  and `dict.personalBudget.plannedIncome` (`plannedTexts` in `budget-dict.ts`
-  picks bills' or income's): groups Not received, Expected this month,
-  Upcoming and Received, "Expected {date}", "Received {date}", the action
+- **UI.** Planned income shares the "Once" list with planned bills on each
+  budget's Setup tab, added from Bills & income's Add menu ("One-off
+  income"), whose dialog offers only income categories. Its texts are
+  `dict.budget.plannedIncome` and `dict.personalBudget.plannedIncome`
+  (`plannedTexts` in `budget-dict.ts` picks bills' or income's): statuses
+  Not received, Expected this month, Upcoming and Received, "Expected {date}", "Received {date}", the action
   "Log income" and the toast "{name} marked as received." (through
   `TransactionTemplatePrefill.plannedType`). Each panel is a region named by
   its title, so the two "Upcoming" groups can be told apart. Income due this
@@ -3683,6 +3690,55 @@ it."). The two first-run cards differ in the same way: the household card
 names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
 categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
+
+#### Budget page layout (budget redesign, Oct 2026)
+
+Both budget pages share one layout, built so each tab answers one question
+and the Overview fits a phone screen. It replaced a page that had grown a
+card per feature (about 9 parts in the Safe to spend card, up to 17 cards on
+Insights, three Add panels on Manage). No data model changed.
+
+- **Tabs**: Overview, Setup, Activity, Insights. The URL values stay
+  `overview`, `manage`, `transactions` and `insights`, so existing links and
+  notifications still land. Swedish: Översikt, Upplägg, Aktivitet, Insikter.
+- **Overview**:
+  1. Safe to spend (`variant="compact"`): the summary line, the number and
+     the daily allowance. The month-end projection, the arithmetic, the sign
+     legend and the caveat sit behind "How we got this number".
+  2. Needs attention (`DueRecurringWidget`): a real `h2` with a count badge.
+     Categories near or over their limit (`LimitAlertList`) come first, then
+     due recurring items, planned bills and income, and shared rows. Each
+     due row has one Log button, with the rarer actions in its ⋯ menu. With a
+     limit row listed and nothing due, the empty-state lines don't show.
+     "All bills & income" goes to Setup.
+  3. Settle up: on the household budget, who owes whom (`HouseholdBalances`)
+     while somebody owes something; on Personal Budget, "Your household
+     balance" (`HouseholdDebtsCard`). Neither shows with nothing owed.
+  4. Savings goals.
+- **Setup**: one Bills & income card (`BillsAndIncomePanel`) with one Add
+  button. Its menu asks "Repeats every month or year", "One-off bill" or
+  "One-off income" and opens the recurring item, planned bill or planned
+  income dialog. Repeating items (`RecurringTemplateList`) list due, then
+  accounted for, then logged, then paused, each with a status chip. A due
+  item is logged from Needs attention, not here; "Mark as accounted for" is
+  in its menu, and an accounted-for item keeps Undo. One-off items
+  (`PlannedItemList`) follow under "Once". Then Categories, and on Personal
+  Budget the budget month setting.
+- **Activity**: the transaction list, unchanged.
+- **Insights**: "This month" (one breakdown at a time, see "Period
+  summary") and "Fixed income & costs" (`FixedBudgetSummary`). The fixed
+  card is one sentence ("{income} in and {costs} out every month, so {net}
+  is left over", or "{net} more goes out than comes in" for a deficit), a
+  status line with an icon, the savings line, then the trend chart. The
+  per-item breakdowns sit behind "See what's in it": on Personal Budget
+  they're the one place the user's share of each shared bill is listed
+  (BUDGET-7). The household budget's grocery analysis (`CostAnalyzer`) sits
+  behind a "Grocery prices, stores and waste" disclosure. `?prices=1` opens
+  it, which a price-spike notification's link sets. With nothing owed,
+  who owes whom is last, as a record.
+- **Still open**: logging a shared expense from the Add transaction sheet,
+  and making a new transaction repeat from that sheet, are BACKLOG items
+  (UX-152, UX-153).
 
 #### Personal starter categories (BUDGET-5)
 

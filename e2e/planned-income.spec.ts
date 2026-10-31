@@ -2,12 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
+import { addBillOrIncome, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
 
 // Planned income: a one-off income expected on a date (a bonus, a tax
 // refund, a win), the planned-bill rows (planned-expenses.spec.ts) in an
-// income category. It's added in its own "Planned income" panel on the
-// Manage tab, counts in Safe to spend as expected income in the month it's
+// income category. It's added from the Bills & income card's Add menu on the
+// Setup tab, counts in Safe to spend as expected income in the month it's
 // due, and is received through the ordinary transaction dialog ("Log
 // income"). Income that didn't arrive in its month shows as "Not received"
 // and stops counting. The income category is seeded straight into Postgres;
@@ -67,17 +67,14 @@ test.afterEach(async () => {
   });
 });
 
-// The "Planned income" panel, one of its groups ("Expected this month",
-// "Received", …), and an item's row in that group. Scoped to the panel since
-// the "Planned bills" panel next to it has groups of the same names.
-function incomeGroup(page: Page, heading: string) {
-  return page
-    .getByRole("main")
-    .getByRole("region", { name: "Planned income" })
-    .getByRole("region", { name: heading });
+// The one-off half of the Setup tab's Bills & income card, and an item's row
+// in it carrying its status ("Expected this month", "Received", or "Not
+// received" in its amount line when late).
+function incomeGroup(page: Page) {
+  return page.getByRole("main").getByRole("region", { name: "Once" });
 }
-function incomeRow(page: Page, heading: string, name: string) {
-  return incomeGroup(page, heading).getByRole("listitem").filter({ hasText: name });
+function incomeRow(page: Page, status: string, name: string) {
+  return incomeGroup(page).getByRole("listitem").filter({ hasText: name }).filter({ hasText: status });
 }
 
 /** YYYY-MM-DD of the 15th of last month, in the browser's (and Node's) zone. */
@@ -104,8 +101,7 @@ test("adds household planned income, counts it this month and marks it received 
 
   // --- Add it: today's date by default, so it's expected this month --------
   await page.goto("/dashboard/budget?tab=manage");
-  const panel = main.getByRole("region", { name: "Planned income" });
-  await panel.getByRole("button", { name: "Add planned income" }).click();
+  await addBillOrIncome(page, "One-off income");
   const dialog = page.getByRole("dialog", { name: "Add planned income" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Name").fill(name);
@@ -124,16 +120,14 @@ test("adds household planned income, counts it this month and marks it received 
   await expect(expectedRow).toBeVisible();
   await expect(expectedRow).toContainText(/4[\s,.]?500/);
   await expect(expectedRow).toContainText("Expected");
-  // It's income, not a bill: never listed under Planned bills.
-  await expect(main.getByRole("region", { name: "Planned bills" }).getByText(name)).toHaveCount(0);
   if (testInfo.project.name.startsWith("mobile")) {
     await expectTouchTargets(page);
-    await expectTargetsApart(incomeGroup(page, "Expected this month"));
+    await expectTargetsApart(incomeGroup(page));
   }
 
   // --- It's expected income in Safe to spend and in the due strip ----------
   await page.getByRole("tab", { name: "Overview" }).click();
-  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Needs attention" });
   const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
   await expect(stripRow.getByRole("button", { name: "Log income" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -172,10 +166,7 @@ test("shows personal planned income that didn't arrive as not received and keeps
   const main = page.getByRole("main");
 
   await page.goto("/dashboard/personal-budget?tab=manage");
-  await main
-    .getByRole("region", { name: "Planned income" })
-    .getByRole("button", { name: "Add planned income" })
-    .click();
+  await addBillOrIncome(page, "One-off income");
   const dialog = page.getByRole("dialog", { name: "Add planned income" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Amount").fill("9000");
@@ -193,9 +184,9 @@ test("shows personal planned income that didn't arrive as not received and keeps
 
   // Late income may never come, so it doesn't nag in the due strip (that it
   // stops counting in Safe to spend is covered by the calculator's unit
-  // tests). The Manage tab stays mounted, hidden, hence only visible matches.
+  // tests). The Setup tab stays mounted, hidden, hence only visible matches.
   await page.getByRole("tab", { name: "Overview" }).click();
-  await expect(main.getByText("Due this period").filter({ visible: true })).toBeVisible();
+  await expect(main.getByText("Needs attention").filter({ visible: true })).toBeVisible();
   await expect(main.getByText(name).filter({ visible: true })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });

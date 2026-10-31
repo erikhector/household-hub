@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { budgetTag, insertHouseholdCategory, withDb } from "./budget-seed";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, e2eWorkerData } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { addBillOrIncome, dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // Splitting a bill by hand shows what's still left to split as the shares
 // are typed (476 bill, my share 300 → "176.00 of 476.00 left to split"),
@@ -77,7 +77,7 @@ test("the transaction dialog shows what's left to split as shares are typed", as
 test("the planned bill dialog shows what's left to split as shares are typed", async ({ page }) => {
   const { me, other } = await memberNames();
   await page.goto("/dashboard/budget?tab=manage");
-  await page.getByRole("main").getByRole("button", { name: "Add planned bill" }).click();
+  await addBillOrIncome(page, "One-off bill");
   const dialog = page.getByRole("dialog", { name: "Add planned bill" });
   await expect(dialog).toBeVisible();
 

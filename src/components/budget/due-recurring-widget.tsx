@@ -1,12 +1,13 @@
 "use client";
 
-// "What needs my attention right now" strip, rendered by BudgetTabs (both
-// budget pages) at the top of the Overview landing tab so it's reachable
-// without switching tabs or scrolling — unlike the full Recurring items panel
-// (recurring-templates-panel.tsx), which lives inside the Manage tab and
-// also handles add/edit/pause/delete. This widget only lists templates with
-// status "due" and offers the same two quick actions the panel's "Due this
-// period" section already has: log a transaction, or mark accounted for.
+// "What needs my attention right now" card, rendered by BudgetTabs (both
+// budget pages) on the Overview landing tab right under Safe to spend, so
+// it's reachable without switching tabs or scrolling — unlike Bills & income
+// (bills-and-income-panel.tsx), which lives on the Setup tab and handles
+// add/edit/pause/delete. This card lists categories near or over their limit
+// (LimitAlertList, budget redesign Oct 2026: they used to be a card of their
+// own above this one), then templates with status "due" with the quick
+// actions: log a transaction, or mark accounted for.
 // Merged from the formerly-separate PersonalDueRecurringWidget (BUDGET-2) —
 // the sharedDueRows/sharedExpenseHouseholds/showHouseholdName props below
 // are only ever non-empty on the personal budget page, see their doc
@@ -18,7 +19,7 @@ import { Check, CheckCircle2, Ellipsis, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +47,7 @@ import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
 import { LazyTransactionDialog, LazyLogSharedExpenseDialog } from "@/components/budget/lazy-budget-dialogs";
+import { LimitAlertList, type LimitAlertRow } from "@/components/budget/limit-alerts";
 
 // A household RecurringTemplate the user has opted into a split for (see
 // docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) that's due but not yet
@@ -75,6 +77,7 @@ export type SharedDueRow = {
 };
 
 export function DueRecurringWidget({
+  limitAlerts = [],
   templates,
   hasTemplates,
   hadTemplatesInMonth,
@@ -96,6 +99,9 @@ export function DueRecurringWidget({
   createTransactionAction,
   updateTransactionAction,
 }: {
+  /** UX-108: categories at 90% or more of their limit, worst first. Listed
+   * first, since a blown limit is the most urgent thing on the card. */
+  limitAlerts?: LimitAlertRow[];
   /** Already filtered to `status === "due"` — see page.tsx. */
   templates: RecurringTemplateListRow[];
   /** Whether the household (or user) has any active recurring template at
@@ -166,20 +172,33 @@ export function DueRecurringWidget({
     timeZone: "UTC",
   });
 
+  const dueCount = templates.length + plannedDue.length + sharedDueRows.length;
+  const count = limitAlerts.length + dueCount;
+
   return (
     <Card>
-      <CardHeader className="flex flex-col items-start gap-2 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <CardTitle>{dict.dueWidget.title}</CardTitle>
-          <p className="text-sm text-muted-foreground">{dict.dueWidget.subtitle}</p>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        {/* A real heading, so the Overview has an outline for a screen
+            reader (it had only the page's h1). */}
+        <h2 className="flex items-center gap-2 font-heading text-base font-semibold">
+          {dict.dueWidget.title}
+          {count > 0 && (
+            <Badge variant="secondary" className="tabular-nums">
+              {count}
+            </Badge>
+          )}
+        </h2>
         {/* UX-118: a link, not a ghost button that reads as a stray label. */}
         <Button type="button" variant="link" size="sm" onClick={onManageClick}>
           {dict.dueWidget.manageButton}
         </Button>
       </CardHeader>
-      <CardContent>
-        {!hasTemplates && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
+      <CardContent className="flex flex-col gap-2">
+        <LimitAlertList alerts={limitAlerts} numberFormat={numberFormat} dict={dict.safeToSpend} />
+        {/* With a category over its limit already listed, "all caught up"
+            (or "set up bills") would contradict the row right above it, so
+            the empty states only show on an otherwise empty card. */}
+        {limitAlerts.length > 0 && dueCount === 0 ? null : !hasTemplates && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.dueWidget.noTemplatesBody}</p>
         ) : !hadTemplatesInMonth && templates.length === 0 && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.dueWidget.nothingDueBody}</p>

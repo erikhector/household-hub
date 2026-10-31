@@ -75,7 +75,9 @@ test("safe to spend projects to month end and categories draw a sparkline", asyn
   await page.goto("/dashboard/personal-budget");
   const main = page.getByRole("main");
 
-  // The projection says its number in words, not just as a line.
+  // The projection says its number in words, not just as a line. It sits
+  // behind "How we got this number" (budget redesign, Oct 2026).
+  await main.getByText("How we got this number").click();
   await expect(main.getByText("At this pace", { exact: true })).toBeVisible();
   await expect(
     main.getByText(/^About .+ (left at the end of the month|over by the end of the month)\.$/),
@@ -123,7 +125,7 @@ test("the trend chart's bars are tappable and say their values", async ({ page, 
   await expect(readout.getByText("Costs", { exact: true })).toBeVisible();
 
   // The whole series is there for screen readers as a table.
-  await expect(main.getByRole("table", { name: "How it's changing" })).toBeAttached();
+  await expect(main.getByRole("table", { name: "Fixed income and costs by month" })).toBeAttached();
 
   // Each month is a full-size touch target (DESIGN.md M3).
   const box = await previous.boundingBox();

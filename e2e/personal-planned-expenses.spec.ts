@@ -2,11 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
+import { addBillOrIncome, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
 
 // Personal planned bills: the household's planned bills
 // (planned-expenses.spec.ts) on Personal Budget, for the signed-in user only
-// and with no split. Added on the Manage tab, counted in Safe to spend until
+// and with no split. Added on the Setup tab, counted in Safe to spend until
 // paid, paid through the ordinary transaction dialog ("Log payment"), and
 // never shown on the household's Budget page. The personal category is
 // seeded straight into Postgres; the bill itself is made through the UI.
@@ -56,11 +56,13 @@ test.afterEach(async () => {
   });
 });
 
-function plannedGroup(page: Page, heading: string) {
-  return page.getByRole("main").getByRole("region", { name: heading });
+// The one-off half of the Setup tab's Bills & income card, and the bill's
+// row in it carrying a status chip ("Due this month", "Paid", …).
+function plannedGroup(page: Page) {
+  return page.getByRole("main").getByRole("region", { name: "Once" });
 }
-function plannedRow(page: Page, heading: string, name: string) {
-  return plannedGroup(page, heading).getByRole("listitem").filter({ hasText: name });
+function plannedRow(page: Page, status: string, name: string) {
+  return plannedGroup(page).getByRole("listitem").filter({ hasText: name }).filter({ hasText: status });
 }
 
 test("adds a personal planned bill, counts it until paid, and keeps it off the household budget", async ({
@@ -72,7 +74,7 @@ test("adds a personal planned bill, counts it until paid, and keeps it off the h
 
   // --- Add the bill -------------------------------------------------------
   await page.goto("/dashboard/personal-budget?tab=manage");
-  await main.getByRole("button", { name: "Add planned bill" }).click();
+  await addBillOrIncome(page, "One-off bill");
   const dialog = page.getByRole("dialog", { name: "Add planned bill" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Name").fill(name);
@@ -91,19 +93,19 @@ test("adds a personal planned bill, counts it until paid, and keeps it off the h
   await expect(dueRow).toContainText(/1[\s,.]?200/);
   if (testInfo.project.name.startsWith("mobile")) {
     await expectTouchTargets(page);
-    await expectTargetsApart(plannedGroup(page, "Due this month"));
+    await expectTargetsApart(plannedGroup(page));
   }
 
   // --- It counts in Safe to spend and shows in the due strip ---------------
   await page.getByRole("tab", { name: "Overview" }).click();
-  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Needs attention" });
   const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
   await expect(stripRow.getByRole("button", { name: "Log payment" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   // --- Only the user sees it: not on the household budget -------------------
   await page.goto("/dashboard/budget?tab=manage");
-  await expect(main.getByRole("heading", { name: "Planned bills" })).toBeVisible();
+  await expect(main.getByRole("heading", { name: "Bills & income" })).toBeVisible();
   await expect(main.getByText(name)).toHaveCount(0);
 
   // --- Log its payment -----------------------------------------------------

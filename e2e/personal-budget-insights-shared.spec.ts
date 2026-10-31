@@ -6,7 +6,8 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // BUDGET-7: Personal Budget's Insights tab counts the user's share of a
 // split household bill — in the month's totals (PeriodSummary) and in the
-// "Fixed income & costs" card's recurring-costs breakdown. The card's trend
+// "Fixed income & costs" card's recurring-costs breakdown (behind its "See
+// what's in it" disclosure). The card's trend
 // is pinned by personal-fixed-insights.test.ts instead: other specs' bills
 // in the same household reach it too, so it can't be isolated here.
 // Rows are written straight to Postgres, like personal-budget-shared.spec.ts,
@@ -75,6 +76,9 @@ test("a shared bill's share shows in the personal Insights totals and fixed cost
   await expect(monthRow).toBeVisible();
   await expect(monthRow.locator("..")).toContainText(half);
 
+  // The fixed-cost items are folded away under the card's trend (budget
+  // redesign, Oct 2026).
+  await main.getByText("See what's in it").filter({ visible: true }).click();
   const fixedRow = main.getByText(`${template} (Shared)`, { exact: true }).filter({ visible: true });
   await expect(fixedRow).toBeVisible();
   await expect(fixedRow.locator("..")).toContainText(half);
