@@ -224,16 +224,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       (a Suspense split, larger than S).
 
 
-- [ ] **MAINT-66. Flaky: `inventory-lazy-dialogs` "a failed chunk load says so, and the next tap retries" (mobile) misses the Add dialog** (low, S) —
-      `e2e/inventory-lazy-dialogs.spec.ts:52`. Failed once at line 80 on the
-      release train's `ci:local` run of `bcfddc1` (`getByRole('dialog', { name:
-      'Add inventory item' })` not visible within 5 s after the offline chunk
-      block was un-routed and Add tapped again), then passed 11 of 11 on a re-run
-      of the same commit (`--repeat-each=3`). Likely the retry tap lands before
-      hydration or before the failed import is cleared. Fix in the app or in what
-      the test waits for (e.g. `expectHydrated`), never a skip, retry or looser
-      assertion.
-
 ### UX (2026-09-26 scout)
 
 Found by loading every dashboard route at 390×844 and 1280×800, in English
