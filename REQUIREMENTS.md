@@ -3019,7 +3019,10 @@ Component page function can't itself be unit-tested.
   {amount} goes", with a key that prints every part's amount (`incomeSplit`
   in `src/lib/safe-to-spend-calc.ts`, the arithmetic's own terms, so the bar
   and "How we got this number" agree). Safe to spend takes the number's
-  status colour; the other parts are chart tokens in a fixed order. With
+  status colour; the other parts take the fixed money-flow colours
+  (`FLOW_FILL` in `chart-colors.ts`: spent `chart-1`, saved `chart-3`, due
+  `chart-2`, kept a lighter step of due), the same as in the fixed income
+  chart. The key is capped at 360 px so amounts stay near their names. With
   more going out than coming in, the bar scales to what goes out and a
   warning line says by how much. No bar without income.
 - **Projected end of month (UX-39)**: in the current month, under the
@@ -3725,22 +3728,7 @@ Insights, three Add panels on Manage). No data model changed.
   3. Settle up: on the household budget, who owes whom (`HouseholdBalances`)
      while somebody owes something; on Personal Budget, "Your household
      balance" (`HouseholdDebtsCard`). Neither shows with nothing owed.
-  4. "{Month} at a glance" (`MonthAtAGlance`, `src/lib/month-comparison.ts`):
-     income, spent, saved and left over against the month before, each with
-     this month's amount, the change in words ("8% less", "About the same"
-     within ±5%, "New this month" from nothing) and a pair of bars, this
-     month (`primary`) over last (`muted-foreground` at 35%), on one scale.
-     While the month is running, the previous one is cut at the same day of
-     its period ("Compared with September up to the same day",
-     `previousCutoff`); a finished month is compared with the whole one
-     before. The change is neutral text with an arrow, never red or green.
-     Under it, "What stands out" names the expense category furthest above
-     its usual and the one furthest below (`standOuts`, over `vsUsual`, so
-     nothing under 10%). The household page reads last month from its
-     lookback window; Personal Budget adds the user's share of last month's
-     shared bills (one `TransactionSplit` query), since this month's totals
-     include them. Hidden when neither month has anything logged.
-  5. Savings goals.
+  4. Savings goals.
 - **Setup**: one Bills & income card (`BillsAndIncomePanel`) with one Add
   button. Its menu asks "Repeats every month or year", "One-off bill" or
   "One-off income" and opens the recurring item, planned bill or planned
@@ -3751,11 +3739,42 @@ Insights, three Add panels on Manage). No data model changed.
   (`PlannedItemList`) follow under "Once". Then Categories, and on Personal
   Budget the budget month setting.
 - **Activity**: the transaction list, unchanged.
-- **Insights**: "This month" (one breakdown at a time, see "Period
-  summary") and "Fixed income & costs" (`FixedBudgetSummary`). The fixed
-  card is one sentence ("{income} in and {costs} out every month, so {net}
-  is left over", or "{net} more goes out than comes in" for a deficit), a
-  status line with an icon, the savings line, then the trend chart. The
+- **Insights**: "{Month} at a glance", "This month" (one breakdown at a
+  time, see "Period summary") and "Fixed income & costs"
+  (`FixedBudgetSummary`).
+  - "{Month} at a glance" (`MonthAtAGlance`, `src/lib/month-comparison.ts`)
+    leads the tab. It sat on the Overview until the design review (Oct
+    2026), which found it made the Overview too long for a phone (M6). It
+    compares income logged, spent, saved and "Not spent or saved" with the
+    month before. Each row has this month's amount, the change in words and
+    a pair of bars, this month (`chart-4`, the emphasis colour) over last
+    (`muted-foreground` at 40%). The change is "8% less", "About the same"
+    within ±5% or "New this month" from nothing; "Not spent or saved"
+    changes by an amount ("1,200.00 less", `amountChangeOf`), since near
+    zero or below it a percentage blows up. The bars share one scale
+    across all four rows, are square at the baseline with a 4 px rounded
+    end, and are capped at 480 px wide. A line under the title says the
+    card counts what was logged, while Safe to spend also counts what's
+    still due; the last row isn't called "Left over" so it isn't read as
+    Safe to spend. Month names are capitalised where they start the
+    heading or stand alone (Swedish `Intl` gives "oktober"). While the
+    month is running, the previous one is cut at the same day of its
+    period ("Compared with September up to the same day",
+    `previousCutoff`); a finished month is compared with the whole one
+    before. The change is neutral text with an arrow, never red or green.
+    Under it, "What stands out" names the expense category furthest above
+    its usual and the one furthest below (`standOuts`, over `usualFor`, so
+    nothing under 10%, and up to the same day while the month runs). The
+    household page reads last month from its lookback window; Personal
+    Budget adds the user's share of last month's shared bills (one
+    `TransactionSplit` query), since this month's totals include them.
+    Hidden when neither month has anything logged.
+  - The fixed card is one sentence about the plan, its recurring items
+    ("Planned each month: {income} in and {costs} out, so {net} is left
+    over", or "{net} more goes out than comes in" for a deficit), a status
+    line with an icon, the savings line, then the trend chart under "What
+    was logged each month". The two can differ (a bill logged at 12,399
+    against a planned 12,000), so each says which it is. The
   per-item breakdowns sit behind "See what's in it": on Personal Budget
   they're the one place the user's share of each shared bill is listed
   (BUDGET-7). The household budget's grocery analysis (`CostAnalyzer`) sits
@@ -3983,8 +4002,15 @@ library), so household and personal never diverge:
   the readout still prints it (a negative "Left over" when costs and
   savings ran past income). Each month is one button the full height
   of the chart, at least 44 px wide and 8 px apart (M3); tapping selects it
-  (`aria-pressed`) and a readout above the bars (`role="status"`) shows that
-  month's value per series with its colour dot, which doubles as the legend.
+  (`aria-pressed`) and a readout above the bars shows that month's value
+  per series with its colour dot, which doubles as the legend. The readout
+  follows hover and focus, so it isn't a live region; a visually hidden
+  `role="status"` line announces a month only once it's picked (design
+  review, Oct 2026: hover made screen readers chatter). The stacked parts'
+  2 px gaps come out of the column's height, so a full column ends on the
+  top line. A series can carry a fixed `fill`: the fixed trend's parts use
+  the money-flow colours (costs `chart-1`, savings `chart-3`, left over
+  `chart-5`), the same as Safe to spend's split bar.
   The latest month starts selected and scrolled into view, so nothing is
   hover-only. Each button's accessible name carries its values, and the
   whole series is also a visually hidden table (`sr-only`, captioned with
@@ -4003,21 +4029,38 @@ library), so household and personal never diverge:
   months in its six-month history that had any spending (`vsUsual` over
   `withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
   12-month lookback window or the personal page's whole history); a row
-  with no earlier spending says nothing. It replaced a per-row sparkline,
+  with no earlier spending says nothing. While the viewed month is running
+  the comparison is like for like (design review, Oct 2026): every earlier
+  month is cut at the same day of its period (`historySoFar`, from
+  `withSpendHistory`'s `today`), so twelve days of October aren't measured
+  against whole Septembers; once the month is over, whole months compare.
+  The breakdown rows, the donut's notes and "What stands out" all read it
+  through `usualFor`, so they agree. It replaced a per-row sparkline,
   which showed a shape and left the meaning to the reader. The expenses
   card opens with one sentence on its point: "{name} is {percent}% of what
   went out."
 - `DonutChart` (client, the owner's ask, Oct 2026): Insights' "Expenses
   by category" opens on a donut of where the month's spending went. Six
-  slices at most: the five largest categories, chart-1 … chart-5 from the
-  largest, and the rest folded into "Other" (neutral, its notes list what
-  it includes), with a gap of the card between slices. Nothing picked, the
-  hole shows "Spent this month" and the total; picking a slice — on the
+  slices at most: the five largest categories and the rest folded into
+  "Other" (its notes list what it includes), with a gap of the card between
+  slices. Colour is emphasis, not identity (design review, Oct 2026: by
+  rank, a category changed colour when another overtook it, and teal meant
+  Transport here and Saved on Safe to spend): every slice is one grey
+  (`muted-foreground` at 40%, "Other" lighter at 20%) and only the picked
+  slice, or with nothing picked the largest, is `chart-4`, which no money
+  flow uses. Nothing picked, the hole shows "Spent this month" and the
+  total (proportional figures, not tabular); picking a slice — on the
   chart, or its row in the key below, a 44 px button with swatch, name,
-  share and amount (`aria-pressed`) — lifts it, dims the rest and puts its
+  share and amount (`aria-pressed`) — lifts it into the accent and puts its
   name, amount and share in the hole, with its notes (its limit and status,
-  how it compares with usual) and "See transactions" (Activity filtered to
-  it) in a `role="status"` panel under the chart. Picking it again or "Show
+  how it compares with usual) in a `role="status"` panel under the chart
+  and "See transactions" (Activity filtered to it) and "Show all" beside
+  it, outside the live region. A note near or over the limit is in
+  `warning` / `destructive` with the warning icon, and that category's key
+  row carries the icon too (with "Almost at limit" / "Over limit" for
+  screen readers), so it shows before anything is picked. Key rows never
+  dim. "Pick a slice or a name…" is the hint, not "Tap": it works with a
+  mouse and keys too. Picking it again or "Show
   all" goes back. The SVG is `aria-hidden`; the key carries the same
   choices for touch, keyboard and screen readers. The rows with their limit
   meters fold under the donut behind "All categories, with limits"
@@ -4034,13 +4077,19 @@ library), so household and personal never diverge:
   (and sparkline) under them, and "of {limit}" with its status under that.
   The fill is neutral until near (`warning`) or over (`destructive`) the
   limit, each on a track tinted from its own colour, and status always
-  carries the warning icon. Savings goals use the same meter in `chart-2`.
+  carries the warning icon. Savings goals use the same meter in `chart-3`,
+  the "saved" flow colour.
 - `AnimatedNumber` (client): Safe to spend's number counts to a new value when it
   changes (600 ms, eased out), always in `tabular-nums`. The first render
   is the real value, as the server sent it, so a page load never flashes a
   wrong number; under `prefers-reduced-motion` the number just changes.
-- Colours come from `chart-colors.ts`: `chart-1` … `chart-5` in series
-  order, for marks only (DESIGN.md, Colour). They're checked with the
+- Colours come from `chart-colors.ts`, for marks only (DESIGN.md, Colour),
+  in three models. Money flows have one fixed colour each wherever they're
+  drawn (`FLOW_FILL`: spent `chart-1`, saved `chart-3`, due `chart-2`,
+  kept for limits `chart-2` at 45%, left over `chart-5`). A chart about one
+  item against its context uses emphasis (`EMPHASIS_*` `chart-4`, the rest
+  `CONTEXT_*` grey): the donut and "at a glance". Anything else takes
+  `chart-1` … `chart-5` in series order. They're checked with the
   dataviz palette validator: in light all five sit in its lightness band;
   in dark they were stepped down to OKLCH L 0.64–0.66 (chart redesign,
   Oct 2026) so no series outshines another, all still 3:1 on the card.

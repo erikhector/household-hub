@@ -11,11 +11,13 @@
 //   its values.
 //   Nothing is hover-only (DESIGN.md "Context"): the latest month starts
 //   selected, so the readout says something before anyone taps.
-// - **Screen readers** get each button's values in its name, the readout
-//   as a `status` region (announced politely on a tap), and the whole
+// - **Screen readers** get each button's values in its name,
+//   a hidden `status` line announcing a month once it is picked (never on
+//   hover: design review, Oct 2026), and the whole
 //   series as a visually hidden table (`sr-only`) — the chart drawn as
 //   data, not as shapes.
-// - **Colours** are chart-1 … chart-n in series order (chart-colors.ts).
+// - **Colours** are chart-1 … chart-n in series order (chart-colors.ts),
+//   or a series' own `fill` when it is a money flow (FLOW_FILL).
 // - **Phones**: twelve months don't fit 412 px, so the bars scroll sideways
 //   inside the card (never the page — DESIGN.md M1) and start scrolled to
 //   the latest month, the one people look for.
@@ -42,7 +44,14 @@ import { chartFill } from "@/components/charts/chart-colors";
 import { barHeightPercent, niceCeiling, trimLeadingEmpty } from "@/lib/chart-calc";
 import { createMoneyFormat } from "@/lib/currency";
 
-export type BarSeries = { key: string; label: string };
+export type BarSeries = {
+  key: string;
+  label: string;
+  /** A fixed fill class for this series (FLOW_FILL), when the series is a
+   * money flow whose colour must match the rest of the page. Without one
+   * the series takes chart-1 … chart-n by its place. */
+  fill?: string;
+};
 export type BarGroup = {
   key: string;
   /** Short label under the bars ("Oct 26"). */
@@ -97,6 +106,7 @@ export function BarChart({
     ),
   );
   const multi = series.length > 1;
+  const fillOf = (s: BarSeries, i: number) => s.fill ?? chartFill(i);
 
   // Start with the latest month in view (the right end on a phone).
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -122,7 +132,10 @@ export function BarChart({
       {shown && (
         // The readout is also the legend: each series' swatch and name sit
         // beside its value, so colour is never the only key (≥ 2 series).
-        <div role="status" className="flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1">
+        // Not a live region: it follows the pointer and focus, and a screen
+        // reader reading out every month the mouse crosses is chatter. The
+        // buttons' names carry the values; the status below announces a pick.
+        <div className="flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-sm font-semibold text-foreground">{shown.label}</span>
           {hasTotal && (
             <span className="flex items-center gap-1.5 text-sm">
@@ -132,7 +145,7 @@ export function BarChart({
           )}
           {series.map((s, i) => (
             <span key={s.key} className="flex items-center gap-1.5 text-sm">
-              <span aria-hidden className={`size-2.5 shrink-0 rounded-[3px] ${chartFill(i)}`} />
+              <span aria-hidden className={`size-2.5 shrink-0 rounded-[3px] ${fillOf(s, i)}`} />
               {multi && <span className="text-muted-foreground">{s.label}</span>}
               <span className="font-semibold tabular-nums">
                 {numberFormat.format(shown.values[i] ?? 0)}
@@ -141,6 +154,11 @@ export function BarChart({
           ))}
         </div>
       )}
+      {/* Announced only when a month is picked (selectedKey starts null, so
+          the opening month isn't read out on load). */}
+      <p role="status" className="sr-only">
+        {selectedKey !== null && selected ? describe(selected) : ""}
+      </p>
       <div className="flex min-w-0 gap-2">
         {/* The scale's labels, outside the scrolling bars so they stay in
             view. pt-2 matches the buttons' top padding, so each label sits
@@ -192,27 +210,33 @@ export function BarChart({
                 >
                   {stacked ? (
                     // Parts from the baseline up, 2 px of card between them;
-                    // only the topmost drawn part gets the rounded end.
+                    // only the topmost drawn part gets the rounded end. The
+                    // gaps come out of the parts' share of the height, so a
+                    // full column ends on the top line instead of 2 px per
+                    // gap above it.
                     <span aria-hidden className="flex h-32 w-full flex-col-reverse items-center gap-0.5">
-                      {series.map((s, i) => {
-                        const value = group.values[i] ?? 0;
-                        if (value <= 0) return null;
-                        const isTop = !group.values.slice(i + 1).some((v) => v > 0);
-                        return (
-                          <span
-                            key={s.key}
-                            className={`w-full max-w-6 shrink-0 ${isTop ? "rounded-t-[4px]" : ""} ${chartFill(i)}`}
-                            style={{ height: `${(value / top) * 100}%` }}
-                          />
-                        );
-                      })}
+                      {(() => {
+                        const gaps = Math.max(0, group.values.filter((v) => v > 0).length - 1);
+                        return series.map((s, i) => {
+                          const value = group.values[i] ?? 0;
+                          if (value <= 0) return null;
+                          const isTop = !group.values.slice(i + 1).some((v) => v > 0);
+                          return (
+                            <span
+                              key={s.key}
+                              className={`w-full max-w-6 shrink-0 ${isTop ? "rounded-t-[4px]" : ""} ${fillOf(s, i)}`}
+                              style={{ height: `calc((100% - ${gaps * 2}px) * ${value / top})` }}
+                            />
+                          );
+                        });
+                      })()}
                     </span>
                   ) : (
                     <span aria-hidden className="flex h-32 w-full items-end justify-center gap-0.5">
                       {series.map((s, i) => (
                         <span
                           key={s.key}
-                          className={`w-full rounded-t-[4px] ${multi ? "max-w-2.5" : "max-w-6"} ${chartFill(i)}`}
+                          className={`w-full rounded-t-[4px] ${multi ? "max-w-2.5" : "max-w-6"} ${fillOf(s, i)}`}
                           style={{ height: `${barHeightPercent(group.values[i] ?? 0, top)}%` }}
                         />
                       ))}

@@ -20,7 +20,7 @@ import { ChevronDown, ChevronRight, Minus, TrendingDown, TrendingUp, TriangleAle
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import { limitProgress } from "@/lib/budget-category-limit";
-import { vsUsual } from "@/lib/chart-calc";
+import { usualFor } from "@/lib/chart-calc";
 
 export type CategoryTotal = {
   id: string;
@@ -40,6 +40,9 @@ export type CategoryTotal = {
    * (withSpendHistory in src/lib/chart-calc.ts). Drawn as a sparkline when
    * the breakdown is given `history` labels. */
   history?: number[];
+  /** The same months cut at today's day of each period, while the viewed
+   * month is running; what "vs usual" compares (usualFor). */
+  historySoFar?: number[];
 };
 
 /** The three ways a row's month compares with its usual (vsUsual). */
@@ -138,7 +141,7 @@ export function CategoryBreakdown({
                   : progress?.near
                     ? "text-warning"
                     : "text-muted-foreground";
-                const usual = usualDict && item.history ? vsUsual(item.history) : null;
+                const usual = usualDict ? usualFor(item) : null;
                 const usualText = usual
                   ? format(
                       usual.direction === "more"

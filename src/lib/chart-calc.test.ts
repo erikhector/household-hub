@@ -6,6 +6,7 @@ import {
   countUpValue,
   dailyAllowance,
   vsUsual,
+  usualFor,
   projectMonthEnd,
   withSpendHistory,
   type ProjectionTransaction,
@@ -379,5 +380,59 @@ describe("withSpendHistory over payday periods (UX-134)", () => {
       25,
     );
     expect(rows[0].history).toEqual([0, 10, 50]);
+  });
+});
+
+describe("withSpendHistory up to the same day (design review, Oct 2026)", () => {
+  const transactions = [
+    expense("food", 100, new Date(2026, 9, 5)), // this month, day 5
+    expense("food", 40, new Date(2026, 9, 28)), // this month, dated later: still this month's
+    expense("food", 60, new Date(2026, 8, 3)), // September, before day 12
+    expense("food", 300, new Date(2026, 8, 13)), // September day 13: after "today's" day 12
+    expense("food", 50, new Date(2026, 7, 12)), // August day 12: counted (today included)
+  ];
+
+  it("cuts earlier months at today's day of their period while the month runs", () => {
+    const rows = withSpendHistory([{ id: "food" }], transactions, new Date(2026, 9, 1), "EXPENSE", 3, 1, new Date(2026, 9, 12));
+    expect(rows[0].history).toEqual([50, 360, 140]);
+    expect(rows[0].historySoFar).toEqual([50, 60, 140]);
+  });
+
+  it("compares whole months once the viewed month is over", () => {
+    const rows = withSpendHistory([{ id: "food" }], transactions, new Date(2026, 9, 1), "EXPENSE", 3, 1, new Date(2026, 10, 2));
+    expect(rows[0].historySoFar).toBeUndefined();
+  });
+
+  it("counts days from a payday period's start (UX-134)", () => {
+    const rows = withSpendHistory(
+      [{ id: "food" }],
+      [
+        expense("food", 10, new Date(2026, 8, 26)), // October's period, day 2
+        expense("food", 20, new Date(2026, 7, 26)), // September's, day 2
+        expense("food", 30, new Date(2026, 7, 28)), // September's, day 4: after today's day 2
+      ],
+      new Date(2026, 9, 1),
+      "EXPENSE",
+      2,
+      25,
+      new Date(2026, 8, 26),
+    );
+    expect(rows[0].history).toEqual([50, 10]);
+    expect(rows[0].historySoFar).toEqual([20, 10]);
+  });
+});
+
+describe("usualFor", () => {
+  it("compares mid-month spending with earlier months up to the same day", () => {
+    // Twelve days in: 140 against 50 and 60 by day 12 is well above usual,
+    // though against whole months (50 and 360) it would read as "less".
+    const row = { history: [50, 360, 140], historySoFar: [50, 60, 140] };
+    expect(vsUsual(row.history)).toEqual({ direction: "less", percent: 32 });
+    expect(usualFor(row)).toEqual({ direction: "more", percent: 155 });
+  });
+
+  it("falls back to whole months, and to nothing without a history", () => {
+    expect(usualFor({ history: [500, 500, 250] })).toEqual({ direction: "less", percent: 50 });
+    expect(usualFor({})).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ test("Overview shows each number once and keeps due items to one line", async ({
   // The totals and the arithmetic are a tap away, not on screen.
   const arithmetic = main.getByText("Remaining after expenses and savings", { exact: true }).filter({ visible: true });
   await expect(arithmetic).toHaveCount(0);
-  // (Scoped to the card: "at a glance" further down has an Income row.)
+  // (Scoped to the card, so no other card's "Income" label can match.)
   const safeCard = main.locator('[data-slot="card"]').filter({ hasText: "How we got this number" });
   await expect(safeCard.getByText("Income", { exact: true }).filter({ visible: true })).toHaveCount(0);
   await main.getByText("How we got this number").click();
@@ -239,14 +239,18 @@ test("Safe to spend shows where the month's income goes", async ({ page, isMobil
 });
 
 // Budget redesign (Oct 2026): "{Month} at a glance" compares the month so far
-// with the one before — income, spent, saved and left over, each with its
-// change in words — and names the category furthest from its usual.
-test("the Overview compares the month with the one before", async ({ page }) => {
+// with the one before — income logged, spent, saved and what's not spent or
+// saved, each with its change in words — and names the category furthest
+// from its usual. Design review (Oct 2026): it leads Insights, not the
+// Overview (M6).
+test("Insights compares the month with the one before", async ({ page }) => {
   const tag = budgetTag();
   const now = new Date();
-  // Mid-month dates for last month and the two before it, so "Bikes" has a
-  // usual to stand out against whatever day the test runs on.
-  const monthsAgo = (n: number) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - n, 2, 12));
+  // The 1st of this month and the two before it. "vs usual" compares a
+  // running month up to the same day, so the earlier months' spending has
+  // to fall on a day that's already been this month, whatever day the test
+  // runs on: day 1 always has. (Noon UTC stays the 1st in any time zone.)
+  const monthsAgo = (n: number) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - n, 1, 12));
   await withDb(async (client) => {
     await insertHouseholdCategory(client, { id: `e2e-glance-cat-${tag}`, name: `Bikes ${tag}` });
     for (const [n, amount] of [[0, 9000], [1, 100], [2, 100]] as const) {
@@ -260,15 +264,25 @@ test("the Overview compares the month with the one before", async ({ page }) => 
   });
   await page.goto("/dashboard/budget");
   const main = page.getByRole("main");
+  await expect(main.getByText("Safe to spend", { exact: true }).first()).toBeVisible();
+  await expect(main.getByRole("heading", { name: /at a glance$/ })).toBeHidden();
 
+  await page.goto("/dashboard/budget?tab=insights");
   const card = main.locator('[data-slot="card"]').filter({ has: page.getByRole("heading", { name: /at a glance$/ }) });
   await expect(card).toBeVisible();
   await expect(card.getByText(/^Compared with /)).toBeVisible();
-  for (const label of ["Income", "Spent", "Saved", "Left over"]) {
+  // It says what it counts, so it isn't read against Safe to spend.
+  await expect(card.getByText(/^From what's been logged\./)).toBeVisible();
+  for (const label of ["Income logged", "Spent", "Saved"]) {
     const row = card.getByRole("listitem").filter({ has: page.getByText(label, { exact: true }) });
     // Each row says how it changed, in words.
     await expect(row).toContainText(/% more|% less|About the same|New this month/);
   }
+  // What's not spent or saved changes by an amount, never a percentage
+  // (near zero a percentage blows up).
+  const left = card.getByRole("listitem").filter({ has: page.getByText("Not spent or saved", { exact: true }) });
+  await expect(left).toContainText(/\d more$|\d less$|About the same$/);
+  await expect(left).not.toContainText("%");
   await expect(card.getByText(new RegExp(`^Bikes ${tag}: \\d+% more than usual$`))).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
@@ -294,14 +308,18 @@ test("Insights' expenses donut lets a category be picked and inspected", async (
   await expectHydrated(key);
   await key.click();
   await expect(key).toHaveAttribute("aria-pressed", "true");
-  const status = main.getByRole("status").filter({ hasText: "See transactions" });
+  // Its notes, read out as they change: the limit it's measured against.
+  // 900 000 of 1 000 000 is near the limit, a status: said in words, and
+  // marked on its key row too (design review, Oct 2026).
+  const status = main.getByRole("status").filter({ hasText: /of 1,000,000\.00/ });
   await expect(status).toBeVisible();
-  // Its notes: the limit it's measured against.
-  await expect(status).toContainText(/of 1,000,000\.00/);
+  await expect(status).toContainText("Almost at limit");
+  await expect(key).toHaveAccessibleName(new RegExp(`^${name}\\s*Almost at limit`));
+  await expect(main.getByRole("link", { name: "See transactions" })).toBeVisible();
   if (isMobile) await expectTouchTargets(page);
   await expectNoHorizontalOverflow(page);
 
-  await status.getByRole("button", { name: "Show all" }).click();
+  await main.getByRole("button", { name: "Show all" }).click();
   await expect(key).toHaveAttribute("aria-pressed", "false");
   await expect(main.getByText("Spent this month")).toBeVisible();
 

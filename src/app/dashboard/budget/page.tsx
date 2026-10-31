@@ -755,6 +755,8 @@ async function BudgetTabsSection({
     "EXPENSE",
     SPEND_HISTORY_MONTHS,
     startDay,
+    // Design review (Oct 2026): "vs usual" compares up to the same day.
+    now,
   );
   const limitAlerts = categoriesNearLimit(expenseRows).map((alert) => ({
     ...alert,
@@ -763,7 +765,8 @@ async function BudgetTabsSection({
       : null,
   }));
 
-  // "{Month} at a glance" on the Overview: this month against the one
+  // "{Month} at a glance", leading Insights (design review, Oct 2026: it
+  // made the Overview too long, M6): this month against the one
   // before, cut at the same day while this one is running (previousCutoff).
   // The lookback window already holds last month, so no extra query.
   const previousPeriod = periodBounds(toMonthKey(addMonths(parseMonthKey(monthKey), -1)), startDay);
@@ -855,6 +858,7 @@ async function BudgetTabsSection({
   ) : null;
   const insights = (
     <div className="flex flex-col gap-6">
+      {glance}
       {periodSummary}
       <FixedBudgetSummary
         monthlyIncome={fixedMonthlySummary.monthlyIncome}
@@ -914,7 +918,6 @@ async function BudgetTabsSection({
         safeToSpendDaily={safeToSpendDaily}
         limitAlerts={limitAlerts}
         settleUp={hasDebt ? balances : null}
-        glance={glance}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={activeRecurringTemplates.length > 0}
         hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}

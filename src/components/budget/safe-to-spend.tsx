@@ -34,6 +34,7 @@ import { createMoneyFormat } from "@/lib/currency";
 import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import { AnimatedNumber } from "@/components/charts/animated-number";
 import { ProjectionChart } from "@/components/charts/projection-chart";
+import { FLOW_FILL } from "@/components/charts/chart-colors";
 import { HouseholdDebtsList } from "@/components/budget/household-debts-list";
 
 // Calmer three-way read on the amount (see docs/archive/JOY_GAP_BACKLOG.md item 3): a
@@ -47,15 +48,15 @@ const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
   over: "text-destructive",
 };
 
-// The split bar's parts, as marks (chart tokens in a fixed order, the same
-// every month). "Safe to spend" wears the number's own status colour, so the
-// part of the bar the headline is about matches the headline. "Kept for
-// limits" is a lighter step of "still due": both are money already promised.
+// The split bar's parts, as marks in the money-flow colours (FLOW_FILL), so
+// "Saved" is the same colour here as in the fixed income chart. "Safe to
+// spend" wears the number's own status colour, so the part of the bar the
+// headline is about matches the headline.
 const SPLIT_FILL: Record<Exclude<IncomeSplitPart["key"], "safe">, string> = {
-  spent: "bg-chart-1",
-  saved: "bg-chart-3",
-  due: "bg-chart-2",
-  budgeted: "bg-chart-2/45",
+  spent: FLOW_FILL.spent,
+  saved: FLOW_FILL.saved,
+  due: FLOW_FILL.due,
+  budgeted: FLOW_FILL.kept,
 };
 const STATUS_FILL: Record<SafeToSpendStatus, string> = {
   healthy: "bg-success",
@@ -278,7 +279,8 @@ export function SafeToSpend({
               />
             ))}
           </div>
-          <ul className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs min-[360px]:grid-cols-2">
+          {/* Capped so on a wide card an amount stays near its name. */}
+          <ul className="grid max-w-90 grid-cols-1 gap-x-4 gap-y-1 text-xs min-[360px]:grid-cols-2">
             {split.parts.map((part) => (
               <li key={part.key} className="flex min-w-0 items-center gap-1.5">
                 <span

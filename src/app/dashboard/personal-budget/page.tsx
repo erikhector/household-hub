@@ -409,6 +409,8 @@ async function PersonalBudgetTabsSection({
     "EXPENSE",
     SPEND_HISTORY_MONTHS,
     startDay,
+    // "vs usual" up to the same day — see the household page.
+    now,
   );
   const limitAlerts = categoriesNearLimit(expenseRows).map((alert) => ({
     ...alert,
@@ -449,7 +451,7 @@ async function PersonalBudgetTabsSection({
   // PersonalTransactions (the shared-household mirror is kept separately), so
   // nothing household-side counts towards a personal goal.
   const savedByCategory = new Map<string, number>(savedSums.map((r) => [r.categoryId, r._sum.amount ?? 0]));
-  // "{Month} at a glance" on the Overview — see the household page's
+  // "{Month} at a glance", leading Insights — see the household page's
   // identical card. This month's totals already include the user's share of
   // shared household bills (the loader's sharedPostedRows), so last month's
   // do too: one more query for those shares, cut at the same day.
@@ -492,6 +494,7 @@ async function PersonalBudgetTabsSection({
 
   const insights = (
     <div className="flex flex-col gap-6">
+      {glance}
       {periodSummary}
       <FixedBudgetSummary
         monthlyIncome={fixedInsights.summary.monthlyIncome}
@@ -525,7 +528,6 @@ async function PersonalBudgetTabsSection({
         safeToSpendDaily={safeToSpendDaily}
         limitAlerts={limitAlerts}
         householdDebts={householdDebts}
-        glance={glance}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={recurringTemplates.some((t) => t.active)}
         hadRecurringTemplatesInMonth={recurringTemplateRows.length > 0}

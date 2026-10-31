@@ -337,7 +337,12 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   not text: use `success`, not `chart-5`, for green words and numbers.
   Colour follows the series, never a row's position: a list of rows with a
   sparkline each draws them in one quiet colour and marks only the current
-  point in `primary`. Scales are solid hairlines (never dashed; dashes mean
+  point in `primary`. Money flows keep one colour on every chart (spent
+  `chart-1`, saved `chart-3`, due `chart-2`, left over `chart-5`;
+  `FLOW_FILL` in `chart-colors.ts`), so a colour means the same thing
+  across a page. Categories never take a flow colour: a chart of
+  categories (the expenses donut) uses emphasis, one grey with only the
+  item in focus in `chart-4`. Scales are solid hairlines (never dashed; dashes mean
   a projection), bars are thin (≤ 24 px) with 4 px rounded ends, and a
   meter's track is a light tint of its own fill.
 - Borders are `border` (1px) for decorative hairlines and `input` (1px)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changeOf, previousCutoff, standOuts, totalsOf } from "@/lib/month-comparison";
+import { amountChangeOf, changeOf, previousCutoff, standOuts, totalsOf } from "@/lib/month-comparison";
 
 describe("totalsOf", () => {
   it("sums each type and what's left of the income", () => {
@@ -82,5 +82,26 @@ describe("standOuts", () => {
 
   it("is empty with nothing to compare", () => {
     expect(standOuts([{ name: "A" }])).toEqual([]);
+  });
+
+  it("compares a running month up to the same day", () => {
+    // Whole months say Groceries is down 50%; by the same day it's up 100%.
+    expect(standOuts([{ name: "Groceries", history: [400, 400, 200], historySoFar: [100, 100, 200] }])).toEqual([
+      { name: "Groceries", direction: "more", percent: 100 },
+    ]);
+  });
+});
+
+describe("amountChangeOf", () => {
+  it("gives the change as an amount, never a percentage that blows up", () => {
+    // 100 → 5 000 was "4900% more" as a percentage.
+    expect(amountChangeOf(5000, 100)).toEqual({ direction: "more", amount: 4900 });
+    expect(amountChangeOf(-200, 1000)).toEqual({ direction: "less", amount: 1200 });
+    expect(amountChangeOf(100, -200)).toEqual({ direction: "more", amount: 300 });
+  });
+
+  it("calls a change within 5% of the larger amount the same", () => {
+    expect(amountChangeOf(1030, 1000)).toEqual({ direction: "same", amount: 30 });
+    expect(amountChangeOf(0, 0)).toEqual({ direction: "same", amount: 0 });
   });
 });

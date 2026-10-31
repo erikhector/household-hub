@@ -9,7 +9,7 @@
 // day 12), since a month twelve days in would otherwise always look cheap
 // against a whole one.
 
-import { vsUsual } from "@/lib/chart-calc";
+import { usualFor } from "@/lib/chart-calc";
 
 export type MonthTotals = { income: number; expense: number; savings: number; left: number };
 
@@ -60,16 +60,29 @@ export function changeOf(current: number, previous: number): Change {
   return { direction: percent > 0 ? "more" : "less", percent: Math.abs(percent) };
 }
 
+export type AmountChange = { direction: "more" | "less" | "same"; amount: number };
+
+/** How `current` compares with `previous` as an amount, for "left over":
+ * a balance that can sit near zero or go negative, where a percentage
+ * blows up (100 → 5 000 read "4900% more") or flips sign meaninglessly.
+ * Within 5% of the larger of the two counts as "same", as in changeOf. */
+export function amountChangeOf(current: number, previous: number): AmountChange {
+  const diff = current - previous;
+  const scale = Math.max(Math.abs(current), Math.abs(previous));
+  if (scale === 0 || Math.abs(diff) < scale * 0.05) return { direction: "same", amount: Math.abs(diff) };
+  return { direction: diff > 0 ? "more" : "less", amount: Math.abs(diff) };
+}
+
 export type StandOut = { name: string; direction: "more" | "less"; percent: number };
 
 /** "What stands out": the expense category furthest above its usual and the
- * one furthest below it (vsUsual, so a change under 10% never makes it),
- * biggest first. At most `limit` of them. */
-export function standOuts(rows: { name: string; history?: number[] }[], limit = 2): StandOut[] {
+ * one furthest below it (usualFor, so a change under 10% never makes it,
+ * and a running month is compared up to the same day), biggest first. At
+ * most `limit` of them. */
+export function standOuts(rows: { name: string; history?: number[]; historySoFar?: number[] }[], limit = 2): StandOut[] {
   const moves: StandOut[] = [];
   for (const row of rows) {
-    if (!row.history) continue;
-    const usual = vsUsual(row.history);
+    const usual = usualFor(row);
     if (usual && usual.direction !== "same") moves.push({ name: row.name, direction: usual.direction, percent: usual.percent });
   }
   const top = (direction: StandOut["direction"]) =>

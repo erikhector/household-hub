@@ -6,7 +6,7 @@
 // that draw these live in src/components/charts/. See REQUIREMENTS.md,
 // "Budget charts".
 
-import { addMonths, periodLabelDate } from "@/lib/budget-date-utils";
+import { addMonths, periodBounds, periodLabelDate, toMonthKey } from "@/lib/budget-date-utils";
 
 /** Whole days since the epoch for a date's local calendar day, so two dates'
  * difference counts calendar days whatever DST did in between. */
@@ -42,6 +42,15 @@ export type HistoryTransaction = {
  * UX-134: with a `startDay` above 1 the "months" are budget periods, and
  * `monthStart` is any date in the viewed one or the 1st of the month it is
  * named for.
+ *
+ * Design review (Oct 2026): pass `today` and, while the viewed period is
+ * still running, each row also gets `historySoFar`: the same months, but
+ * every earlier one cut at the same day of its period as today (day 12
+ * against day 12, as previousCutoff does for "at a glance"). "vs usual"
+ * reads that instead (usualFor), since twelve days of October against whole
+ * Septembers always looked cheap. The viewed month's own entry keeps
+ * everything dated in it, so it matches the total on the row. The
+ * sparkline still draws `history`: it shows whole months.
  */
 export function withSpendHistory<Row extends { id: string }>(
   rows: Row[],
@@ -50,28 +59,53 @@ export function withSpendHistory<Row extends { id: string }>(
   type: HistoryTransaction["type"] = "EXPENSE",
   months: number = SPEND_HISTORY_MONTHS,
   startDay: number = 1,
-): (Row & { history?: number[] })[] {
+  today?: Date,
+): (Row & { history?: number[]; historySoFar?: number[] })[] {
   const viewed = periodLabelDate(monthStart, startDay);
   const windowStart = addMonths(viewed, -(months - 1));
+  const viewedPeriod = periodBounds(toMonthKey(viewed), startDay);
+  // Days of the viewed period so far, today included; null once it's over
+  // (or before it starts), when whole months compare fairly.
+  const daysSoFar =
+    today && dayNumber(today) >= dayNumber(viewedPeriod.start) && dayNumber(today) < dayNumber(viewedPeriod.end)
+      ? dayNumber(today) - dayNumber(viewedPeriod.start) + 1
+      : null;
   const ids = new Set(rows.map((r) => r.id));
-  const byId = new Map<string, number[]>();
+  const byId = new Map<string, { history: number[]; soFar: number[] }>();
   for (const t of transactions) {
     if (t.type !== type || !ids.has(t.categoryId)) continue;
     const label = periodLabelDate(t.date, startDay);
     const index =
       (label.getFullYear() - windowStart.getFullYear()) * 12 + (label.getMonth() - windowStart.getMonth());
     if (index < 0 || index >= months) continue;
-    let history = byId.get(t.categoryId);
-    if (!history) {
-      history = new Array<number>(months).fill(0);
-      byId.set(t.categoryId, history);
+    let entry = byId.get(t.categoryId);
+    if (!entry) {
+      entry = { history: new Array<number>(months).fill(0), soFar: new Array<number>(months).fill(0) };
+      byId.set(t.categoryId, entry);
     }
-    history[index] += t.amount;
+    entry.history[index] += t.amount;
+    if (daysSoFar !== null) {
+      // Whole days since its period began: 0 on the period's first day.
+      const dayOfPeriod = dayNumber(t.date) - dayNumber(periodBounds(toMonthKey(label), startDay).start);
+      if (index === months - 1 || dayOfPeriod < daysSoFar) entry.soFar[index] += t.amount;
+    }
   }
   return rows.map((row) => {
-    const history = byId.get(row.id);
-    return history && history.some((v) => v > 0) ? { ...row, history } : row;
+    const entry = byId.get(row.id);
+    if (!entry || !entry.history.some((v) => v > 0)) return row;
+    return daysSoFar === null
+      ? { ...row, history: entry.history }
+      : { ...row, history: entry.history, historySoFar: entry.soFar };
   });
+}
+
+/** vsUsual for a withSpendHistory row: the same-day history while the
+ * month is running (`historySoFar`), whole months once it's over. Every
+ * "vs usual" on the page (breakdown rows, donut notes, "What stands out")
+ * goes through this, so they can't disagree. */
+export function usualFor(row: { history?: number[]; historySoFar?: number[] }) {
+  const history = row.historySoFar ?? row.history;
+  return history ? vsUsual(history) : null;
 }
 
 /** Chart redesign (Oct 2026): how this month compares with the category's

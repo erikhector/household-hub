@@ -12,9 +12,9 @@
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/category-breakdown";
 import { BreakdownSwitch } from "@/components/budget/breakdown-switch";
-import { DonutChart, type DonutSlice } from "@/components/charts/donut-chart";
+import { DonutChart, type DonutNote, type DonutNoteTone, type DonutSlice } from "@/components/charts/donut-chart";
 import { limitProgress } from "@/lib/budget-category-limit";
-import { vsUsual } from "@/lib/chart-calc";
+import { usualFor } from "@/lib/chart-calc";
 import { createMoneyFormat } from "@/lib/currency";
 import { format } from "@/lib/i18n/format";
 
@@ -71,28 +71,38 @@ export function PeriodSummary({
   const spent = [...expenseByCategory].filter((item) => item.total > 0).sort((a, b) => b.total - a.total);
   const shown = spent.length <= DONUT_SLICES + 1 ? spent : spent.slice(0, DONUT_SLICES);
   const rest = spent.slice(shown.length);
-  const notesFor = (item: CategoryTotal): string[] => {
-    const notes: string[] = [];
+  // Design review (Oct 2026): near or over the limit is a status, so the
+  // limit note carries a tone (warning / destructive) the donut draws in
+  // that colour with an icon, as the breakdown rows below do.
+  const statusOf = (item: CategoryTotal): DonutNoteTone | undefined => {
+    if (item.limit == null) return undefined;
+    const progress = limitProgress(item.total, item.limit + (item.carried ?? 0));
+    return progress?.over ? "destructive" : progress?.near ? "warning" : undefined;
+  };
+  const notesFor = (item: CategoryTotal): DonutNote[] => {
+    const notes: DonutNote[] = [];
     if (item.limit != null) {
       const available = item.limit + (item.carried ?? 0);
-      const progress = limitProgress(item.total, available);
-      notes.push(
-        format(dict.ofLimit, { limit: numberFormat.format(available) }) +
-          (progress?.over
+      const status = statusOf(item);
+      notes.push({
+        text:
+          format(dict.ofLimit, { limit: numberFormat.format(available) }) +
+          (status === "destructive"
             ? ` · ${format(dict.overLimitBy, { amount: numberFormat.format(item.total - available) })}`
-            : progress?.near
+            : status === "warning"
               ? ` · ${dict.almostAtLimit}`
               : ""),
-      );
+        tone: status,
+      });
     }
-    const usual = item.history ? vsUsual(item.history) : null;
+    const usual = usualFor(item);
     if (usual) {
-      notes.push(
-        format(
+      notes.push({
+        text: format(
           usual.direction === "more" ? dict.vsUsualMore : usual.direction === "less" ? dict.vsUsualLess : dict.vsUsualSame,
           { percent: usual.percent },
         ),
-      );
+      });
     }
     return notes;
   };
@@ -103,6 +113,7 @@ export function PeriodSummary({
       value: item.total,
       href: categoryHref?.(item.id) ?? null,
       notes: notesFor(item),
+      status: statusOf(item),
     })),
     ...(rest.length > 0
       ? [
@@ -110,7 +121,7 @@ export function PeriodSummary({
             key: "other",
             label: dict.donutOther,
             value: rest.reduce((sum, item) => sum + item.total, 0),
-            notes: [format(dict.donutOtherIncludes, { names: rest.map((item) => item.name).join(", ") })],
+            notes: [{ text: format(dict.donutOtherIncludes, { names: rest.map((item) => item.name).join(", ") }) }],
           },
         ]
       : []),
@@ -156,6 +167,8 @@ export function PeriodSummary({
                       seeTransactions: dict.donutSee,
                       hint: dict.donutHint,
                       showAll: dict.donutShowAll,
+                      overLimit: dict.donutOverLimit,
+                      nearLimit: dict.almostAtLimit,
                     }}
                     locale={locale}
                     currencyCode={currencyCode}

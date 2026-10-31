@@ -19,7 +19,9 @@
 //   together since both are low-frequency setup actions, not day-to-day
 //   activity.
 // - Activity ("transactions" in the URL): the raw log, one job only.
-// - Insights: where the month went, the fixed-cost trend and, household-only,
+// - Insights: the month at a glance against the one before (moved from the
+//   Overview in the design review, Oct 2026: M6), where the month went, the
+//   fixed-cost trend and, household-only,
 //   the grocery analysis (folded away) and the settled-up record — nothing
 //   to act on, just numbers.
 //
@@ -136,7 +138,6 @@ export function BudgetTabs({
   limitAlerts = [],
   householdDebts = [],
   settleUp,
-  glance,
   dueTemplates,
   hasRecurringTemplates,
   hadRecurringTemplatesInMonth,
@@ -208,9 +209,6 @@ export function BudgetTabs({
    * Overview's Settle up slot. With nothing owed it stays on Insights as a
    * record. */
   settleUp?: ReactNode;
-  /** "{Month} at a glance" (MonthAtAGlance), prebuilt by the page: the month
-   * against the one before, after what needs doing. */
-  glance?: ReactNode;
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
   /** Any active recurring template at all, whatever month is viewed. */
@@ -433,7 +431,6 @@ export function BudgetTabs({
                 numberFormat={numberFormat}
                 dict={dict.safeToSpend}
               />
-              {glance}
               {/* Phone pass (Oct 2026), P4: PeriodSummary ("This month")
                   used to follow here too, repeating Safe to spend's
                   income/expenses/remaining as four more full-width stat

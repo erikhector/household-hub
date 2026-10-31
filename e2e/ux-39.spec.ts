@@ -58,7 +58,9 @@ async function seedSpending(): Promise<string> {
         categoryId,
         billCategoryId,
         new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 1),
-        dayIn(2, 10),
+        // The 1st: "vs usual" compares a running month up to the same day
+        // (design review, Oct 2026), and day 1 has always been reached.
+        dayIn(2, 1),
         dayIn(1, 5),
         templateId,
       ],
@@ -122,9 +124,10 @@ test("the trend chart's bars are tappable and say their values", async ({ page, 
   await previous.click();
   await expect(previous).toHaveAttribute("aria-pressed", "true");
   await expect(current).toHaveAttribute("aria-pressed", "false");
-  const readout = main.getByRole("status").filter({ hasText: lastMonth });
-  await expect(readout).toBeVisible();
-  await expect(readout.getByText("Costs", { exact: true })).toBeVisible();
+  // The pick is announced (a hidden status line: the readout itself
+  // follows hover and focus, so it isn't a live region — design review,
+  // Oct 2026), with the same values as the button.
+  await expect(main.getByRole("status").filter({ hasText: new RegExp(`^${lastMonth}: Income .+, Costs `) })).toHaveCount(1);
 
   // The whole series is there for screen readers as a table.
   await expect(main.getByRole("table", { name: "Fixed income and costs by month" })).toBeAttached();
