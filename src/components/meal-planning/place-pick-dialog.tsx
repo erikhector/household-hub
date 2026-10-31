@@ -59,7 +59,7 @@ export function PlacePickDialog({
   const slotLabel = dict[mealTypeDictKey[mealType]];
   const meta = [
     pick.recipeId ? format(plural(pick.portions, dict.entryPortionsCount), { count: pick.portions }) : null,
-    pick.carried ? wp.carriedLabel : null,
+    pick.carriedFromWeek ? wp.carriedLabel : null,
     pick.pickedBy ? format(wp.pickedBy, { name: pick.pickedBy }) : null,
     wp.placeMovable,
   ].filter(Boolean);

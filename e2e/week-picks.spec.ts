@@ -10,6 +10,7 @@ import {
   gotoRevealed,
   openRowSheet,
   waitForDialogHistory,
+  waitForUndoableDelete,
 } from "./ui";
 
 // Week picks (REQUIREMENTS.md, "Week picks"): the planner's "Picked for this
@@ -31,8 +32,13 @@ const fillet = `Salmon fillet ${tag}`;
 const WEEKS = {
   pick: { desktop: "2032-05-03", mobile: "2032-05-10" },
   spread: { desktop: "2032-05-17", mobile: "2032-05-24" },
+  more: { desktop: "2032-06-21", mobile: "2032-06-28" },
+  copy: { desktop: "2032-07-05", mobile: "2032-07-12" },
+  arrows: { desktop: "2032-07-19", mobile: "2032-07-26" },
 } as const;
-const ALL_WEEKS = Object.values(WEEKS).flatMap((w) => [w.desktop, w.mobile]);
+// Carry-over test: a week long over, whose picks move to this week.
+const PAST_WEEK = "2020-01-06";
+const ALL_WEEKS = [...Object.values(WEEKS).flatMap((w) => [w.desktop, w.mobile]), PAST_WEEK];
 const weekFor = (which: keyof typeof WEEKS, testInfo: TestInfo) =>
   WEEKS[which][testInfo.project.name === "mobile" ? "mobile" : "desktop"];
 
@@ -88,6 +94,18 @@ test.afterEach(async () => {
       E2E_HOUSEHOLD.id,
       ALL_WEEKS,
     ]);
+    // Meals cooked today and carried picks live in this week's plan, which
+    // other specs use too: only this test's own rows go.
+    await client.query(
+      `DELETE FROM "MealPlanEntry" WHERE "recipeId" LIKE $2
+         AND "mealPlanId" IN (SELECT id FROM "MealPlan" WHERE "householdId" = $1)`,
+      [E2E_HOUSEHOLD.id, `e2e-recipe-${tag}-%`],
+    );
+    await client.query(
+      `DELETE FROM "MealPlanPick" WHERE ("recipeId" LIKE $2 OR id LIKE $3)
+         AND "mealPlanId" IN (SELECT id FROM "MealPlan" WHERE "householdId" = $1)`,
+      [E2E_HOUSEHOLD.id, `e2e-recipe-${tag}-%`, `e2e-pick-${tag}-%`],
+    );
     await client.query(`DELETE FROM "Recipe" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
       `e2e-recipe-${tag}-%`,
@@ -146,7 +164,7 @@ test("pick a meal, shop for it, place it and send it back to the tray", async ({
     await expect(chip(page, curry)).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: new RegExp(`^Place ${curry} on Tue \\d+$`) }).click();
   }
-  await expect(page.getByText(/^Placed on Tue \d+$/)).toBeVisible();
+  await expect(page.getByText(/^Placed as dinner on Tue \d+$/)).toBeVisible();
   await expect(dayCard(page, "Tue").getByText(curry, { exact: true })).toBeVisible();
   await expect(tray(page).getByText("Every pick is on a day.")).toBeVisible();
 
@@ -154,6 +172,8 @@ test("pick a meal, shop for it, place it and send it back to the tray", async ({
   await page.reload();
   await expect(dayCard(page, "Tue").getByText(curry, { exact: true })).toBeVisible();
   await expect(chip(page, curry)).toHaveCount(0);
+  // After a reload nothing says the picks were placed, so the tray invites.
+  await expect(tray(page).getByText("Pick meals for the week now and choose the days later.")).toBeVisible();
 
   // Back to picks, from the meal's own sheet.
   await expectHydrated(dayCard(page, "Tue").getByRole("button").first());
@@ -202,4 +222,154 @@ test("spread picks over the week, then undo it in one go", async ({ page }, test
   await page.reload();
   await expect(chip(page, curry)).toBeVisible();
   await expect(chip(page, salmon)).toBeVisible();
+});
+
+async function seedPicks(week: string, picks: { id: string; recipe?: string; name?: string; carriedFrom?: string }[]) {
+  await withClient(async (client) => {
+    const plan = await planFor(client, week);
+    for (const [i, pick] of picks.entries()) {
+      await client.query(
+        `INSERT INTO "MealPlanPick" (id, "mealPlanId", "recipeId", "freeformName", portions, "carriedFromWeek", "createdAt")
+         VALUES ($1, $2, $3, $4, 4, $5, now() + ($6 || ' seconds')::interval)`,
+        [pick.id, plan, pick.recipe ?? null, pick.name ?? null, pick.carriedFrom ?? null, String(i)],
+      );
+    }
+  });
+}
+
+// Opens a pick's sheet: a tap on a phone; "More options" after lifting it on
+// a desktop, where a click lifts the chip instead.
+async function openPickSheet(page: Page, name: string, mobile: boolean) {
+  await chip(page, name).click();
+  if (!mobile) await tray(page).getByRole("button", { name: "More options" }).click();
+  const sheet = page.getByRole("dialog", { name: `Place ${name}` });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+test("a week with meals but no picks invites, without claiming picks were placed", async ({ page }, testInfo) => {
+  const week = weekFor("copy", testInfo);
+  await withClient(async (client) => {
+    const plan = await planFor(client, week);
+    await client.query(
+      `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "freeformName", portions)
+       VALUES ($1, $2, $3, 'DINNER', 'Pizza night', 4)`,
+      [`e2e-entry-${tag}-${week}`, plan, week],
+    );
+  });
+  await openPlanner(page, week);
+  await expect(tray(page).getByText("Pick meals for the week now and choose the days later.")).toBeVisible();
+  await expect(tray(page).getByText("Every pick is on a day.")).toHaveCount(0);
+  await expect(tray(page).getByRole("button", { name: "Pick meals" })).toBeVisible();
+});
+
+test("a pick can be removed, undone, and removed for good", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile";
+  const week = weekFor("more", testInfo);
+  await seedPicks(week, [{ id: `e2e-pick-${tag}-r`, recipe: `e2e-recipe-${tag}-curry` }]);
+  await openPlanner(page, week);
+
+  let sheet = await openPickSheet(page, curry, mobile);
+  await sheet.getByRole("button", { name: "Remove from picks" }).click();
+  await expect(chip(page, curry)).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(chip(page, curry)).toBeVisible();
+
+  await waitForDialogHistory(page);
+  sheet = await openPickSheet(page, curry, mobile);
+  await sheet.getByRole("button", { name: "Remove from picks" }).click();
+  await waitForUndoableDelete(page, `Removed ${curry} from picks`);
+  await waitForDialogHistory(page);
+  await page.reload();
+  await expect(tray(page)).toBeVisible();
+  await expect(chip(page, curry)).toHaveCount(0);
+});
+
+test("a pick goes on a day from that day's Add meal sheet", async ({ page }, testInfo) => {
+  const week = weekFor("more", testInfo);
+  await seedPicks(week, [{ id: `e2e-pick-${tag}-d`, recipe: `e2e-recipe-${tag}-salmon` }]);
+  await openPlanner(page, week);
+
+  await page.getByRole("button", { name: /^Add meal, Wed \d+$/ }).click();
+  const sheet = page.getByRole("dialog", { name: /^Add dinner · Wed \d+$/ });
+  const fromPicks = sheet.getByRole("list", { name: "From this week's picks" });
+  await expect(fromPicks).toBeVisible();
+  await fromPicks.getByRole("button", { name: new RegExp(`^${salmon}`) }).click();
+
+  await expect(page.getByText(/^Placed as dinner on Wed \d+$/)).toBeVisible();
+  await expect(dayCard(page, "Wed").getByText(salmon, { exact: true })).toBeVisible();
+  await expect(chip(page, salmon)).toHaveCount(0);
+});
+
+test("a pick can be cooked today without placing it; closing the review puts it back", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile";
+  const week = weekFor("more", testInfo);
+  await seedPicks(week, [
+    { id: `e2e-pick-${tag}-c1`, recipe: `e2e-recipe-${tag}-curry` },
+    { id: `e2e-pick-${tag}-c2`, recipe: `e2e-recipe-${tag}-salmon` },
+  ]);
+  await openPlanner(page, week);
+
+  // Closed without cooking: the pick comes back to this week's tray.
+  let sheet = await openPickSheet(page, salmon, mobile);
+  await sheet.getByRole("button", { name: "Mark as cooked today" }).click();
+  let review = page.getByRole("dialog", { name: "Mark as cooked" });
+  await expect(review.getByRole("button", { name: "Mark as cooked", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(chip(page, salmon)).toBeVisible();
+
+  // Cooked: off the tray, on today's dinner, marked cooked.
+  await waitForDialogHistory(page);
+  sheet = await openPickSheet(page, curry, mobile);
+  await sheet.getByRole("button", { name: "Mark as cooked today" }).click();
+  review = page.getByRole("dialog", { name: "Mark as cooked" });
+  await review.getByRole("button", { name: "Mark as cooked", exact: true }).click();
+  await expect(page.getByText("Marked as cooked — inventory updated")).toBeVisible();
+  await expect(chip(page, curry)).toHaveCount(0);
+
+  const cooked = await withClient((client) =>
+    client.query(
+      `SELECT e."consumedAt" FROM "MealPlanEntry" e JOIN "MealPlan" p ON p.id = e."mealPlanId"
+       WHERE p."householdId" = $1 AND e."recipeId" = $2`,
+      [E2E_HOUSEHOLD.id, `e2e-recipe-${tag}-curry`],
+    ),
+  );
+  expect(cooked.rows).toHaveLength(1);
+  expect(cooked.rows[0].consumedAt).not.toBeNull();
+});
+
+test("the phone's pick row scrolls with arrows that show only when there's more that way", async ({
+  page,
+}, testInfo) => {
+  const mobile = testInfo.project.name === "mobile";
+  const week = weekFor("arrows", testInfo);
+  await seedPicks(
+    week,
+    Array.from({ length: 5 }, (_, i) => ({ id: `e2e-pick-${tag}-a${i}`, name: `Slow-cooked feast ${i} ${tag}` })),
+  );
+  await openPlanner(page, week);
+  const earlier = tray(page).getByRole("button", { name: "Show earlier picks" });
+  const more = tray(page).getByRole("button", { name: "Show more picks" });
+
+  if (!mobile) {
+    // From `sm` the chips wrap, so there's nothing to scroll.
+    await expect(earlier).toHaveCount(0);
+    await expect(more).toHaveCount(0);
+    return;
+  }
+  await expect(more).toBeVisible();
+  await expect(earlier).toHaveCount(0);
+  await expectHydrated(more);
+  await more.click();
+  await expect(earlier).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test("picks left in a week that's over move to this week, marked as from last week", async ({ page }, testInfo) => {
+  const name = `Leftover lasagne ${testInfo.project.name} ${tag}`;
+  await seedPicks(PAST_WEEK, [{ id: `e2e-pick-${tag}-carried-${testInfo.project.name}`, name }]);
+  await gotoRevealed(page, "/dashboard/meal-planning");
+  await expect(page.getByText("1 meal moved over from last week")).toBeVisible();
+  await expect(chip(page, name)).toBeVisible();
+  await expect(chip(page, name)).toHaveAccessibleName(new RegExp("From last week"));
 });

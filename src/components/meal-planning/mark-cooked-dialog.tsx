@@ -53,12 +53,16 @@ export function MarkCookedDialog({
   entry,
   onPlanLeftovers,
   handle,
+  onDismissed,
 }: {
   dict: MealPlanningDict;
   entry: MealPlanEntryData;
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
   /** Opened from the planner row's sheet, so no trigger of its own. */
   handle: DialogHandle;
+  /** Week picks: closed without marking it cooked (Escape, the X, a swipe
+   * or back). A successful cook closes it without calling this. */
+  onDismissed?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
@@ -175,7 +179,10 @@ export function MarkCookedDialog({
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (!next) return;
+    if (!next) {
+      onDismissed?.();
+      return;
+    }
 
     // Always recompute on open — inventory or the meal plan may have
     // changed since this was last shown (mirrors MissingIngredientsDialog).

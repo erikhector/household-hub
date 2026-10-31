@@ -16,6 +16,8 @@ const m = vi.hoisted(() => ({
   entryCreate: vi.fn(),
   entryFindMany: vi.fn(),
   entryDeleteMany: vi.fn(),
+  entryCount: vi.fn(),
+  memberFindMany: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -30,7 +32,13 @@ vi.mock("@/lib/prisma", () => {
       findFirst: m.pickFindFirst,
       findMany: m.pickFindMany,
     },
-    mealPlanEntry: { create: m.entryCreate, findMany: m.entryFindMany, deleteMany: m.entryDeleteMany },
+    mealPlanEntry: {
+      create: m.entryCreate,
+      findMany: m.entryFindMany,
+      deleteMany: m.entryDeleteMany,
+      count: m.entryCount,
+    },
+    householdMember: { findMany: m.memberFindMany },
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(client)),
   };
   return { prisma: client };
@@ -50,6 +58,11 @@ const {
   placePicksAction,
   unplaceEntriesAction,
 } = await import("@/app/dashboard/meal-planning/pick-actions");
+
+// A Wednesday, so "this week" starts Monday 26 October 2026 and MONDAY
+// below is next week. Only Date is faked; promises and timers run as usual.
+vi.useFakeTimers({ toFake: ["Date"] });
+vi.setSystemTime(new Date("2026-10-28T12:00:00Z"));
 
 const household = { id: "household-1" };
 const session = { household, userId: "user-1" };
@@ -75,6 +88,13 @@ describe("addPicksAction", () => {
       /Choose a recipe/,
     );
     expect((await addPicksAction(MONDAY, [{ recipeId: "r1", portions: 0 }])).error).toMatch(/Portions/);
+  });
+
+  it("refuses a week that is over", async () => {
+    m.recipeCount.mockResolvedValue(1);
+    const result = await addPicksAction("2026-10-19", [{ recipeId: "r1", portions: 4 }]);
+    expect(result.error).toBe("That week is over. Pick meals for this week or a later one.");
+    expect(m.planUpsert).not.toHaveBeenCalled();
   });
 
   it("refuses a recipe from another household", async () => {
@@ -210,6 +230,7 @@ describe("placePicksAction", () => {
     ]);
     m.pickDeleteMany.mockResolvedValue({ count: 1 });
     m.planUpsert.mockResolvedValue({ id: "plan-1" });
+    m.entryCount.mockResolvedValue(0);
     m.entryCreate.mockResolvedValueOnce({ id: "e1" }).mockResolvedValueOnce({ id: "e2" });
 
     const result = await placePicksAction([
@@ -217,11 +238,42 @@ describe("placePicksAction", () => {
       { pickId: "p2", date: "2026-11-04" },
     ]);
 
-    expect(result).toEqual({ entryIds: ["e1", "e2"] });
+    expect(result).toEqual({
+      placed: [
+        { pickId: "p1", entryId: "e1" },
+        { pickId: "p2", entryId: "e2" },
+      ],
+      skipped: 0,
+    });
     expect(m.entryCreate.mock.calls.map((c) => [c[0].data.mealType, c[0].data.freeformName])).toEqual([
       ["DINNER", null],
       ["DINNER", "Tacos"],
     ]);
+  });
+
+  it("skips a dinner planned since the preview, leaving that pick in the tray", async () => {
+    m.pickFindMany.mockResolvedValue([
+      { id: "p1", recipeId: "r1", freeformName: null, portions: 4 },
+      { id: "p2", recipeId: "r2", freeformName: null, portions: 4 },
+    ]);
+    // Monday's dinner is taken now; Wednesday's is still free.
+    m.entryCount.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+    m.pickDeleteMany.mockResolvedValue({ count: 1 });
+    m.planUpsert.mockResolvedValue({ id: "plan-1" });
+    m.entryCreate.mockResolvedValue({ id: "e2" });
+
+    const result = await placePicksAction([
+      { pickId: "p1", date: MONDAY },
+      { pickId: "p2", date: "2026-11-04" },
+    ]);
+
+    expect(result).toEqual({ placed: [{ pickId: "p2", entryId: "e2" }], skipped: 1 });
+    expect(m.entryCount.mock.calls[0][0].where).toEqual({
+      mealPlan: { householdId: "household-1" },
+      date: new Date("2026-11-02T00:00:00.000Z"),
+      mealType: "DINNER",
+    });
+    expect(m.pickDeleteMany).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -241,7 +293,7 @@ describe("unplaceEntriesAction", () => {
 
   it("turns each meal back into a pick in the same week", async () => {
     m.entryFindMany.mockResolvedValue([
-      { id: "e1", mealPlanId: "plan-1", recipeId: "r1", freeformName: null, portions: 2 },
+      { id: "e1", mealPlanId: "plan-1", recipeId: "r1", freeformName: null, portions: 2, mealPlan: { weekStartDate: new Date("2026-11-02T00:00:00.000Z") } },
     ]);
     m.entryDeleteMany.mockResolvedValue({ count: 1 });
     m.pickCreate.mockResolvedValue({ id: "p9" });
@@ -256,12 +308,95 @@ describe("unplaceEntriesAction", () => {
       freeformName: null,
       portions: 2,
       createdByUserId: "user-1",
+      carriedFromWeek: null,
     });
+  });
+
+  it("refuses a meal in a week that is over", async () => {
+    m.entryFindMany.mockResolvedValue([
+      {
+        id: "e1",
+        mealPlanId: "plan-old",
+        recipeId: "r1",
+        freeformName: null,
+        portions: 2,
+        mealPlan: { weekStartDate: new Date("2026-10-19T00:00:00.000Z") },
+      },
+    ]);
+    const result = await unplaceEntriesAction(["e1"]);
+    expect(result.error).toMatch(/That week is over/);
+    expect(m.entryDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("restores a placed pick's picker and carry-over week on Undo, when they check out", async () => {
+    m.entryFindMany.mockResolvedValue([
+      { id: "e1", mealPlanId: "plan-1", recipeId: "r1", freeformName: null, portions: 2, mealPlan: { weekStartDate: new Date("2026-11-02T00:00:00.000Z") } },
+      { id: "e2", mealPlanId: "plan-1", recipeId: "r2", freeformName: null, portions: 2, mealPlan: { weekStartDate: new Date("2026-11-02T00:00:00.000Z") } },
+    ]);
+    m.memberFindMany.mockResolvedValue([{ userId: "anna" }]);
+    m.entryDeleteMany.mockResolvedValue({ count: 1 });
+    m.pickCreate.mockResolvedValue({ id: "p9" });
+
+    await unplaceEntriesAction(
+      ["e1", "e2"],
+      [
+        { entryId: "e1", createdByUserId: "anna", carriedFromWeek: "2026-10-26" },
+        // Not a member, and not a Monday: both dropped.
+        { entryId: "e2", createdByUserId: "stranger", carriedFromWeek: "2026-10-27" },
+      ],
+    );
+
+    expect(m.memberFindMany.mock.calls[0][0].where).toEqual({
+      householdId: "household-1",
+      userId: { in: ["anna", "stranger"] },
+    });
+    expect(m.pickCreate.mock.calls.map((c) => [c[0].data.createdByUserId, c[0].data.carriedFromWeek])).toEqual([
+      ["anna", new Date("2026-10-26T00:00:00.000Z")],
+      ["user-1", null],
+    ]);
+  });
+
+  it("puts a pick back in its own week's tray when the origin names one", async () => {
+    // Cooked-today pick from next week: the meal sits in this week's plan.
+    m.entryFindMany.mockResolvedValue([
+      {
+        id: "e1",
+        mealPlanId: "plan-now",
+        recipeId: "r1",
+        freeformName: null,
+        portions: 2,
+        mealPlan: { weekStartDate: new Date("2026-10-26T00:00:00.000Z") },
+      },
+    ]);
+    m.entryDeleteMany.mockResolvedValue({ count: 1 });
+    m.planUpsert.mockResolvedValue({ id: "plan-next" });
+    m.pickCreate.mockResolvedValue({ id: "p9" });
+
+    await unplaceEntriesAction(
+      ["e1"],
+      [{ entryId: "e1", createdByUserId: null, carriedFromWeek: null, weekStartDate: "2026-11-02" }],
+    );
+
+    expect(m.planUpsert.mock.calls[0][0].where.householdId_weekStartDate).toEqual({
+      householdId: "household-1",
+      weekStartDate: new Date("2026-11-02T00:00:00.000Z"),
+    });
+    expect(m.pickCreate.mock.calls[0][0].data.mealPlanId).toBe("plan-next");
+  });
+
+  it("drops a carry-over week that isn't before the plan's week", async () => {
+    m.entryFindMany.mockResolvedValue([
+      { id: "e1", mealPlanId: "plan-1", recipeId: "r1", freeformName: null, portions: 2, mealPlan: { weekStartDate: new Date("2026-11-02T00:00:00.000Z") } },
+    ]);
+    m.entryDeleteMany.mockResolvedValue({ count: 1 });
+    m.pickCreate.mockResolvedValue({ id: "p9" });
+    await unplaceEntriesAction(["e1"], [{ entryId: "e1", createdByUserId: null, carriedFromWeek: "2026-11-02" }]);
+    expect(m.pickCreate.mock.calls[0][0].data).toMatchObject({ createdByUserId: null, carriedFromWeek: null });
   });
 
   it("leaves a meal cooked in the meantime on its day", async () => {
     m.entryFindMany.mockResolvedValue([
-      { id: "e1", mealPlanId: "plan-1", recipeId: "r1", freeformName: null, portions: 2 },
+      { id: "e1", mealPlanId: "plan-1", recipeId: "r1", freeformName: null, portions: 2, mealPlan: { weekStartDate: new Date("2026-11-02T00:00:00.000Z") } },
     ]);
     m.entryDeleteMany.mockResolvedValue({ count: 0 });
     const result = await unplaceEntriesAction(["e1"]);

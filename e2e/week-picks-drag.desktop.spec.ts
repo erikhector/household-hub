@@ -55,7 +55,7 @@ test("drag a pick onto a day, then the meal back to the tray", async ({ page }) 
   await expectHydrated(chip);
 
   await chip.dragTo(dayCard(page, "Wed"));
-  await expect(page.getByText(/^Placed on Wed \d+$/)).toBeVisible();
+  await expect(page.getByText(/^Placed as dinner on Wed \d+$/)).toBeVisible();
   const row = dayCard(page, "Wed").getByText(meal, { exact: true });
   await expect(row).toBeVisible();
   await expect(chip).toHaveCount(0);

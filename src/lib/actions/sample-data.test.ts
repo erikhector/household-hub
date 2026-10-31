@@ -84,7 +84,9 @@ describe("clearSampleDataAction", () => {
     expect(m.transaction).toHaveBeenCalledTimes(1);
     const tagged = { not: null };
     expect(m.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { householdId: "h1", sample: tagged } });
-    expect(m.recipe.deleteMany).toHaveBeenCalledWith({ where: { householdId: "h1", sample: tagged } });
+    expect(m.recipe.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: "h1", sample: tagged, mealPlanPicks: { none: {} } },
+    });
     expect(m.householdTask.deleteMany).toHaveBeenCalledWith({ where: { householdId: "h1", sample: tagged } });
     expect(m.shoppingListItem.deleteMany).toHaveBeenCalledWith({
       where: { sample: tagged, shoppingList: { householdId: "h1" } },
@@ -106,5 +108,20 @@ describe("clearSampleDataAction", () => {
     expect(m.mealPlan.deleteMany).toHaveBeenCalledWith({
       where: { householdId: "h1", sample: { not: null }, entries: { none: {} }, picks: { none: {} } },
     });
+  });
+
+  it("keeps a sample recipe someone picked for a week, untagging it", async () => {
+    await clearSampleDataAction();
+    expect(m.recipe.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: "h1", sample: { not: null }, mealPlanPicks: { none: {} } },
+    });
+    expect(m.recipe.updateMany).toHaveBeenCalledWith({
+      where: { householdId: "h1", sample: { not: null } },
+      data: { sample: null },
+    });
+    // Untagging runs after the delete, in the same transaction.
+    expect(m.recipe.updateMany.mock.invocationCallOrder[0]).toBeGreaterThan(
+      m.recipe.deleteMany.mock.invocationCallOrder[0],
+    );
   });
 });

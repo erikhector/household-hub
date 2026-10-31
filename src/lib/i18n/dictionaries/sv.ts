@@ -58,6 +58,7 @@ export const sv = {
     chooseRecipeOrMeal: "Välj ett recept eller skriv ett namn på måltiden",
     cookedMealCantMove: "En lagad måltid kan inte flyttas",
     pickNotFound: "Den måltiden finns inte längre bland valen. Den kan ha lagts in eller tagits bort.",
+    pastWeekPicks: "Den veckan är slut. Välj måltider för den här veckan eller en senare.",
     cantUnplaceMeal: "En lagad måltid, eller en som äts från matlådor, kan inte gå tillbaka till valen",
     bulkNothingToChange: "Ingen av de markerade måltiderna kan ändras",
     selectAtMostIngredients: "Välj högst {max} ingredienser åt gången",
@@ -1819,6 +1820,7 @@ export const sv = {
       pickMore: "Välj fler",
       emptyHint: "Välj måltiderna ni vill äta den här veckan och lägg dem på dagar sen.",
       allPlaced: "Alla val ligger på en dag.",
+      neutralHint: "Välj veckans måltider nu och bestäm dagarna sen.",
       trayHintTouch: "Inte på någon dag än. Tryck på en för att lägga in den.",
       trayHintPointer: "Inte på någon dag än. Klicka på en för att välja dag, eller dra den till en dag.",
       listLabel: "Val",
@@ -1853,7 +1855,7 @@ export const sv = {
       slotFree: "{slot} ledig",
       markCookedToday: "Markera som lagad i dag",
       removeFromPicks: "Ta bort från valen",
-      placedToast: "Inlagd på {day}",
+      placedToast: "Inlagd som {slot} på {day}",
       removedToast: "Tog bort {name} från valen",
       fromPicks: "Från veckans val",
       backToPicks: "Tillbaka till valen",
@@ -1876,6 +1878,10 @@ export const sv = {
       shuffle: "Blanda",
       placeAll: { one: "Lägg in {count}", other: "Lägg in alla {count}" },
       spreadToast: { one: "La in {count} måltid i veckan", other: "La in {count} måltider i veckan" },
+      spreadSkippedToast: {
+        one: "{count} middag planerades under tiden, så den måltiden ligger kvar bland valen",
+        other: "{count} middagar planerades under tiden, så de måltiderna ligger kvar bland valen",
+      },
       liftedHint: "Välj en dag för {name}",
       placeHere: "Lägg här",
       placeHereLabel: "Lägg {name} på {day}",
@@ -1888,6 +1894,7 @@ export const sv = {
         other: "{count} måltider flyttades över från förra veckan",
       },
       notOnADayYet: "Inte på någon dag än",
+      notOnADayYetHint: "Valda måltider räknas för hela sin vecka, vilka datum du än väljer.",
     },
     // GAP-52: spara en vecka som mall och planera från en.
     templates: {

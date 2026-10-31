@@ -294,9 +294,12 @@ export function MissingIngredientsDialog({
               ].map((item, index, ordered) => (
                 <Fragment key={item.key}>
                   {item.fromPicksOnly && !ordered[index - 1]?.fromPicksOnly && (
-                    <p className="pt-2 pb-0.5 text-xs font-medium uppercase text-muted-foreground">
-                      {dict.weekPicks.notOnADayYet}
-                    </p>
+                    <div className="pt-2 pb-0.5">
+                      <p className="text-xs font-medium uppercase text-muted-foreground">
+                        {dict.weekPicks.notOnADayYet}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{dict.weekPicks.notOnADayYetHint}</p>
+                    </div>
                   )}
                   <div className="flex flex-col gap-0.5 rounded-md bg-muted px-2 py-1.5 text-sm">
                     <label className="flex items-center gap-2 max-sm:min-h-11 pointer-coarse:min-h-11">

@@ -83,8 +83,12 @@ export type WeekPickData = {
   name: string;
   // Meaningless when recipeId is null, as on MealPlanEntryData.
   portions: number;
-  // Moved over from a week that ended with it unplaced ("From last week").
-  carried: boolean;
+  // Moved over from a week that ended with it unplaced ("From last week"):
+  // that week's Monday as `yyyy-mm-dd`, or null.
+  carriedFromWeek: string | null;
+  // Who picked it (a user id), handed back on a place's Undo so the pick
+  // returns as it was. Null when unknown.
+  createdByUserId: string | null;
   // Another member's display name when they picked it ("Picked by Anna");
   // null when it was the viewer, or unknown.
   pickedBy: string | null;

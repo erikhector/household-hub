@@ -247,8 +247,17 @@ export function WeekPlanner({
   // usual Mark as cooked review runs on the new entry, which may sit in a
   // week other than the one on screen, so the review lives here.
   const [cookingEntry, setCookingEntry] = useState<MealPlanEntryData | null>(null);
+  const [cookingPick, setCookingPick] = useState<WeekPickData | null>(null);
   const [cookHandle] = useState(() => createDialogHandle());
   const [, startPicking] = useTransition();
+  // A week that's over takes no new picks and sends nothing back to the
+  // tray (pick-actions.ts refuses both); its leftovers already moved on.
+  const isPastWeek = weekStartKey < toDateKey(getWeekStart(new Date()));
+  // "Every pick is on a day." is only said when it's true: this week had
+  // picks while the planner was open and they've all been placed. After a
+  // reload, or for a household that never picked, the tray invites instead.
+  const [pickedWeek, setPickedWeek] = useState<string | null>(allPicks.length > 0 ? weekStartKey : null);
+  if (allPicks.length > 0 && pickedWeek !== weekStartKey) setPickedWeek(weekStartKey);
 
   useEffect(() => {
     if (cookingEntry) openLazyDialog(cookHandle);
@@ -257,10 +266,11 @@ export function WeekPlanner({
   // Carry-over's one-off note. The id keeps a re-run effect from stacking a
   // second toast.
   useEffect(() => {
-    if (carriedCount > 0) {
+    // Only on the week the picks moved into, where the dashed chips are.
+    if (carriedCount > 0 && isCurrentWeek) {
       toast(format(plural(carriedCount, wp.carriedToast), { count: carriedCount }), { id: "week-picks-carried" });
     }
-  }, [carriedCount, wp]);
+  }, [carriedCount, isCurrentWeek, wp]);
 
   // Escape puts a lifted pick down again.
   useEffect(() => {
@@ -291,6 +301,15 @@ export function WeekPlanner({
     });
   }
 
+  // What a place's Undo hands back so the pick returns as it was.
+  const originOf = (pick: WeekPickData, entryId: string) => ({
+    entryId,
+    createdByUserId: pick.createdByUserId,
+    carriedFromWeek: pick.carriedFromWeek,
+    // The tray only shows the visible week's picks.
+    weekStartDate: weekStartKey,
+  });
+
   function placePick(pick: WeekPickData, dateKey: string, mealType: MealType, dayLabel: string) {
     setLifted(null);
     setPlaceSheet(null);
@@ -305,15 +324,21 @@ export function WeekPlanner({
         return;
       }
       const entryId = result.entryId;
-      toast.success(format(wp.placedToast, { day: dayLabel }), {
-        duration: 8000,
-        action: {
-          label: wp.undo,
-          onClick: () => {
-            void settleOptimisticAction(() => unplaceEntriesAction([entryId]), dict.prepConnectionError);
+      toast.success(
+        format(wp.placedToast, { slot: dict[mealTypeDictKey[mealType]].toLocaleLowerCase(locale), day: dayLabel }),
+        {
+          duration: 8000,
+          action: {
+            label: wp.undo,
+            onClick: () => {
+              void settleOptimisticAction(
+                () => unplaceEntriesAction([entryId], [originOf(pick, entryId)]),
+                dict.prepConnectionError,
+              );
+            },
           },
         },
-      });
+      );
     });
   }
 
@@ -326,17 +351,29 @@ export function WeekPlanner({
         () => placePicksAction(rows.map((row) => ({ pickId: row.pickId, date: row.dateKey }))),
         dict.prepConnectionError,
       );
-      if (!result?.entryIds) {
+      if (!result?.placed) {
         showPicks(ids);
         return;
       }
-      const entryIds = result.entryIds;
-      toast.success(format(plural(entryIds.length, wp.spreadToast), { count: entryIds.length }), {
+      const placed = result.placed;
+      const skipped = result.skipped ?? 0;
+      // A dinner planned since the preview kept its pick in the tray.
+      const placedIds = new Set(placed.map((row) => row.pickId));
+      showPicks(ids.filter((id) => !placedIds.has(id)));
+      if (skipped > 0) toast.warning(format(plural(skipped, wp.spreadSkippedToast), { count: skipped }));
+      if (placed.length === 0) return;
+      const byId = new Map(picks.map((pick) => [pick.id, pick]));
+      const entryIds = placed.map((row) => row.entryId);
+      const origins = placed.flatMap((row) => {
+        const pick = byId.get(row.pickId);
+        return pick ? [originOf(pick, row.entryId)] : [];
+      });
+      toast.success(format(plural(placed.length, wp.spreadToast), { count: placed.length }), {
         duration: 8000,
         action: {
           label: wp.undo,
           onClick: () => {
-            void settleOptimisticAction(() => unplaceEntriesAction(entryIds), dict.prepConnectionError);
+            void settleOptimisticAction(() => unplaceEntriesAction(entryIds, origins), dict.prepConnectionError);
           },
         },
       });
@@ -373,6 +410,7 @@ export function WeekPlanner({
         showPicks([pick.id]);
         return;
       }
+      setCookingPick(pick);
       setCookingEntry({
         id: result.entryId,
         date: todayKey,
@@ -385,6 +423,21 @@ export function WeekPlanner({
         preparedBatchId: null,
       });
     });
+  }
+
+  // The owner's call: a pick can be cooked without placing it. Closing the
+  // review without cooking takes it back off today, as it was.
+  function cookDismissed(entry: MealPlanEntryData) {
+    const pick = cookingPick;
+    setCookingPick(null);
+    void settleOptimisticAction(
+      () =>
+        unplaceEntriesAction(
+          [entry.id],
+          pick ? [originOf(pick, entry.id)] : undefined,
+        ),
+      dict.prepConnectionError,
+    );
   }
 
   // "Back to picks" on a planned meal (its sheet, or a drag onto the tray).
@@ -591,7 +644,7 @@ export function WeekPlanner({
     label: `${day.weekdayLabel} ${day.dayOfMonth}`,
     entries: entriesByDay.get(day.dateKey) ?? [],
   }));
-  const trayDrop = dropZone("tray", drag?.kind === "entry", () => {
+  const trayDrop = dropZone("tray", drag?.kind === "entry" && !isPastWeek, () => {
     if (drag?.kind === "entry") backToPicks(drag.entry, drag.entry.recipeName ?? drag.entry.freeformName ?? "");
   });
 
@@ -651,7 +704,12 @@ export function WeekPlanner({
               {dict.addMissingIngredients}
             </DropdownMenuItem>
             {entries.some((entry) => !entry.consumedAt) && !selectMode && (
-              <DropdownMenuItem onClick={() => setSelectMode(true)}>
+              <DropdownMenuItem
+                onClick={() => {
+                  setLifted(null);
+                  setSelectMode(true);
+                }}
+              >
                 <ListChecks className="size-4" />
                 {dict.bulkSelectAction}
               </DropdownMenuItem>
@@ -662,10 +720,13 @@ export function WeekPlanner({
       {/* GAP-59: below the sticky week bar, not in it, so the bar stays one
           row on a phone. */}
       <MealPlanSearch dict={dict} locale={locale} />
+      {(!isPastWeek || picks.length > 0) && (
       <WeekPicksTray
         dict={wp}
         picks={picks}
         weekHasMeals={entries.length > 0}
+        allPlaced={pickedWeek === weekStartKey}
+        canPick={!isPastWeek}
         canSpread={freeDinners.length > 0}
         pointer={pointer}
         lifted={lifted}
@@ -685,6 +746,7 @@ export function WeekPlanner({
         onTrayDragLeave={trayDrop.onDragLeave ?? (() => {})}
         onTrayDrop={trayDrop.onDrop ?? (() => {})}
       />
+      )}
       <LazyDialog loader={loadPickMealsDialog} open={pickerOpen} onLoadError={() => setPickerOpen(false)}>
         {(PickMeals) =>
           pickerOpen && (
@@ -738,6 +800,7 @@ export function WeekPlanner({
               entry={cookingEntry}
               onPlanLeftovers={setLeftoversPlan}
               handle={cookHandle}
+              onDismissed={() => cookDismissed(cookingEntry)}
             />
           )
         }
@@ -856,7 +919,7 @@ export function WeekPlanner({
                 dropTarget === day.dateKey && "ring-2 ring-primary",
               )}
               {...dropZone(day.dateKey, drag?.kind === "pick" || (drag?.kind === "entry" && drag.entry.date !== day.dateKey), () => {
-                if (drag?.kind === "pick") placePick(drag.pick, day.dateKey, "DINNER", dayLabel);
+                if (drag?.kind === "pick") placePick(drag.pick, day.dateKey, openSlot, dayLabel);
                 else if (drag?.kind === "entry") moveEntry(drag.entry, day.dateKey, dayLabel);
               })}
             >
@@ -885,7 +948,7 @@ export function WeekPlanner({
                     selectMode={selectMode}
                     selected={selectedIds.has(entry.id)}
                     onToggleSelected={toggleSelected}
-                    onBackToPicks={backToPicks}
+                    onBackToPicks={isPastWeek ? undefined : backToPicks}
                     draggable={pointer}
                     onDragStart={(event) =>
                       startDrag(event, { kind: "entry", entry }, entry.recipeName ?? entry.freeformName ?? "")
@@ -893,11 +956,11 @@ export function WeekPlanner({
                     onDragEnd={endDrag}
                   />
                 ))}
-                {lifted && (
+                {lifted && !selectMode && (
                   <button
                     type="button"
                     aria-label={format(wp.placeHereLabel, { name: lifted.name, day: dayLabel })}
-                    onClick={() => placePick(lifted, day.dateKey, "DINNER", dayLabel)}
+                    onClick={() => placePick(lifted, day.dateKey, openSlot, dayLabel)}
                     className="min-h-11 rounded-lg border-[1.5px] border-dashed border-primary/55 bg-primary/5 text-sm font-semibold text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     {wp.placeHere}
@@ -1009,7 +1072,8 @@ function MealEntryRow({
   onToggleSelected: (id: string) => void;
   // Week picks: "Back to picks" in the row's sheet, and (desktop) dragging
   // the row to another day or back to the tray.
-  onBackToPicks: (entry: MealPlanEntryData, label: string) => void;
+  // Absent on a week that's over.
+  onBackToPicks?: (entry: MealPlanEntryData, label: string) => void;
   draggable: boolean;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
@@ -1203,14 +1267,14 @@ function MealEntryRow({
             {/* Week picks: back to the tray rather than deleted, for a busy
                 evening. Not for a cooked meal (a record) or a prepped one
                 (it holds batch portions a pick can't keep). */}
-            {!cooked && !prepped && (entry.recipeId || entry.freeformName) && (
+            {onBackToPicks && !cooked && !prepped && (entry.recipeId || entry.freeformName) && (
               <Button
                 type="button"
                 variant="outline"
                 className="justify-start"
                 onClick={() => {
                   setSheetOpen(false);
-                  requestAnimationFrame(() => onBackToPicks(entry, label));
+                  requestAnimationFrame(() => onBackToPicks?.(entry, label));
                 }}
               >
                 <Undo2 className="size-4" />

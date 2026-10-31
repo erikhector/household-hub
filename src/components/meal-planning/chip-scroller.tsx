@@ -14,14 +14,15 @@ import { cn } from "cn";
 //
 // `wrapFromSm` lets the row wrap from `sm` up instead, where there's room
 // (the tray on a tablet or desktop): no scrolling, no arrows, no track.
-// `endKey` scrolls the row to its end whenever it changes, so a meal just
-// picked comes into view where it was added.
+// `count` (the number of chips) scrolls the row to its end whenever it goes
+// up, so a meal just picked comes into view where it was added; a chip
+// leaving doesn't move the row.
 export function ChipScroller({
   label,
   prevLabel,
   nextLabel,
   wrapFromSm = false,
-  endKey,
+  count,
   className,
   children,
 }: {
@@ -30,7 +31,7 @@ export function ChipScroller({
   prevLabel: string;
   nextLabel: string;
   wrapFromSm?: boolean;
-  endKey?: string | number;
+  count?: number;
   className?: string;
   children: ReactNode;
 }) {
@@ -74,15 +75,15 @@ export function ChipScroller({
     return () => observer.disconnect();
   }, [sync]);
 
-  // A new pick lands at the end of the row: bring it into view. Skipped on
-  // the first render, so the tray opens at its start.
-  const firstEndKey = useRef(endKey);
+  // A new pick lands at the end of the row: bring it into view. Not on the
+  // first render (the tray opens at its start) and not when one leaves.
+  const lastCount = useRef(count);
   useEffect(() => {
-    if (endKey === firstEndKey.current) return;
-    firstEndKey.current = endKey;
+    const grew = count !== undefined && lastCount.current !== undefined && count > lastCount.current;
+    lastCount.current = count;
     const row = rowRef.current;
-    if (row) row.scrollTo({ left: row.scrollWidth, behavior: reducedMotion() ? "auto" : "smooth" });
-  }, [endKey]);
+    if (grew && row) row.scrollTo({ left: row.scrollWidth, behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [count]);
 
   function scrollBy(direction: -1 | 1) {
     const row = rowRef.current;
@@ -92,7 +93,11 @@ export function ChipScroller({
 
   const fadeLeft = state.canPrev ? "3.5rem" : "0px";
   const fadeRight = state.canNext ? "3.5rem" : "0px";
-  const mask = `linear-gradient(to right, transparent 0, #000 ${fadeLeft}, #000 calc(100% - ${fadeRight}), transparent 100%)`;
+  // Only while the row overflows: a mask also clips what spills past the
+  // row's box, like a chip's focus ring or hover lift.
+  const mask = state.overflows
+    ? `linear-gradient(to right, transparent 0, #000 ${fadeLeft}, #000 calc(100% - ${fadeRight}), transparent 100%)`
+    : undefined;
 
   return (
     <div className={cn("relative min-w-0", className)}>
@@ -108,7 +113,9 @@ export function ChipScroller({
         }}
         style={{ maskImage: mask, WebkitMaskImage: mask }}
         className={cn(
-          "flex snap-x snap-proximity gap-2 overflow-x-auto overscroll-x-contain py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          // py-1: room for a chip's 3 px focus ring and 1 px hover lift,
+          // which a scrolling row would otherwise clip.
+          "flex snap-x snap-proximity gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           wrapFromSm && "sm:flex-wrap sm:overflow-visible",
         )}
       >
@@ -120,9 +127,12 @@ export function ChipScroller({
         type="button"
         tabIndex={-1}
         aria-label={prevLabel}
+        // Hidden from everyone while there's nothing that way.
+        aria-hidden={!state.canPrev || undefined}
+        inert={!state.canPrev}
         onClick={() => scrollBy(-1)}
         className={cn(
-          "absolute top-0.5 left-1 z-10 flex size-11 items-center justify-center rounded-full bg-popover text-foreground shadow-popover ring-1 ring-foreground/10 transition-[opacity,scale] duration-(--motion-duration-base) ease-out active:scale-95",
+          "absolute top-1 left-1 z-10 flex size-11 items-center justify-center rounded-full bg-popover text-foreground shadow-popover ring-1 ring-foreground/10 transition-[opacity,scale] duration-(--motion-duration-base) ease-out active:scale-95",
           state.canPrev ? "opacity-100" : "pointer-events-none scale-90 opacity-0",
           wrapFromSm && "sm:hidden",
         )}
@@ -133,9 +143,12 @@ export function ChipScroller({
         type="button"
         tabIndex={-1}
         aria-label={nextLabel}
+        // Hidden from everyone while there's nothing that way.
+        aria-hidden={!state.canNext || undefined}
+        inert={!state.canNext}
         onClick={() => scrollBy(1)}
         className={cn(
-          "absolute top-0.5 right-1 z-10 flex size-11 items-center justify-center rounded-full bg-popover text-foreground shadow-popover ring-1 ring-foreground/10 transition-[opacity,scale] duration-(--motion-duration-base) ease-out active:scale-95",
+          "absolute top-1 right-1 z-10 flex size-11 items-center justify-center rounded-full bg-popover text-foreground shadow-popover ring-1 ring-foreground/10 transition-[opacity,scale] duration-(--motion-duration-base) ease-out active:scale-95",
           state.canNext ? "opacity-100" : "pointer-events-none scale-90 opacity-0",
           wrapFromSm && "sm:hidden",
         )}

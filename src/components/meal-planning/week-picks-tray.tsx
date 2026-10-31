@@ -67,20 +67,20 @@ export function PickChip({
         onDragEnd={onDragEnd}
         className={cn(
           "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border border-border bg-card py-1.5 pr-3 pl-3.5 text-left text-sm font-semibold outline-none transition-[translate,scale,border-color,box-shadow] duration-150 hover:-translate-y-px hover:border-input focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-90",
-          pick.carried && "border-dashed border-input",
+          pick.carriedFromWeek && "border-dashed border-input",
           pressed && "border-primary ring-2 ring-primary/40",
           draggable && "cursor-grab active:cursor-grabbing",
         )}
       >
         {draggable && <GripVertical className="-ml-1 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
-        {pick.carried && <History className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+        {pick.carriedFromWeek && <History className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
         <span className="min-w-0 truncate">{pick.name}</span>
         {pick.recipeId && (
           <span className="shrink-0 text-xs font-medium whitespace-nowrap text-muted-foreground">
             {format(plural(pick.portions, dict.portionsShort), { count: pick.portions })}
           </span>
         )}
-        {pick.carried && <span className="sr-only">, {dict.carriedLabel}</span>}
+        {pick.carriedFromWeek && <span className="sr-only">, {dict.carriedLabel}</span>}
       </button>
     </div>
   );
@@ -90,6 +90,8 @@ export function WeekPicksTray({
   dict,
   picks,
   weekHasMeals,
+  allPlaced,
+  canPick,
   canSpread,
   pointer,
   lifted,
@@ -108,8 +110,14 @@ export function WeekPicksTray({
 }: {
   dict: WeekPicksDict;
   picks: WeekPickData[];
-  /** The week has any meal on a day ("Every pick is on a day."). */
+  /** The week has any meal on a day: the tray collapses to one line. */
   weekHasMeals: boolean;
+  /** This week's picks were all placed while the planner was open, so
+   * "Every pick is on a day." is true. Otherwise (a reload, or a household
+   * that never picked) the one line is the neutral invitation instead. */
+  allPlaced: boolean;
+  /** False for a week that's over: no new picks there. */
+  canPick: boolean;
   /** Some dinner from today on is free, so Spread has somewhere to put picks. */
   canSpread: boolean;
   /** Desktop: chips lift on click and drag (usePointerPlanning). */
@@ -146,25 +154,29 @@ export function WeekPicksTray({
           {dict.trayTitle}
           {count > 0 && <Badge variant="secondary">{count}</Badge>}
         </h2>
-        {(count > 0 || weekHasMeals) && (
+        {canPick && (count > 0 || weekHasMeals) && (
           <Button type="button" variant="ghost" onClick={onOpenPicker}>
             <Plus className="size-4" aria-hidden="true" />
-            {count > 0 ? dict.pickMeals : dict.pickMore}
+            {count === 0 && allPlaced ? dict.pickMore : dict.pickMeals}
           </Button>
         )}
       </div>
 
       {count === 0 ? (
         weekHasMeals ? (
-          // M6: collapsed to one line once every pick is on a day.
-          <p className="-mt-2 text-sm text-muted-foreground">{draggingEntry ? dict.dropOnTray : dict.allPlaced}</p>
+          // M6: one line on a week that already has meals.
+          <p className="-mt-2 text-sm text-muted-foreground">
+            {draggingEntry ? dict.dropOnTray : allPlaced ? dict.allPlaced : dict.neutralHint}
+          </p>
         ) : (
           <>
             <p className="-mt-1 text-sm text-muted-foreground">{dict.emptyHint}</p>
-            <Button type="button" variant="outline" className="w-full sm:w-auto sm:self-start" onClick={onOpenPicker}>
-              <Plus className="size-4" aria-hidden="true" />
-              {dict.pickMeals}
-            </Button>
+            {canPick && (
+              <Button type="button" variant="outline" className="w-full sm:w-auto sm:self-start" onClick={onOpenPicker}>
+                <Plus className="size-4" aria-hidden="true" />
+                {dict.pickMeals}
+              </Button>
+            )}
           </>
         )
       ) : (
@@ -180,7 +192,7 @@ export function WeekPicksTray({
             prevLabel={dict.scrollPrev}
             nextLabel={dict.scrollNext}
             wrapFromSm
-            endKey={count}
+            count={count}
             className="max-sm:-mx-4 max-sm:[&>[role=list]]:px-4 max-sm:[&>[role=list]]:scroll-px-4"
           >
             {picks.map((pick) => (

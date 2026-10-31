@@ -78,6 +78,9 @@ export async function addPicksAction(
     }
 
     const weekStart = parseDateKey(parsed.data.weekStartDate);
+    // A week that's over can't be planned any more; its leftover picks
+    // already moved on (carry-over), so new ones would only be stranded.
+    if (weekStart < getWeekStart(new Date())) return await fail("pastWeekPicks");
     const plan = await prisma.mealPlan.upsert({
       where: { householdId_weekStartDate: { householdId: household.id, weekStartDate: weekStart } },
       update: {},
@@ -232,19 +235,21 @@ const placeManySchema = z
 
 /**
  * "Spread over the week"'s Place all: every accepted row onto its day's
- * dinner, all or nothing. A pick placed elsewhere since the preview opened
- * rolls the whole spread back with "pick not found", so the household sees
- * a fresh preview rather than a half-applied one. Returns the entry ids for
- * the one Undo that takes them all back to the tray.
+ * dinner, in one transaction. A dinner someone planned since the preview
+ * opened is skipped, never doubled: that pick stays in the tray and is
+ * counted in `skipped` so the toast can say so. A pick placed or removed
+ * elsewhere meanwhile rolls the whole spread back with "pick not found", so
+ * the household sees a fresh preview rather than a half-applied one.
+ * Returns which entry each placed pick became, for the one Undo.
  */
 export async function placePicksAction(
   placements: { pickId: string; date: string }[],
-): Promise<ActionState & { entryIds?: string[] }> {
+): Promise<ActionState & { placed?: { pickId: string; entryId: string }[]; skipped?: number }> {
   const { household } = await requireHousehold();
   const parsed = placeManySchema.safeParse(placements);
   if (!parsed.success) return await zodFail(parsed.error);
 
-  let entryIds: string[];
+  let placed: { pickId: string; entryId: string }[];
   try {
     const picks = await prisma.mealPlanPick.findMany({
       where: { id: { in: parsed.data.map((p) => p.pickId) }, mealPlan: { householdId: household.id } },
@@ -252,20 +257,46 @@ export async function placePicksAction(
     });
     const byId = new Map(picks.map((p) => [p.id, p]));
     if (byId.size !== parsed.data.length) return await fail("pickNotFound");
-    entryIds = await prisma.$transaction(async (tx) => {
-      const ids: string[] = [];
+    placed = await prisma.$transaction(async (tx) => {
+      const rows: { pickId: string; entryId: string }[] = [];
       for (const row of parsed.data) {
-        ids.push(await placeInTx(tx, household.id, byId.get(row.pickId)!, row.date, "DINNER"));
+        const taken = await tx.mealPlanEntry.count({
+          where: { mealPlan: { householdId: household.id }, date: parseDateKey(row.date), mealType: "DINNER" },
+        });
+        if (taken > 0) continue;
+        rows.push({
+          pickId: row.pickId,
+          entryId: await placeInTx(tx, household.id, byId.get(row.pickId)!, row.date, "DINNER"),
+        });
       }
-      return ids;
+      return rows;
     });
   } catch (error) {
     if (error instanceof PickGoneError) return await fail("pickNotFound");
     return toFriendlyError(error);
   }
   revalidatePath(MEAL_PLANNING_PATH);
-  return { entryIds };
+  return { placed, skipped: parsed.data.length - placed.length };
 }
+
+const unplaceSchema = z.object({
+  entryIds: idsSchema,
+  // The Undo of a place hands back where the pick came from, so it returns
+  // to the tray as it was ("Picked by Anna", "From last week").
+  origins: z
+    .array(
+      z.object({
+        entryId: idSchema,
+        createdByUserId: idSchema.nullable(),
+        carriedFromWeek: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+        // The week the pick was in, when that's not the meal's own week
+        // ("Mark as cooked today" on a pick from next week's tray).
+        weekStartDate: weekKeySchema.optional(),
+      }),
+    )
+    .max(MAX_PICKS_AT_ONCE)
+    .optional(),
+});
 
 /**
  * "Back to picks": planned meals go back to the tray of the week they were
@@ -274,27 +305,69 @@ export async function placePicksAction(
  * meal-prep batch can go back: a cooked one is a record of what was eaten
  * (moveMealEntryAction refuses it for the same reason), and a prepped one
  * holds batch portions a pick has no way to keep. Those are skipped; if
- * nothing could go back the call fails so the UI can say why.
+ * nothing could go back the call fails so the UI can say why. A meal in a
+ * week that's over is refused outright: picks belong to weeks still ahead.
+ *
+ * `origins` (an Undo's) restores each pick's picker and carry-over week.
+ * Both are checked, not trusted: the picker must be a member of this
+ * household and the carry-over week a Monday before the plan's week. A
+ * value that fails is dropped (the pick is then the caller's, not carried),
+ * rather than failing the Undo. An origin's week puts the pick back in that
+ * week's tray instead of the meal's, if the week isn't over. Without origins (Back to picks on a meal) the
+ * pick is the caller's and not marked carried.
  */
-export async function unplaceEntriesAction(entryIds: string[]): Promise<ActionState & { pickIds?: string[] }> {
+export async function unplaceEntriesAction(
+  entryIds: string[],
+  origins?: {
+    entryId: string;
+    createdByUserId: string | null;
+    carriedFromWeek: string | null;
+    weekStartDate?: string;
+  }[],
+): Promise<ActionState & { pickIds?: string[] }> {
   const { household, userId } = await requireHousehold();
-  const parsed = idsSchema.safeParse(entryIds);
+  const parsed = unplaceSchema.safeParse({ entryIds, origins });
   if (!parsed.success) return await fail("invalidInput");
 
   let pickIds: string[];
   try {
     const entries = await prisma.mealPlanEntry.findMany({
       where: {
-        id: { in: parsed.data },
+        id: { in: parsed.data.entryIds },
         mealPlan: { householdId: household.id },
         consumedAt: null,
         preparedBatchId: null,
       },
-      select: { id: true, mealPlanId: true, recipeId: true, freeformName: true, portions: true },
+      select: {
+        id: true,
+        mealPlanId: true,
+        recipeId: true,
+        freeformName: true,
+        portions: true,
+        mealPlan: { select: { weekStartDate: true } },
+      },
     });
+    const currentWeek = getWeekStart(new Date());
+    if (entries.some((e) => e.mealPlan.weekStartDate < currentWeek)) return await fail("pastWeekPicks");
     // A recipe deleted since (the FK is SetNull) leaves nothing to name.
     const movable = entries.filter((e) => e.recipeId || e.freeformName);
     if (movable.length === 0) return await fail("cantUnplaceMeal");
+
+    const originById = new Map((parsed.data.origins ?? []).map((o) => [o.entryId, o]));
+    const askedPickers = [
+      ...new Set([...originById.values()].flatMap((o) => (o.createdByUserId ? [o.createdByUserId] : []))),
+    ];
+    const members = new Set(
+      askedPickers.length > 0
+        ? (
+            await prisma.householdMember.findMany({
+              where: { householdId: household.id, userId: { in: askedPickers } },
+              select: { userId: true },
+            })
+          ).map((m) => m.userId)
+        : [],
+    );
+
     pickIds = await prisma.$transaction(async (tx) => {
       const ids: string[] = [];
       for (const entry of movable) {
@@ -304,13 +377,38 @@ export async function unplaceEntriesAction(entryIds: string[]): Promise<ActionSt
           where: { id: entry.id, consumedAt: null, preparedBatchId: null },
         });
         if (removed.count === 0) continue;
+        const origin = originById.get(entry.id);
+        const originWeek = origin?.weekStartDate ? parseDateKey(origin.weekStartDate) : null;
+        const target =
+          originWeek && originWeek >= currentWeek && originWeek.getTime() !== entry.mealPlan.weekStartDate.getTime()
+            ? {
+                id: (
+                  await tx.mealPlan.upsert({
+                    where: { householdId_weekStartDate: { householdId: household.id, weekStartDate: originWeek } },
+                    update: {},
+                    create: { householdId: household.id, weekStartDate: originWeek },
+                    select: { id: true },
+                  })
+                ).id,
+                weekStartDate: originWeek,
+              }
+            : { id: entry.mealPlanId, weekStartDate: entry.mealPlan.weekStartDate };
+        const carried = origin?.carriedFromWeek ? parseDateKey(origin.carriedFromWeek) : null;
+        const carriedOk =
+          carried !== null &&
+          !Number.isNaN(carried.getTime()) &&
+          toDateKey(getWeekStart(carried)) === origin!.carriedFromWeek &&
+          carried < target.weekStartDate;
+        const picker = origin?.createdByUserId && members.has(origin.createdByUserId) ? origin.createdByUserId : null;
         const pick = await tx.mealPlanPick.create({
           data: {
-            mealPlanId: entry.mealPlanId,
+            mealPlanId: target.id,
             recipeId: entry.recipeId,
             freeformName: entry.recipeId ? null : entry.freeformName,
             portions: entry.portions,
-            createdByUserId: userId,
+            // An origin with no picker (unknown) stays unknown.
+            createdByUserId: origin && origin.createdByUserId === null ? null : (picker ?? userId),
+            carriedFromWeek: carriedOk ? carried : null,
           },
           select: { id: true },
         });

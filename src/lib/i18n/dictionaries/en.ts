@@ -64,6 +64,7 @@ export const en = {
     chooseRecipeOrMeal: "Choose a recipe or enter a meal name",
     cookedMealCantMove: "A cooked meal can't be moved",
     pickNotFound: "That meal isn't in your picks any more. It may have been placed or removed.",
+    pastWeekPicks: "That week is over. Pick meals for this week or a later one.",
     cantUnplaceMeal: "A cooked meal, or one eaten from meal prep, can't go back to your picks",
     bulkNothingToChange: "None of the selected meals can be changed",
     selectAtMostIngredients: "Select at most {max} ingredients at once",
@@ -1926,6 +1927,7 @@ export const en = {
       pickMore: "Pick more",
       emptyHint: "Pick the meals you want this week, then place them on days.",
       allPlaced: "Every pick is on a day.",
+      neutralHint: "Pick meals for the week now and choose the days later.",
       trayHintTouch: "Not on a day yet. Tap one to place it.",
       trayHintPointer: "Not on a day yet. Click one to choose a day, or drag it onto a day.",
       listLabel: "Picks",
@@ -1960,7 +1962,7 @@ export const en = {
       slotFree: "{slot} free",
       markCookedToday: "Mark as cooked today",
       removeFromPicks: "Remove from picks",
-      placedToast: "Placed on {day}",
+      placedToast: "Placed as {slot} on {day}",
       removedToast: "Removed {name} from picks",
       fromPicks: "From this week's picks",
       backToPicks: "Back to picks",
@@ -1983,6 +1985,10 @@ export const en = {
       shuffle: "Shuffle",
       placeAll: { one: "Place {count}", other: "Place all {count}" },
       spreadToast: { one: "Placed {count} meal on the week", other: "Placed {count} meals on the week" },
+      spreadSkippedToast: {
+        one: "{count} dinner was planned meanwhile, so that meal stayed in your picks",
+        other: "{count} dinners were planned meanwhile, so those meals stayed in your picks",
+      },
       liftedHint: "Choose a day for {name}",
       placeHere: "Place here",
       placeHereLabel: "Place {name} on {day}",
@@ -1992,6 +1998,7 @@ export const en = {
       dropOnTray: "Drop here to take it off its day",
       carriedToast: { one: "{count} meal moved over from last week", other: "{count} meals moved over from last week" },
       notOnADayYet: "Not on a day yet",
+      notOnADayYetHint: "Picked meals count for their whole week, whichever dates you choose.",
     },
     // GAP-52: save a week as a named template and plan from one. Nothing is
     // written until "Plan this week" is pressed (applyMealPlanTemplateAction).

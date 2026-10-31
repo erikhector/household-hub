@@ -5812,7 +5812,8 @@ also reads the picks of every `MealPlan` whose week overlaps the range
 portions exactly like entries, so the planner's "Add N missing" button and
 the review dialog include meals that aren't on a day yet. A row only picks
 need comes back `fromPicksOnly` and the dialog lists those last, under "Not
-on a day yet". A question about one meal of the day (Home's tonight's dinner,
+on a day yet", with a line saying picked meals count for their whole week
+whichever dates are chosen. A question about one meal of the day (Home's tonight's dinner,
 `mealType`) leaves picks out, since a pick has no slot. The button shows when
 the week has meals on days or picks.
 
@@ -6387,8 +6388,9 @@ holds meals chosen for the visible week but not placed on a day yet.
   `MealPlanEntry.date`, so no reader of entries (calendar feed, search,
   recaps, templates, notifications) ever sees an undated row. A pick has no
   meal slot: the slot is chosen when placing, dinner preselected. Deleting a
-  recipe deletes its picks; clearing sample data keeps a sample week that has
-  picks.
+  recipe deletes its picks. Clearing sample data keeps (and untags) a sample
+  week that has picks and a sample recipe someone picked, so it never takes
+  a household's picks with it.
 - **Actions** (`pick-actions.ts`, all click actions, household from
   `requireHousehold()`, every query scoped through `mealPlan.householdId`):
   `addPicksAction` (several at once, recipes checked against the household,
@@ -6396,20 +6398,38 @@ holds meals chosen for the visible week but not placed on a day yet.
   `undoAddPicksAction`, `removePickAction` (sent when the Undo toast closes),
   `placePickAction` (deletes the pick and creates the entry in one
   transaction, in the plan of the date's own week; clears Cook soon like
-  `addMealEntryAction`), `placePicksAction` (Spread's Place all, all or
-  nothing, dinner) and `unplaceEntriesAction` ("Back to picks": entry back
-  to a pick in the same week; refused for a cooked meal or one eaten from
-  meal prep). A pick placed or removed elsewhere meanwhile fails with "That
-  meal isn't in your picks any more".
+  `addMealEntryAction`), `placePicksAction` (Spread's Place all,
+  in one transaction, dinner; a dinner someone planned since the preview
+  opened is skipped and counted, never doubled, and that pick stays in the
+  tray with a toast saying so) and `unplaceEntriesAction` ("Back to picks":
+  entry back to a pick in the same week; refused for a cooked meal or one
+  eaten from meal prep). A pick placed or removed elsewhere meanwhile fails
+  with "That meal isn't in your picks any more".
+- **Weeks that are over**: `addPicksAction` and `unplaceEntriesAction`
+  refuse a week before the current one ("That week is over …"), and the
+  planner hides the tray (it has no picks there after carry-over) and "Back
+  to picks" on those weeks.
+- **Undo restores the pick**: a place's Undo (and Place all's) sends back
+  each pick's picker, carry-over week and own week, so it returns as it was.
+  The server checks them: the picker must be a household member, the
+  carry-over week a Monday before the pick's week and the week not over;
+  a value that fails is dropped rather than failing the Undo. "Back to
+  picks" on a planned meal makes a pick that's the caller's and not
+  carried, since an entry doesn't remember where it came from.
 - **Tray**: no picks yet: one line and a "Pick meals" button (an empty week
   keeps its mascot empty state below). With picks: chips with name and
   portions; on phones one row that scrolls sideways (`ChipScroller`) with
   edge fades, 44 px arrow buttons that show only when there is more in that
   direction (the swipe's tap path, M7) and a small track thumb (hidden when
-  everything fits), and newly added picks scroll into view at the end; from
-  `sm` the chips wrap. "Spread over the week" shows when a dinner from today
-  on is free. Once every pick is on a day it collapses to "Every pick is on a
-  day." with "Pick more" (M6). The day grid shows as soon as a week has picks.
+  everything fits; an arrow with nothing to show is hidden from assistive
+  tech too), and newly added picks scroll into view at the end (only when
+  one is added, not when one leaves); from `sm` the chips wrap. "Spread over
+  the week" shows when a dinner from today on is free. A week that already
+  has meals and no picks gets one line (M6): "Every pick is on a day." with
+  "Pick more" only when this week's picks were placed while the planner was
+  open, otherwise the neutral "Pick meals for the week now and choose the
+  days later." with "Pick meals" (after a reload, or for a household that
+  never picked). The day grid shows as soon as a week has picks.
   A pick leaves the tray at tap time and comes back with a toast if the
   server says no.
 - **Picker** (`PickMealsDialog`): multi-select sheet with search, Cook soon
@@ -6420,11 +6440,13 @@ holds meals chosen for the visible week but not placed on a day yet.
   segmented control (Dinner preselected), the week's seven days each saying
   what's in that slot or "<Slot> free", "Mark as cooked today" for a recipe
   pick (places it on today's dinner, then the usual Mark as cooked review
-  runs on the new entry; closing the review leaves it planned for today),
+  runs on the new entry; closing the review without cooking takes it off
+  today and back to its own week's tray, so cooking without placing holds),
   and "Remove from picks" apart at the bottom (Undo). A day's "+ Add meal"
   lists "From this week's picks" first, as the same scrolling chip row,
   placed in the slot chosen there. A placed meal's sheet has "Back to
-  picks". Every place has an Undo.
+  picks". Every place has an Undo, and the toast names the slot ("Placed as
+  dinner on Tue 4").
 - **Spread over the week** (`SpreadPicksDialog`, `suggestSpread` in
   `src/lib/week-picks-spread.ts`): a preview, nothing saved until "Place
   all", one Undo puts everything back. Free dinners only (today onwards),
@@ -6443,12 +6465,15 @@ holds meals chosen for the visible week but not placed on a day yet.
   meat default), so an onion's 5-day produce default doesn't make every
   recipe jump the queue. No signal means the pick falls to pick order.
 - **Desktop** (fine pointer, `sm` and up): chips and planned meals are
-  draggable; drop a pick on a day (dinner), a meal on another day (keeps its
+  draggable; drop a pick on a day (into the day's open slot, the one
+  its "+ Add meal" preselects: dinner, or the first free slot once dinner is
+  planned), a meal on another day (keeps its
   slot, `moveMealEntryAction`) or a meal on the tray (Back to picks). The
   click path: clicking a chip lifts it (`aria-pressed`), the tray says
   "Choose a day for …" with "More options" (the pick's sheet) and Cancel,
-  and every day shows "Place here"; Escape puts it down. Touch screens of
-  any width get the sheet instead.
+  and every day shows "Place here" (the day's open slot, like a drop);
+  Escape puts it down, and so does turning on Select. Touch screens of any
+  width get the sheet instead.
 - **Carry-over** (`carryOverPastPicks`, `week-picks.ts`): when the meal
   planning page loads, picks still in a week that has ended move to the
   plan of the week containing today, with `carriedFromWeek` set to the week
@@ -6457,11 +6482,13 @@ holds meals chosen for the visible week but not placed on a day yet.
   pick still sitting in a past week, so concurrent loads move it once. Those
   chips are dashed with a history icon ("From last week" for screen readers
   and in the pick's sheet), and that load shows "N meals moved over from last
-  week".
+  week" when the planner is showing the current week, where they landed.
 - **Tests**: `pick-actions.test.ts`, `week-picks.test.ts`,
   `week-picks-spread.test.ts`, the bridge case in `cooking-actions.test.ts`;
   `e2e/week-picks.spec.ts` (pick → shop count → place → back to picks;
-  spread + undo) and `e2e/week-picks-drag.desktop.spec.ts`.
+  spread + undo; remove, undo, remove for good; "From this week's picks";
+  mark as cooked today and closing its review; the phone row's arrows;
+  carry-over; the tray's copy) and `e2e/week-picks-drag.desktop.spec.ts`.
 
 ### Meal-plan search (GAP-59)
 
