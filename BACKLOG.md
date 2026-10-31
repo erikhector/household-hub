@@ -384,6 +384,344 @@ sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
 pseudo-element gives the 44 px target). WebKit was not run, and the
 per-action deep dive was not driven this run.
 
+### UX (2026-10-31 design review)
+
+A full design and UX review of the app, run as a dual-agent critique and
+audit against DESIGN.md: 104 page screenshots (desktop and Pixel 7, en and
+sv), the design-audit sweep (320 px, light, 200 % text, 117 popups
+measured), ~70 driven flows (Pixel 7, 320 px, desktop, dark, Swedish at
+200 %), axe-core on 16 routes, tab-order traces, reduced-motion emulation
+and a contrast script over the token pairs `globals-contrast.test.ts`
+does not cover. The sweep is clean (no overflow, off-screen or sub-44 px
+hits anywhere); every item below is a hierarchy, first-run, theming or
+accessibility finding confirmed in a screenshot or in code. Full report
+with evidence: [Squirrel UX review](https://claude.ai/artifact/5ReYfhYPsSn72FRWUVk7Ew).
+Items already open (UX-30, UX-66, UX-89, UX-125, UX-41c, UX-43) were
+left out.
+
+**File conflicts.** Don't build these in parallel:
+- `src/components/budget/safe-to-spend.tsx`: UX-152, UX-153
+- `src/components/inventory/inventory-client.tsx`: UX-154, UX-165
+- `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
+  UX-158, UX-159, UX-167
+- `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
+  UX-157, UX-159, UX-163
+
+- [ ] **UX-152. One primary action per view on tasks, budget overview and
+      personal budget** (impact: high, effort: S) — breaks Hierarchy
+      ("exactly one `primary` action per view"). Tasks renders the active
+      "Everyone / Mine" filter as a solid `default` Button beside the solid
+      "Add task" pill (`src/components/tasks/tasks-client.tsx:207-220`,
+      `mobile-en-dashboard-tasks.png`). The household budget's setup card
+      shows a solid "Add income" while "Add transaction" floats below it
+      (`src/components/budget/safe-to-spend.tsx:208-216`). The personal
+      budget shows a full-width solid "Add 6 categories" with a solid
+      "Add shared expense" pill over it (`budget-tabs.tsx` starter set,
+      `mobile-en-dashboard-personal-budget.png`). `one-primary-action.spec.ts`
+      doesn't cover these states.
+      Acceptance: the tasks filter is a segmented `Tabs` track; "Add
+      income" is `secondary`; the floating pill is hidden or `outline`
+      while the starter-set card is on screen. `one-primary-action.spec.ts`
+      asserts one `bg-primary` button on `/dashboard/tasks` and on both
+      budget pages with no categories, on `desktop` and `mobile`.
+
+- [ ] **UX-153. Neutral safe-to-spend state when the budget has no
+      income** (impact: high, effort: S) — breaks Colour ("Safe to spend:
+      `success` healthy …" presumes a budget) and Hierarchy. With categories
+      but no income, the overview's Today row prints "Household safe to
+      spend: 0.00" in `success` green and the Insights tab shows four zero
+      tiles, one "+0.00" in green: false reassurance exactly when a new
+      household decides whether to trust the budget. `computeSafeToSpend`
+      returns "healthy" for any non-negative balance when there is no income
+      to judge against (`src/lib/safe-to-spend-calc.ts:241-246`; the
+      overview reads it at `src/app/dashboard/page.tsx:192-197`). The
+      SafeToSpend card itself already has a setup state; the Today row and
+      Insights don't. Evidence: `h6-overview-with-budget`, `h8-insights` in
+      the report.
+      Acceptance: a fourth status `unset` (no income and no limits) renders
+      in `muted-foreground` with no sign; the Today row reads "Budget not
+      set up yet" and links to income; Insights shows one sentence and the
+      add-income action instead of zero tiles. Unit test on the calculator;
+      e2e on `/dashboard` with a category and no income asserts no
+      `text-success` in the Today block, `desktop` and `mobile`.
+
+- [ ] **UX-154. Label the desktop inventory filter selects and the actions
+      column** (impact: high, effort: S) — breaks Accessibility ("labelled
+      controls"; WCAG 4.1.2, 1.3.1). The five desktop `SelectTrigger
+      className="w-40 shrink-0"` filters have no `aria-label`/
+      `aria-labelledby`, so a screen reader announces only the current value
+      ("All categories"); axe reports `button-name` critical ×5. The mobile
+      twins at `inventory-client.tsx:260-317` use `aria-labelledby`. The
+      table's actions `TableHead` is empty (axe `empty-table-header`).
+      Location: `src/components/inventory/inventory-client.tsx:358,371,387,402,416`,
+      `src/components/inventory/inventory-table.tsx:412`.
+      Acceptance: each desktop filter has the same accessible name as its
+      mobile twin; the actions header has `sr-only` text. `desktop` e2e
+      locates all five by `getByRole("combobox", { name })`.
+
+- [ ] **UX-155. Default low-stock threshold never above the entered
+      quantity** (impact: med, effort: S) — breaks Usability ("prevent
+      errors before reporting them") and M4 (a default must be safe). The
+      add-item sheet defaults quantity to 1 and "Running low below" to 2
+      for count units (`src/lib/units.ts:191-193`,
+      `add-item-dialog.tsx:105-107,348`); stock status is strict
+      (`stock-status.ts:17`), so a first-timer's first "Olive oil × 1" is
+      badged "Low stock" and counted on the overview. (It is not auto-added
+      to the list: `default-list.ts:251-256` only fires on a crossing from
+      "in".) Evidence: `dialogs-mobile-dashboard-inventory--1-Add-item.png`.
+      Acceptance: a count item saved with the default quantity reads "In
+      stock" (threshold defaults to 1, or stays empty until the user sets
+      it); the `units.ts` comment is updated to the new intent; unit test on
+      `defaultLowStockThreshold`; e2e adds an item with defaults and asserts
+      no "Low stock" badge, `desktop` and `mobile`.
+
+- [ ] **UX-156. A dark theme that keeps the brand hue** (impact: med,
+      effort: M) — breaks Squirrel design principles ("soft, friendly and
+      purple … the brand's purple is carried by the mascot and the
+      gradient"). `.dark` uses a hueless ground (`--background:
+      oklch(0.145 0 0)`), a gradient from `#180828` to `#0a0414` that
+      barely registers, and charcoal cards; purple survives only on the CTA
+      and active tab (`src/app/globals.css:239-270`; report `e1-dark-overview`
+      vs `overview-mobile`).
+      Acceptance: dark ground, gradient and card tokens share light's hue
+      family (around `oklch(0.17 0.03 300)`, `oklch(0.24 0.06 300)` →
+      `oklch(0.14 0.03 300)`, `oklch(0.23 0.03 300)`); every pair in
+      `globals-contrast.test.ts` still passes; the `light` and default dark
+      sweep screenshots of the overview are reviewed side by side.
+
+- [ ] **UX-157. Hide the household switcher for single-household users**
+      (impact: high, effort: M) — breaks M6 ("the key number, status or
+      next step is above the fold") and Hierarchy. Every phone page opens
+      with ~90 px of "Household / <name> ⌃" above the title, even when the
+      user has one household; the popover then offers only "Current" and
+      "Create household" (`src/components/household/household-switcher.tsx`,
+      `dashboard/layout.tsx` header; report `d2-household-switcher`,
+      `s2-320-inventory` where the first row starts ~370 px down).
+      Acceptance: with one household the switcher is not rendered and
+      "Create household" sits in the More menu; with several, the current
+      name lives in the compact title bar `PageTitle` already portals into.
+      `mobile` e2e asserts the page title is the first text in `main`'s
+      viewport for the seeded single-household user; the multi-household
+      case still switches.
+
+- [ ] **UX-158. Finish the trip from the dock and split the shopping list
+      ⋯ menu** (impact: high, effort: M) — breaks User-centricity (the
+      in-store task is the shortest path), M6 (rare actions behind a
+      disclosure, ordered) and M2 (destructive apart from primary). The
+      list's ⋯ menu holds 12 items (Rename, Add item, Import list, Add
+      low-stock items, Share, Save as template, Export CSV, Copy as text,
+      Print, Complete list, Archive, Delete); "Complete list", the action
+      every trip ends with, is item 10 in the same group as the two
+      destructive ones (`src/components/shopping/shopping-list-client.tsx`
+      ⋯ menu; report `a7-list-more-menu`). The dock already knows when the
+      ring is full (`shopping-mode.tsx`).
+      Acceptance: when every row is ticked the dock shows a "Finish trip"
+      primary that runs Complete list; the menu is split into "This trip"
+      (Complete, Put away, Share) and "List settings" (submenu or the list
+      page) with Delete alone at the bottom. `mobile` and `desktop` e2e
+      tick all rows and complete the list from the dock.
+
+- [ ] **UX-159. Swedish at 200 % text on budget and shopping** (impact:
+      med, effort: M) — breaks M9 ("200 % … without clipping; Swedish
+      strings wrap or truncate with the full value reachable"). At 200 %
+      in `sv` the budget title breaks mid-word ("Hushållsbudg / et"), the
+      floating primary pill spans the width and covers the month switcher,
+      and on the shopping list the dock truncates "Näst… / Bak…" and
+      covers the list. In `en` at 200 % the smart-add placeholder collapses
+      to "Ac" because the mic and scan buttons keep their width
+      (`text-200-dashboard-shopping-list-id.png`; report `h11-budget-sv200`,
+      `k5-sv200-shopping`). Files: `page-title.tsx`, `primary-action.tsx`,
+      `shopping-mode.tsx` (dock), `smart-add-bar.tsx`.
+      Acceptance: `PageTitle` sets `hyphens-auto` with the page `lang`;
+      the pill is capped at 60 % width and drops to icon + short label
+      above 150 % text; the dock collapses to ring + count when `main` is
+      shorter than twice the dock; the smart-add icons shrink before the
+      field. `text-size.mobile.spec.ts` extends to `sv` and asserts the
+      month switcher and at least one list row stay visible.
+
+- [ ] **UX-160. Contrast on avatar initials, selected chips and faded
+      table text** (impact: med, effort: S) — breaks Accessibility tokens
+      ("every text pair passes 4.5:1 in both themes"; WCAG 1.4.3). Avatar
+      initials are `text-white` on `bg-chart-*` (2.05:1 on chart-2 in
+      light, axe `color-contrast`; `src/components/profile/avatar.tsx:48`).
+      Selected chips use `text-primary` on `bg-primary/10` (4.45:1 light,
+      4.40:1 dark at 14 px medium; `recipe-form-dialog.tsx:912`,
+      `starter-category-picker.tsx:118`, `item-catalog.tsx:91`).
+      `text-muted-foreground/70` in the inventory table is 3.27:1 light
+      (`inventory-table.tsx:422,527`). None of the pairs is in
+      `globals-contrast.test.ts`.
+      Acceptance: initials pick their ink per tint by luminance; chips use
+      `bg-primary/15` with an ink that passes; the `/70` opacity is dropped;
+      all three pairs are added to `globals-contrast.test.ts`; axe on
+      `/dashboard/profile` reports no contrast violation.
+
+- [ ] **UX-161. Raw amber utilities where the `warning` token belongs**
+      (impact: low, effort: S) — breaks Colour ("status is text on a tint
+      of itself … `warning`") and the checklist's "tokens only".
+      `calendar-feed-setting.tsx:62-63` (`bg-amber-500/10`,
+      `text-amber-600 dark:text-amber-400`), `item-catalog.tsx:178`,
+      `add-item-dialog.tsx:259`, `recipe-manager.tsx:495` (favourite star);
+      `amber-600` on its tint over card is 2.91:1 in light.
+      Acceptance: no `amber-` class in `src/components`; the four sites use
+      `bg-warning/10 text-warning` (`attention` for the star if orange is
+      wanted); a grep test or lint rule keeps them out.
+
+- [ ] **UX-162. Text under the 12 px floor** (impact: low, effort: S) —
+      breaks M9 ("12 px is the floor for chrome; nothing smaller
+      anywhere"). The notification count badge is `text-[10px]`
+      (`src/components/notifications/notification-bell.tsx:107`); the four
+      quick-add bar labels are `text-[11px]`
+      (`src/components/inventory/quick-add-bar.tsx:85,102,122,139`).
+      Acceptance: both use `text-xs` (badge `size-4.5`); the sweep's
+      `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
+      returns nothing.
+
+- [ ] **UX-163. `main` landmark on auth pages and a skip link in the
+      dashboard** (impact: med, effort: S) — breaks Accessibility ("logical
+      tab order"; WCAG 2.4.1). Login, signup and forgot-password render
+      content in a plain `div` (`src/app/login/page.tsx:38` and siblings;
+      axe `landmark-one-main`, `region` ×7–17). On desktop a keyboard user
+      passes 16 sidebar stops before page content on every route.
+      Acceptance: auth content is wrapped in `<main>`; the dashboard layout's
+      first focusable element is an `sr-only focus:not-sr-only` "Skip to
+      content" link (in both languages) that moves focus to `main`; axe on
+      `/login` reports no landmark violation; `navigation.desktop.spec.ts`
+      tabs once and asserts the link is focused.
+
+- [ ] **UX-164. Destructive actions apart from the primary in the recipe
+      sheet and the More menu** (impact: med, effort: S) — breaks M2
+      ("Destructive actions sit apart from the primary action, never next
+      to it where a slip hits them"). In the recipe sheet "Delete recipe"
+      sits ~60 px above the sticky "Cook"; in the phone More menu the red
+      "Log out" is the first row the thumb meets after opening it from the
+      bottom bar (`src/components/meal-planning/recipe-manager.tsx` sheet,
+      `src/components/dashboard/bottom-nav-more-menu.tsx`; report
+      `c2-recipe-open`, `c5-week-more-menu`).
+      Acceptance: Delete lives in the recipe's edit flow or its ⋯ menu, not
+      in the sheet body; Log out is the top row of the More menu (farthest
+      from the thumb) or behind Profile. `mobile` e2e asserts the sheet's
+      footer region has no destructive button and the More menu's last row
+      is not Log out.
+
+- [ ] **UX-165. One header row on the phone inventory** (impact: med,
+      effort: M) — breaks M6 ("one task per screen, most important first")
+      and Recognition. The phone page stacks a full-width secondary
+      "⋯ More inventory actions" (the only labelled overflow button in the
+      app), a lone unlabelled "1 out" chip, the search field and "Filters"
+      before the list, so the first row starts ~400 px down at 412 px
+      (`mobile-en-dashboard-inventory.png`). On desktop the header holds 7
+      buttons, 5 selects and a search field before any data
+      (`desktop-en-dashboard-inventory.png`). Files:
+      `src/components/inventory/inventory-header-actions.tsx`,
+      `inventory-client.tsx`.
+      Acceptance: on phones one row holds search, a Filters icon button
+      and ⋯; the status counts move into the Filters sheet as labelled
+      chips ("Status: 1 out"); the ⋯ menu is grouped into "Add by scanning"
+      and "Manage". `mobile` e2e asserts the first inventory row's top is
+      within 300 px of the viewport top after `gotoRevealed`.
+
+- [ ] **UX-166. Unique hue per section** (impact: low, effort: S) —
+      breaks Consistency ("same icon/colour for the same meaning").
+      Inventory and Household budget share `chart-1`, Shopping and Personal
+      budget `chart-2`, Meals and Household `chart-3`, Tasks and Profile
+      `chart-5` (`src/components/dashboard/nav-items.ts:84-92`), so the
+      underline under a page title says "pink", not "inventory".
+      Acceptance: the four hues are reserved for the four coloured
+      bottom-bar tabs and More-menu pages have no underline (or get their
+      own hues); `nav-items.test.ts` asserts no two primary tabs share a
+      colour.
+
+- [ ] **UX-167. One "match these items" note instead of a paragraph per
+      typed row** (impact: med, effort: S) — breaks M6 ("repeated
+      placeholders collapse") and Aesthetic/minimalist. Each free-text list
+      row shows a "Match item" warning chip, "Add price", a ⋯ menu and a
+      two-line sentence ("New to your pantry — match it or add it as a new
+      item so buying it updates your stock"); three typed rows means three
+      copies, and a first-timer is asked to understand the inventory model
+      before owning one (`src/components/shopping/shopping-row.tsx`,
+      `mobile-en-dashboard-shopping-list-id.png`). Related: UX-89.
+      Acceptance: the row keeps the chip only; one dismissible note under
+      the first affected section reads "N items aren't in your pantry yet.
+      Match them so buying updates your stock." with a "Match all" action.
+      `mobile` e2e adds two unmatched rows and asserts the explanation text
+      appears once.
+
+- [ ] **UX-168. The overview's restock tile leads with the alarm**
+      (impact: med, effort: S) — breaks Hierarchy ("the key number or
+      status … is the first thing the eye lands on"). The "Low stock items"
+      tile prints "0" at stat size with "1 out of stock" small and red
+      beneath it; "Total items tracked: 6" gets the same stat treatment as
+      a number nobody acts on (`src/app/dashboard/page.tsx` stat cards,
+      `mobile-en-dashboard.png`).
+      Acceptance: one "Needs restocking" tile whose stat is low + out with
+      the split as its caption; the "Total items tracked" tile is removed
+      or folded into the inventory link text. `overview-stat-cards.spec.ts`
+      asserts the stat equals the seeded low + out count.
+
+- [ ] **UX-169. Scroll affordance on the tabs track** (impact: low,
+      effort: S) — breaks Recognition. The budget and meal-planning tabs
+      tracks scroll horizontally and clip "Coo" / "Insi" at 320 px and at
+      200 % text with nothing signalling more tabs
+      (`small-phone-dashboard-meal-planning.png`,
+      `text-200-dashboard-budget.png`; `src/components/ui/tabs.tsx`).
+      Acceptance: an edge fade (mask) appears while the track can scroll
+      and the active tab scrolls into view on mount; `small-phone` audit
+      screenshots show the fade.
+
+- [ ] **UX-170. Hide controls that have nothing to act on** (impact: low,
+      effort: S) — breaks Usability ("every state is designed"). The meal
+      plan search field shows above an empty planner
+      (`mobile-en-dashboard-meal-planning.png`), "Mark all as read" with no
+      notifications (`mobile-en-dashboard-notifications.png`), "Export CSV"
+      on an empty transactions list, and the planner's empty state says
+      "fill the empty days from the ⋯ menu" instead of offering the action.
+      Acceptance: each control is hidden or disabled with a reason until
+      there is data; the planner empty state has a "Fill empty days" button.
+      `empty-states.spec.ts` asserts the search field is absent on an empty
+      plan and the fill button is present, `desktop` and `mobile`.
+
+- [ ] **UX-171. Item page: status and buy action before unit algebra**
+      (impact: low, effort: S) — breaks Match with the real world and
+      Hierarchy. The inventory item page opens with "1 pcs = 2000 g" and
+      "Try it: 1 g = 0.0005 pcs" above the item's status and its buy
+      action (`mobile-en-dashboard-inventory-items-id.png`,
+      `src/components/inventory/item-page/`).
+      Acceptance: status, quantity stepper and "Add to list" are the first
+      card; conversions sit behind a "Units" disclosure. `item-page.spec.ts`
+      asserts the first heading after the title is the status card.
+
+- [ ] **UX-172. Landing desktop CTA above the fold on short windows**
+      (impact: low, effort: S) — breaks Persuade-mode basics. At 1280×720
+      the hero headline and note stack push "Get started free" to ~y 885
+      (`desktop-en-root.png`; `src/components/landing/fridge-door.tsx`).
+      Mobile is fine.
+      Acceptance: at 1280×720 the primary CTA's bottom edge is inside the
+      first viewport; `landing.spec.ts` asserts it on `desktop` with that
+      viewport.
+
+- [ ] **UX-173. Progressive explanations on budget Manage and Household
+      settings** (impact: low, effort: M) — breaks Help ("explain
+      progressively") and M6. Budget Manage opens three cards each with a
+      four-line paragraph and a button wrapped to half width before any
+      data; Household settings is ~3 000 CSS px of stacked forms on a phone
+      (`mobile-en-dashboard-household.png`; report `h9-manage`).
+      Acceptance: one line per Manage card with a "Learn more" disclosure;
+      Household settings split into Members / Notes / Settings tabs on
+      phones; `mobile` smoke screenshots of both pages fit in two screens
+      of content before the first form.
+
+- [ ] **UX-174. Small code hygiene from the audit** (impact: low, effort:
+      S) — `transition-all` on `button.tsx:8` and `badge.tsx:7` animates
+      layout properties (DESIGN.md prefers explicit properties); an ad-hoc
+      shadow with raw rgb on the inventory bulk bar
+      (`inventory-table.tsx:292`); `/dashboard/whats-new`'s `main` is a
+      scroll region with nothing focusable on phones (axe
+      `scrollable-region-focusable`).
+      Acceptance: `transition-[color,background-color,border-color,box-shadow,transform]`
+      on both primitives; the bulk bar uses a token shadow; What's new has a
+      focusable "Back" link or `tabIndex={-1}` on `main`; axe on
+      `/dashboard/whats-new` is clean on `mobile`.
+
 ### Dependencies
 
 ---
@@ -751,6 +1089,40 @@ out to be a product-scope question rather than a scoped task should move to
       `en` and `sv`.
 
 ## Needs a decision before building
+
+- [ ] **UX-175. DESIGN.md names shadow and type tokens the CSS never
+      defines** (M) `[!]` needs a decision — `globals.css` has no
+      `--shadow-*` and no `--text-*` tokens, yet DESIGN.md §3 specifies
+      `shadow-primary`, `shadow-primary-hover`, `shadow-popover` and a type
+      scale (`page-title`, `item-title`, `card-title`, `body`, `body-lg`,
+      `button`, `badge`, `caption`, `stat`, `hero`). In code popups use
+      `shadow-md`/`shadow-lg` (21 sites) and stat numbers are hand-set
+      (`text-4xl`, `text-xl sm:text-3xl`, `text-3xl`; about 20 sites), so
+      the checklist's "tokens only" can't be followed. Decide: (1) define
+      the tokens in `@theme` and migrate the ~40 sites in one PR (fixes the
+      three stat sizes on the overview, budget and safe-to-spend at once),
+      or (2) rewrite DESIGN.md §3 to the Tailwind classes actually used.
+      Recommended: (1). Found by the 2026-10-31 design review.
+      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
+      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl`
+      stat sizes and fails on new ones.
+
+- [ ] **UX-176. Character pass: carry the brand into the working screens**
+      (M) `[!]` needs a product decision — the 2026-10-31 design review's
+      verdict: the landing page, empty states and the all-done ring carry
+      Squirrel's identity; the daily screens read as a generic dashboard
+      with a purple primary. Four ideas that stay inside DESIGN.md and off
+      money surfaces, each its own PR once chosen: (a) render the Household
+      notes board as the landing's paper notes (`note-yellow`, the
+      handwriting face, slight rotation); (b) make the shopping progress
+      ring an acorn outline that fills (same geometry, no new assets);
+      (c) the housemate voice in the Today block ("Nothing planned for
+      dinner. Last Tuesday's pasta again?" from existing data); (d) each
+      section's hue carried into its empty-state dashed box at 10 %
+      (depends on UX-166). The warm dark theme is UX-156. Decide which to
+      build and in what order.
+      Acceptance: per idea, a before/after on the `mobile` screenshots and
+      the e2e spec for the touched component still passing.
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
       (ticks only, shipped). Adding an item or editing a price with no
