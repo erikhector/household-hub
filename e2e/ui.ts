@@ -421,3 +421,10 @@ export async function addBillOrIncome(
   await add.click();
   await page.getByRole("menuitem", { name: item }).click();
 }
+
+/** Insights' expenses card leads with the donut and folds every category's
+ * row (its limit meter, "vs usual" and link) behind "All categories, with
+ * limits" (Oct 2026). Opens it, for a spec about those rows. */
+export async function openAllCategories(page: Page) {
+  await page.getByRole("main").getByText("All categories, with limits").filter({ visible: true }).click();
+}

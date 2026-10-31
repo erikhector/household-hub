@@ -75,7 +75,7 @@ export function SavingsGoals({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <PiggyBank className="size-4 text-chart-2" />
+          <PiggyBank className="size-4 text-chart-3" />
           {dict.title}
         </CardTitle>
       </CardHeader>
@@ -83,7 +83,7 @@ export function SavingsGoals({
         {goals.map((goal) => (
           <div key={goal.id} className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate">{goal.name}</span>
+              <span className="min-w-0 truncate font-medium">{goal.name}</span>
               <span className="shrink-0 tabular-nums text-muted-foreground">
                 {format(dict.savedOfGoal, {
                   saved: numberFormat.format(goal.progress.saved),
@@ -92,7 +92,10 @@ export function SavingsGoals({
               </span>
             </div>
             <div
-              className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+              // Chart redesign (Oct 2026): a meter whose track is a light
+              // step of its own fill, so the whole bar reads as the goal.
+              // Design review: in the "saved" flow colour (FLOW_FILL).
+              className="h-2 w-full overflow-hidden rounded-full bg-chart-3/15"
               role="progressbar"
               aria-label={goal.name}
               aria-valuemin={0}
@@ -100,7 +103,7 @@ export function SavingsGoals({
               aria-valuenow={Math.round(goal.progress.fillPercent)}
             >
               <div
-                className="h-full rounded-full bg-chart-2"
+                className="h-full rounded-full bg-chart-3"
                 style={{ width: `${goal.progress.fillPercent}%` }}
               />
             </div>

@@ -263,11 +263,15 @@
      fields look as they did at 15% and only the outline got stronger. */
   --input: oklch(1 0 0 / 35%);
   --ring: oklch(0.72 0.19 300);
-  --chart-1: oklch(0.75 0.19 340);
-  --chart-2: oklch(0.78 0.15 70);
-  --chart-3: oklch(0.72 0.14 180);
+  /* Chart marks on the dark card sit in one lightness band (OKLCH L
+     0.64–0.66, the dataviz palette validator's dark band) so no series
+     glows brighter than another; at 0.72–0.78 pink and honey outshone the
+     rest. All five keep 3:1 on the dark card. */
+  --chart-1: oklch(0.66 0.19 340);
+  --chart-2: oklch(0.66 0.15 70);
+  --chart-3: oklch(0.64 0.13 180);
   --chart-4: oklch(0.66 0.22 300);
-  --chart-5: oklch(0.75 0.16 145);
+  --chart-5: oklch(0.66 0.16 145);
   --sidebar: oklch(0.205 0.02 290);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.66 0.22 300);

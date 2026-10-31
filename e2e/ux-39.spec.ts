@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
+import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, openAllCategories } from "./ui";
 
 // UX-39: the budget charts are tappable, say their values without hover,
 // and carry a hidden data table for screen readers; expense categories
@@ -42,7 +42,7 @@ async function seedSpending(): Promise<string> {
        VALUES ($1, $2, $3, $4, 300, 'EXPENSE', 'MONTHLY')`,
       [templateId, E2E_USER.id, billCategoryId, `Phone ${tag}`],
     );
-    // Everyday spending today and two months ago (the sparkline), plus a
+    // Everyday spending today and two months ago ("vs usual"), plus a
     // bill logged from the recurring item last month (the trend chart).
     // Today's row is dated today itself, so the month's pace has a day.
     await client.query(
@@ -58,7 +58,9 @@ async function seedSpending(): Promise<string> {
         categoryId,
         billCategoryId,
         new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 1),
-        dayIn(2, 10),
+        // The 1st: "vs usual" compares a running month up to the same day
+        // (design review, Oct 2026), and day 1 has always been reached.
+        dayIn(2, 1),
         dayIn(1, 5),
         templateId,
       ],
@@ -69,8 +71,8 @@ async function seedSpending(): Promise<string> {
   return name;
 }
 
-test("safe to spend projects to month end and categories draw a sparkline", async ({ page }) => {
-  await seedSpending();
+test("safe to spend projects to month end and categories compare with usual", async ({ page }) => {
+  const name = await seedSpending();
   const errors = collectErrors(page);
   await page.goto("/dashboard/personal-budget");
   const main = page.getByRole("main");
@@ -88,11 +90,13 @@ test("safe to spend projects to month end and categories draw a sparkline", asyn
     main.getByRole("table", { name: "Safe to spend today and projected for the end of the month" }),
   ).toBeAttached();
 
-  // The category's sparkline names its six months, this month's spend last.
-  // The month's category breakdown lives on Insights.
+  // Chart redesign (Oct 2026): the category's row says how the month
+  // compares with its usual, in words: 123.45 against the 50 two months ago
+  // is 147% more. The month's category breakdown lives on Insights.
   await main.getByRole("tab", { name: "Insights" }).click();
+  await openAllCategories(page);
   await expect(
-    main.getByRole("img", { name: /^Last 6 months: .*50\.00, .*123\.45$/ }).first(),
+    main.getByRole("link", { name: new RegExp(name) }).getByText("147% more than usual"),
   ).toBeVisible();
 
   await expectNoHorizontalOverflow(page);
@@ -120,12 +124,21 @@ test("the trend chart's bars are tappable and say their values", async ({ page, 
   await previous.click();
   await expect(previous).toHaveAttribute("aria-pressed", "true");
   await expect(current).toHaveAttribute("aria-pressed", "false");
-  const readout = main.getByRole("status").filter({ hasText: lastMonth });
-  await expect(readout).toBeVisible();
-  await expect(readout.getByText("Costs", { exact: true })).toBeVisible();
+  // The pick is announced (a hidden status line: the readout itself
+  // follows hover and focus, so it isn't a live region — design review,
+  // Oct 2026), with the same values as the button.
+  await expect(main.getByRole("status").filter({ hasText: new RegExp(`^${lastMonth}: Income .+, Costs `) })).toHaveCount(1);
 
   // The whole series is there for screen readers as a table.
   await expect(main.getByRole("table", { name: "Fixed income and costs by month" })).toBeAttached();
+
+  // Chart redesign (Oct 2026): a scale from 0 to a clean top gives the bars
+  // their meaning, and the chart starts at the first month with anything in
+  // it rather than on a row of empty ones.
+  const card = main.locator('[data-slot="card"]').filter({ hasText: "Fixed income & costs" });
+  await expect(card.getByText("0", { exact: true })).toBeVisible();
+  const months = card.getByRole("button", { name: /^\w{3} \d{2}: Income / });
+  await expect(months.first()).not.toHaveAccessibleName(/Income 0\.00, Costs 0\.00, Savings 0\.00$/);
 
   // Each month is a full-size touch target (DESIGN.md M3).
   const box = await previous.boundingBox();

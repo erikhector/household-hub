@@ -19,7 +19,9 @@
 //   together since both are low-frequency setup actions, not day-to-day
 //   activity.
 // - Activity ("transactions" in the URL): the raw log, one job only.
-// - Insights: where the month went, the fixed-cost trend and, household-only,
+// - Insights: the month at a glance against the one before (moved from the
+//   Overview in the design review, Oct 2026: M6), where the month went, the
+//   fixed-cost trend and, household-only,
 //   the grocery analysis (folded away) and the settled-up record — nothing
 //   to act on, just numbers.
 //

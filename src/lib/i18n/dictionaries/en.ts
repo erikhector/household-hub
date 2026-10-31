@@ -2696,12 +2696,27 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
-      spentOfLimit: "{spent} / {limit}",
+      ofLimit: "Limit {limit}",
       overLimitBy: "{amount} over",
       almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Last {count} months: {values}",
+      // Chart redesign (Oct 2026): a row's month against its usual, and the
+      // expenses card's one-line takeaway.
+      vsUsualMore: "{percent}% more than usual",
+      vsUsualLess: "{percent}% less than usual",
+      vsUsualSame: "About as usual",
+      topShare: "{name} is {percent}% of what went out.",
+      // The donut on Insights (owner's ask, Oct 2026).
+      donutTotal: "Spent this month",
+      donutShare: "{percent}%",
+      donutSee: "See transactions",
+      donutHint: "Pick a slice or a name to look at it on its own.",
+      donutOverLimit: "Over limit",
+      donutShowAll: "Show all",
+      donutOther: "Other",
+      donutOtherIncludes: "Includes {names}",
+      allCategories: "All categories, with limits",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -2749,6 +2764,14 @@ export const en = {
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
+      // Chart redesign (Oct 2026): the split bar under the number.
+      splitTitle: "Where this month's {amount} goes",
+      splitSpent: "Spent",
+      splitSaved: "Saved",
+      splitDue: "Still due",
+      splitBudgeted: "Kept for limits",
+      splitSafe: "Safe to spend",
+      splitOver: "{amount} more is going out than coming in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} for today, the last day of the month.",
@@ -2798,6 +2821,31 @@ export const en = {
         { id: "salary", name: "Salary", type: "INCOME" },
         { id: "savings", name: "Savings", type: "SAVINGS" },
       ],
+    },
+    // Budget redesign (Oct 2026): the Overview's "{month} at a glance".
+    glance: {
+      title: "{month} at a glance",
+      vsSameDay: "Compared with {month} up to the same day",
+      vsWhole: "Compared with {month}",
+      // Design review (Oct 2026): what the card counts is what was logged,
+      // while Safe to spend also counts what is still due, so it says so,
+      // and "left" is named so it isn't read as Safe to spend.
+      basis: "From what's been logged. Safe to spend also counts what's still due.",
+      income: "Income logged",
+      spent: "Spent",
+      saved: "Saved",
+      left: "Not spent or saved",
+      more: "{percent}% more",
+      less: "{percent}% less",
+      // "Not spent or saved" changes by an amount: near zero a percentage
+      // blows up ("4900% more").
+      moreAmount: "{amount} more",
+      lessAmount: "{amount} less",
+      same: "About the same",
+      new: "New this month",
+      standOutTitle: "What stands out",
+      standOutMore: "{name}: {percent}% more than usual",
+      standOutLess: "{name}: {percent}% less than usual",
     },
     dueWidget: {
       // Budget redesign (Oct 2026): one card for everything that wants a
@@ -3047,15 +3095,19 @@ export const en = {
       title: "Fixed income & costs",
       // Budget redesign (Oct 2026): one sentence in place of four stat cards
       // and two breakdowns (the items themselves are on Setup).
-      headline: "{income} in and {costs} out every month, so {net} is left over.",
-      headlineDeficit: "{income} in and {costs} out every month, so {net} more goes out than comes in.",
+      // Design review (Oct 2026): "Planned", since this is the recurring
+      // items, while the chart under it is what was logged against them.
+      headline: "Planned each month: {income} in and {costs} out, so {net} is left over.",
+      headlineDeficit: "Planned each month: {income} in and {costs} out, so {net} more goes out than comes in.",
       savingsLine: "{amount} is set aside as savings each month.",
       trendTitle: "Fixed income and costs by month",
+      trendSubtitle: "Logged against these items each month",
       noTrendData:
         "Not enough history yet. Log your regular bills and income as they come in to see this over time.",
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      legendLeft: "Not spent or saved",
       chartMonth: "Month",
       statusBalanced: "That leaves room in the budget.",
       itemsToggle: "See what's in it",
@@ -3199,12 +3251,27 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
-      spentOfLimit: "{spent} / {limit}",
+      ofLimit: "Limit {limit}",
       overLimitBy: "{amount} over",
       almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Last {count} months: {values}",
+      // Chart redesign (Oct 2026): a row's month against its usual, and the
+      // expenses card's one-line takeaway.
+      vsUsualMore: "{percent}% more than usual",
+      vsUsualLess: "{percent}% less than usual",
+      vsUsualSame: "About as usual",
+      topShare: "{name} is {percent}% of what went out.",
+      // The donut on Insights (owner's ask, Oct 2026).
+      donutTotal: "Spent this month",
+      donutShare: "{percent}%",
+      donutSee: "See transactions",
+      donutHint: "Pick a slice or a name to look at it on its own.",
+      donutOverLimit: "Over limit",
+      donutShowAll: "Show all",
+      donutOther: "Other",
+      donutOtherIncludes: "Includes {names}",
+      allCategories: "All categories, with limits",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -3252,6 +3319,14 @@ export const en = {
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
+      // Chart redesign (Oct 2026): the split bar under the number.
+      splitTitle: "Where this month's {amount} goes",
+      splitSpent: "Spent",
+      splitSaved: "Saved",
+      splitDue: "Still due",
+      splitBudgeted: "Kept for limits",
+      splitSafe: "Safe to spend",
+      splitOver: "{amount} more is going out than coming in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} for today, the last day of the month.",
@@ -3351,6 +3426,26 @@ export const en = {
       paidAriaLabel: "Paid by {name}",
       overpaidWarning: "Payments add up to {paid}, more than the {amount} total.",
       leftDueHint: "{amount} still left to pay.",
+    },
+    // Budget redesign (Oct 2026): the Overview's "{month} at a glance".
+    glance: {
+      title: "{month} at a glance",
+      vsSameDay: "Compared with {month} up to the same day",
+      vsWhole: "Compared with {month}",
+      basis: "From what's been logged. Safe to spend also counts what's still due.",
+      income: "Income logged",
+      spent: "Spent",
+      saved: "Saved",
+      left: "Not spent or saved",
+      more: "{percent}% more",
+      less: "{percent}% less",
+      moreAmount: "{amount} more",
+      lessAmount: "{amount} less",
+      same: "About the same",
+      new: "New this month",
+      standOutTitle: "What stands out",
+      standOutMore: "{name}: {percent}% more than usual",
+      standOutLess: "{name}: {percent}% less than usual",
     },
     dueWidget: {
       // Budget redesign (Oct 2026): one card for everything that wants a
@@ -3478,15 +3573,19 @@ export const en = {
       title: "Fixed income & costs",
       // Budget redesign (Oct 2026): one sentence in place of four stat cards
       // and two breakdowns (the items themselves are on Setup).
-      headline: "{income} in and {costs} out every month, so {net} is left over.",
-      headlineDeficit: "{income} in and {costs} out every month, so {net} more goes out than comes in.",
+      // Design review (Oct 2026): "Planned", since this is the recurring
+      // items, while the chart under it is what was logged against them.
+      headline: "Planned each month: {income} in and {costs} out, so {net} is left over.",
+      headlineDeficit: "Planned each month: {income} in and {costs} out, so {net} more goes out than comes in.",
       savingsLine: "{amount} is set aside as savings each month.",
       trendTitle: "Fixed income and costs by month",
+      trendSubtitle: "Logged against these items each month",
       noTrendData:
         "Not enough history yet. Log your regular bills and income as they come in to see this over time.",
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      legendLeft: "Not spent or saved",
       chartMonth: "Month",
       statusBalanced: "That leaves room in the budget.",
       itemsToggle: "See what's in it",

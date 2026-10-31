@@ -22,6 +22,8 @@ import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
 import { RECENT_CATEGORY_SAMPLE, recentCategoryIds } from "@/lib/recent-categories";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
+import { MonthAtAGlance } from "@/components/budget/month-at-a-glance";
+import { previousCutoff, standOuts, totalsOf } from "@/lib/month-comparison";
 import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
 import { categoriesNearLimit, withCategoryLimits } from "@/lib/budget-category-limit";
@@ -407,6 +409,8 @@ async function PersonalBudgetTabsSection({
     "EXPENSE",
     SPEND_HISTORY_MONTHS,
     startDay,
+    // "vs usual" up to the same day — see the household page.
+    now,
   );
   const limitAlerts = categoriesNearLimit(expenseRows).map((alert) => ({
     ...alert,
@@ -425,13 +429,9 @@ async function PersonalBudgetTabsSection({
       // shared-household mirror rows (`shared:` ids) never match a
       // personal category, so they keep their plain proportional bar.
       // GAP-21: the carried balance (at most back to January — see
-      // src/lib/budget-rollover-calc.ts) and UX-39's sparklines both read
-      // the loader's 12-month trailing window, so they need no extra query.
+      // src/lib/budget-rollover-calc.ts) and UX-39's "vs usual" history both
+      // read the loader's 12-month trailing window, so they need no extra query.
       expenseByCategory={expenseRows}
-      // Its label month (the 1st of the month the period is named for),
-      // like the household page's: with a payday start day the period's
-      // own start is in the month before.
-      monthStart={parseMonthKey(monthKey)}
       savingsByCategory={savingsByCategory}
       // P3: each of the viewer's own categories drills into Transactions,
       // filtered to it, for the same month.
@@ -451,6 +451,39 @@ async function PersonalBudgetTabsSection({
   // PersonalTransactions (the shared-household mirror is kept separately), so
   // nothing household-side counts towards a personal goal.
   const savedByCategory = new Map<string, number>(savedSums.map((r) => [r.categoryId, r._sum.amount ?? 0]));
+  // "{Month} at a glance", leading Insights — see the household page's
+  // identical card. This month's totals already include the user's share of
+  // shared household bills (the loader's sharedPostedRows), so last month's
+  // do too: one more query for those shares, cut at the same day.
+  const previousPeriod = periodBounds(toMonthKey(addMonths(parseMonthKey(monthKey), -1)), startDay);
+  const cutoff = previousCutoff({ current: { start: monthStart, end: monthEnd }, previous: previousPeriod, today: now });
+  const previousSharedShares =
+    memberships.length > 0
+      ? await prisma.transactionSplit.findMany({
+          where: {
+            householdMemberId: { in: memberships.map((m) => m.id) },
+            transaction: { date: { gte: previousPeriod.start, lt: cutoff.end } },
+          },
+          select: { amountOwed: true, transaction: { select: { type: true } } },
+        })
+      : [];
+  const monthNameFormat = new Intl.DateTimeFormat(locale, { month: "long" });
+  const glance = (
+    <MonthAtAGlance
+      current={{ income, expense, savings, left: income - expense - savings }}
+      previous={totalsOf([
+        ...lookbackTransactions.filter((t) => t.date >= previousPeriod.start && t.date < cutoff.end),
+        ...previousSharedShares.map((s) => ({ type: s.transaction.type, amount: s.amountOwed })),
+      ])}
+      partial={cutoff.partial}
+      monthName={monthNameFormat.format(parseMonthKey(monthKey))}
+      previousMonthName={monthNameFormat.format(addMonths(parseMonthKey(monthKey), -1))}
+      standOuts={standOuts(expenseRows)}
+      dict={dict.personalBudget.glance}
+      locale={locale}
+    />
+  );
+
   const savingsGoals = (
     <SavingsGoals
       goals={savingsGoalRows(categories, savedByCategory, now)}
@@ -461,6 +494,7 @@ async function PersonalBudgetTabsSection({
 
   const insights = (
     <div className="flex flex-col gap-6">
+      {glance}
       {periodSummary}
       <FixedBudgetSummary
         monthlyIncome={fixedInsights.summary.monthlyIncome}

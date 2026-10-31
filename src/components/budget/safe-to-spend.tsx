@@ -17,7 +17,7 @@
 // dashboard card draw it the same way.
 
 import Link from "next/link";
-import { Banknote, ChevronDown, PiggyBank, Users } from "lucide-react";
+import { Banknote, ChevronDown, PiggyBank, TriangleAlert, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,11 +29,12 @@ import type {
   SafeToSpendBreakdown,
   SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
-import { needsSafeToSpendSetup } from "@/lib/safe-to-spend-calc";
+import { incomeSplit, needsSafeToSpendSetup, type IncomeSplitPart } from "@/lib/safe-to-spend-calc";
 import { createMoneyFormat } from "@/lib/currency";
 import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import { AnimatedNumber } from "@/components/charts/animated-number";
 import { ProjectionChart } from "@/components/charts/projection-chart";
+import { FLOW_FILL } from "@/components/charts/chart-colors";
 import { HouseholdDebtsList } from "@/components/budget/household-debts-list";
 
 // Calmer three-way read on the amount (see docs/archive/JOY_GAP_BACKLOG.md item 3): a
@@ -45,6 +46,22 @@ const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
   healthy: "text-success",
   tight: "text-warning",
   over: "text-destructive",
+};
+
+// The split bar's parts, as marks in the money-flow colours (FLOW_FILL), so
+// "Saved" is the same colour here as in the fixed income chart. "Safe to
+// spend" wears the number's own status colour, so the part of the bar the
+// headline is about matches the headline.
+const SPLIT_FILL: Record<Exclude<IncomeSplitPart["key"], "safe">, string> = {
+  spent: FLOW_FILL.spent,
+  saved: FLOW_FILL.saved,
+  due: FLOW_FILL.due,
+  budgeted: FLOW_FILL.kept,
+};
+const STATUS_FILL: Record<SafeToSpendStatus, string> = {
+  healthy: "bg-success",
+  tight: "bg-warning",
+  over: "bg-destructive",
 };
 
 export function SafeToSpend({
@@ -101,6 +118,14 @@ export function SafeToSpend({
 }) {
   const numberFormat = createMoneyFormat(locale, currencyCode);
   const setup = needsSafeToSpendSetup(breakdown, expectedRecurring);
+  const split = incomeSplit(breakdown, amount);
+  const splitLabel: Record<IncomeSplitPart["key"], string> = {
+    spent: dict.splitSpent,
+    saved: dict.splitSaved,
+    due: dict.splitDue,
+    budgeted: dict.splitBudgeted,
+    safe: dict.splitSafe,
+  };
   // UX-108: "good shape" would contradict a category already at or over its
   // limit, so a healthy number with such categories points at them instead.
   // A tight or over status keeps its own, stronger line.
@@ -236,6 +261,44 @@ export function SafeToSpend({
             count: dailyAllowance.daysLeft,
           })}
         </p>
+      )}
+      {/* Chart redesign (Oct 2026): where the month's income goes, as one
+          bar with a labelled key. It answers "why is the number this?"
+          without opening the arithmetic, in the arithmetic's own terms. */}
+      {variant === "compact" && split && (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            {format(dict.splitTitle, { amount: numberFormat.format(split.income) })}
+          </p>
+          <div aria-hidden className="flex h-3 gap-0.5 overflow-hidden rounded-full">
+            {split.parts.map((part) => (
+              <span
+                key={part.key}
+                className={part.key === "safe" ? STATUS_FILL[status] : SPLIT_FILL[part.key]}
+                style={{ width: `${(part.value / split.scale) * 100}%` }}
+              />
+            ))}
+          </div>
+          {/* Capped so on a wide card an amount stays near its name. */}
+          <ul className="grid max-w-90 grid-cols-1 gap-x-4 gap-y-1 text-xs min-[360px]:grid-cols-2">
+            {split.parts.map((part) => (
+              <li key={part.key} className="flex min-w-0 items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className={`size-2.5 shrink-0 rounded-[3px] ${part.key === "safe" ? STATUS_FILL[status] : SPLIT_FILL[part.key]}`}
+                />
+                <span className="min-w-0 truncate text-muted-foreground">{splitLabel[part.key]}</span>
+                <span className="ml-auto shrink-0 font-medium tabular-nums">{numberFormat.format(part.value)}</span>
+              </li>
+            ))}
+          </ul>
+          {split.over > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+              {format(dict.splitOver, { amount: numberFormat.format(split.over) })}
+            </p>
+          )}
+        </div>
       )}
       {variant === "full" ? (
         <>

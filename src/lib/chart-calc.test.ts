@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   barHeightPercent,
+  niceCeiling,
+  trimLeadingEmpty,
   countUpValue,
   dailyAllowance,
-  historyMonthLabels,
+  vsUsual,
+  usualFor,
   projectMonthEnd,
   withSpendHistory,
   type ProjectionTransaction,
@@ -75,16 +78,20 @@ describe("withSpendHistory", () => {
   });
 });
 
-describe("historyMonthLabels", () => {
-  it("names the window's months oldest first, ending at the viewed month", () => {
-    expect(historyMonthLabels(new Date(2026, 1, 1), "en")).toEqual([
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-      "Jan",
-      "Feb",
-    ]);
+describe("vsUsual", () => {
+  it("compares this month with the average of earlier months that had spending", () => {
+    // Usual is (400 + 600) / 2 = 500; 590 is 18% more.
+    expect(vsUsual([0, 0, 400, 0, 600, 590])).toEqual({ direction: "more", percent: 18 });
+    expect(vsUsual([500, 500, 500, 250])).toEqual({ direction: "less", percent: 50 });
+  });
+
+  it("calls a change under 10% the same", () => {
+    expect(vsUsual([500, 500, 530])).toEqual({ direction: "same", percent: 6 });
+  });
+
+  it("has nothing to say without earlier spending", () => {
+    expect(vsUsual([0, 0, 0, 300])).toBeNull();
+    expect(vsUsual([300])).toBeNull();
   });
 });
 
@@ -188,6 +195,37 @@ describe("barHeightPercent", () => {
     expect(barHeightPercent(1, 1000)).toBe(3);
     expect(barHeightPercent(0, 100)).toBe(0);
     expect(barHeightPercent(10, 0)).toBe(0);
+  });
+});
+
+describe("niceCeiling", () => {
+  it("rounds up to a clean multiple of a power of ten", () => {
+    expect(niceCeiling(27843)).toBe(30000);
+    expect(niceCeiling(26000)).toBe(30000);
+    expect(niceCeiling(19000)).toBe(20000);
+    expect(niceCeiling(2100)).toBe(2500);
+    expect(niceCeiling(1000)).toBe(1000);
+    expect(niceCeiling(7.5)).toBe(8);
+    expect(niceCeiling(0.3)).toBe(0.3);
+    expect(niceCeiling(85000)).toBe(100000);
+  });
+
+  it("is 0 when there is nothing to scale", () => {
+    expect(niceCeiling(0)).toBe(0);
+    expect(niceCeiling(-5)).toBe(0);
+  });
+});
+
+describe("trimLeadingEmpty", () => {
+  const g = (key: string, ...values: number[]) => ({ key, values });
+
+  it("drops the empty months before the first one with data", () => {
+    const groups = [g("may", 0, 0), g("jun", 0, 0), g("jul", 0, 5), g("aug", 0, 0), g("sep", 3, 1)];
+    expect(trimLeadingEmpty(groups).map((x) => x.key)).toEqual(["jul", "aug", "sep"]);
+  });
+
+  it("keeps the last group when every one is empty", () => {
+    expect(trimLeadingEmpty([g("a", 0), g("b", 0)]).map((x) => x.key)).toEqual(["b"]);
   });
 });
 
@@ -342,5 +380,59 @@ describe("withSpendHistory over payday periods (UX-134)", () => {
       25,
     );
     expect(rows[0].history).toEqual([0, 10, 50]);
+  });
+});
+
+describe("withSpendHistory up to the same day (design review, Oct 2026)", () => {
+  const transactions = [
+    expense("food", 100, new Date(2026, 9, 5)), // this month, day 5
+    expense("food", 40, new Date(2026, 9, 28)), // this month, dated later: still this month's
+    expense("food", 60, new Date(2026, 8, 3)), // September, before day 12
+    expense("food", 300, new Date(2026, 8, 13)), // September day 13: after "today's" day 12
+    expense("food", 50, new Date(2026, 7, 12)), // August day 12: counted (today included)
+  ];
+
+  it("cuts earlier months at today's day of their period while the month runs", () => {
+    const rows = withSpendHistory([{ id: "food" }], transactions, new Date(2026, 9, 1), "EXPENSE", 3, 1, new Date(2026, 9, 12));
+    expect(rows[0].history).toEqual([50, 360, 140]);
+    expect(rows[0].historySoFar).toEqual([50, 60, 140]);
+  });
+
+  it("compares whole months once the viewed month is over", () => {
+    const rows = withSpendHistory([{ id: "food" }], transactions, new Date(2026, 9, 1), "EXPENSE", 3, 1, new Date(2026, 10, 2));
+    expect(rows[0].historySoFar).toBeUndefined();
+  });
+
+  it("counts days from a payday period's start (UX-134)", () => {
+    const rows = withSpendHistory(
+      [{ id: "food" }],
+      [
+        expense("food", 10, new Date(2026, 8, 26)), // October's period, day 2
+        expense("food", 20, new Date(2026, 7, 26)), // September's, day 2
+        expense("food", 30, new Date(2026, 7, 28)), // September's, day 4: after today's day 2
+      ],
+      new Date(2026, 9, 1),
+      "EXPENSE",
+      2,
+      25,
+      new Date(2026, 8, 26),
+    );
+    expect(rows[0].history).toEqual([50, 10]);
+    expect(rows[0].historySoFar).toEqual([20, 10]);
+  });
+});
+
+describe("usualFor", () => {
+  it("compares mid-month spending with earlier months up to the same day", () => {
+    // Twelve days in: 140 against 50 and 60 by day 12 is well above usual,
+    // though against whole months (50 and 360) it would read as "less".
+    const row = { history: [50, 360, 140], historySoFar: [50, 60, 140] };
+    expect(vsUsual(row.history)).toEqual({ direction: "less", percent: 32 });
+    expect(usualFor(row)).toEqual({ direction: "more", percent: 155 });
+  });
+
+  it("falls back to whole months, and to nothing without a history", () => {
+    expect(usualFor({ history: [500, 500, 250] })).toEqual({ direction: "less", percent: 50 });
+    expect(usualFor({})).toBeNull();
   });
 });

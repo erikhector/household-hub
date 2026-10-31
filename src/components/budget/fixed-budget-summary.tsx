@@ -8,8 +8,8 @@
 // so it can be reused for the personal budget too, same trick PeriodSummary
 // already uses.
 //
-// UX-39: the trend is the shared BarChart (src/components/charts/): tap a
-// month to read its income, costs and savings.
+// UX-39: the trend is the shared BarChart (src/components/charts/), stacked:
+// tap a month to read its income and where it went.
 //
 // Budget redesign (Oct 2026): one card — a sentence with the monthly numbers
 // and whether they leave room, then the trend, with the items behind it
@@ -27,6 +27,7 @@ import type { BudgetBalanceStatus } from "@/lib/recurring-template-calc";
 import { format } from "@/lib/i18n/format";
 import { createMoneyFormat } from "@/lib/currency";
 import { BarChart } from "@/components/charts/bar-chart";
+import { FLOW_FILL } from "@/components/charts/chart-colors";
 
 export type FixedMonthlyTotals = { month: string; income: number; expense: number; savings: number };
 
@@ -68,6 +69,7 @@ export function FixedBudgetSummary({
   const monthFormat = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
   const netFixed = monthlyIncome - monthlyExpense;
   const hasTrendData = monthlyTotals.some((m) => m.income > 0 || m.expense > 0 || m.savings > 0);
+  const hasFixedSavings = monthlyTotals.some((m) => m.savings > 0);
   // DESIGN.md: status is tinted text plus an icon and words, never colour
   // alone.
   const StatusIcon = balanceStatus === "balanced" ? CheckCircle2 : AlertTriangle;
@@ -104,22 +106,46 @@ export function FixedBudgetSummary({
         {!hasTrendData ? (
           <p className="text-sm text-muted-foreground">{dict.noTrendData}</p>
         ) : (
-          <BarChart
-            caption={dict.trendTitle}
-            groupHeader={dict.chartMonth}
-            series={[
-              { key: "income", label: dict.legendIncome },
-              { key: "expense", label: dict.legendExpense },
-              { key: "savings", label: dict.legendSavings },
-            ]}
-            groups={monthlyTotals.map((point) => ({
-              key: point.month,
-              label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
-              values: [point.income, point.expense, point.savings],
-            }))}
-            locale={locale}
-            currencyCode={currencyCode}
-          />
+          // Chart redesign (Oct 2026): each month's income as one column,
+          // split into what went to costs, to savings and what was left, so
+          // "how much did the month leave?" is the height of the top part,
+          // not a sum the reader does across three side-by-side bars.
+          // Design review (Oct 2026): the headline is the plan (the
+          // recurring items), the chart is what was logged against them, so
+          // the two can differ; the subtitle says which is which. Its parts
+          // wear the money-flow colours (FLOW_FILL), so "Saved" is the same
+          // colour as on Safe to spend's split bar.
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-medium text-muted-foreground">{dict.trendSubtitle}</p>
+            <BarChart
+              caption={dict.trendTitle}
+              groupHeader={dict.chartMonth}
+              stacked
+              totalLabel={dict.legendIncome}
+              series={[
+                { key: "expense", label: dict.legendExpense, fill: FLOW_FILL.spent },
+                // No savings logged against these items in any month: a
+                // "Savings 0.00" key entry for a part never drawn is noise.
+                ...(hasFixedSavings ? [{ key: "savings", label: dict.legendSavings, fill: FLOW_FILL.saved }] : []),
+                { key: "left", label: dict.legendLeft, fill: FLOW_FILL.left },
+              ]}
+              groups={monthlyTotals.map((point) => ({
+                key: point.month,
+                label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
+                total: point.income,
+                // "Not spent or saved" is negative when costs and savings ran
+                // past income: the readout says so, and the column draws no
+                // part for it.
+                values: [
+                  point.expense,
+                  ...(hasFixedSavings ? [point.savings] : []),
+                  point.income - point.expense - point.savings,
+                ],
+              }))}
+              locale={locale}
+              currencyCode={currencyCode}
+            />
+          </div>
         )}
         <details className="group">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 self-start text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
