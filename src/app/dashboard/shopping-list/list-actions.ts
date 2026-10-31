@@ -15,12 +15,12 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { datedName, format, plural } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
-import { getStockStatus } from "@/lib/stock-status";
 import { getOrCreateDefaultShoppingList } from "@/lib/shopping/default-list";
 import { resolveTemplateRows } from "@/lib/shopping/list-templates";
 import { categoryKey } from "@/lib/shopping/shopping-mode-grouping";
 import { learnFromCheckOffs, parseLearnedOrder, type CheckOff } from "@/lib/shopping/store-order";
-import { loadIncomingByItem, coveredQuantity } from "@/lib/incoming-stock";
+import { loadIncomingByItem } from "@/lib/incoming-stock";
+import { lowStockToAdd } from "@/lib/shopping/low-stock-to-add";
 import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 import { LoggedExpense, logGroceriesExpense, formatExpenseLogged } from "./expense-log";
 import { updateItemPriceSchema } from "./price-schema";
@@ -249,11 +249,7 @@ export async function generateFromLowStockAction(
     // trip's bags are still on the counter would re-list everything in them.
     const incoming = await loadIncomingByItem(prisma, household.id, new Date());
 
-    const toAdd = lowStockItems.filter(
-      (item) =>
-        getStockStatus(coveredQuantity(item.quantity, incoming.get(item.id) ?? 0), item.lowStockThreshold) !== "in" &&
-        !alreadyOnListIds.has(item.id),
-    );
+    const toAdd = lowStockToAdd(lowStockItems, incoming, alreadyOnListIds);
 
     if (toAdd.length > 0) {
       await prisma.shoppingListItem.createMany({

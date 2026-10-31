@@ -18,6 +18,7 @@ const {
   inventoryItemDeleteManyMock,
   recipeFindManyMock,
   mealPlanEntryFindManyMock,
+  mealPlanPickFindManyMock,
   mealPlanEntryFindFirstMock,
   mealPlanEntryUpdateMock,
   recipeUpdateManyMock,
@@ -48,6 +49,7 @@ const {
   inventoryItemDeleteManyMock: vi.fn(),
   recipeFindManyMock: vi.fn(),
   mealPlanEntryFindManyMock: vi.fn(),
+  mealPlanPickFindManyMock: vi.fn(async () => [] as unknown[]),
   mealPlanEntryFindFirstMock: vi.fn(),
   mealPlanEntryUpdateMock: vi.fn(),
   recipeUpdateManyMock: vi.fn(),
@@ -85,6 +87,7 @@ vi.mock("@/lib/prisma", () => ({
     itemAlias: { findMany: itemAliasFindManyMock },
     recipe: { findMany: recipeFindManyMock },
     mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock, findMany: mealPlanEntryFindManyMock },
+    mealPlanPick: { findMany: mealPlanPickFindManyMock },
     shoppingList: { create: shoppingListCreateMock, findFirst: shoppingListFindFirstMock },
     shoppingListItem: { findMany: shoppingListItemFindManyMock, createMany: shoppingListItemCreateManyMock },
     $transaction: transactionMock,
@@ -262,6 +265,59 @@ describe("previewMissingIngredientsAction", () => {
     );
     expect(result).toEqual({
       items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false, note: null }],
+    });
+  });
+
+  it("counts picks of every week overlapping the range, scaled by portions, and marks pick-only rows", async () => {
+    // Pasta is on a day; the curry is only picked (half a recipe). Onion is
+    // needed by both, chicken by the pick alone.
+    mealPlanEntryFindManyMock.mockResolvedValue([{ recipeId: "pasta", portions: 4, recipe: { servings: 4 } }]);
+    mealPlanPickFindManyMock.mockResolvedValueOnce([{ recipeId: "curry", portions: 2, recipe: { servings: 4 } }]);
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "pasta",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Onion", unit: "pcs", quantity: 1 }],
+        components: [],
+      },
+      {
+        id: "curry",
+        ingredients: [
+          { inventoryItemId: null, inventoryItem: null, name: "Onion", unit: "pcs", quantity: 2 },
+          { inventoryItemId: null, inventoryItem: null, name: "Chicken", unit: "g", quantity: 800 },
+        ],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    // A plan overlaps [5 Jan, 12 Jan) when its week starts after 29 Dec
+    // and before 12 Jan: only the week of 5 Jan.
+    expect(mealPlanPickFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          mealPlan: {
+            householdId: "household-1",
+            weekStartDate: { gt: new Date("2025-12-29T00:00:00.000Z"), lt: new Date("2026-01-12T00:00:00.000Z") },
+          },
+          recipeId: { not: null },
+        },
+      }),
+    );
+    expect(result).toEqual({
+      items: [
+        {
+          key: "name:chicken::g",
+          name: "Chicken",
+          unit: "g",
+          missingQuantity: 400,
+          unitMismatch: false,
+          note: null,
+          fromPicksOnly: true,
+        },
+        { key: "name:onion::pcs", name: "Onion", unit: "pcs", missingQuantity: 2, unitMismatch: false, note: null },
+      ],
     });
   });
 
