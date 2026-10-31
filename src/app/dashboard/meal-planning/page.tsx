@@ -213,13 +213,20 @@ async function PlannerTabSection({
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const [{ recipeRows, entries, activeShoppingLists }, batches, locale, recipeCooked] = await Promise.all([
-    getMealPlanningCoreData(householdId, weekStartKey),
-    getActiveBatches(householdId),
-    getLocale(),
-    // UX-96: the add-meal sheet lists recently cooked recipes first.
-    getRecipeCookedStats(householdId),
-  ]);
+  const [{ recipeRows, entries, activeShoppingLists }, batches, locale, recipeCooked, planTemplates] =
+    await Promise.all([
+      getMealPlanningCoreData(householdId, weekStartKey),
+      getActiveBatches(householdId),
+      getLocale(),
+      // UX-96: the add-meal sheet lists recently cooked recipes first.
+      getRecipeCookedStats(householdId),
+      // GAP-52: saved week templates for the ⋯ menu's "Plan from template".
+      prisma.mealPlanTemplate.findMany({
+        where: { householdId },
+        select: { id: true, name: true, _count: { select: { entries: true } } },
+        orderBy: { name: "asc" },
+      }),
+    ]);
   // UX-91: the count behind the planner's "Add N missing" button. Skipped
   // (no query) for a week with no recipe planned, where nothing can be
   // missing.
@@ -251,6 +258,7 @@ async function PlannerTabSection({
         activeShoppingLists={activeShoppingLists}
         batches={batches}
         missingCount={missingCount}
+        planTemplates={planTemplates.map((t) => ({ id: t.id, name: t.name, entryCount: t._count.entries }))}
       />
       <MealVarietyRecapSection householdId={householdId} dict={dict} />
       <MealNutritionRecapSection householdId={householdId} dict={dict} weekStartKey={weekStartKey} />

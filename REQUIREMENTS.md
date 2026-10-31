@@ -2170,9 +2170,10 @@ every lookup the old one did.
   month's transactions by `categoryId`); the summary components themselves
   are plain presentational functions, not Client Components, since nothing
   on them is interactive. It lives on the Insights tab only (it used to
-  open Overview too, repeating Safe to spend's totals), and its four stat
-  cards, like `FixedBudgetSummary`'s, sit two by two on a phone at a
-  smaller stat size (`text-xl`, `text-3xl` from `sm`). Expense and savings
+  open Overview too, repeating Safe to spend's totals). Budget redesign
+  (Oct 2026): it has no stat cards; its three breakdowns sit behind one
+  Expenses / Income / Savings switch (`BreakdownSwitch`), expenses first,
+  each titled with its total. Expense and savings
   totals are plain `foreground` (DESIGN.md Colour); income stays `success`
   and the remaining total keeps its status colour.
 - **Month navigation**: the Budget page defaults to the current calendar
@@ -2828,11 +2829,12 @@ Component page function can't itself be unit-tested.
   line. It says "Add your income and regular bills to see what's safe to
   spend" with two actions, "Add income" (the Transactions tab) and "Add
   regular bills" (the Manage tab), keeping the month and household in the
-  URL. Once there is data the totals carry a one-line legend for the "+",
-  "–" and "→" in front of them.
+  URL. Once there is data the arithmetic carries a one-line legend for the
+  "+", "–" and "→" in front of its lines.
 - **Categories near or over their limit (UX-108)**: on the budget
-  Overview (household and personal), a "Near or over their limit" card sits
-  right under Safe to spend and lists every capped expense category at 90%
+  Overview (household and personal), the rows at the top of the Needs
+  attention card right under Safe to spend (budget redesign, Oct 2026: they
+  were a card of their own) list every capped expense category at 90%
   or more of its limit (`categoriesNearLimit` in
   `src/lib/budget-category-limit.ts`, `NEAR_LIMIT_PERCENT`). Each row has a
   warning icon, the name, "spent / limit" and either "N over" (red, past
@@ -2951,11 +2953,13 @@ Component page function can't itself be unit-tested.
     counts as a due payment, shown as a "Shared" row with the household's
     name (see "Planned bills"). Unlike shared recurring rows it offers no
     "Log payment" here: a planned bill is logged from the household budget.
-  - Under the number, "Your household balance" shows where the user stands
-    per household at the end of the month (`householdDebts`): what they owe
-    other members or are owed, and their unpaid share of bills, with a
-    "Settle up" link to that household's budget, Insights tab
-    (`?tab=insights`, which `BudgetTabs` reads from the URL).
+  - "Your household balance" shows where the user stands per household at
+    the end of the month (`householdDebts`): what they owe other members or
+    are owed, and their unpaid share of bills, with a "Settle up" link to
+    that household's budget Overview, where who owes whom sits while there
+    is a debt. On Personal Budget's Overview it is its own card under Needs
+    attention (`HouseholdDebtsCard`, budget redesign, Oct 2026); the
+    dashboard's "Your budget" card keeps it under the number.
   - **Insights (BUDGET-7)**: the same shares feed the Insights tab. Its
     month totals and per-category bars come straight from the loader's
     totals, so a split bill's share shows there as "<category> (Shared)".
@@ -3007,6 +3011,20 @@ Component page function can't itself be unit-tested.
   nothing changes. A limit alone does not count as data for the empty
   state (`needsSafeToSpendSetup`), so a fresh budget still asks for income
   instead of showing a negative number. Decided in #397 (option 1).
+- **Where the income goes** (chart redesign, Oct 2026): on the budget
+  Overview (`variant="compact"`), under the daily allowance, a bar splits
+  the month's income (logged plus still expected) into Spent, Saved, Still
+  due (due bills and savings plus anything owed from earlier), Kept for
+  limits (`stillBudgeted`) and Safe to spend, titled "Where this month's
+  {amount} goes", with a key that prints every part's amount (`incomeSplit`
+  in `src/lib/safe-to-spend-calc.ts`, the arithmetic's own terms, so the bar
+  and "How we got this number" agree). Safe to spend takes the number's
+  status colour; the other parts take the fixed money-flow colours
+  (`FLOW_FILL` in `chart-colors.ts`: spent `chart-1`, saved `chart-3`, due
+  `chart-2`, kept a lighter step of due), the same as in the fixed income
+  chart. The key is capped at 360 px so amounts stay near their names. With
+  more going out than coming in, the bar scales to what goes out and a
+  warning line says by how much. No bar without income.
 - **Projected end of month (UX-39)**: in the current month, under the
   number, a small line chart ("At this pace"): solid for what was safe to
   spend at the end of each day so far, dashed from today to the last day at
@@ -3140,9 +3158,10 @@ same way.
 **"Who owes whom"** (`HouseholdBalances`,
 `src/components/budget/household-balances.tsx`) — on the Budget page's
 Insights tab, shown only when the household has more than one member.
-**UX-114:** when something is owed (a simplified transfer or an unpaid bill)
-it is the first card on the tab, ahead of the period summary and charts;
-with nothing owed it stays last.
+**UX-114**, as moved by the budget redesign (Oct 2026): when something is
+owed (a simplified transfer or an unpaid bill) it is on the Overview, under
+Needs attention (`BudgetTabs`' `settleUp` slot), not on Insights; with
+nothing owed it stays last on Insights, as a record.
 Covers every split bill and repayment the household has, not just the
 month on screen: a debt carries over until it's cleared. (It used to be
 scoped to the selected month, so an unpaid August debt silently vanished
@@ -3374,11 +3393,15 @@ settled later.
   the month's end that weren't paid before its start, plus upcoming ones, so
   the query and list don't grow with history.
 
-**UI.** `PlannedExpensesPanel` (`src/components/budget/planned-expenses-panel.tsx`)
-sits in the Manage tab under the recurring items, grouped Overdue, Due this
-month, Upcoming and Paid (paid in the viewed month only). Rows offer Log
-payment, Edit and Delete (confirmed); a row with a linked payment offers
-only Edit. That includes a past month's bill paid later: it still shows as
+**UI.** `PlannedItemList` (`src/components/budget/planned-expenses-panel.tsx`)
+is the "Once" half of the Setup tab's Bills & income card (see "Budget page
+layout"), bills and planned income in one list ordered Overdue, Due this
+month, Upcoming and Paid (paid in the viewed month only), each row's status
+a chip (overdue shows in its amount line instead). A row is one line, like
+a repeating item's: its one visible action, Log payment (Log income for
+income), and a "More actions for {name}" menu with Edit and, last behind a
+separator, Delete (confirmed). A row with a linked payment has no Log and
+its menu only Edit. That includes a past month's bill paid later: it still shows as
 due there, with "Paid {date}" after its due date, since a second payment
 would be refused and deleting it would silently detach the real one
 (`PlannedExpenseRow.paidAt`). The dialog keeps the typed name and category
@@ -3456,8 +3479,8 @@ else sees it, and it never touches a household's numbers.
   amount as the user's own due payments, on Personal Budget and on the
   dashboard's "Your budget" card, which share the loader. It also returns
   them (`plannedExpenses`) for the page.
-- **UI.** The same `PlannedExpensesPanel` and `PlannedExpenseDialog` on
-  Personal Budget's Manage tab, under the recurring items, with
+- **UI.** The same `PlannedItemList` and `PlannedExpenseDialog` on
+  Personal Budget's Setup tab, in its Bills & income card, with
   `members={[]}` (so no split section) and `dict.personalBudget`, whose
   `planned` texts drop the split ones (`PlannedDict` in `budget-dict.ts`
   makes those optional). Outstanding bills also show in the Overview's due
@@ -3514,19 +3537,19 @@ ordinary `INCOME` transaction.
   expected income (`dueIncome`) under its own name. The household Budget page,
   the dashboard's household card (`loadHouseholdSafeToSpend`), the weekly
   digest and `loadPersonalBudgetPosition` all pass each item's type.
-- **UI.** A second `PlannedExpensesPanel` with `kind="INCOME"` sits under
-  Planned bills on each budget's Manage tab, listing only income rows and
-  offering only income categories. Its texts are `dict.budget.plannedIncome`
-  and `dict.personalBudget.plannedIncome` (`plannedTexts` in `budget-dict.ts`
-  picks bills' or income's): groups Not received, Expected this month,
-  Upcoming and Received, "Expected {date}", "Received {date}", the action
+- **UI.** Planned income shares the "Once" list with planned bills on each
+  budget's Setup tab, added from Bills & income's Add menu ("One-off
+  income"), whose dialog offers only income categories. Its texts are
+  `dict.budget.plannedIncome` and `dict.personalBudget.plannedIncome`
+  (`plannedTexts` in `budget-dict.ts` picks bills' or income's): statuses
+  Not received, Expected this month, Upcoming and Received, "Expected {date}", "Received {date}", the action
   "Log income" and the toast "{name} marked as received." (through
   `TransactionTemplatePrefill.plannedType`). Each panel is a region named by
   its title, so the two "Upcoming" groups can be told apart. Income due this
   month also shows in the Overview's due strip with Log income. With no
-  category of the panel's kind its Add button is disabled, so either panel's
-  empty state then says to add one under Categories first (`needsCategory`)
-  instead of inviting a click that can't happen.
+  category of its kind, the Add menu's "One-off income" (or "One-off bill")
+  item is disabled with the reason under it ("Add an income category
+  first"), rather than inviting a click that can't happen.
 - **Logging it.** Log income opens the prefilled `TransactionDialog`, like
   Log payment. `createTransactionAction` and `createPersonalTransactionAction`
   require the transaction's category to have the planned item's type ("Planned
@@ -3683,6 +3706,102 @@ it."). The two first-run cards differ in the same way: the household card
 names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
 categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
+
+#### Budget page layout (budget redesign, Oct 2026)
+
+Both budget pages share one layout, built so each tab answers one question
+and the Overview fits a phone screen. It replaced a page that had grown a
+card per feature (about 9 parts in the Safe to spend card, up to 17 cards on
+Insights, three Add panels on Manage). No data model changed.
+
+- **Tabs**: Overview, Setup, Activity, Insights. The URL values stay
+  `overview`, `manage`, `transactions` and `insights`, so existing links and
+  notifications still land. Swedish: Översikt, Upplägg, Aktivitet, Insikter.
+- **Overview**:
+  1. Safe to spend (`variant="compact"`): the summary line, the number and
+     the daily allowance. The month-end projection, the arithmetic, the sign
+     legend and the caveat sit behind "How we got this number".
+  2. Needs attention (`DueRecurringWidget`): a real `h2` with a count badge.
+     Categories near or over their limit (`LimitAlertList`) come first, then
+     due recurring items, planned bills and income, and shared rows. Each
+     due row has one Log button, with the rarer actions in its ⋯ menu. With a
+     limit row listed and nothing due, the empty-state lines don't show.
+     "All bills & income" goes to Setup.
+  3. Settle up: on the household budget, who owes whom (`HouseholdBalances`)
+     while somebody owes something; on Personal Budget, "Your household
+     balance" (`HouseholdDebtsCard`). Neither shows with nothing owed.
+  4. Savings goals.
+- **Setup**: one Bills & income card (`BillsAndIncomePanel`) with one Add
+  button. Its menu asks "Repeats every month or year", "One-off bill" or
+  "One-off income" and opens the recurring item, planned bill or planned
+  income dialog. Repeating items (`RecurringTemplateList`) list due, then
+  accounted for, then logged, then paused, each with a status chip. A due
+  item is logged from Needs attention, not here; "Mark as accounted for" is
+  in its menu, and an accounted-for item keeps Undo. One-off items
+  (`PlannedItemList`) follow under "Once", one line each like a repeating
+  item: a status chip, Log payment or Log income while unpaid, and the same
+  ⋯ menu (Edit, then Delete apart). Then Categories, and on Personal Budget
+  the budget month setting.
+  With no category at all, Add is disabled and the card says so in place of
+  its empty text: "Add a category under Categories below first, then you can
+  add bills and income here." (`billsAndIncome.needsCategory`). Without an
+  expense or income category, the menu keeps "One-off bill" or "One-off
+  income" disabled with the reason under it (`needsExpenseCategory`,
+  `needsIncomeCategory`), so the menu offers the same three choices every
+  time and the missing one explains itself. The dialogs open through dialog
+  handles (`openLazyDialog`), not hidden triggers, and closing one returns
+  focus to Add (a row's dialogs return it to the row's ⋯ button), via the
+  dialogs' `finalFocus` prop.
+- **Activity**: the transaction list, unchanged.
+- **Insights**: "{Month} at a glance", "This month" (one breakdown at a
+  time, see "Period summary"; its Expenses/Income/Savings switch is the
+  compact `Tabs` size, smaller than the page's tab bar so it doesn't read
+  as a second row of page tabs, 44 px to touch on phones through a hit
+  area past the pill, and each breakdown is a `tabpanel` labelled by its
+  tab) and "Fixed income & costs" (`FixedBudgetSummary`).
+  - "{Month} at a glance" (`MonthAtAGlance`, `src/lib/month-comparison.ts`)
+    leads the tab. It sat on the Overview until the design review (Oct
+    2026), which found it made the Overview too long for a phone (M6). It
+    compares income logged, spent, saved and "Not spent or saved" with the
+    month before. Each row has this month's amount, the change in words and
+    a pair of bars, this month (`chart-4`, the emphasis colour) over last
+    (`muted-foreground` at 40%). The change is "8% less", "About the same"
+    within ±5% or "New this month" from nothing; "Not spent or saved"
+    changes by an amount ("1,200.00 less", `amountChangeOf`), since near
+    zero or below it a percentage blows up. The bars share one scale
+    across all four rows, are square at the baseline with a 4 px rounded
+    end; the rows themselves are capped at 42 rem so each change stays
+    beside its bars on a wide screen. A line under the title says the
+    card counts what was logged, while Safe to spend also counts what's
+    still due; the last row isn't called "Left over" so it isn't read as
+    Safe to spend. Month names are capitalised where they start the
+    heading or stand alone (Swedish `Intl` gives "oktober"). While the
+    month is running, the previous one is cut at the same day of its
+    period ("Compared with September up to the same day",
+    `previousCutoff`); a finished month is compared with the whole one
+    before. The change is neutral text with an arrow, never red or green.
+    Under it, "What stands out" names the expense category furthest above
+    its usual and the one furthest below (`standOuts`, over `usualFor`, so
+    nothing under 10%, and up to the same day while the month runs). The
+    household page reads last month from its lookback window; Personal
+    Budget adds the user's share of last month's shared bills (one
+    `TransactionSplit` query), since this month's totals include them.
+    Hidden when neither month has anything logged.
+  - The fixed card is one sentence about the plan, its recurring items
+    ("Planned each month: {income} in and {costs} out, so {net} is left
+    over", or "{net} more goes out than comes in" for a deficit), a status
+    line with an icon, the savings line, then the trend chart under "Logged
+    against these items each month". The two can differ (a bill logged at 12,399
+    against a planned 12,000), so each says which it is. The
+  per-item breakdowns sit behind "See what's in it": on Personal Budget
+  they're the one place the user's share of each shared bill is listed
+  (BUDGET-7). The household budget's grocery analysis (`CostAnalyzer`) sits
+  behind a "Grocery prices, stores and waste" disclosure. `?prices=1` opens
+  it, which a price-spike notification's link sets. With nothing owed,
+  who owes whom is last, as a record.
+- **Still open**: logging a shared expense from the Add transaction sheet,
+  and making a new transaction repeat from that sheet, are BACKLOG items
+  (UX-178, UX-179).
 
 #### Personal starter categories (BUDGET-5)
 
@@ -3869,9 +3988,9 @@ its one action ("Log" when due, "Undo" once accounted for, "Resume" when
 paused, none once logged) and a "More actions for {name}" menu with Mark
 as accounted for (due items), Edit, Pause and, last behind a separator,
 Delete (confirmed). Five buttons used to wrap, leaving pause and delete
-alone on a second line beside each other. Edit opens from the menu
-through a hidden trigger and Delete through a dialog handle, since a
-dialog inside the menu would unmount as it closes. A category chip is
+alone on a second line beside each other. Edit and Delete open from the
+menu through dialog handles, since a dialog inside the menu would unmount
+as it closes, and closing either returns focus to the ⋯ button. A category chip is
 now one button (named "Edit {name}") that opens its edit sheet, which
 ends in "Delete {name}" with its confirm dialog, a footer away from Save;
 the chips dropped their own pencil and bin (delete right beside edit, M2)
@@ -3892,30 +4011,111 @@ when it holds a primary action (layout.tsx). Covered by
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
 library), so household and personal never diverge:
 
-- `BarChart` (client): `FixedBudgetSummary`'s "How it's changing" and
-  `CostAnalyzer`'s grocery spend. Each month is one button the full height
+- `BarChart` (client): `FixedBudgetSummary`'s trend ("Fixed income and
+  costs by month") and `CostAnalyzer`'s grocery spend. The fixed trend is
+  `stacked`: one column per month, its income split into costs, savings and
+  what was left over (from the baseline up), with "Income" named first in
+  the readout (`totalLabel`, each group's `total`), so how much a month left
+  is the height of its top part. A part at or below zero draws nothing, and
+  the readout still prints it (a negative "Not spent or saved" when costs
+  and savings ran past income). It counts only transactions logged against
+  recurring items ("Logged against these items each month"), so it can
+  differ from "at a glance", which counts everything logged; the Savings
+  part and its key entry are left out when no month has any. Each month is one button the full height
   of the chart, at least 44 px wide and 8 px apart (M3); tapping selects it
-  (`aria-pressed`) and a readout above the bars (`role="status"`) shows that
-  month's value per series with its colour dot, which doubles as the legend.
+  (`aria-pressed`) and a readout above the bars shows that month's value
+  per series with its colour dot, which doubles as the legend. The readout
+  follows hover and focus, so it isn't a live region; a visually hidden
+  `role="status"` line announces a month only once it's picked (design
+  review, Oct 2026: hover made screen readers chatter). The stacked parts'
+  2 px gaps come out of the column's height, so a full column ends on the
+  top line. A series can carry a fixed `fill`: the fixed trend's parts use
+  the money-flow colours (costs `chart-1`, savings `chart-3`, left over
+  `chart-5`), the same as Safe to spend's split bar.
   The latest month starts selected and scrolled into view, so nothing is
   hover-only. Each button's accessible name carries its values, and the
   whole series is also a visually hidden table (`sr-only`, captioned with
-  the card title).
-- `Sparkline`: `CategoryBreakdown` draws one beside each expense row's bar
-  — the category's spending over the last six months, this month last
-  (`withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
-  12-month lookback window or the personal page's whole history; a row with
-  nothing spent in the window gets none). Its accessible name lists the
-  months and amounts. `CostAnalyzer`'s price trends use it too.
+  the card title). Chart redesign (Oct 2026): a scale of solid hairlines at
+  0, half and a clean top (`niceCeiling`: 30K, not the tallest bar),
+  labelled in compact numbers in a gutter that stays put while the bars
+  scroll; bars at most 24 px wide (10 px each when grouped), 2 px apart,
+  with 4 px rounded tops; months before the first one with data are left
+  out (`trimLeadingEmpty`); with a mouse, pointing at a month previews its
+  values in the readout (tapping still selects).
+- **"Vs usual"** (chart redesign, Oct 2026): each expense row in
+  `CategoryBreakdown` says how this month compares with the category's
+  usual — "18% more than usual", "12% less than usual", or "About as usual"
+  within ±10% — with a trend icon, in muted text (more isn't wrong by
+  itself; the limit says when it is). "Usual" is the average of the earlier
+  months in its six-month history that had any spending (`vsUsual` over
+  `withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
+  12-month lookback window or the personal page's whole history); a row
+  with no earlier spending says nothing. While the viewed month is running
+  the comparison is like for like (design review, Oct 2026): every earlier
+  month is cut at the same day of its period (`historySoFar`, from
+  `withSpendHistory`'s `today`), so twelve days of October aren't measured
+  against whole Septembers; once the month is over, whole months compare.
+  The breakdown rows, the donut's notes and "What stands out" all read it
+  through `usualFor`, so they agree. It replaced a per-row sparkline,
+  which showed a shape and left the meaning to the reader. The expenses
+  card opens with one sentence on its point: "{name} is {percent}% of what
+  went out."
+- `DonutChart` (client, the owner's ask, Oct 2026): Insights' "Expenses
+  by category" opens on a donut of where the month's spending went. Six
+  slices at most: the five largest categories and the rest folded into
+  "Other" (its notes list what it includes), with a gap of the card between
+  slices. Colour is emphasis, not identity (design review, Oct 2026: by
+  rank, a category changed colour when another overtook it, and teal meant
+  Transport here and Saved on Safe to spend): every slice is one grey
+  (`muted-foreground` at 40%, "Other" lighter at 20%) and only the picked
+  slice, or with nothing picked the largest, is `chart-4`, which no money
+  flow uses. Nothing picked, the hole shows "Spent this month" and the
+  total (proportional figures, not tabular); picking a slice — on the
+  chart, or its row in the key below, a 44 px button with swatch, name,
+  share and amount (`aria-pressed`) — lifts it into the accent and puts its
+  name, amount and share in the hole, with its notes (its limit and status,
+  how it compares with usual) in a `role="status"` panel under the chart
+  and "See transactions" (Activity filtered to it) and "Show all" beside
+  it, outside the live region. A note near or over the limit is in
+  `warning` / `destructive` with the warning icon, and that category's key
+  row carries the icon too (with "Almost at limit" / "Over limit" for
+  screen readers), so it shows before anything is picked. Key rows never
+  dim. "Pick a slice or a name…" is the hint, not "Tap": it works with a
+  mouse and keys too. Picking it again or "Show
+  all" goes back. The SVG is `aria-hidden`; the key carries the same
+  choices for touch, keyboard and screen readers. The rows with their limit
+  meters fold under the donut behind "All categories, with limits"
+  (`CategoryBreakdown`'s `figure` and `collapseLabel`), so the categories
+  aren't listed twice.
+- `Sparkline`: `CostAnalyzer`'s price trends. One quiet colour
+  (`muted-foreground` at 45%), with only the latest point marked, in
+  `primary` with a ring of the card's colour.
 - `ProjectionChart`: Safe to spend's projected end-of-month line (see "Safe
-  to spend").
-- `AnimatedNumber` (client): Safe to spend's number and the four totals in
-  `PeriodSummary` and `FixedBudgetSummary` count to a new value when it
+  to spend"), in `primary`, with a 10% wash under the days so far, a
+  hairline at today, a ringed dot on today's value and a hollow one on the
+  projected month end.
+- `CategoryBreakdown` rows are meters: name and amount on one line, the bar
+  (and sparkline) under them, and "Limit {limit}" with its status under that.
+  The fill is neutral until near (`warning`) or over (`destructive`) the
+  limit, each on a track tinted from its own colour, and status always
+  carries the warning icon. Savings goals use the same meter in `chart-3`,
+  the "saved" flow colour.
+- `AnimatedNumber` (client): Safe to spend's number counts to a new value when it
   changes (600 ms, eased out), always in `tabular-nums`. The first render
   is the real value, as the server sent it, so a page load never flashes a
   wrong number; under `prefers-reduced-motion` the number just changes.
-- Colours come from `chart-colors.ts`: `chart-1` … `chart-5` in series or
-  row order, for marks only (DESIGN.md, Colour).
+- Colours come from `chart-colors.ts`, for marks only (DESIGN.md, Colour),
+  in three models. Money flows have one fixed colour each wherever they're
+  drawn (`FLOW_FILL`: spent `chart-1`, saved `chart-3`, due `chart-2`,
+  kept for limits `chart-2` at 45%, left over `chart-5`). A chart about one
+  item against its context uses emphasis (`EMPHASIS_*` `chart-4`, the rest
+  `CONTEXT_*` grey): the donut and "at a glance". Anything else takes
+  `chart-1` … `chart-5` in series order. They're checked with the
+  dataviz palette validator: in light all five sit in its lightness band;
+  in dark they were stepped down to OKLCH L 0.64–0.66 (chart redesign,
+  Oct 2026) so no series outshines another, all still 3:1 on the card.
+  `chart-2` (honey) is 2.9:1 on the light card, which the validator allows
+  because every value also has a visible label (the readout) and a table.
 
 Covered by `src/lib/chart-calc.test.ts` and `e2e/ux-39.spec.ts`.
 
@@ -4877,6 +5077,39 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   reuses `undoCopyWeekAction` with the written ids. No schema change.
   `e2e/meal-planner-fill-empty-days.spec.ts` covers cancel, swap, accept
   (entries present after reload) and undo.
+- **Meal-plan templates** (BACKLOG GAP-52): a week of meals saved under a
+  name ("School-week basics") and stamped onto any other week, so a
+  household's favourite rotations survive the week being edited.
+  *Schema*: `MealPlanTemplate` (`householdId`, `name`, `createdAt`;
+  `@@unique([householdId, name])`, cascade with the household) and
+  `MealPlanTemplateEntry` (`dayOffset` 0-6 from Monday, `mealType`,
+  `recipeId` or `freeformName`, `portions`). Deleting a recipe cascades its
+  template entries away. Cooked state and prepared batches are never saved.
+  *Save*: a "Save week as template" item in the planner's ⋯ menu (shown
+  when the week has entries) opens a name dialog (`SaveWeekTemplateDialog`,
+  `src/components/meal-planning/plan-template-dialogs.tsx`).
+  `saveWeekAsTemplateAction` (`template-actions.ts`) reads the household's
+  week, turns each date into its offset (`buildTemplateEntries` in
+  `plan-template-calc.ts`, which drops nameless and out-of-week rows),
+  and refuses an empty week or a name already used (case-insensitive,
+  never an overwrite).
+  *Apply*: a "Plan from template" item (shown when any template exists)
+  opens a picker listing each template with its meal count. Suggest, don't
+  mutate: nothing is written until the row's "Plan this week" is pressed.
+  `applyMealPlanTemplateAction(templateId, weekStart)` checks the template
+  belongs to the household, requires a Monday, re-checks recipe ownership,
+  and skips every slot (date + meal type) that already has an entry
+  (`planTemplateRows`); the `MealPlan` is upserted only if there is a row
+  to write. It returns `{ copied, entryIds }` like `copyWeekAction`, so the
+  "Planned N meals from the template" toast's Undo reuses
+  `undoCopyWeekAction`.
+  *Delete*: the trash button removes a template at once with an Undo toast
+  (`deleteMealPlanTemplateAction` returns a snapshot that
+  `restoreMealPlanTemplateAction` re-validates and recreates, dropping
+  entries whose recipe isn't the household's). Unit tests:
+  `plan-template-calc.test.ts`, `template-actions.test.ts`;
+  `e2e/meal-plan-templates.spec.ts` saves a week and applies it to an empty
+  one.
 - **Editing a meal entry**: an entry that hasn't been cooked yet has a
   pencil button. It opens the same `MealEntryDialog` in `mode="edit"`,
   backed by `updateMealEntryAction`, which changes the entry's recipe or
@@ -8598,6 +8831,10 @@ approximating them, so the email never disagrees with the app.
   two long names show `nav.shoppingListShort` / `nav.mealPlanningShort`
   ("Shopping", "Meals"; "Inköp", "Mat") in the bar, with the full name as
   the link's `aria-label`, so nothing is clipped at 320 px (UX-151).
+  The "Get set up" step cards (UX-152) are size containers that stack (icon
+  tile above the text, chevron hidden) below 15 rem wide; the threshold is in
+  rem, so it only trips at large text, where a title takes at most two lines
+  and a card stays under half the screen (`e2e/overview.spec.ts`).
   `BottomNav` publishes its measured height as `--bottom-nav-h` (default in
   `globals.css`: 3.75rem + the capped safe-area inset), and everything docked
   above the bar (floating primary action, bulk bars, shopping mode, the cookie

@@ -7,7 +7,7 @@ import {
   insertPersonalTransaction,
   withDb,
 } from "./budget-seed";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
+import { dismissCookieNotice, openAllCategories, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
 
 // Phone pass (Oct 2026), P3: the Transactions tab filters by category
 // (`?category=`, picked from a select), and each category row on Insights
@@ -46,10 +46,11 @@ test("a category on Insights opens Transactions filtered to it", async ({ page, 
   const s = await seedHousehold();
   await page.goto("/dashboard/budget?tab=insights");
   const main = page.getByRole("main");
+  await openAllCategories(page);
 
   await main.getByRole("link", { name: new RegExp(s.a) }).click();
   await expect(page).toHaveURL(new RegExp(`[?&]tab=transactions.*[?&]category=${s.aId}`));
-  await expect(main.getByRole("tab", { name: "Transactions" })).toHaveAttribute("aria-selected", "true");
+  await expect(main.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
   await expect(txRow(page, isMobile, `Milk ${s.tag}`)).toBeVisible();
   await expect(txRow(page, isMobile, `Ticket ${s.tag}`)).toHaveCount(0);
   await expect(main.getByRole("combobox", { name: "Category" })).toContainText(s.a);
@@ -63,7 +64,7 @@ test("a category on Insights opens Transactions filtered to it", async ({ page, 
   await main.getByRole("link", { name: "Clear filter" }).click();
   await expect(txRow(page, isMobile, `Ticket ${s.tag}`)).toBeVisible();
   await expect(page).not.toHaveURL(/[?&]category=/);
-  await expect(main.getByRole("tab", { name: "Transactions" })).toHaveAttribute("aria-selected", "true");
+  await expect(main.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
 });
 
 test("the category select narrows the list, and shows an empty state", async ({ page, isMobile }) => {
@@ -116,8 +117,9 @@ test("personal budget: a category on Insights drills into Transactions", async (
   });
   await page.goto("/dashboard/personal-budget?tab=insights");
   const main = page.getByRole("main");
+  await openAllCategories(page);
   await main.getByRole("link", { name: new RegExp(category) }).click();
-  await expect(main.getByRole("tab", { name: "Transactions" })).toHaveAttribute("aria-selected", "true");
+  await expect(main.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
   await expect(txRow(page, isMobile, `Yarn ${tag}`)).toBeVisible();
   await expect(txRow(page, isMobile, `Novel ${tag}`)).toHaveCount(0);
   await expectNoHorizontalOverflow(page);

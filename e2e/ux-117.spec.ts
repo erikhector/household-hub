@@ -48,6 +48,8 @@ test("the card shows an amount per day for the days left, and the chart labels c
   }
 
   // Both chart labels print an amount: today's is the headline, 3 000.00.
+  // The chart sits behind "How we got this number" (budget redesign, Oct 2026).
+  await main.getByText("How we got this number").click();
   await expect(main.getByText(/^Today\s+3\D?000[.,]00/).first()).toBeVisible();
   await expect(main.getByText(/^Month end\s+-?\d/).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);

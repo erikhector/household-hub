@@ -52,7 +52,9 @@ async function seedBills() {
 test("balances list open split bills and leave out settled ones", async ({ page }) => {
   const { open, settled } = await seedBills();
 
-  await page.goto("/dashboard/budget?tab=insights");
+  // An open bill is a debt, so who owes whom is on the Overview (budget
+  // redesign, Oct 2026), under Needs attention.
+  await page.goto("/dashboard/budget");
   const main = page.getByRole("main");
   await expect(main.getByText("Still due on bills")).toBeVisible();
   // The "Still due" list itself (the transactions list on another tab

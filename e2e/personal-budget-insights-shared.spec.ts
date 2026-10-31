@@ -2,11 +2,12 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, openAllCategories } from "./ui";
 
 // BUDGET-7: Personal Budget's Insights tab counts the user's share of a
 // split household bill — in the month's totals (PeriodSummary) and in the
-// "Fixed income & costs" card's recurring-costs breakdown. The card's trend
+// "Fixed income & costs" card's recurring-costs breakdown (behind its "See
+// what's in it" disclosure). The card's trend
 // is pinned by personal-fixed-insights.test.ts instead: other specs' bills
 // in the same household reach it too, so it can't be isolated here.
 // Rows are written straight to Postgres, like personal-budget-shared.spec.ts,
@@ -71,10 +72,15 @@ test("a shared bill's share shows in the personal Insights totals and fixed cost
   // 12000 bill, not the whole bill, even though I paid all of it.
   const half = /6[\s\u00a0\u202f,.]?000/;
   const main = page.getByRole("main");
-  const monthRow = main.getByText(`${category} (Shared)`, { exact: true }).filter({ visible: true });
+  await openAllCategories(page);
+  // The donut's key names it too; the row in the opened list is the last.
+  const monthRow = main.getByText(`${category} (Shared)`, { exact: true }).filter({ visible: true }).last();
   await expect(monthRow).toBeVisible();
   await expect(monthRow.locator("..")).toContainText(half);
 
+  // The fixed-cost items are folded away under the card's trend (budget
+  // redesign, Oct 2026).
+  await main.getByText("See what's in it").filter({ visible: true }).click();
   const fixedRow = main.getByText(`${template} (Shared)`, { exact: true }).filter({ visible: true });
   await expect(fixedRow).toBeVisible();
   await expect(fixedRow.locator("..")).toContainText(half);

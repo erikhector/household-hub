@@ -402,3 +402,29 @@ export async function clickRowAction(
   await page.getByRole("button", { name: menu, exact: true }).click();
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
+
+/** Budget redesign (Oct 2026): the Setup tab's Bills & income card has one
+ * Add button, a menu that asks which kind of amount to add. Opens that menu
+ * and picks `item`, which opens the dialog for it (the recurring item, planned
+ * bill or planned income dialog, titled as before). The page must already be
+ * on the Setup tab (`?tab=manage`). */
+export async function addBillOrIncome(
+  page: Page,
+  item: "Repeats every month or year" | "One-off bill" | "One-off income",
+) {
+  const add = page
+    .getByRole("main")
+    .getByRole("region", { name: "Bills & income" })
+    .getByRole("button", { name: "Add", exact: true });
+  await expectHydrated(add);
+  await expectRouterPatched(page);
+  await add.click();
+  await page.getByRole("menuitem", { name: item }).click();
+}
+
+/** Insights' expenses card leads with the donut and folds every category's
+ * row (its limit meter, "vs usual" and link) behind "All categories, with
+ * limits" (Oct 2026). Opens it, for a spec about those rows. */
+export async function openAllCategories(page: Page) {
+  await page.getByRole("main").getByText("All categories, with limits").filter({ visible: true }).click();
+}

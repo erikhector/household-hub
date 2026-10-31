@@ -8,16 +8,22 @@
 // completes (BUDGET-2: transaction/recurring components; BUDGET-3:
 // CategoryManager; this one: the tab shell itself).
 //
-// Four tabs, each with one job (see UX pass, Sep 2026):
-// - Overview: what needs attention right now and the current status (Safe to
-//   Spend, what's due) — the landing tab.
-// - Manage: administer the things that shape every other tab — recurring
-//   income/costs and categories — grouped together since both are
-//   low-frequency setup/maintenance actions, not day-to-day activity.
-// - Transactions: the raw log, one job only.
-// - Insights: summaries and analysis (period totals, fixed-cost trend, and,
-//   household-only, cost analyzer/balances) — nothing actionable here, just
-//   numbers.
+// Four tabs, each with one job (see UX pass, Sep 2026, and the budget
+// redesign, Oct 2026):
+// - Overview: how the month is going and what to do about it — Safe to
+//   spend, one Needs attention card (categories near their limit, what's
+//   due), Settle up while somebody owes something, savings goals. The
+//   landing tab.
+// - Setup ("manage" in the URL, so old links still land): the things that
+//   shape every other tab — Bills & income and categories — grouped
+//   together since both are low-frequency setup actions, not day-to-day
+//   activity.
+// - Activity ("transactions" in the URL): the raw log, one job only.
+// - Insights: the month at a glance against the one before (moved from the
+//   Overview in the design review, Oct 2026: M6), where the month went, the
+//   fixed-cost trend and, household-only,
+//   the grocery analysis (folded away) and the settled-up record — nothing
+//   to act on, just numbers.
 //
 // Previously Categories only ever lived inline in the Activity tab (with a
 // small duplicate "Manage categories" dialog next to the tab bar so it had a
@@ -61,7 +67,8 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
-import { LimitAlerts, type LimitAlertRow } from "@/components/budget/limit-alerts";
+import type { LimitAlertRow } from "@/components/budget/limit-alerts";
+import { HouseholdDebtsCard } from "@/components/budget/household-debts-list";
 import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import { DueRecurringWidget, type SharedDueRow } from "@/components/budget/due-recurring-widget";
 import { MonthNavigator } from "@/components/budget/month-navigator";
@@ -130,6 +137,7 @@ export function BudgetTabs({
   safeToSpendDaily = null,
   limitAlerts = [],
   householdDebts = [],
+  settleUp,
   dueTemplates,
   hasRecurringTemplates,
   hadRecurringTemplatesInMonth,
@@ -193,8 +201,14 @@ export function BudgetTabs({
   safeToSpendProjection?: MonthProjection | null;
   /** UX-117 — see SafeToSpend's `dailyAllowance` prop. */
   safeToSpendDaily?: DailyAllowance | null;
-  /** Personal budget only — see SafeToSpend's identical prop. */
+  /** Personal budget only: where the user stands with each household's
+   * other members, shown as the Overview's Settle up card. */
   householdDebts?: HouseholdDebt[];
+  /** Household budget only: who owes whom (HouseholdBalances), prebuilt by
+   * the page and passed only while somebody owes something, for the
+   * Overview's Settle up slot. With nothing owed it stays on Insights as a
+   * record. */
+  settleUp?: ReactNode;
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
   /** Any active recurring template at all, whatever month is viewed. */
@@ -250,7 +264,7 @@ export function BudgetTabs({
   /** UX-112, personal budget only: the shared-costs card, prebuilt by the
    * page and shown above `onboarding` while there are no categories. */
   sharedCosts?: ReactNode;
-  // Recurring items + categories — see this file's doc comment.
+  // Bills & income + categories — see this file's doc comment.
   manage: ReactNode;
   transactions: ReactNode;
   insights: ReactNode;
@@ -373,8 +387,6 @@ export function BudgetTabs({
                 status={safeToSpendStatus}
                 breakdown={safeToSpendBreakdown}
                 expectedRecurring={safeToSpendExpectedRecurring}
-                householdDebts={householdDebts}
-                showHouseholdName={showHouseholdName}
                 projection={safeToSpendProjection}
                 dailyAllowance={safeToSpendDaily}
                 variant="compact"
@@ -384,10 +396,13 @@ export function BudgetTabs({
                 locale={locale}
                 currencyCode={currencyCode}
               />
-              {/* UX-108: right under the number, so a category past its
-                  limit isn't only found on Insights. */}
-              <LimitAlerts alerts={limitAlerts} numberFormat={numberFormat} dict={dict.safeToSpend} />
+              {/* Budget redesign (Oct 2026): one Needs attention card right
+                  under the number — categories near their limit (UX-108, so
+                  a blown limit isn't only found on Insights), then what's
+                  due — then settling up, the other thing somebody has to
+                  act on. */}
               <DueRecurringWidget
+                limitAlerts={limitAlerts}
                 templates={dueTemplates}
                 hasTemplates={hasRecurringTemplates}
                 hadTemplatesInMonth={hadRecurringTemplatesInMonth}
@@ -408,6 +423,13 @@ export function BudgetTabs({
                 onLogAsIs={onLogTemplateAsIs}
                 createTransactionAction={createTransactionAction}
                 updateTransactionAction={updateTransactionAction}
+              />
+              {settleUp}
+              <HouseholdDebtsCard
+                debts={householdDebts}
+                showHouseholdName={showHouseholdName}
+                numberFormat={numberFormat}
+                dict={dict.safeToSpend}
               />
               {/* Phone pass (Oct 2026), P4: PeriodSummary ("This month")
                   used to follow here too, repeating Safe to spend's

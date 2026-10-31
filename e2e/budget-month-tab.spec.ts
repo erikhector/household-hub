@@ -20,7 +20,7 @@ for (const path of ["/dashboard/budget", "/dashboard/personal-budget"]) {
 
     await page.goto(path);
     const main = page.getByRole("main");
-    const transactions = main.getByRole("tab", { name: "Transactions" });
+    const transactions = main.getByRole("tab", { name: "Activity" });
     // On the current month there's nowhere to go back to.
     await expect(main.getByRole("link", { name: "This month" })).toHaveCount(0);
 

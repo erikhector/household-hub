@@ -107,10 +107,16 @@ export function GettingStarted({
             const Icon = stepIcons[step.key];
             const stepDict = dict.steps[step.key];
             const isDone = isFinished(step);
+            // UX-152: the card is a size container and stacks (icon above
+            // the text, chevron hidden) when it is narrower than 15rem. The
+            // threshold is in rem, so it follows the text size: at default
+            // size every phone is wider than it and the row layout stays;
+            // at 200% text it is 480 px and the text gets the full card
+            // width instead of the sliver left beside tile and chevron.
             const content = (
               <div
                 className={cn(
-                  "flex items-center gap-3 rounded-lg border bg-background p-3 transition-colors hover:border-primary/50",
+                  "flex flex-col items-start gap-2 rounded-lg border bg-background p-3 transition-colors @[15rem]:flex-row @[15rem]:items-center @[15rem]:gap-3 hover:border-primary/50",
                   isDone && "bg-background/60",
                 )}
               >
@@ -122,14 +128,14 @@ export function GettingStarted({
                 >
                   {isDone ? <Check className="size-4" aria-hidden /> : <Icon className="size-4" />}
                 </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex min-w-0 w-full flex-col gap-0.5 @[15rem]:w-auto @[15rem]:flex-1">
                   <p className={cn("text-sm font-medium", isDone && "text-muted-foreground")}>
                     {stepDict.title}
                     {isDone && <span className="sr-only"> ({dict.doneStep})</span>}
                   </p>
                   {!isDone && <p className="text-sm text-muted-foreground">{stepDict.description}</p>}
                 </div>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <ChevronRight className="hidden size-4 shrink-0 text-muted-foreground @[15rem]:block" aria-hidden />
               </div>
             );
 
@@ -140,7 +146,9 @@ export function GettingStarted({
             if (step.key === "household" && !isDone) {
               return (
                 <div key={step.key} className="flex flex-col gap-1.5">
-                  <Link href={step.href}>{content}</Link>
+                  <Link href={step.href} className="@container">
+                    {content}
+                  </Link>
                   <form action={skipHouseholdStepAction} className="self-end">
                     <PendingSubmitButton variant="ghost" size="xs" className="text-muted-foreground">
                       {dict.skip}
@@ -151,7 +159,7 @@ export function GettingStarted({
             }
 
             return (
-              <Link key={step.key} href={step.href}>
+              <Link key={step.key} href={step.href} className="@container">
                 {content}
               </Link>
             );

@@ -98,6 +98,39 @@ export type SafeToSpendBreakdown = {
   stillBudgeted: number;
 };
 
+/** One part of the month's money in the Safe to spend card's split bar. */
+export type IncomeSplitPart = {
+  key: "spent" | "saved" | "due" | "budgeted" | "safe";
+  value: number;
+};
+
+/** Chart redesign (Oct 2026): the month's income (logged and still
+ * expected) split into where it goes — spent, saved, still due (bills,
+ * savings and anything owed from earlier), kept for categories' unspent
+ * limits, and what's safe to spend — the same terms as the arithmetic, so the
+ * bar and "How we got this number" always agree. Zero parts are left out.
+ * `scale` is what the bar's full width stands for: the income, or, when the
+ * month is over (more going out than coming in), everything going out, with
+ * `over` saying by how much. Null with no income to split. */
+export function incomeSplit(
+  breakdown: SafeToSpendBreakdown,
+  safeToSpend: number,
+): { parts: IncomeSplitPart[]; income: number; scale: number; over: number } | null {
+  const income = breakdown.income + breakdown.dueIncome;
+  if (income <= 0) return null;
+  const parts: IncomeSplitPart[] = [
+    { key: "spent", value: breakdown.expense },
+    { key: "saved", value: breakdown.savings },
+    { key: "due", value: breakdown.duePayments + breakdown.dueSavings + breakdown.owedFromEarlier },
+    { key: "budgeted", value: breakdown.stillBudgeted },
+    { key: "safe", value: Math.max(0, safeToSpend) },
+  ];
+  const kept = parts.filter((p) => p.value > 0.005);
+  const going = kept.filter((p) => p.key !== "safe").reduce((sum, p) => sum + p.value, 0);
+  const over = Math.max(0, going - income);
+  return { parts: kept, income, scale: Math.max(income, going), over };
+}
+
 /** UX-116: true while there is nothing to compute a safe-to-spend number
  * from: nothing recorded at all, so no income (logged or expected), no
  * recurring or due items, and no logged expenses or savings (a month with

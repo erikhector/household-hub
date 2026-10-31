@@ -2,7 +2,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, E2E_SHOPPING_LIST } from "./seed-data";
-import { clickRowAction, dismissCookieNotice, expectHydrated } from "./ui";
+import { addBillOrIncome, clickRowAction, dismissCookieNotice, expectHydrated } from "./ui";
 
 // UX-10 (DESIGN.md M4): a focused field under 16 px makes iOS zoom the page,
 // and a unit field too narrow for its own buttons shows "p" for "pcs". Every
@@ -89,8 +89,8 @@ test("budget transaction and recurring dialogs use 16px fields", async ({ page, 
     await expectFieldsAtLeast16px(page.getByRole("dialog"));
     await page.keyboard.press("Escape");
 
-    await page.getByRole("button", { name: "Manage recurring items" }).click();
-    await page.getByRole("button", { name: "Add recurring item" }).click();
+    await page.getByRole("button", { name: "All bills & income" }).click();
+    await addBillOrIncome(page, "Repeats every month or year");
     await expectFieldsAtLeast16px(page.getByRole("dialog"));
   } finally {
     await client.query(`DELETE FROM "BudgetCategory" WHERE id = $1`, [categoryId]);

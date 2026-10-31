@@ -1883,6 +1883,45 @@ export const en = {
     fillEmptyDaysNothingToast: "Those days were filled in the meantime, so nothing was added",
     fillEmptyDaysUndo: "Undo",
     fillEmptyDaysUndoneToast: "Added dinners removed",
+    // GAP-52: save a week as a named template and plan from one. Nothing is
+    // written until "Plan this week" is pressed (applyMealPlanTemplateAction).
+    templates: {
+      saveMenuItem: "Save week as template",
+      saveTitle: "Save week as template",
+      saveDescription:
+        "Save this week's meals under a name, like \"School-week basics\", and plan another week from it whenever you need.",
+      nameLabel: "Template name",
+      cancel: "Cancel",
+      save: "Save template",
+      saving: "Saving…",
+      savedToast: 'Saved as template "{name}"',
+      pickMenuItem: "Plan from template",
+      pickTitle: "Plan from template",
+      pickDescription:
+        "Choose a template to add its meals to this week. Slots that already have a meal are left as they are, and nothing changes until you press Plan this week.",
+      close: "Close",
+      pickEmpty: "No templates saved yet.",
+      entryCount: { one: "{count} meal", other: "{count} meals" },
+      use: "Plan this week",
+      useAriaLabel: 'Plan this week from template "{name}"',
+      deleteAriaLabel: 'Delete template "{name}"',
+      deletedToast: 'Template "{name}" deleted',
+      undo: "Undo",
+      appliedToast: {
+        one: "Planned {count} meal from the template",
+        other: "Planned {count} meals from the template",
+      },
+      nothingToast: "Every slot in this week is already filled, so nothing was added",
+      undoneToast: "Planned meals removed",
+      errors: {
+        invalidName: "Give the template a name (up to 120 characters).",
+        invalidWeek: "That week isn't valid.",
+        emptyWeek: "Plan some meals this week before saving it as a template.",
+        tooManyEntries: "A template can hold at most 100 meals.",
+        nameTaken: 'You already have a template called "{name}".',
+        notFound: "That template couldn't be found. It may have been deleted.",
+      },
+    },
     weekdayMon: "Mon",
     weekdayTue: "Tue",
     weekdayWed: "Wed",
@@ -2545,8 +2584,8 @@ export const en = {
     nextMonth: "Next month",
     thisMonth: "This month",
     tabOverview: "Overview",
-    tabManage: "Manage",
-    tabTransactions: "Transactions",
+    tabManage: "Setup",
+    tabTransactions: "Activity",
     tabInsights: "Insights",
     addTransaction: "Add transaction",
     addTransactionDialogTitle: "Add transaction",
@@ -2650,7 +2689,6 @@ export const en = {
       subtitle: "Everything you've logged this month — planned and one-off together.",
       income: "Income",
       expenses: "Expenses",
-      remaining: "Remaining after expenses and savings",
       incomeByCategory: "Income by category",
       expensesByCategory: "Expenses by category",
       noIncome: "No income recorded this month.",
@@ -2658,12 +2696,27 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
-      spentOfLimit: "{spent} / {limit}",
+      ofLimit: "Limit {limit}",
       overLimitBy: "{amount} over",
       almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Last {count} months: {values}",
+      // Chart redesign (Oct 2026): a row's month against its usual, and the
+      // expenses card's one-line takeaway.
+      vsUsualMore: "{percent}% more than usual",
+      vsUsualLess: "{percent}% less than usual",
+      vsUsualSame: "About as usual",
+      topShare: "{name} is {percent}% of what went out.",
+      // The donut on Insights (owner's ask, Oct 2026).
+      donutTotal: "Spent this month",
+      donutShare: "{percent}%",
+      donutSee: "See transactions",
+      donutHint: "Pick a slice or a name to look at it on its own.",
+      donutOverLimit: "Over limit",
+      donutShowAll: "Show all",
+      donutOther: "Other",
+      donutOtherIncludes: "Includes {names}",
+      allCategories: "All categories, with limits",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -2691,7 +2744,6 @@ export const en = {
         one: "{count} category is at or near its limit.",
         other: "{count} categories are at or near their limit.",
       },
-      limitsTitle: "Near or over their limit",
       limitSpentOfLimit: "{spent} / {limit}",
       limitOver: "{amount} over",
       limitUsed: "{percent}% used",
@@ -2712,6 +2764,14 @@ export const en = {
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
+      // Chart redesign (Oct 2026): the split bar under the number.
+      splitTitle: "Where this month's {amount} goes",
+      splitSpent: "Spent",
+      splitSaved: "Saved",
+      splitDue: "Still due",
+      splitBudgeted: "Kept for limits",
+      splitSafe: "Safe to spend",
+      splitOver: "{amount} more is going out than coming in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} for today, the last day of the month.",
@@ -2762,20 +2822,48 @@ export const en = {
         { id: "savings", name: "Savings", type: "SAVINGS" },
       ],
     },
+    // Budget redesign (Oct 2026): the Overview's "{month} at a glance".
+    glance: {
+      title: "{month} at a glance",
+      vsSameDay: "Compared with {month} up to the same day",
+      vsWhole: "Compared with {month}",
+      // Design review (Oct 2026): what the card counts is what was logged,
+      // while Safe to spend also counts what is still due, so it says so,
+      // and "left" is named so it isn't read as Safe to spend.
+      basis: "From what's been logged. Safe to spend also counts what's still due.",
+      income: "Income logged",
+      spent: "Spent",
+      saved: "Saved",
+      left: "Not spent or saved",
+      more: "{percent}% more",
+      less: "{percent}% less",
+      // "Not spent or saved" changes by an amount: near zero a percentage
+      // blows up ("4900% more").
+      moreAmount: "{amount} more",
+      lessAmount: "{amount} less",
+      same: "About the same",
+      new: "New this month",
+      standOutTitle: "What stands out",
+      standOutMore: "{name}: {percent}% more than usual",
+      standOutLess: "{name}: {percent}% less than usual",
+    },
     dueWidget: {
-      title: "Due this period",
-      subtitle: "Recurring bills and income you haven't logged yet.",
+      // Budget redesign (Oct 2026): one card for everything that wants a
+      // look — categories near their limit, then bills and income due.
+      title: "Needs attention",
       allCaughtUpTitle: "You're all caught up",
       allCaughtUpBody: "Nothing's due right now — check back next period.",
-      noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      noTemplatesBody: "Add your regular bills and income under Setup, and what's due shows up here.",
       // UX-118: a month from before the items existed.
       nothingDueBody: "Nothing was due this month",
-      manageButton: "Manage recurring items",
+      manageButton: "All bills & income",
       // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
       log: "Log",
       moreAriaLabel: "More actions for {name}",
     },
     costAnalyzer: {
+      // Budget redesign (Oct 2026): Insights folds the grocery analysis away.
+      disclosure: "Grocery prices, stores and waste",
       spendingTitle: "Grocery spending over time",
       chartMonth: "Month",
       chartSpend: "Spend",
@@ -2877,10 +2965,23 @@ export const en = {
         confirming: "Removing…",
       },
     },
+    // Budget redesign (Oct 2026): the Setup tab's one card for recurring
+    // items and planned bills/income (BillsAndIncomePanel).
+    billsAndIncome: {
+      title: "Bills & income",
+      subtitle: "What you expect to pay or get. It all counts in Safe to spend.",
+      add: "Add",
+      addRepeating: "Repeats every month or year",
+      addOneOffBill: "One-off bill",
+      addOneOffIncome: "One-off income",
+      repeatingTitle: "Repeating",
+      onceTitle: "Once",
+      empty: "Nothing here yet. Add the rent, the salary and anything else you can see coming.",
+      needsCategory: "Add a category under Categories below first, then you can add bills and income here.",
+      needsExpenseCategory: "Add an expense category first",
+      needsIncomeCategory: "Add an income category first",
+    },
     recurring: {
-      title: "Recurring items",
-      subtitle:
-        "Income, bills, and savings you expect every period. Check one off by logging its transaction, or by marking it accounted for if it's handled outside this app.",
       split: {
         toggleLabel: "Split this bill",
         sharesLabel: "Split between",
@@ -2890,9 +2991,6 @@ export const en = {
         sharesOverWarning: "The shares are {amount} more than the {total} total.",
         splitBadge: "Split",
       },
-      statusLegend:
-        "Due: not yet logged this period. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
-      addTemplate: "Add recurring item",
       addDialogTitle: "Add recurring item",
       editDialogTitle: "Edit recurring item",
       nameLabel: "Name",
@@ -2904,8 +3002,7 @@ export const en = {
       save: "Save",
       adding: "Adding…",
       add: "Add item",
-      empty: "No recurring items yet. Add the ones you expect every period.",
-      sectionDue: "Due this period",
+      sectionDue: "Due",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
       logAsIs: "Log as-is",
@@ -2932,15 +3029,8 @@ export const en = {
     // BUDGET-8: one-off bills with a due date (PlannedExpensesPanel,
     // PlannedExpenseDialog). Household-only.
     planned: {
-      title: "Planned bills",
-      subtitle: "One-off bills you know are coming, like a car service or a yearly fee. They count in Safe to spend until you log the payment.",
-      empty: "No planned bills yet. Add one when you know a bill is coming, so it's counted before it's paid.",
-      needsCategory: "Add an expense category under Categories below first, then you can plan bills in it.",
-      add: "Add planned bill",
       addDialogTitle: "Add planned bill",
       editDialogTitle: "Edit planned bill",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -2950,7 +3040,6 @@ export const en = {
       },
       logPayment: "Log payment",
       loggedToast: "{name} marked as paid.",
-      groupOverdue: "Overdue",
       groupDue: "Due this month",
       groupUpcoming: "Upcoming",
       groupPaid: "Paid",
@@ -2975,15 +3064,8 @@ export const en = {
       overdueBadge: "Overdue",
     },
     plannedIncome: {
-      title: "Planned income",
-      subtitle: "One-off income you know is coming, like a bonus, a tax refund or a win. It counts in Safe to spend in the month it's expected, until you log it as received.",
-      empty: "No planned income yet. Add a bonus or refund you're expecting, so you can plan with it before it arrives.",
-      needsCategory: "Add an income category under Categories below first, then you can plan income in it.",
-      add: "Add planned income",
       addDialogTitle: "Add planned income",
       editDialogTitle: "Edit planned income",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -2993,7 +3075,6 @@ export const en = {
       },
       logPayment: "Log income",
       loggedToast: "{name} marked as received.",
-      groupOverdue: "Not received",
       groupDue: "Expected this month",
       groupUpcoming: "Upcoming",
       groupPaid: "Received",
@@ -3012,28 +3093,28 @@ export const en = {
     },
     fixedSummary: {
       title: "Fixed income & costs",
-      subtitle:
-        "The income and costs you can plan for in advance — the core of your budget. See the total per month and how it's changing over time.",
-      monthlyIncomeLabel: "Fixed income / mo",
-      monthlyExpenseLabel: "Fixed costs / mo",
-      netFixedLabel: "Net fixed / mo",
-      monthlySavingsLabel: "Savings / mo",
-      savingsNote: "Set aside each period — not counted as income or a cost.",
-      trendTitle: "How it's changing",
-      trendSubtitle: "Logged fixed transactions by month.",
+      // Budget redesign (Oct 2026): one sentence in place of four stat cards
+      // and two breakdowns (the items themselves are on Setup).
+      // Design review (Oct 2026): "Planned", since this is the recurring
+      // items, while the chart under it is what was logged against them.
+      headline: "Planned each month: {income} in and {costs} out, so {net} is left over.",
+      headlineDeficit: "Planned each month: {income} in and {costs} out, so {net} more goes out than comes in.",
+      savingsLine: "{amount} is set aside as savings each month.",
+      trendTitle: "Fixed income and costs by month",
+      trendSubtitle: "Logged against these items each month",
       noTrendData:
-        "Not enough history yet. Log a transaction from a recurring item on the Manage tab to start tracking this over time.",
+        "Not enough history yet. Log your regular bills and income as they come in to see this over time.",
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      legendLeft: "Not spent or saved",
       chartMonth: "Month",
+      statusBalanced: "That leaves room in the budget.",
+      itemsToggle: "See what's in it",
       incomeBreakdownTitle: "Recurring income",
       expenseBreakdownTitle: "Recurring costs",
       noIncomeItems: "No active recurring income items.",
       noExpenseItems: "No active recurring cost items.",
-      statusBalanced: "Balanced",
-      statusTight: "Tight",
-      statusDeficit: "Over budget",
       balanceWarningTight: "Your fixed costs are close to eating up your fixed income — there's little room left.",
       balanceWarningDeficit: "Your fixed costs are more than your fixed income. Something has to give.",
     },
@@ -3059,8 +3140,8 @@ export const en = {
     nextMonth: "Next month",
     thisMonth: "This month",
     tabOverview: "Overview",
-    tabManage: "Manage",
-    tabTransactions: "Transactions",
+    tabManage: "Setup",
+    tabTransactions: "Activity",
     tabInsights: "Insights",
     addTransaction: "Add transaction",
     addTransactionDialogTitle: "Add transaction",
@@ -3163,7 +3244,6 @@ export const en = {
       subtitle: "Everything you've logged this month — planned and one-off together.",
       income: "Income",
       expenses: "Expenses",
-      remaining: "Remaining after expenses and savings",
       incomeByCategory: "Income by category",
       expensesByCategory: "Expenses by category",
       noIncome: "No income recorded this month.",
@@ -3171,12 +3251,27 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
-      spentOfLimit: "{spent} / {limit}",
+      ofLimit: "Limit {limit}",
       overLimitBy: "{amount} over",
       almostAtLimit: "Almost at limit",
       carriedOver: "incl. {amount} carried over",
       // UX-39: a category sparkline's accessible name.
-      historyLabel: "Last {count} months: {values}",
+      // Chart redesign (Oct 2026): a row's month against its usual, and the
+      // expenses card's one-line takeaway.
+      vsUsualMore: "{percent}% more than usual",
+      vsUsualLess: "{percent}% less than usual",
+      vsUsualSame: "About as usual",
+      topShare: "{name} is {percent}% of what went out.",
+      // The donut on Insights (owner's ask, Oct 2026).
+      donutTotal: "Spent this month",
+      donutShare: "{percent}%",
+      donutSee: "See transactions",
+      donutHint: "Pick a slice or a name to look at it on its own.",
+      donutOverLimit: "Over limit",
+      donutShowAll: "Show all",
+      donutOther: "Other",
+      donutOtherIncludes: "Includes {names}",
+      allCategories: "All categories, with limits",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -3204,7 +3299,6 @@ export const en = {
         one: "{count} category is at or near its limit.",
         other: "{count} categories are at or near their limit.",
       },
-      limitsTitle: "Near or over their limit",
       limitSpentOfLimit: "{spent} / {limit}",
       limitOver: "{amount} over",
       limitUsed: "{percent}% used",
@@ -3225,6 +3319,14 @@ export const en = {
       lineRemaining: "Remaining after expenses and savings",
       // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
       breakdownToggle: "How we got this number",
+      // Chart redesign (Oct 2026): the split bar under the number.
+      splitTitle: "Where this month's {amount} goes",
+      splitSpent: "Spent",
+      splitSaved: "Saved",
+      splitDue: "Still due",
+      splitBudgeted: "Kept for limits",
+      splitSafe: "Safe to spend",
+      splitOver: "{amount} more is going out than coming in.",
       // UX-39: the projected end-of-month line (ProjectionChart).
       dailyAllowance: {
         one: "≈ {amount} for today, the last day of the month.",
@@ -3325,26 +3427,57 @@ export const en = {
       overpaidWarning: "Payments add up to {paid}, more than the {amount} total.",
       leftDueHint: "{amount} still left to pay.",
     },
+    // Budget redesign (Oct 2026): the Overview's "{month} at a glance".
+    glance: {
+      title: "{month} at a glance",
+      vsSameDay: "Compared with {month} up to the same day",
+      vsWhole: "Compared with {month}",
+      basis: "From what's been logged. Safe to spend also counts what's still due.",
+      income: "Income logged",
+      spent: "Spent",
+      saved: "Saved",
+      left: "Not spent or saved",
+      more: "{percent}% more",
+      less: "{percent}% less",
+      moreAmount: "{amount} more",
+      lessAmount: "{amount} less",
+      same: "About the same",
+      new: "New this month",
+      standOutTitle: "What stands out",
+      standOutMore: "{name}: {percent}% more than usual",
+      standOutLess: "{name}: {percent}% less than usual",
+    },
     dueWidget: {
-      title: "Due this period",
-      subtitle: "Recurring bills and income you haven't logged yet.",
+      // Budget redesign (Oct 2026): one card for everything that wants a
+      // look — categories near their limit, then bills and income due.
+      title: "Needs attention",
       allCaughtUpTitle: "You're all caught up",
       allCaughtUpBody: "Nothing's due right now — check back next period.",
-      noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      noTemplatesBody: "Add your regular bills and income under Setup, and what's due shows up here.",
       // UX-118: a month from before the items existed.
       nothingDueBody: "Nothing was due this month",
-      manageButton: "Manage recurring items",
+      manageButton: "All bills & income",
       // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
       log: "Log",
       moreAriaLabel: "More actions for {name}",
     },
+    // Budget redesign (Oct 2026): the Setup tab's one card for recurring
+    // items and planned bills/income (BillsAndIncomePanel).
+    billsAndIncome: {
+      title: "Bills & income",
+      subtitle: "What you expect to pay or get. It all counts in Safe to spend.",
+      add: "Add",
+      addRepeating: "Repeats every month or year",
+      addOneOffBill: "One-off bill",
+      addOneOffIncome: "One-off income",
+      repeatingTitle: "Repeating",
+      onceTitle: "Once",
+      empty: "Nothing here yet. Add the rent, the salary and anything else you can see coming.",
+      needsCategory: "Add a category under Categories below first, then you can add bills and income here.",
+      needsExpenseCategory: "Add an expense category first",
+      needsIncomeCategory: "Add an income category first",
+    },
     recurring: {
-      title: "Recurring items",
-      subtitle:
-        "Income, bills, and savings you expect every period. Check one off by logging its transaction, or by marking it accounted for if it's handled outside this app.",
-      statusLegend:
-        "Due: not yet logged this period. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
-      addTemplate: "Add recurring item",
       addDialogTitle: "Add recurring item",
       editDialogTitle: "Edit recurring item",
       nameLabel: "Name",
@@ -3356,8 +3489,7 @@ export const en = {
       save: "Save",
       adding: "Adding…",
       add: "Add item",
-      empty: "No recurring items yet. Add the ones you expect every period.",
-      sectionDue: "Due this period",
+      sectionDue: "Due",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
       logAsIs: "Log as-is",
@@ -3380,17 +3512,10 @@ export const en = {
       dueDayLabel: "Due on day {day}",
     },
     // Personal planned bills: budget.planned for one person. Same texts
-    // apart from the subtitle and placeholder, and no split ones.
+    // apart from the name placeholder, and no split ones.
     planned: {
-      title: "Planned bills",
-      subtitle: "One-off bills you know are coming, like a dentist visit or a course fee. Only you see them. They count in Safe to spend until you log the payment.",
-      empty: "No planned bills yet. Add one when you know a bill is coming, so it's counted before it's paid.",
-      needsCategory: "Add an expense category under Categories below first, then you can plan bills in it.",
-      add: "Add planned bill",
       addDialogTitle: "Add planned bill",
       editDialogTitle: "Edit planned bill",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -3400,7 +3525,6 @@ export const en = {
       },
       logPayment: "Log payment",
       loggedToast: "{name} marked as paid.",
-      groupOverdue: "Overdue",
       groupDue: "Due this month",
       groupUpcoming: "Upcoming",
       groupPaid: "Paid",
@@ -3418,15 +3542,8 @@ export const en = {
       overdueBadge: "Overdue",
     },
     plannedIncome: {
-      title: "Planned income",
-      subtitle: "One-off income you know is coming, like a bonus, a tax refund or a win. Only you see it. It counts in Safe to spend in the month it's expected, until you log it as received.",
-      empty: "No planned income yet. Add a bonus or refund you're expecting, so you can plan with it before it arrives.",
-      needsCategory: "Add an income category under Categories below first, then you can plan income in it.",
-      add: "Add planned income",
       addDialogTitle: "Add planned income",
       editDialogTitle: "Edit planned income",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -3436,7 +3553,6 @@ export const en = {
       },
       logPayment: "Log income",
       loggedToast: "{name} marked as received.",
-      groupOverdue: "Not received",
       groupDue: "Expected this month",
       groupUpcoming: "Upcoming",
       groupPaid: "Received",
@@ -3455,28 +3571,28 @@ export const en = {
     },
     fixedSummary: {
       title: "Fixed income & costs",
-      subtitle:
-        "The income and costs you can plan for in advance — the core of your budget. See the total per month and how it's changing over time.",
-      monthlyIncomeLabel: "Fixed income / mo",
-      monthlyExpenseLabel: "Fixed costs / mo",
-      netFixedLabel: "Net fixed / mo",
-      monthlySavingsLabel: "Savings / mo",
-      savingsNote: "Set aside each period — not counted as income or a cost.",
-      trendTitle: "How it's changing",
-      trendSubtitle: "Logged fixed transactions by month.",
+      // Budget redesign (Oct 2026): one sentence in place of four stat cards
+      // and two breakdowns (the items themselves are on Setup).
+      // Design review (Oct 2026): "Planned", since this is the recurring
+      // items, while the chart under it is what was logged against them.
+      headline: "Planned each month: {income} in and {costs} out, so {net} is left over.",
+      headlineDeficit: "Planned each month: {income} in and {costs} out, so {net} more goes out than comes in.",
+      savingsLine: "{amount} is set aside as savings each month.",
+      trendTitle: "Fixed income and costs by month",
+      trendSubtitle: "Logged against these items each month",
       noTrendData:
-        "Not enough history yet. Log a transaction from a recurring item on the Manage tab to start tracking this over time.",
+        "Not enough history yet. Log your regular bills and income as they come in to see this over time.",
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      legendLeft: "Not spent or saved",
       chartMonth: "Month",
+      statusBalanced: "That leaves room in the budget.",
+      itemsToggle: "See what's in it",
       incomeBreakdownTitle: "Recurring income",
       expenseBreakdownTitle: "Recurring costs",
       noIncomeItems: "No active recurring income items.",
       noExpenseItems: "No active recurring cost items.",
-      statusBalanced: "Balanced",
-      statusTight: "Tight",
-      statusDeficit: "Over budget",
       balanceWarningTight: "Your fixed costs are close to eating up your fixed income — there's little room left.",
       balanceWarningDeficit: "Your fixed costs are more than your fixed income. Something has to give.",
     },

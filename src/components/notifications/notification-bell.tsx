@@ -47,7 +47,8 @@ export function notificationHref(item: NotificationItem): string {
   if (item.kind === "listCleared") return `/dashboard/shopping-list/${item.shoppingListId}`;
   // GAP-9: the cost analyzer (Budget → Insights) is where the item's price
   // trend and per-store comparison live — the context to judge the jump in.
-  if (item.kind === "priceSpike") return `/dashboard/budget?tab=insights`;
+  // `prices=1` opens its disclosure (budget redesign, Oct 2026).
+  if (item.kind === "priceSpike") return `/dashboard/budget?tab=insights&prices=1`;
   // Opens the list with its put-away dialog already showing — the reminder
   // is only useful if acting on it is one tap.
   if (item.kind === "putAwayReminder") return `/dashboard/shopping-list/${item.shoppingListId}?putAway=1`;
