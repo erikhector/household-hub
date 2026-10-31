@@ -2641,6 +2641,15 @@ export const en = {
       vsUsualLess: "{percent}% less than usual",
       vsUsualSame: "About as usual",
       topShare: "{name} is {percent}% of what went out.",
+      // The donut on Insights (owner's ask, Oct 2026).
+      donutTotal: "Spent this month",
+      donutShare: "{percent}%",
+      donutSee: "See transactions",
+      donutHint: "Tap a slice or a name to look at it on its own.",
+      donutShowAll: "Show all",
+      donutOther: "Other",
+      donutOtherIncludes: "Includes {names}",
+      allCategories: "All categories, with limits",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -3176,6 +3185,15 @@ export const en = {
       vsUsualLess: "{percent}% less than usual",
       vsUsualSame: "About as usual",
       topShare: "{name} is {percent}% of what went out.",
+      // The donut on Insights (owner's ask, Oct 2026).
+      donutTotal: "Spent this month",
+      donutShare: "{percent}%",
+      donutSee: "See transactions",
+      donutHint: "Tap a slice or a name to look at it on its own.",
+      donutShowAll: "Show all",
+      donutOther: "Other",
+      donutOtherIncludes: "Includes {names}",
+      allCategories: "All categories, with limits",
     },
     savingsGoals: {
       title: "Savings goals",

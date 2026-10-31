@@ -4007,6 +4007,22 @@ library), so household and personal never diverge:
   which showed a shape and left the meaning to the reader. The expenses
   card opens with one sentence on its point: "{name} is {percent}% of what
   went out."
+- `DonutChart` (client, the owner's ask, Oct 2026): Insights' "Expenses
+  by category" opens on a donut of where the month's spending went. Six
+  slices at most: the five largest categories, chart-1 … chart-5 from the
+  largest, and the rest folded into "Other" (neutral, its notes list what
+  it includes), with a gap of the card between slices. Nothing picked, the
+  hole shows "Spent this month" and the total; picking a slice — on the
+  chart, or its row in the key below, a 44 px button with swatch, name,
+  share and amount (`aria-pressed`) — lifts it, dims the rest and puts its
+  name, amount and share in the hole, with its notes (its limit and status,
+  how it compares with usual) and "See transactions" (Activity filtered to
+  it) in a `role="status"` panel under the chart. Picking it again or "Show
+  all" goes back. The SVG is `aria-hidden`; the key carries the same
+  choices for touch, keyboard and screen readers. The rows with their limit
+  meters fold under the donut behind "All categories, with limits"
+  (`CategoryBreakdown`'s `figure` and `collapseLabel`), so the categories
+  aren't listed twice.
 - `Sparkline`: `CostAnalyzer`'s price trends. One quiet colour
   (`muted-foreground` at 45%), with only the latest point marked, in
   `primary` with a ring of the card's colour.

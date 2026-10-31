@@ -12,6 +12,9 @@
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/category-breakdown";
 import { BreakdownSwitch } from "@/components/budget/breakdown-switch";
+import { DonutChart, type DonutSlice } from "@/components/charts/donut-chart";
+import { limitProgress } from "@/lib/budget-category-limit";
+import { vsUsual } from "@/lib/chart-calc";
 import { createMoneyFormat } from "@/lib/currency";
 import { format } from "@/lib/i18n/format";
 
@@ -61,6 +64,58 @@ export function PeriodSummary({
       ? format(dict.topShare, { name: top.name, percent: Math.round((top.total / expense) * 100) })
       : undefined;
 
+  // The donut's slices: the five largest categories and the rest as
+  // "Other" (six at most — see DonutChart). Each carries the notes the row
+  // below would show: its limit and how it compares with usual.
+  const DONUT_SLICES = 5;
+  const spent = [...expenseByCategory].filter((item) => item.total > 0).sort((a, b) => b.total - a.total);
+  const shown = spent.length <= DONUT_SLICES + 1 ? spent : spent.slice(0, DONUT_SLICES);
+  const rest = spent.slice(shown.length);
+  const notesFor = (item: CategoryTotal): string[] => {
+    const notes: string[] = [];
+    if (item.limit != null) {
+      const available = item.limit + (item.carried ?? 0);
+      const progress = limitProgress(item.total, available);
+      notes.push(
+        format(dict.ofLimit, { limit: numberFormat.format(available) }) +
+          (progress?.over
+            ? ` · ${format(dict.overLimitBy, { amount: numberFormat.format(item.total - available) })}`
+            : progress?.near
+              ? ` · ${dict.almostAtLimit}`
+              : ""),
+      );
+    }
+    const usual = item.history ? vsUsual(item.history) : null;
+    if (usual) {
+      notes.push(
+        format(
+          usual.direction === "more" ? dict.vsUsualMore : usual.direction === "less" ? dict.vsUsualLess : dict.vsUsualSame,
+          { percent: usual.percent },
+        ),
+      );
+    }
+    return notes;
+  };
+  const slices: DonutSlice[] = [
+    ...shown.map((item) => ({
+      key: item.id,
+      label: item.name,
+      value: item.total,
+      href: categoryHref?.(item.id) ?? null,
+      notes: notesFor(item),
+    })),
+    ...(rest.length > 0
+      ? [
+          {
+            key: "other",
+            label: dict.donutOther,
+            value: rest.reduce((sum, item) => sum + item.total, 0),
+            notes: [format(dict.donutOtherIncludes, { names: rest.map((item) => item.name).join(", ") })],
+          },
+        ]
+      : []),
+  ];
+
   return (
     <section aria-labelledby="period-summary-title" className="flex flex-col gap-4">
       <div>
@@ -88,6 +143,25 @@ export function PeriodSummary({
                 limitDict={dict}
                 usualDict={dict}
                 note={topNote}
+                // The owner's donut (Oct 2026): the overview of where the
+                // money went, slices to pick; the full rows with their limit
+                // meters fold away under it.
+                figure={
+                  <DonutChart
+                    slices={slices}
+                    otherKey="other"
+                    totalLabel={dict.donutTotal}
+                    dict={{
+                      share: dict.donutShare,
+                      seeTransactions: dict.donutSee,
+                      hint: dict.donutHint,
+                      showAll: dict.donutShowAll,
+                    }}
+                    locale={locale}
+                    currencyCode={currencyCode}
+                  />
+                }
+                collapseLabel={dict.allCategories}
                 hrefFor={hrefFor}
               />
             ),

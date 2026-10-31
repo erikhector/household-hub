@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
+import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, openAllCategories } from "./ui";
 
 // UX-39: the budget charts are tappable, say their values without hover,
 // and carry a hidden data table for screen readers; expense categories
@@ -92,6 +92,7 @@ test("safe to spend projects to month end and categories compare with usual", as
   // compares with its usual, in words: 123.45 against the 50 two months ago
   // is 147% more. The month's category breakdown lives on Insights.
   await main.getByRole("tab", { name: "Insights" }).click();
+  await openAllCategories(page);
   await expect(
     main.getByRole("link", { name: new RegExp(name) }).getByText("147% more than usual"),
   ).toBeVisible();

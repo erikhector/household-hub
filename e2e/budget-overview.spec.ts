@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { budgetTag, insertHouseholdCategory, insertHouseholdTemplate, insertHouseholdTransaction, withDb } from "./budget-seed";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, openAllCategories } from "./ui";
 
 // Phone pass (Oct 2026), P4, and the budget redesign (Oct 2026): Overview
 // says each thing once. Safe to spend is the number, its summary and the
@@ -31,7 +31,9 @@ test("Overview shows each number once and keeps due items to one line", async ({
   // The totals and the arithmetic are a tap away, not on screen.
   const arithmetic = main.getByText("Remaining after expenses and savings", { exact: true }).filter({ visible: true });
   await expect(arithmetic).toHaveCount(0);
-  await expect(main.getByText("Income", { exact: true }).filter({ visible: true })).toHaveCount(0);
+  // (Scoped to the card: "at a glance" further down has an Income row.)
+  const safeCard = main.locator('[data-slot="card"]').filter({ hasText: "How we got this number" });
+  await expect(safeCard.getByText("Income", { exact: true }).filter({ visible: true })).toHaveCount(0);
   await main.getByText("How we got this number").click();
   await expect(arithmetic).toHaveCount(1);
   // Savings are set aside, not spent: the same "→" the transaction rows
@@ -160,6 +162,7 @@ test("Expenses by category bars are neutral, warning near the limit, destructive
   });
   await page.goto("/dashboard/budget?tab=insights");
   const main = page.getByRole("main");
+  await openAllCategories(page);
   const row = (name: string) => main.getByRole("link", { name: new RegExp(`^${name} ${tag}`) });
   const barColour = (name: string) =>
     row(name).locator("div.h-full.rounded-full").evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -268,4 +271,42 @@ test("the Overview compares the month with the one before", async ({ page }) => 
   }
   await expect(card.getByText(new RegExp(`^Bikes ${tag}: \\d+% more than usual$`))).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+// The owner's donut (Oct 2026): Insights' expenses as slices to pick. Picking
+// a category's name in the key lifts its slice, puts its amount and share in
+// the hole and its notes and transactions link under the chart; "Show all"
+// goes back. The key is the way in for touch, keyboard and screen readers.
+test("Insights' expenses donut lets a category be picked and inspected", async ({ page, isMobile }) => {
+  const tag = budgetTag();
+  // Large enough to be one of the five named slices whatever else the
+  // worker's household has spent this month.
+  const name = `Boat ${tag}`;
+  await withDb(async (client) => {
+    await insertHouseholdCategory(client, { id: `e2e-donut-cat-${tag}`, name, monthlyLimit: 1000000 });
+    await insertHouseholdTransaction(client, { id: `e2e-donut-tx-${tag}`, categoryId: `e2e-donut-cat-${tag}`, amount: 900000 });
+  });
+  await page.goto("/dashboard/budget?tab=insights");
+  const main = page.getByRole("main");
+  await expect(main.getByText("Spent this month")).toBeVisible();
+
+  const key = main.getByRole("button", { name: new RegExp(`^${name}`) });
+  await expectHydrated(key);
+  await key.click();
+  await expect(key).toHaveAttribute("aria-pressed", "true");
+  const status = main.getByRole("status").filter({ hasText: "See transactions" });
+  await expect(status).toBeVisible();
+  // Its notes: the limit it's measured against.
+  await expect(status).toContainText(/of 1,000,000\.00/);
+  if (isMobile) await expectTouchTargets(page);
+  await expectNoHorizontalOverflow(page);
+
+  await status.getByRole("button", { name: "Show all" }).click();
+  await expect(key).toHaveAttribute("aria-pressed", "false");
+  await expect(main.getByText("Spent this month")).toBeVisible();
+
+  // The link goes to that category's transactions.
+  await key.click();
+  await main.getByRole("link", { name: "See transactions" }).click();
+  await expect(page).toHaveURL(/tab=transactions.*category=/);
 });
