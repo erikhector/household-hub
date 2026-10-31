@@ -98,6 +98,9 @@ test.describe("the setup card", () => {
       // chevron hidden) so a title takes at most two lines and no card is
       // over half the screen. Default size was asserted above, unchanged.
       if (testInfo.project.name === "mobile") {
+        // The acceptance is measured on the Pixel 7 screen, not the small
+        // first-screen viewport used above.
+        await page.setViewportSize({ width: 412, height: 915 });
         await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
         const steps = card.getByRole("link");
         expect(await steps.count()).toBe(5);
@@ -110,7 +113,7 @@ test.describe("the setup card", () => {
             }),
           ]);
           expect(lines, "step title lines at 200% text").toBeLessThanOrEqual(2);
-          expect(box!.height, "step card height at 200% text").toBeLessThan(667 / 2);
+          expect(box!.height, "step card height at 200% text").toBeLessThan(915 / 2);
         }
         await expectNoHorizontalOverflow(page);
         await page.addStyleTag({ content: "html { font-size: 100% !important; }" });
