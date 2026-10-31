@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { createDialogHandle } from "@/components/ui/dialog";
+import { openLazyDialog } from "@/components/ui/lazy-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -232,10 +233,12 @@ function TemplateRow({
   // one line. Five buttons (log, mark, edit, pause, delete) used to wrap,
   // stranding pause and delete on a second line under the pencil, with
   // delete right beside the others (DESIGN.md M2). Edit and Delete open
-  // their dialogs from the menu: Edit through a hidden trigger (ItemActions'
-  // pattern), Delete through a dialog handle, since a dialog rendered
-  // inside the menu would unmount as the menu closes.
-  const editRef = useRef<HTMLButtonElement | null>(null);
+  // their dialogs from the menu through dialog handles, since a dialog
+  // rendered inside the menu would unmount as the menu closes, and hand
+  // focus back to the "…" button on close (Edit used to click a hidden
+  // aria-hidden trigger, which is where focus then landed).
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const [editHandle] = useState(() => createDialogHandle());
   const [deleteHandle] = useState(() => createDialogHandle());
   const resume = paused ? (
     <Button size="sm" variant="outline" disabled={isPending} onClick={() => onTogglePause(template.id, true)}>
@@ -293,6 +296,7 @@ function TemplateRow({
         <DropdownMenuTrigger
           render={
             <Button
+              ref={moreRef}
               variant="ghost"
               size="icon"
               disabled={isPending}
@@ -309,7 +313,7 @@ function TemplateRow({
               {dict.recurring.markAccountedFor}
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => editRef.current?.click()}>
+          <DropdownMenuItem onClick={() => openLazyDialog(editHandle)}>
             <Pencil />
             {dict.swipe.edit}
           </DropdownMenuItem>
@@ -335,19 +339,12 @@ function TemplateRow({
         template={template}
         createAction={createTemplateAction}
         updateAction={updateTemplateAction}
-        trigger={
-          // Opened from the menu's Edit; not a target of its own.
-          <button
-            ref={editRef}
-            type="button"
-            className="sr-only"
-            tabIndex={-1}
-            aria-hidden="true"
-          />
-        }
+        handle={editHandle}
+        finalFocus={moreRef}
       />
       <ConfirmDialog
         handle={deleteHandle}
+        finalFocus={moreRef}
         title={format(dict.recurring.confirmDelete.title, { name: template.name })}
         description={dict.recurring.confirmDelete.description}
         cancelLabel={dict.recurring.confirmDelete.cancel}

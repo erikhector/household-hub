@@ -3397,9 +3397,11 @@ settled later.
 is the "Once" half of the Setup tab's Bills & income card (see "Budget page
 layout"), bills and planned income in one list ordered Overdue, Due this
 month, Upcoming and Paid (paid in the viewed month only), each row's status
-a chip (overdue shows in its amount line instead). Rows offer Log
-payment, Edit and Delete (confirmed); a row with a linked payment offers
-only Edit. That includes a past month's bill paid later: it still shows as
+a chip (overdue shows in its amount line instead). A row is one line, like
+a repeating item's: its one visible action, Log payment (Log income for
+income), and a "More actions for {name}" menu with Edit and, last behind a
+separator, Delete (confirmed). A row with a linked payment has no Log and
+its menu only Edit. That includes a past month's bill paid later: it still shows as
 due there, with "Paid {date}" after its due date, since a second payment
 would be refused and deleting it would silently detach the real one
 (`PlannedExpenseRow.paidAt`). The dialog keeps the typed name and category
@@ -3545,9 +3547,9 @@ ordinary `INCOME` transaction.
   `TransactionTemplatePrefill.plannedType`). Each panel is a region named by
   its title, so the two "Upcoming" groups can be told apart. Income due this
   month also shows in the Overview's due strip with Log income. With no
-  category of the panel's kind its Add button is disabled, so either panel's
-  empty state then says to add one under Categories first (`needsCategory`)
-  instead of inviting a click that can't happen.
+  category of its kind, the Add menu's "One-off income" (or "One-off bill")
+  item is disabled with the reason under it ("Add an income category
+  first"), rather than inviting a click that can't happen.
 - **Logging it.** Log income opens the prefilled `TransactionDialog`, like
   Log payment. `createTransactionAction` and `createPersonalTransactionAction`
   require the transaction's category to have the planned item's type ("Planned
@@ -3736,12 +3738,27 @@ Insights, three Add panels on Manage). No data model changed.
   accounted for, then logged, then paused, each with a status chip. A due
   item is logged from Needs attention, not here; "Mark as accounted for" is
   in its menu, and an accounted-for item keeps Undo. One-off items
-  (`PlannedItemList`) follow under "Once". Then Categories, and on Personal
-  Budget the budget month setting.
+  (`PlannedItemList`) follow under "Once", one line each like a repeating
+  item: a status chip, Log payment or Log income while unpaid, and the same
+  ⋯ menu (Edit, then Delete apart). Then Categories, and on Personal Budget
+  the budget month setting.
+  With no category at all, Add is disabled and the card says so in place of
+  its empty text: "Add a category under Categories below first, then you can
+  add bills and income here." (`billsAndIncome.needsCategory`). Without an
+  expense or income category, the menu keeps "One-off bill" or "One-off
+  income" disabled with the reason under it (`needsExpenseCategory`,
+  `needsIncomeCategory`), so the menu offers the same three choices every
+  time and the missing one explains itself. The dialogs open through dialog
+  handles (`openLazyDialog`), not hidden triggers, and closing one returns
+  focus to Add (a row's dialogs return it to the row's ⋯ button), via the
+  dialogs' `finalFocus` prop.
 - **Activity**: the transaction list, unchanged.
 - **Insights**: "{Month} at a glance", "This month" (one breakdown at a
-  time, see "Period summary") and "Fixed income & costs"
-  (`FixedBudgetSummary`).
+  time, see "Period summary"; its Expenses/Income/Savings switch is the
+  compact `Tabs` size, smaller than the page's tab bar so it doesn't read
+  as a second row of page tabs, 44 px to touch on phones through a hit
+  area past the pill, and each breakdown is a `tabpanel` labelled by its
+  tab) and "Fixed income & costs" (`FixedBudgetSummary`).
   - "{Month} at a glance" (`MonthAtAGlance`, `src/lib/month-comparison.ts`)
     leads the tab. It sat on the Overview until the design review (Oct
     2026), which found it made the Overview too long for a phone (M6). It
@@ -3970,9 +3987,9 @@ its one action ("Log" when due, "Undo" once accounted for, "Resume" when
 paused, none once logged) and a "More actions for {name}" menu with Mark
 as accounted for (due items), Edit, Pause and, last behind a separator,
 Delete (confirmed). Five buttons used to wrap, leaving pause and delete
-alone on a second line beside each other. Edit opens from the menu
-through a hidden trigger and Delete through a dialog handle, since a
-dialog inside the menu would unmount as it closes. A category chip is
+alone on a second line beside each other. Edit and Delete open from the
+menu through dialog handles, since a dialog inside the menu would unmount
+as it closes, and closing either returns focus to the ⋯ button. A category chip is
 now one button (named "Edit {name}") that opens its edit sheet, which
 ends in "Delete {name}" with its confirm dialog, a footer away from Save;
 the chips dropped their own pencil and bin (delete right beside edit, M2)

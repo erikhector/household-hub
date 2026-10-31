@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,6 +79,7 @@ export function PlannedExpenseDialog({
   categories,
   members,
   handle,
+  finalFocus,
   bill,
   createAction,
   updateAction,
@@ -97,6 +98,9 @@ export function PlannedExpenseDialog({
   // Opened through this handle by a trigger that stays in the page's own chunk, so
   // this dialog loads on first use (PERF-30, ui/lazy-dialog.tsx).
   handle: DialogHandle;
+  /** Where focus goes on close when opened through `handle` alone (no
+   * trigger to return to): the menu button it was opened from. */
+  finalFocus?: RefObject<HTMLElement | null>;
   bill?: PlannedExpenseRow;
   createAction: PlannedExpenseFormAction;
   updateAction: PlannedExpenseFormAction;
@@ -176,7 +180,7 @@ export function PlannedExpenseDialog({
         if (next) resetForBill();
       }}
     >
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>{isEdit ? t.editDialogTitle : t.addDialogTitle}</DialogTitle>
         </DialogHeader>

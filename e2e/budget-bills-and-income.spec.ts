@@ -72,3 +72,27 @@ test("adds a repeating bill from the one Add menu and shows it as due on the Ove
   await expect(needs.getByRole("button", { name: `More actions for ${name}` })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+// The Add menu's dialogs open through dialog handles; closing one puts focus
+// back on the Add button (they used to open from hidden aria-hidden buttons,
+// which is where focus was left).
+test("closing a dialog opened from the Add menu puts focus back on Add", async ({ page }) => {
+  const tag = budgetTag();
+  await withDb((client) => insertHouseholdCategory(client, { id: `e2e-bai-cat-${tag}`, name: `Focus ${tag}` }));
+  await page.goto("/dashboard/budget?tab=manage");
+  const add = page
+    .getByRole("main")
+    .getByRole("region", { name: "Bills & income" })
+    .getByRole("button", { name: "Add", exact: true });
+
+  for (const [item, title] of [
+    ["Repeats every month or year", "Add recurring item"],
+    ["One-off bill", "Add planned bill"],
+  ] as const) {
+    await addBillOrIncome(page, item);
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(add).toBeFocused();
+  }
+});

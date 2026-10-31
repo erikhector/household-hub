@@ -2762,6 +2762,9 @@ export const sv = {
       repeatingTitle: "Återkommande",
       onceTitle: "En gång",
       empty: "Inget här än. Lägg till hyran, lönen och annat du ser komma.",
+      needsCategory: "Lägg först till en kategori under Kategorier nedan, så kan du lägga till räkningar och inkomster här.",
+      needsExpenseCategory: "Lägg först till en utgiftskategori",
+      needsIncomeCategory: "Lägg först till en inkomstkategori",
     },
     recurring: {
       split: {
@@ -2813,8 +2816,6 @@ export const sv = {
     planned: {
       addDialogTitle: "Lägg till planerad räkning",
       editDialogTitle: "Redigera planerad räkning",
-      edit: "Redigera {name}",
-      delete: "Ta bort {name}",
       deleteConfirm: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",
@@ -2850,8 +2851,6 @@ export const sv = {
     plannedIncome: {
       addDialogTitle: "Lägg till planerad inkomst",
       editDialogTitle: "Redigera planerad inkomst",
-      edit: "Redigera {name}",
-      delete: "Ta bort {name}",
       deleteConfirm: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",
@@ -3228,6 +3227,9 @@ export const sv = {
       repeatingTitle: "Återkommande",
       onceTitle: "En gång",
       empty: "Inget här än. Lägg till hyran, lönen och annat du ser komma.",
+      needsCategory: "Lägg först till en kategori under Kategorier nedan, så kan du lägga till räkningar och inkomster här.",
+      needsExpenseCategory: "Lägg först till en utgiftskategori",
+      needsIncomeCategory: "Lägg först till en inkomstkategori",
     },
     recurring: {
       addDialogTitle: "Lägg till återkommande post",
@@ -3266,8 +3268,6 @@ export const sv = {
     planned: {
       addDialogTitle: "Lägg till planerad räkning",
       editDialogTitle: "Redigera planerad räkning",
-      edit: "Redigera {name}",
-      delete: "Ta bort {name}",
       deleteConfirm: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",
@@ -3296,8 +3296,6 @@ export const sv = {
     plannedIncome: {
       addDialogTitle: "Lägg till planerad inkomst",
       editDialogTitle: "Redigera planerad inkomst",
-      edit: "Redigera {name}",
-      delete: "Ta bort {name}",
       deleteConfirm: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",

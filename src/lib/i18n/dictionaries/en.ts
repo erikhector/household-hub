@@ -2911,6 +2911,9 @@ export const en = {
       repeatingTitle: "Repeating",
       onceTitle: "Once",
       empty: "Nothing here yet. Add the rent, the salary and anything else you can see coming.",
+      needsCategory: "Add a category under Categories below first, then you can add bills and income here.",
+      needsExpenseCategory: "Add an expense category first",
+      needsIncomeCategory: "Add an income category first",
     },
     recurring: {
       split: {
@@ -2962,8 +2965,6 @@ export const en = {
     planned: {
       addDialogTitle: "Add planned bill",
       editDialogTitle: "Edit planned bill",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -2999,8 +3000,6 @@ export const en = {
     plannedIncome: {
       addDialogTitle: "Add planned income",
       editDialogTitle: "Edit planned income",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -3408,6 +3407,9 @@ export const en = {
       repeatingTitle: "Repeating",
       onceTitle: "Once",
       empty: "Nothing here yet. Add the rent, the salary and anything else you can see coming.",
+      needsCategory: "Add a category under Categories below first, then you can add bills and income here.",
+      needsExpenseCategory: "Add an expense category first",
+      needsIncomeCategory: "Add an income category first",
     },
     recurring: {
       addDialogTitle: "Add recurring item",
@@ -3448,8 +3450,6 @@ export const en = {
     planned: {
       addDialogTitle: "Add planned bill",
       editDialogTitle: "Edit planned bill",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -3478,8 +3478,6 @@ export const en = {
     plannedIncome: {
       addDialogTitle: "Add planned income",
       editDialogTitle: "Edit planned income",
-      edit: "Edit {name}",
-      delete: "Delete {name}",
       deleteConfirm: {
         title: "Delete {name}?",
         description: "This can't be undone.",

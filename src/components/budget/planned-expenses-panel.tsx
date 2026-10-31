@@ -1,10 +1,20 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, Check, Pencil, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Ellipsis, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { createDialogHandle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { openLazyDialog } from "@/components/ui/lazy-dialog";
 import type {
   PlannedExpenseFormAction,
 } from "@/components/budget/planned-expense-dialog";
@@ -179,10 +189,21 @@ function PlannedExpenseItem({
 }) {
   const t = plannedTexts(dict, bill.type);
   const linked = bill.paidAt !== null;
+  // Design review of the budget redesign: a one-off row works like a
+  // repeating one (TemplateRow) on the same card — one line, a status chip,
+  // one visible action (Log payment / Log income while nothing is linked) and
+  // a "…" menu with Edit, then Delete last and set apart (DESIGN.md M2). It
+  // used to put Log, a pencil and a trash can on a second line, a third way
+  // of acting on a row in one card. Edit and Delete open through dialog
+  // handles (a dialog inside the menu would unmount as it closes) and hand
+  // focus back to the "…" button.
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const [editHandle] = useState(() => createDialogHandle());
+  const [deleteHandle] = useState(() => createDialogHandle());
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
-      <div className="flex min-w-0 flex-col gap-0.5">
+    <li className="flex items-center gap-2 rounded-md border py-1.5 pr-1.5 pl-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="min-w-0 max-w-full break-words font-medium" title={bill.name}>
             {bill.name}
@@ -213,68 +234,81 @@ function PlannedExpenseItem({
           t={t}
         />
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
-        {!linked && (
-          <PlannedBillLogPayment
-            bill={bill}
-            dict={dict}
-            t={t}
-            numberFormat={numberFormat}
-            categories={categories}
-            members={members}
-            currentMemberId={currentMemberId}
-            monthKey={monthKey}
-            createTransactionAction={createTransactionAction}
-            updateTransactionAction={updateTransactionAction}
-          />
-        )}
-        <LazyPlannedExpenseDialog
-          dict={dict}
-          kind={bill.type}
-          categories={kindCategories}
-          members={splitMembers}
+      {!linked && (
+        <PlannedBillLogPayment
           bill={bill}
-          createAction={createAction}
-          updateAction={updateAction}
+          dict={dict}
+          t={t}
           numberFormat={numberFormat}
-          trigger={
+          categories={categories}
+          members={members}
+          currentMemberId={currentMemberId}
+          monthKey={monthKey}
+          createTransactionAction={createTransactionAction}
+          updateTransactionAction={updateTransactionAction}
+        />
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
             <Button
+              ref={moreRef}
               variant="ghost"
               size="icon"
-              className="size-7 text-muted-foreground"
-              aria-label={format(t.edit, { name: bill.name })}
+              aria-label={format(dict.dueWidget.moreAriaLabel, { name: bill.name })}
             >
-              <Pencil className="size-3.5" />
+              <Ellipsis className="size-4" />
             </Button>
           }
         />
-        {!linked && (
-          <ConfirmDialog
-            trigger={
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 text-muted-foreground hover:text-destructive"
-                aria-label={format(t.delete, { name: bill.name })}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            }
-            title={format(t.deleteConfirm.title, { name: bill.name })}
-            description={t.deleteConfirm.description}
-            cancelLabel={t.deleteConfirm.cancel}
-            confirmLabel={t.deleteConfirm.confirm}
-            pendingLabel={t.deleteConfirm.confirming}
-            onConfirm={async () => {
-              // ConfirmDialog runs this in its own transition (pending
-              // label, stays open and toasts on error).
-              const result = await onDelete(bill.id);
-              if (!result.error) toast.success(format(t.deletedToast, { name: bill.name }));
-              return result;
-            }}
-          />
-        )}
-      </div>
+        <DropdownMenuContent align="end" className="w-auto">
+          <DropdownMenuItem onClick={() => openLazyDialog(editHandle)}>
+            <Pencil />
+            {dict.swipe.edit}
+          </DropdownMenuItem>
+          {/* A bill with a payment linked keeps it: deleting would silently
+              detach the payment (see PlannedExpenseRow.paidAt). */}
+          {!linked && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => deleteHandle.open(null)}>
+                <Trash2 />
+                {dict.swipe.delete}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <LazyPlannedExpenseDialog
+        dict={dict}
+        kind={bill.type}
+        categories={kindCategories}
+        members={splitMembers}
+        bill={bill}
+        createAction={createAction}
+        updateAction={updateAction}
+        numberFormat={numberFormat}
+        handle={editHandle}
+        finalFocus={moreRef}
+      />
+      {!linked && (
+        <ConfirmDialog
+          handle={deleteHandle}
+          finalFocus={moreRef}
+          title={format(t.deleteConfirm.title, { name: bill.name })}
+          description={t.deleteConfirm.description}
+          cancelLabel={t.deleteConfirm.cancel}
+          confirmLabel={t.deleteConfirm.confirm}
+          pendingLabel={t.deleteConfirm.confirming}
+          onConfirm={async () => {
+            // ConfirmDialog runs this in its own transition (pending
+            // label, stays open and toasts on error).
+            const result = await onDelete(bill.id);
+            if (!result.error) toast.success(format(t.deletedToast, { name: bill.name }));
+            return result;
+          }}
+        />
+      )}
     </li>
   );
 }

@@ -150,6 +150,11 @@ export type BudgetDict = {
     repeatingTitle: string;
     onceTitle: string;
     empty: string;
+    /** In place of `empty` while there's no category at all (Add is off). */
+    needsCategory: string;
+    /** Under the Add menu's disabled one-off bill / one-off income item. */
+    needsExpenseCategory: string;
+    needsIncomeCategory: string;
   };
   recurring: {
     // Household-only: RecurringTemplatesPanel attributes "Mark accounted
