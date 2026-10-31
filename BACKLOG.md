@@ -99,6 +99,18 @@ Parallel-safe except where noted.
 
 ### Bugs
 
+- [ ] **BUG-1. Ticking a shopping-list line can fail with an expired 5 s transaction** (impact: med, effort: S) —
+      Sentry JAVASCRIPT-NEXTJS-4 (2 events, 2026-10-26, iOS Safari, `POST /dashboard/shopping-list/[id]`,
+      vercel-production): `Transaction API error: A query cannot be executed on an expired transaction. The timeout was 5000 ms, however 5121 ms passed`,
+      thrown by the first `tx.shoppingListItem.update()` of the tick transaction at `purchase-actions.ts:56-58`
+      (JAVASCRIPT-NEXTJS-5 is a second PrismaClientKnownRequestError, 1 event, same day; check whether it is the same cause).
+      The 5 s default also covers waiting for a pooled connection, so a cold start or a busy pool kills the tick before it does any work,
+      and the shopper sees a failed check-off in the shop. Fix: pass `{ maxWait, timeout }` to the tick `$transaction`
+      (and the sibling ones at `purchase-actions.ts:271`, `receipt-actions.ts:134`), keep the post-commit work
+      (price-spike check) outside it, and make the failure surface as the normal retry toast rather than an unhandled error.
+      Acceptance: unit test that the tick transaction is called with an explicit `timeout` above 5000 and that a
+      transaction-expired error returns an error state instead of throwing.
+
 
 ### Security hardening (2026-09-26 audit)
 
@@ -211,6 +223,16 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
+
+- [ ] **MAINT-66. Flaky: `inventory-lazy-dialogs` "a failed chunk load says so, and the next tap retries" (mobile) misses the Add dialog** (low, S) —
+      `e2e/inventory-lazy-dialogs.spec.ts:52`. Failed once at line 80 on the
+      release train's `ci:local` run of `bcfddc1` (`getByRole('dialog', { name:
+      'Add inventory item' })` not visible within 5 s after the offline chunk
+      block was un-routed and Add tapped again), then passed 11 of 11 on a re-run
+      of the same commit (`--repeat-each=3`). Likely the retry tap lands before
+      hydration or before the failed import is cleared. Fix in the app or in what
+      the test waits for (e.g. `expectHydrated`), never a skip, retry or looser
+      assertion.
 
 ### UX (2026-09-26 scout)
 
@@ -383,6 +405,15 @@ sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
 (its "Collapse sheet 64x16" is the sheet grabber, whose `after:`
 pseudo-element gives the 44 px target). WebKit was not run, and the
 per-action deep dive was not driven this run.
+
+### UX (2026-10-31 scout)
+
+Saturday area: overview, navigation shell, profile, notifications, what's
+new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
+`light`, `text-200` and both dialog sweeps; all 268 + 132 tests pass and the
+popup probe has no phone-size hits. The `text-200` "clipped" hits on the
+bottom bar's labels are the deliberate ellipsis of UX-150, not a finding.
+WebKit was not run, and the per-action deep dive was not driven this run.
 
 ### Dependencies
 
@@ -727,30 +758,20 @@ out to be a product-scope question rather than a scoped task should move to
       "used 1" with the actor's name under History after a reload, in
       `en` and `sv`.
 
-### 2026-10-30 scan
+### 2026-10-31 scan
 
-- [ ] **GAP-67. Share a recipe link or a list of items to Squirrel from another app** (impact: med, effort: M) —
-      AnyList and Paprika appear in the phone's share sheet: from a browser
-      or a chat you tap Share, pick the app, and the recipe URL (or the
-      pasted ingredients) lands in it. Squirrel's `src/app/manifest.ts` has
-      no `share_target`, so an installed Squirrel never shows up there; to
-      import a recipe you copy the link, open the app, open the recipe
-      dialog and paste it (`recipe-form-dialog.tsx`, "Import from a URL"),
-      and to add a list someone texted you must copy it first and open
-      "Paste a list". Add `share_target` (GET, `action:
-      "/dashboard/share"`, params `title`, `text`, `url`) and a route
-      handler at that path that reads the session (a logged-out sharer goes
-      through login and back) and redirects: a `url` opens the recipe
-      dialog with the import field pre-filled, plain `text` opens the
-      shopping list's "Paste a list" with the text pre-filled. It only
-      pre-fills: nothing is imported or added until the user confirms, as
-      today. Android Chrome and Edge only (iOS Safari has no Web Share
-      Target); say so in REQUIREMENTS.md. No new data, no new storage.
-      Acceptance: a unit test that the handler maps `url` to the recipe
-      redirect and `text` to the list redirect and ignores anything else
-      (no open redirect); an e2e step in the `mobile` project that visits
-      `/dashboard/share?url=…` and sees the import field filled in, in `en`
-      and `sv`. The OS share sheet itself needs a real Android device.
+- [ ] **GAP-68. Store loyalty-card numbers on a shopping store** `[!]` —
+      Bring! lets members save loyalty cards in the app and show the
+      barcode at the till, one of its most-used extras, and Squirrel
+      already knows each household's stores (price history, trip
+      receipts). A card number is new personal data stored per member
+      (and a barcode render), so it needs the owner's call on whether
+      it is in scope, who can see a card (own only vs household), and
+      the privacy page wording. Recommended: keep not doing it; a
+      wallet app does this better and the data is sensitive.
+      Acceptance (if approved): a per-user card on a store, shown as a
+      Code 128/EAN barcode at full brightness on `mobile`, never
+      visible to other members and never in logs.
 
 ## Needs a decision before building
 

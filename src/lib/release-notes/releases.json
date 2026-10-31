@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.125.0",
+    "date": "2026-10-31",
+    "pr": 955,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now bring your recipes from another app. On the Recipes tab, choose \"Import from a file\" and pick a Paprika export or a recipe JSON file. You see the recipes found, untick any you don't want, and nothing is saved until you confirm.",
+      "sv": "Du kan nu flytta över dina recept från en annan app. Välj \"Importera från en fil\" under fliken Recept och välj en Paprika-export eller en JSON-fil med recept. Du ser vilka recept som hittades, kan välja bort några, och inget sparas förrän du bekräftar."
+    }
+  },
+  {
+    "version": "0.124.0",
+    "date": "2026-10-31",
+    "pr": 943,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Android users can now share a recipe link or a list of items to Squirrel from another app. Pick Squirrel in the share sheet and the recipe import or \"Import list\" opens with it filled in, ready for you to confirm.",
+      "sv": "På Android kan du nu dela en receptlänk eller en lista med varor till Squirrel från en annan app. Välj Squirrel i delningsmenyn så öppnas receptimporten eller \"Importera lista\" med innehållet ifyllt, redo för dig att bekräfta."
+    }
+  },
+  {
     "version": "0.123.0",
     "date": "2026-10-30",
     "pr": 936,

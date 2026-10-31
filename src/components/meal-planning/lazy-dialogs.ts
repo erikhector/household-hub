@@ -30,6 +30,9 @@ export const loadAddToPlanDialog = createLazyDialogLoader(() =>
 export const loadRecipeFormDialog = createLazyDialogLoader(() =>
   import("@/components/meal-planning/recipe-form-dialog").then((m) => m.RecipeFormDialog),
 );
+export const loadRecipeFileImportDialog = createLazyDialogLoader(() =>
+  import("@/components/meal-planning/recipe-file-import-dialog").then((m) => m.RecipeFileImportDialog),
+);
 export const loadRecordPrepDialog = createLazyDialogLoader(() =>
   import("@/components/meal-planning/record-prep-dialog").then((m) => m.RecordPrepDialog),
 );

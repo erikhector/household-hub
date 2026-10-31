@@ -5391,6 +5391,63 @@ imported recipe" requirement.
   `e2e/recipe-photo-import.spec.ts` (the action is mocked; Playwright's
   webServer sets a placeholder `GEMINI_API_KEY` so the button shows).
 
+### Import recipes from a file (GAP-67)
+
+Switching from another recipe app used to mean re-entering every recipe.
+The Recipes tab has an "Import from a file" button (outline, beside "New
+recipe"; under the empty-state text when there are no recipes yet) that
+opens `RecipeFileImportDialog`
+(`src/components/meal-planning/recipe-file-import-dialog.tsx`, lazy-loaded).
+
+- **Formats**: a Paprika export (`.paprikarecipes`: a zip with one gzipped
+  JSON entry per recipe; plain-JSON entries are accepted too) and plain
+  schema.org Recipe JSON-LD / `.json` (one object, an array, or a
+  `@graph`). The kind is detected from the first bytes, not the file name.
+  Not supported: photos inside the archive (ignored), Plan to Eat, Mealime,
+  Mela and Crouton files.
+- **Parser**: `parseRecipeFile` in `src/lib/recipe-import/parse-file.ts`
+  (pure; re-exported from `recipe-import.ts`). It reads the zip's central
+  directory with `node:zlib` (no new dependency; no zip64 or encryption),
+  maps Paprika's `ingredients` lines through `parseIngredientLine`, JSON-LD
+  through `mapJsonLdToRecipe` / `flattenInstructions`, and takes servings
+  from the first number in Paprika's `servings` or the JSON-LD
+  `recipeYield` (default 4). Paprika's `notes` are appended to the method.
+  Every field is clamped to the bounds a hand-typed recipe has (name 120,
+  method 4000, 100 ingredients, servings 1-1000). An entry that is corrupt,
+  unreadable or has no name is skipped and counted (`skipped`), never
+  failing the file.
+- **Caps**: 5 MB per file (`RECIPE_FILE_MAX_BYTES`, checked on the upload's
+  size before it is read, under the 6 MB Server Action body limit) and 200
+  recipes (`RECIPE_FILE_MAX_RECIPES`, checked on the entry count before
+  anything is inflated). Each entry may inflate to 8 MB and all together to
+  64 MB, so a zip bomb stops early (the entry is skipped, or the file
+  refused as too large). Errors are `empty`, `tooLarge`, `tooMany`,
+  `unsupported`, `noRecipes`, each with its own message in both languages.
+- **Two steps, nothing saved before review**
+  (`src/app/dashboard/meal-planning/recipe-file-actions.ts`, both under
+  `requireHousehold()`, rate limit 30/hour per household under
+  `recipe-file-import:<householdId>`): `previewRecipeFileAction` returns
+  the list ("38 recipes found", ingredient counts, and an "Already in your
+  recipes" badge when the normalized name matches an existing recipe, which
+  starts unticked) plus the skipped count. `importRecipesFromFileAction`
+  receives the file again with the ticked indexes, re-parses it and saves
+  them in one batched transaction; the client never sends recipe content
+  back. Out-of-range, non-numeric and repeated indexes are ignored; none
+  selected is an error.
+- **Ingredients**: saved with their quantity, unit, prep note and original
+  line. A row links to a pantry item only when exactly one item has its
+  normalized name; no inventory item is created by an import (the rest is
+  matched by name when cooking or shopping, as for any unlinked row).
+- No schema change, no new browser storage.
+- **Tests**: `recipe-import/parse-file.test.ts` (gzipped and deflated
+  entries, ingredient lines, steps, a corrupt entry skipped with a count,
+  JSON-LD forms, size and count caps, an inflate bomb, clamping);
+  `recipe-file-actions.test.ts` (tenancy, rate limit, review flags, only
+  ticked saved, pantry linking, index validation);
+  `e2e/recipe-file-import.spec.ts` uploads a three-recipe archive, imports
+  two and finds them after a reload, in `en` and `sv`, on desktop and
+  mobile.
+
 ### Meal-plan → shopping-list bridge
 
 A planned week's primary action (UX-91) is "Add N missing to shopping list",
@@ -7957,6 +8014,29 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   Nothing new is stored in the browser, so `cookie-inventory.ts` is
   unchanged.
 
+- **Share to Squirrel** (GAP-67): the manifest declares a `share_target`
+  (GET, `action: "/dashboard/share"`, params `title`, `text`, `url`), so an
+  installed Squirrel appears in the phone's share sheet. **Android Chrome and
+  Edge only**: iOS Safari has no Web Share Target. The route handler
+  (`src/app/dashboard/share/route.ts`) sends a logged-out sharer through
+  `/login?next=…` and back, then redirects via `resolveShareTarget`
+  (`src/lib/share-target.ts`): an http(s) `url` (or a `text` that is just one
+  link, which is where Android often puts it) opens Meal planning's Recipes
+  tab with "New recipe" open and the "Import from a URL" field filled in;
+  any other `text` goes to the active shopping list (the default one first,
+  as with `?add=1`) with "Import list" open and the text in the paste box.
+  The `title` is ignored, a non-http(s) `url` is treated as absent, input is
+  capped at 4 000 characters, and the target is always one of those two fixed
+  paths with the shared value as an encoded query param, so it can't be an
+  open redirect; a share with nothing usable lands on `/dashboard`. It only
+  pre-fills: nothing is fetched, parsed or added until the user confirms, and
+  the `importUrl` / `pasteText` param is stripped once the dialog opens. With
+  no active shopping list the text is dropped and the overview shows. No new
+  data or storage (`cookie-inventory.ts` unchanged). Covered by unit tests
+  (`share-target.test.ts`, `share/route.test.ts`, `manifest.test.ts`) and
+  `e2e/share-target.spec.ts` (en/sv, desktop and mobile); the OS share sheet
+  itself needs a real Android device.
+
 - **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
   following the guide's "InstallPrompt" example): a three-state card —
   already installed (`display-mode: standalone` matched) shows a static
@@ -8551,6 +8631,10 @@ approximating them, so the email never disagrees with the app.
   two long names show `nav.shoppingListShort` / `nav.mealPlanningShort`
   ("Shopping", "Meals"; "Inköp", "Mat") in the bar, with the full name as
   the link's `aria-label`, so nothing is clipped at 320 px (UX-151).
+  The "Get set up" step cards (UX-152) are size containers that stack (icon
+  tile above the text, chevron hidden) below 15 rem wide; the threshold is in
+  rem, so it only trips at large text, where a title takes at most two lines
+  and a card stays under half the screen (`e2e/overview.spec.ts`).
   `BottomNav` publishes its measured height as `--bottom-nav-h` (default in
   `globals.css`: 3.75rem + the capped safe-area inset), and everything docked
   above the bar (floating primary action, bulk bars, shopping mode, the cookie

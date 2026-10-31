@@ -9,6 +9,7 @@ import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-di
 import { ListTemplatesSection } from "@/components/shopping/list-templates";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
+import { SHARE_TEXT_PARAM } from "@/lib/share-target";
 import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 
 // Same reasoning as inventory/page.tsx's maxDuration: RegisterReceiptDialog
@@ -91,13 +92,24 @@ export default async function ShoppingListPage(props: PageProps<"/dashboard/shop
   // filling (the default "Next shop" leads the active lists, as in the
   // overview below), where SmartAddBar takes focus. With no active list it
   // falls through to the overview, whose "New list" is the next step.
-  if (searchParams[ADD_PARAM] === "1") {
+  //
+  // GAP-67: text shared to Squirrel from another app (src/app/dashboard/share)
+  // goes to the same list, whose "Paste a list" opens with it filled in.
+  const sharedText = searchParams[SHARE_TEXT_PARAM];
+  const shared = typeof sharedText === "string" && sharedText ? sharedText : null;
+  if (searchParams[ADD_PARAM] === "1" || shared) {
     const target = await prisma.shoppingList.findFirst({
       where: { householdId: household.id, status: "ACTIVE" },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
       select: { id: true },
     });
-    if (target) redirect(`/dashboard/shopping-list/${target.id}?${ADD_PARAM}=1`);
+    if (target) {
+      redirect(
+        shared
+          ? `/dashboard/shopping-list/${target.id}?${SHARE_TEXT_PARAM}=${encodeURIComponent(shared)}`
+          : `/dashboard/shopping-list/${target.id}?${ADD_PARAM}=1`,
+      );
+    }
   }
 
   // UX-85: what the New list sheet can start from: saved templates, and the
