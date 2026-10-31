@@ -600,8 +600,8 @@ export const en = {
       startList: "Start a list",
       startListHint: "Low-stock items hop onto it by themselves.",
       out: {
-        one: "{count} out",
-        other: "{count} out",
+        one: "{count} out of stock",
+        other: "{count} out of stock",
       },
       low: {
         one: "{count} running low",

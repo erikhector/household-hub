@@ -18,8 +18,9 @@
 // a Client Component.
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ChevronRight, CircleCheck, ShoppingCart, TriangleAlert } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddLowStockButton } from "@/components/dashboard/home-add-buttons";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -39,6 +40,7 @@ export function ShoppingPantryCard({
   dict,
   shoppingDict,
   saveFailedToast,
+  addToList,
 }: {
   /** The active lists (only their ids and names are read). */
   lists: { id: string; name: string }[];
@@ -57,6 +59,9 @@ export function ShoppingPantryCard({
   dict: Dictionary["dashboard"]["pantry"];
   shoppingDict: Pick<Dictionary["shoppingList"], "addLowStockAddedToast" | "addLowStockNoneToast">;
   saveFailedToast: string;
+  /** Home's one-tap "Add to list" (HomeAddToList), shown in the header beside
+   * the list it fills; absent with no active list. */
+  addToList?: ReactNode;
 }) {
   const onlyList = lists.length === 1 ? lists[0] : null;
   const needsRestock = pantry.outCount + pantry.lowCount;
@@ -81,6 +86,7 @@ export function ShoppingPantryCard({
         <CardTitle>
           <h2 className="font-heading text-base font-semibold text-foreground">{dict.title}</h2>
         </CardTitle>
+        {addToList && <CardAction className="self-center">{addToList}</CardAction>}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {lists.length === 0 ? (
@@ -128,7 +134,10 @@ export function ShoppingPantryCard({
             // colour alone): destructive once anything is out, else warning.
             <div
               className={cn(
-                "flex items-center gap-3 rounded-lg py-1.5 pr-1.5 pl-3",
+                // flex-wrap + the label's min width: with a long (Swedish)
+                // summary the "Add N" button drops to its own line instead of
+                // squeezing the label into a column that strands one word.
+                "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg py-1.5 pr-1.5 pl-3",
                 pantry.outCount > 0 ? "bg-destructive/10 dark:bg-destructive/20" : "bg-warning/10 dark:bg-warning/20",
               )}
             >
@@ -138,7 +147,7 @@ export function ShoppingPantryCard({
               />
               <Link
                 href={lowHref}
-                className="flex min-h-9 min-w-0 flex-1 flex-col justify-center rounded-md hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none max-sm:min-h-11 pointer-coarse:min-h-11"
+                className="flex min-h-9 min-w-44 flex-1 flex-col justify-center rounded-md text-pretty hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none max-sm:min-h-11 pointer-coarse:min-h-11"
               >
                 <span className="text-sm font-medium text-foreground">{problem}</span>
                 {pantry.onListCount > 0 && (

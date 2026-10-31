@@ -96,13 +96,21 @@ export function SafeToSpendTiles({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
+        {/* Two columns only when there are two tiles: a lone "You" tile
+            used to leave half the card empty. */}
+        <div className={cn("grid gap-3", household && "grid-cols-2")}>
           {personal ? (
             <Tile href="/dashboard/personal-budget" label={dict.you} tile={personal} dict={dict} />
           ) : (
-            <Link href="/dashboard/personal-budget" className={TILE} aria-label={dict.setUpAriaLabel}>
+            // Nothing to show yet, so one row like the shopping row above
+            // rather than a tall tile with "Set up" stranded at its foot.
+            <Link
+              href="/dashboard/personal-budget"
+              className="flex min-h-16 min-w-0 items-center justify-between gap-3 rounded-lg bg-muted/60 p-3 hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              aria-label={dict.setUpAriaLabel}
+            >
               <span className="text-sm text-muted-foreground">{dict.you}</span>
-              <span className="mt-auto flex items-center gap-1 text-sm font-medium text-primary">
+              <span className="flex items-center gap-1 text-sm font-medium text-primary">
                 {dict.setUp}
                 <ChevronRight className="size-4 shrink-0" aria-hidden />
               </span>

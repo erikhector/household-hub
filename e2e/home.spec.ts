@@ -4,8 +4,8 @@ import { Client } from "pg";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
 // The Home redesign (UX-HOME-1..4): the overview renamed Home, with three
-// cards (Today, Shopping & pantry, Safe to spend) and one primary action,
-// "Add to list". What each card shows depends on the household's data, and
+// cards (Today, Shopping & pantry, Safe to spend) and no primary action:
+// "Add to list" is a quiet button on the Shopping & pantry card. What each card shows depends on the household's data, and
 // other specs fill the seeded household as they run, so every test here
 // gets its own account and household (straight to Postgres, logged in
 // through the real form, like overview.spec.ts).
@@ -79,8 +79,16 @@ test("the tab is called Home, with today's date under the greeting", async ({ pa
     const weekday = (offset: number) =>
       new Date(Date.now() + offset).toLocaleDateString("en", { weekday: "long" });
     await expect(main.getByText(new RegExp(`^(${weekday(-DAY_MS)}|${weekday(0)}|${weekday(DAY_MS)}),`))).toBeVisible();
-    // Exactly one primary action.
-    await expect(main.locator('[data-primary-action] :is(button,a)')).toHaveCount(1);
+    // No primary action: Home is a summary, so nothing floats in the thumb
+    // zone and no button or link in it takes the solid primary fill.
+    await expect(main.locator("[data-primary-action]")).toHaveCount(0);
+    const primaryCount = await main
+      .locator("button, a")
+      .evaluateAll((els) => els.filter((el) => /(^|\s)bg-primary(\s|$)/.test(el.className)).length);
+    expect(primaryCount).toBe(0);
+    // With no active list there's nothing to add to: the card's "Start a
+    // list" row is the next step, so "Add to list" isn't shown.
+    await expect(main.getByRole("button", { name: "Add to list" })).toHaveCount(0);
   } finally {
     await cleanUp(client, ids);
   }
@@ -129,7 +137,7 @@ test("Shopping & pantry: the list row, the out/low warning with Add N, and Use s
     await page.reload();
 
     // The problem in words, never a bare 0.
-    await expect(pantry.getByText("1 out, 1 running low")).toBeVisible();
+    await expect(pantry.getByText("1 out of stock, 1 running low")).toBeVisible();
     await expect(pantry.getByText("1 is already on the list")).toBeVisible();
     await expect(pantry.getByText("Milk", { exact: true })).toBeVisible();
     const milk = pantry.getByRole("link", { name: /Milk\s*· tomorrow/ });
@@ -157,7 +165,7 @@ test("Shopping & pantry: the list row, the out/low warning with Add N, and Use s
     await expect(pantry.getByRole("button", { name: /low-stock item/ })).toHaveCount(0);
 
     // The warning leads to the filtered inventory (UX-71).
-    await pantry.getByRole("link", { name: /1 out, 1 running low/ }).click();
+    await pantry.getByRole("link", { name: /1 out of stock, 1 running low/ }).click();
     await expect(page).toHaveURL(/\/dashboard\/inventory\?status=low/);
 
     // One active list: the row opens it, not the index.
@@ -173,7 +181,7 @@ test("Shopping & pantry: the list row, the out/low warning with Add N, and Use s
       ids.household,
     ]);
     await page.goto("/dashboard");
-    const out = pantry.getByRole("link", { name: /^1 out/ });
+    const out = pantry.getByRole("link", { name: /^1 out of stock/ });
     await expect(out).toHaveAttribute("href", "/dashboard/inventory?status=out");
     await expect(pantry.getByText(/running low/)).toHaveCount(0);
     await pantry.getByRole("link", { name: /^2\s*2 active lists\s*items to buy/ }).click();
@@ -254,8 +262,11 @@ test("Today: dinner leads with cook mode and missing ingredients, leftovers, and
     await expect.poll(listRows).toEqual(["Coriander", "Lime"]);
     await expect(today_.getByText("Missing Coriander and Lime")).toHaveCount(0);
 
-    // The one primary action opens the list's quick-add dialog in place.
-    const addToList = page.getByRole("main").getByRole("button", { name: "Add to list" });
+    // "Add to list", on the Shopping & pantry card beside the list it fills,
+    // opens the list's quick-add dialog in place.
+    const addToList = card(page, "Shopping & pantry").getByRole("button", { name: "Add to list" });
+    await expect(addToList).not.toHaveClass(/(^|\s)bg-primary(\s|$)/);
+    await expect(page.getByRole("main").locator("[data-primary-action]")).toHaveCount(0);
     await expectHydrated(addToList);
     await addToList.click();
     const dialog = page.getByRole("dialog", { name: "Add an item" });

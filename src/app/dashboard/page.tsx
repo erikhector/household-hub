@@ -381,36 +381,14 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         {showWelcome && (
           <WelcomeToast message={format(dict.dashboard.welcome, { name: firstName(user.displayName) })} />
         )}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <PageTitle>
-              <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
-            </PageTitle>
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
-          </div>
-          <HomeAddToList
-            label={dict.dashboard.addToList}
-            listId={target?.id ?? null}
-            inventoryItems={items.map(({ id, name, category, unit }) => ({ id, name, category, unit }))}
-            units={withCommonUnits([...new Set(items.map((item) => item.unit))].sort())}
-            dict={{
-              add: sl.add,
-              addItem: sl.addItem,
-              addItemDialogTitle: sl.addItemDialogTitle,
-              addItemNamePlaceholder: sl.addItemNamePlaceholder,
-              addItemQuantityAriaLabel: sl.addItemQuantityAriaLabel,
-              addItemUnitPlaceholder: sl.addItemUnitPlaceholder,
-              adding: sl.adding,
-              autoLinkedName: sl.autoLinkedName,
-              needsMappingToast: sl.needsMappingToast,
-              editItem: sl.editItem,
-              comboboxNoMatches: sl.comboboxNoMatches,
-              comboboxAddNew: sl.comboboxAddNew,
-              comboboxClear: sl.comboboxClear,
-              comboboxShowSuggestions: sl.comboboxShowSuggestions,
-            }}
-            barcodeDict={dict.barcodeScanner}
-          />
+        {/* No primary action: Home is a summary that hands off to the
+            feature pages. text-balance (inherited by the H1) keeps a long
+            greeting from leaving the name alone on the second line. */}
+        <div className="min-w-0 text-balance">
+          <PageTitle>
+            <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
+          </PageTitle>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
 
         {setupFirst && setup}
@@ -457,6 +435,33 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
                 addLowStockNoneToast: sl.addLowStockNoneToast,
               }}
               saveFailedToast={dict.errors.generic}
+              addToList={
+                target && (
+                  <HomeAddToList
+                    label={dict.dashboard.addToList}
+                    listId={target.id}
+                    inventoryItems={items.map(({ id, name, category, unit }) => ({ id, name, category, unit }))}
+                    units={withCommonUnits([...new Set(items.map((item) => item.unit))].sort())}
+                    dict={{
+                      add: sl.add,
+                      addItem: sl.addItem,
+                      addItemDialogTitle: sl.addItemDialogTitle,
+                      addItemNamePlaceholder: sl.addItemNamePlaceholder,
+                      addItemQuantityAriaLabel: sl.addItemQuantityAriaLabel,
+                      addItemUnitPlaceholder: sl.addItemUnitPlaceholder,
+                      adding: sl.adding,
+                      autoLinkedName: sl.autoLinkedName,
+                      needsMappingToast: sl.needsMappingToast,
+                      editItem: sl.editItem,
+                      comboboxNoMatches: sl.comboboxNoMatches,
+                      comboboxAddNew: sl.comboboxAddNew,
+                      comboboxClear: sl.comboboxClear,
+                      comboboxShowSuggestions: sl.comboboxShowSuggestions,
+                    }}
+                    barcodeDict={dict.barcodeScanner}
+                  />
+                )
+              }
             />
             {/* Always shown: either the "You" tile has a number, or its "Set
                 up" is the personal budget's one call to action on Home
