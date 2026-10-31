@@ -7924,6 +7924,29 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   Nothing new is stored in the browser, so `cookie-inventory.ts` is
   unchanged.
 
+- **Share to Squirrel** (GAP-67): the manifest declares a `share_target`
+  (GET, `action: "/dashboard/share"`, params `title`, `text`, `url`), so an
+  installed Squirrel appears in the phone's share sheet. **Android Chrome and
+  Edge only**: iOS Safari has no Web Share Target. The route handler
+  (`src/app/dashboard/share/route.ts`) sends a logged-out sharer through
+  `/login?next=…` and back, then redirects via `resolveShareTarget`
+  (`src/lib/share-target.ts`): an http(s) `url` (or a `text` that is just one
+  link, which is where Android often puts it) opens Meal planning's Recipes
+  tab with "New recipe" open and the "Import from a URL" field filled in;
+  any other `text` goes to the active shopping list (the default one first,
+  as with `?add=1`) with "Import list" open and the text in the paste box.
+  The `title` is ignored, a non-http(s) `url` is treated as absent, input is
+  capped at 4 000 characters, and the target is always one of those two fixed
+  paths with the shared value as an encoded query param, so it can't be an
+  open redirect; a share with nothing usable lands on `/dashboard`. It only
+  pre-fills: nothing is fetched, parsed or added until the user confirms, and
+  the `importUrl` / `pasteText` param is stripped once the dialog opens. With
+  no active shopping list the text is dropped and the overview shows. No new
+  data or storage (`cookie-inventory.ts` unchanged). Covered by unit tests
+  (`share-target.test.ts`, `share/route.test.ts`, `manifest.test.ts`) and
+  `e2e/share-target.spec.ts` (en/sv, desktop and mobile); the OS share sheet
+  itself needs a real Android device.
+
 - **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
   following the guide's "InstallPrompt" example): a three-state card —
   already installed (`display-mode: standalone` matched) shows a static

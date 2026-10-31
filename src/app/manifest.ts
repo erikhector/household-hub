@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SHARE_PATH } from "@/lib/share-target";
 
 // GAP-68: long-press-the-icon jump-offs (Android Chrome/Edge; iOS ignores
 // them). A manifest is a static, cookie-less route, so these names are
@@ -19,6 +20,14 @@ export default function manifest(): MetadataRoute.Manifest {
   // the app's original look) instead of the old fixed brand purple, so the
   // installed app's task-switcher/splash chrome matches the page behind it.
   theme_color: "#0a0414",
+    // GAP-67: Android Chrome/Edge list the installed app in the share sheet;
+    // iOS Safari has no Web Share Target. The route only redirects to a
+    // dialog with the shared link/text pre-filled (src/lib/share-target.ts).
+    share_target: {
+      action: SHARE_PATH,
+      method: "GET",
+      params: { title: "title", text: "text", url: "url" },
+    },
     shortcuts: [
       {
         name: "Shopping list",
