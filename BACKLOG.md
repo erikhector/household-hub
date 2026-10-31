@@ -384,6 +384,28 @@ sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
 pseudo-element gives the 44 px target). WebKit was not run, and the
 per-action deep dive was not driven this run.
 
+### UX (2026-10-31 scout)
+
+Saturday area: overview, navigation shell, profile, notifications, what's
+new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
+`light`, `text-200` and both dialog sweeps; all 268 + 132 tests pass and the
+popup probe has no phone-size hits. The `text-200` "clipped" hits on the
+bottom bar's labels are the deliberate ellipsis of UX-150, not a finding.
+WebKit was not run, and the per-action deep dive was not driven this run.
+
+- [ ] **UX-152. "Get set up" step cards leave the text a sliver at 200% text**
+      (impact: med, effort: S) — `text-200-dashboard.png` (Pixel 7, 200% text,
+      `/dashboard`): each step card in `src/components/dashboard/getting-started.tsx`
+      (~line 113) puts a 32 px icon tile, a chevron and `p-3` padding beside
+      the text, so the title wraps at one to two words per line ("Plan this /
+      week's / meals") and the hint runs 8+ lines, making the first-run
+      checklist taller than the screen. Breaks DESIGN.md's content-first
+      hierarchy and the UX-9 200%-text promise.
+      Acceptance: in the `mobile` project with 200% text, a step card's title
+      is at most two lines and the card is under half the viewport height
+      (e.g. stack the icon above the text, or hide the chevron, below a
+      width/text-size threshold); at default size the layout is unchanged.
+
 ### Dependencies
 
 ---
@@ -749,6 +771,21 @@ out to be a product-scope question rather than a scoped task should move to
       e2e step on `mobile` decrements a uniquely named item and sees
       "used 1" with the actor's name under History after a reload, in
       `en` and `sv`.
+
+### 2026-10-31 scan
+
+- [ ] **GAP-68. Store loyalty-card numbers on a shopping store** `[!]` —
+      Bring! lets members save loyalty cards in the app and show the
+      barcode at the till, one of its most-used extras, and Squirrel
+      already knows each household's stores (price history, trip
+      receipts). A card number is new personal data stored per member
+      (and a barcode render), so it needs the owner's call on whether
+      it is in scope, who can see a card (own only vs household), and
+      the privacy page wording. Recommended: keep not doing it; a
+      wallet app does this better and the data is sensitive.
+      Acceptance (if approved): a per-user card on a store, shown as a
+      Code 128/EAN barcode at full brightness on `mobile`, never
+      visible to other members and never in logs.
 
 ## Needs a decision before building
 
