@@ -102,8 +102,10 @@ test("Shopping & pantry: the list row, the out/low warning with Add N, and Use s
     // that's empty (a bare "0" or "All stocked up" would mean nothing).
     await expect(pantry.getByRole("link", { name: /Start a list/ })).toBeVisible();
     await expect(pantry.getByText("All stocked up")).toHaveCount(0);
-    // No budget and no balance: no Safe to spend card.
-    await expect(card(page, "Safe to spend")).toHaveCount(0);
+    // No budget yet: Safe to spend is just the way to set one up.
+    const money = card(page, "Safe to spend");
+    await expect(money.getByRole("link", { name: "Set up your personal budget" })).toBeVisible();
+    await expect(money.getByRole("link", { name: /^Household/ })).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
 
     // One low item (already on the list), one out, one expiring tomorrow,
@@ -162,6 +164,20 @@ test("Shopping & pantry: the list row, the out/low warning with Add N, and Use s
     await page.goto("/dashboard");
     await pantry.getByRole("link", { name: /^2\s*Weekly\s*items to buy/ }).click();
     await expect(page).toHaveURL(new RegExp(`/dashboard/shopping-list/${listId}$`));
+
+    // Only out-of-stock left: the warning goes to the "out" filter instead.
+    await client.query(`UPDATE "InventoryItem" SET quantity = 5 WHERE id = $1`, [`e2e-hp-flour-${tag}`]);
+    // Several active lists: the row counts them and opens the lists page.
+    await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, 'Party')`, [
+      `e2e-hp-list2-${tag}`,
+      ids.household,
+    ]);
+    await page.goto("/dashboard");
+    const out = pantry.getByRole("link", { name: /^1 out/ });
+    await expect(out).toHaveAttribute("href", "/dashboard/inventory?status=out");
+    await expect(pantry.getByText(/running low/)).toHaveCount(0);
+    await pantry.getByRole("link", { name: /^2\s*2 active lists\s*items to buy/ }).click();
+    await expect(page).toHaveURL(/\/dashboard\/shopping-list$/);
   } finally {
     await cleanUp(client, ids);
   }

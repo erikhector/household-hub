@@ -20,6 +20,7 @@ import { daysOverdue, getTaskDueDay, sortByUrgency, todayDayNumber } from "@/app
 import { loadHouseholdSafeToSpend } from "@/lib/household-safe-to-spend";
 import { createMoneyFormat } from "@/lib/currency";
 import { withCommonUnits } from "@/lib/units";
+import { loadIncomingByItem } from "@/lib/incoming-stock";
 import { parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
 import { COOK_PARAM } from "@/app/dashboard/meal-planning/meal-types";
@@ -81,6 +82,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     plannedMealCount,
     prepBatches,
     sampleState,
+    incomingByItem,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
     // UX-70: the tasks that need *you*: yours and the unassigned ones
@@ -183,6 +185,9 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
     prisma.mealPlanEntry.count({ where: { mealPlan: { householdId: household.id } } }),
     getActiveBatches(household.id),
     loadSampleDataState(household.id),
+    // Stock ticked off but not put away yet: "Add N" counts it as covered,
+    // as the action behind it does.
+    loadIncomingByItem(prisma, household.id, now),
   ]);
   const budgetCategoryCount = householdBudget.count;
 
@@ -302,7 +307,11 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
   // --- Shopping & pantry ---------------------------------------------------
   const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list.items.length, 0);
   const onListItemIds = new Set(activeLists.flatMap((list) => list.items.map((row) => row.inventoryItemId)));
-  const pantry = summarizePantry(items, onListItemIds);
+  const pantry = summarizePantry(items, {
+    onAnyListIds: onListItemIds,
+    targetPendingIds: new Set((target?.items ?? []).map((row) => row.inventoryItemId)),
+    incomingByItem,
+  });
   // UX-71: the warning links to the inventory filtered to what it names.
   const lowHref = pantry.lowCount > 0 ? "/dashboard/inventory?status=low" : "/dashboard/inventory?status=out";
   const useSoon = pickUseSoon(items, now, timeZone, USE_SOON_LIMIT);
@@ -323,7 +332,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
       }
     : null;
   const debts = personalPosition.householdDebts;
-  const showMoney = personalTile !== null || householdTile !== null || debts.length > 0;
+
 
   const gettingStartedSteps: GettingStartedStep[] = [
     {
@@ -440,7 +449,8 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
               target={targetRef}
               useSoon={useSoon.shown}
               moreUseSoonCount={useSoon.moreCount}
-              laterDayFormat={new Intl.DateTimeFormat(locale, { weekday: "short", timeZone })}
+              // UTC, like pickUseSoon's day: a typed date is a UTC midnight.
+              laterDayFormat={new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" })}
               dict={dict.dashboard.pantry}
               shoppingDict={{
                 addLowStockAddedToast: sl.addLowStockAddedToast,
@@ -448,17 +458,18 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
               }}
               saveFailedToast={dict.errors.generic}
             />
-            {showMoney && (
-              <SafeToSpendTiles
-                personal={personalTile}
-                household={householdTile}
-                debts={debts}
-                showHouseholdName={personalPosition.showHouseholdName}
-                numberFormat={createMoneyFormat(locale, null)}
-                dict={dict.dashboard.money}
-                debtsDict={dict.budget.safeToSpend}
-              />
-            )}
+            {/* Always shown: either the "You" tile has a number, or its "Set
+                up" is the personal budget's one call to action on Home
+                (UX-69), even for a household with no budget at all. */}
+            <SafeToSpendTiles
+              personal={personalTile}
+              household={householdTile}
+              debts={debts}
+              showHouseholdName={personalPosition.showHouseholdName}
+              numberFormat={createMoneyFormat(locale, null)}
+              dict={dict.dashboard.money}
+              debtsDict={dict.budget.safeToSpend}
+            />
           </div>
         </div>
 

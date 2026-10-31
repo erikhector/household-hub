@@ -52,7 +52,7 @@ export function ShoppingPantryCard({
   target: { id: string; name: string } | null;
   useSoon: UseSoonItem[];
   moreUseSoonCount: number;
-  /** Names a date past tomorrow ("Mon"), in the user's time zone. */
+  /** Names a date past tomorrow ("Mon"), read as a UTC date (pickUseSoon). */
   laterDayFormat: Intl.DateTimeFormat;
   dict: Dictionary["dashboard"]["pantry"];
   shoppingDict: Pick<Dictionary["shoppingList"], "addLowStockAddedToast" | "addLowStockNoneToast">;

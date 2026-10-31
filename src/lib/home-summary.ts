@@ -5,6 +5,7 @@
 // without a database.
 
 import { getStockStatus } from "@/lib/stock-status";
+import { lowStockToAdd } from "@/lib/shopping/low-stock-to-add";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { localDayNumber } from "@/app/dashboard/tasks/recurrence";
 
@@ -12,15 +13,28 @@ export type PantrySummary = {
   outCount: number;
   /** Low but not out, the inventory filter's own meaning of "low" (UX-71). */
   lowCount: number;
-  /** Of the out and low ones, how many a pending list row already restocks. */
+  /** Of the out and low ones, how many a pending row on any active list restocks. */
   onListCount: number;
-  /** What the shopping list's "Add low stock" would add: out or low, not on a list yet. */
+  /** What "Add N" adds to the target list: exactly what
+   * generateFromLowStockAction would (lowStockToAdd), so stock bought but
+   * not put away yet, and rows already on that list, don't count. */
   toAddCount: number;
 };
 
 export function summarizePantry(
   items: readonly { id: string; quantity: number; lowStockThreshold: number }[],
-  onListItemIds: ReadonlySet<string | null>,
+  {
+    onAnyListIds,
+    targetPendingIds,
+    incomingByItem,
+  }: {
+    /** Inventory items with a pending row on any active list. */
+    onAnyListIds: ReadonlySet<string | null>;
+    /** Inventory items with a pending row on the list "Add N" fills. */
+    targetPendingIds: ReadonlySet<string | null>;
+    /** Bought-but-not-put-away quantities (loadIncomingByItem). */
+    incomingByItem: ReadonlyMap<string, number>;
+  },
 ): PantrySummary {
   let outCount = 0;
   let lowCount = 0;
@@ -30,9 +44,10 @@ export function summarizePantry(
     if (status === "in") continue;
     if (status === "out") outCount++;
     else lowCount++;
-    if (onListItemIds.has(item.id)) onListCount++;
+    if (onAnyListIds.has(item.id)) onListCount++;
   }
-  return { outCount, lowCount, onListCount, toAddCount: outCount + lowCount - onListCount };
+  const toAddCount = lowStockToAdd(items, incomingByItem, targetPendingIds).length;
+  return { outCount, lowCount, onListCount, toAddCount };
 }
 
 /**
@@ -62,8 +77,15 @@ export type UseSoonItem = { id: string; name: string; expiresAt: Date; day: UseS
 /**
  * The items to eat first, soonest (and anything already past its date)
  * first: in stock and inside the expiry warning window, the same rule as
- * the inventory's "Expiring" filter. `day` names the date in the user's own
- * time zone, so "tomorrow" means their tomorrow, not the server's.
+ * the inventory's "Expiring" filter.
+ *
+ * `day` names the date the way the household typed it. A typed expiry is a
+ * date with no time, stored as UTC midnight, so its day is its UTC date
+ * (as the prep batches' eat-by dates are), compared with today in the
+ * user's own time zone: "tomorrow" means their tomorrow, and a date never
+ * slides to the day before for someone west of UTC. Reading the stored
+ * instant in their zone would call 1 Nov "today" on the evening of 31 Oct
+ * in New York.
  */
 export function pickUseSoon(
   items: readonly { id: string; name: string; quantity: number; expiresAt: Date | null }[],
@@ -78,9 +100,8 @@ export function pickUseSoon(
     )
     .sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
   const shown = soon.slice(0, limit).map((item) => {
-    const offset = localDayNumber(item.expiresAt, timeZone) - today;
-    const day: UseSoonDay =
-      item.expiresAt.getTime() < now.getTime() ? "expired" : offset <= 0 ? "today" : offset === 1 ? "tomorrow" : "later";
+    const offset = localDayNumber(item.expiresAt, "UTC") - today;
+    const day: UseSoonDay = offset < 0 ? "expired" : offset === 0 ? "today" : offset === 1 ? "tomorrow" : "later";
     return { id: item.id, name: item.name, expiresAt: item.expiresAt, day };
   });
   return { shown, moreCount: soon.length - shown.length };

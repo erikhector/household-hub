@@ -504,7 +504,6 @@ export const sv = {
     },
   },
   dashboard: {
-    title: "Hem",
     welcome: "Välkommen till Squirrel, {name}",
     greeting: {
       hello: "Hej, {name}",

@@ -172,7 +172,7 @@ test("the Today block lists tonight and my and unassigned tasks, beside safe to 
   }
 });
 
-test("without a budget or expiring items Home shows tasks, Plan dinner and no Safe to spend", async ({ page }, testInfo) => {
+test("without a budget or expiring items Home shows tasks, Plan dinner and only Set up for safe to spend", async ({ page }, testInfo) => {
   const tag = `${Date.now().toString(36)}-${testInfo.project.name}-quiet`;
   const userId = `e2e-tq-user-${tag}`;
   const householdId = `e2e-tq-household-${tag}`;
@@ -205,7 +205,13 @@ test("without a budget or expiring items Home shows tasks, Plan dinner and no Sa
     await expect(main.getByText("No open tasks. Nice work!")).toBeVisible();
     await expect(main.getByText("Nothing planned yet.")).toBeVisible();
     await expect(main.getByRole("link", { name: "Plan dinner" })).toHaveAttribute("href", "/dashboard/meal-planning");
-    await expect(main.getByRole("heading", { name: "Safe to spend" })).toHaveCount(0);
+    // No budget of either kind: the card is only the personal budget's
+    // "Set up", with no Household tile.
+    const money = main
+      .locator('[data-slot="card"]')
+      .filter({ has: page.getByRole("heading", { name: "Safe to spend" }) });
+    await expect(money.getByRole("link", { name: "Set up your personal budget" })).toBeVisible();
+    await expect(money.getByRole("link", { name: /^Household/ })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Use soon" })).toHaveCount(0);
   } finally {
     await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);

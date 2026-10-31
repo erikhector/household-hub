@@ -7,8 +7,8 @@
 // is.
 //
 // - No personal budget yet: the "You" tile is a "Set up" link instead.
-// - No household budget: no Household tile (and page.tsx hides the card
-//   when there is neither a budget nor a balance to settle).
+// - No household budget: no Household tile. The card itself always shows,
+//   since the "You" tile is either a number or the way to set one up.
 // - A balance with another member, either way: the same lines the budget
 //   pages show (HouseholdDebtsList), under the tiles.
 

@@ -579,13 +579,16 @@ outbound email to arbitrary addresses via this app's sending domain.
   with "N are already on the list" for items with an unpurchased row on an
   active list. "Add N" calls the shopping list's own
   `generateFromLowStockAction` on the list Home adds to (`pickTargetList`:
-  the default "Next shop" when active, else the newest active list), so it
-  skips rows already there and stock awaiting put-away, and toasts what
-  landed. A pantry with nothing low reads "All stocked up"; an empty
+  the default "Next shop" when active, else the newest active list), and N
+  is counted by the same helper the action uses
+  (`src/lib/shopping/low-stock-to-add.ts`): items out or low once stock
+  bought but not put away is counted, minus those already pending on that
+  list. The button is hidden at 0, and toasts what landed. A pantry with nothing low reads "All stocked up"; an empty
   pantry shows neither. "Use soon" names up to five in-stock items past or
   within `EXPIRY_WARNING_DAYS` of their date, soonest first, as chips
-  ("Milk · tomorrow", the day in the user's time zone; "expired" in
-  destructive) linking to the item page, then "N more" to
+  ("Milk · tomorrow"; a typed expiry is stored as UTC midnight, so the
+  chip names its UTC date, compared with today in the user's time zone;
+  "expired" in destructive) linking to the item page, then "N more" to
   `/dashboard/inventory?status=expiring`. The counting is the pure
   `src/lib/home-summary.ts` (`summarizePantry`, `pickTargetList`,
   `pickUseSoon`). Covered by `src/lib/home-summary.test.ts` and
@@ -7386,8 +7389,8 @@ components directly.
   budget; with no household categories the Household tile is left out.
   A balance with another member shows under the tiles as the budget pages'
   `HouseholdDebtsList` (what you owe or are owed, unpaid bills, Settle up).
-  The card is hidden when there is no budget of either kind and no
-  balance. The breakdown, projection and month's shared share live on
+  The card always shows, since the "You" tile is either a number or the
+  personal budget's one call to action. The breakdown, projection and month's shared share live on
   Personal budget only.
   **Setup (UX-69, UX-HOME-4)**: the "Get set up" card
   (`src/components/dashboard/getting-started.tsx`) shows in full, above
@@ -7459,7 +7462,11 @@ components directly.
     `RecipeManager` opens that recipe's cook dialog on arrival and strips
     the param). With nothing planned it reads "Nothing planned yet." with
     "Plan dinner" to the planner. No "planned by" line: plan entries don't
-    record who planned them.
+    record who planned them. Note the two clocks: Home's date subtitle is
+    today in the user's time zone, while "Tonight" is today's UTC date (the
+    planner's convention), so for a few hours around midnight (evenings west
+    of UTC, early mornings east of it) the subtitle and Tonight can name
+    different days. The planner's UTC dates are deliberate and unchanged.
   - **Missing ingredients**: what tonight's recipes need that the pantry
     hasn't got, from the planner's own calculation
     (`loadMissingIngredients`, narrowed to `DINNER` by its optional

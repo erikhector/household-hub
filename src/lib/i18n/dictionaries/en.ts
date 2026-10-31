@@ -542,7 +542,6 @@ export const en = {
     },
   },
   dashboard: {
-    title: "Home",
     // UX-135: toast after the verification link signs a new user in.
     welcome: "Welcome to Squirrel, {name}",
     greeting: {

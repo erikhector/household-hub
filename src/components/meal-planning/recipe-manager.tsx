@@ -134,7 +134,8 @@ export function RecipeManager({
     setCookLinkedId(null);
     const rest = new URLSearchParams(window.location.search);
     rest.delete(COOK_PARAM);
-    router.replace(`${pathname}?${rest.toString()}`, { scroll: false });
+    const query = rest.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }, [pathname, router]);
   // Same formatter as the shopping list's and budget page's amounts:
   // locale-aware two decimals, with the household's currency symbol once
