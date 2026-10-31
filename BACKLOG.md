@@ -99,6 +99,18 @@ Parallel-safe except where noted.
 
 ### Bugs
 
+- [ ] **BUG-1. Ticking a shopping-list line can fail with an expired 5 s transaction** (impact: med, effort: S) —
+      Sentry JAVASCRIPT-NEXTJS-4 (2 events, 2026-10-26, iOS Safari, `POST /dashboard/shopping-list/[id]`,
+      vercel-production): `Transaction API error: A query cannot be executed on an expired transaction. The timeout was 5000 ms, however 5121 ms passed`,
+      thrown by the first `tx.shoppingListItem.update()` of the tick transaction at `purchase-actions.ts:56-58`
+      (JAVASCRIPT-NEXTJS-5 is a second PrismaClientKnownRequestError, 1 event, same day; check whether it is the same cause).
+      The 5 s default also covers waiting for a pooled connection, so a cold start or a busy pool kills the tick before it does any work,
+      and the shopper sees a failed check-off in the shop. Fix: pass `{ maxWait, timeout }` to the tick `$transaction`
+      (and the sibling ones at `purchase-actions.ts:271`, `receipt-actions.ts:134`), keep the post-commit work
+      (price-spike check) outside it, and make the failure surface as the normal retry toast rather than an unhandled error.
+      Acceptance: unit test that the tick transaction is called with an explicit `timeout` above 5000 and that a
+      transaction-expired error returns an error state instead of throwing.
+
 
 ### Security hardening (2026-09-26 audit)
 
@@ -211,6 +223,16 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       arrow render before the eight queries and the controls' client tree
       (a Suspense split, larger than S).
 
+
+- [ ] **MAINT-66. Flaky: `inventory-lazy-dialogs` "a failed chunk load says so, and the next tap retries" (mobile) misses the Add dialog** (low, S) —
+      `e2e/inventory-lazy-dialogs.spec.ts:52`. Failed once at line 80 on the
+      release train's `ci:local` run of `bcfddc1` (`getByRole('dialog', { name:
+      'Add inventory item' })` not visible within 5 s after the offline chunk
+      block was un-routed and Add tapped again), then passed 11 of 11 on a re-run
+      of the same commit (`--repeat-each=3`). Likely the retry tap lands before
+      hydration or before the failed import is cleared. Fix in the app or in what
+      the test waits for (e.g. `expectHydrated`), never a skip, retry or looser
+      assertion.
 
 ### UX (2026-09-26 scout)
 
@@ -384,6 +406,15 @@ sweeps; all 268 + 132 tests pass. The popup probe has no phone-size hits
 pseudo-element gives the 44 px target). WebKit was not run, and the
 per-action deep dive was not driven this run.
 
+### UX (2026-10-31 scout)
+
+Saturday area: overview, navigation shell, profile, notifications, what's
+new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
+`light`, `text-200` and both dialog sweeps; all 268 + 132 tests pass and the
+popup probe has no phone-size hits. The `text-200` "clipped" hits on the
+bottom bar's labels are the deliberate ellipsis of UX-150, not a finding.
+WebKit was not run, and the per-action deep dive was not driven this run.
+
 ### UX (2026-10-31 design review)
 
 A full design and UX review of the app, run as a dual-agent critique and
@@ -400,14 +431,14 @@ Items already open (UX-30, UX-66, UX-89, UX-125, UX-41c, UX-43) were
 left out.
 
 **File conflicts.** Don't build these in parallel:
-- `src/components/budget/safe-to-spend.tsx`: UX-152, UX-153
-- `src/components/inventory/inventory-client.tsx`: UX-154, UX-165
+- `src/components/budget/safe-to-spend.tsx`: UX-153, UX-154
+- `src/components/inventory/inventory-client.tsx`: UX-155, UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-158, UX-159, UX-167
+  UX-159, UX-160, UX-168
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
-  UX-157, UX-159, UX-163
+  UX-158, UX-160, UX-164
 
-- [ ] **UX-152. One primary action per view on tasks, budget overview and
+- [ ] **UX-153. One primary action per view on tasks, budget overview and
       personal budget** (impact: high, effort: S) — breaks Hierarchy
       ("exactly one `primary` action per view"). Tasks renders the active
       "Everyone / Mine" filter as a solid `default` Button beside the solid
@@ -425,7 +456,7 @@ left out.
       asserts one `bg-primary` button on `/dashboard/tasks` and on both
       budget pages with no categories, on `desktop` and `mobile`.
 
-- [ ] **UX-153. Neutral safe-to-spend state when the budget has no
+- [ ] **UX-154. Neutral safe-to-spend state when the budget has no
       income** (impact: high, effort: S) — breaks Colour ("Safe to spend:
       `success` healthy …" presumes a budget) and Hierarchy. With categories
       but no income, the overview's Today row prints "Household safe to
@@ -445,7 +476,7 @@ left out.
       e2e on `/dashboard` with a category and no income asserts no
       `text-success` in the Today block, `desktop` and `mobile`.
 
-- [ ] **UX-154. Label the desktop inventory filter selects and the actions
+- [ ] **UX-155. Label the desktop inventory filter selects and the actions
       column** (impact: high, effort: S) — breaks Accessibility ("labelled
       controls"; WCAG 4.1.2, 1.3.1). The five desktop `SelectTrigger
       className="w-40 shrink-0"` filters have no `aria-label`/
@@ -459,7 +490,7 @@ left out.
       mobile twin; the actions header has `sr-only` text. `desktop` e2e
       locates all five by `getByRole("combobox", { name })`.
 
-- [ ] **UX-155. Default low-stock threshold never above the entered
+- [ ] **UX-156. Default low-stock threshold never above the entered
       quantity** (impact: med, effort: S) — breaks Usability ("prevent
       errors before reporting them") and M4 (a default must be safe). The
       add-item sheet defaults quantity to 1 and "Running low below" to 2
@@ -475,7 +506,7 @@ left out.
       `defaultLowStockThreshold`; e2e adds an item with defaults and asserts
       no "Low stock" badge, `desktop` and `mobile`.
 
-- [ ] **UX-156. A dark theme that keeps the brand hue** (impact: med,
+- [ ] **UX-157. A dark theme that keeps the brand hue** (impact: med,
       effort: M) — breaks Squirrel design principles ("soft, friendly and
       purple … the brand's purple is carried by the mascot and the
       gradient"). `.dark` uses a hueless ground (`--background:
@@ -489,7 +520,7 @@ left out.
       `globals-contrast.test.ts` still passes; the `light` and default dark
       sweep screenshots of the overview are reviewed side by side.
 
-- [ ] **UX-157. Hide the household switcher for single-household users**
+- [ ] **UX-158. Hide the household switcher for single-household users**
       (impact: high, effort: M) — breaks M6 ("the key number, status or
       next step is above the fold") and Hierarchy. Every phone page opens
       with ~90 px of "Household / <name> ⌃" above the title, even when the
@@ -504,7 +535,7 @@ left out.
       viewport for the seeded single-household user; the multi-household
       case still switches.
 
-- [ ] **UX-158. Finish the trip from the dock and split the shopping list
+- [ ] **UX-159. Finish the trip from the dock and split the shopping list
       ⋯ menu** (impact: high, effort: M) — breaks User-centricity (the
       in-store task is the shortest path), M6 (rare actions behind a
       disclosure, ordered) and M2 (destructive apart from primary). The
@@ -521,7 +552,7 @@ left out.
       page) with Delete alone at the bottom. `mobile` and `desktop` e2e
       tick all rows and complete the list from the dock.
 
-- [ ] **UX-159. Swedish at 200 % text on budget and shopping** (impact:
+- [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
       med, effort: M) — breaks M9 ("200 % … without clipping; Swedish
       strings wrap or truncate with the full value reachable"). At 200 %
       in `sv` the budget title breaks mid-word ("Hushållsbudg / et"), the
@@ -539,7 +570,7 @@ left out.
       field. `text-size.mobile.spec.ts` extends to `sv` and asserts the
       month switcher and at least one list row stay visible.
 
-- [ ] **UX-160. Contrast on avatar initials, selected chips and faded
+- [ ] **UX-161. Contrast on avatar initials, selected chips and faded
       table text** (impact: med, effort: S) — breaks Accessibility tokens
       ("every text pair passes 4.5:1 in both themes"; WCAG 1.4.3). Avatar
       initials are `text-white` on `bg-chart-*` (2.05:1 on chart-2 in
@@ -555,7 +586,7 @@ left out.
       all three pairs are added to `globals-contrast.test.ts`; axe on
       `/dashboard/profile` reports no contrast violation.
 
-- [ ] **UX-161. Raw amber utilities where the `warning` token belongs**
+- [ ] **UX-162. Raw amber utilities where the `warning` token belongs**
       (impact: low, effort: S) — breaks Colour ("status is text on a tint
       of itself … `warning`") and the checklist's "tokens only".
       `calendar-feed-setting.tsx:62-63` (`bg-amber-500/10`,
@@ -566,7 +597,7 @@ left out.
       `bg-warning/10 text-warning` (`attention` for the star if orange is
       wanted); a grep test or lint rule keeps them out.
 
-- [ ] **UX-162. Text under the 12 px floor** (impact: low, effort: S) —
+- [ ] **UX-163. Text under the 12 px floor** (impact: low, effort: S) —
       breaks M9 ("12 px is the floor for chrome; nothing smaller
       anywhere"). The notification count badge is `text-[10px]`
       (`src/components/notifications/notification-bell.tsx:107`); the four
@@ -576,7 +607,7 @@ left out.
       `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
       returns nothing.
 
-- [ ] **UX-163. `main` landmark on auth pages and a skip link in the
+- [ ] **UX-164. `main` landmark on auth pages and a skip link in the
       dashboard** (impact: med, effort: S) — breaks Accessibility ("logical
       tab order"; WCAG 2.4.1). Login, signup and forgot-password render
       content in a plain `div` (`src/app/login/page.tsx:38` and siblings;
@@ -588,7 +619,7 @@ left out.
       `/login` reports no landmark violation; `navigation.desktop.spec.ts`
       tabs once and asserts the link is focused.
 
-- [ ] **UX-164. Destructive actions apart from the primary in the recipe
+- [ ] **UX-165. Destructive actions apart from the primary in the recipe
       sheet and the More menu** (impact: med, effort: S) — breaks M2
       ("Destructive actions sit apart from the primary action, never next
       to it where a slip hits them"). In the recipe sheet "Delete recipe"
@@ -603,7 +634,7 @@ left out.
       footer region has no destructive button and the More menu's last row
       is not Log out.
 
-- [ ] **UX-165. One header row on the phone inventory** (impact: med,
+- [ ] **UX-166. One header row on the phone inventory** (impact: med,
       effort: M) — breaks M6 ("one task per screen, most important first")
       and Recognition. The phone page stacks a full-width secondary
       "⋯ More inventory actions" (the only labelled overflow button in the
@@ -620,7 +651,7 @@ left out.
       and "Manage". `mobile` e2e asserts the first inventory row's top is
       within 300 px of the viewport top after `gotoRevealed`.
 
-- [ ] **UX-166. Unique hue per section** (impact: low, effort: S) —
+- [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
       breaks Consistency ("same icon/colour for the same meaning").
       Inventory and Household budget share `chart-1`, Shopping and Personal
       budget `chart-2`, Meals and Household `chart-3`, Tasks and Profile
@@ -631,7 +662,7 @@ left out.
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
 
-- [ ] **UX-167. One "match these items" note instead of a paragraph per
+- [ ] **UX-168. One "match these items" note instead of a paragraph per
       typed row** (impact: med, effort: S) — breaks M6 ("repeated
       placeholders collapse") and Aesthetic/minimalist. Each free-text list
       row shows a "Match item" warning chip, "Add price", a ⋯ menu and a
@@ -646,7 +677,7 @@ left out.
       `mobile` e2e adds two unmatched rows and asserts the explanation text
       appears once.
 
-- [ ] **UX-168. The overview's restock tile leads with the alarm**
+- [ ] **UX-169. The overview's restock tile leads with the alarm**
       (impact: med, effort: S) — breaks Hierarchy ("the key number or
       status … is the first thing the eye lands on"). The "Low stock items"
       tile prints "0" at stat size with "1 out of stock" small and red
@@ -658,7 +689,7 @@ left out.
       or folded into the inventory link text. `overview-stat-cards.spec.ts`
       asserts the stat equals the seeded low + out count.
 
-- [ ] **UX-169. Scroll affordance on the tabs track** (impact: low,
+- [ ] **UX-170. Scroll affordance on the tabs track** (impact: low,
       effort: S) — breaks Recognition. The budget and meal-planning tabs
       tracks scroll horizontally and clip "Coo" / "Insi" at 320 px and at
       200 % text with nothing signalling more tabs
@@ -668,7 +699,7 @@ left out.
       and the active tab scrolls into view on mount; `small-phone` audit
       screenshots show the fade.
 
-- [ ] **UX-170. Hide controls that have nothing to act on** (impact: low,
+- [ ] **UX-171. Hide controls that have nothing to act on** (impact: low,
       effort: S) — breaks Usability ("every state is designed"). The meal
       plan search field shows above an empty planner
       (`mobile-en-dashboard-meal-planning.png`), "Mark all as read" with no
@@ -680,7 +711,7 @@ left out.
       `empty-states.spec.ts` asserts the search field is absent on an empty
       plan and the fill button is present, `desktop` and `mobile`.
 
-- [ ] **UX-171. Item page: status and buy action before unit algebra**
+- [ ] **UX-172. Item page: status and buy action before unit algebra**
       (impact: low, effort: S) — breaks Match with the real world and
       Hierarchy. The inventory item page opens with "1 pcs = 2000 g" and
       "Try it: 1 g = 0.0005 pcs" above the item's status and its buy
@@ -690,7 +721,7 @@ left out.
       card; conversions sit behind a "Units" disclosure. `item-page.spec.ts`
       asserts the first heading after the title is the status card.
 
-- [ ] **UX-172. Landing desktop CTA above the fold on short windows**
+- [ ] **UX-173. Landing desktop CTA above the fold on short windows**
       (impact: low, effort: S) — breaks Persuade-mode basics. At 1280×720
       the hero headline and note stack push "Get started free" to ~y 885
       (`desktop-en-root.png`; `src/components/landing/fridge-door.tsx`).
@@ -699,7 +730,7 @@ left out.
       first viewport; `landing.spec.ts` asserts it on `desktop` with that
       viewport.
 
-- [ ] **UX-173. Progressive explanations on budget Manage and Household
+- [ ] **UX-174. Progressive explanations on budget Manage and Household
       settings** (impact: low, effort: M) — breaks Help ("explain
       progressively") and M6. Budget Manage opens three cards each with a
       four-line paragraph and a button wrapped to half width before any
@@ -710,7 +741,7 @@ left out.
       phones; `mobile` smoke screenshots of both pages fit in two screens
       of content before the first form.
 
-- [ ] **UX-174. Small code hygiene from the audit** (impact: low, effort:
+- [ ] **UX-175. Small code hygiene from the audit** (impact: low, effort:
       S) — `transition-all` on `button.tsx:8` and `badge.tsx:7` animates
       layout properties (DESIGN.md prefers explicit properties); an ad-hoc
       shadow with raw rgb on the inventory bulk bar
@@ -1088,9 +1119,24 @@ out to be a product-scope question rather than a scoped task should move to
       "used 1" with the actor's name under History after a reload, in
       `en` and `sv`.
 
+### 2026-10-31 scan
+
+- [ ] **GAP-68. Store loyalty-card numbers on a shopping store** `[!]` —
+      Bring! lets members save loyalty cards in the app and show the
+      barcode at the till, one of its most-used extras, and Squirrel
+      already knows each household's stores (price history, trip
+      receipts). A card number is new personal data stored per member
+      (and a barcode render), so it needs the owner's call on whether
+      it is in scope, who can see a card (own only vs household), and
+      the privacy page wording. Recommended: keep not doing it; a
+      wallet app does this better and the data is sensitive.
+      Acceptance (if approved): a per-user card on a store, shown as a
+      Code 128/EAN barcode at full brightness on `mobile`, never
+      visible to other members and never in logs.
+
 ## Needs a decision before building
 
-- [ ] **UX-175. DESIGN.md names shadow and type tokens the CSS never
+- [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
       defines** (M) `[!]` needs a decision — `globals.css` has no
       `--shadow-*` and no `--text-*` tokens, yet DESIGN.md §3 specifies
       `shadow-primary`, `shadow-primary-hover`, `shadow-popover` and a type
@@ -1107,7 +1153,7 @@ out to be a product-scope question rather than a scoped task should move to
       `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl`
       stat sizes and fails on new ones.
 
-- [ ] **UX-176. Character pass: carry the brand into the working screens**
+- [ ] **UX-177. Character pass: carry the brand into the working screens**
       (M) `[!]` needs a product decision — the 2026-10-31 design review's
       verdict: the landing page, empty states and the all-done ring carry
       Squirrel's identity; the daily screens read as a generic dashboard
@@ -1119,7 +1165,7 @@ out to be a product-scope question rather than a scoped task should move to
       (c) the housemate voice in the Today block ("Nothing planned for
       dinner. Last Tuesday's pasta again?" from existing data); (d) each
       section's hue carried into its empty-state dashed box at 10 %
-      (depends on UX-166). The warm dark theme is UX-156. Decide which to
+      (depends on UX-167). The warm dark theme is UX-157. Decide which to
       build and in what order.
       Acceptance: per idea, a before/after on the `mobile` screenshots and
       the e2e spec for the touched component still passing.
