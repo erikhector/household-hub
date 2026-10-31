@@ -83,7 +83,7 @@ export function SavingsGoals({
         {goals.map((goal) => (
           <div key={goal.id} className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate">{goal.name}</span>
+              <span className="min-w-0 truncate font-medium">{goal.name}</span>
               <span className="shrink-0 tabular-nums text-muted-foreground">
                 {format(dict.savedOfGoal, {
                   saved: numberFormat.format(goal.progress.saved),
@@ -92,7 +92,9 @@ export function SavingsGoals({
               </span>
             </div>
             <div
-              className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+              // Chart redesign (Oct 2026): a meter whose track is a light
+              // step of its own fill, so the whole bar reads as the goal.
+              className="h-2 w-full overflow-hidden rounded-full bg-chart-2/15"
               role="progressbar"
               aria-label={goal.name}
               aria-valuemin={0}

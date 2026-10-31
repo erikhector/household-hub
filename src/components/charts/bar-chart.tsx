@@ -19,10 +19,23 @@
 // - **Phones**: twelve months don't fit 412 px, so the bars scroll sideways
 //   inside the card (never the page — DESIGN.md M1) and start scrolled to
 //   the latest month, the one people look for.
+//
+// Chart redesign (Oct 2026):
+// - **A scale.** Hairlines at 0, half and a clean top (niceCeiling: 30 000,
+//   not the tallest bar), labelled in compact numbers in a gutter that
+//   stays put while the bars scroll, so a bar's height means an amount
+//   before anything is tapped. Solid and one step off the card, never
+//   dashed (dashes read as a projection).
+// - **Thin marks.** Bars are at most 24 px (10 px each when grouped), 2 px
+//   apart, with 4 px rounded tops and square feet on the baseline.
+// - **No empty lead-in.** Months before the first one with data are left
+//   out (trimLeadingEmpty), so a new budget doesn't open on a row of blanks.
+// - **Hover previews.** With a mouse, pointing at a month shows its values
+//   in the readout; tapping still selects (hover is never the only way).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chartFill } from "@/components/charts/chart-colors";
-import { barHeightPercent } from "@/lib/chart-calc";
+import { barHeightPercent, niceCeiling, trimLeadingEmpty } from "@/lib/chart-calc";
 import { createMoneyFormat } from "@/lib/currency";
 
 export type BarSeries = { key: string; label: string };
@@ -38,7 +51,7 @@ export function BarChart({
   caption,
   groupHeader,
   series,
-  groups,
+  groups: allGroups,
   locale,
   currencyCode,
 }: {
@@ -52,9 +65,16 @@ export function BarChart({
   currencyCode?: string | null;
 }) {
   const numberFormat = useMemo(() => createMoneyFormat(locale, currencyCode), [locale, currencyCode]);
+  const tickFormat = useMemo(
+    () => new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }),
+    [locale],
+  );
+  const groups = useMemo(() => trimLeadingEmpty(allGroups), [allGroups]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const selected = groups.find((g) => g.key === selectedKey) ?? groups[groups.length - 1];
-  const max = Math.max(0, ...groups.flatMap((g) => g.values));
+  const shown = groups.find((g) => g.key === hoveredKey) ?? selected;
+  const top = niceCeiling(Math.max(0, ...groups.flatMap((g) => g.values)));
   const multi = series.length > 1;
 
   // Start with the latest month in view (the right end on a phone).
@@ -69,58 +89,99 @@ export function BarChart({
     ": " +
     series.map((s, i) => (multi ? `${s.label} ` : "") + numberFormat.format(group.values[i] ?? 0)).join(", ");
 
+  // The scale's three lines, top first: 100%, 50% and the baseline.
+  const ticks = top > 0 ? [top, top / 2, 0] : [];
+
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      {selected && (
+      {shown && (
+        // The readout is also the legend: each series' swatch and name sit
+        // beside its value, so colour is never the only key (≥ 2 series).
         <div role="status" className="flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1">
-          <span className="text-xs font-medium text-muted-foreground">{selected.label}</span>
+          <span className="text-sm font-semibold text-foreground">{shown.label}</span>
           {series.map((s, i) => (
             <span key={s.key} className="flex items-center gap-1.5 text-sm">
-              <span aria-hidden className={`size-2 shrink-0 rounded-full ${chartFill(i)}`} />
+              <span aria-hidden className={`size-2.5 shrink-0 rounded-[3px] ${chartFill(i)}`} />
               {multi && <span className="text-muted-foreground">{s.label}</span>}
               <span className="font-semibold tabular-nums">
-                {numberFormat.format(selected.values[i] ?? 0)}
+                {numberFormat.format(shown.values[i] ?? 0)}
               </span>
             </span>
           ))}
         </div>
       )}
-      <div ref={scrollRef} className="flex w-full min-w-0 items-end gap-2 overflow-x-auto pb-1">
-        {groups.map((group) => {
-          const isSelected = group.key === selected?.key;
-          return (
-            <button
-              key={group.key}
-              type="button"
-              aria-pressed={isSelected}
-              aria-label={describe(group)}
-              onClick={() => setSelectedKey(group.key)}
-              className={
-                "flex min-w-11 flex-1 flex-col items-center gap-2 rounded-lg px-1 pt-2 pb-1 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted " +
-                (isSelected ? "bg-muted" : "hover:bg-muted/60")
-              }
-            >
-              <span aria-hidden className="flex h-32 w-full items-end justify-center gap-0.5">
-                {series.map((s, i) => (
-                  <span
-                    key={s.key}
-                    className={`w-full rounded-t-sm ${multi ? "max-w-3" : "max-w-8"} ${chartFill(i)}`}
-                    style={{ height: `${barHeightPercent(group.values[i] ?? 0, max)}%` }}
-                  />
-                ))}
-              </span>
+      <div className="flex min-w-0 gap-2">
+        {/* The scale's labels, outside the scrolling bars so they stay in
+            view. pt-2 matches the buttons' top padding, so each label sits
+            on its line. */}
+        <div aria-hidden className="relative w-9 shrink-0 pt-2">
+          <div className="relative h-32">
+            {ticks.map((tick) => (
               <span
-                aria-hidden
-                className={
-                  "whitespace-nowrap text-xs " +
-                  (isSelected ? "font-medium text-foreground" : "text-muted-foreground")
-                }
+                key={tick}
+                className="absolute right-0 -translate-y-1/2 text-[11px] leading-none text-muted-foreground tabular-nums"
+                style={{ top: `${100 - (tick / top) * 100}%` }}
               >
-                {group.label}
+                {tickFormat.format(tick)}
               </span>
-            </button>
-          );
-        })}
+            ))}
+          </div>
+        </div>
+        <div className="relative min-w-0 flex-1">
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-2 h-32">
+            {ticks.map((tick) => (
+              <span
+                key={tick}
+                className={"absolute inset-x-0 h-px " + (tick === 0 ? "bg-border" : "bg-border/60")}
+                style={{ top: `${100 - (tick / top) * 100}%` }}
+              />
+            ))}
+          </div>
+          <div
+            ref={scrollRef}
+            className="relative flex w-full min-w-0 items-end gap-2 overflow-x-auto pb-1"
+            onMouseLeave={() => setHoveredKey(null)}
+          >
+            {groups.map((group) => {
+              const isSelected = group.key === selected?.key;
+              return (
+                <button
+                  key={group.key}
+                  type="button"
+                  aria-pressed={isSelected}
+                  aria-label={describe(group)}
+                  onClick={() => setSelectedKey(group.key)}
+                  onMouseEnter={() => setHoveredKey(group.key)}
+                  onFocus={() => setHoveredKey(group.key)}
+                  onBlur={() => setHoveredKey(null)}
+                  className={
+                    "flex min-w-11 flex-1 flex-col items-center gap-2 rounded-lg px-1 pt-2 pb-1 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted " +
+                    (isSelected ? "bg-muted/80" : "hover:bg-muted/50")
+                  }
+                >
+                  <span aria-hidden className="flex h-32 w-full items-end justify-center gap-0.5">
+                    {series.map((s, i) => (
+                      <span
+                        key={s.key}
+                        className={`w-full rounded-t-[4px] ${multi ? "max-w-2.5" : "max-w-6"} ${chartFill(i)}`}
+                        style={{ height: `${barHeightPercent(group.values[i] ?? 0, top)}%` }}
+                      />
+                    ))}
+                  </span>
+                  <span
+                    aria-hidden
+                    className={
+                      "whitespace-nowrap text-xs " +
+                      (isSelected ? "font-semibold text-foreground" : "text-muted-foreground")
+                    }
+                  >
+                    {group.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
       {/* The table sits in an sr-only div rather than being sr-only
           itself: a table never shrinks below its content, so a 1 px

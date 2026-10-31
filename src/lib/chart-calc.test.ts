@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   barHeightPercent,
+  niceCeiling,
+  trimLeadingEmpty,
   countUpValue,
   dailyAllowance,
   historyMonthLabels,
@@ -188,6 +190,37 @@ describe("barHeightPercent", () => {
     expect(barHeightPercent(1, 1000)).toBe(3);
     expect(barHeightPercent(0, 100)).toBe(0);
     expect(barHeightPercent(10, 0)).toBe(0);
+  });
+});
+
+describe("niceCeiling", () => {
+  it("rounds up to a clean multiple of a power of ten", () => {
+    expect(niceCeiling(27843)).toBe(30000);
+    expect(niceCeiling(26000)).toBe(30000);
+    expect(niceCeiling(19000)).toBe(20000);
+    expect(niceCeiling(2100)).toBe(2500);
+    expect(niceCeiling(1000)).toBe(1000);
+    expect(niceCeiling(7.5)).toBe(8);
+    expect(niceCeiling(0.3)).toBe(0.3);
+    expect(niceCeiling(85000)).toBe(100000);
+  });
+
+  it("is 0 when there is nothing to scale", () => {
+    expect(niceCeiling(0)).toBe(0);
+    expect(niceCeiling(-5)).toBe(0);
+  });
+});
+
+describe("trimLeadingEmpty", () => {
+  const g = (key: string, ...values: number[]) => ({ key, values });
+
+  it("drops the empty months before the first one with data", () => {
+    const groups = [g("may", 0, 0), g("jun", 0, 0), g("jul", 0, 5), g("aug", 0, 0), g("sep", 3, 1)];
+    expect(trimLeadingEmpty(groups).map((x) => x.key)).toEqual(["jul", "aug", "sep"]);
+  });
+
+  it("keeps the last group when every one is empty", () => {
+    expect(trimLeadingEmpty([g("a", 0), g("b", 0)]).map((x) => x.key)).toEqual(["b"]);
   });
 });
 

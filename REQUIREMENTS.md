@@ -3948,30 +3948,51 @@ when it holds a primary action (layout.tsx). Covered by
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
 library), so household and personal never diverge:
 
-- `BarChart` (client): `FixedBudgetSummary`'s "How it's changing" and
-  `CostAnalyzer`'s grocery spend. Each month is one button the full height
+- `BarChart` (client): `FixedBudgetSummary`'s trend ("Fixed income and
+  costs by month") and `CostAnalyzer`'s grocery spend. Each month is one button the full height
   of the chart, at least 44 px wide and 8 px apart (M3); tapping selects it
   (`aria-pressed`) and a readout above the bars (`role="status"`) shows that
   month's value per series with its colour dot, which doubles as the legend.
   The latest month starts selected and scrolled into view, so nothing is
   hover-only. Each button's accessible name carries its values, and the
   whole series is also a visually hidden table (`sr-only`, captioned with
-  the card title).
+  the card title). Chart redesign (Oct 2026): a scale of solid hairlines at
+  0, half and a clean top (`niceCeiling`: 30K, not the tallest bar),
+  labelled in compact numbers in a gutter that stays put while the bars
+  scroll; bars at most 24 px wide (10 px each when grouped), 2 px apart,
+  with 4 px rounded tops; months before the first one with data are left
+  out (`trimLeadingEmpty`); with a mouse, pointing at a month previews its
+  values in the readout (tapping still selects).
 - `Sparkline`: `CategoryBreakdown` draws one beside each expense row's bar
   — the category's spending over the last six months, this month last
   (`withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
   12-month lookback window or the personal page's whole history; a row with
   nothing spent in the window gets none). Its accessible name lists the
-  months and amounts. `CostAnalyzer`'s price trends use it too.
+  months and amounts. `CostAnalyzer`'s price trends use it too. The line is
+  one quiet colour (`muted-foreground` at 45%) and only this month's point
+  is marked, in `primary` with a ring of the card's colour, so a column of
+  them reads as "is this month high?" (they used to take chart-1 … chart-5
+  by row position, which coloured a row by its rank).
 - `ProjectionChart`: Safe to spend's projected end-of-month line (see "Safe
-  to spend").
-- `AnimatedNumber` (client): Safe to spend's number and the four totals in
-  `PeriodSummary` and `FixedBudgetSummary` count to a new value when it
+  to spend"), in `primary`, with a 10% wash under the days so far, a
+  hairline at today, a ringed dot on today's value and a hollow one on the
+  projected month end.
+- `CategoryBreakdown` rows are meters: name and amount on one line, the bar
+  (and sparkline) under them, and "of {limit}" with its status under that.
+  The fill is neutral until near (`warning`) or over (`destructive`) the
+  limit, each on a track tinted from its own colour, and status always
+  carries the warning icon. Savings goals use the same meter in `chart-2`.
+- `AnimatedNumber` (client): Safe to spend's number counts to a new value when it
   changes (600 ms, eased out), always in `tabular-nums`. The first render
   is the real value, as the server sent it, so a page load never flashes a
   wrong number; under `prefers-reduced-motion` the number just changes.
-- Colours come from `chart-colors.ts`: `chart-1` … `chart-5` in series or
-  row order, for marks only (DESIGN.md, Colour).
+- Colours come from `chart-colors.ts`: `chart-1` … `chart-5` in series
+  order, for marks only (DESIGN.md, Colour). They're checked with the
+  dataviz palette validator: in light all five sit in its lightness band;
+  in dark they were stepped down to OKLCH L 0.64–0.66 (chart redesign,
+  Oct 2026) so no series outshines another, all still 3:1 on the card.
+  `chart-2` (honey) is 2.9:1 on the light card, which the validator allows
+  because every value also has a visible label (the readout) and a table.
 
 Covered by `src/lib/chart-calc.test.ts` and `e2e/ux-39.spec.ts`.
 

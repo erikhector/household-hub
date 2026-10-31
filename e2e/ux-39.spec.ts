@@ -127,6 +127,14 @@ test("the trend chart's bars are tappable and say their values", async ({ page, 
   // The whole series is there for screen readers as a table.
   await expect(main.getByRole("table", { name: "Fixed income and costs by month" })).toBeAttached();
 
+  // Chart redesign (Oct 2026): a scale from 0 to a clean top gives the bars
+  // their meaning, and the chart starts at the first month with anything in
+  // it rather than on a row of empty ones.
+  const card = main.locator('[data-slot="card"]').filter({ hasText: "Fixed income & costs" });
+  await expect(card.getByText("0", { exact: true })).toBeVisible();
+  const months = card.getByRole("button", { name: /^\w{3} \d{2}: Income / });
+  await expect(months.first()).not.toHaveAccessibleName(/Income 0\.00, Costs 0\.00, Savings 0\.00$/);
+
   // Each month is a full-size touch target (DESIGN.md M3).
   const box = await previous.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44);

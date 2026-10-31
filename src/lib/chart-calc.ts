@@ -243,3 +243,28 @@ export function barHeightPercent(value: number, max: number): number {
   if (value <= 0 || max <= 0) return 0;
   return Math.max((value / max) * 100, 3);
 }
+
+/** Chart redesign (Oct 2026): the top of a bar chart's scale — the smallest
+ * "clean" number (1, 1.5, 2, 2.5, 3, 4, 5, 6 or 8 times a power of ten) at
+ * or above `value`, so the scale's lines (the top and its half) read as round
+ * amounts (30 000 and 15 000, not 27 843) without leaving the tallest bar at
+ * half height. 0 for nothing to show. */
+export function niceCeiling(value: number): number {
+  if (!(value > 0)) return 0;
+  const power = Math.pow(10, Math.floor(Math.log10(value)));
+  for (const step of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) {
+    // toPrecision drops float noise (3 × 0.1 is 0.30000000000000004).
+    const candidate = Number((step * power).toPrecision(12));
+    if (candidate >= value) return candidate;
+  }
+  return 10 * power;
+}
+
+/** The groups from the first one with any non-zero value on, so a chart of
+ * the last twelve months doesn't open on months from before anything was
+ * logged. Keeps the last group when every one is empty. */
+export function trimLeadingEmpty<T extends { values: number[] }>(groups: T[]): T[] {
+  const first = groups.findIndex((g) => g.values.some((v) => v !== 0));
+  if (first === -1) return groups.slice(-1);
+  return groups.slice(first);
+}

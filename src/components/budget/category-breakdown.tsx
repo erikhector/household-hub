@@ -3,10 +3,9 @@
 // (recurring template totals by item) so both "how is this split up" views
 // look and behave identically.
 //
-// UX-39: a row with a `history` gets a spending sparkline beside its bar,
-// coloured from the shared chart kit (src/components/charts/), chart-1 …
-// chart-5 in row order: the last few months of that category,
-// this month last, so "is this normal for us?" is one glance away.
+// UX-39: a row with a `history` gets a spending sparkline beside its bar
+// (src/components/charts/): the last few months of that category, this month
+// last and marked, so "is this normal for us?" is one glance away.
 //
 // UX-115: the bars themselves carry status, not category. DESIGN.md keeps
 // chart colours for marks and status for success/warning/destructive paired
@@ -15,7 +14,7 @@
 // Otherwise a category at 96% could read green and one at 36% pink.
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import { limitProgress } from "@/lib/budget-category-limit";
@@ -52,7 +51,7 @@ export type CategoryHistoryLabels = {
 /** The two strings a capped row needs — only PeriodSummary's expense
  * breakdown passes these; FixedBudgetSummary's rows never carry a limit. */
 export type CategoryLimitDict = {
-  spentOfLimit: string;
+  ofLimit: string;
   overLimitBy: string;
   almostAtLimit: string;
   carriedOver: string;
@@ -91,7 +90,7 @@ export function CategoryBreakdown({
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
           <div className={hrefFor ? "flex flex-col gap-1" : "flex flex-col gap-3"}>
-            {items.map((item, index) => {
+            {items.map((item) => {
               // GAP-12: a capped row's bar is "how far into its own limit",
               // not "its share of this card's total" — so a category can
               // read as nearly full even while it's a small slice of the
@@ -109,35 +108,65 @@ export function CategoryBreakdown({
                 : total > 0
                   ? (item.total / total) * 100
                   : 0;
-              const barColor = progress?.over
-                ? "bg-destructive"
+              // Chart redesign (Oct 2026): a meter. The fill is one neutral
+              // colour (UX-115) until the row means something: amber near its
+              // limit, red over it, each on a track tinted from its own colour
+              // so the state reads across the whole bar.
+              const meter = progress?.over
+                ? { fill: "bg-destructive", track: "bg-destructive/15" }
                 : progress?.near
-                  ? "bg-warning"
-                  : "bg-muted-foreground";
+                  ? { fill: "bg-warning", track: "bg-warning/15" }
+                  : { fill: "bg-muted-foreground/70", track: "bg-muted" };
+              const statusText = progress?.over
+                ? "text-destructive"
+                : progress?.near
+                  ? "text-warning"
+                  : "text-muted-foreground";
               const sparkline =
                 history && item.history && item.history.length === history.months.length
                   ? item.history
                   : null;
               const href = hrefFor?.(item) ?? null;
+              // Name and amount on one line, the meter (and the trend) under
+              // them, and what the amount is measured against under that.
+              // The amount is the row's number, so it's in the text colour;
+              // the limit and its status are the qualifier.
               const content = (
                 <>
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 truncate">{item.name}</span>
-                    {progress && limitDict && available != null ? (
-                      <span
-                        className={
-                          "shrink-0 tabular-nums " +
-                          (progress.over
-                            ? "text-destructive"
-                            : progress.near
-                              ? "text-warning"
-                              : "text-muted-foreground")
-                        }
-                      >
-                        {format(limitDict.spentOfLimit, {
-                          spent: numberFormat.format(item.total),
-                          limit: numberFormat.format(available),
+                  <div className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="min-w-0 truncate font-medium">{item.name}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{numberFormat.format(item.total)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`h-2 min-w-0 flex-1 overflow-hidden rounded-full ${meter.track}`}>
+                      <div
+                        className={`h-full rounded-full ${meter.fill}`}
+                        // A capped category with nothing spent yet shows an
+                        // empty track rather than the 2% sliver an uncapped
+                        // row gets (that sliver only exists so a tiny share
+                        // stays visible next to bigger ones).
+                        style={{ width: `${progress ? share : Math.max(share, 2)}%` }}
+                      />
+                    </div>
+                    {sparkline && history && (
+                      <Sparkline
+                        points={sparkline}
+                        className="h-5 w-14 shrink-0"
+                        label={format(history.label, {
+                          count: sparkline.length,
+                          values: sparkline
+                            .map((v, i) => `${history.months[i]} ${numberFormat.format(v)}`)
+                            .join(", "),
                         })}
+                      />
+                    )}
+                  </div>
+                  {progress && limitDict && available != null && (
+                    <p className={`flex items-center gap-1 text-xs tabular-nums ${statusText}`}>
+                      {/* DESIGN.md: status is never colour alone. */}
+                      {(progress.over || progress.near) && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
+                      <span>
+                        {format(limitDict.ofLimit, { limit: numberFormat.format(available) })}
                         {progress.over && (
                           <>
                             {" · "}
@@ -152,41 +181,13 @@ export function CategoryBreakdown({
                             {limitDict.almostAtLimit}
                           </>
                         )}
+                        {carried > 0 && (
+                          <>
+                            {" · "}
+                            {format(limitDict.carriedOver, { amount: numberFormat.format(carried) })}
+                          </>
+                        )}
                       </span>
-                    ) : (
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
-                        {numberFormat.format(item.total)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${barColor}`}
-                        // A capped category with nothing spent yet shows an
-                        // empty track rather than the 2% sliver an uncapped
-                        // row gets (that sliver only exists so a tiny share
-                        // stays visible next to bigger ones).
-                        style={{ width: `${progress ? share : Math.max(share, 2)}%` }}
-                      />
-                    </div>
-                    {sparkline && history && (
-                      <Sparkline
-                        points={sparkline}
-                        colorIndex={index}
-                        className="h-5 w-14 shrink-0"
-                        label={format(history.label, {
-                          count: sparkline.length,
-                          values: sparkline
-                            .map((v, i) => `${history.months[i]} ${numberFormat.format(v)}`)
-                            .join(", "),
-                        })}
-                      />
-                    )}
-                  </div>
-                  {progress && limitDict && carried > 0 && (
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {format(limitDict.carriedOver, { amount: numberFormat.format(carried) })}
                     </p>
                   )}
                 </>
@@ -199,11 +200,11 @@ export function CategoryBreakdown({
                   href={href}
                   className="-mx-2 flex min-h-11 items-center gap-2 rounded-md px-2 py-1 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">{content}</div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">{content}</div>
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                 </Link>
               ) : (
-                <div key={item.id} className="flex flex-col gap-1">
+                <div key={item.id} className="flex flex-col gap-1.5">
                   {content}
                 </div>
               );

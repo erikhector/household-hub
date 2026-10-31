@@ -335,6 +335,11 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   30% border. Info and plain toasts stay neutral `popover`.
 - Charts take `chart-1` … `chart-5` in order. Chart colours are for marks,
   not text: use `success`, not `chart-5`, for green words and numbers.
+  Colour follows the series, never a row's position: a list of rows with a
+  sparkline each draws them in one quiet colour and marks only the current
+  point in `primary`. Scales are solid hairlines (never dashed; dashes mean
+  a projection), bars are thin (≤ 24 px) with 4 px rounded ends, and a
+  meter's track is a light tint of its own fill.
 - Borders are `border` (1px) for decorative hairlines and `input` (1px)
   for field outlines, which must stay at 3:1. Cards are set apart with a
   1px ring of `foreground` at 10%, not a border colour or a shadow.

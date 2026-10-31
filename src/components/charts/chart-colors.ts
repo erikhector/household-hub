@@ -11,20 +11,8 @@ export const CHART_FILL = [
   "bg-chart-5",
 ] as const;
 
-export const CHART_STROKE = [
-  "stroke-chart-1",
-  "stroke-chart-2",
-  "stroke-chart-3",
-  "stroke-chart-4",
-  "stroke-chart-5",
-] as const;
-
 /** The fill class for series or row `index`, cycling past five. */
 export function chartFill(index: number): string {
   return CHART_FILL[index % CHART_FILL.length];
 }
 
-/** The stroke class for series or row `index`, cycling past five. */
-export function chartStroke(index: number): string {
-  return CHART_STROKE[index % CHART_STROKE.length];
-}
