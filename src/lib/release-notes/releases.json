@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.124.0",
+    "date": "2026-10-31",
+    "pr": 943,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Android users can now share a recipe link or a list of items to Squirrel from another app. Pick Squirrel in the share sheet and the recipe import or \"Import list\" opens with it filled in, ready for you to confirm.",
+      "sv": "På Android kan du nu dela en receptlänk eller en lista med varor till Squirrel från en annan app. Välj Squirrel i delningsmenyn så öppnas receptimporten eller \"Importera lista\" med innehållet ifyllt, redo för dig att bekräfta."
+    }
+  },
+  {
     "version": "0.123.0",
     "date": "2026-10-30",
     "pr": 936,
