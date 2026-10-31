@@ -149,7 +149,9 @@ export function WeekPicksTray({
         dropActive && "ring-2 ring-primary",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      {/* Wraps so "Pick meals" drops under the title when both don't fit
+          (Swedish at 200% text), instead of pushing the page sideways. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="week-picks-title" className="flex items-center gap-2 text-base font-semibold">
           {dict.trayTitle}
           {count > 0 && <Badge variant="secondary">{count}</Badge>}
