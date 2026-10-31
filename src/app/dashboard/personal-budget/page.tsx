@@ -10,15 +10,12 @@ import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { SharedCostsCard } from "@/components/personal-budget/shared-costs-card";
 import { summarizeSharedCosts } from "@/lib/shared-costs-summary";
 import { CategoryManager } from "@/components/budget/category-manager";
-import {
-  RecurringTemplatesPanel,
-  type PausedRecurringTemplateRow,
-  type RecurringTemplateListRow,
+import type {
+  PausedRecurringTemplateRow,
+  RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
-import {
-  PlannedExpensesPanel,
-  type PlannedExpenseRow,
-} from "@/components/budget/planned-expenses-panel";
+import { BillsAndIncomePanel } from "@/components/budget/bills-and-income-panel";
+import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
 import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
@@ -263,7 +260,7 @@ async function PersonalBudgetTabsSection({
   // --- Recurring templates --------------------------------------------------
   // Statuses come from the loader (templateStatusRows) — mirrors the
   // household budget's, see src/lib/recurring-template-calc.ts.
-  // splits: [] below — RecurringTemplateDialog's/RecurringTemplatesPanel's
+  // splits: [] below — RecurringTemplateDialog's/RecurringTemplateList's
   // template-splitting feature is now shared with the household budget
   // (BUDGET-2), and a PersonalRecurringTemplate has no split concept, same
   // reasoning as transactionRows's splits above.
@@ -319,45 +316,31 @@ async function PersonalBudgetTabsSection({
     sharedLabel: dict.personalBudget.shared.sharedBadge,
   });
 
-  // --- Manage tab: recurring items, planned bills and income + categories ---
+  // --- Setup tab: bills & income, categories, budget month ------------------
   // Grouped together — see budget-tabs.tsx's doc comment (this mirrors the
   // household budget's own Manage tab).
   const manage = (
     <div className="flex flex-col gap-6">
-      <RecurringTemplatesPanel
+      <BillsAndIncomePanel
         templates={recurringTemplateRows}
         pausedTemplates={pausedRecurringTemplateRows}
+        plannedRows={plannedExpenseRows}
         categories={categoryRows}
         monthKey={monthKey}
         dict={dict.personalBudget}
         locale={locale}
         onTogglePause={setPersonalRecurringTemplateActiveAction}
-        onDelete={deletePersonalRecurringTemplateAction}
+        onDeleteTemplate={deletePersonalRecurringTemplateAction}
         onAcknowledge={acknowledgePersonalTemplatePeriodAction}
         onUnacknowledge={unacknowledgePersonalTemplatePeriodAction}
         createTemplateAction={createPersonalRecurringTemplateAction}
         updateTemplateAction={updatePersonalRecurringTemplateAction}
+        createPlannedAction={createPersonalPlannedExpenseAction}
+        updatePlannedAction={updatePersonalPlannedExpenseAction}
+        onDeletePlanned={deletePersonalPlannedExpenseAction}
         createTransactionAction={createPersonalTransactionAction}
         updateTransactionAction={updatePersonalTransactionAction}
       />
-      {(["EXPENSE", "INCOME"] as const).map((kind) => (
-        <PlannedExpensesPanel
-          key={kind}
-          kind={kind}
-          rows={plannedExpenseRows.filter((r) => r.type === kind)}
-          categories={categoryRows}
-          members={[]}
-          currentMemberId=""
-          monthKey={monthKey}
-          dict={dict.personalBudget}
-          locale={locale}
-          createAction={createPersonalPlannedExpenseAction}
-          updateAction={updatePersonalPlannedExpenseAction}
-          onDelete={deletePersonalPlannedExpenseAction}
-          createTransactionAction={createPersonalTransactionAction}
-          updateTransactionAction={updatePersonalTransactionAction}
-        />
-      ))}
       <CategoryManager
         categories={categoryRows}
         dict={dict.personalBudget}
@@ -437,7 +420,6 @@ async function PersonalBudgetTabsSection({
       income={income}
       expense={expense}
       savings={savings}
-      remaining={safeToSpend}
       incomeByCategory={incomeByCategory}
       // GAP-12 — see the household page's identical comment. The
       // shared-household mirror rows (`shared:` ids) never match a

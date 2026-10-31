@@ -50,7 +50,7 @@ test("a recurring income shows as expected income next month", async ({ page }) 
   await main.getByText("How we got this number").click();
   await expect(main.getByText("Expected income", { exact: true })).toBeVisible();
   // Listed once, in the due card (UX-118), with its amount.
-  const dueCard = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const dueCard = main.locator('[data-slot="card"]').filter({ hasText: "Needs attention" });
   const row = dueCard.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
   await expect(row.getByText(/45[\s,.  ]?678/)).toBeVisible();
   await expectNoHorizontalOverflow(page);

@@ -753,6 +753,30 @@ left out.
       focusable "Back" link or `tabIndex={-1}` on `main`; axe on
       `/dashboard/whats-new` is clean on `mobile`.
 
+### UX (2026-10-31 budget redesign follow-ups)
+
+The budget redesign (REQUIREMENTS.md, "Budget page layout") changed layout
+only. These two from its design add a write path each, so they're their own
+items. Mock-ups: the "Add transaction — split built in" artboard of the
+owner's budget redesign canvas.
+
+- [ ] **UX-178. Split with household from Add transaction** (M) — On
+      Personal Budget, "Log a shared expense" is a second button beside the
+      tabs, opening its own dialog. Fold it into the Add transaction sheet
+      as a "Split with household" switch (paid by you, shared with the
+      household's members, "{name}'s share {amount}" with Change), which
+      posts the same way LogSharedExpenseDialog does. The separate button
+      goes, leaving one action next to the tabs. e2e: log a split expense
+      from the sheet and see it on the household budget and as the other
+      member's debt.
+- [ ] **UX-179. "Repeats" switch on a new transaction** (M) — UX-113 took
+      "This repeats" off new transactions because the flag fed a hidden
+      estimate. Bring the idea back properly: a "Repeats" switch on the
+      Add transaction sheet that, on save, also creates a monthly recurring
+      item (Bills & income) from the transaction and marks this period
+      logged. Server Action plus unit tests (tenancy, both budgets); e2e:
+      the item shows under Repeating as Logged.
+
 ### Dependencies
 
 ---

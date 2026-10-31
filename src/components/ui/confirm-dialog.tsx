@@ -8,7 +8,7 @@
 // call site only needs to swap its existing instant-delete button for
 // `trigger` and move the actual delete call into `onConfirm`.
 
-import { useState, useTransition, type ReactElement, type ReactNode } from "react";
+import { useState, useTransition, type ReactElement, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ export function ConfirmDialog({
   variant = "destructive",
   onConfirm,
   handle,
+  finalFocus,
   children,
 }: {
   /** The element that opens the dialog — usually the existing trash/remove
@@ -41,6 +42,9 @@ export function ConfirmDialog({
    * DropdownMenu item — see createDialogHandle). */
   trigger?: ReactElement;
   handle?: DialogHandle;
+  /** Where focus goes on close when opened through `handle` (no trigger to
+   * return to): the menu button it was opened from. */
+  finalFocus?: RefObject<HTMLElement | null>;
   title: string;
   description: string;
   cancelLabel: string;
@@ -72,7 +76,7 @@ export function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen} handle={handle}>
       {trigger && <DialogTrigger render={trigger} />}
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle className="break-words">{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

@@ -59,7 +59,7 @@ test("category chips are 44 px targets kept apart, in every budget tab", async (
   // shows a render after the click, and the old probe-each-tab loop's
   // non-waiting isVisible() could run past Manage on a slow CI runner.
   await expectTouchTargetsInTabs(page);
-  await page.getByRole("tab", { name: "Manage" }).click();
+  await page.getByRole("tab", { name: "Setup" }).click();
   const edit = page.getByRole("button", { name: /^Edit Hobbies / });
   await expect(edit.first()).toBeVisible();
   await expectTargetsApart(edit.first().locator("xpath=.."));

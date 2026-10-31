@@ -560,7 +560,7 @@ async function detectAndNotifyPriceSpikes(
             {
               title: "Price jump",
               body: `${item.name} cost ${spike.increasePercent}% more than usual`,
-              url: "/dashboard/budget?tab=insights",
+              url: "/dashboard/budget?tab=insights&prices=1",
             },
             actingUserId,
           );

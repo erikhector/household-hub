@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { budgetTag, insertHouseholdCategory, insertHouseholdTemplate, insertHouseholdTransaction, withDb } from "./budget-seed";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
 
-// Phone pass (Oct 2026), P4: Overview says each thing once. Safe to spend
-// is the number plus one totals line, with the arithmetic behind a
-// disclosure; the due widget is the one list of what's due, one line per
-// item with "Log" and a "More" menu; the month's stat cards live on
-// Insights only, two by two on a phone.
+// Phone pass (Oct 2026), P4, and the budget redesign (Oct 2026): Overview
+// says each thing once. Safe to spend is the number, its summary and the
+// daily allowance, with the totals, projection and arithmetic behind a
+// disclosure; Needs attention is the one list of what's due, one line per
+// item with "Log" and a "More" menu; Insights shows one breakdown at a time.
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
@@ -28,16 +28,16 @@ test("Overview shows each number once and keeps due items to one line", async ({
   const main = page.getByRole("main");
 
   await expect(main.getByText("Safe to spend", { exact: true })).toBeVisible();
-  // The arithmetic is a tap away, not on screen.
-  // (Insights' stat card shares the wording, in its hidden tab panel.)
+  // The totals and the arithmetic are a tap away, not on screen.
   const arithmetic = main.getByText("Remaining after expenses and savings", { exact: true }).filter({ visible: true });
   await expect(arithmetic).toHaveCount(0);
+  await expect(main.getByText("Income", { exact: true }).filter({ visible: true })).toHaveCount(0);
+  await main.getByText("How we got this number").click();
+  await expect(arithmetic).toHaveCount(1);
   // Savings are set aside, not spent: the same "→" the transaction rows
   // use, never a minus.
   const savings = main.getByText("Savings", { exact: true }).filter({ visible: true }).first();
   await expect(savings.locator("xpath=following-sibling::dd")).toHaveText(/^→/);
-  await main.getByText("How we got this number").click();
-  await expect(arithmetic).toHaveCount(1);
   // UX-118: what's still due is the Due card's list, not repeated in here.
   await expect(main.getByText("Still due this month", { exact: true }).filter({ visible: true })).toHaveCount(0);
   // "This month" (PeriodSummary) isn't repeated on Overview.
@@ -67,24 +67,32 @@ test("Overview shows each number once and keeps due items to one line", async ({
   await expect(more).toHaveCount(0);
 });
 
-test("Insights holds the month's stat cards, two by two on a phone", async ({ page, isMobile }) => {
+// Budget redesign (Oct 2026): "This month" on Insights is one breakdown at a
+// time behind a switch, spending first, with no stat cards repeating Safe to
+// spend.
+test("Insights shows one breakdown at a time, spending first", async ({ page }) => {
   await seed();
   await page.goto("/dashboard/budget?tab=insights");
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: "This month" })).toBeVisible();
-  const income = main.getByText("Income", { exact: true }).filter({ visible: true }).first();
-  const expenses = main.getByText("Expenses", { exact: true }).filter({ visible: true }).first();
-  const [a, b] = [await income.boundingBox(), await expenses.boundingBox()];
-  if (isMobile) {
-    // Side by side, not stacked.
-    expect(Math.abs(a!.y - b!.y)).toBeLessThan(4);
-    expect(b!.x).toBeGreaterThan(a!.x);
-  }
+  const expensesTab = main.getByRole("tab", { name: "Expenses" });
+  await expect(expensesTab).toHaveAttribute("aria-selected", "true");
+  const expensesCard = main.getByText(/^Expenses by category/).filter({ visible: true });
+  const incomeCard = main.getByText(/^Income by category/).filter({ visible: true });
+  await expect(expensesCard).toHaveCount(1);
+  await expect(incomeCard).toHaveCount(0);
+  await expect(main.getByText("Remaining after expenses and savings").filter({ visible: true })).toHaveCount(0);
+
+  await expectHydrated(expensesTab);
+  await main.getByRole("tab", { name: "Income" }).click();
+  await expect(incomeCard).toHaveCount(1);
+  await expect(expensesCard).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 
-// UX-108: a category at 90% or more of its limit is on Overview, right
-// under Safe to spend, and the status line no longer says "good shape".
+// UX-108: a category at 90% or more of its limit is on Overview, at the top
+// of Needs attention right under Safe to spend, and the status line no
+// longer says "good shape".
 test("Overview lists categories near or over their limit", async ({ page }) => {
   const tag = budgetTag();
   const over = `Restaurants ${tag}`;
@@ -107,7 +115,7 @@ test("Overview lists categories near or over their limit", async ({ page }) => {
   await page.goto("/dashboard/budget");
   const main = page.getByRole("main");
 
-  await expect(main.getByText("Near or over their limit", { exact: true }).first()).toBeVisible();
+  await expect(main.getByRole("heading", { name: /^Needs attention/ })).toBeVisible();
   const overRow = main.getByRole("link", { name: new RegExp(over) });
   const nearRow = main.getByRole("link", { name: new RegExp(near) });
   await expect(overRow).toBeVisible();
@@ -179,17 +187,17 @@ test("a month before the recurring items existed says nothing was due", async ({
   const main = page.getByRole("main");
 
   await page.goto("/dashboard/budget?month=2020-01");
-  await expect(main.getByText("Due this period", { exact: true })).toBeVisible();
+  await expect(main.getByRole("heading", { name: "Needs attention" })).toBeVisible();
   await expect(main.getByText("Nothing was due this month", { exact: true })).toBeVisible();
-  await expect(main.getByText("Set up recurring bills and income")).toHaveCount(0);
+  await expect(main.getByText("Add your regular bills and income")).toHaveCount(0);
   await expect(main.getByText(name)).toHaveCount(0);
 
   // This month the item is due, so the card lists it.
   await page.goto("/dashboard/budget");
   await expect(main.getByText("Nothing was due this month")).toHaveCount(0);
   await expect(main.getByRole("button", { name: `More actions for ${name}` })).toBeVisible();
-  // Its link to Manage is a link: primary-coloured text, not a ghost label.
-  const manage = main.getByRole("button", { name: "Manage recurring items" });
+  // Its link to Setup is a link: primary-coloured text, not a ghost label.
+  const manage = main.getByRole("button", { name: "All bills & income" });
   await expect(manage).toBeVisible();
   const color = await manage.evaluate((el) => getComputedStyle(el).color);
   const body = await page.locator("body").evaluate((el) => getComputedStyle(el).color);
