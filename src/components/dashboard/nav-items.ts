@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import {
-  LayoutDashboard,
+  House,
   Package,
   ShoppingCart,
   CalendarDays,
@@ -81,7 +81,9 @@ export type NavItem = {
 };
 
 export const navItems: NavItem[] = [
-  { href: "/dashboard", key: "overview", icon: LayoutDashboard },
+  // UX-HOME-1: "Home" with a house, the name and icon every phone uses for
+  // the first tab. The key stays "overview"; only what people see changed.
+  { href: "/dashboard", key: "overview", icon: House },
   { href: "/dashboard/inventory", key: "inventory", icon: Package, color: "chart-1" },
   { href: "/dashboard/shopping-list", key: "shoppingList", shortKey: "shoppingListShort", icon: ShoppingCart, color: "chart-2" },
   { href: "/dashboard/meal-planning", key: "mealPlanning", shortKey: "mealPlanningShort", icon: CalendarDays, color: "chart-3" },

@@ -6,8 +6,8 @@ import { collectErrors, dismissCookieNotice, expectHydrated, expectRendersCleanl
 
 // GAP-49 meal prep, end to end: record a batch on the Prep tab, spread its
 // portions over the planner, give one back, eat one, discard the rest; and
-// the planner's "From meal prep" source with "Don't use prep", plus the home
-// dashboard's Meal prep card.
+// the planner's "From meal prep" source with "Don't use prep", plus the
+// leftovers on Home's Today card.
 const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -324,16 +324,18 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
 
   try {
     await page.goto("/dashboard/meal-planning?tab=prep");
-    // Eat by tomorrow, so it leads the dashboard card (soonest first, top 3).
+    // Eat by tomorrow, so it leads Home's leftovers (soonest first, top 3).
     await recordPrep(page, recipeName, 2, key(utcDay(1)));
     await expect(batchCard(page, recipeName)).toContainText("2 of 2 portions left");
 
-    // The home dashboard's Meal prep card lists it and links to the Prep tab.
+    // Home's Today card lists it as a leftover and links to the Prep tab
+    // (UX-HOME-3; this used to be a Meal prep card of its own).
     await page.goto("/dashboard");
-    await expect(page.getByRole("listitem").filter({ hasText: recipeName })).toContainText("2 of 2 portions left");
-    // Exposed as a button, like the dashboard's other card links
-    // (overview.spec.ts): Base UI's Button rendering a Link.
-    await page.getByRole("link", { name: "View meal prep" }).click();
+    const leftover = page
+      .getByRole("list", { name: "Leftovers and meal prep" })
+      .getByRole("link", { name: new RegExp(recipeName) });
+    await expect(leftover).toContainText("2 of 2 portions left");
+    await leftover.click();
     await expect(page).toHaveURL(/\/dashboard\/meal-planning\?tab=prep$/);
     await expect(batchCard(page, recipeName)).toBeVisible();
 
