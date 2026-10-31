@@ -94,6 +94,28 @@ test.describe("the setup card", () => {
       await expect(main.getByRole("heading", { name: "Today", exact: true })).toBeInViewport();
       await expectNoHorizontalOverflow(page);
 
+      // UX-152: at 200% text the step cards stack (icon above the text,
+      // chevron hidden) so a title takes at most two lines and no card is
+      // over half the screen. Default size was asserted above, unchanged.
+      if (testInfo.project.name === "mobile") {
+        await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+        const steps = card.getByRole("link");
+        expect(await steps.count()).toBe(5);
+        for (const step of await steps.all()) {
+          const [box, lines] = await Promise.all([
+            step.boundingBox(),
+            step.locator("p.font-medium").evaluate((el) => {
+              const lh = parseFloat(getComputedStyle(el).lineHeight);
+              return Math.round(el.getBoundingClientRect().height / lh);
+            }),
+          ]);
+          expect(lines, "step title lines at 200% text").toBeLessThanOrEqual(2);
+          expect(box!.height, "step card height at 200% text").toBeLessThan(667 / 2);
+        }
+        await expectNoHorizontalOverflow(page);
+        await page.addStyleTag({ content: "html { font-size: 100% !important; }" });
+      }
+
       await card.getByRole("button", { name: "Hide the setup card" }).click();
       await expect(main.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
       await page.reload();
