@@ -428,3 +428,11 @@ export async function addBillOrIncome(
 export async function openAllCategories(page: Page) {
   await page.getByRole("main").getByText("All categories, with limits").filter({ visible: true }).click();
 }
+
+/** UX-153, DESIGN.md Hierarchy: exactly one solid `bg-primary` button or
+ * link in the page content. Reads the variant through its background
+ * token, the way one-primary-action.spec.ts does. */
+export async function expectOnePrimaryAction(page: Page) {
+  const primary = page.getByRole("main").locator(':is(button, a)[class~="bg-primary"]:visible');
+  await expect(primary).toHaveCount(1);
+}

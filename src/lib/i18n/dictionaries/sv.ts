@@ -2429,7 +2429,6 @@ export const sv = {
       undo: "Ångra",
     },
     editTaskAriaLabel: "Redigera {title}",
-    filterLabel: "Visa",
     filterMine: "Mina",
     filterEveryone: "Alla",
     mineEmpty: "Inget är tilldelat dig.",
