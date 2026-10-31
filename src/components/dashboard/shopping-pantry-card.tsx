@@ -82,13 +82,16 @@ export function ShoppingPantryCard({
 
   return (
     <Card>
-      {/* items-center: the title lines up with "Add to list", which is 44 px
-          tall on a phone. */}
-      <CardHeader className="items-center">
+      {/* A wrapping row rather than CardHeader's title/action grid: at 200%
+          text in Swedish "Add to list" no longer fits beside the title and
+          drops below it, where the grid kept it beside the title and the
+          card's overflow-hidden cut it off (M9). items-center lines the title
+          up with the 44 px phone button. */}
+      <CardHeader className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <CardTitle>
           <h2 className="font-heading text-base font-semibold text-foreground">{dict.title}</h2>
         </CardTitle>
-        {addToList && <CardAction className="row-span-1 self-center">{addToList}</CardAction>}
+        {addToList && <CardAction className="max-w-full">{addToList}</CardAction>}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {lists.length === 0 ? (
