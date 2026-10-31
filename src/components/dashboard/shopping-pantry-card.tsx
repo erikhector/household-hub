@@ -82,11 +82,13 @@ export function ShoppingPantryCard({
 
   return (
     <Card>
-      <CardHeader>
+      {/* items-center: the title lines up with "Add to list", which is 44 px
+          tall on a phone. */}
+      <CardHeader className="items-center">
         <CardTitle>
           <h2 className="font-heading text-base font-semibold text-foreground">{dict.title}</h2>
         </CardTitle>
-        {addToList && <CardAction className="self-center">{addToList}</CardAction>}
+        {addToList && <CardAction className="row-span-1 self-center">{addToList}</CardAction>}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {lists.length === 0 ? (
