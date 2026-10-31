@@ -99,6 +99,18 @@ Parallel-safe except where noted.
 
 ### Bugs
 
+- [ ] **BUG-1. Ticking a shopping-list line can fail with an expired 5 s transaction** (impact: med, effort: S) —
+      Sentry JAVASCRIPT-NEXTJS-4 (2 events, 2026-10-26, iOS Safari, `POST /dashboard/shopping-list/[id]`,
+      vercel-production): `Transaction API error: A query cannot be executed on an expired transaction. The timeout was 5000 ms, however 5121 ms passed`,
+      thrown by the first `tx.shoppingListItem.update()` of the tick transaction at `purchase-actions.ts:56-58`
+      (JAVASCRIPT-NEXTJS-5 is a second PrismaClientKnownRequestError, 1 event, same day; check whether it is the same cause).
+      The 5 s default also covers waiting for a pooled connection, so a cold start or a busy pool kills the tick before it does any work,
+      and the shopper sees a failed check-off in the shop. Fix: pass `{ maxWait, timeout }` to the tick `$transaction`
+      (and the sibling ones at `purchase-actions.ts:271`, `receipt-actions.ts:134`), keep the post-commit work
+      (price-spike check) outside it, and make the failure surface as the normal retry toast rather than an unhandled error.
+      Acceptance: unit test that the tick transaction is called with an explicit `timeout` above 5000 and that a
+      transaction-expired error returns an error state instead of throwing.
+
 
 ### Security hardening (2026-09-26 audit)
 
