@@ -104,7 +104,7 @@ describe("clearSampleDataAction", () => {
       data: { sample: null },
     });
     expect(m.mealPlan.deleteMany).toHaveBeenCalledWith({
-      where: { householdId: "h1", sample: { not: null }, entries: { none: {} } },
+      where: { householdId: "h1", sample: { not: null }, entries: { none: {} }, picks: { none: {} } },
     });
   });
 });

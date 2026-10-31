@@ -85,7 +85,8 @@ export async function clearSampleDataAction(): Promise<void> {
     prisma.mealPlanEntry.deleteMany({ where: { sample: tagged, mealPlan: { householdId } } }),
     prisma.shoppingList.deleteMany({ where: { householdId, sample: tagged, items: { none: {} } } }),
     prisma.shoppingList.updateMany({ where: { householdId, sample: tagged }, data: { sample: null } }),
-    prisma.mealPlan.deleteMany({ where: { householdId, sample: tagged, entries: { none: {} } } }),
+    // Week picks count as "a row of the person's own" too.
+    prisma.mealPlan.deleteMany({ where: { householdId, sample: tagged, entries: { none: {} }, picks: { none: {} } } }),
     prisma.mealPlan.updateMany({ where: { householdId, sample: tagged }, data: { sample: null } }),
     prisma.recipe.deleteMany({ where: { householdId, sample: tagged } }),
     prisma.householdTask.deleteMany({ where: { householdId, sample: tagged } }),

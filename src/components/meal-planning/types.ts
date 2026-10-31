@@ -1,5 +1,6 @@
 import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
 import type { RecipeTag } from "@/lib/recipe-tags";
+import type { PickFreshness, Weekday } from "@/lib/week-picks-spread";
 
 export type RecipeIngredientData = {
   id: string;
@@ -73,6 +74,25 @@ export type MealPlanEntryData = {
   preparedBatchId: string | null;
 };
 
+// A week pick in the planner's tray (MealPlanPick, see loadWeekPicks in
+// week-picks.ts): a meal chosen for the week, not on a day yet.
+export type WeekPickData = {
+  id: string;
+  recipeId: string | null;
+  // The recipe's name, or the custom meal's.
+  name: string;
+  // Meaningless when recipeId is null, as on MealPlanEntryData.
+  portions: number;
+  // Moved over from a week that ended with it unplaced ("From last week").
+  carried: boolean;
+  // Another member's display name when they picked it ("Picked by Anna");
+  // null when it was the viewer, or unknown.
+  pickedBy: string | null;
+  // Spread over the week's two signals (week-picks-spread.ts).
+  habitWeekday: Weekday | null;
+  freshness: PickFreshness | null;
+};
+
 // One ingredient the planned week's recipes need more of than the household
 // currently has on hand — see previewMissingIngredientsAction.
 export type MissingIngredientData = {
@@ -93,6 +113,10 @@ export type MissingIngredientData = {
   // along to the shopping list row's own note. Null when none of the recipes
   // that need it has one.
   note: string | null;
+  // Week picks: set when only picks (meals not on a day yet) need this
+  // row, so the review dialog can list it under "Not on a day yet". Absent
+  // when any placed meal needs it too.
+  fromPicksOnly?: true;
 };
 
 // An ACTIVE shopping list the "add missing ingredients" dialog can add to.
