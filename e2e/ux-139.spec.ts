@@ -55,37 +55,17 @@ test("budget cards reach to 6 px from the screen edges on a phone", async ({ pag
   expect(errors).toEqual([]);
 });
 
-// Two budget stat tiles share a row on a phone: the grid reaches out, not
-// each card, which would push them into each other by the bleed.
-test("budget stat tiles in one row reach the edges without overlapping", async ({ page }) => {
+// Budget redesign (Oct 2026): Insights' breakdown card (behind the
+// Expenses / Income / Savings switch) is a Card, so it bleeds by itself; a
+// bleeding wrapper around it pushed it flush to the screen edge.
+test("Insights' breakdown card reaches the edges like any other card", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/dashboard/budget");
-  const insights = page.locator("main").getByRole("tab", { name: "Insights" });
-  await insights.click();
-  // The tab switch renders in a transition (BudgetTabs' replaceState), so
-  // until it lands Overview is still the visible panel.
-  await expect(insights).toHaveAttribute("aria-selected", "true");
-  // By the card's own title: Overview's Safe to spend card also holds an
-  // "Income" and an "Expenses" line (in its collapsed breakdown), so a
-  // card that merely contains the text can be that one instead.
-  const tile = (label: string) =>
-    page
-      .locator('main [data-slot="card"]')
-      .filter({ has: page.locator('[data-slot="card-title"]').getByText(label, { exact: true }) })
-      .filter({ visible: true })
-      .first();
-  await expect(tile("Income")).toBeVisible();
-  const income = (await tile("Income").boundingBox())!;
-  const expenses = (await tile("Expenses").boundingBox())!;
-  const width = page.viewportSize()!.width;
-  if (Math.abs(income.y - expenses.y) < 1) {
-    // Side by side (a phone, and the two-column widths above it).
-    expect(income.x + income.width).toBeLessThanOrEqual(expenses.x);
-  }
-  if (width < PHONE_MAX) {
-    expect(Math.round(income.x)).toBe(6);
-    expect(Math.round(width - (expenses.x + expenses.width))).toBe(6);
-  }
-  await expectNoHorizontalOverflow(page);
+  await page.goto("/dashboard/budget?tab=insights");
+  const card = page
+    .locator('main [data-slot="card"]')
+    .filter({ has: page.locator('[data-slot="card-title"]').getByText(/^Expenses by category/) })
+    .filter({ visible: true })
+    .first();
+  await expectSurfaceEdges(page, card);
   expect(errors).toEqual([]);
 });
