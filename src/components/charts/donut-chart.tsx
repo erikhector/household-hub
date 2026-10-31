@@ -198,7 +198,7 @@ export function DonutChart({
           below 4.5:1); the swatches carry the emphasis. */}
       {/* Capped so a name and its amount stay within one glance on a wide
           screen (craft-floor: proximity). */}
-      <ul className="mx-auto flex w-full max-w-2xl flex-col">
+      <ul className="mx-auto flex w-full max-w-md flex-col">
         {slices.map((slice) => {
           const isSelected = slice.key === selectedKey;
           return (

@@ -107,7 +107,12 @@ export function MonthAtAGlance({
             const before = previous[key];
             let direction: "more" | "less" | "same" | "new";
             let changeText: string;
-            if (key === "left") {
+            if (key === "left" && before === 0 && now !== 0) {
+              // Nothing logged last month: "New this month", as the rows
+              // above say, rather than "4,385.00 more" than nothing.
+              direction = "new";
+              changeText = dict.new;
+            } else if (key === "left") {
               const change = amountChangeOf(now, before);
               direction = change.direction;
               changeText =
