@@ -5,7 +5,8 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-112: a member who has only just joined and has no personal categories
 // yet still sees their share of a split bill, and what they owe, on the
-// personal Overview and on home, instead of only "Let's set up your budget".
+// personal Overview, and what they owe on Home, instead of only "Let's set up
+// your budget".
 // Their shared-expense action is the page's primary one (same slot as the
 // household page's "Add transaction"). A fresh household and two accounts
 // keep it independent of the seeded worker household, whose users collect
@@ -79,10 +80,9 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     const amount570 = /570[\s  ,.]?00/;
     const main = page.getByRole("main");
 
-    // Home: the card sits above the "set up" prompt.
-    const homeCard = main.getByText("Shared with your household");
-    await expect(homeCard).toBeVisible();
-    await expect(main.getByText("Your share this month").locator("..")).toContainText(amount470);
+    // Home (UX-HOME-4): the balance sits under the Safe to spend tiles,
+    // whose "You" tile is the way to set up a budget. The month's share
+    // lives on Personal budget.
     await expect(main.getByText("You owe other members").locator("..")).toContainText(amount570);
     await expect(main.getByRole("link", { name: "Settle up →" })).toBeVisible();
     await expect(main.getByRole("link", { name: "Set up your personal budget" })).toBeVisible();

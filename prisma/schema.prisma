@@ -818,6 +818,7 @@ model Recipe {
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
   mealPlanEntries MealPlanEntry[]
+  mealPlanPicks   MealPlanPick[]
   mealPlanTemplateEntries MealPlanTemplateEntry[]
   // Sub-recipes this recipe includes (e.g. a lasagna's bolognese +
   // béchamel) — see RecipeComponent below.
@@ -971,8 +972,47 @@ model MealPlan {
 
   household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
   entries   MealPlanEntry[]
+  picks     MealPlanPick[]
 
   @@unique([householdId, weekStartDate])
+}
+
+// Week picks: a meal chosen for a week but not put on a day yet (the
+// planner's "Picked for this week" tray). Its own table rather than a
+// MealPlanEntry with a nullable `date`: every reader of entries (calendar
+// feed, search, recaps, templates, cook mode, notifications) assumes a day,
+// and a missed `date: null` check would show a pick on the wrong day or
+// crash a recap. Placing a pick deletes it and creates a MealPlanEntry in
+// one transaction; "Back to picks" does the reverse (pick-actions.ts). No
+// meal slot on purpose: the slot is chosen when placing, dinner preselected.
+model MealPlanPick {
+  id           String   @id @default(cuid())
+  mealPlanId   String
+  recipeId     String?
+  freeformName String?
+  // Same meaning and default as MealPlanEntry.portions: how many portions
+  // of `recipe` this pick is for, scaled against Recipe.servings by the
+  // shopping-list bridge (missing-for-range.ts). Unused on a freeform pick.
+  portions     Int      @default(4)
+  // Carry-over: set to the week start of the plan a pick was left in when
+  // that week ended unplaced, and the pick moved to the current week's plan
+  // (carryOverPastPicks in week-picks.ts). Null for a pick made for the week
+  // it's in. Drives the "From last week" chip; a pick carried twice keeps
+  // the first week it came from.
+  carriedFromWeek DateTime?
+  // Who picked it, as a plain user id like Transaction.createdByUserId (no
+  // @relation), resolved to a display name through the household's members
+  // for "Picked by Anna". Null when unknown.
+  createdByUserId String?
+  createdAt    DateTime @default(now())
+
+  mealPlan MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  // Cascade, not SetNull: a recipe pick whose recipe is deleted has no name
+  // left to show, unlike an entry, which is a record of a day.
+  recipe   Recipe?  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([mealPlanId])
+  @@index([recipeId])
 }
 
 enum MealType {

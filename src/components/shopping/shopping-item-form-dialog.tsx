@@ -16,7 +16,7 @@ import {
   DialogTrigger,
   type DialogHandle,
 } from "@/components/ui/dialog";
-import { ComboField } from "@/components/inventory/combo-field";
+import { ComboField, type ComboFieldDict } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import { findInventoryMatches } from "@/lib/item-matching";
@@ -43,6 +43,24 @@ type EditableShoppingItem = {
 };
 
 type ShoppingListDict = Dictionary["shoppingList"];
+
+// Only the strings the dialog reads, so a page that opens it away from the
+// list (Home's "Add to list", UX-HOME-3) sends these, not the whole
+// shopping-list dictionary.
+export type ShoppingItemFormDialogDict = Pick<
+  ShoppingListDict,
+  | "add"
+  | "addItem"
+  | "addItemDialogTitle"
+  | "addItemNamePlaceholder"
+  | "addItemQuantityAriaLabel"
+  | "addItemUnitPlaceholder"
+  | "adding"
+  | "autoLinkedName"
+  | "needsMappingToast"
+  | "editItem"
+> &
+  ComboFieldDict;
 
 const initialState: ActionState = {};
 
@@ -86,7 +104,7 @@ export function ShoppingItemFormDialog({
   /** Only needed in edit mode, for the "create a new inventory item" category field. */
   categories?: string[];
   units: string[];
-  dict: ShoppingListDict;
+  dict: ShoppingItemFormDialogDict;
   /** Required in create mode. */
   barcodeDict?: Dictionary["barcodeScanner"];
   /** Open through this handle (the list's overflow menu, a row's edit

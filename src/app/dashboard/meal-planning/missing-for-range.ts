@@ -9,15 +9,20 @@ import {
   portionsMultiplier,
 } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData } from "@/components/meal-planning/types";
+import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
+import { addDays } from "@/app/dashboard/meal-planning/date-utils";
 
 // What the planner's week still needs from the shop: the shared read behind
 // the review dialog's preview action (cooking-actions.ts) and the planner's
 // "Add N missing" button (UX-91, counted on the server in page.tsx so the
 // button never pops in after the week). `range` is already validated by
 // parseMissingIngredientsRange; callers scope it to their own household.
+// `mealType` narrows it to one meal of the day: Home's "Missing …" line
+// (UX-HOME-3) asks about tonight's dinner only, not the day's lunch too.
 export async function loadMissingIngredients(
   householdId: string,
   range: { from: Date; to: Date },
+  mealType?: MealType,
 ): Promise<{ items: MissingIngredientData[] }> {
   // Filters on each entry's own `date` rather than looking up one MealPlan
   // by weekStartDate, so a range can span several weeks' MealPlan rows (or
@@ -28,16 +33,36 @@ export async function loadMissingIngredients(
   // as the old single-MealPlan lookup: the planner only ever dates an entry
   // on one of its own plan's seven days (the week grid's day cells, and
   // copyWeekAction's day-offset shift in planner-actions.ts).
-  const entries = await prisma.mealPlanEntry.findMany({
-    where: {
-      mealPlan: { householdId: householdId },
-      date: { gte: range.from, lt: range.to },
-      recipeId: { not: null },
-    },
-    select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
-  });
+  //
+  // Week picks (meals chosen for a week but not on a day yet) count too, so
+  // a household can shop for the week before deciding which day is which:
+  // every pick of a MealPlan whose week overlaps the range, scaled by its
+  // portions exactly like an entry. A plan's week is [weekStartDate, +7
+  // days), so it overlaps `[from, to)` when it starts after `from - 7` and
+  // before `to`. A pick has no slot, so a question about one meal of the
+  // day (`mealType`, Home's tonight's dinner) leaves picks out.
+  const [entries, picks] = await Promise.all([
+    prisma.mealPlanEntry.findMany({
+      where: {
+        mealPlan: { householdId: householdId },
+        date: { gte: range.from, lt: range.to },
+        recipeId: { not: null },
+        ...(mealType ? { mealType } : {}),
+      },
+      select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
+    }),
+    mealType
+      ? []
+      : prisma.mealPlanPick.findMany({
+          where: {
+            mealPlan: { householdId, weekStartDate: { gt: addDays(range.from, -7), lt: range.to } },
+            recipeId: { not: null },
+          },
+          select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
+        }),
+  ]);
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && picks.length === 0) {
     return { items: [] };
   }
 
@@ -60,14 +85,17 @@ export async function loadMissingIngredients(
   // same expansion (cycle handling, scaling, component recipes) at one
   // query total.
   const recipesById = await loadRecipeGraph(householdId);
-  const expanded = entries.flatMap((entry) =>
+  const expanded = [
+    ...entries.map((entry) => ({ ...entry, fromPick: false })),
+    ...picks.map((pick) => ({ ...pick, fromPick: true })),
+  ].flatMap((meal) =>
     expandFromGraph(
       recipesById,
-      entry.recipeId!,
-      portionsMultiplier(entry.portions, entry.recipe?.servings),
+      meal.recipeId!,
+      portionsMultiplier(meal.portions, meal.recipe?.servings),
       new Set(),
       0,
-    ),
+    ).map((ingredient) => ({ ...ingredient, fromPick: meal.fromPick })),
   );
 
   // Every ingredient is normally linked to an InventoryItem at recipe-save
@@ -104,6 +132,7 @@ export async function loadMissingIngredients(
         onHandUnit: ingredient.onHandUnit,
         conversions: ingredient.conversions,
         note: ingredient.note,
+        fromPick: ingredient.fromPick,
       };
     }
     const loose = looseByName.get(ingredient.name.toLowerCase());
@@ -116,6 +145,7 @@ export async function loadMissingIngredients(
       onHandUnit: loose?.unit ?? null,
       conversions: loose?.unitConversions ?? [],
       note: ingredient.note,
+      fromPick: ingredient.fromPick,
     };
   });
 

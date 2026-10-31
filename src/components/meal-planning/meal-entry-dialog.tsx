@@ -32,7 +32,9 @@ import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-coo
 import { addMealEntryAction, updateMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { CUSTOM_RECIPE_SENTINEL, MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { PortionStepper } from "@/components/meal-planning/portion-stepper";
-import type { MealPlanEntryData, PreparedBatchData, RecipeData } from "@/components/meal-planning/types";
+import { ChipScroller } from "@/components/meal-planning/chip-scroller";
+import { PickChip } from "@/components/meal-planning/week-picks-tray";
+import type { MealPlanEntryData, PreparedBatchData, RecipeData, WeekPickData } from "@/components/meal-planning/types";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -71,6 +73,11 @@ type CreateProps = CommonProps & {
   // GAP-49: the household's active meal-prep batches. Those with portions
   // left are offered as "From meal prep"; none left, no such option.
   batches?: PreparedBatchData[];
+  // Week picks: the week's picks, offered first as chips ("From this
+  // week's picks"); tapping one hands it to onPlacePick with the chosen
+  // slot and closes the sheet. Absent or empty, no such row.
+  picks?: WeekPickData[];
+  onPlacePick?: (pick: WeekPickData, mealType: MealType) => void;
   // Opened by the day's "+ Add meal" (or UX-50's "Add your first dinner" on
   // an empty week), which the planner keeps in its own chunk so this dialog
   // can load on first use (PERF-26).
@@ -220,6 +227,32 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {!isEdit && (props.picks ?? []).length > 0 && props.onPlacePick && (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">
+                {dict.weekPicks.fromPicks}
+              </span>
+              <ChipScroller
+                label={dict.weekPicks.fromPicks}
+                prevLabel={dict.weekPicks.scrollPrev}
+                nextLabel={dict.weekPicks.scrollNext}
+                className="-mx-4 [&>[role=list]]:scroll-px-4 [&>[role=list]]:px-4"
+              >
+                {props.picks!.map((pick) => (
+                  <PickChip
+                    key={pick.id}
+                    pick={pick}
+                    dict={dict.weekPicks}
+                    onClick={() => {
+                      setOpen(false);
+                      props.onPlacePick!(pick, mealType);
+                    }}
+                  />
+                ))}
+              </ChipScroller>
             </div>
           )}
 

@@ -25,6 +25,7 @@ import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inve
 import type { ItemUnitConversionLike } from "@/lib/units";
 import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
 import { parseMissingIngredientsRange, weekRange } from "@/app/dashboard/meal-planning/missing-ingredients";
+import { carryOverPastPicks, loadWeekPicks } from "@/app/dashboard/meal-planning/week-picks";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 
@@ -46,6 +47,10 @@ type MealPlanningDict = Dictionary["mealPlanning"];
 const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: string) => {
   const weekStart = parseDateKey(weekStartKey);
 
+  // Week picks' carry-over (week-picks.ts) runs before this week's plan is
+  // read, so picks left in a week that has ended show up in today's week on
+  // this same load. The other queries don't depend on it.
+  let carriedCount = 0;
   const [recipes, mealPlan, activeShoppingLists, inventoryItems] = await Promise.all([
     prisma.recipe.findMany({
       where: { householdId },
@@ -55,26 +60,42 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
       },
       orderBy: { name: "asc" },
     }),
-    prisma.mealPlan.findFirst({
-      where: { householdId, weekStartDate: weekStart },
-      include: {
-        entries: {
-          // Only what the planner and nutrition recap read — not the
-          // recipe's instructions and the rest of its columns, per entry.
-          include: {
-            recipe: {
-              select: {
-                name: true,
-                caloriesPerServing: true,
-                proteinGramsPerServing: true,
-                carbsGramsPerServing: true,
-                fatGramsPerServing: true,
+    carryOverPastPicks(householdId, new Date()).then((count) => {
+      carriedCount = count;
+      return prisma.mealPlan.findFirst({
+        where: { householdId, weekStartDate: weekStart },
+        include: {
+          // The tray, in the order they were picked.
+          picks: {
+            select: {
+              id: true,
+              recipeId: true,
+              freeformName: true,
+              portions: true,
+              carriedFromWeek: true,
+              createdByUserId: true,
+              recipe: { select: { name: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+          entries: {
+            // Only what the planner and nutrition recap read — not the
+            // recipe's instructions and the rest of its columns, per entry.
+            include: {
+              recipe: {
+                select: {
+                  name: true,
+                  caloriesPerServing: true,
+                  proteinGramsPerServing: true,
+                  carbsGramsPerServing: true,
+                  fatGramsPerServing: true,
+                },
               },
             },
+            orderBy: { date: "asc" },
           },
-          orderBy: { date: "asc" },
         },
-      },
+      });
     }),
     prisma.shoppingList.findMany({
       where: { householdId, status: "ACTIVE" },
@@ -96,6 +117,9 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
         lowStockThreshold: true,
         expiresAt: true,
         lastKnownPrice: true,
+        // Week picks' freshness signal (pickFreshness in week-picks-spread.ts).
+        shelfLifeDays: true,
+        category: true,
       },
     }),
   ]);
@@ -162,7 +186,16 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     })),
   );
 
-  return { recipes, recipeRows, entries, activeShoppingLists, inventoryItems, nutritionRecapTotals };
+  return {
+    recipes,
+    recipeRows,
+    entries,
+    picks: mealPlan?.picks ?? [],
+    carriedCount,
+    activeShoppingLists,
+    inventoryItems,
+    nutritionRecapTotals,
+  };
 });
 
 // SCALE-J: a trailing-30-day window across all weeks, independent of
@@ -206,15 +239,22 @@ async function MealNutritionRecapSection({
 
 async function PlannerTabSection({
   householdId,
+  userId,
   dict,
   weekStartKey,
 }: {
   householdId: string;
+  userId: string;
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const [{ recipeRows, entries, activeShoppingLists }, batches, locale, recipeCooked, planTemplates] =
-    await Promise.all([
+  const [
+    { recipes, recipeRows, entries, picks: pickRows, carriedCount, activeShoppingLists, inventoryItems },
+    batches,
+    locale,
+    recipeCooked,
+    planTemplates,
+  ] = await Promise.all([
       getMealPlanningCoreData(householdId, weekStartKey),
       getActiveBatches(householdId),
       getLocale(),
@@ -230,11 +270,14 @@ async function PlannerTabSection({
   // UX-91: the count behind the planner's "Add N missing" button. Skipped
   // (no query) for a week with no recipe planned, where nothing can be
   // missing.
+  // Week picks count too: a picked recipe is shopped for before it has a day.
   const weekDates = parseMissingIngredientsRange(weekRange(weekStartKey));
-  const missingCount =
-    weekDates && entries.some((entry) => entry.recipeId)
-      ? (await loadMissingIngredients(householdId, weekDates)).items.length
-      : 0;
+  const [missingCount, picks] = await Promise.all([
+    weekDates && (entries.some((entry) => entry.recipeId) || pickRows.some((pick) => pick.recipeId))
+      ? loadMissingIngredients(householdId, weekDates).then((result) => result.items.length)
+      : 0,
+    loadWeekPicks({ householdId, userId, picks: pickRows, recipes, inventoryItems, now: new Date() }),
+  ]);
   // The two recaps sit below the week (on a phone the week bar and today
   // come first, DESIGN.md M6), inside the planner's Suspense boundary
   // rather than each in their own. With their own boundaries they streamed
@@ -255,6 +298,8 @@ async function PlannerTabSection({
         recipes={recipeRows}
         recipeCooked={recipeCooked}
         entries={entries}
+        picks={picks}
+        carriedCount={carriedCount}
         activeShoppingLists={activeShoppingLists}
         batches={batches}
         missingCount={missingCount}
@@ -551,7 +596,7 @@ function PrepTabSkeleton({ label }: { label: string }) {
 }
 
 export default async function MealPlanningPage(props: PageProps<"/dashboard/meal-planning">) {
-  const [{ household }, dict, searchParams] = await Promise.all([
+  const [{ household, userId }, dict, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     props.searchParams,
@@ -575,7 +620,12 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         dict={dict.mealPlanning}
         plannerTab={
           <Suspense key="planner-tab" fallback={<PlannerTabSkeleton label={dict.common.loading} />}>
-            <PlannerTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
+            <PlannerTabSection
+              householdId={household.id}
+              userId={userId}
+              dict={dict.mealPlanning}
+              weekStartKey={weekStartKey}
+            />
           </Suspense>
         }
         recipesTab={

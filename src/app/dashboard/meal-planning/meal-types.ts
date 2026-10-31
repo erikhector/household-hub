@@ -17,6 +17,10 @@ export const CUSTOM_RECIPE_SENTINEL = "__custom__";
 // picking an existing active one.
 export const NEW_SHOPPING_LIST_SENTINEL = "__new_list__";
 
+// UX-HOME-3: `?tab=recipes&recipe=<id>&cook=1` opens that recipe's cook mode
+// (RecipeManager), so Home's "Start cooking" lands at the stove, not a list.
+export const COOK_PARAM = "cook";
+
 // GAP-59: the meal-plan search waits for this many characters, in the field
 // (to know when to ask) and the loader (to refuse), since a one-letter query
 // matches half the plan.
