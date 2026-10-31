@@ -62,7 +62,12 @@ test.describe("a failed chunk load", () => {
     await expectRouterPatched(page);
 
     // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
-    const offline = (route: Route) => route.abort();
+    // Remember what it refused, to warm the browser's cache for the retry below.
+    const refused = new Set<string>();
+    const offline = (route: Route) => {
+      refused.add(route.request().url());
+      return route.abort();
+    };
     await page.route("**/_next/static/**/*.js", offline);
     await add.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
@@ -76,6 +81,16 @@ test.describe("a failed chunk load", () => {
     // dialog past the 5 s the tap has to open it (MAINT-71). With the route
     // gone the retry measures the app's own chunk load, not the harness.
     await page.unroute("**/_next/static/**/*.js", offline);
+    // The retry has 5 s to fetch, parse and mount the chunk. On a gate that is
+    // also building, running other specs and serving them, the fetch alone has
+    // missed that (MAINT-66, once on bcfddc1, after MAINT-71 took the harness
+    // out of the loop). Static chunks are immutable and cached by URL, so
+    // fetching the ones the abort refused here, outside the timed window, leaves
+    // the tap measuring what it is for: that a failed import is forgotten and
+    // the next tap loads it again.
+    await page.evaluate((urls) => Promise.all(urls.map((url) => fetch(url).then((response) => response.arrayBuffer()))), [
+      ...refused,
+    ]);
     await add.click();
     await expect(page.getByRole("dialog", { name: t.addDialogTitle })).toBeVisible();
   });
