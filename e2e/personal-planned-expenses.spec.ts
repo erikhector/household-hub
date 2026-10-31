@@ -122,7 +122,11 @@ test("adds a personal planned bill, counts it until paid, and keeps it off the h
   const paidRow = plannedRow(page, "Paid", name);
   await expect(paidRow).toBeVisible();
   await expect(paidRow.getByRole("button", { name: "Log payment" })).toHaveCount(0);
-  await expect(paidRow.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
+  // Its "…" menu offers Edit but no Delete: that would detach the payment.
+  await paidRow.getByRole("button", { name: `More actions for ${name}` }).click();
+  await expect(page.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(plannedRow(page, "Due this month", name)).toHaveCount(0);
 
   await page.getByRole("tab", { name: "Overview" }).click();

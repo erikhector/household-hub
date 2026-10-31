@@ -9,9 +9,13 @@
 // The panels are Server Components the caller renders ahead of time (see
 // budget-tabs.tsx's doc comment for the pattern); `hidden` keeps all three
 // mounted so switching doesn't re-render them.
+//
+// It's a switch inside the card, not more page tabs: the compact size keeps
+// it visibly below the page's own tab bar, and each panel is a tabpanel
+// labelled by its tab.
 
-import { useState, type ReactNode } from "react";
-import { Tabs } from "@/components/ui/tabs";
+import { useId, useState, type ReactNode } from "react";
+import { Tabs, tabPanelProps } from "@/components/ui/tabs";
 
 export type BreakdownKind = "expense" | "income" | "savings";
 
@@ -21,15 +25,18 @@ export function BreakdownSwitch({
   panels: { value: BreakdownKind; label: string; content: ReactNode }[];
 }) {
   const [value, setValue] = useState<BreakdownKind>(panels[0]?.value ?? "expense");
+  const idPrefix = useId();
   return (
     <div className="flex flex-col gap-3">
       <Tabs
         tabs={panels.map(({ value, label }) => ({ value, label }))}
         value={value}
         onChange={setValue}
+        size="compact"
+        idPrefix={idPrefix}
       />
       {panels.map((panel) => (
-        <div key={panel.value} hidden={panel.value !== value}>
+        <div key={panel.value} hidden={panel.value !== value} {...tabPanelProps(idPrefix, panel.value)}>
           {panel.content}
         </div>
       ))}

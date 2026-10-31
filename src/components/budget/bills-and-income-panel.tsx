@@ -13,10 +13,20 @@
 // for it. Both lists stay their own components, RecurringTemplateList and
 // PlannedItemList, under a sub-heading each.
 //
-// The dialogs open from the menu through hidden triggers (TemplateRow's
-// pattern): a dialog rendered inside the menu would unmount as it closes.
+// The dialogs open from the menu through dialog handles (a dialog rendered
+// inside the menu would unmount as it closes), and hand focus back to the Add
+// button when they close. They used to open by clicking hidden aria-hidden
+// buttons, which is where focus then landed: nowhere a keyboard or screen
+// reader user could carry on from.
+//
+// With no category there is nothing to plan in, so Add is disabled and the
+// card says why in place of its empty text, pointing at the Categories card
+// below it. Without an expense (or income) category the menu's one-off bill
+// (or income) item stays in the menu, disabled, with that reason under it:
+// the menu then offers the same three choices every time, and the missing
+// one explains itself instead of silently not being there.
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +49,8 @@ import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
+import { createDialogHandle } from "@/components/ui/dialog";
+import { openLazyDialog } from "@/components/ui/lazy-dialog";
 import { LazyPlannedExpenseDialog, LazyRecurringTemplateDialog } from "@/components/budget/lazy-budget-dialogs";
 
 export function BillsAndIncomePanel({
@@ -92,12 +104,14 @@ export function BillsAndIncomePanel({
 }) {
   const t = dict.billsAndIncome;
   const numberFormat = createMoneyFormat(locale, currencyCode);
-  const repeatsRef = useRef<HTMLButtonElement | null>(null);
-  const billRef = useRef<HTMLButtonElement | null>(null);
-  const incomeRef = useRef<HTMLButtonElement | null>(null);
+  const addRef = useRef<HTMLButtonElement | null>(null);
+  const [repeatsHandle] = useState(() => createDialogHandle());
+  const [billHandle] = useState(() => createDialogHandle());
+  const [incomeHandle] = useState(() => createDialogHandle());
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
   const incomeCategories = categories.filter((c) => c.type === "INCOME");
   const hasRepeating = templates.length + pausedTemplates.length > 0;
+  const needsCategory = categories.length === 0;
 
   return (
     <section
@@ -115,26 +129,30 @@ export function BillsAndIncomePanel({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button variant="secondary" size="sm" disabled={categories.length === 0}>
+              <Button
+                ref={addRef}
+                variant="secondary"
+                size="sm"
+                disabled={needsCategory}
+                aria-describedby={needsCategory ? "bills-and-income-needs-category" : undefined}
+              >
                 <Plus className="size-4" />
                 {t.add}
               </Button>
             }
           />
           <DropdownMenuContent align="end" className="w-auto">
-            <DropdownMenuItem onClick={() => repeatsRef.current?.click()}>{t.addRepeating}</DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={expenseCategories.length === 0}
-              onClick={() => billRef.current?.click()}
-            >
-              {t.addOneOffBill}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={incomeCategories.length === 0}
-              onClick={() => incomeRef.current?.click()}
-            >
-              {t.addOneOffIncome}
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openLazyDialog(repeatsHandle)}>{t.addRepeating}</DropdownMenuItem>
+            <AddMenuItem
+              label={t.addOneOffBill}
+              reason={expenseCategories.length === 0 ? t.needsExpenseCategory : null}
+              onClick={() => openLazyDialog(billHandle)}
+            />
+            <AddMenuItem
+              label={t.addOneOffIncome}
+              reason={incomeCategories.length === 0 ? t.needsIncomeCategory : null}
+              onClick={() => openLazyDialog(incomeHandle)}
+            />
           </DropdownMenuContent>
         </DropdownMenu>
         <LazyRecurringTemplateDialog
@@ -144,8 +162,8 @@ export function BillsAndIncomePanel({
           members={members}
           createAction={createTemplateAction}
           updateAction={updateTemplateAction}
-          // Opened from the Add menu; not a target of its own.
-          trigger={<button ref={repeatsRef} type="button" className="sr-only" tabIndex={-1} aria-hidden="true" />}
+          handle={repeatsHandle}
+          finalFocus={addRef}
         />
         <LazyPlannedExpenseDialog
           dict={dict}
@@ -155,7 +173,8 @@ export function BillsAndIncomePanel({
           createAction={createPlannedAction}
           updateAction={updatePlannedAction}
           numberFormat={numberFormat}
-          trigger={<button ref={billRef} type="button" className="sr-only" tabIndex={-1} aria-hidden="true" />}
+          handle={billHandle}
+          finalFocus={addRef}
         />
         <LazyPlannedExpenseDialog
           dict={dict}
@@ -165,12 +184,18 @@ export function BillsAndIncomePanel({
           createAction={createPlannedAction}
           updateAction={updatePlannedAction}
           numberFormat={numberFormat}
-          trigger={<button ref={incomeRef} type="button" className="sr-only" tabIndex={-1} aria-hidden="true" />}
+          handle={incomeHandle}
+          finalFocus={addRef}
         />
       </div>
 
+      {needsCategory && (
+        <p id="bills-and-income-needs-category" className="text-sm text-muted-foreground">
+          {t.needsCategory}
+        </p>
+      )}
       {!hasRepeating && plannedRows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t.empty}</p>
+        !needsCategory && <p className="text-sm text-muted-foreground">{t.empty}</p>
       ) : (
         <>
           {hasRepeating && (
@@ -220,5 +245,27 @@ export function BillsAndIncomePanel({
         </>
       )}
     </section>
+  );
+}
+
+// A one-off item of the Add menu, disabled with its reason under it while
+// there's no category of its kind. The item's own data-disabled dimming is
+// switched off so the reason stays readable (muted text at 50% opacity fails
+// contrast); the label alone is muted instead.
+function AddMenuItem({
+  label,
+  reason,
+  onClick,
+}: {
+  label: string;
+  reason: string | null;
+  onClick: () => void;
+}) {
+  if (!reason) return <DropdownMenuItem onClick={onClick}>{label}</DropdownMenuItem>;
+  return (
+    <DropdownMenuItem disabled className="flex-col items-start gap-0.5 py-1.5 data-disabled:opacity-100">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="max-w-60 text-xs whitespace-normal text-muted-foreground">{reason}</span>
+    </DropdownMenuItem>
   );
 }

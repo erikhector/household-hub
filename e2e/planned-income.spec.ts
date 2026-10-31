@@ -146,7 +146,11 @@ test("adds household planned income, counts it this month and marks it received 
   const receivedRow = incomeRow(page, "Received", name);
   await expect(receivedRow).toBeVisible();
   await expect(receivedRow.getByRole("button", { name: "Log income" })).toHaveCount(0);
-  await expect(receivedRow.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
+  // Its "…" menu offers Edit but no Delete: that would detach the payment.
+  await receivedRow.getByRole("button", { name: `More actions for ${name}` }).click();
+  await expect(page.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   await page.getByRole("tab", { name: "Overview" }).click();
   await expect(dueStrip.getByText(name, { exact: true })).toHaveCount(0);

@@ -48,6 +48,9 @@ test("a recurring item is one line: its status and a More menu", async ({ page, 
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Edit recurring item" })).toBeVisible();
   await page.keyboard.press("Escape");
+  // Focus goes back to the menu's button, not to a hidden trigger.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(more).toBeFocused();
 
   await more.click();
   await page.getByRole("menuitem", { name: "Pause", exact: true }).click();

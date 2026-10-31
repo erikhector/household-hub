@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { addBillOrIncome, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, waitForUndoableDelete } from "./ui";
+import { addBillOrIncome, dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, waitForUndoableDelete } from "./ui";
 
 // Planned bills (BUDGET-8): a one-off bill with a due date, added on the
 // Budget page's Setup tab, counted in Safe to spend until it's paid, and
@@ -239,8 +239,13 @@ test("a bill paid after its month shows as paid later, with no Log payment or De
   await expect(row).toBeVisible();
   await expect(row).toContainText("Paid");
   await expect(row.getByRole("button", { name: "Log payment" })).toHaveCount(0);
-  await expect(row.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
-  await expect(row.getByRole("button", { name: `Edit ${name}` })).toBeVisible();
+  // Its "…" menu still offers Edit, but not Delete.
+  const more = row.getByRole("button", { name: `More actions for ${name}` });
+  await expectHydrated(more);
+  await more.click();
+  await expect(page.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   await page.getByRole("tab", { name: "Overview" }).click();
   const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Needs attention" });
@@ -249,6 +254,52 @@ test("a bill paid after its month shows as paid later, with no Log payment or De
   await expect(stripRow).toContainText("Paid");
   await expect(stripRow.getByRole("button", { name: "Log payment" })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
+});
+
+// Design review of the budget redesign: a one-off row acts like a repeating
+// one on the same card — its status chip, one visible action (Log payment)
+// and a "…" menu with Edit and Delete, Delete confirmed. Closing a dialog
+// opened from the menu hands focus back to the "…" button.
+test("a one-off bill is one line: its status, Log payment and a More menu", async ({ page, isMobile }) => {
+  const category = await seedCategory();
+  const t = tag();
+  const name = `Dentist ${t}`;
+  await withDb((client) =>
+    client.query(
+      `INSERT INTO "PlannedExpense" (id, "householdId", "categoryId", name, amount, "dueDate")
+       VALUES ($1, $2, $3, $4, 450, $5)`,
+      [`e2e-planned-row-${t}`, E2E_HOUSEHOLD.id, category.id, name, new Date()],
+    ),
+  );
+
+  await page.goto("/dashboard/budget?tab=manage");
+  const row = plannedRow(page, "Due this month", name);
+  await expect(row).toBeVisible();
+  await expect(row.getByRole("button", { name: "Log payment" })).toBeVisible();
+  // The old pencil and trash icons are gone from the row.
+  await expect(row.getByRole("button", { name: `Edit ${name}` })).toHaveCount(0);
+  await expect(row.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
+  const more = row.getByRole("button", { name: `More actions for ${name}` });
+  if (isMobile) {
+    await expectTargetsApart(row);
+    await expectTouchTargets(page);
+  }
+  await expectNoHorizontalOverflow(page);
+
+  await expectHydrated(more);
+  await more.click();
+  await expect(page.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Edit planned bill" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(more).toBeFocused();
+
+  await more.click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await page.getByRole("dialog", { name: `Delete ${name}?` }).getByRole("button", { name: "Delete" }).click();
+  await expect(plannedRow(page, "Due this month", name)).toHaveCount(0);
 });
 
 // UX-13: a save the server turns down keeps what was typed, so the user

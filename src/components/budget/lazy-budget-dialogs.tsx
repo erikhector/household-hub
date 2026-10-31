@@ -27,6 +27,13 @@ import type { LogSharedExpenseDialog } from "@/components/personal-budget/log-sh
 // dialog's chunk is mounted (ui/lazy-dialog.tsx). Rows render many of these,
 // so each wrapper makes its own handle; the loader is shared, so the chunk is
 // fetched once.
+//
+// The recurring-item and planned-item wrappers also take a caller's `handle`
+// in place of `trigger`, for a dialog opened from a menu item (the Bills &
+// income card's Add menu, a row's "…" menu): a dialog rendered inside the
+// menu would unmount as it closes. Open it with openLazyDialog(handle), and
+// pass `finalFocus` (the menu's trigger), since a handle-opened dialog has no
+// trigger of its own to hand focus back to on close.
 
 /** The trigger, opening `handle` through its LazyDialog host. Its own props
  * (className, aria-label, ref, disabled, …) are kept. */
@@ -59,12 +66,15 @@ export function LazyTransactionDialog({
 
 export function LazyRecurringTemplateDialog({
   trigger,
+  handle: callerHandle,
   ...props
-}: { trigger: ReactElement } & Omit<ComponentProps<typeof RecurringTemplateDialog>, "handle">) {
-  const [handle] = useState(() => createDialogHandle());
+}: ({ trigger: ReactElement; handle?: never } | { trigger?: never; handle: DialogHandle }) &
+  Omit<ComponentProps<typeof RecurringTemplateDialog>, "handle">) {
+  const [ownHandle] = useState(() => createDialogHandle());
+  const handle = callerHandle ?? ownHandle;
   return (
     <>
-      {withOpener(trigger, handle, loadRecurringTemplateDialog)}
+      {trigger && withOpener(trigger, handle, loadRecurringTemplateDialog)}
       <LazyDialog loader={loadRecurringTemplateDialog} handle={handle}>
         {(Dialog) => <Dialog {...props} handle={handle} />}
       </LazyDialog>
@@ -74,12 +84,15 @@ export function LazyRecurringTemplateDialog({
 
 export function LazyPlannedExpenseDialog({
   trigger,
+  handle: callerHandle,
   ...props
-}: { trigger: ReactElement } & Omit<ComponentProps<typeof PlannedExpenseDialog>, "handle">) {
-  const [handle] = useState(() => createDialogHandle());
+}: ({ trigger: ReactElement; handle?: never } | { trigger?: never; handle: DialogHandle }) &
+  Omit<ComponentProps<typeof PlannedExpenseDialog>, "handle">) {
+  const [ownHandle] = useState(() => createDialogHandle());
+  const handle = callerHandle ?? ownHandle;
   return (
     <>
-      {withOpener(trigger, handle, loadPlannedExpenseDialog)}
+      {trigger && withOpener(trigger, handle, loadPlannedExpenseDialog)}
       <LazyDialog loader={loadPlannedExpenseDialog} handle={handle}>
         {(Dialog) => <Dialog {...props} handle={handle} />}
       </LazyDialog>
