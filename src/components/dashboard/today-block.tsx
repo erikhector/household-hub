@@ -169,13 +169,16 @@ export function TodayBlock({
                 {dinner.detail && <p className="text-sm text-muted-foreground">{dinner.detail}</p>}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">{dict.nothingPlanned}</p>
+              <p className="text-sm text-foreground">{dict.nothingPlanned}</p>
             )}
           </div>
           {missing && (
-            <div className="flex items-center gap-3 rounded-lg bg-warning/10 py-1.5 pr-1.5 pl-3 dark:bg-warning/20">
+            // flex-wrap + the text's min width: a long "Missing …" line pushes
+            // "Add N" onto its own line rather than wrapping into a narrow
+            // column beside it.
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-warning/10 py-1.5 pr-1.5 pl-3 dark:bg-warning/20">
               <ShoppingBasket className="size-4 shrink-0 text-warning" aria-hidden />
-              <p className="min-w-0 flex-1 text-sm font-medium break-words">{missing.text}</p>
+              <p className="min-w-44 flex-1 text-sm font-medium break-words text-pretty">{missing.text}</p>
               <AddMissingButton
                 rows={missing.rows}
                 target={missing.target}
@@ -255,11 +258,12 @@ export function TodayBlock({
         )}
         <Link
           href="/dashboard/tasks"
-          className="touch-target inline-flex items-center gap-1 self-start text-sm underline underline-offset-4"
+          className="touch-target inline-flex items-center gap-1 self-start rounded-md text-sm font-medium text-primary hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           {moreTaskCount > 0
             ? format(plural(moreTaskCount, dict.moreTasks), { count: moreTaskCount })
             : dict.viewTasks}
+          <ChevronRight className="size-4 shrink-0" aria-hidden />
         </Link>
       </CardContent>
     </Card>
