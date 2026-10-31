@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.127.0",
+    "date": "2026-10-31",
+    "pr": 973,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The overview is now called Home. It leads with tonight's dinner and your tasks. Shopping and pantry share one card that shows what's running out, with a button to add it to your list. Your safe to spend and the household's sit side by side, and \"Add to list\" is one tap away.\n\nPlan your week in two steps: pick the meals you want first, then put them on days when you're ready. Picked meals count toward your shopping list straight away. \"Spread over the week\" can suggest a day for each one, and anything you don't get to moves on to next week.\n\nMeal planning no longer scrolls sideways on phones with large text when meals are picked for the week.",
+      "sv": "Översikten heter nu Hem. Överst finns kvällens middag och dina uppgifter. Inköp och skafferi delar ett kort som visar vad som håller på att ta slut, med en knapp som lägger det på listan. Ditt och hushållets \"säkert att spendera\" står sida vid sida, och \"Lägg till på listan\" ligger ett tryck bort.\n\nPlanera veckan i två steg: välj först vilka måltider ni vill äta och lägg dem på dagar när ni är redo. Valda måltider räknas med på inköpslistan direkt. \"Fördela över veckan\" kan föreslå en dag för var och en, och det ni inte hinner flyttas över till nästa vecka.\n\nMatplaneringen scrollar inte längre i sidled på mobiler med stor text när du har valt måltider för veckan."
+    }
+  },
+  {
     "version": "0.126.0",
     "date": "2026-10-31",
     "pr": 959,
