@@ -7515,7 +7515,10 @@ components directly.
   the notification centre belong to the "More" menu, so while one is open
   "More" is the highlighted tab (`isMoreMenuActive` in `nav-items.ts`). The
   bottom bar's labels and the notification badge are 12 px (`text-xs`),
-  the M9 exception written into DESIGN.md. The collapsed sidebar's
+  the M9 exception written into DESIGN.md.
+  The bell's own count badge (`size-4.5`), the inventory quick-add bar's
+  labels and the bar chart's axis labels are `text-xs` too (UX-163), and
+  `src/components/tiny-text.test.ts` fails on any `text-[Npx]` under 12. The collapsed sidebar's
   icon-only controls carry an `aria-label` and a hover/focus Tooltip
   (`components/ui/tooltip.tsx`, Base UI) instead of a `title`, which touch
   never shows; the footer's What's new and notification bell are marked
