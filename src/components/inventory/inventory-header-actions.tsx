@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { createDialogHandle } from "@/components/ui/dialog";
 import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
 import {
@@ -132,8 +140,11 @@ export function InventoryHeaderActionsClient({
       </div>
 
       {/* Mobile: labelled Add item (floating in the thumb zone, UX-40) +
-          a labelled ⋯ menu that stays in the header */}
-      <div className="flex flex-wrap items-center gap-2 sm:hidden">
+          an icon-only ⋯ menu. UX-166: the ⋯ is a 44 px icon beside the page
+          title (the page lays the title and this out in one row on phones)
+          instead of a full-width labelled button of its own, so the first
+          inventory row isn't pushed ~400 px down. */}
+      <div className="flex items-center gap-2 sm:hidden">
         {items.length > 0 && (
           <PrimaryAction>
             <Button className="gap-1.5" aria-haspopup="dialog" onClick={() => openLazyDialog(addHandle)} {...preloadOnIntent(loadItemFormDialog)}>
@@ -143,32 +154,39 @@ export function InventoryHeaderActionsClient({
           </PrimaryAction>
         )}
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-8 max-sm:min-h-11 pointer-coarse:min-h-11 gap-1.5 py-1 whitespace-normal"><Ellipsis className="size-4" /> {dict.moreInventoryActions}</Button>} />
+          <DropdownMenuTrigger render={<Button variant="outline" size="icon" tooltip={false} aria-label={dict.moreInventoryActions}><Ellipsis className="size-4" /></Button>} />
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => openLazyDialog(stockHandle)}>
-              <ScanBarcode className="size-4" /> {dict.stockScan.triggerLabel}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openLazyDialog(bulkHandle)}>
-              <ScanLine className="size-4" /> {dict.bulkScan.triggerLabel}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openLazyDialog(aiHandle)}>
-              <Sparkles className="size-4" /> {dict.aiShelfScan.triggerLabel}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openLazyDialog(pasteHandle)}>
-              <ClipboardList className="size-4" /> {dict.pasteList.triggerLabel}
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/dashboard/inventory/export" prefetch={false} /> }>
-              <Download className="size-4" /> {exportLabel}
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href={manageItemsHref} prefetch={false} /> }>
-              <ListChecks className="size-4" /> {manageItemsLabel}
-              {duplicateGroups > 0 && (
-                <Badge variant="secondary" className="ml-auto">
-                  <span aria-hidden="true">{duplicateGroups}</span>
-                  <span className="sr-only">{format(plural(duplicateGroups, dict.catalog.duplicateBadge), { count: duplicateGroups })}</span>
-                </Badge>
-              )}
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{dict.moreGroupScan}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => openLazyDialog(stockHandle)}>
+                <ScanBarcode className="size-4" /> {dict.stockScan.triggerLabel}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openLazyDialog(bulkHandle)}>
+                <ScanLine className="size-4" /> {dict.bulkScan.triggerLabel}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openLazyDialog(aiHandle)}>
+                <Sparkles className="size-4" /> {dict.aiShelfScan.triggerLabel}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{dict.moreGroupManage}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => openLazyDialog(pasteHandle)}>
+                <ClipboardList className="size-4" /> {dict.pasteList.triggerLabel}
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/dashboard/inventory/export" prefetch={false} /> }>
+                <Download className="size-4" /> {exportLabel}
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href={manageItemsHref} prefetch={false} /> }>
+                <ListChecks className="size-4" /> {manageItemsLabel}
+                {duplicateGroups > 0 && (
+                  <Badge variant="secondary" className="ml-auto">
+                    <span aria-hidden="true">{duplicateGroups}</span>
+                    <span className="sr-only">{format(plural(duplicateGroups, dict.catalog.duplicateBadge), { count: duplicateGroups })}</span>
+                  </Badge>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

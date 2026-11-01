@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
 
 // UX-121: the top of the inventory counts what is out, low, expiring and
 // expired as tappable chips that filter the list, and the Status filter
@@ -80,13 +80,20 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test("tapping a count in the inventory header filters the list", async ({ page }) => {
+  // UX-166: on a phone the counts sit in the Filters dialog as "Status: 1
+  // out" chips; on desktop they head the list.
+  const isMobile = test.info().project.name === "mobile";
   await page.goto("/dashboard/inventory");
   const main = page.getByRole("main");
-  const summary = main.getByRole("group", { name: "Needs attention" });
-  await expect(summary).toBeVisible();
   const search = page.getByRole("searchbox").filter({ visible: true });
   await expect(search).toHaveCount(1);
   await search.fill(prefix);
+  if (isMobile) {
+    await expectHydrated(page.getByRole("button", { name: "Filters" }));
+    await page.getByRole("button", { name: "Filters" }).click();
+  }
+  const summary = (isMobile ? page.getByRole("dialog") : main).getByRole("group", { name: "Needs attention" });
+  await expect(summary).toBeVisible();
 
   const rows = itemRows(page);
   // Status is saved with the view prefs, so start from a clean slate.
@@ -94,10 +101,11 @@ test("tapping a count in the inventory header filters the list", async ({ page }
   if ((await pressed.count()) > 0) await pressed.first().click();
   await expect(rows).toHaveCount(5);
 
-  const out = summary.getByRole("button", { name: /^\d+ out$/ });
-  const low = summary.getByRole("button", { name: /^\d+ low$/ });
-  const expiring = summary.getByRole("button", { name: /^\d+ expiring$/ });
-  const expired = summary.getByRole("button", { name: /^\d+ expired$/ });
+  const chip = (word: string) => summary.getByRole("button", { name: new RegExp(`^${isMobile ? "Status: " : ""}\\d+ ${word}$`) });
+  const out = chip("out");
+  const low = chip("low");
+  const expiring = chip("expiring");
+  const expired = chip("expired");
   await expect(out).toBeVisible();
   await expect(low).toBeVisible();
   await expect(expiring).toBeVisible();

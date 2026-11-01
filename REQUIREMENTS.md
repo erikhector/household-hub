@@ -636,7 +636,11 @@ every lookup the old one did.
   the two stock and expiry kinds are independent, so a low item that is also
   expiring counts under both. Status also accepts `?status=expiring` and
   `expired`, and the saved view prefs keep them. The "well stocked" note
-  needs no expiring or expired items either.
+  needs no expiring or expired items either. **On a phone (UX-166)** the
+  group is not above the list: it sits at the top of the Filters dialog,
+  each chip reading "Status: 1 out", so search and Filters share the first
+  screen. The Filters button there is an icon with a count badge (its name
+  stays "Filters").
   Adding an item offers previously-used categories/locations via a native
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.
@@ -758,9 +762,10 @@ every lookup the old one did.
       Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
       as `null`, which lets Escape through to the dialog).
   - **Inventory on a phone (UX-20)**: below `sm` the page header shows a
-    labelled "Add item" plus a labelled "More inventory actions" ⋯ menu
-    (Scan, Scan multiple, Scan a shelf, Paste a list, Export CSV, Manage
-    items). The manage-items entry keeps the duplicate-group badge and the
+    labelled "Add item" plus an icon-only "More inventory actions" ⋯ menu
+    (UX-166: sits beside the page title, not as a full-width button of its
+    own), grouped into "Add by scanning" (Scan, Scan multiple, Scan a
+    shelf) and "Manage" (Paste a list, Export CSV, Manage items). The manage-items entry keeps the duplicate-group badge and the
     `?filter=duplicates` deep link: `InventoryActionButtons` computes the
     count (one cached `countDuplicateGroups` per render, shared with the
     desktop link) and the AI-configured flags server-side, since

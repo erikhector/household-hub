@@ -197,22 +197,34 @@ export function InventoryClient({
     ] as const
   ).filter(([key]) => problemCounts[key] > 0);
 
+  // The same toggle buttons in two places: above the list on tablet and
+  // desktop, and inside the phone's Filters dialog (UX-166), where each reads
+  // "Status: 1 out" so a count out of context still says what it counts.
+  function renderSummaryChips(inDialog: boolean) {
+    return summaryChips.map(([key, template]) => {
+      const text = format(template, { count: problemCounts[key] });
+      return (
+        <Button
+          key={key}
+          variant={status === key ? "default" : "outline"}
+          size="sm"
+          aria-pressed={status === key}
+          onClick={() => setStatus(status === key ? ALL : key)}
+          className="tabular-nums"
+        >
+          {inDialog ? format(dict.summaryStatusChip, { text }) : text}
+        </Button>
+      );
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4 sm:min-h-0 sm:flex-1">
+      {/* UX-166: not on phones. There the counts live in the Filters dialog
+          so search, Filters and the list share the first screen. */}
       {summaryChips.length > 0 && (
-        <div role="group" aria-label={dict.summaryLabel} className="flex flex-wrap gap-2 sm:shrink-0">
-          {summaryChips.map(([key, template]) => (
-            <Button
-              key={key}
-              variant={status === key ? "default" : "outline"}
-              size="sm"
-              aria-pressed={status === key}
-              onClick={() => setStatus(status === key ? ALL : key)}
-              className="tabular-nums"
-            >
-              {format(template, { count: problemCounts[key] })}
-            </Button>
-          ))}
+        <div role="group" aria-label={dict.summaryLabel} className="hidden flex-wrap gap-2 sm:flex sm:shrink-0">
+          {renderSummaryChips(false)}
         </div>
       )}
       {/* Sticks to the top of the scrollable area on phones (flush under the
@@ -233,16 +245,16 @@ export function InventoryClient({
             containerClassName="flex-1 sm:flex-none sm:w-48"
           />
           {/* Mobile only: the five selects below fold into this single
-              button instead of eating several rows above the fold — see the
+              icon button (UX-166) instead of eating several rows above the fold — see the
               sm:flex row for the unfolded desktop equivalent. */}
           <Dialog>
             <DialogTrigger
               render={
-                <Button variant="outline" className="shrink-0 gap-1.5 sm:hidden">
+                <Button variant="outline" size="icon" tooltip={false} className="relative shrink-0 sm:hidden">
                   <SlidersHorizontal className="size-4" />
-                  {dict.filtersButton}
+                  <span className="sr-only">{dict.filtersButton}</span>
                   {activeFilterCount > 0 && (
-                    <Badge variant="secondary" className="px-1.5 tabular-nums">
+                    <Badge variant="secondary" className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 tabular-nums">
                       {activeFilterCount}
                     </Badge>
                   )}
@@ -254,6 +266,11 @@ export function InventoryClient({
                 <DialogTitle>{dict.filtersDialogTitle}</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-3">
+                {summaryChips.length > 0 && (
+                  <div role="group" aria-label={dict.summaryLabel} className="flex flex-wrap gap-2">
+                    {renderSummaryChips(true)}
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <Label id="mobile-category-label" className="text-xs font-medium text-muted-foreground">{dict.categoryLabel}</Label>
                   <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>

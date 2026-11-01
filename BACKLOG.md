@@ -539,23 +539,6 @@ left out.
       `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
       returns nothing.
 
-- [ ] **UX-166. One header row on the phone inventory** (impact: med,
-      effort: M) — breaks M6 ("one task per screen, most important first")
-      and Recognition. The phone page stacks a full-width secondary
-      "⋯ More inventory actions" (the only labelled overflow button in the
-      app), a lone unlabelled "1 out" chip, the search field and "Filters"
-      before the list, so the first row starts ~400 px down at 412 px
-      (`mobile-en-dashboard-inventory.png`). On desktop the header holds 7
-      buttons, 5 selects and a search field before any data
-      (`desktop-en-dashboard-inventory.png`). Files:
-      `src/components/inventory/inventory-header-actions.tsx`,
-      `inventory-client.tsx`.
-      Acceptance: on phones one row holds search, a Filters icon button
-      and ⋯; the status counts move into the Filters sheet as labelled
-      chips ("Status: 1 out"); the ⋯ menu is grouped into "Add by scanning"
-      and "Manage". `mobile` e2e asserts the first inventory row's top is
-      within 300 px of the viewport top after `gotoRevealed`.
-
 - [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
       breaks Consistency ("same icon/colour for the same meaning").
       Inventory and Household budget share `chart-1`, Shopping and Personal
