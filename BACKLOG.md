@@ -445,7 +445,7 @@ left out.
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
   UX-160
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
-  UX-158, UX-160
+  UX-160
 
 
 
@@ -462,21 +462,6 @@ left out.
       `oklch(0.14 0.03 300)`, `oklch(0.23 0.03 300)`); every pair in
       `globals-contrast.test.ts` still passes; the `light` and default dark
       sweep screenshots of the overview are reviewed side by side.
-
-- [ ] **UX-158. Hide the household switcher for single-household users**
-      (impact: high, effort: M) — breaks M6 ("the key number, status or
-      next step is above the fold") and Hierarchy. Every phone page opens
-      with ~90 px of "Household / <name> ⌃" above the title, even when the
-      user has one household; the popover then offers only "Current" and
-      "Create household" (`src/components/household/household-switcher.tsx`,
-      `dashboard/layout.tsx` header; report `d2-household-switcher`,
-      `s2-320-inventory` where the first row starts ~370 px down).
-      Acceptance: with one household the switcher is not rendered and
-      "Create household" sits in the More menu; with several, the current
-      name lives in the compact title bar `PageTitle` already portals into.
-      `mobile` e2e asserts the page title is the first text in `main`'s
-      viewport for the seeded single-household user; the multi-household
-      case still switches.
 
 - [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
       med, effort: M) — breaks M9 ("200 % … without clipping; Swedish

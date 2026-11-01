@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
+import { createHouseholdMenuTrigger, dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
 
 // PERF-27: the dashboard shell's popups (command palette, household switcher
 // menu and create form) are separate chunks, mounted the first time they're
@@ -29,8 +29,10 @@ async function openPalette(page: Page) {
   return palette;
 }
 
-function switcherButton(page: Page) {
-  return page.getByRole("button", { name: /E2E Household/ });
+// UX-158: on a phone the seeded single-household user has no switcher, so
+// the menu with "Create household" is the bottom bar's More menu (also lazy).
+function switcherButton(page: Page, isMobile: boolean) {
+  return createHouseholdMenuTrigger(page, isMobile, en.nav.more);
 }
 
 test("the palette opens on the first shortcut press without the idle prefetch", async ({ page }) => {
@@ -46,9 +48,9 @@ test("the palette opens on the first shortcut press without the idle prefetch", 
   await expect(palette.getByRole("combobox")).toHaveValue("");
 });
 
-test("the household switcher opens its menu on the first tap, and the create form from it", async ({ page }) => {
+test("the household switcher opens its menu on the first tap, and the create form from it", async ({ page, isMobile }) => {
   await page.goto("/dashboard");
-  const trigger = switcherButton(page);
+  const trigger = switcherButton(page, isMobile);
   await expectHydrated(trigger);
   await trigger.click();
   await expect(page.getByRole("menuitem", { name: switcher.createMenuItem })).toBeVisible();
@@ -57,7 +59,7 @@ test("the household switcher opens its menu on the first tap, and the create for
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: switcher.createNew })).toBeHidden();
   // The real trigger is mounted now and opens the menu again.
-  await switcherButton(page).click();
+  await switcherButton(page, isMobile).click();
   await expect(page.getByRole("menuitem", { name: switcher.createMenuItem })).toBeVisible();
 });
 
@@ -66,9 +68,9 @@ test.describe("a failed chunk load", () => {
   // error would ever show (see meal-planning-lazy-dialogs.spec.ts, #766).
   test.use({ serviceWorkers: "block" });
 
-  test("the palette says so, and the next press retries", async ({ page }) => {
+  test("the palette says so, and the next press retries", async ({ page, isMobile }) => {
     await gotoRevealed(page, "/dashboard");
-    await expectHydrated(switcherButton(page));
+    await expectHydrated(switcherButton(page, isMobile));
     let offline = true;
     await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
     await page.keyboard.press(SHORTCUT);
@@ -79,9 +81,9 @@ test.describe("a failed chunk load", () => {
     await openPalette(page);
   });
 
-  test("the switcher says so, and the next tap retries", async ({ page }) => {
+  test("the switcher says so, and the next tap retries", async ({ page, isMobile }) => {
     await page.goto("/dashboard");
-    const trigger = switcherButton(page);
+    const trigger = switcherButton(page, isMobile);
     await expectHydrated(trigger);
     let offline = true;
     await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));

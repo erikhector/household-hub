@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, use } from "react";
-import { Languages, LogOut, Sparkles } from "lucide-react";
+import { Suspense, use, useState } from "react";
+import { Languages, LogOut, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import { useLogout } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { format } from "@/lib/i18n/format";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
+import { CreateHouseholdDialog } from "@/components/household/household-switcher-menu";
 import { NotificationMenuItem } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -48,6 +49,7 @@ export function BottomNavMoreMenu({
   moreActive,
   triggerClassName,
   triggerContent,
+  createHouseholdDict,
 }: {
   dict: ShellDictionary;
   locale: Locale;
@@ -57,7 +59,11 @@ export function BottomNavMoreMenu({
   moreActive: boolean;
   triggerClassName: string;
   triggerContent: React.ReactNode;
+  /** UX-158: set only for a single-household user, whose phone header has
+   * no switcher, so "Create household" lives here instead. */
+  createHouseholdDict?: Dictionary["household"]["switcher"];
 }) {
+  const [createOpen, setCreateOpen] = useState(false);
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
   // UX-51: both shortcuts name the setting in use ("Theme: Dark", with the
   // matching icon); a tap still moves to the next one.
@@ -65,6 +71,7 @@ export function BottomNavMoreMenu({
   const { logOut, pending: loggingOut } = useLogout();
 
   return (
+    <>
     <DropdownMenu defaultOpen>
       <DropdownMenuTrigger
         render={<button type="button" aria-current={moreActive ? "page" : undefined} className={triggerClassName} />}
@@ -107,6 +114,12 @@ export function BottomNavMoreMenu({
         <Suspense fallback={null}>
           <NotificationMenuItemContent notifications={notifications} dict={dict.notifications} />
         </Suspense>
+        {createHouseholdDict && (
+          <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            {createHouseholdDict.createMenuItem}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={toggleLocale}>
           <Languages className="size-4" />
           {format(dict.language.current, { language: locale === "sv" ? dict.language.swedish : dict.language.english })}
@@ -119,5 +132,9 @@ export function BottomNavMoreMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    {createHouseholdDict && (
+      <CreateHouseholdDialog dict={createHouseholdDict} open={createOpen} setOpen={setCreateOpen} />
+    )}
+    </>
   );
 }
