@@ -325,9 +325,9 @@ export function InventoryClient({
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{dict.groupByLabel}</span>
+                  <Label id="mobile-group-by-label" className="text-xs font-medium text-muted-foreground">{dict.groupByLabel}</Label>
                   <Select value={groupBy} onValueChange={(v) => setGroupBy(isGroupBy(v) ? v : "none")}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger aria-labelledby="mobile-group-by-label" className="w-full">
                       <SelectValue>{(v: string) => (isGroupBy(v) ? groupByLabels[v] : "")}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -355,7 +355,7 @@ export function InventoryClient({
             instead. */}
         <div className="hidden flex-wrap gap-2 sm:flex">
           <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>
-            <SelectTrigger className="w-40 shrink-0">
+            <SelectTrigger aria-label={dict.categoryLabel} className="w-40 shrink-0">
               <SelectValue>{(v: string) => (v === ALL ? dict.allCategories : v)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -368,7 +368,7 @@ export function InventoryClient({
             </SelectContent>
           </Select>
           <Select value={location} onValueChange={(v) => setLocation(v ?? ALL)}>
-            <SelectTrigger className="w-40 shrink-0">
+            <SelectTrigger aria-label={dict.locationLabel} className="w-40 shrink-0">
               <SelectValue>
                 {(v: string) => (v === ALL ? dict.allLocations : v === UNASSIGNED ? dict.unassignedLocation : v)}
               </SelectValue>
@@ -384,7 +384,7 @@ export function InventoryClient({
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
-            <SelectTrigger className="w-40 shrink-0">
+            <SelectTrigger aria-label={dict.columnStatus} className="w-40 shrink-0">
               <SelectValue>
                 {(v: string) => (isStatusFilter(v) ? statusLabels[v] : dict.allStatuses)}
               </SelectValue>
@@ -399,7 +399,7 @@ export function InventoryClient({
             </SelectContent>
           </Select>
           <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter(isUpdatedFilter(v) ? v : "all")}>
-            <SelectTrigger className="w-48 shrink-0">
+            <SelectTrigger aria-label={dict.updatedFilterLabel} className="w-48 shrink-0">
               <SelectValue>
                 {(v: string) => `${dict.updatedFilterLabel}: ${(isUpdatedFilter(v) ? updatedFilterLabels[v] : "")}`}
               </SelectValue>
@@ -413,7 +413,7 @@ export function InventoryClient({
             </SelectContent>
           </Select>
           <Select value={groupBy} onValueChange={(v) => setGroupBy(isGroupBy(v) ? v : "none")}>
-            <SelectTrigger className="w-44 shrink-0">
+            <SelectTrigger aria-label={dict.groupByLabel} className="w-44 shrink-0">
               <SelectValue>{(v: string) => `${dict.groupByLabel}: ${(isGroupBy(v) ? groupByLabels[v] : "")}`}</SelectValue>
             </SelectTrigger>
             <SelectContent>

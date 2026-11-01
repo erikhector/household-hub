@@ -78,7 +78,11 @@ export type HouseholdDebt = {
 // as "tight" rather than "healthy" — see the "status" doc comment below.
 const TIGHT_THRESHOLD_RATIO = 0.1;
 
-export type SafeToSpendStatus = "over" | "tight" | "healthy";
+// UX-154: "unset" is the fourth status. With no income, logged or expected,
+// there is nothing to judge a balance against, and a 0.00 would read as a
+// green "on track" about a budget nobody has set up. It renders neutral,
+// with no sign, and points at adding income.
+export type SafeToSpendStatus = "over" | "tight" | "healthy" | "unset";
 
 /** Each term of the headline number, for the breakdown under it. All
  * non-negative; `safeToSpend = income + dueIncome - expense - savings
@@ -271,12 +275,17 @@ export function deriveSafeToSpend({
   // salary included — otherwise a future month (nothing logged yet) would
   // never have an income to compare against.
   const expectedIncome = incomeSoFar + dueIncome;
+  // UX-154: a non-negative balance with no income to judge it against is
+  // "unset", not "healthy". Limits with no income already push the balance
+  // below zero (stillBudgeted), so they read "over" before reaching here.
   const status: SafeToSpendStatus =
     safeToSpend < 0
       ? "over"
-      : expectedIncome > 0 && safeToSpend <= expectedIncome * TIGHT_THRESHOLD_RATIO
-        ? "tight"
-        : "healthy";
+      : expectedIncome < 0.005
+        ? "unset"
+        : safeToSpend <= expectedIncome * TIGHT_THRESHOLD_RATIO
+          ? "tight"
+          : "healthy";
 
   return {
     safeToSpend,

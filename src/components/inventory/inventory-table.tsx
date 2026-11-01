@@ -409,7 +409,9 @@ export function InventoryTable({
           <TableHead>{dict.columnQuantity}</TableHead>
           <TableHead>{dict.columnStatus}</TableHead>
           <TableHead>{dict.columnLastUpdated}</TableHead>
-          <TableHead className="w-20" />
+          <TableHead className="w-20">
+            <span className="sr-only">{dict.columnActions}</span>
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

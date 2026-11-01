@@ -428,3 +428,11 @@ export async function addBillOrIncome(
 export async function openAllCategories(page: Page) {
   await page.getByRole("main").getByText("All categories, with limits").filter({ visible: true }).click();
 }
+
+/** UX-159: the shopping list's ⋯ menu keeps what ends a trip on top and the
+ * rest behind its "List settings" submenu. With the menu already open, opens
+ * the submenu and picks `item` from it. */
+export async function clickListSetting(page: Page, item: string, listSettings = "List settings") {
+  await page.getByRole("menuitem", { name: listSettings, exact: true }).click();
+  await page.getByRole("menuitem", { name: item, exact: true }).click();
+}

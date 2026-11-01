@@ -622,6 +622,11 @@ every lookup the old one did.
   status (in/low/out of stock, expiring soon, expired); filter dropdown
   options come from the
   distinct categories/locations already present in that household's items.
+  **Labelled filters (UX-155)**: each desktop filter trigger carries an
+  `aria-label` (Category, Location, Status, Last updated, Group by) matching
+  its mobile Filters-dialog twin, and the table's actions column header has
+  `sr-only` text, so a screen reader hears what a control is, not just its
+  current value.
   **What needs attention (UX-121)**: above the search row a "Needs
   attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
   "2 expired"), each hidden at zero. Tapping one sets the Status filter to
@@ -1281,7 +1286,7 @@ every lookup the old one did.
       best-before date, the item's own location) in one tap and, on an
       `ACTIVE` list, completes it; a quieter "Review first" opens the
       put-away dialog in finish mode instead. Otherwise the primary is
-      "Done shopping" as before. Both wait for in-flight ticks to save.
+      the dock's "Finish trip" (UX-159, below). Both wait for in-flight ticks to save.
       Above the buttons a one-line trip summary reads "15 items · ≈ 240 kr
       · 18 min": the count of ticked rows, the sum of their estimated
       prices (left out when none has one) and the minutes from the first
@@ -2653,9 +2658,17 @@ create mode take an optional `handle` in place of their own trigger). Opening
 through a handle still runs each dialog's `onOpenChange`, so their
 reset-on-open logic is unchanged.
 
+The list's ⋯ menu (UX-159; M6, M2) is ordered by when it is needed: a **This
+trip** group (Complete list, "Put away (N)" while rows wait, Share link, Copy
+as text / Share text), then one **List settings** submenu (Rename, Add item,
+Import list, Add low-stock items, Resolve mappings, Reorder sections, Save as
+template, Export, Print, Archive/Unarchive), then Delete alone at the bottom.
+
 When the last pending item is checked off, the "All done" cleared state
-gains a primary **"Done shopping"** button that completes the list right
-away — no confirm dialog, since everything is already checked off. The
+leaves the thumb-zone dock in place as its last step (UX-159), now just a
+primary **"Finish trip"** button (shown once something was bought; it runs the same
+path as the menu's "Complete list", so ticked rows still waiting are offered
+for put-away first) completes the list right away — no confirm dialog, since everything is already checked off. The
 toast ("List completed", with the expense message as its description)
 carries an **Undo** that calls `uncompleteShoppingListAction(listId,
 transactionId)`: it puts the list back to `ACTIVE` and deletes exactly the
@@ -2847,6 +2860,18 @@ Component page function can't itself be unit-tested.
   regular bills" (the Manage tab), keeping the month and household in the
   URL. Once there is data the arithmetic carries a one-line legend for the
   "+", "–" and "→" in front of its lines.
+- **No income, no verdict (UX-154)**: `SafeToSpendStatus` has a fourth
+  value, `unset`: a non-negative balance with no income, logged or
+  expected, to judge it against (`deriveSafeToSpend`). It never gets the
+  `success` green of "healthy": the card's colour is `muted-foreground`
+  and its summary is the setup line. Spending without income is still
+  "over". On Home, an `unset` tile has no amount or sign: it reads "Budget
+  not set up yet" in muted text and links to the budget's Transactions
+  tab to add income. On Insights, "Fixed income & costs" with nothing
+  planned and no history is one sentence ("Nothing planned yet. Add your
+  income to see how the month adds up.") and an "Add income" button, in
+  place of a planned "0.00 in, 0.00 out" under a green "room in the
+  budget". `e2e/safe-to-spend-unset.spec.ts` covers both.
 - **Categories near or over their limit (UX-108)**: on the budget
   Overview (household and personal), the rows at the top of the Needs
   attention card right under Safe to spend (budget redesign, Oct 2026: they
@@ -7428,6 +7453,14 @@ components directly.
   `nav-items.ts`) on toggle and read server-side in
   `src/app/dashboard/layout.tsx` so the initial render matches — no
   client-side flash.
+- **Skip link and landmarks (UX-164, WCAG 2.4.1)**: the dashboard layout's
+  first focusable element is an `sr-only focus:not-sr-only` "Skip to content"
+  link (`dict.nav.skipToContent`) to `#main-content`, so a keyboard user
+  passes the sidebar's ~16 stops in one Tab. `main` has `tabIndex={-1}` so
+  the link moves focus there. The login, signup, forgot-password,
+  reset-password, verify-email, join, unsubscribe and no-household pages put
+  their content in a `<main>` rather than a plain `div`. Covered by
+  `navigation.desktop.spec.ts` and `public.spec.ts`.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
   and a "More" dropdown menu holding Meal planning, Household, Profile, the
@@ -7496,25 +7529,34 @@ components directly.
   palette ("Go to Home"); the route stays `/dashboard` and the nav key stays
   `overview`. The page (`src/app/dashboard/page.tsx`) answers "what needs
   me now?" in about one phone screen: the greeting, today's date as the
-  subtitle (locale-formatted in the user's time zone, server-rendered), one
-  primary action, and three cards. On a phone they stack Today, Shopping &
-  pantry, Safe to spend; from `lg` Today takes the left column and the
-  other two the right. The primary action, "Add to list"
-  (`src/components/dashboard/home-add-to-list.tsx`, in `PrimaryAction`, so
-  it floats in the thumb zone on phones), opens the shopping list's own
-  quick-add dialog (`ShoppingItemFormDialog` in create mode, lazily loaded,
-  with only the strings it reads, `ShoppingItemFormDialogDict`) in place
-  for the list Home adds to; with no active list it links to the lists
-  page. Everything is data the page already loaded or existing actions; no
-  schema change.
+  subtitle (locale-formatted in the user's time zone, server-rendered;
+  the heading block is `text-balance`, so a long greeting never strands
+  the name on its own line), and three cards. Home has **no primary
+  action**: it is a summary that hands off to the feature pages, so
+  nothing on it takes the solid `primary` fill or floats in
+  `PrimaryAction`. On a phone the cards stack Today, Shopping & pantry,
+  Safe to spend; from `lg` Today takes the left column and the other two
+  the right. "Add to list" (`src/components/dashboard/home-add-to-list.tsx`)
+  is a small outline button in the Shopping & pantry card's header
+  (`CardAction`), beside the list it fills. It opens the shopping list's
+  own quick-add dialog (`ShoppingItemFormDialog` in create mode, lazily
+  loaded, with only the strings it reads, `ShoppingItemFormDialogDict`) in
+  place for the list Home adds to; with no active list it isn't shown,
+  since the card's "Start a list" row is the next step. The tinted rows
+  with an "Add N" button (the pantry's out/low warning, Today's "Missing
+  …") wrap: their text keeps at least 11rem and the button drops to its
+  own line, right-aligned, rather than squeezing a long (Swedish) line
+  into a narrow column. Everything is data the page already loaded or
+  existing actions; no schema change.
   **Safe to spend (UX-HOME-4)**: two equal tiles
   (`src/components/dashboard/safe-to-spend-tiles.tsx`), "You" (the same
   number Personal Budget shows, `loadPersonalBudgetPosition`) and
   "Household" (`loadHouseholdSafeToSpend`), each a link to its budget,
   coloured by status with a status word and icon ("On track",
   `CircleCheck`; "Tight", `TriangleAlert`; "Over", `CircleAlert`). With no
-  personal categories the "You" tile is a "Set up" link to Personal
-  budget; with no household categories the Household tile is left out.
+  personal categories the "You" tile is a one-row "Set up" link to
+  Personal budget; with no household categories the Household tile is
+  left out and the remaining tile takes the card's full width.
   A balance with another member shows under the tiles as the budget pages'
   `HouseholdDebtsList` (what you owe or are owed, unpaid bills, Settle up).
   The card always shows, since the "You" tile is either a number or the
@@ -7525,7 +7567,8 @@ components directly.
   the cards, while at most two steps are done (`SETUP_FULL_CARD_MAX_DONE`);
   after that it is a one-line strip below them: a progress ring
   (`progressbar`), "N of 5 set up" and "Next: <step>", the whole strip a
-  link to that step. In the full card every step is a row with a chevron
+  link to that step (its chevron is hidden on phones, where the room
+  beside the X goes to the "Next" line). In the full card every step is a row with a chevron
   and a 14 px description;
   open ones come first, finished (or skipped) ones stay below as ticked
   rows (title only), all under an "N of M done" `progressbar`. The steps are

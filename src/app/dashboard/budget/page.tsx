@@ -868,6 +868,7 @@ async function BudgetTabsSection({
         balanceStatus={budgetBalanceStatus}
         incomeBreakdown={fixedIncomeBreakdown}
         expenseBreakdown={fixedExpenseBreakdown}
+        addIncomeHref={budgetHref("/dashboard/budget", { month: monthKey, household: householdParam, tab: "transactions" })}
         dict={dict.budget.fixedSummary}
         locale={locale}
         currencyCode={currencyCode}

@@ -113,6 +113,15 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // PERF-27: the shell's popups load on first use; a failed load toasts.
     <LazyDialogErrorMessage message={dict.errors.generic}>
     <div className="flex flex-1">
+      {/* UX-164 (WCAG 2.4.1): the first tab stop, hidden until focused, so
+          a keyboard user skips the sidebar's ~16 stops. main takes focus
+          (tabIndex -1) rather than the anchor just scrolling. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:flex focus:min-h-11 focus:items-center focus:rounded-md focus:bg-primary focus:px-4 focus:text-sm focus:font-medium focus:text-primary-foreground print:hidden"
+      >
+        {dict.nav.skipToContent}
+      </a>
       <Sidebar
         defaultExpanded={sidebarExpanded}
         current={current}
@@ -162,7 +171,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             (the 3rem button and its gaps) so the last row can scroll out
             from under it. data-app-main is how globals.css finds the
             dashboard's cards to give them list-bleed on phones (UX-139). */}
-        <main data-app-main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:scroll-pb-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:pb-[calc(4.5rem+var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:scroll-pb-[calc(4.5rem+var(--bottom-nav-h)+var(--cookie-notice-h,0px))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
+        <main id="main-content" tabIndex={-1} data-app-main className="outline-none mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:scroll-pb-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:pb-[calc(4.5rem+var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:scroll-pb-[calc(4.5rem+var(--bottom-nav-h)+var(--cookie-notice-h,0px))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
           <TimeZoneCookie current={cookieStore.get(TIME_ZONE_COOKIE)?.value ?? null} />
           <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>{children}</UnitsProvider>
         </main>
