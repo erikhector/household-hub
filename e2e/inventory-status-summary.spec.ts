@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
 
 // UX-121: the top of the inventory counts what is out, low, expiring and
 // expired as tappable chips that filter the list, and the Status filter
@@ -80,50 +80,72 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test("tapping a count in the inventory header filters the list", async ({ page }) => {
+  // UX-166: on a phone the counts sit in the Filters dialog as "Status: 1
+  // out" chips (the dialog hides the list behind it, so each tap opens it,
+  // taps and closes it); on desktop they head the list.
+  const isMobile = test.info().project.name === "mobile";
   await page.goto("/dashboard/inventory");
   const main = page.getByRole("main");
-  const summary = main.getByRole("group", { name: "Needs attention" });
-  await expect(summary).toBeVisible();
   const search = page.getByRole("searchbox").filter({ visible: true });
   await expect(search).toHaveCount(1);
   await search.fill(prefix);
+  const filtersButton = page.getByRole("button", { name: /^Filters/ });
+  if (isMobile) await expectHydrated(filtersButton);
+
+  const dialog = page.getByRole("dialog");
+  const summary = (isMobile ? dialog : main).getByRole("group", { name: "Needs attention" });
+  const chip = (word: string) =>
+    summary.getByRole("button", { name: new RegExp(`^${isMobile ? "Status: " : ""}\\d+ ${word}$`) });
+  async function openChips() {
+    if (isMobile) await filtersButton.click();
+    await expect(summary).toBeVisible();
+  }
+  async function closeChips() {
+    if (!isMobile) return;
+    await dialog.getByRole("button", { name: "Done" }).click();
+    await expect(dialog).toBeHidden();
+  }
+  // Taps one count and returns whether it is pressed afterwards.
+  async function tap(word: string) {
+    await openChips();
+    await chip(word).click();
+    const pressed = await chip(word).getAttribute("aria-pressed");
+    await closeChips();
+    return pressed;
+  }
 
   const rows = itemRows(page);
   // Status is saved with the view prefs, so start from a clean slate.
+  await openChips();
   const pressed = summary.getByRole("button", { pressed: true });
   if ((await pressed.count()) > 0) await pressed.first().click();
-  await expect(rows).toHaveCount(5);
-
-  const out = summary.getByRole("button", { name: /^\d+ out$/ });
-  const low = summary.getByRole("button", { name: /^\d+ low$/ });
-  const expiring = summary.getByRole("button", { name: /^\d+ expiring$/ });
-  const expired = summary.getByRole("button", { name: /^\d+ expired$/ });
-  await expect(out).toBeVisible();
-  await expect(low).toBeVisible();
-  await expect(expiring).toBeVisible();
-  await expect(expired).toBeVisible();
+  await expect(chip("out")).toBeVisible();
+  await expect(chip("low")).toBeVisible();
+  await expect(chip("expiring")).toBeVisible();
+  await expect(chip("expired")).toBeVisible();
   await expectTargetsApart(summary);
+  await closeChips();
+  await expect(rows).toHaveCount(5);
   await expectNoHorizontalOverflow(page);
 
-  await out.click();
-  await expect(out).toHaveAttribute("aria-pressed", "true");
+  expect(await tap("out")).toBe("true");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText(names.out);
 
-  await low.click();
+  await tap("low");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText(names.low);
 
-  await expiring.click();
+  await tap("expiring");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText(names.soon);
 
-  await expired.click();
+  await tap("expired");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText(names.expired);
 
   // Tapping the active count again clears the filter.
-  await expired.click();
+  expect(await tap("expired")).toBe("false");
   await expect(rows).toHaveCount(5);
 });
 
@@ -155,7 +177,13 @@ test("the Status filter offers Expiring and Expired", async ({ page }) => {
 
   // Leave the saved view clean for later specs.
   await page.reload();
-  const clear = page.getByRole("main").getByRole("group", { name: "Needs attention" }).getByRole("button", { pressed: true });
+  if (isMobile) {
+    await expectHydrated(page.getByRole("button", { name: /^Filters/ }));
+    await page.getByRole("button", { name: /^Filters/ }).click();
+  }
+  const clear = (isMobile ? page.getByRole("dialog") : page.getByRole("main"))
+    .getByRole("group", { name: "Needs attention" })
+    .getByRole("button", { pressed: true });
   await expect(clear).toHaveCount(1);
   await clear.click();
   await expect(clear).toHaveCount(0);

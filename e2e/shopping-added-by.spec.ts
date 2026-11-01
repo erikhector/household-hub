@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { STORAGE_STATE_SV } from "./seed";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
 // GAP-65: on a shared list each line says who added it ("Added by Anna"),
 // except the viewer's own lines. The seeded household has two members: the
@@ -11,7 +11,17 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // start of the label is asserted: profile specs in the same worker rename
 // the seeded users, so their display names aren't stable.
 const LIST_URL = `/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`;
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
+// MAINT-73: Smart add folds a typed name into the one inventory item it is
+// fuzzy-close to ("Oats en abc" matched an earlier run's "Oats en xyz", which
+// was already on the list, so the action answered alreadyOnList and added
+// nothing). Earlier runs leave their items behind, so a name that only
+// differs from them in a short suffix is swallowed about one run in three.
+// A name made of a single random token shares no word and few letters with
+// the others, so it always creates a fresh line.
+const unique = (prefix: string) => {
+  const token = Array.from({ length: 10 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+  return `${prefix}${token}`;
+};
 
 const lineCheckbox = (page: Page, name: string) => page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
 // The row (swipe wrapper) that holds a given line, so a label is asserted on
@@ -22,6 +32,9 @@ const lineRow = (page: Page, name: string) =>
 async function addLine(page: Page, name: string) {
   await page.goto(LIST_URL);
   const addBox = page.getByRole("combobox", { name: /Add to the list|Lägg till på listan/ });
+  // goto() can return before React has hydrated the box, and text typed then
+  // is lost when React takes the controlled input over.
+  await expectHydrated(addBox);
   await addBox.fill(name);
   await addBox.press("Enter");
   // Wait for the row before moving on: the add runs in a transition and a
@@ -42,8 +55,8 @@ async function asSwedishUser(browser: Browser, baseURL: string, page: Page) {
 }
 
 test("a shared list says who added each line, never on your own", async ({ page, browser, baseURL }) => {
-  const byEnglish = unique("Oats en");
-  const bySwedish = unique("Havre sv");
+  const byEnglish = unique("e");
+  const bySwedish = unique("s");
 
   await dismissCookieNotice(page.context(), baseURL!);
   await addLine(page, byEnglish);

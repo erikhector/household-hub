@@ -82,7 +82,7 @@ test("a name linked once in a recipe arrives linked in a pasted shopping list", 
   await page.reload();
   await expect(page.getByRole("checkbox", { name: /^ägg\b/ })).toBeVisible();
   await expect(page.getByText("Dairy & eggs").filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText("New to your pantry — match it or add it as a new item")).toHaveCount(0);
+  await expect(page.getByText("in your pantry yet")).toHaveCount(0);
 });
 
 test("“Review ingredient matches” moves a saved link, and the new link is kept", async ({ page }) => {

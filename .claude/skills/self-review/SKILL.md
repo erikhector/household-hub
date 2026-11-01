@@ -42,7 +42,9 @@ Stop at the first real problem in a hunk, note it, move on.
 - [ ] The spec waits for hydration (`expectHydrated`, `gotoRevealed`,
       `waitForDialogHistory`; see AGENTS.md "Shared checks") before it
       clicks a React-driven control or reloads. MAINT-34, 40, 43, 44,
-      46-51 each fixed one that didn't.
+      46-51 each fixed one that didn't. A click that opens a dialog or
+      switches a URL-driven tab also needs `expectRouterPatched` after
+      `expectHydrated`: MAINT-61, 67-69 and 72 were that one alone.
 - [ ] Layout/CSS change ⇒ ran the full `npm run test:e2e` (or at least the
       specs near the area, e.g. `form-control-sizes`) once, not only
       `test:e2e:quick`: the landscape and tablet reruns have broken the

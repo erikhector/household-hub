@@ -224,20 +224,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       (a Suspense split, larger than S).
 
 
-- [ ] **MAINT-73. Flaky: `shopping-added-by` "a shared list shows who added each line, never on your own" fails in a loaded run** (low, S) —
-      `e2e/shopping-added-by.spec.ts:44`, `mobile` (desktop once too). It failed in the UX-159 builder's gate runs on 93f8c3b and passed in its gate on fbc2db6. On a clean checkout of `origin/next` at b734060, under the shared ci-local lock,
-      `npx playwright test e2e/shopping-added-by.spec.ts --repeat-each=10` failed 14 of 20 runs (8 passed). Seen 2026-11-01.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/shopping-added-by.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-74. Flaky: a phone dialog's comboboxes aren't there yet when `form-field-room` measures them** (low, S) `[!]` —
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-75. Flaky: recipe form order spec on a phone** (low, S) —
-      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe order, labelled, with 44 px tag chips"), `mobile` project. Failed once in the GitHub e2e job on release commit b13ba5e (2026-11-01) and passed on its retry (7.0 s then 3.5 s); the assertion that failed was not captured in the run summary, so read the trace first. The same dialog-opening shape as MAINT-74.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-form-order.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-76. Flaky: a failed photo read doesn't show its error toast in time on a phone** (low, S) —
       `e2e/recipe-photo-import.spec.ts:84` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. Failed once in the GitHub e2e job on release commit b13ba5e (2026-11-01) and passed on its retry (7.2 s then 4.2 s); the failing assertion was not captured in the run summary, so read the trace first. Its sibling at line 50 passed first time in the same run.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -246,14 +236,13 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-78. Flaky: the added shopping line isn't in the list in time on a phone** (low, S) `[!]` —
-      `e2e/shopping-added-by.spec.ts:44` ("a shared list says who added each line, never on your own"), `mobile` project. In the GitHub e2e job on release commit ca7801a (2026-11-01) it failed on both attempts at `addLine` (line 29): `getByRole("checkbox", { name: /^Oats en <id>\b/ })` not visible within 5 s. The re-run of the same job on the same commit passed, and it passed locally on desktop and mobile. Start from the failing run's trace: is the add's revalidation slower than the 5 s wait on a loaded runner, or is the line rendered under a different accessible name?
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/shopping-added-by.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-80. Flaky: Safe to spend's income split can't find the "Spent" label on mobile** (low, S) —
+      `e2e/budget-overview.spec.ts:213` ("Safe to spend shows where the month's income goes"), `mobile` project. Failed once in the local `ci:local` gate on `27865a6` (the UX-168 PR #994, 2026-11-01), where the test could not find the "Spent" label; the diff touched only shopping code. It passed in an isolated re-run of the spec and in the full gate on `96ce494`. Find why the split key can render late (or without that label) after the seeded rows are inserted and fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/budget-overview.spec.ts:213 --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -454,27 +443,11 @@ left out.
 **File conflicts.** Don't build these in parallel:
 - `src/components/inventory/inventory-client.tsx`: UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-160, UX-168
+  UX-160
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
   UX-158, UX-160
 
 
-
-- [ ] **UX-156. Default low-stock threshold never above the entered
-      quantity** (impact: med, effort: S) — breaks Usability ("prevent
-      errors before reporting them") and M4 (a default must be safe). The
-      add-item sheet defaults quantity to 1 and "Running low below" to 2
-      for count units (`src/lib/units.ts:191-193`,
-      `add-item-dialog.tsx:105-107,348`); stock status is strict
-      (`stock-status.ts:17`), so a first-timer's first "Olive oil × 1" is
-      badged "Low stock" and counted on the overview. (It is not auto-added
-      to the list: `default-list.ts:251-256` only fires on a crossing from
-      "in".) Evidence: `dialogs-mobile-dashboard-inventory--1-Add-item.png`.
-      Acceptance: a count item saved with the default quantity reads "In
-      stock" (threshold defaults to 1, or stays empty until the user sets
-      it); the `units.ts` comment is updated to the new intent; unit test on
-      `defaultLowStockThreshold`; e2e adds an item with defaults and asserts
-      no "Low stock" badge, `desktop` and `mobile`.
 
 - [ ] **UX-157. A dark theme that keeps the brand hue** (impact: med,
       effort: M) — breaks Squirrel design principles ("soft, friendly and
@@ -550,33 +523,6 @@ left out.
       `bg-warning/10 text-warning` (`attention` for the star if orange is
       wanted); a grep test or lint rule keeps them out.
 
-- [ ] **UX-163. Text under the 12 px floor** (impact: low, effort: S) —
-      breaks M9 ("12 px is the floor for chrome; nothing smaller
-      anywhere"). The notification count badge is `text-[10px]`
-      (`src/components/notifications/notification-bell.tsx:107`); the four
-      quick-add bar labels are `text-[11px]`
-      (`src/components/inventory/quick-add-bar.tsx:85,102,122,139`).
-      Acceptance: both use `text-xs` (badge `size-4.5`); the sweep's
-      `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
-      returns nothing.
-
-- [ ] **UX-166. One header row on the phone inventory** (impact: med,
-      effort: M) — breaks M6 ("one task per screen, most important first")
-      and Recognition. The phone page stacks a full-width secondary
-      "⋯ More inventory actions" (the only labelled overflow button in the
-      app), a lone unlabelled "1 out" chip, the search field and "Filters"
-      before the list, so the first row starts ~400 px down at 412 px
-      (`mobile-en-dashboard-inventory.png`). On desktop the header holds 7
-      buttons, 5 selects and a search field before any data
-      (`desktop-en-dashboard-inventory.png`). Files:
-      `src/components/inventory/inventory-header-actions.tsx`,
-      `inventory-client.tsx`.
-      Acceptance: on phones one row holds search, a Filters icon button
-      and ⋯; the status counts move into the Filters sheet as labelled
-      chips ("Status: 1 out"); the ⋯ menu is grouped into "Add by scanning"
-      and "Manage". `mobile` e2e asserts the first inventory row's top is
-      within 300 px of the viewport top after `gotoRevealed`.
-
 - [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
       breaks Consistency ("same icon/colour for the same meaning").
       Inventory and Household budget share `chart-1`, Shopping and Personal
@@ -587,31 +533,6 @@ left out.
       bottom-bar tabs and More-menu pages have no underline (or get their
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
-
-- [ ] **UX-168. One "match these items" note instead of a paragraph per
-      typed row** (impact: med, effort: S) — breaks M6 ("repeated
-      placeholders collapse") and Aesthetic/minimalist. Each free-text list
-      row shows a "Match item" warning chip, "Add price", a ⋯ menu and a
-      two-line sentence ("New to your pantry — match it or add it as a new
-      item so buying it updates your stock"); three typed rows means three
-      copies, and a first-timer is asked to understand the inventory model
-      before owning one (`src/components/shopping/shopping-row.tsx`,
-      `mobile-en-dashboard-shopping-list-id.png`). Related: UX-89.
-      Acceptance: the row keeps the chip only; one dismissible note under
-      the first affected section reads "N items aren't in your pantry yet.
-      Match them so buying updates your stock." with a "Match all" action.
-      `mobile` e2e adds two unmatched rows and asserts the explanation text
-      appears once.
-
-- [ ] **UX-170. Scroll affordance on the tabs track** (impact: low,
-      effort: S) — breaks Recognition. The budget and meal-planning tabs
-      tracks scroll horizontally and clip "Coo" / "Insi" at 320 px and at
-      200 % text with nothing signalling more tabs
-      (`small-phone-dashboard-meal-planning.png`,
-      `text-200-dashboard-budget.png`; `src/components/ui/tabs.tsx`).
-      Acceptance: an edge fade (mask) appears while the track can scroll
-      and the active tab scrolls into view on mount; `small-phone` audit
-      screenshots show the fade.
 
 - [ ] **UX-171. Hide controls that have nothing to act on** (impact: low,
       effort: S) — breaks Usability ("every state is designed"). The meal

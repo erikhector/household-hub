@@ -114,9 +114,9 @@ function InventoryActionButtonsSkeleton() {
   return (
     <div className="flex items-center gap-2" aria-hidden="true">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-24" />
+        <div key={i} className="h-9 w-9 animate-pulse rounded-md bg-muted max-sm:hidden sm:w-24" />
       ))}
-      <div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-28" />
+      <div className="h-9 w-9 animate-pulse rounded-md bg-muted max-sm:size-11 sm:w-28" />
     </div>
   );
 }
@@ -276,8 +276,8 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
     // `main` itself — see layout.tsx).
     <LazyDialogErrorMessage message={dict.errors.generic}>
     <div className="flex flex-col gap-6 roomy:h-[calc(100dvh-4rem)] roomy:min-h-0">
-      <div className="flex flex-col gap-3 sm:shrink-0 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:shrink-0 max-sm:flex-row max-sm:items-start max-sm:justify-between lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <PageTitle>{dict.inventory.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
           <Suspense fallback={null}>

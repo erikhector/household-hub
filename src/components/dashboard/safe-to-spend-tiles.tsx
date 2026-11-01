@@ -40,8 +40,22 @@ const STATUS_ICON: Record<NumberStatus, ComponentType<{ className?: string; "ari
   over: CircleAlert,
 };
 
+// `@container` so the amount can size itself to the tile (amountFontSize).
 const TILE =
-  "flex min-h-24 min-w-0 flex-col gap-1 rounded-lg bg-muted/60 p-3 hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
+  "@container flex min-h-24 min-w-0 flex-col gap-1 rounded-lg bg-muted/60 p-3 hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
+
+// The amount shrinks to fit its tile on one line. Two tiles share a phone's
+// width, so a household figure like "−36 692,00 kr" is wider than its tile at
+// text-2xl, and `break-words` used to split it mid-word ("k" / "r" on two
+// lines). Intl puts no-break spaces inside the figure, so it has nowhere
+// better to wrap. Instead the size is the tile's width (100cqi) shared by the
+// amount's characters, about 0.55em each in the bold heading face with
+// tabular digits, capped at text-2xl and floored at text-base. Only an
+// amount too long even at text-base still wraps, as a last resort
+// (`break-words`) rather than overflowing the tile.
+function amountFontSize(amount: string): string {
+  return `clamp(1rem, calc(100cqi / ${(amount.length * 0.55).toFixed(2)}), 1.5rem)`;
+}
 
 function Tile({
   href,
@@ -74,9 +88,10 @@ function Tile({
       <span className="text-sm text-muted-foreground">{label}</span>
       <span
         className={cn(
-          "font-heading text-2xl leading-tight font-bold break-words tabular-nums",
+          "font-heading leading-tight font-bold break-words tabular-nums",
           STATUS_COLOR[tile.status],
         )}
+        style={{ fontSize: amountFontSize(tile.amount) }}
       >
         {tile.amount}
       </span>

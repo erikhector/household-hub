@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.130.0",
+    "date": "2026-11-01",
+    "pr": 1007,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On the shopping list, the \"Finish trip\" button now steps back to an outline style while \"Put everything away\" is the main button, so there is one clear next step.\n\nThe tab bars on Budget and Meal planning now fade at the edge when there are more tabs to scroll to, and open with your current tab in view.\n\nOn phones, the inventory page now fits search, filters and the list on the first screen. The extra actions are an icon menu next to the title, grouped into scanning and managing, and the out, low and expiring counts are in the Filters panel.",
+      "sv": "På inköpslistan blir knappen \"Avsluta handlingen\" en kontur-knapp medan \"Ställ in allt\" är huvudknappen, så det finns ett tydligt nästa steg.\n\nFlikraderna i Budget och Måltidsplanering tonas ut i kanten när det finns fler flikar att bläddra till, och öppnas med din aktuella flik i bild.\n\nPå mobilen får lagersidan nu plats med sök, filter och listan på första skärmen. Extra åtgärder finns i en ikonmeny bredvid rubriken, grupperade i skanning och hantering, och antalen för slut, lågt och snart utgånget ligger i filterpanelen."
+    }
+  },
+  {
+    "version": "0.129.1",
+    "date": "2026-11-01",
+    "pr": 1000,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Long amounts on Home's Safe to spend card no longer wrap onto two lines on narrow phones. They shrink to fit their tile.",
+      "sv": "Långa belopp på kortet Säkert att spendera på Hem bryts inte längre över två rader på smala telefoner. De krymper så att de får plats i rutan."
+    }
+  },
+  {
+    "version": "0.129.0",
+    "date": "2026-11-01",
+    "pr": 998,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "A new piece-counted item you add with the default amount now shows as \"In stock\" instead of \"Low stock\".\n\nUnmatched items on your shopping list now share one short note with a \"Match all\" button, instead of repeating the same explanation under every item.",
+      "sv": "En ny artikel som räknas i styck och läggs till med standardmängden visas nu som \"I lager\" i stället för \"Snart slut\".\n\nVaror på inköpslistan som inte är kopplade delar nu en kort notis med knappen \"Koppla alla\", i stället för att samma förklaring upprepas under varje vara."
+    }
+  },
+  {
     "version": "0.128.1",
     "date": "2026-11-01",
     "pr": 992,

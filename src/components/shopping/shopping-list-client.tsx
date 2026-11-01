@@ -28,6 +28,7 @@ import {
   Settings2,
   Share2,
   Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -239,6 +240,16 @@ export function ShoppingListClient({
   const hasPartialPrices = boughtPriced.priced > 0 && boughtPriced.priced < boughtPriced.total;
 
   const showResolveMappings = isActive && unresolvedItems.length >= BATCH_RESOLVE_THRESHOLD;
+  // UX-168: the batch dialog is also what the match note's "Match all" opens,
+  // so it is mounted for even one unlinked row (the ⋯ menu entry keeps its
+  // threshold). The note is dismissed for this visit only: it nudges about a
+  // state that still exists, so it may return on the next one.
+  const canMatchAll = isActive && unresolvedItems.length > 0;
+  const [matchNoteDismissed, setMatchNoteDismissed] = useState(false);
+  const matchNoteGroupKey = shownPendingGroups.find((group) =>
+    group.items.some((item) => item.inventoryItemId === null),
+  )?.key;
+  const showMatchNote = canMatchAll && !matchNoteDismissed && matchNoteGroupKey !== undefined;
   const resolveMappingsLabel = format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
     count: unresolvedItems.length,
   });
@@ -757,7 +768,7 @@ export function ShoppingListClient({
               />
             )}
           </LazyDialog>
-          {showResolveMappings && (
+          {canMatchAll && (
             <LazyDialog loader={loadResolveMappingsDialog} handle={dialogs.resolveMappings}>
               {(ResolveMappingsDialog) => (
                 <ResolveMappingsDialog
@@ -870,6 +881,25 @@ export function ShoppingListClient({
                 <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
                   {group.label}
                 </p>
+                {showMatchNote && group.key === matchNoteGroupKey && (
+                  <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
+                    <p className="min-w-0 flex-1 text-muted-foreground">
+                      {format(plural(unresolvedItems.length, dict.matchNote), { count: unresolvedItems.length })}
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => openLazyDialog(dialogs.resolveMappings)}>
+                      {dict.matchAll}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0 text-muted-foreground max-sm:size-11 pointer-coarse:size-11"
+                      aria-label={dict.matchNoteDismissAriaLabel}
+                      onClick={() => setMatchNoteDismissed(true)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                )}
                 {group.items.map((item) => (
                   <ShoppingRow
                     key={item.id}
@@ -962,7 +992,8 @@ export function ShoppingListClient({
           once something was actually bought: a list that was simply emptied
           out has no trip to finish. Like the menu's "Complete list", it
           offers the put-away sheet first when ticked rows still wait; the
-          card's "Put everything away" is the no-questions version. */}
+          card's "Put everything away" is then the view's one primary, so
+          the dock's button drops to outline (DESIGN.md: one primary per view). */}
       {isActive && (canFinishFromDock || (!showCleared && nextUpItems)) && (
         <NextUpDock
           next={canFinishFromDock ? null : nextUpItems}
@@ -971,7 +1002,7 @@ export function ShoppingListClient({
           onTick={toggleItem}
           finish={
             canFinishFromDock
-              ? { onFinish: () => finishTrip(false), disabled: isPending || isTicking }
+              ? { onFinish: () => finishTrip(false), disabled: isPending || isTicking, quiet: showCleared && awaitingPutAway.length > 0 }
               : undefined
           }
         />
