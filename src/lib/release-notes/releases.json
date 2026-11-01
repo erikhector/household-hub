@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.128.1",
+    "date": "2026-11-01",
+    "pr": 992,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On Tasks, the Everyone / Mine switch is now a compact toggle, so \"Add task\" is the only highlighted button. On the budget pages, \"Add income\" and \"Add shared expense\" are quieter while you're setting up.\n\nDeleting a recipe is now done from the recipe's Edit screen instead of next to the Cook button, and Log out sits at the top of the More menu on phones, so neither is easy to hit by accident.",
+      "sv": "På Uppgifter är växlaren Alla / Mina nu en kompakt omkopplare, så \"Lägg till uppgift\" är den enda markerade knappen. På budgetsidorna är \"Lägg till inkomst\" och \"Lägg till delad utgift\" nu diskretare medan du ställer in.\n\nDu raderar nu ett recept från receptets redigeringsvy i stället för bredvid Laga-knappen, och Logga ut ligger överst i Mer-menyn på mobilen, så ingen av dem är lätt att trycka på av misstag."
+    }
+  },
+  {
     "version": "0.128.0",
     "date": "2026-11-01",
     "pr": 987,
