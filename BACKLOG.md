@@ -234,10 +234,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-75. Flaky: recipe form order spec on a phone** (low, S) —
-      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe order, labelled, with 44 px tag chips"), `mobile` project. Failed once in the GitHub e2e job on release commit b13ba5e (2026-11-01) and passed on its retry (7.0 s then 3.5 s); the assertion that failed was not captured in the run summary, so read the trace first. The same dialog-opening shape as MAINT-74.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-form-order.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-76. Flaky: a failed photo read doesn't show its error toast in time on a phone** (low, S) —
       `e2e/recipe-photo-import.spec.ts:84` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. Failed once in the GitHub e2e job on release commit b13ba5e (2026-11-01) and passed on its retry (7.2 s then 4.2 s); the failing assertion was not captured in the run summary, so read the trace first. Its sibling at line 50 passed first time in the same run.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -539,23 +535,6 @@ left out.
       `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
       returns nothing.
 
-- [ ] **UX-166. One header row on the phone inventory** (impact: med,
-      effort: M) — breaks M6 ("one task per screen, most important first")
-      and Recognition. The phone page stacks a full-width secondary
-      "⋯ More inventory actions" (the only labelled overflow button in the
-      app), a lone unlabelled "1 out" chip, the search field and "Filters"
-      before the list, so the first row starts ~400 px down at 412 px
-      (`mobile-en-dashboard-inventory.png`). On desktop the header holds 7
-      buttons, 5 selects and a search field before any data
-      (`desktop-en-dashboard-inventory.png`). Files:
-      `src/components/inventory/inventory-header-actions.tsx`,
-      `inventory-client.tsx`.
-      Acceptance: on phones one row holds search, a Filters icon button
-      and ⋯; the status counts move into the Filters sheet as labelled
-      chips ("Status: 1 out"); the ⋯ menu is grouped into "Add by scanning"
-      and "Manage". `mobile` e2e asserts the first inventory row's top is
-      within 300 px of the viewport top after `gotoRevealed`.
-
 - [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
       breaks Consistency ("same icon/colour for the same meaning").
       Inventory and Household budget share `chart-1`, Shopping and Personal
@@ -566,16 +545,6 @@ left out.
       bottom-bar tabs and More-menu pages have no underline (or get their
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
-
-- [ ] **UX-170. Scroll affordance on the tabs track** (impact: low,
-      effort: S) — breaks Recognition. The budget and meal-planning tabs
-      tracks scroll horizontally and clip "Coo" / "Insi" at 320 px and at
-      200 % text with nothing signalling more tabs
-      (`small-phone-dashboard-meal-planning.png`,
-      `text-200-dashboard-budget.png`; `src/components/ui/tabs.tsx`).
-      Acceptance: an edge fade (mask) appears while the track can scroll
-      and the active tab scrolls into view on mount; `small-phone` audit
-      screenshots show the fade.
 
 - [ ] **UX-171. Hide controls that have nothing to act on** (impact: low,
       effort: S) — breaks Usability ("every state is designed"). The meal

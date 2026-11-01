@@ -636,7 +636,11 @@ every lookup the old one did.
   the two stock and expiry kinds are independent, so a low item that is also
   expiring counts under both. Status also accepts `?status=expiring` and
   `expired`, and the saved view prefs keep them. The "well stocked" note
-  needs no expiring or expired items either.
+  needs no expiring or expired items either. **On a phone (UX-166)** the
+  group is not above the list: it sits at the top of the Filters dialog,
+  each chip reading "Status: 1 out", so search and Filters share the first
+  screen. The Filters button there is an icon with a count badge (its name
+  stays "Filters").
   Adding an item offers previously-used categories/locations via a native
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.
@@ -758,9 +762,10 @@ every lookup the old one did.
       Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
       as `null`, which lets Escape through to the dialog).
   - **Inventory on a phone (UX-20)**: below `sm` the page header shows a
-    labelled "Add item" plus a labelled "More inventory actions" ⋯ menu
-    (Scan, Scan multiple, Scan a shelf, Paste a list, Export CSV, Manage
-    items). The manage-items entry keeps the duplicate-group badge and the
+    labelled "Add item" plus an icon-only "More inventory actions" ⋯ menu
+    (UX-166: sits beside the page title, not as a full-width button of its
+    own), grouped into "Add by scanning" (Scan, Scan multiple, Scan a
+    shelf) and "Manage" (Paste a list, Export CSV, Manage items). The manage-items entry keeps the duplicate-group badge and the
     `?filter=duplicates` deep link: `InventoryActionButtons` computes the
     count (one cached `countDuplicateGroups` per render, shared with the
     desktop link) and the AI-configured flags server-side, since
@@ -2673,7 +2678,7 @@ template, Export, Print, Archive/Unarchive), then Delete alone at the bottom.
 
 When the last pending item is checked off, the "All done" cleared state
 leaves the thumb-zone dock in place as its last step (UX-159), now just a
-primary **"Finish trip"** button (shown once something was bought; it runs the same
+**"Finish trip"** button (an outline button while the card's "Put everything away" is the view's one primary, otherwise primary; shown once something was bought; it runs the same
 path as the menu's "Complete list", so ticked rows still waiting are offered
 for put-away first) completes the list right away — no confirm dialog, since everything is already checked off. The
 toast ("List completed", with the expense message as its description)
@@ -3930,6 +3935,15 @@ income, expense and savings without hover (since UX-39 through the shared
 transaction passes the action's promise to `ConfirmDialog`, so the button
 shows "Deleting…" until the server answers, and recurring-row titles wrap
 instead of truncating. Covered by `e2e/ux-23.spec.ts`.
+
+**Scroll affordance on the tabs track (UX-170).** When the shared `Tabs`
+track can scroll sideways (320 px, 200 % text), it fades out at the edge
+with more tabs behind it (a 24 px mask, so any background works) and opens
+scrolled to the active tab, so a clipped "Insi" reads as "more this way".
+The fade follows the scroll position and the track's size, and is mirrored
+in `data-fade` (`start`/`end`/`both`, absent when everything fits). The
+compact in-card switch doesn't scroll and is unchanged. Covered by
+`e2e/ux-170.spec.ts`.
 
 **The open tab is in the URL (phone pass, Oct 2026).** `BudgetTabs` reads
 the tab from `?tab=` with `useSearchParams` (`parseBudgetTab` in

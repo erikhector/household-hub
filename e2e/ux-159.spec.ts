@@ -64,6 +64,17 @@ test("ticking every row leaves a Finish trip primary in the dock that completes 
 
   const finish = dock.getByRole("button", { name: t.shoppingMode.finishTrip });
   await expect(finish).toBeEnabled();
+  // Ticked rows wait to be put away, so the card's "Put everything away" is
+  // the one primary and the dock's button is outline; dismissing the card
+  // hands the primary back to the dock.
+  await expect(page.getByRole("button", { name: t.putAway.everything })).toBeVisible();
+  await expect(finish).not.toHaveClass(/bg-primary/);
+  await page.getByRole("button", { name: t.clearedDismissAriaLabel }).click();
+  await expect(page.getByRole("button", { name: t.putAway.everything })).toHaveCount(0);
+  await expect(finish).toHaveClass(/bg-primary/);
+  // The scout's screenshot of the finish state (off unless E2E_SCREENSHOT_DIR is set).
+  const shots = process.env.E2E_SCREENSHOT_DIR;
+  if (shots) await page.screenshot({ path: `${shots}/${test.info().project.name}-ux159-finish-dock.png` });
   await finish.click();
   // Ticked rows still wait to be put away, so the finish path offers that
   // first, exactly like the menu's Complete list.
