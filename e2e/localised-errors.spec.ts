@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { createHouseholdMenuTrigger, dismissCookieNotice, expectHydrated } from "./ui";
 
 // UX-16: what a server action returns as `{ error }` and the labels that
 // primitives hard-coded ("Close" on every dialog) follow the user's
@@ -35,10 +35,9 @@ for (const [locale, storageState, t] of [
       await expect(dialog.getByText(t.errors.nameRequired)).toBeVisible();
     });
     // MAINT-7: the household actions follow the language too.
-    test("a rejected household name shows the server's message in the user's language", async ({ page }, testInfo) => {
+    test("a rejected household name shows the server's message in the user's language", async ({ page, isMobile }) => {
       await page.goto("/dashboard");
-      const row = testInfo.project.name === "mobile" ? page.getByRole("banner") : page.getByRole("complementary");
-      const switcher = row.getByRole("button", { name: /E2E Household/ });
+      const switcher = createHouseholdMenuTrigger(page, isMobile, t.nav.more);
       await expectHydrated(switcher);
       await switcher.click();
       await page.getByRole("menuitem", { name: t.household.switcher.createMenuItem }).click();

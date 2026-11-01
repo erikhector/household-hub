@@ -18,7 +18,7 @@ import { LazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
 import { loadBottomNavMoreMenu } from "@/components/dashboard/lazy-shell";
 import { NotificationCountBadge } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
-import type { Locale } from "@/lib/i18n/get-dictionary";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 // Each streamed independently under its own Suspense boundary (see BottomNav
 // below) so the notifications query doesn't block the bottom nav bar itself
@@ -40,12 +40,15 @@ export function BottomNav({
   notifications,
   unseenRelease,
   version,
+  createHouseholdDict,
 }: {
   dict: ShellDictionary;
   locale: Locale;
   notifications: Promise<NotificationItem[]>;
   unseenRelease: boolean;
   version: string;
+  /** UX-158: given only when the header has no household switcher. */
+  createHouseholdDict?: Dictionary["household"]["switcher"];
 }) {
   const pathname = usePathname();
   const moreActive = isMoreMenuActive(pathname);
@@ -195,6 +198,7 @@ export function BottomNav({
               moreActive={moreActive}
               triggerClassName={moreClassName}
               triggerContent={moreContent}
+              createHouseholdDict={createHouseholdDict}
             />
           )}
         </LazyDialog>

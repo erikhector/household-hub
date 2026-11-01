@@ -7498,6 +7498,14 @@ components directly.
   or sidebar: "Create household" is the last item of the switcher's
   dropdown, below a separator, on phone and desktop (UX-46; it used to be
   a bare "+" that read as "add an item" on every page).
+  UX-158: with one household the phone header renders no switcher (it
+  cost ~90 px above every page's title and offered only "Current" and
+  "Create household"), so it shrinks to the status-bar clearance
+  (`data-solo-household` in `layout.tsx`) and the page title is the first
+  text in `main`. "Create household" is then an item of the bottom bar's
+  More menu (`bottom-nav-more-menu.tsx`, reusing `CreateHouseholdDialog`).
+  With several households the header and switcher are unchanged. The
+  desktop sidebar keeps its switcher either way.
   A long household name (the field allows 60 characters) is clamped (two
   lines on a phone, one on desktop) with the full name in its `title` and in
   the dropdown: the trigger `Button` overrides its base `shrink-0
@@ -7806,7 +7814,9 @@ components directly.
   (`src/components/dashboard/page-title.tsx`). On a phone it starts large
   (30 px) and scrolls away with the page; once it has gone above `main`
   (an `IntersectionObserver`, phone shell only), a compact copy is
-  portalled over the top bar's household switcher (the empty
+  portalled over the top bar's household switcher (or, for a
+  single-household user whose bar is empty, over the top of the page,
+  with its own bottom rule, UX-158) (the empty
   `COMPACT_TITLE_SLOT_ID` slot in `layout.tsx`), so the title stays on
   screen without a second bar. Tapping it ("Back to top") moves focus to
   the H1 and scrolls `main` to the top, which brings the switcher back.

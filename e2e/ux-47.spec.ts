@@ -31,8 +31,15 @@ async function setName(name: string) {
   }
 }
 
-test("a 60-character household name is truncated and the switcher stays on screen", async ({ page }) => {
+test("a 60-character household name is truncated and the switcher stays on screen", async ({ page, isMobile }) => {
   await page.goto("/dashboard");
+  if (isMobile) {
+    // UX-158: one household, so the phone header has no switcher at all, and
+    // the long name can't push anything off the screen.
+    await expect(page.getByRole("banner").getByRole("button", { name: LONG_NAME })).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+    return;
+  }
 
   // The header (phone) and the sidebar (desktop) each render a switcher;
   // only one is visible at a given width.
@@ -59,8 +66,11 @@ test("a 60-character household name is truncated and the switcher stays on scree
   await expectNoHorizontalOverflow(page);
 });
 
-test("the full name is reachable in the switcher dropdown", async ({ page }) => {
+test("the full name is reachable in the switcher dropdown", async ({ page, isMobile }) => {
   await page.goto("/dashboard");
+  // UX-158: a single-household phone has no switcher to open (the first test
+  // asserts that); the multi-household phone case is household-switcher.spec.ts.
+  if (isMobile) return;
   await page.getByRole("button", { name: LONG_NAME }).filter({ visible: true }).click();
   await expect(page.getByRole("menuitem", { name: new RegExp(LONG_NAME) })).toBeVisible();
   // The menu item's title carries the whole name for when it clamps.

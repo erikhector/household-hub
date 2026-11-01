@@ -444,3 +444,13 @@ export async function clickListSetting(page: Page, item: string, listSettings = 
   await page.getByRole("menuitem", { name: listSettings, exact: true }).click();
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
+
+// UX-158: the button that opens the menu holding "Create household". The
+// seeded user has one household, so the phone header has no switcher and
+// the item sits in the bottom bar's More menu; on desktop the sidebar's
+// switcher still carries it.
+export function createHouseholdMenuTrigger(page: Page, isMobile: boolean, moreLabel = "More") {
+  return isMobile
+    ? page.getByRole("navigation").getByRole("button", { name: moreLabel })
+    : page.getByRole("complementary").getByRole("button", { name: /E2E Household/ });
+}

@@ -34,9 +34,10 @@ import { HouseholdSwitcherTrigger, type HouseholdOption } from "@/components/hou
 
 const initialState: ActionState = {};
 
-// Controlled by the switcher: the dropdown item opens it, and it lives outside
+// Controlled by its opener (the switcher here, the More menu for a
+// single-household user, UX-158): the dropdown item opens it, and it lives outside
 // the menu's content because that unmounts as soon as the menu closes.
-function CreateHouseholdDialog({
+export function CreateHouseholdDialog({
   dict,
   open,
   setOpen,
