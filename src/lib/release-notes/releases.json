@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.131.0",
+    "date": "2026-11-01",
+    "pr": 1015,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Small labels, such as the notification count and the labels in the inventory quick-add bar, are now a little larger and easier to read.\n\nPhone pages no longer open with a \"Household\" bar when you only have one household, so the page title and your content start higher. \"Create household\" is now in the More menu. With several households the household bar is slimmer.",
+      "sv": "Små etiketter, till exempel antalet notiser och etiketterna i lageröversiktens snabbtillägg, är nu lite större och lättare att läsa.\n\nSidor på mobilen börjar inte längre med ett \"Hushåll\"-fält när du bara har ett hushåll, så sidans rubrik och innehåll hamnar högre upp. \"Skapa hushåll\" finns nu i menyn Mer. Med flera hushåll är hushållsfältet smalare."
+    }
+  },
+  {
     "version": "0.130.0",
     "date": "2026-11-01",
     "pr": 1007,
