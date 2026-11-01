@@ -182,6 +182,7 @@ export const sv = {
     subscriptionNotFound: "Prenumerationen hittades inte",
   },
   nav: {
+    skipToContent: "Hoppa till innehållet",
     overview: "Hem",
     inventory: "Lager",
     shoppingList: "Inköpslista",
@@ -1492,6 +1493,7 @@ export const sv = {
     columnLocation: "Plats",
     columnQuantity: "Antal",
     columnStatus: "Status",
+    columnActions: "Åtgärder",
     columnLastUpdated: "Senast uppdaterad",
     lastUpdatedWithUser: "Senast uppdaterad {date} av {name}",
     lastUpdatedNoUser: "Senast uppdaterad {date}",

@@ -166,6 +166,34 @@ for (const locale of LOCALES) {
     });
   });
 
+  // Home's "Add to list" sits in the Shopping & pantry card's header. A
+  // Card clips its overflow, so a button pushed past the card's edge is cut
+  // off without scrolling the page, and the route sweep above can't see it:
+  // this checks every Home button stays inside its own card.
+  test.describe(`Home card buttons at 200% text (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    test("stay inside their card", async ({ page, context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+      await page.goto("/dashboard");
+      await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.waitForLoadState("networkidle");
+      await expect(
+        page.getByRole("main").getByRole("button", { name: locale === "sv" ? "Lägg till på listan" : "Add to list" }),
+      ).toBeVisible();
+      const clipped = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('main [data-slot="card"] [data-slot="button"]')]
+          .filter((el) => el.getBoundingClientRect().width > 0)
+          .filter((el) => {
+            const b = el.getBoundingClientRect();
+            const c = el.closest<HTMLElement>('[data-slot="card"]')!.getBoundingClientRect();
+            return b.left < c.left - 0.5 || b.right > c.right + 0.5;
+          })
+          .map((el) => (el.textContent ?? "").trim()),
+      );
+      expect(clipped, "buttons cut off at their card's edge").toEqual([]);
+    });
+  });
+
   test.describe(`public pages at 200% text (${locale})`, () => {
     test.use({ storageState: { cookies: [], origins: [] } });
     test.beforeEach(async ({ context, baseURL }) => {

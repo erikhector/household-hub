@@ -621,6 +621,11 @@ every lookup the old one did.
   status (in/low/out of stock, expiring soon, expired); filter dropdown
   options come from the
   distinct categories/locations already present in that household's items.
+  **Labelled filters (UX-155)**: each desktop filter trigger carries an
+  `aria-label` (Category, Location, Status, Last updated, Group by) matching
+  its mobile Filters-dialog twin, and the table's actions column header has
+  `sr-only` text, so a screen reader hears what a control is, not just its
+  current value.
   **What needs attention (UX-121)**: above the search row a "Needs
   attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
   "2 expired"), each hidden at zero. Tapping one sets the Status filter to
@@ -7439,6 +7444,14 @@ components directly.
   `nav-items.ts`) on toggle and read server-side in
   `src/app/dashboard/layout.tsx` so the initial render matches — no
   client-side flash.
+- **Skip link and landmarks (UX-164, WCAG 2.4.1)**: the dashboard layout's
+  first focusable element is an `sr-only focus:not-sr-only` "Skip to content"
+  link (`dict.nav.skipToContent`) to `#main-content`, so a keyboard user
+  passes the sidebar's ~16 stops in one Tab. `main` has `tabIndex={-1}` so
+  the link moves focus there. The login, signup, forgot-password,
+  reset-password, verify-email, join, unsubscribe and no-household pages put
+  their content in a `<main>` rather than a plain `div`. Covered by
+  `navigation.desktop.spec.ts` and `public.spec.ts`.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
   and a "More" dropdown menu holding Meal planning, Household, Profile, the
@@ -7507,25 +7520,34 @@ components directly.
   palette ("Go to Home"); the route stays `/dashboard` and the nav key stays
   `overview`. The page (`src/app/dashboard/page.tsx`) answers "what needs
   me now?" in about one phone screen: the greeting, today's date as the
-  subtitle (locale-formatted in the user's time zone, server-rendered), one
-  primary action, and three cards. On a phone they stack Today, Shopping &
-  pantry, Safe to spend; from `lg` Today takes the left column and the
-  other two the right. The primary action, "Add to list"
-  (`src/components/dashboard/home-add-to-list.tsx`, in `PrimaryAction`, so
-  it floats in the thumb zone on phones), opens the shopping list's own
-  quick-add dialog (`ShoppingItemFormDialog` in create mode, lazily loaded,
-  with only the strings it reads, `ShoppingItemFormDialogDict`) in place
-  for the list Home adds to; with no active list it links to the lists
-  page. Everything is data the page already loaded or existing actions; no
-  schema change.
+  subtitle (locale-formatted in the user's time zone, server-rendered;
+  the heading block is `text-balance`, so a long greeting never strands
+  the name on its own line), and three cards. Home has **no primary
+  action**: it is a summary that hands off to the feature pages, so
+  nothing on it takes the solid `primary` fill or floats in
+  `PrimaryAction`. On a phone the cards stack Today, Shopping & pantry,
+  Safe to spend; from `lg` Today takes the left column and the other two
+  the right. "Add to list" (`src/components/dashboard/home-add-to-list.tsx`)
+  is a small outline button in the Shopping & pantry card's header
+  (`CardAction`), beside the list it fills. It opens the shopping list's
+  own quick-add dialog (`ShoppingItemFormDialog` in create mode, lazily
+  loaded, with only the strings it reads, `ShoppingItemFormDialogDict`) in
+  place for the list Home adds to; with no active list it isn't shown,
+  since the card's "Start a list" row is the next step. The tinted rows
+  with an "Add N" button (the pantry's out/low warning, Today's "Missing
+  …") wrap: their text keeps at least 11rem and the button drops to its
+  own line, right-aligned, rather than squeezing a long (Swedish) line
+  into a narrow column. Everything is data the page already loaded or
+  existing actions; no schema change.
   **Safe to spend (UX-HOME-4)**: two equal tiles
   (`src/components/dashboard/safe-to-spend-tiles.tsx`), "You" (the same
   number Personal Budget shows, `loadPersonalBudgetPosition`) and
   "Household" (`loadHouseholdSafeToSpend`), each a link to its budget,
   coloured by status with a status word and icon ("On track",
   `CircleCheck`; "Tight", `TriangleAlert`; "Over", `CircleAlert`). With no
-  personal categories the "You" tile is a "Set up" link to Personal
-  budget; with no household categories the Household tile is left out.
+  personal categories the "You" tile is a one-row "Set up" link to
+  Personal budget; with no household categories the Household tile is
+  left out and the remaining tile takes the card's full width.
   A balance with another member shows under the tiles as the budget pages'
   `HouseholdDebtsList` (what you owe or are owed, unpaid bills, Settle up).
   The card always shows, since the "You" tile is either a number or the
@@ -7536,7 +7558,8 @@ components directly.
   the cards, while at most two steps are done (`SETUP_FULL_CARD_MAX_DONE`);
   after that it is a one-line strip below them: a progress ring
   (`progressbar`), "N of 5 set up" and "Next: <step>", the whole strip a
-  link to that step. In the full card every step is a row with a chevron
+  link to that step (its chevron is hidden on phones, where the room
+  beside the X goes to the "Next" line). In the full card every step is a row with a chevron
   and a 14 px description;
   open ones come first, finished (or skipped) ones stay below as ticked
   rows (title only), all under an "N of M done" `progressbar`. The steps are

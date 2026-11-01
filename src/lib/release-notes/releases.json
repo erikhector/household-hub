@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.127.1",
+    "date": "2026-10-31",
+    "pr": 981,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Home is calmer: \"Add to list\" now sits on the Shopping & pantry card instead of floating over the page, and long lines no longer wrap awkwardly next to their buttons.\n\nThe Home cards' headings line up again on wide screens.",
+      "sv": "Hem är lugnare: \"Lägg till på listan\" ligger nu på kortet Inköp och skafferi i stället för att sväva över sidan, och långa rader bryts inte längre konstigt bredvid sina knappar.\n\nRubrikerna på korten på Hem ligger i linje igen på breda skärmar."
+    }
+  },
+  {
     "version": "0.127.0",
     "date": "2026-10-31",
     "pr": 973,

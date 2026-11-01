@@ -190,6 +190,8 @@ export const en = {
     subscriptionNotFound: "Subscription not found",
   },
   nav: {
+    // UX-164: the keyboard skip link that opens the dashboard.
+    skipToContent: "Skip to content",
     overview: "Home",
     inventory: "Inventory",
     shoppingList: "Shopping list",
@@ -600,8 +602,8 @@ export const en = {
       startList: "Start a list",
       startListHint: "Low-stock items hop onto it by themselves.",
       out: {
-        one: "{count} out",
-        other: "{count} out",
+        one: "{count} out of stock",
+        other: "{count} out of stock",
       },
       low: {
         one: "{count} running low",
@@ -1582,6 +1584,7 @@ export const en = {
     columnLocation: "Location",
     columnQuantity: "Quantity",
     columnStatus: "Status",
+    columnActions: "Actions",
     columnLastUpdated: "Last updated",
     lastUpdatedWithUser: "Last updated {date} by {name}",
     lastUpdatedNoUser: "Last updated {date}",

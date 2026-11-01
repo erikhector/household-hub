@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { navItems } from "@/components/dashboard/nav-items";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_SHOPPING_LIST } from "./seed-data";
+import { expectHydrated, gotoRevealed } from "./ui";
 
 // Desktop only (the `desktop` project in playwright.config.ts): every
 // sidebar entry reaches its section, and the bottom bar stays out of the
@@ -98,4 +99,17 @@ test("the collapsed sidebar names its icons and shows a tooltip", async ({ page 
 
   await aside.getByRole("link", { name: en.nav.inventory, exact: true }).hover();
   await expect(page.locator("[data-side]").filter({ hasText: en.nav.inventory }).last()).toBeVisible();
+});
+
+// UX-164 (WCAG 2.4.1): the first Tab stop is the "Skip to content" link, and
+// activating it moves focus to `main`, past the sidebar's stops.
+test("the first Tab stop skips the sidebar to the main content", async ({ page }) => {
+  await gotoRevealed(page, "/dashboard");
+  const skip = page.getByRole("link", { name: en.nav.skipToContent });
+  await expectHydrated(skip);
+  await page.keyboard.press("Tab");
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeInViewport();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main")).toBeFocused();
 });
