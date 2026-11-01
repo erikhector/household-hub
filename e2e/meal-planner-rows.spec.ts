@@ -206,7 +206,16 @@ test("a recipe is one row whose sheet has its ingredients and actions, delete in
 
     await sheet.getByRole("button", { name: "Edit recipe" }).click();
     const form = page.getByRole("dialog", { name: "Edit recipe" });
-    await form.getByRole("button", { name: "Delete recipe" }).click();
+    // UX-165 (M2): Delete is well clear of Save, even scrolled to the end
+    // (the tags and nutrition fields sit between them).
+    const save = form.getByRole("button", { name: "Save", exact: true });
+    await save.scrollIntoViewIfNeeded();
+    const deleteButton = form.getByRole("button", { name: "Delete recipe" });
+    const saveBox = await save.boundingBox();
+    const deleteBox = await deleteButton.boundingBox();
+    expect(saveBox!.y - (deleteBox!.y + deleteBox!.height)).toBeGreaterThanOrEqual(96);
+    await deleteButton.scrollIntoViewIfNeeded();
+    await deleteButton.click();
     // UX-49: no confirm; the toast offers Undo and the delete follows it.
     await expect(row).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
