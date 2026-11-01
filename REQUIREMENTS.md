@@ -175,7 +175,8 @@ easy for AI coding agents to work in correctly:
   mounts the real menu with `defaultOpen`. The dashboard layout wraps the
   shell in `LazyDialogErrorMessage`. `e2e/shell-lazy-popups.spec.ts` and
   `e2e/shell-lazy-more-menu.mobile.spec.ts` cover the first press or tap
-  and the failed-load retry.
+  and the failed-load retry. UX-165 (M2): the menu opens upward, so "Log out"
+  is its top row, farthest from the thumb, never the last.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -3886,9 +3887,9 @@ share in {month}" rather than "this month") and the same "Your household balance
 with a link to the Transactions tab. Once they have categories the card goes
 and Safe to spend carries the balance as before. The shared-expense action is
 named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
-the household page's "Add transaction", and with no categories it is the
-page's primary action in the `PrimaryAction` slot (floating on phones); once
-Add transaction exists it stays the outline second action. Tested in
+the household page's "Add transaction". It is always the outline, inline
+action (UX-153, it doesn't float): with no categories the starter-set card's
+button is the one solid primary, and once Add transaction exists that is. Tested in
 `e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
 
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
@@ -6976,7 +6977,7 @@ co-managers, not kids earning rewards.
   over to the row's own trash button, so the same confirm dialog opens
   (M7: the sheet is the visible path). From `sm` up the icons stay.
   Above the list, in a household of two or more, an **Everyone / Mine**
-  toggle (`aria-pressed` buttons) shows only the tasks assigned to you
+  switch (a segmented `Tabs` track, UX-153, so it never reads as a second solid button beside "Add task") shows only the tasks assigned to you
   (`filterTasks`, `src/app/dashboard/tasks/task-filter.ts`: open or
   completed; unassigned tasks only show under Everyone). The weekly recap
   stays household-wide. The choice is remembered per device in localStorage
@@ -7837,6 +7838,12 @@ components directly.
   is the primary; "Add note" and "Turn on calendar feed" are `secondary`,
   and the role badge is `secondary` for the owner and `outline` for members.
   Each possible-duplicates group's "Merge" is `secondary`.
+  UX-153: the Tasks "Everyone / Mine" switch is a `Tabs` track; the household
+  budget setup card's "Add income" is `secondary`; the personal budget's
+  "Add shared expense" is always `outline` and inline (it doesn't float), so
+  the starter-set card's "Add N categories" is the one solid button while
+  there are no categories. `e2e/one-primary-action.spec.ts` counts the
+  `bg-primary` buttons on Tasks and both budget pages.
 - **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
   (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
   too) pushes a same-URL history entry while it's open, so Android's back
@@ -8758,8 +8765,9 @@ Todoist-style. Built as one shared wrapper,
   item, inventory item, planned meal, recipe or transaction hides the row
   at once and shows the same Undo toast, never a "This can't be undone"
   confirm: the swipe, the desktop trash icon, the ⋯ menu's Delete, and the
-  Delete in a task's, meal's, recipe's or transaction's sheet (which closes
-  first). The inventory item page's Delete leaves the page at once. Tasks,
+  Delete in a task's, meal's or transaction's sheet (which closes
+  first), and in a recipe's Edit form (UX-165: the recipe sheet has no
+  Delete, so nothing destructive sits beside its sticky Cook). The inventory item page's Delete leaves the page at once. Tasks,
   shopping items, inventory items and transactions leave the list at tap
   time (`local-row-changes`, or the transaction list's own removed set), so
   aisle headers, section counts and the "Next up" dock follow at once, and

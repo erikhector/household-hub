@@ -121,24 +121,24 @@ test("Mine shows only my tasks, and the choice is remembered", async ({ page }) 
   await page.goto("/dashboard/tasks");
 
   const main = page.getByRole("main");
-  const everyone = main.getByRole("button", { name: "Everyone", exact: true });
-  const onlyMine = main.getByRole("button", { name: "Mine", exact: true });
-  await expect(everyone).toHaveAttribute("aria-pressed", "true");
+  const everyone = main.getByRole("tab", { name: "Everyone", exact: true });
+  const onlyMine = main.getByRole("tab", { name: "Mine", exact: true });
+  await expect(everyone).toHaveAttribute("aria-selected", "true");
   for (const title of [mine, theirs, nobody]) await expect(main.getByText(title, { exact: true })).toBeVisible();
 
   await onlyMine.click();
-  await expect(onlyMine).toHaveAttribute("aria-pressed", "true");
+  await expect(onlyMine).toHaveAttribute("aria-selected", "true");
   await expect(main.getByText(mine, { exact: true })).toBeVisible();
   await expect(main.getByText(theirs, { exact: true })).toHaveCount(0);
   await expect(main.getByText(nobody, { exact: true })).toHaveCount(0);
 
   // Remembered across a reload.
   await page.reload();
-  await expect(main.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(main.getByRole("tab", { name: "Mine", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(main.getByText(mine, { exact: true })).toBeVisible();
   await expect(main.getByText(theirs, { exact: true })).toHaveCount(0);
 
-  await main.getByRole("button", { name: "Everyone", exact: true }).click();
+  await main.getByRole("tab", { name: "Everyone", exact: true }).click();
   await expect(main.getByText(theirs, { exact: true })).toBeVisible();
   await expect(main.getByText(nobody, { exact: true })).toBeVisible();
 });

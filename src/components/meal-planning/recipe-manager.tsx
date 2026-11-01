@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTr
 import Link from "next/link";
 import { SHARE_URL_PARAM } from "@/lib/share-target";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bookmark, CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2, Upload } from "lucide-react";
+import { Bookmark, CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -750,29 +750,12 @@ function RecipeRow({
               {dict.duplicateRecipe}
             </Button>
           </div>
-          {/* M2: delete sits apart from the other actions, under a rule. */}
-          <div className="border-t pt-4">
-            <Button
-              type="button"
-              variant="destructive"
-              className="w-full justify-start"
-              disabled={isPending}
-              onClick={() => {
-                setSheetOpen(false);
-                // After the sheet has closed, so it unmounts shut.
-                requestAnimationFrame(handleDelete);
-              }}
-            >
-              <Trash2 className="size-4" />
-              {dict.deleteAriaLabel}
-            </Button>
-          </div>
           {/* M2: Cook (GAP-42; only a recipe with steps has anything to cook
               from) is what the sheet is mostly opened for, so it's the one
               primary action, with Edit beside it, in the footer that sticks
               to the sheet's bottom on phones: a long ingredient list scrolls
-              under it instead of pushing it out of view. Delete stays at
-              the end of the body, away from both. */}
+              under it instead of pushing it out of view. UX-165: Delete is
+              not on this sheet at all; it's in the Edit form. */}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => openFromSheet(dialogs.edit)}>
               <Pencil className="size-4" />
@@ -816,6 +799,7 @@ function RecipeRow({
             ingredientUnits={ingredientUnits}
             handle={dialogs.edit}
             photoImportConfigured={photoImportConfigured}
+            onDelete={handleDelete}
           />
         )}
       </LazyDialog>
