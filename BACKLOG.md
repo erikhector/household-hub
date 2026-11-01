@@ -421,7 +421,7 @@ Items already open (UX-30, UX-66, UX-89, UX-125, UX-41c, UX-43) were
 left out.
 
 **File conflicts.** Don't build these in parallel:
-- `src/components/budget/safe-to-spend.tsx`: UX-153, UX-154
+- `src/components/budget/safe-to-spend.tsx`: UX-153
 - `src/components/inventory/inventory-client.tsx`: UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
   UX-159, UX-160, UX-168
@@ -446,25 +446,6 @@ left out.
       asserts one `bg-primary` button on `/dashboard/tasks` and on both
       budget pages with no categories, on `desktop` and `mobile`.
 
-- [ ] **UX-154. Neutral safe-to-spend state when the budget has no
-      income** (impact: high, effort: S) — breaks Colour ("Safe to spend:
-      `success` healthy …" presumes a budget) and Hierarchy. With categories
-      but no income, the overview's Today row prints "Household safe to
-      spend: 0.00" in `success` green and the Insights tab shows four zero
-      tiles, one "+0.00" in green: false reassurance exactly when a new
-      household decides whether to trust the budget. `computeSafeToSpend`
-      returns "healthy" for any non-negative balance when there is no income
-      to judge against (`src/lib/safe-to-spend-calc.ts:241-246`; the
-      overview reads it at `src/app/dashboard/page.tsx:192-197`). The
-      SafeToSpend card itself already has a setup state; the Today row and
-      Insights don't. Evidence: `h6-overview-with-budget`, `h8-insights` in
-      the report.
-      Acceptance: a fourth status `unset` (no income and no limits) renders
-      in `muted-foreground` with no sign; the Today row reads "Budget not
-      set up yet" and links to income; Insights shows one sentence and the
-      add-income action instead of zero tiles. Unit test on the calculator;
-      e2e on `/dashboard` with a category and no income asserts no
-      `text-success` in the Today block, `desktop` and `mobile`.
 
 - [ ] **UX-156. Default low-stock threshold never above the entered
       quantity** (impact: med, effort: S) — breaks Usability ("prevent
