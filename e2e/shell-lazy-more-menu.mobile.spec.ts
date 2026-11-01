@@ -42,3 +42,37 @@ test.describe("a failed chunk load", () => {
     await expect(page.getByRole("menuitem", { name: en.nav.logOut })).toBeVisible();
   });
 });
+
+// UX-165 (M2): the menu opens upward, so its last row is the one under the
+// thumb. Log out is the top row, not the last.
+test("Log out is the top row of the More menu, not the last", async ({ page }) => {
+  await page.goto("/dashboard");
+  const more = page.getByRole("navigation").getByRole("button", { name: en.nav.more });
+  await expectHydrated(more);
+  await more.click();
+  const rows = page.getByRole("menuitem");
+  await expect(rows.first()).toHaveText(en.nav.logOut);
+  await expect(rows.last()).not.toHaveText(en.nav.logOut);
+});
+
+// UX-165 follow-up: Log out is the first row, so a keyboard open must not
+// leave it as the row the next Enter or Space would activate.
+test("opened from the keyboard, Log out is not the highlighted row", async ({ page }) => {
+  await page.goto("/dashboard");
+  const more = page.getByRole("navigation").getByRole("button", { name: en.nav.more });
+  await expectHydrated(more);
+  await more.focus();
+  await page.keyboard.press("Enter");
+  const logOut = page.getByRole("menuitem", { name: en.nav.logOut });
+  await expect(logOut).toBeVisible();
+  await expect(logOut).not.toHaveAttribute("data-highlighted", "");
+  await expect(logOut).not.toBeFocused();
+  // The next Enter or Space must not sign out.
+  await page.keyboard.press("Enter");
+  await expect(page).not.toHaveURL(/\/login/);
+  // The attribute checked above is the real highlight marker: ArrowDown
+  // moves it onto the first row, which proves the "not highlighted" check
+  // above could have failed.
+  await page.keyboard.press("ArrowDown");
+  await expect(logOut).toHaveAttribute("data-highlighted", "");
+});

@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice } from "./ui";
+import bcrypt from "bcryptjs";
+import { Client } from "pg";
+import { dismissCookieNotice, expectHydrated, expectOnePrimaryAction } from "./ui";
 
 // UX-24: one primary (solid) action per view. DESIGN.md's hierarchy rule
 // reads the solid `default` Button as "the" call to action, so the checks
@@ -82,4 +84,63 @@ test("task create and edit dialogs share one footer, and the title can be rename
   await page.reload();
   await expect(page.getByText(renamed, { exact: true })).toBeVisible();
   await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+});
+
+// UX-153: the tasks "Everyone / Mine" switch is a segmented track, so "Add
+// task" stays the only solid button.
+test("tasks: the Everyone / Mine filter doesn't compete with Add task", async ({ page }) => {
+  await page.goto("/dashboard/tasks");
+  const main = page.getByRole("main");
+  const mine = main.getByRole("tab", { name: "Mine", exact: true });
+  await expect(mine).toBeVisible();
+  await expectOnePrimaryAction(page);
+  await expect(main.getByRole("button", { name: "Add task" })).toHaveClass(PRIMARY);
+  await expectHydrated(mine);
+  await mine.click();
+  await expect(mine).toHaveAttribute("aria-selected", "true");
+  await expectOnePrimaryAction(page);
+});
+
+// A fresh household has no categories and no income, the state where the
+// starter-set card and the setup card show.
+test.describe("budget pages with no categories", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("each has one solid button", async ({ page, context, baseURL }, testInfo) => {
+    await dismissCookieNotice(context, baseURL!);
+    const tag = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}-${testInfo.project.name}`;
+    const email = `e2e-op-${tag}@squirrel.test`;
+    const userId = `e2e-op-user-${tag}`;
+    const householdId = `e2e-op-hh-${tag}`;
+    const password = "e2e-password-123";
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    try {
+      await client.query(
+        `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+         VALUES ($1, $2, $3, 'Solo Member', now(), 'en')`,
+        [userId, email, await bcrypt.hash(password, 10)],
+      );
+      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Quiet House')`, [householdId]);
+      await client.query(
+        `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+        [`e2e-op-m-${tag}`, householdId, userId],
+      );
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password", { exact: true }).fill(password);
+      await page.getByRole("button", { name: "Log in" }).click();
+      await expect(page).toHaveURL(/\/dashboard$/);
+
+      for (const route of ["/dashboard/budget", "/dashboard/personal-budget"]) {
+        await page.goto(route);
+        await expect(page.getByRole("main").getByText(/set up your budget|Let's set up/i).first()).toBeVisible();
+        await expectOnePrimaryAction(page);
+      }
+    } finally {
+      await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+      await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
+      await client.end();
+    }
+  });
 });

@@ -72,6 +72,14 @@ export function BottomNavMoreMenu({
         {triggerContent}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" sideOffset={8} className="w-56">
+        {/* UX-165 (M2): the menu opens upward from the bottom bar, so the
+            last row is the one under the thumb. Log out is the first row,
+            farthest from it, and the rest follow below a rule. */}
+        <DropdownMenuItem variant="destructive" disabled={loggingOut} onClick={logOut}>
+          <LogOut className="size-4" />
+          {dict.nav.logOut}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         {overflowMobileNavItems.map(({ href, key, icon: Icon, color }) => (
           <DropdownMenuItem key={href} className="min-w-0" render={<Link href={href} />}>
             <span
@@ -108,11 +116,6 @@ export function BottomNavMoreMenu({
         <DropdownMenuItem closeOnClick={false} onClick={cycleTheme}>
           <ThemeIcon className="size-4" />
           {format(dict.theme.current, { theme: dict.theme[themeChoice] })}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" disabled={loggingOut} onClick={logOut}>
-          <LogOut className="size-4" />
-          {dict.nav.logOut}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
