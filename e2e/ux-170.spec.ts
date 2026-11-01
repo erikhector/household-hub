@@ -13,10 +13,12 @@ const track = (page: Page) => page.getByRole("tab").first().locator("xpath=../..
 
 for (const path of ["/dashboard/budget", "/dashboard/meal-planning"]) {
   test(`${path}: the tab track fades while it can scroll`, async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 700 });
     await page.goto(path);
     await expectHydrated(page.getByRole("tab").first());
     const bar = track(page);
+    // Narrow the track instead of the viewport: a phone-emulated page
+    // doesn't go below ~412 px, and 200 % text is the same overflow.
+    await bar.evaluate((el) => (el.style.maxWidth = "200px"));
     await expect(bar).toHaveAttribute("data-fade", "end");
     expect(await bar.evaluate((el) => getComputedStyle(el).maskImage)).toContain("linear-gradient");
 
@@ -33,8 +35,25 @@ for (const path of ["/dashboard/budget", "/dashboard/meal-planning"]) {
 }
 
 test("the active tab is scrolled into view on load", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 700 });
+  // A 200 px track from the first paint, so the mount effect has something
+  // to scroll (a phone page never goes below ~412 px).
+  await page.addInitScript(() => {
+    const style = document.createElement("style");
+    style.textContent = "div.overflow-x-auto[data-activation-direction]{max-width:200px}";
+    document.documentElement.append(style);
+  });
   await page.goto("/dashboard/budget?tab=insights");
   await expectHydrated(page.getByRole("tab").first());
-  await expect(page.getByRole("tab", { selected: true })).toBeInViewport({ ratio: 0.95 });
+  // Insights also holds its own compact switch, so scope to the page tabs.
+  const bar = track(page);
+  const insights = bar.getByRole("tab", { selected: true });
+  await expect(insights).toHaveText("Insights");
+  await expect
+    .poll(() =>
+      insights.evaluate((el) => {
+        const [a, b] = [el.getBoundingClientRect(), el.parentElement!.parentElement!.getBoundingClientRect()];
+        return a.left >= b.left - 1 && a.right <= b.right + 1;
+      }),
+    )
+    .toBe(true);
 });
