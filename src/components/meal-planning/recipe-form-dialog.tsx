@@ -218,6 +218,7 @@ export function RecipeFormDialog({
   startAtReview = false,
   photoImportConfigured = false,
   initialImportUrl = "",
+  onDelete,
 }: {
   dict: MealPlanningDict;
   mode: "create" | "edit";
@@ -237,6 +238,10 @@ export function RecipeFormDialog({
   /** GAP-67: a link shared to Squirrel from another app. Only fills the
    * "Import from a URL" field; nothing is fetched until the user taps Import. */
   initialImportUrl?: string;
+  /** UX-165: Delete lives here, at the end of the edit form, not in the
+   * recipe sheet beside the sticky Cook (M2). The recipe manager passes its
+   * undoable delete; only the sheet's Edit gets it. */
+  onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -899,6 +904,28 @@ export function RecipeFormDialog({
               {dict.instructionsHint}
             </p>
           </div>
+
+          {mode === "edit" && onDelete && (
+            <div className="border-t pt-4">
+              {/* M2: not the last thing in the form. The tags and nutrition
+                  below keep it clear of the sticky Save footer, where a slip
+                  near Save would reach it. */}
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full justify-start"
+                disabled={pending}
+                onClick={() => {
+                  setOpen(false);
+                  // After the dialog has closed, so it unmounts shut.
+                  requestAnimationFrame(onDelete);
+                }}
+              >
+                <Trash2 className="size-4" />
+                {dict.deleteAriaLabel}
+              </Button>
+            </div>
+          )}
 
           {/* GAP-29: toggle chips (same look as the starter pickers) rather
               than checkboxes — the set is small enough to show whole. The

@@ -175,7 +175,8 @@ easy for AI coding agents to work in correctly:
   mounts the real menu with `defaultOpen`. The dashboard layout wraps the
   shell in `LazyDialogErrorMessage`. `e2e/shell-lazy-popups.spec.ts` and
   `e2e/shell-lazy-more-menu.mobile.spec.ts` cover the first press or tap
-  and the failed-load retry.
+  and the failed-load retry. UX-165 (M2): the menu opens upward, so "Log out"
+  is its top row, farthest from the thumb, never the last.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
   `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
@@ -8757,8 +8758,9 @@ Todoist-style. Built as one shared wrapper,
   item, inventory item, planned meal, recipe or transaction hides the row
   at once and shows the same Undo toast, never a "This can't be undone"
   confirm: the swipe, the desktop trash icon, the ⋯ menu's Delete, and the
-  Delete in a task's, meal's, recipe's or transaction's sheet (which closes
-  first). The inventory item page's Delete leaves the page at once. Tasks,
+  Delete in a task's, meal's or transaction's sheet (which closes
+  first), and in a recipe's Edit form (UX-165: the recipe sheet has no
+  Delete, so nothing destructive sits beside its sticky Cook). The inventory item page's Delete leaves the page at once. Tasks,
   shopping items, inventory items and transactions leave the list at tap
   time (`local-row-changes`, or the transaction list's own removed set), so
   aisle headers, section counts and the "Next up" dock follow at once, and
