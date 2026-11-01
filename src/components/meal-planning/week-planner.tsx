@@ -153,6 +153,7 @@ export function WeekPlanner({
   recipeCooked,
   entries: allEntries,
   picks: allPicks,
+  hasPlannedMeals,
   carriedCount,
   activeShoppingLists,
   batches,
@@ -168,6 +169,8 @@ export function WeekPlanner({
   entries: MealPlanEntryData[];
   // Week picks: the tray's meals, chosen for this week but not on a day.
   picks: WeekPickData[];
+  // UX-171: any meal planned in any week; the search field waits for one.
+  hasPlannedMeals: boolean;
   // How many picks the carry-over just moved into this week (week-picks.ts),
   // for a one-off toast. Zero on every other load.
   carriedCount: number;
@@ -719,7 +722,7 @@ export function WeekPlanner({
       </div>
       {/* GAP-59: below the sticky week bar, not in it, so the bar stays one
           row on a phone. */}
-      <MealPlanSearch dict={dict} locale={locale} />
+      {(hasPlannedMeals || entries.length > 0) && <MealPlanSearch dict={dict} locale={locale} />}
       {(!isPastWeek || picks.length > 0) && (
       <WeekPicksTray
         dict={wp}
@@ -891,6 +894,15 @@ export function WeekPlanner({
           <p className="text-sm text-muted-foreground">
             {recipes.length > 0 ? dict.plannerEmpty : dict.plannerEmptyNoRecipes}
           </p>
+          {/* UX-171: offered here, as the secondary next to the one primary,
+              rather than only pointed at in the ⋯ menu. With no recipes it
+              would have nothing to propose. */}
+          {recipes.length > 0 && emptyDays.length > 0 && (
+            <Button type="button" variant="outline" onClick={() => setFillOpen(true)}>
+              <CalendarPlus className="size-4" />
+              {dict.fillEmptyDays}
+            </Button>
+          )}
         </MascotEmptyState>
       ) : (
       <div className="list-bleed grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">

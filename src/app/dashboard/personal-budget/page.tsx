@@ -386,9 +386,11 @@ async function PersonalBudgetTabsSection({
         updateAction={updatePersonalTransactionAction}
       />
       {/* Below the list, like the household budget's (rarely needed). */}
-      <div className="flex justify-start">
-        <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
-      </div>
+      {transactionRows.length > 0 && (
+        <div className="flex justify-start">
+          <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
+        </div>
+      )}
     </div>
   );
 

@@ -1808,7 +1808,7 @@ export const sv = {
     copyLastWeekUndoneToast: "Kopierade måltider borttagna",
     fillEmptyDays: "Fyll tomma dagar",
     plannerEmpty:
-      "Planera veckans måltider så räknar Squirrel ut vad du ännu behöver handla. Kopiera förra veckan eller fyll de tomma dagarna från ⋯-menyn.",
+      "Planera veckans måltider så räknar Squirrel ut vad du ännu behöver handla. Kopiera förra veckan från ⋯-menyn eller fyll de tomma dagarna.",
     plannerEmptyNoRecipes:
       "Planera veckans måltider så räknar Squirrel ut vad du ännu behöver handla. Lägg först till några recept så går planeringen snabbare.",
     addFirstDinner: "Lägg till din första middag",
