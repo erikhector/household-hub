@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, clickListSetting } from "./ui";
 
 // UX-143 (DESIGN.md M-rules, 44 x 44 targets): suggestion rows in the unit
 // picker (Autocomplete) and the combobox toggle (Combobox) were 32 px and
@@ -30,7 +30,7 @@ async function expectAtLeast44(target: Locator, what: string) {
 test("unit suggestions are at least 44 x 44", async ({ page }) => {
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
   await page.getByRole("button", { name: "More list actions" }).click();
-  await page.getByRole("menuitem", { name: "Add item" }).click();
+  await clickListSetting(page, "Add item");
   const dialog = page.getByRole("dialog", { name: "Add an item" });
   // The name and unit fields both have a "Show suggestions" button (name
   // first), so take the one in the unit field's group. The unit input has

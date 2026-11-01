@@ -19,7 +19,9 @@
 // Budget they're the one place the user's share of each shared household
 // bill is listed (BUDGET-7).
 
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/category-breakdown";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -49,6 +51,7 @@ export function FixedBudgetSummary({
   balanceStatus,
   incomeBreakdown,
   expenseBreakdown,
+  addIncomeHref,
   dict,
   locale,
   currencyCode,
@@ -60,6 +63,8 @@ export function FixedBudgetSummary({
   balanceStatus: BudgetBalanceStatus;
   incomeBreakdown: CategoryTotal[];
   expenseBreakdown: CategoryTotal[];
+  /** UX-154: where the "nothing planned yet" state sends you to add income. */
+  addIncomeHref: string;
   dict: Dictionary["budget"]["fixedSummary"];
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
@@ -70,6 +75,26 @@ export function FixedBudgetSummary({
   const netFixed = monthlyIncome - monthlyExpense;
   const hasTrendData = monthlyTotals.some((m) => m.income > 0 || m.expense > 0 || m.savings > 0);
   const hasFixedSavings = monthlyTotals.some((m) => m.savings > 0);
+  // UX-154: nothing planned (no income, no costs, no savings) is not a
+  // balanced budget. "0.00 in, 0.00 out, 0.00 left over" with a green "room
+  // in the budget" would vouch for a budget nobody has set up, so the card
+  // is one neutral sentence and the way to add income.
+  const unset = monthlyIncome < 0.005 && monthlyExpense < 0.005 && monthlySavings < 0.005;
+  if (unset && !hasTrendData) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-col gap-1">
+          <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+          <p className="text-sm text-muted-foreground">{dict.notSetUp}</p>
+        </CardHeader>
+        <CardContent>
+          <Button render={<Link href={addIncomeHref} />} className="max-sm:min-h-11 pointer-coarse:min-h-11">
+            {dict.addIncome}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
   // DESIGN.md: status is tinted text plus an icon and words, never colour
   // alone.
   const StatusIcon = balanceStatus === "balanced" ? CheckCircle2 : AlertTriangle;

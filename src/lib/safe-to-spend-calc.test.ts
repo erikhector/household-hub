@@ -283,7 +283,7 @@ describe("computeSafeToSpend", () => {
       expect(result.status).toBe("healthy");
     });
 
-    it("is 'healthy' for a non-negative balance when no income has posted yet, rather than guessing 'tight'", () => {
+    it("is 'unset' (UX-154) for a zero balance with no income, logged or expected, rather than a green 'healthy'", () => {
       const result = computeSafeToSpend({
         transactions: [],
         monthStart,
@@ -293,7 +293,30 @@ describe("computeSafeToSpend", () => {
         savingsSoFar: 0,
       });
       expect(result.safeToSpend).toBe(0);
+      expect(result.status).toBe("unset");
+    });
+
+    it("is 'healthy' for a non-negative balance once income is expected but not posted yet", () => {
+      const result = deriveSafeToSpend({
+        incomeSoFar: 0,
+        expenseSoFar: 0,
+        savingsSoFar: 0,
+        expectedRecurring: [{ categoryId: "salary", categoryName: "Salary", amount: 1000, type: "INCOME" }],
+      });
+      expect(result.safeToSpend).toBe(1000);
       expect(result.status).toBe("healthy");
+    });
+
+    it("stays 'over' when there is spending but no income: a real negative number must stay visible", () => {
+      const result = computeSafeToSpend({
+        transactions: [],
+        monthStart,
+        monthEnd,
+        incomeSoFar: 0,
+        expenseSoFar: 30,
+        savingsSoFar: 0,
+      });
+      expect(result.status).toBe("over");
     });
   });
 });

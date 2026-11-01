@@ -224,16 +224,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       (a Suspense split, larger than S).
 
 
-- [ ] **MAINT-66. Flaky: `inventory-lazy-dialogs` "a failed chunk load says so, and the next tap retries" (mobile) misses the Add dialog** (low, S) —
-      `e2e/inventory-lazy-dialogs.spec.ts:52`. Failed once at line 80 on the
-      release train's `ci:local` run of `bcfddc1` (`getByRole('dialog', { name:
-      'Add inventory item' })` not visible within 5 s after the offline chunk
-      block was un-routed and Add tapped again), then passed 11 of 11 on a re-run
-      of the same commit (`--repeat-each=3`). Likely the retry tap lands before
-      hydration or before the failed import is cleared. Fix in the app or in what
-      the test waits for (e.g. `expectHydrated`), never a skip, retry or looser
-      assertion.
-
 ### UX (2026-09-26 scout)
 
 Found by loading every dashboard route at 390×844 and 1280×800, in English
@@ -431,12 +421,12 @@ Items already open (UX-30, UX-66, UX-89, UX-125, UX-41c, UX-43) were
 left out.
 
 **File conflicts.** Don't build these in parallel:
-- `src/components/budget/safe-to-spend.tsx`: UX-153, UX-154
-- `src/components/inventory/inventory-client.tsx`: UX-155, UX-166
+- `src/components/budget/safe-to-spend.tsx`: UX-153
+- `src/components/inventory/inventory-client.tsx`: UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-159, UX-160, UX-168
+  UX-160, UX-168
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
-  UX-158, UX-160, UX-164
+  UX-158, UX-160
 
 - [ ] **UX-153. One primary action per view on tasks, budget overview and
       personal budget** (impact: high, effort: S) — breaks Hierarchy
@@ -456,39 +446,6 @@ left out.
       asserts one `bg-primary` button on `/dashboard/tasks` and on both
       budget pages with no categories, on `desktop` and `mobile`.
 
-- [ ] **UX-154. Neutral safe-to-spend state when the budget has no
-      income** (impact: high, effort: S) — breaks Colour ("Safe to spend:
-      `success` healthy …" presumes a budget) and Hierarchy. With categories
-      but no income, the overview's Today row prints "Household safe to
-      spend: 0.00" in `success` green and the Insights tab shows four zero
-      tiles, one "+0.00" in green: false reassurance exactly when a new
-      household decides whether to trust the budget. `computeSafeToSpend`
-      returns "healthy" for any non-negative balance when there is no income
-      to judge against (`src/lib/safe-to-spend-calc.ts:241-246`; the
-      overview reads it at `src/app/dashboard/page.tsx:192-197`). The
-      SafeToSpend card itself already has a setup state; the Today row and
-      Insights don't. Evidence: `h6-overview-with-budget`, `h8-insights` in
-      the report.
-      Acceptance: a fourth status `unset` (no income and no limits) renders
-      in `muted-foreground` with no sign; the Today row reads "Budget not
-      set up yet" and links to income; Insights shows one sentence and the
-      add-income action instead of zero tiles. Unit test on the calculator;
-      e2e on `/dashboard` with a category and no income asserts no
-      `text-success` in the Today block, `desktop` and `mobile`.
-
-- [ ] **UX-155. Label the desktop inventory filter selects and the actions
-      column** (impact: high, effort: S) — breaks Accessibility ("labelled
-      controls"; WCAG 4.1.2, 1.3.1). The five desktop `SelectTrigger
-      className="w-40 shrink-0"` filters have no `aria-label`/
-      `aria-labelledby`, so a screen reader announces only the current value
-      ("All categories"); axe reports `button-name` critical ×5. The mobile
-      twins at `inventory-client.tsx:260-317` use `aria-labelledby`. The
-      table's actions `TableHead` is empty (axe `empty-table-header`).
-      Location: `src/components/inventory/inventory-client.tsx:358,371,387,402,416`,
-      `src/components/inventory/inventory-table.tsx:412`.
-      Acceptance: each desktop filter has the same accessible name as its
-      mobile twin; the actions header has `sr-only` text. `desktop` e2e
-      locates all five by `getByRole("combobox", { name })`.
 
 - [ ] **UX-156. Default low-stock threshold never above the entered
       quantity** (impact: med, effort: S) — breaks Usability ("prevent
@@ -534,23 +491,6 @@ left out.
       `mobile` e2e asserts the page title is the first text in `main`'s
       viewport for the seeded single-household user; the multi-household
       case still switches.
-
-- [ ] **UX-159. Finish the trip from the dock and split the shopping list
-      ⋯ menu** (impact: high, effort: M) — breaks User-centricity (the
-      in-store task is the shortest path), M6 (rare actions behind a
-      disclosure, ordered) and M2 (destructive apart from primary). The
-      list's ⋯ menu holds 12 items (Rename, Add item, Import list, Add
-      low-stock items, Share, Save as template, Export CSV, Copy as text,
-      Print, Complete list, Archive, Delete); "Complete list", the action
-      every trip ends with, is item 10 in the same group as the two
-      destructive ones (`src/components/shopping/shopping-list-client.tsx`
-      ⋯ menu; report `a7-list-more-menu`). The dock already knows when the
-      ring is full (`shopping-mode.tsx`).
-      Acceptance: when every row is ticked the dock shows a "Finish trip"
-      primary that runs Complete list; the menu is split into "This trip"
-      (Complete, Put away, Share) and "List settings" (submenu or the list
-      page) with Delete alone at the bottom. `mobile` and `desktop` e2e
-      tick all rows and complete the list from the dock.
 
 - [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
       med, effort: M) — breaks M9 ("200 % … without clipping; Swedish
@@ -606,18 +546,6 @@ left out.
       Acceptance: both use `text-xs` (badge `size-4.5`); the sweep's
       `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
       returns nothing.
-
-- [ ] **UX-164. `main` landmark on auth pages and a skip link in the
-      dashboard** (impact: med, effort: S) — breaks Accessibility ("logical
-      tab order"; WCAG 2.4.1). Login, signup and forgot-password render
-      content in a plain `div` (`src/app/login/page.tsx:38` and siblings;
-      axe `landmark-one-main`, `region` ×7–17). On desktop a keyboard user
-      passes 16 sidebar stops before page content on every route.
-      Acceptance: auth content is wrapped in `<main>`; the dashboard layout's
-      first focusable element is an `sr-only focus:not-sr-only` "Skip to
-      content" link (in both languages) that moves focus to `main`; axe on
-      `/login` reports no landmark violation; `navigation.desktop.spec.ts`
-      tabs once and asserts the link is focused.
 
 - [ ] **UX-165. Destructive actions apart from the primary in the recipe
       sheet and the More menu** (impact: med, effort: S) — breaks M2

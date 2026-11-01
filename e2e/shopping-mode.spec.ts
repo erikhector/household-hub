@@ -146,7 +146,11 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
   const main = page.getByRole("main");
   await expect(main.getByText("All done", { exact: true })).toBeVisible();
   await expect(main.getByRole("progressbar", { name: "Shopping progress" })).toHaveAttribute("aria-valuetext", "4 of 4");
-  await expect(dock).toHaveCount(0);
+  // UX-159: the dock stays for the trip's last step but drops its ring and
+  // next-up rows; its "Finish trip" is the thumb-zone way to end the list.
+  await expect(dock.getByRole("progressbar")).toHaveCount(0);
+  await expect(dock.getByRole("button", { name: /, into the cart$/ })).toHaveCount(0);
+  await expect(dock.getByRole("button", { name: "Finish trip" })).toBeEnabled();
   await expect(main.getByText("4 things are waiting to be put away.")).toBeVisible();
   await expect(main.getByRole("button", { name: "Put everything away" })).toBeEnabled();
 

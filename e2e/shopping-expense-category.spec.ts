@@ -33,7 +33,7 @@ async function seedCategoryAndTrip() {
       E2E_HOUSEHOLD.id,
       `Trip ${tag}`,
     ]);
-    // Already ticked, priced and put away, so "Done shopping" completes the
+    // Already ticked, priced and put away, so "Finish trip" completes the
     // list straight away rather than routing through the put-away dialog.
     await client.query(
       `INSERT INTO "ShoppingListItem" (id, "shoppingListId", name, quantity, unit, purchased, "estimatedPrice", "putAwayAt")
@@ -78,7 +78,7 @@ test("a completed shopping list logs its total to the category picked on the Hou
   await expect(page.getByRole("combobox", { name: "Log shopping to" })).toContainText(category.name);
 
   await page.goto(`/dashboard/shopping-list/${listId}`);
-  await page.getByRole("button", { name: "Done shopping" }).click();
+  await page.getByRole("button", { name: "Finish trip" }).click();
   await expect(page.getByText(new RegExp(`to ${category.name} in your budget`))).toBeVisible();
 
   const client = db();

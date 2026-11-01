@@ -115,7 +115,9 @@ test("quick-add's Enter moves to the next field and only the last one adds", asy
     const name = page.getByLabel("Name", { exact: true });
     const quantity = page.getByLabel("Quantity", { exact: true });
     const unit = page.getByLabel("Unit", { exact: true });
-    const category = page.getByLabel("Category", { exact: true });
+    // The desktop Category filter shares this accessible name (UX-155), so
+    // keep to the quick-add text input.
+    const category = page.getByLabel("Category", { exact: true }).and(page.locator("input"));
     const count = async () =>
       Number(
         (await client.query(`SELECT count(*) FROM "InventoryItem" WHERE "householdId" = $1`, [householdId]))
