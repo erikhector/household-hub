@@ -224,6 +224,29 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       (a Suspense split, larger than S).
 
 
+- [ ] **MAINT-73. Flaky: `shopping-added-by` "a shared list shows who added each line, never on your own" fails in a loaded run** (low, S) —
+      `e2e/shopping-added-by.spec.ts:44`, `mobile` (desktop once too). It failed in the UX-159 builder's gate runs on 93f8c3b and passed in its gate on fbc2db6. On a clean checkout of `origin/next` at b734060, under the shared ci-local lock,
+      `npx playwright test e2e/shopping-added-by.spec.ts --repeat-each=10` failed 14 of 20 runs (8 passed). Seen 2026-11-01.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/shopping-added-by.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-74. Flaky: a phone dialog's comboboxes aren't there yet when `form-field-room` measures them** (low, S) `[!]` —
+      `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-75. Flaky: recipe form order spec on a phone** (low, S) —
+      `e2e/recipe-form-order.spec.ts:11` ("the recipe form is in recipe order, labelled, with 44 px tag chips"), `mobile` project. Failed once in the GitHub e2e job on release commit b13ba5e (2026-11-01) and passed on its retry (7.0 s then 3.5 s); the assertion that failed was not captured in the run summary, so read the trace first. The same dialog-opening shape as MAINT-74.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-form-order.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-76. Flaky: a failed photo read doesn't show its error toast in time on a phone** (low, S) —
+      `e2e/recipe-photo-import.spec.ts:84` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. Failed once in the GitHub e2e job on release commit b13ba5e (2026-11-01) and passed on its retry (7.2 s then 4.2 s); the failing assertion was not captured in the run summary, so read the trace first. Its sibling at line 50 passed first time in the same run.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
+      `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+
 ### UX (2026-09-26 scout)
 
 Found by loading every dashboard route at 390×844 and 1280×800, in English
