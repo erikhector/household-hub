@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.129.1",
+    "date": "2026-11-01",
+    "pr": 1000,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Long amounts on Home's Safe to spend card no longer wrap onto two lines on narrow phones. They shrink to fit their tile.",
+      "sv": "Långa belopp på kortet Säkert att spendera på Hem bryts inte längre över två rader på smala telefoner. De krymper så att de får plats i rutan."
+    }
+  },
+  {
     "version": "0.129.0",
     "date": "2026-11-01",
     "pr": 998,
