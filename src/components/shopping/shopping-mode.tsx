@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Circle, CircleCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { NextUp, ShoppingProgress } from "@/lib/shopping/shopping-progress";
@@ -88,17 +89,25 @@ type DockItem = { id: string; name: string; quantity: number; unit: string };
  * be ticked off with the thumb without scrolling back up. Every row it
  * offers is also in the list above with its own checkbox (M7: nothing is
  * dock-only).
+ *
+ * UX-159: once every row is ticked, `next` is null and `finish` turns the
+ * same dock into the trip's last step, a "Finish trip" primary in the thumb
+ * zone. The dock stays mounted across that last tick, so the ticked row's
+ * settle (above) plays out before the button becomes tappable.
  */
 export function NextUpDock<T extends DockItem>({
   next,
   progress,
   dict,
   onTick,
+  finish,
 }: {
-  next: NextUp<T>;
+  next: NextUp<T> | null;
   progress: ShoppingProgress;
   dict: ShoppingModeDict;
   onTick: (item: T) => void;
+  /** What the primary runs. */
+  finish?: { onFinish: () => void; disabled: boolean };
 }) {
   const unitLabel = useUnitLabel();
 
@@ -122,12 +131,12 @@ export function NextUpDock<T extends DockItem>({
     // the real tick, and so the ring and the list, follows TICK_MS later
     // (at once under reduced motion). Rows are disabled from the tap, so
     // nothing else can be ticked in between.
-    setSettling({ item, index, count: next.items.length });
+    setSettling({ item, index, count: next?.items.length ?? 1 });
     startTickFeedback(() => onTick(item));
   };
   // Minus the ticked row itself: a failed save rolls it back into next.items
   // while it still lingers, and a row must not appear twice.
-  const rows: { item: T; ticked: boolean }[] = next.items
+  const rows: { item: T; ticked: boolean }[] = (next?.items ?? [])
     .filter((item) => item.id !== settling?.item.id)
     .map((item) => ({ item, ticked: false }));
   if (settling) {
@@ -178,32 +187,38 @@ export function NextUpDock<T extends DockItem>({
           "sm:sticky sm:bottom-4",
         )}
       >
-        <div className="flex items-center gap-3">
-          <ProgressRing progress={progress} dict={dict} />
-          <div className="min-w-0 flex-1">
-            {/* "+N more" rides on this line, not in a footer of its own:
-                the dock is pinned by its bottom edge, so a footer that
-                appears when the server confirms a just-added fourth row
-                (often past the 500 ms CLS grace) would push the dock's top
-                up by a line, a late layout shift (MAINT-18). */}
-            <span className="block truncate text-xs text-muted-foreground">
-              {dict.nextUp}
-              {next.more > 0 && (
-                <span className="short:hidden">
-                  {" · "}
-                  {format(plural(next.more, dict.moreHere), { count: next.more })}
-                </span>
-              )}
+        {/* Finishing: the all-done card above already carries the full ring,
+            "All done" and the trip summary, so the dock repeats none of them
+            (a second progressbar would also be announced twice), just the
+            button. */}
+        {!finish && (
+          <div className="flex items-center gap-3">
+            <ProgressRing progress={progress} dict={dict} />
+            <div className="min-w-0 flex-1">
+              {/* "+N more" rides on this line, not in a footer of its own:
+                  the dock is pinned by its bottom edge, so a footer that
+                  appears when the server confirms a just-added fourth row
+                  (often past the 500 ms CLS grace) would push the dock's top
+                  up by a line, a late layout shift (MAINT-18). */}
+              <span className="block truncate text-xs text-muted-foreground">
+                {dict.nextUp}
+                {next && next.more > 0 && (
+                  <span className="short:hidden">
+                    {" · "}
+                    {format(plural(next.more, dict.moreHere), { count: next.more })}
+                  </span>
+                )}
+              </span>
+              {/* A span, not a <p>: the list's own group header is the <p>
+                  that names the aisle. */}
+              <span className="block truncate font-heading text-base font-semibold">{next?.label}</span>
+            </div>
+            {/* The progressbar already says this to a screen reader. */}
+            <span aria-hidden className="shrink-0 text-sm font-semibold tabular-nums">
+              {format(dict.progress, { done: progress.done, total: progress.total })}
             </span>
-            {/* A span, not a <p>: the list's own group header is the <p>
-                that names the aisle. */}
-            <span className="block truncate font-heading text-base font-semibold">{next.label}</span>
           </div>
-          {/* The progressbar already says this to a screen reader. */}
-          <span aria-hidden className="shrink-0 text-sm font-semibold tabular-nums">
-            {format(dict.progress, { done: progress.done, total: progress.total })}
-          </span>
-        </div>
+        )}
         {/* A short (landscape phone) screen gets the one next item, not three,
             so the dock never covers most of it. */}
         <ul className="flex flex-col gap-2 short:[&>li:nth-child(n+2)]:hidden">
@@ -234,6 +249,11 @@ export function NextUpDock<T extends DockItem>({
             );
           })}
         </ul>
+        {finish && (
+          <Button size="lg" className="min-h-12 w-full" disabled={finish.disabled || settling !== null} onClick={finish.onFinish}>
+            {dict.finishTrip}
+          </Button>
+        )}
       </section>
     </>
   );

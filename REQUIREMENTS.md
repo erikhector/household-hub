@@ -1285,7 +1285,7 @@ every lookup the old one did.
       best-before date, the item's own location) in one tap and, on an
       `ACTIVE` list, completes it; a quieter "Review first" opens the
       put-away dialog in finish mode instead. Otherwise the primary is
-      "Done shopping" as before. Both wait for in-flight ticks to save.
+      the dock's "Finish trip" (UX-159, below). Both wait for in-flight ticks to save.
       Above the buttons a one-line trip summary reads "15 items · ≈ 240 kr
       · 18 min": the count of ticked rows, the sum of their estimated
       prices (left out when none has one) and the minutes from the first
@@ -2657,9 +2657,17 @@ create mode take an optional `handle` in place of their own trigger). Opening
 through a handle still runs each dialog's `onOpenChange`, so their
 reset-on-open logic is unchanged.
 
+The list's ⋯ menu (UX-159; M6, M2) is ordered by when it is needed: a **This
+trip** group (Complete list, "Put away (N)" while rows wait, Share link, Copy
+as text / Share text), then one **List settings** submenu (Rename, Add item,
+Import list, Add low-stock items, Resolve mappings, Reorder sections, Save as
+template, Export, Print, Archive/Unarchive), then Delete alone at the bottom.
+
 When the last pending item is checked off, the "All done" cleared state
-gains a primary **"Done shopping"** button that completes the list right
-away — no confirm dialog, since everything is already checked off. The
+leaves the thumb-zone dock in place as its last step (UX-159), now just a
+primary **"Finish trip"** button (shown once something was bought; it runs the same
+path as the menu's "Complete list", so ticked rows still waiting are offered
+for put-away first) completes the list right away — no confirm dialog, since everything is already checked off. The
 toast ("List completed", with the expense message as its description)
 carries an **Undo** that calls `uncompleteShoppingListAction(listId,
 transactionId)`: it puts the list back to `ACTIVE` and deletes exactly the

@@ -890,6 +890,9 @@ export const en = {
     emptyListActive: "Nothing on this list yet — type what you need in the box above, or pull in what's low on stock.",
     emptyListOther: "Nothing on this list.",
     moreActions: "More list actions",
+    // UX-159: the ⋯ menu's two groups: what ends a trip, then everything about the list itself.
+    menuThisTrip: "This trip",
+    menuListSettings: "List settings",
     // GAP-24: the ⋯ menu's "Print" item, and the paper copy's stand-in line
     // when there's nothing pending left to print.
     print: "Print",
@@ -900,7 +903,6 @@ export const en = {
     copyTextToast: "List copied as text",
     copyTextFailedToast: "Couldn't copy the list",
     shareText: "Share as text",
-    doneShopping: "Done shopping",
     completedToast: "List completed",
     undo: "Undo",
     clearedTitle: "All done",
@@ -925,6 +927,8 @@ export const en = {
       progress: "{done} of {total}",
       progressAriaLabel: "Shopping progress",
       nextUp: "Next up",
+      // UX-159: the dock's primary once every row is ticked.
+      finishTrip: "Finish trip",
       // {item} is the row's own "Milk × 1 l", first so the button's name
       // starts with what it shows (WCAG 2.5.3, label in name).
       tickAriaLabel: "{item}, into the cart",

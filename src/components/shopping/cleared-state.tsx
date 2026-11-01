@@ -15,7 +15,7 @@ import type { ShoppingListDict } from "@/components/shopping/shopping-list-types
  * The "All done" moment: the ring full with a tick in it, and the one next
  * step as the primary action. UX-37: with ticked rows still waiting to be
  * put away (ON_PUT_AWAY households), that step is putting them away, which
- * finishes the list once confirmed; otherwise it's "Done shopping" (AUTO-5).
+ * finishes the list once confirmed; otherwise the step is the dock's "Finish trip" (AUTO-5, moved to the dock by UX-159).
  * It pops in (motion-safe only).
  */
 export function ClearedState({
@@ -23,7 +23,6 @@ export function ClearedState({
   progress,
   celebrate,
   onDismiss,
-  onDone,
   awaitingPutAway,
   tripSummary,
   onPutAway,
@@ -35,8 +34,6 @@ export function ClearedState({
   /** UX-38: the last item was just ticked here, so the squirrel fills the ring instead of the check. */
   celebrate: boolean;
   onDismiss: () => void;
-  /** AUTO-5: completes the list in one tap, with Undo on the toast. */
-  onDone?: () => void;
   awaitingPutAway: number;
   /** UX-81: the trip in one line. */
   tripSummary: string;
@@ -88,13 +85,7 @@ export function ClearedState({
             {dict.putAway.reviewFirst}
           </Button>
         </>
-      ) : (
-        onDone && (
-          <Button className="mt-3" disabled={isPending} onClick={onDone}>
-            {dict.doneShopping}
-          </Button>
-        )
-      )}
+      ) : null}
       <Button
         variant="ghost"
         size="icon"
