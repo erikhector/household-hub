@@ -567,16 +567,6 @@ left out.
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
 
-- [ ] **UX-170. Scroll affordance on the tabs track** (impact: low,
-      effort: S) — breaks Recognition. The budget and meal-planning tabs
-      tracks scroll horizontally and clip "Coo" / "Insi" at 320 px and at
-      200 % text with nothing signalling more tabs
-      (`small-phone-dashboard-meal-planning.png`,
-      `text-200-dashboard-budget.png`; `src/components/ui/tabs.tsx`).
-      Acceptance: an edge fade (mask) appears while the track can scroll
-      and the active tab scrolls into view on mount; `small-phone` audit
-      screenshots show the fade.
-
 - [ ] **UX-171. Hide controls that have nothing to act on** (impact: low,
       effort: S) — breaks Usability ("every state is designed"). The meal
       plan search field shows above an empty planner
