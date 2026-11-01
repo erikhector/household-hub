@@ -13,6 +13,12 @@
 // next thing to do is still at the top (and, on a short phone, on the first
 // screen). When the last step is done the card gives way to a one-off
 // "You're all set" moment (GettingStartedAllSet), then disappears.
+//
+// UX-HOME-4: the full card is for a household's first days, while at most
+// SETUP_FULL_CARD_MAX_DONE steps are finished; it pushed everything else on
+// Home a screen down for a job that was mostly done. After that it shrinks
+// to a one-line strip: a progress ring, "3 of 5 set up" and the next step,
+// which the whole strip links to. Hiding it works the same from both.
 
 import Link from "next/link";
 import type { ComponentType } from "react";
@@ -22,6 +28,7 @@ import { PendingSubmitButton } from "@/components/dashboard/pending-submit-butto
 import { GettingStartedAllSet } from "@/components/dashboard/getting-started-all-set";
 import { dismissGettingStartedAction, skipHouseholdStepAction } from "@/lib/actions/household";
 import { format } from "@/lib/i18n/format";
+import { SETUP_FULL_CARD_MAX_DONE } from "@/lib/home-summary";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +71,71 @@ export function GettingStarted({
 
   // Open steps first, finished ones after (both keep their own order).
   const ordered = [...steps.filter((s) => !isFinished(s)), ...steps.filter(isFinished)];
+
+  const dismissButton = (
+    <form action={dismissGettingStartedAction} className="shrink-0">
+      <PendingSubmitButton
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground"
+        aria-label={dict.dismiss}
+        title={dict.dismiss}
+      >
+        <X />
+      </PendingSubmitButton>
+    </form>
+  );
+
+  if (finished > SETUP_FULL_CARD_MAX_DONE) {
+    const next = ordered[0];
+    const stripLabel = format(dict.stripProgress, { done: finished, total: steps.length });
+    // The ring's arc: a circle of radius 15 in a 36 px box.
+    const circumference = 2 * Math.PI * 15;
+    return (
+      <Card size="sm" className="border-2 border-primary/40 bg-primary/5">
+        <CardContent className="flex items-center gap-3">
+          <span
+            role="progressbar"
+            aria-label={stripLabel}
+            aria-valuemin={0}
+            aria-valuemax={steps.length}
+            aria-valuenow={finished}
+            className="shrink-0"
+          >
+            <svg viewBox="0 0 36 36" className="size-9 -rotate-90" aria-hidden>
+              <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" className="stroke-primary/15" />
+              <circle
+                cx="18"
+                cy="18"
+                r="15"
+                fill="none"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray={`${(finished / steps.length) * circumference} ${circumference}`}
+                className="stroke-primary"
+              />
+            </svg>
+          </span>
+          <Link
+            href={next.href}
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-medium">{stripLabel}</span>
+              <span className="text-sm break-words text-pretty text-muted-foreground">
+                {format(dict.stripNext, { step: dict.steps[next.key].title })}
+              </span>
+            </span>
+            {/* Hidden on phones: the whole strip is the link, and there the
+                chevron's 24 px beside the X is what made "Next: …" wrap. */}
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground max-sm:hidden" aria-hidden />
+          </Link>
+          {dismissButton}
+        </CardContent>
+      </Card>
+    );
+  }
+
   const progressLabel = format(dict.progress, { done: finished, total: steps.length });
 
   return (
@@ -74,17 +146,7 @@ export function GettingStarted({
             <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
             <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
           </div>
-          <form action={dismissGettingStartedAction} className="shrink-0">
-            <PendingSubmitButton
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground"
-              aria-label={dict.dismiss}
-              title={dict.dismiss}
-            >
-              <X />
-            </PendingSubmitButton>
-          </form>
+          {dismissButton}
         </div>
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-medium">{progressLabel}</p>

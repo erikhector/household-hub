@@ -17,21 +17,23 @@ export default async function ForgotPasswordPage() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      <Link
-        href="/"
-        className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
-      >
-        <BrandBadge />
-        {dict.auth.brand}
-      </Link>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle as="h1" className="text-xl">{dict.auth.forgotPassword.pageTitle}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ForgotPasswordForm dict={dict.auth.forgotPassword} />
-        </CardContent>
-      </Card>
+      <main className="flex w-full flex-col items-center gap-6">
+        <Link
+          href="/"
+          className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
+        >
+          <BrandBadge />
+          {dict.auth.brand}
+        </Link>
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle as="h1" className="text-xl">{dict.auth.forgotPassword.pageTitle}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ForgotPasswordForm dict={dict.auth.forgotPassword} />
+          </CardContent>
+        </Card>
+      </main>
       <LegalFooter dict={dict.legal} />
     </div>
   );

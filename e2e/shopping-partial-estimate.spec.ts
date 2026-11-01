@@ -29,7 +29,7 @@ async function seedList(name: string, items: { name: string; purchased: boolean;
     name,
   ]);
   for (const [i, item] of items.entries()) {
-    // Bought rows are already put away, so "Done shopping" goes straight to
+    // Bought rows are already put away, so "Finish trip" goes straight to
     // completing rather than through the put-away dialog.
     await sql(
       `INSERT INTO "ShoppingListItem" (id, "shoppingListId", name, quantity, unit, purchased, "estimatedPrice", "putAwayAt")
@@ -74,7 +74,7 @@ test("completing with some bought items unpriced lets you correct the amount bef
     { name: "Unpriced bought", purchased: true, price: null },
   ]);
   await page.goto(`/dashboard/shopping-list/${listId}`);
-  await page.getByRole("button", { name: "Done shopping" }).click();
+  await page.getByRole("button", { name: "Finish trip" }).click();
 
   await expect(page.getByRole("heading", { name: "Some bought items have no price" })).toBeVisible();
   await expect(page.getByText("Of 2 bought items, 1 has no price")).toBeVisible();
@@ -98,7 +98,7 @@ test("completing with some bought items unpriced can skip logging", async ({ pag
     { name: "Unpriced bought", purchased: true, price: null },
   ]);
   await page.goto(`/dashboard/shopping-list/${listId}`);
-  await page.getByRole("button", { name: "Done shopping" }).click();
+  await page.getByRole("button", { name: "Finish trip" }).click();
   await page.getByRole("button", { name: "Don't log" }).click();
 
   await expect(page.getByText("List completed")).toBeVisible();

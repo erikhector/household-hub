@@ -552,13 +552,12 @@ outbound email to arbitrary addresses via this app's sending domain.
   Component render. The header's `HouseholdSwitcher` component is the UI for
   this.
 - **"Shared with" indicator**: when a household has more than one member, the
-  household page (`src/app/dashboard/household/page.tsx`) and the dashboard
-  overview (`src/app/dashboard/page.tsx`) surface that fact — "Shared with N
-  other person/people" — each deriving the count independently (household
-  page filters its already-fetched member list by `userId`; the overview runs
-  a dedicated `householdMember.count` query since it doesn't otherwise fetch
-  members). Hidden entirely when the household has only the current user.
-- **Overview greeting (UX-72)**: the overview heading greets by first name
+  household page (`src/app/dashboard/household/page.tsx`) surfaces that
+  fact — "Shared with N other person/people" — from its already-fetched
+  member list. Hidden entirely when the household has only the current
+  user. (Home dropped its copy of the strip in the Home redesign: the
+  household switcher and More › Household already cover it.)
+- **Home greeting (UX-72)**: Home's heading greets by first name
   ("Good afternoon, Åsa", never the full display name) and by the hour in the
   user's own time zone. The server runs in UTC and doesn't know the zone, so
   `components/dashboard/greeting.tsx` reads the hour in the browser
@@ -566,18 +565,34 @@ outbound email to arbitrary addresses via this app's sending domain.
   `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
   first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
   cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
-- **Overview stat cards (UX-71)**: the three household cards read honestly
-  and each leads somewhere. Low stock counts items strictly *low* (the same
-  meaning as the inventory filter), so the number matches its link
-  (`/dashboard/inventory?status=low`; `?status=out` when only out-of-stock
-  items remain). The number is warning-coloured only above 0, out-of-stock
-  is its own red line, "N already on your list" counts items needing restock
-  with an unpurchased row on an active list, and when nothing needs
-  restocking the card reads "All stocked up" with a check icon. The shopping
-  card opens the list itself when there's exactly one active list, shows
-  "No lists yet — start one" with a "Start a list" button when there are
-  none. Total items tracked links to the inventory ("Add your first item"
-  when empty). Covered by `e2e/overview-stat-cards.spec.ts`.
+- **Shopping & pantry card (UX-71, UX-HOME-2)**: one card on Home
+  (`src/components/dashboard/shopping-pantry-card.tsx`) replaces the three
+  stat cards and the "Total items tracked" count. Its first row, the
+  biggest target on the page, is the active list with how many rows are
+  left to buy: it opens the list itself when there's exactly one active
+  list, the lists page when there are several, and reads "Start a list"
+  when there are none. Below it, out-of-stock and low-stock items are one
+  warning worded as the problem ("1 out, 4 running low", never a bare 0;
+  "low" is the inventory filter's meaning, so the link goes to
+  `?status=low`, or `?status=out` when only out-of-stock items remain),
+  on a destructive tint once anything is out and a warning tint otherwise,
+  with "N are already on the list" for items with an unpurchased row on an
+  active list. "Add N" calls the shopping list's own
+  `generateFromLowStockAction` on the list Home adds to (`pickTargetList`:
+  the default "Next shop" when active, else the newest active list), and N
+  is counted by the same helper the action uses
+  (`src/lib/shopping/low-stock-to-add.ts`): items out or low once stock
+  bought but not put away is counted, minus those already pending on that
+  list. The button is hidden at 0, and toasts what landed. A pantry with nothing low reads "All stocked up"; an empty
+  pantry shows neither. "Use soon" names up to five in-stock items past or
+  within `EXPIRY_WARNING_DAYS` of their date, soonest first, as chips
+  ("Milk · tomorrow"; a typed expiry is stored as UTC midnight, so the
+  chip names its UTC date, compared with today in the user's time zone;
+  "expired" in destructive) linking to the item page, then "N more" to
+  `/dashboard/inventory?status=expiring`. The counting is the pure
+  `src/lib/home-summary.ts` (`summarizePantry`, `pickTargetList`,
+  `pickUseSoon`). Covered by `src/lib/home-summary.test.ts` and
+  `e2e/home.spec.ts`.
 
 ## Data model
 
@@ -606,6 +621,11 @@ every lookup the old one did.
   status (in/low/out of stock, expiring soon, expired); filter dropdown
   options come from the
   distinct categories/locations already present in that household's items.
+  **Labelled filters (UX-155)**: each desktop filter trigger carries an
+  `aria-label` (Category, Location, Status, Last updated, Group by) matching
+  its mobile Filters-dialog twin, and the table's actions column header has
+  `sr-only` text, so a screen reader hears what a control is, not just its
+  current value.
   **What needs attention (UX-121)**: above the search row a "Needs
   attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
   "2 expired"), each hidden at zero. Tapping one sets the Status filter to
@@ -1265,7 +1285,7 @@ every lookup the old one did.
       best-before date, the item's own location) in one tap and, on an
       `ACTIVE` list, completes it; a quieter "Review first" opens the
       put-away dialog in finish mode instead. Otherwise the primary is
-      "Done shopping" as before. Both wait for in-flight ticks to save.
+      the dock's "Finish trip" (UX-159, below). Both wait for in-flight ticks to save.
       Above the buttons a one-line trip summary reads "15 items · ≈ 240 kr
       · 18 min": the count of ticked rows, the sum of their estimated
       prices (left out when none has one) and the minutes from the first
@@ -2637,9 +2657,17 @@ create mode take an optional `handle` in place of their own trigger). Opening
 through a handle still runs each dialog's `onOpenChange`, so their
 reset-on-open logic is unchanged.
 
+The list's ⋯ menu (UX-159; M6, M2) is ordered by when it is needed: a **This
+trip** group (Complete list, "Put away (N)" while rows wait, Share link, Copy
+as text / Share text), then one **List settings** submenu (Rename, Add item,
+Import list, Add low-stock items, Resolve mappings, Reorder sections, Save as
+template, Export, Print, Archive/Unarchive), then Delete alone at the bottom.
+
 When the last pending item is checked off, the "All done" cleared state
-gains a primary **"Done shopping"** button that completes the list right
-away — no confirm dialog, since everything is already checked off. The
+leaves the thumb-zone dock in place as its last step (UX-159), now just a
+primary **"Finish trip"** button (shown once something was bought; it runs the same
+path as the menu's "Complete list", so ticked rows still waiting are offered
+for put-away first) completes the list right away — no confirm dialog, since everything is already checked off. The
 toast ("List completed", with the expense message as its description)
 carries an **Undo** that calls `uncompleteShoppingListAction(listId,
 transactionId)`: it puts the list back to `ACTIVE` and deletes exactly the
@@ -2783,7 +2811,7 @@ change); everyone sees the current value.
   theirs alone). Read through `getPersonalBudgetStartDay`
   (`src/lib/personal-budget-period.ts`), it drives the same things as the
   household's day does on the Budget page: the month tabs and their dates,
-  Safe to spend (also on the overview's "Your budget" card) with its
+  Safe to spend (also Home's "You" tile) with its
   projection and daily allowance, category limits and rollover, sparklines,
   the fixed-cost trend, recurring and planned statuses, the Log dialog's
   default date, and the personal duplicate guard and accounted-for marks. Changing the day moves no transaction:
@@ -2831,6 +2859,18 @@ Component page function can't itself be unit-tested.
   regular bills" (the Manage tab), keeping the month and household in the
   URL. Once there is data the arithmetic carries a one-line legend for the
   "+", "–" and "→" in front of its lines.
+- **No income, no verdict (UX-154)**: `SafeToSpendStatus` has a fourth
+  value, `unset`: a non-negative balance with no income, logged or
+  expected, to judge it against (`deriveSafeToSpend`). It never gets the
+  `success` green of "healthy": the card's colour is `muted-foreground`
+  and its summary is the setup line. Spending without income is still
+  "over". On Home, an `unset` tile has no amount or sign: it reads "Budget
+  not set up yet" in muted text and links to the budget's Transactions
+  tab to add income. On Insights, "Fixed income & costs" with nothing
+  planned and no history is one sentence ("Nothing planned yet. Add your
+  income to see how the month adds up.") and an "Add income" button, in
+  place of a planned "0.00 in, 0.00 out" under a green "room in the
+  budget". `e2e/safe-to-spend-unset.spec.ts` covers both.
 - **Categories near or over their limit (UX-108)**: on the budget
   Overview (household and personal), the rows at the top of the Needs
   attention card right under Safe to spend (budget redesign, Oct 2026: they
@@ -2898,9 +2938,9 @@ Component page function can't itself be unit-tested.
   shares the same window for the same reason.
 - **Personal budget and the dashboard**: `loadPersonalBudgetPosition`
   (`src/lib/personal-budget-position.ts`) loads and computes everything
-  Personal Budget's number needs, and the dashboard's "Your budget" card
-  calls the same loader, so the two always show the same number. The card
-  used to run its own simplified copy of the math that left out shared
+  Personal Budget's number needs, and Home's "You" tile calls the same
+  loader, so the two always show the same number. Home used to run its own
+  simplified copy of the math that left out shared
   bills, debts to household members and due items. For the personal
   budget:
   - The user's *share* (`amountOwed`) of a split household bill counts as
@@ -2958,8 +2998,8 @@ Component page function can't itself be unit-tested.
     are owed, and their unpaid share of bills, with a "Settle up" link to
     that household's budget Overview, where who owes whom sits while there
     is a debt. On Personal Budget's Overview it is its own card under Needs
-    attention (`HouseholdDebtsCard`, budget redesign, Oct 2026); the
-    dashboard's "Your budget" card keeps it under the number.
+    attention (`HouseholdDebtsCard`, budget redesign, Oct 2026); Home's Safe
+    to spend card shows it under the tiles (`HouseholdDebtsList`).
   - **Insights (BUDGET-7)**: the same shares feed the Insights tab. Its
     month totals and per-category bars come straight from the loader's
     totals, so a split bill's share shows there as "<category> (Shared)".
@@ -3004,8 +3044,8 @@ Component page function can't itself be unit-tested.
   the same category (`budgetCategoryId` on the expected row) is subtracted
   from the remainder, since it is already in due payments and would
   otherwise be held back twice. Due savings and income never reduce it.
-  The household page, `loadHouseholdSafeToSpend` (Today block) and
-  `loadPersonalBudgetPosition` (Personal Budget and the dashboard card) and
+  The household page, `loadHouseholdSafeToSpend` (Home's Household tile) and
+  `loadPersonalBudgetPosition` (Personal Budget and Home's "You" tile) and
   the weekly digest (`src/lib/weekly-digest.ts`) all pass the limited
   categories in, so the numbers agree; without any limit
   nothing changes. A limit alone does not count as data for the empty
@@ -3476,8 +3516,8 @@ else sees it, and it never touches a household's numbers.
   (unpaid, or paid on or after the viewed month's start, so the query
   doesn't grow with history) and passes them to `computeSafeToSpend` as
   `plannedExpenses`: `due` and `overdue` ones are subtracted at their full
-  amount as the user's own due payments, on Personal Budget and on the
-  dashboard's "Your budget" card, which share the loader. It also returns
+  amount as the user's own due payments, on Personal Budget and on
+  Home's "You" tile, which share the loader. It also returns
   them (`plannedExpenses`) for the page.
 - **UI.** The same `PlannedItemList` and `PlannedExpenseDialog` on
   Personal Budget's Setup tab, in its Bills & income card, with
@@ -3705,7 +3745,7 @@ each budget page shows one short purpose line under its title instead
 it."). The two first-run cards differ in the same way: the household card
 names the viewed household, the personal card says no one else in the
 household sees it. The household budget card on Home (shown once it has
-categories) is the "Household safe to spend" row of the overview's Today block (UX-70).
+categories) is the Household tile of Home's Safe to spend card (UX-HOME-4).
 
 #### Budget page layout (budget redesign, Oct 2026)
 
@@ -3970,8 +4010,7 @@ due widget and savings goals:
   number, the projection, then one totals line (income, expenses,
   savings) and a "How we got this number" disclosure (`<details>`) that
   holds the full arithmetic, the caveat and the "Still due this month"
-  list. The dashboard's "Your budget" card keeps the default `"full"`
-  layout, since it has no due widget beside it. Due amounts in the list
+  list. Due amounts in the list
   are plain text (income stays `success`).
 - `DueRecurringWidget` is the one list of what's due, one line per item:
   the name, then amount and category in caption size, a "Log" button
@@ -5792,6 +5831,17 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   only: it never changes what gets added to the shopping list. No AI, no
   schema change.
 
+**Week picks** count too (see "Week picks" below): `loadMissingIngredients`
+also reads the picks of every `MealPlan` whose week overlaps the range
+(`weekStartDate` after `from − 7 days` and before `to`), scaled by their
+portions exactly like entries, so the planner's "Add N missing" button and
+the review dialog include meals that aren't on a day yet. A row only picks
+need comes back `fromPicksOnly` and the dialog lists those last, under "Not
+on a day yet", with a line saying picked meals count for their whole week
+whichever dates are chosen. A question about one meal of the day (Home's tonight's dinner,
+`mealType`) leaves picks out, since a pick has no slot. The button shows when
+the week has meals on days or picks.
+
 ### Mark meal as cooked → inventory decrement
 
 A "Mark as cooked" button (`MarkCookedDialog`,
@@ -6349,6 +6399,122 @@ recipe that isn't queued and the time it was queued otherwise.
   change the Cook tab's ranking, "use it up", the shopping list or the
   planner.
 
+### Week picks
+
+Choose the week's meals before deciding which day. On the Planner tab a
+"Picked for this week" tray (`WeekPicksTray`,
+`src/components/meal-planning/week-picks-tray.tsx`) sits above the days and
+holds meals chosen for the visible week but not placed on a day yet.
+
+- **Data**: `MealPlanPick` (migration `meal_plan_picks`): `mealPlanId`,
+  `recipeId?` or `freeformName?`, `portions`, `carriedFromWeek?`,
+  `createdByUserId?` (plain id, resolved to "Picked by Anna" through the
+  household's members), `createdAt`. A separate table rather than a nullable
+  `MealPlanEntry.date`, so no reader of entries (calendar feed, search,
+  recaps, templates, notifications) ever sees an undated row. A pick has no
+  meal slot: the slot is chosen when placing, dinner preselected. Deleting a
+  recipe deletes its picks. Clearing sample data keeps (and untags) a sample
+  week that has picks and a sample recipe someone picked, so it never takes
+  a household's picks with it.
+- **Actions** (`pick-actions.ts`, all click actions, household from
+  `requireHousehold()`, every query scoped through `mealPlan.householdId`):
+  `addPicksAction` (several at once, recipes checked against the household,
+  week's plan found or created; picking leaves Cook soon alone),
+  `undoAddPicksAction`, `removePickAction` (sent when the Undo toast closes),
+  `placePickAction` (deletes the pick and creates the entry in one
+  transaction, in the plan of the date's own week; clears Cook soon like
+  `addMealEntryAction`), `placePicksAction` (Spread's Place all,
+  in one transaction, dinner; a dinner someone planned since the preview
+  opened is skipped and counted, never doubled, and that pick stays in the
+  tray with a toast saying so) and `unplaceEntriesAction` ("Back to picks":
+  entry back to a pick in the same week; refused for a cooked meal or one
+  eaten from meal prep). A pick placed or removed elsewhere meanwhile fails
+  with "That meal isn't in your picks any more".
+- **Weeks that are over**: `addPicksAction` and `unplaceEntriesAction`
+  refuse a week before the current one ("That week is over …"), and the
+  planner hides the tray (it has no picks there after carry-over) and "Back
+  to picks" on those weeks.
+- **Undo restores the pick**: a place's Undo (and Place all's) sends back
+  each pick's picker, carry-over week and own week, so it returns as it was.
+  The server checks them: the picker must be a household member, the
+  carry-over week a Monday before the pick's week and the week not over;
+  a value that fails is dropped rather than failing the Undo. "Back to
+  picks" on a planned meal makes a pick that's the caller's and not
+  carried, since an entry doesn't remember where it came from.
+- **Tray**: no picks yet: one line and a "Pick meals" button (an empty week
+  keeps its mascot empty state below). With picks: chips with name and
+  portions; on phones one row that scrolls sideways (`ChipScroller`) with
+  edge fades, 44 px arrow buttons that show only when there is more in that
+  direction (the swipe's tap path, M7) and a small track thumb (hidden when
+  everything fits; an arrow with nothing to show is hidden from assistive
+  tech too), and newly added picks scroll into view at the end (only when
+  one is added, not when one leaves); from `sm` the chips wrap. "Spread over
+  the week" shows when a dinner from today on is free. A week that already
+  has meals and no picks gets one line (M6): "Every pick is on a day." with
+  "Pick more" only when this week's picks were placed while the planner was
+  open, otherwise the neutral "Pick meals for the week now and choose the
+  days later." with "Pick meals" (after a reload, or for a household that
+  never picked). The day grid shows as soon as a week has picks.
+  A pick leaves the tray at tap time and comes back with a toast if the
+  server says no.
+- **Picker** (`PickMealsDialog`): multi-select sheet with search, Cook soon
+  first, then favourites, then all recipes (recently cooked first), a
+  portion stepper per ticked recipe (default its servings), custom meals,
+  and a sticky "Add N meals". Toast with Undo.
+- **Placing**: tapping a chip opens its sheet (`PlacePickDialog`): slot
+  segmented control (Dinner preselected), the week's seven days each saying
+  what's in that slot or "<Slot> free", "Mark as cooked today" for a recipe
+  pick (places it on today's dinner, then the usual Mark as cooked review
+  runs on the new entry; closing the review without cooking takes it off
+  today and back to its own week's tray, so cooking without placing holds),
+  and "Remove from picks" apart at the bottom (Undo). A day's "+ Add meal"
+  lists "From this week's picks" first, as the same scrolling chip row,
+  placed in the slot chosen there. A placed meal's sheet has "Back to
+  picks". Every place has an Undo, and the toast names the slot ("Placed as
+  dinner on Tue 4").
+- **Spread over the week** (`SpreadPicksDialog`, `suggestSpread` in
+  `src/lib/week-picks-spread.ts`): a preview, nothing saved until "Place
+  all", one Undo puts everything back. Free dinners only (today onwards),
+  three rules each shown as the row's reason: the recipe's usual weekday
+  from cooking history (`habitWeekday`: cooked at least twice on it and on
+  it for at least half its cooks in the last 26 weeks), then the most
+  perishable picks on the earliest days, then pick order. Shuffle rotates
+  the pick-order rows (hidden when it can't change anything). Picks that
+  don't fit stay in the tray, with a note saying how many.
+- **Perishability signal** (`pickFreshness`): per linked, tracked
+  ingredient of the recipe (not its sub-recipes), the days left on an
+  in-stock item's expiry date, or for an item that isn't in stock (so will
+  be bought) its shelf life (`shelfLifeDays` or the category default in
+  `shelf-life.ts`; "never expires" ignored). The shortest wins; a pick
+  counts as perishable at 3 days or fewer (`PERISHABLE_WITHIN_DAYS`, the
+  meat default), so an onion's 5-day produce default doesn't make every
+  recipe jump the queue. No signal means the pick falls to pick order.
+- **Desktop** (fine pointer, `sm` and up): chips and planned meals are
+  draggable; drop a pick on a day (into the day's open slot, the one
+  its "+ Add meal" preselects: dinner, or the first free slot once dinner is
+  planned), a meal on another day (keeps its
+  slot, `moveMealEntryAction`) or a meal on the tray (Back to picks). The
+  click path: clicking a chip lifts it (`aria-pressed`), the tray says
+  "Choose a day for …" with "More options" (the pick's sheet) and Cancel,
+  and every day shows "Place here" (the day's open slot, like a drop);
+  Escape puts it down, and so does turning on Select. Touch screens of any
+  width get the sheet instead.
+- **Carry-over** (`carryOverPastPicks`, `week-picks.ts`): when the meal
+  planning page loads, picks still in a week that has ended move to the
+  plan of the week containing today, with `carriedFromWeek` set to the week
+  they came from (kept from the first move if carried twice). Move on read,
+  no cron: the tray is the only place picks show. Each move is guarded on the
+  pick still sitting in a past week, so concurrent loads move it once. Those
+  chips are dashed with a history icon ("From last week" for screen readers
+  and in the pick's sheet), and that load shows "N meals moved over from last
+  week" when the planner is showing the current week, where they landed.
+- **Tests**: `pick-actions.test.ts`, `week-picks.test.ts`,
+  `week-picks-spread.test.ts`, the bridge case in `cooking-actions.test.ts`;
+  `e2e/week-picks.spec.ts` (pick → shop count → place → back to picks;
+  spread + undo; remove, undo, remove for good; "From this week's picks";
+  mark as cooked today and closing its review; the phone row's arrows;
+  carry-over; the tray's copy) and `e2e/week-picks-drag.desktop.spec.ts`.
+
 ### Meal-plan search (GAP-59)
 
 BACKLOG GAP-59, from AnyList's search across the meal-plan calendar. The
@@ -6664,8 +6830,8 @@ co-managers, not kids earning rewards.
   the time of day never matters; `task-due.test.ts` covers the sort and the
   derived date. Open tasks sort overdue (the longest overdue first), then
   due today, then due later (soonest first), then undated, each tier keeping
-  its oldest-first order, on the tasks page and in the overview's Today
-  block (overdue rows are never cut off by its "N more" limit). An overdue
+  its oldest-first order, on the tasks page and in Home's Today
+  card (overdue rows are never cut off by its "N more" limit). An overdue
   open row shows `TaskOverdueBadge`, a `warning`-tinted "Overdue · 5 days"
   with an icon, on both; a one-off with a future date also reads "Due 2 Nov"
   or "Due today". Completed rows show neither. `task-due-dates.spec.ts`
@@ -7286,6 +7452,14 @@ components directly.
   `nav-items.ts`) on toggle and read server-side in
   `src/app/dashboard/layout.tsx` so the initial render matches — no
   client-side flash.
+- **Skip link and landmarks (UX-164, WCAG 2.4.1)**: the dashboard layout's
+  first focusable element is an `sr-only focus:not-sr-only` "Skip to content"
+  link (`dict.nav.skipToContent`) to `#main-content`, so a keyboard user
+  passes the sidebar's ~16 stops in one Tab. `main` has `tabIndex={-1}` so
+  the link moves focus there. The login, signup, forgot-password,
+  reset-password, verify-email, join, unsubscribe and no-household pages put
+  their content in a `<main>` rather than a plain `div`. Covered by
+  `navigation.desktop.spec.ts` and `public.spec.ts`.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
   and a "More" dropdown menu holding Meal planning, Household, Profile, the
@@ -7349,15 +7523,57 @@ components directly.
   can't see past). Its header row stays stacked until `lg`.
   Back-links (`← All shopping lists`, the item catalog's) are
   `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
-- **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
-  leads with today (the Today block, UX-70, then your budget), so the "Get set up" card
-  (`src/components/dashboard/getting-started.tsx`) stays short.
-  **UX-69**: every step is a row with a chevron and a 14 px description;
+- **Home (UX-26, UX-HOME-1..4)**: the first tab is called Home ("Hem"),
+  with lucide's `House` icon, in the sidebar, bottom bar and command
+  palette ("Go to Home"); the route stays `/dashboard` and the nav key stays
+  `overview`. The page (`src/app/dashboard/page.tsx`) answers "what needs
+  me now?" in about one phone screen: the greeting, today's date as the
+  subtitle (locale-formatted in the user's time zone, server-rendered;
+  the heading block is `text-balance`, so a long greeting never strands
+  the name on its own line), and three cards. Home has **no primary
+  action**: it is a summary that hands off to the feature pages, so
+  nothing on it takes the solid `primary` fill or floats in
+  `PrimaryAction`. On a phone the cards stack Today, Shopping & pantry,
+  Safe to spend; from `lg` Today takes the left column and the other two
+  the right. "Add to list" (`src/components/dashboard/home-add-to-list.tsx`)
+  is a small outline button in the Shopping & pantry card's header
+  (`CardAction`), beside the list it fills. It opens the shopping list's
+  own quick-add dialog (`ShoppingItemFormDialog` in create mode, lazily
+  loaded, with only the strings it reads, `ShoppingItemFormDialogDict`) in
+  place for the list Home adds to; with no active list it isn't shown,
+  since the card's "Start a list" row is the next step. The tinted rows
+  with an "Add N" button (the pantry's out/low warning, Today's "Missing
+  …") wrap: their text keeps at least 11rem and the button drops to its
+  own line, right-aligned, rather than squeezing a long (Swedish) line
+  into a narrow column. Everything is data the page already loaded or
+  existing actions; no schema change.
+  **Safe to spend (UX-HOME-4)**: two equal tiles
+  (`src/components/dashboard/safe-to-spend-tiles.tsx`), "You" (the same
+  number Personal Budget shows, `loadPersonalBudgetPosition`) and
+  "Household" (`loadHouseholdSafeToSpend`), each a link to its budget,
+  coloured by status with a status word and icon ("On track",
+  `CircleCheck`; "Tight", `TriangleAlert`; "Over", `CircleAlert`). With no
+  personal categories the "You" tile is a one-row "Set up" link to
+  Personal budget; with no household categories the Household tile is
+  left out and the remaining tile takes the card's full width.
+  A balance with another member shows under the tiles as the budget pages'
+  `HouseholdDebtsList` (what you owe or are owed, unpaid bills, Settle up).
+  The card always shows, since the "You" tile is either a number or the
+  personal budget's one call to action. The breakdown, projection and month's shared share live on
+  Personal budget only.
+  **Setup (UX-69, UX-HOME-4)**: the "Get set up" card
+  (`src/components/dashboard/getting-started.tsx`) shows in full, above
+  the cards, while at most two steps are done (`SETUP_FULL_CARD_MAX_DONE`);
+  after that it is a one-line strip below them: a progress ring
+  (`progressbar`), "N of 5 set up" and "Next: <step>", the whole strip a
+  link to that step (its chevron is hidden on phones, where the room
+  beside the X goes to the "Next" line). In the full card every step is a row with a chevron
+  and a 14 px description;
   open ones come first, finished (or skipped) ones stay below as ticked
   rows (title only), all under an "N of M done" `progressbar`. The steps are
   household, pantry, shopping list, "Plan this week's meals" (done once the
   household has any meal plan entry) and household budget. There is no
-  personal-budget step: the "Your budget" card below is that feature's one
+  personal-budget step: the "You" tile's "Set up" is that feature's one
   call to action. When the last step is done the card gives way to a
   one-off "You're all set" mascot moment
   (`src/components/dashboard/getting-started-all-set.tsx`, entrance
@@ -7365,20 +7581,19 @@ components directly.
   per-household cookie `getting_started_done_<householdId>` (1 year, via
   `markGettingStartedCelebratedAction`, listed in `cookie-inventory.ts`)
   so it never shows again; it stays until closed or navigated away from.
-  Its `X` ("Hide the setup card") hides it for good via
+  Its `X` ("Hide the setup card", on the card and the strip) hides it for
+  good via
   `dismissGettingStartedAction` (`src/lib/actions/household.ts`), a
   per-browser, per-household cookie (`getting_started_dismissed_<householdId>`,
   1 year, read by `src/lib/getting-started-dismiss.ts`, listed in
   `cookie-inventory.ts`), the same mechanism as the household step's "Skip
-  this step". Every step is still reachable from the navigation, so hiding
-  loses nothing. The "View …" buttons at the foot of the overview cards use
-  `mt-auto` so cards side by side line them up, and their labels wrap rather
-  than push the chevron outside the card on narrow (tablet) columns.
-  Covered by `e2e/overview.spec.ts`.
+  this step" (full card only). Every step is still reachable from the
+  navigation, so hiding loses nothing. Covered by `e2e/overview.spec.ts`
+  and `e2e/home.spec.ts`.
 - **Opt-in sample data (UX-136)**: a household with no inventory, shopping
   lists, recipes, meal plan entries or tasks sees a "Not sure where to
-  start?" card on the overview (`src/components/dashboard/sample-data-card.tsx`,
-  above the setup card, outline button so the page keeps one primary) with
+  start?" card on Home (`src/components/dashboard/sample-data-card.tsx`,
+  last on the page, outline button so the page keeps one primary) with
   "Try with sample data". `seedSampleDataAction`
   (`src/lib/actions/sample-data.ts`) then inserts, in one transaction and in
   the viewer's language (`dashboard.sampleData.content` in both
@@ -7405,36 +7620,50 @@ components directly.
   Covered by `src/lib/sample-data.test.ts`,
   `src/lib/actions/sample-data.test.ts` and `e2e/sample-data.spec.ts`. The
   landing page's "example data" claim is not restored by this item.
-- **Overview "Today" block (UX-70)**: the first thing on the overview,
-  above the setup card, answers "what needs me now?"
+- **Home "Today" card (UX-70, UX-HOME-3)**: the first card on Home
   (`src/components/dashboard/today-block.tsx`, fed by
-  `src/app/dashboard/page.tsx`). It replaces the old "Your tasks" card
-  (which counted only tasks assigned to you and showed plain text). It
-  holds:
+  `src/app/dashboard/page.tsx`). It holds, in order:
+  - **Tonight**: the household's `DINNER` plan entries for today's UTC
+    date (planner dates are UTC midnights), by recipe or free-text name,
+    as the hero line in the heading face, with "N portions" for a single
+    planned recipe. "Start cooking" (outline) opens the recipe's cook mode
+    when a planned recipe has steps, through
+    `/dashboard/meal-planning?tab=recipes&recipe=<id>&cook=1` (`COOK_PARAM`;
+    `RecipeManager` opens that recipe's cook dialog on arrival and strips
+    the param). With nothing planned it reads "Nothing planned yet." with
+    "Plan dinner" to the planner. No "planned by" line: plan entries don't
+    record who planned them. Note the two clocks: Home's date subtitle is
+    today in the user's time zone, while "Tonight" is today's UTC date (the
+    planner's convention), so for a few hours around midnight (evenings west
+    of UTC, early mornings east of it) the subtitle and Tonight can name
+    different days. The planner's UTC dates are deliberate and unchanged.
+  - **Missing ingredients**: what tonight's recipes need that the pantry
+    hasn't got, from the planner's own calculation
+    (`loadMissingIngredients`, narrowed to `DINNER` by its optional
+    `mealType`), minus what is already pending on the list Home adds to
+    (by inventory item, else by name): "Missing coriander and lime" (a
+    locale list, three names at most, then "N more") with "Add N", which
+    submits those rows to `addMissingIngredientsToShoppingListAction`
+    (a new dated list when there is no active one) and toasts with "Open
+    list".
+  - **Leftovers**: up to three prep batches with portions left, soonest
+    eat-by first ("3 of 4 portions left · Eat by Mon 2 Nov"), each a link
+    to the Prep tab (formerly Home's separate Meal prep card).
   - **Tasks**: the open tasks assigned to you plus the unassigned ones
     (another member's are left out), yours first, oldest first within each
     group, up to 5, then a "N more tasks" link to `/dashboard/tasks`.
-    Unassigned ones carry an "Unassigned" hint. Each has a checkbox
+    Unassigned ones carry an "Anyone" hint. Each has a checkbox
     (44 px target on phones) that calls `toggleTaskCompletedAction`
     optimistically: it shows ticked at once and stays in place, struck
     through, so nothing moves under the thumb (also after the save
     revalidates the page and the server list drops it: the block keeps
     ticked rows locally, at their old place); a failed save puts it back
     with a toast, and the "Done" toast offers Undo. A recurring task counts
-    as open again once its interval has passed (`isTaskOpen`).
-  - **Tonight's dinner**: the household's `DINNER` plan entries for today's
-    UTC date (planner dates are UTC midnights), by recipe or free-text
-    name; "nothing planned" otherwise. Links to the meal planner.
-  - **Household safe to spend**: shown once the household budget has
-    categories, as the same number as the budget page's Safe to spend
-    (`loadHouseholdSafeToSpend`, `src/lib/household-safe-to-spend.ts`,
-    feeding the same `computeSafeToSpend`), in the household's display
-    currency and coloured by status. Links to `/dashboard/budget`.
-  - **Expiring items**: the count of in-stock items past or within
-    `EXPIRY_WARNING_DAYS` of their expiry date (`getExpiryStatus`); the
-    row is hidden at 0. Links to `/dashboard/inventory`.
-  Covered by `e2e/overview-today.spec.ts` (desktop and mobile; mobile at
-  412 x 839 asserts every row is on the first screen) and
+    as open again once its interval has passed (`isTaskOpen`). No initials:
+    the card only lists your own and unassigned tasks.
+  The household safe to spend moved to the Safe to spend card and the
+  expiring count to Shopping & pantry's "Use soon". Covered by
+  `e2e/overview-today.spec.ts`, `e2e/home.spec.ts` and
   `src/lib/household-safe-to-spend.test.ts`.
 - **Public pages (UX-28)**: the token-link pages (join, shared shopping
   list, reset password, verify email, unsubscribe) show every invalid or

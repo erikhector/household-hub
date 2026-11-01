@@ -504,6 +504,7 @@ async function PersonalBudgetTabsSection({
         balanceStatus={fixedInsights.balanceStatus}
         incomeBreakdown={fixedInsights.incomeBreakdown}
         expenseBreakdown={fixedInsights.expenseBreakdown}
+        addIncomeHref="/dashboard/personal-budget?tab=transactions"
         dict={dict.personalBudget.fixedSummary}
         locale={locale}
       />

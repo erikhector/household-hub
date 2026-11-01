@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, openRecipesTab, openRowSheet, waitForDialogHistory } from "./ui";
+import { dismissCookieNotice, openRecipesTab, openRowSheet, waitForDialogHistory, clickListSetting } from "./ui";
 
 // MATCH-5: a name the household taught once (ItemAlias) links shopping
 // lists too, and "Review ingredient matches" in a recipe's sheet reopens a
@@ -66,7 +66,7 @@ test("a name linked once in a recipe arrives linked in a pasted shopping list", 
   await expect(page.getByRole("heading", { level: 1, name: listName })).toBeVisible();
 
   await page.getByRole("button", { name: "More list actions" }).click();
-  await page.getByRole("menuitem", { name: "Import list" }).click();
+  await clickListSetting(page, "Import list");
   const importDialog = page.getByRole("dialog", { name: "Import a list" });
   await importDialog.getByRole("textbox").fill("ägg");
   await importDialog.getByRole("button", { name: "Parse list" }).click();

@@ -1,49 +1,70 @@
 "use client";
 
-// UX-70: the overview's "what needs me now?" block, first on the page. On a
-// phone the first screen used to be a greeting, the setup card and two
-// cards, with tasks as plain text you couldn't tick and no sign of tonight's
-// dinner, the household budget or what's about to expire. Now it holds
+// UX-70: Home's "what needs me now?" block, first on the page. On a phone
+// the first screen used to be a greeting, the setup card and two cards,
+// with tasks as plain text you couldn't tick and no sign of tonight's
+// dinner. UX-HOME-3 made dinner its lead, so it now holds
 //
-// - the open tasks that are yours or nobody's, each with a tick that saves
-//   in the background (the same optimistic pattern as the task list: the
-//   row shows ticked at tap time and goes back, with a toast, if the save
-//   fails; it stays in place, struck through, so nothing jumps under the
-//   thumb, M5);
-// - one row per fact below, each a link to where you act on it: tonight's
-//   dinner, the household's safe to spend (only once the budget has
-//   categories) and the count of items expiring soon (only when above 0).
+// - tonight's dinner as the hero line, in the heading face, with "Start
+//   cooking" (the recipe's cook mode) when a recipe with steps is planned,
+//   "Plan dinner" when nothing is, and what the recipe needs that the
+//   pantry hasn't got, with "Add N" to the shopping list;
+// - leftovers and prep batches with portions left (they are tonight's
+//   options too; this used to be a separate Meal prep card);
+// - the open tasks that are yours or nobody's ("Anyone"), each with a tick
+//   that saves in the background (the same optimistic pattern as the task
+//   list: the row shows ticked at tap time and goes back, with a toast, if
+//   the save fails; it stays in place, struck through, so nothing jumps
+//   under the thumb, M5).
 //
-// Everything is worked out on the server (src/app/dashboard/page.tsx) and
-// passed in as plain values; this component only owns the ticks.
+// The household's safe to spend moved to its own card beside the user's
+// (SafeToSpendTiles) and the expiring count became Shopping & pantry's "Use
+// soon" chips. Everything is worked out on the server
+// (src/app/dashboard/page.tsx) and passed in as plain values; this
+// component only owns the ticks.
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Snowflake, Wallet } from "lucide-react";
+import { CalendarPlus, ChefHat, ChevronRight, CookingPot, ShoppingBasket } from "lucide-react";
 import { toast } from "sonner";
 import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { AddMissingButton, type MissingRow } from "@/components/dashboard/home-add-buttons";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import type { SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 
 export type TodayTask = {
   id: string;
   title: string;
-  /** Nobody is assigned: shown with a hint, since it's the household's. */
+  /** Nobody is assigned: shown as "Anyone", since it's the household's. */
   unassigned: boolean;
   /** UX-133: whole days past due; 0 when it is not late. */
   overdueDays: number;
 };
 
-const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
-  healthy: "text-success",
-  tight: "text-warning",
-  over: "text-destructive",
+export type TodayDinner = {
+  /** Tonight's planned dinner(s), already named and joined. */
+  name: string;
+  /** "4 portions" for a planned recipe; null for a freeform meal. */
+  detail: string | null;
+  /** The recipe's cook mode; null when no planned recipe has steps. */
+  cookHref: string | null;
 };
+
+export type TodayMissing = {
+  /** "Missing lime and coriander". */
+  text: string;
+  rows: MissingRow[];
+  /** The list "Add N" fills; null starts a new one. */
+  target: { id: string; name: string } | null;
+  newListName: string;
+};
+
+export type TodayLeftover = { id: string; name: string; detail: string };
 
 // Rows that link somewhere keep a 44 px target on phones (M3).
 const FACT_ROW =
@@ -52,21 +73,24 @@ const FACT_ROW =
 export function TodayBlock({
   tasks,
   moreTaskCount,
-  tonight,
-  safeToSpend,
-  expiringCount,
+  dinner,
+  missing,
+  leftovers,
   dict,
+  missingDict,
   taskDict,
 }: {
   tasks: TodayTask[];
   /** Open tasks beyond the ones listed. */
   moreTaskCount: number;
-  /** Tonight's planned dinner(s), already named; empty when nothing is planned. */
-  tonight: string[];
-  /** Null until the household budget has categories. */
-  safeToSpend: { formatted: string; status: SafeToSpendStatus } | null;
-  expiringCount: number;
+  /** Null when nothing is planned for dinner tonight. */
+  dinner: TodayDinner | null;
+  /** What tonight's recipes need from the shop; null when nothing. */
+  missing: TodayMissing | null;
+  /** Prep batches with portions left, soonest eat-by first. */
+  leftovers: TodayLeftover[];
   dict: Dictionary["dashboard"]["today"];
+  missingDict: { addedToast: Dictionary["mealPlanning"]["missingIngredientsAddedToast"]; alreadyOnListToast: string; openList: string };
   taskDict: Pick<Dictionary["tasks"], "toggleCompleteAriaLabel" | "toggleIncompleteAriaLabel" | "doneToast"> & {
     undo: string;
     saveFailedToast: string;
@@ -124,8 +148,6 @@ export function TodayBlock({
     if (!shownTasks.some((t) => t.id === task.id)) shownTasks.splice(Math.min(index, shownTasks.length), 0, task);
   }
 
-  const tonightText = tonight.length > 0 ? tonight.join(", ") : null;
-
   return (
     <Card>
       <CardHeader>
@@ -134,8 +156,72 @@ export function TodayBlock({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        <section aria-labelledby="today-tonight" className="flex flex-col gap-3">
+          <div className="flex min-w-0 flex-col">
+            <h3 id="today-tonight" className="text-sm text-muted-foreground">
+              {dict.tonight}
+            </h3>
+            {dinner ? (
+              <>
+                <p className="font-heading text-2xl leading-tight font-semibold break-words text-foreground">
+                  {dinner.name}
+                </p>
+                {dinner.detail && <p className="text-sm text-muted-foreground">{dinner.detail}</p>}
+              </>
+            ) : (
+              <p className="text-sm text-foreground">{dict.nothingPlanned}</p>
+            )}
+          </div>
+          {missing && (
+            // flex-wrap + the text's min width: a long "Missing …" line pushes
+            // "Add N" onto its own line rather than wrapping into a narrow
+            // column beside it.
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-warning/10 py-1.5 pr-1.5 pl-3 dark:bg-warning/20">
+              <ShoppingBasket className="size-4 shrink-0 text-warning" aria-hidden />
+              <p className="min-w-44 flex-1 text-sm font-medium break-words text-pretty">{missing.text}</p>
+              <AddMissingButton
+                rows={missing.rows}
+                target={missing.target}
+                label={format(dict.addMissing, { count: missing.rows.length })}
+                ariaLabel={format(plural(missing.rows.length, dict.addMissingAriaLabel), {
+                  count: missing.rows.length,
+                })}
+                dict={{ ...missingDict, newListName: missing.newListName }}
+              />
+            </div>
+          )}
+          {dinner?.cookHref && (
+            <Button variant="outline" className="self-start" render={<Link href={dinner.cookHref} />}>
+              <CookingPot className="size-4" />
+              {dict.startCooking}
+            </Button>
+          )}
+          {!dinner && (
+            <Button variant="outline" className="self-start" render={<Link href="/dashboard/meal-planning" />}>
+              <CalendarPlus className="size-4" />
+              {dict.planDinner}
+            </Button>
+          )}
+          {leftovers.length > 0 && (
+            <ul className="flex flex-col gap-1" aria-label={dict.leftoversAriaLabel}>
+              {leftovers.map((batch) => (
+                <li key={batch.id}>
+                  <Link href="/dashboard/meal-planning?tab=prep" className={FACT_ROW}>
+                    <ChefHat className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="line-clamp-2 font-medium break-words">{batch.name}</span>
+                      <span className="text-muted-foreground tabular-nums">{batch.detail}</span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         {shownTasks.length > 0 ? (
-          <ul className="flex flex-col gap-1" aria-label={dict.tasksAriaLabel}>
+          <ul className="flex flex-col gap-1 border-t pt-3" aria-label={dict.tasksAriaLabel}>
             {shownTasks.map((task, index) => {
               const done = ticked.get(task.id)?.done ?? false;
               return (
@@ -159,7 +245,7 @@ export function TodayBlock({
                         {task.overdueDays > 0 && !done && (
                           <TaskOverdueBadge days={task.overdueDays} label={taskDict.overdueLabel} />
                         )}
-                        {task.unassigned && <span>{dict.unassigned}</span>}
+                        {task.unassigned && <span>{dict.anyone}</span>}
                       </span>
                     )}
                   </span>
@@ -168,54 +254,17 @@ export function TodayBlock({
             })}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">{dict.noTasks}</p>
+          <p className="border-t pt-3 text-sm text-muted-foreground">{dict.noTasks}</p>
         )}
         <Link
           href="/dashboard/tasks"
-          className="touch-target inline-flex items-center gap-1 self-start text-sm underline underline-offset-4"
+          className="touch-target inline-flex items-center gap-1 self-start rounded-md text-sm font-medium text-primary hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           {moreTaskCount > 0
             ? format(plural(moreTaskCount, dict.moreTasks), { count: moreTaskCount })
             : dict.viewTasks}
+          <ChevronRight className="size-4 shrink-0" aria-hidden />
         </Link>
-
-        <ul className="flex flex-col gap-1 border-t pt-3">
-          <li>
-            <Link href="/dashboard/meal-planning" className={FACT_ROW}>
-              <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1">
-                <span className="text-muted-foreground">{dict.tonight}</span>{" "}
-                <span className="break-words font-medium">{tonightText ?? dict.nothingPlanned}</span>
-              </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-            </Link>
-          </li>
-          {safeToSpend && (
-            <li>
-              <Link href="/dashboard/budget" className={FACT_ROW}>
-                <Wallet className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1">
-                  <span className="text-muted-foreground">{dict.safeToSpend}</span>{" "}
-                  <span className={`font-medium tabular-nums ${STATUS_COLOR[safeToSpend.status]}`}>
-                    {safeToSpend.formatted}
-                  </span>
-                </span>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-              </Link>
-            </li>
-          )}
-          {expiringCount > 0 && (
-            <li>
-              <Link href="/dashboard/inventory" className={FACT_ROW}>
-                <Snowflake className="size-4 shrink-0 text-warning" />
-                <span className="min-w-0 flex-1 font-medium">
-                  {format(plural(expiringCount, dict.expiring), { count: expiringCount })}
-                </span>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-              </Link>
-            </li>
-          )}
-        </ul>
       </CardContent>
     </Card>
   );

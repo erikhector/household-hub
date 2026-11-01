@@ -224,6 +224,7 @@ export function renderWeeklyDigest({
       healthy: dict.budget.safeToSpend.summaryHealthy,
       tight: dict.budget.safeToSpend.summaryTight,
       over: dict.budget.safeToSpend.summaryOver,
+      unset: dict.budget.safeToSpend.setupSummary,
     }[summary.budget.status];
     const line = format(d.budgetBody, { amount });
     sections.push({

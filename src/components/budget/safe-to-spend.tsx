@@ -46,6 +46,8 @@ const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
   healthy: "text-success",
   tight: "text-warning",
   over: "text-destructive",
+  // UX-154: no income to judge against; neutral, never the green of "healthy".
+  unset: "text-muted-foreground",
 };
 
 // The split bar's parts, as marks in the money-flow colours (FLOW_FILL), so
@@ -62,6 +64,7 @@ const STATUS_FILL: Record<SafeToSpendStatus, string> = {
   healthy: "bg-success",
   tight: "bg-warning",
   over: "bg-destructive",
+  unset: "bg-muted-foreground",
 };
 
 export function SafeToSpend({
@@ -136,6 +139,7 @@ export function SafeToSpend({
         : dict.summaryHealthy,
     tight: dict.summaryTight,
     over: dict.summaryOver,
+    unset: dict.setupSummary,
   }[status];
 
   // Zero lines that are always zero for most people (nothing owed from

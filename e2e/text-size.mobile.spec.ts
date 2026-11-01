@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { Client } from "pg";
 import { DASHBOARD_ROUTES, PUBLIC_ROUTES, type UiRoute } from "./routes";
-import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
+import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, LOCALES, setLocaleCookie } from "./ui";
 
 // UX-9: with the root font-size at 200% (Android "Font size", iOS Larger
@@ -36,6 +38,16 @@ async function expectBottomBarHolds(page: Page) {
   for (const box of await Promise.all((await floating.all()).map((el) => el.boundingBox()))) {
     if (!box) continue;
     expect(box.y + box.height, "floating action sits above the bar").toBeLessThanOrEqual(navBox.y + 0.5);
+  }
+}
+
+async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    return await run(client);
+  } finally {
+    await client.end();
   }
 }
 
@@ -112,6 +124,73 @@ for (const locale of LOCALES) {
       expect(l!.x).toBeGreaterThanOrEqual(0);
       const ellipsized = await label.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
       expect(ellipsized, "label text is cut off").toBe(false);
+    });
+  });
+
+  // The week-picks tray's header ("Picked for this week", its count and
+  // "Pick meals") was a non-wrapping row, so in Swedish the button pushed
+  // the page sideways once the tray held a pick. The route sweep above only
+  // sees whatever this week happens to hold, so this seeds a pick into a
+  // far-future week of its own (one per locale, both in the worker's
+  // household).
+  test.describe(`meal week with picks at 200% text (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    const week = locale === "sv" ? "2032-08-09" : "2032-08-02";
+    const dropWeek = (client: Client) =>
+      // The plan's picks go with it.
+      client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = $2::date`, [
+        E2E_HOUSEHOLD.id,
+        week,
+      ]);
+    test.afterEach(async () => {
+      await withClient(dropWeek);
+    });
+    test("the tray header has no sideways scroll", async ({ page, context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+      await withClient(async (client) => {
+        await dropWeek(client);
+        const plan = await client.query<{ id: string }>(
+          `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3) RETURNING id`,
+          [`e2e-plan-text-size-${E2E_WORKER}-${locale}`, E2E_HOUSEHOLD.id, week],
+        );
+        await client.query(
+          `INSERT INTO "MealPlanPick" (id, "mealPlanId", "freeformName", portions) VALUES ($1, $2, $3, 4)`,
+          [`e2e-pick-text-size-${E2E_WORKER}-${locale}`, plan.rows[0].id, `Lasagne ${E2E_WORKER}`],
+        );
+      });
+      await page.goto(`/dashboard/meal-planning?week=${week}`);
+      await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.waitForLoadState("networkidle");
+      await expect(page.getByRole("region", { name: locale === "sv" ? /Veckans val/ : /Picked for this week/ })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    });
+  });
+
+  // Home's "Add to list" sits in the Shopping & pantry card's header. A
+  // Card clips its overflow, so a button pushed past the card's edge is cut
+  // off without scrolling the page, and the route sweep above can't see it:
+  // this checks every Home button stays inside its own card.
+  test.describe(`Home card buttons at 200% text (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    test("stay inside their card", async ({ page, context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+      await page.goto("/dashboard");
+      await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.waitForLoadState("networkidle");
+      await expect(
+        page.getByRole("main").getByRole("button", { name: locale === "sv" ? "Lägg till på listan" : "Add to list" }),
+      ).toBeVisible();
+      const clipped = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('main [data-slot="card"] [data-slot="button"]')]
+          .filter((el) => el.getBoundingClientRect().width > 0)
+          .filter((el) => {
+            const b = el.getBoundingClientRect();
+            const c = el.closest<HTMLElement>('[data-slot="card"]')!.getBoundingClientRect();
+            return b.left < c.left - 0.5 || b.right > c.right + 0.5;
+          })
+          .map((el) => (el.textContent ?? "").trim()),
+      );
+      expect(clipped, "buttons cut off at their card's edge").toEqual([]);
     });
   });
 
