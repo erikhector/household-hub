@@ -1492,6 +1492,7 @@ export const sv = {
     columnLocation: "Plats",
     columnQuantity: "Antal",
     columnStatus: "Status",
+    columnActions: "Åtgärder",
     columnLastUpdated: "Senast uppdaterad",
     lastUpdatedWithUser: "Senast uppdaterad {date} av {name}",
     lastUpdatedNoUser: "Senast uppdaterad {date}",

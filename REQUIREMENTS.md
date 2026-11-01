@@ -621,6 +621,11 @@ every lookup the old one did.
   status (in/low/out of stock, expiring soon, expired); filter dropdown
   options come from the
   distinct categories/locations already present in that household's items.
+  **Labelled filters (UX-155)**: each desktop filter trigger carries an
+  `aria-label` (Category, Location, Status, Last updated, Group by) matching
+  its mobile Filters-dialog twin, and the table's actions column header has
+  `sr-only` text, so a screen reader hears what a control is, not just its
+  current value.
   **What needs attention (UX-121)**: above the search row a "Needs
   attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
   "2 expired"), each hidden at zero. Tapping one sets the Status filter to
