@@ -181,15 +181,19 @@ export function unitKind(unit: string): UnitKind | null {
 }
 
 /**
- * UX-120: what the add-item form pre-fills in "Running low below" for a
- * unit. The rule is strict (`quantity < threshold`, stock-status.ts), so a
- * whole-piece item needs 2 to ever show "low" before "out" (1 would jump
- * from "In stock" straight to "Out of stock"). A weight or volume has no
- * natural level (500 g of flour is fine for one household and nothing for
- * another), so it starts empty and the item is only ever "out".
+ * UX-120/UX-156: what the add-item form pre-fills in "Running low below" for
+ * a unit. The rule is strict (`quantity < threshold`, stock-status.ts) and
+ * the form's default quantity is 1, so the default must never exceed 1: a
+ * first-timer's first "Olive oil x 1" has to read "In stock", not "Low
+ * stock" (a default must be safe). A piece count therefore starts at 1,
+ * meaning "warn when it's gone"; whoever wants an earlier warning raises it
+ * (UX-120 used 2, which badged every default item low on arrival). A weight
+ * or volume has no natural level (500 g of flour is fine for one household
+ * and nothing for another), so it starts empty and the item is only ever
+ * "out".
  */
 export function defaultLowStockThreshold(unit: string): string {
-  return unitKind(unit) === "count" ? "2" : "";
+  return unitKind(unit) === "count" ? "1" : "";
 }
 
 /**

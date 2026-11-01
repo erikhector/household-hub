@@ -246,6 +246,9 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-80. Flaky: Safe to spend's income split can't find the "Spent" label on mobile** (low, S) —
+      `e2e/budget-overview.spec.ts:213` ("Safe to spend shows where the month's income goes"), `mobile` project. Failed once in the local `ci:local` gate on `27865a6` (the UX-168 PR #994, 2026-11-01), where the test could not find the "Spent" label; the diff touched only shopping code. It passed in an isolated re-run of the spec and in the full gate on `96ce494`. Find why the split key can render late (or without that label) after the seeded rows are inserted and fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/budget-overview.spec.ts:213 --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -446,27 +449,11 @@ left out.
 **File conflicts.** Don't build these in parallel:
 - `src/components/inventory/inventory-client.tsx`: UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-160, UX-168
+  UX-160
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
   UX-158, UX-160
 
 
-
-- [ ] **UX-156. Default low-stock threshold never above the entered
-      quantity** (impact: med, effort: S) — breaks Usability ("prevent
-      errors before reporting them") and M4 (a default must be safe). The
-      add-item sheet defaults quantity to 1 and "Running low below" to 2
-      for count units (`src/lib/units.ts:191-193`,
-      `add-item-dialog.tsx:105-107,348`); stock status is strict
-      (`stock-status.ts:17`), so a first-timer's first "Olive oil × 1" is
-      badged "Low stock" and counted on the overview. (It is not auto-added
-      to the list: `default-list.ts:251-256` only fires on a crossing from
-      "in".) Evidence: `dialogs-mobile-dashboard-inventory--1-Add-item.png`.
-      Acceptance: a count item saved with the default quantity reads "In
-      stock" (threshold defaults to 1, or stays empty until the user sets
-      it); the `units.ts` comment is updated to the new intent; unit test on
-      `defaultLowStockThreshold`; e2e adds an item with defaults and asserts
-      no "Low stock" badge, `desktop` and `mobile`.
 
 - [ ] **UX-157. A dark theme that keeps the brand hue** (impact: med,
       effort: M) — breaks Squirrel design principles ("soft, friendly and
@@ -579,21 +566,6 @@ left out.
       bottom-bar tabs and More-menu pages have no underline (or get their
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
-
-- [ ] **UX-168. One "match these items" note instead of a paragraph per
-      typed row** (impact: med, effort: S) — breaks M6 ("repeated
-      placeholders collapse") and Aesthetic/minimalist. Each free-text list
-      row shows a "Match item" warning chip, "Add price", a ⋯ menu and a
-      two-line sentence ("New to your pantry — match it or add it as a new
-      item so buying it updates your stock"); three typed rows means three
-      copies, and a first-timer is asked to understand the inventory model
-      before owning one (`src/components/shopping/shopping-row.tsx`,
-      `mobile-en-dashboard-shopping-list-id.png`). Related: UX-89.
-      Acceptance: the row keeps the chip only; one dismissible note under
-      the first affected section reads "N items aren't in your pantry yet.
-      Match them so buying updates your stock." with a "Match all" action.
-      `mobile` e2e adds two unmatched rows and asserts the explanation text
-      appears once.
 
 - [ ] **UX-170. Scroll affordance on the tabs track** (impact: low,
       effort: S) — breaks Recognition. The budget and meal-planning tabs

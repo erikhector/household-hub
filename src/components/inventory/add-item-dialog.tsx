@@ -381,7 +381,7 @@ export function ItemFormDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="lowStockThreshold">{dict.runningLowBelowLabel}</Label>
-              {/* UX-120: the default follows the unit (2 for pieces, empty for
+              {/* UX-120: the default follows the unit (1 for pieces, empty for
                   g/ml). The key remounts the field when that default changes,
                   so choosing a unit after opening the form updates it; a
                   kept or saved value pins the key and is never replaced.
