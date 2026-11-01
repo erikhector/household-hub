@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { dismissCookieNotice, expectHydrated } from "./ui";
 
 // UX-170: the budget and meal-planning tab tracks fade at the edge that has
@@ -11,8 +11,22 @@ test.beforeEach(async ({ context, baseURL }) => {
 // The tablist is `display: contents`, so the scrolling track is its parent.
 const track = (page: Page) => page.getByRole("tab").first().locator("xpath=../..");
 
+// Audit shots of the narrowed track, with the fade and without it (the old
+// look), for the UX scout. Off unless E2E_SCREENSHOT_DIR is set.
+async function shootTrack(bar: ReturnType<typeof track>, testInfo: TestInfo, name: string) {
+  const dir = process.env.E2E_SCREENSHOT_DIR;
+  if (!dir) return;
+  const base = `${dir}/ux-170-${testInfo.project.name}-${name}`;
+  await bar.screenshot({ path: `${base}-after.png` });
+  // Put the mask back afterwards: it is React's inline style, not ours.
+  const mask = await bar.evaluate((el) => el.style.maskImage);
+  await bar.evaluate((el) => (el.style.maskImage = "none"));
+  await bar.screenshot({ path: `${base}-before.png` });
+  await bar.evaluate((el, m) => (el.style.maskImage = m), mask);
+}
+
 for (const path of ["/dashboard/budget", "/dashboard/meal-planning"]) {
-  test(`${path}: the tab track fades while it can scroll`, async ({ page }) => {
+  test(`${path}: the tab track fades while it can scroll`, async ({ page }, testInfo) => {
     await page.goto(path);
     await expectHydrated(page.getByRole("tab").first());
     const bar = track(page);
@@ -20,6 +34,7 @@ for (const path of ["/dashboard/budget", "/dashboard/meal-planning"]) {
     // doesn't go below ~412 px, and 200 % text is the same overflow.
     await bar.evaluate((el) => (el.style.maxWidth = "200px"));
     await expect(bar).toHaveAttribute("data-fade", "end");
+    await shootTrack(bar, testInfo, path.split("/").pop()!);
     expect(await bar.evaluate((el) => getComputedStyle(el).maskImage)).toContain("linear-gradient");
 
     await bar.evaluate((el) => (el.scrollLeft = el.scrollWidth));
