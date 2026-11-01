@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getStockStatus } from "./stock-status";
 import { canonicalUnit, classifyUnits, convertForItem, defaultLowStockThreshold, convertQuantity, unitLabel, unitLabelForQuantity, unitsAreComparable, withCommonUnits } from "./units";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
@@ -175,9 +176,11 @@ describe("unitLabel (UX-44)", () => {
 });
 
 describe("defaultLowStockThreshold", () => {
-  it("is 2 for whole pieces, so a low warning can show before out", () => {
-    expect(defaultLowStockThreshold("pcs")).toBe("2");
-    expect(defaultLowStockThreshold("st")).toBe("2");
+  it("is 1 for whole pieces, never above the default quantity of 1 (UX-156)", () => {
+    expect(defaultLowStockThreshold("pcs")).toBe("1");
+    expect(defaultLowStockThreshold("st")).toBe("1");
+    // A freshly added default item must not read as low.
+    expect(getStockStatus(1, Number(defaultLowStockThreshold("pcs")))).toBe("in");
   });
 
   it("is empty for weights, volumes and unknown units", () => {
