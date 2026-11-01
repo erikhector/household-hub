@@ -1702,6 +1702,7 @@ export const en = {
       bestBefore: "Best before {date}",
       lowStockAt: "running low below {amount}",
       changeUnit: "Change unit…",
+      statusTitle: "Status",
       unitsTitle: "Units",
       countedIn: "Counted in {unit}",
       noConversions: "No conversions. Amounts in units the app can't convert to {unit} on its own need one.",

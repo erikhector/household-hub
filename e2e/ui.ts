@@ -454,3 +454,14 @@ export function createHouseholdMenuTrigger(page: Page, isMobile: boolean, moreLa
     ? page.getByRole("navigation").getByRole("button", { name: moreLabel })
     : page.getByRole("complementary").getByRole("button", { name: /E2E Household/ });
 }
+
+// UX-172: the item page keeps its unit conversions behind a "Units"
+// disclosure (a native <details>, so it works before hydration). Opens it
+// unless it already is.
+export async function openItemUnits(page: Page) {
+  const details = page.getByRole("main").locator("details").filter({ has: page.getByRole("heading", { name: "Units", level: 2 }) });
+  if ((await details.getAttribute("open")) === null) {
+    await details.locator("summary").click();
+  }
+  await expect(details).toHaveAttribute("open", "");
+}
