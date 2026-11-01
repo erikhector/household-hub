@@ -153,7 +153,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             // of the page when it appears, above the page's own content.
             soloHousehold
               ? "z-30 pt-[env(safe-area-inset-top)]"
-              : "border-b px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3",
+              : "border-b px-4 pt-[max(0.25rem,env(safe-area-inset-top))] pb-1",
           )}
         >
           {!soloHousehold && (

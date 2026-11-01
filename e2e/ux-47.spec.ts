@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-47: the name field accepts 60 characters, and a name that long used to
@@ -15,11 +16,34 @@ test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   expect(LONG_NAME).toHaveLength(60);
   await setName(LONG_NAME);
+  await setOtherHousehold(true);
 });
 
 test.afterEach(async () => {
+  await setOtherHousehold(false);
   await setName(E2E_HOUSEHOLD.name);
 });
+
+// UX-158: with one household the phone header has no switcher, so these
+// tests give the seeded user a second one (joined later, so the seeded
+// household stays the active one) and remove it afterwards.
+const OTHER_HOUSEHOLD = `e2e-ux47-other-w${E2E_WORKER}`;
+async function setOtherHousehold(present: boolean) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(`DELETE FROM "Household" WHERE id = $1`, [OTHER_HOUSEHOLD]);
+    if (present) {
+      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Other house')`, [OTHER_HOUSEHOLD]);
+      await client.query(
+        `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+        [`${OTHER_HOUSEHOLD}-member`, OTHER_HOUSEHOLD, E2E_USER.id],
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}
 
 async function setName(name: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -31,15 +55,8 @@ async function setName(name: string) {
   }
 }
 
-test("a 60-character household name is truncated and the switcher stays on screen", async ({ page, isMobile }) => {
+test("a 60-character household name is truncated and the switcher stays on screen", async ({ page }) => {
   await page.goto("/dashboard");
-  if (isMobile) {
-    // UX-158: one household, so the phone header has no switcher at all, and
-    // the long name can't push anything off the screen.
-    await expect(page.getByRole("banner").getByRole("button", { name: LONG_NAME })).toHaveCount(0);
-    await expectNoHorizontalOverflow(page);
-    return;
-  }
 
   // The header (phone) and the sidebar (desktop) each render a switcher;
   // only one is visible at a given width.
@@ -66,11 +83,8 @@ test("a 60-character household name is truncated and the switcher stays on scree
   await expectNoHorizontalOverflow(page);
 });
 
-test("the full name is reachable in the switcher dropdown", async ({ page, isMobile }) => {
+test("the full name is reachable in the switcher dropdown", async ({ page }) => {
   await page.goto("/dashboard");
-  // UX-158: a single-household phone has no switcher to open (the first test
-  // asserts that); the multi-household phone case is household-switcher.spec.ts.
-  if (isMobile) return;
   await page.getByRole("button", { name: LONG_NAME }).filter({ visible: true }).click();
   await expect(page.getByRole("menuitem", { name: new RegExp(LONG_NAME) })).toBeVisible();
   // The menu item's title carries the whole name for when it clamps.

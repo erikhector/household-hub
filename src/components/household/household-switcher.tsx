@@ -27,10 +27,13 @@ export function HouseholdSwitcherTrigger({
     // way so the name clamps; `title` carries the full name.
     <Button
       variant="ghost"
-      className="h-auto min-w-0 shrink flex-col items-start px-2 py-1 text-left whitespace-normal"
+      className="h-auto min-w-0 shrink flex-col items-start px-2 py-1 text-left whitespace-normal max-sm:min-h-11 max-sm:justify-center"
       {...props}
     >
-      <span className="text-xs font-medium text-muted-foreground">{dict.label}</span>
+      {/* UX-158: on a phone the label is for screen readers only, so the
+          header is one slim row instead of ~90 px of two lines above every
+          title. The sidebar (sm and up) keeps it visible. */}
+      <span className="text-xs font-medium text-muted-foreground max-sm:sr-only">{dict.label}</span>
       <span className="flex min-w-0 max-w-full items-center gap-1 font-semibold">
         <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1" title={current.name}>
           {current.name}

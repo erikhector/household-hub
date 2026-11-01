@@ -7504,8 +7504,11 @@ components directly.
   (`data-solo-household` in `layout.tsx`) and the page title is the first
   text in `main`. "Create household" is then an item of the bottom bar's
   More menu (`bottom-nav-more-menu.tsx`, reusing `CreateHouseholdDialog`).
-  With several households the header and switcher are unchanged. The
-  desktop sidebar keeps its switcher either way.
+  With several households the phone header stays (it is the only way to
+  switch) but is one slim row, about 52 px: the "Household" label is
+  screen-reader only there and the trigger is a 44 px target showing the
+  current name; the compact title bar covers it when it appears. The
+  desktop sidebar keeps its switcher and label either way.
   A long household name (the field allows 60 characters) is clamped (two
   lines on a phone, one on desktop) with the full name in its `title` and in
   the dropdown: the trigger `Button` overrides its base `shrink-0

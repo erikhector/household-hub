@@ -117,6 +117,8 @@ test.describe("several households", () => {
       const row = isMobile
         ? page.getByRole("banner")
         : page.getByRole("complementary");
+      // One slim row on a phone (the label is screen-reader only), not ~90 px.
+      if (isMobile) expect((await row.boundingBox())!.height).toBeLessThan(64);
       await switchTo(page, row, "Alpha house", "Beta house");
       await switchTo(page, row, "Beta house", "Alpha house");
     } finally {
