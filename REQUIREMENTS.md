@@ -5052,8 +5052,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   empty days" and "Add missing ingredients to shopping list" (the week's
   main shopping-list action is the bottom "Add N missing" button, UX-91,
   see "Meal-plan → shopping-list bridge"). On phones
-  that row is sticky at the top of the scrolling page (the shopping list's
-  frosted add-bar style), so the week and its arrows stay in view. On
+  that row is sticky at the top of the scrolling page (solid, like the
+  shopping list's add bar, so it joins the opaque compact title bar
+  rather than showing a blurred strip of the page under it), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
   row, when it isn't already fully visible (the old "Jump to today" button
   is gone). Today's card says so in words (UX-99): a "Today" badge
@@ -7252,9 +7253,11 @@ flat grayscale:
   toasts use them — not only on a plain surface. The active segmented tab
   is a ringed `card` pill lifted off the `muted` track (the `secondary`
   fill was 1.03:1 against it). The phone sticky bars (inventory search,
-  shopping-list add line) are translucent with a blur
-  (`bg-background/85`, `backdrop-blur-sm`) so they melt into the page
-  gradient instead of painting a flat band over it. Dark
+  shopping-list add line, the planner's week row) are solid
+  `bg-background`: they only stick once the page title has collapsed
+  into the opaque compact top bar, so they join it as one bar. (They were
+  translucent with a blur, which on iOS left a smeared strip of the page
+  showing under the top bar.) Dark
   `--primary-foreground`
   is a deep purple ink, not white: the lighter dark-theme purple can't hold
   4.5:1 with white text. Because dark `--input` is white at 35% (for the 3:1
