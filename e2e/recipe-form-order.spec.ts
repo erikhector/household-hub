@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice, openRecipesTab } from "./ui";
+import { dismissCookieNotice, expectHydrated, openRecipesTab } from "./ui";
 
 // UX-98: the recipe form follows the order a recipe is written in (name and
 // servings, ingredients, then method and tags), says what an instruction line
@@ -11,7 +11,11 @@ test.beforeEach(async ({ context, baseURL }) => {
 test("the recipe form is in recipe order, labelled, with 44 px tag chips", async ({ page }) => {
   await page.goto("/dashboard/meal-planning");
   await openRecipesTab(page);
-  await page.getByRole("button", { name: "New recipe" }).click();
+  // The tab being hydrated does not mean the panel's button is: a tap that
+  // lands first does nothing and the dialog never opens (MAINT-75).
+  const newRecipe = page.getByRole("button", { name: "New recipe" });
+  await expectHydrated(newRecipe);
+  await newRecipe.click();
   const dialog = page.getByRole("dialog", { name: "New recipe" });
   await expect(dialog).toBeVisible();
 
