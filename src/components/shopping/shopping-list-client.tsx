@@ -972,7 +972,7 @@ export function ShoppingListClient({
           onTick={toggleItem}
           finish={
             canFinishFromDock
-              ? { onFinish: () => finishTrip(false), disabled: isPending || isTicking, quiet: awaitingPutAway.length > 0 }
+              ? { onFinish: () => finishTrip(false), disabled: isPending || isTicking, quiet: showCleared && awaitingPutAway.length > 0 }
               : undefined
           }
         />
