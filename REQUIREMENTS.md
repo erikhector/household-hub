@@ -7824,7 +7824,14 @@ components directly.
   single-household user whose bar is empty, over the top of the page,
   with its own bottom rule, UX-158) (the empty
   `COMPACT_TITLE_SLOT_ID` slot in `layout.tsx`), so the title stays on
-  screen without a second bar. Tapping it ("Back to top") moves focus to
+  screen without a second bar. While it is up, `PageTitle` measures how far
+  the bar reaches into `main` and sets it as `--compact-title-overlap` on
+  `main`; the phone sticky bars (the planner's week bar, the inventory
+  search, the shopping list's add bar) stick at
+  `top-[var(--compact-title-overlap,0px)]` instead of `top-0`, so they sit
+  below the compact title rather than underneath it (they were all but
+  hidden for single-household users, worst in the iOS PWA where the bar
+  also carries the safe-area inset). Tapping it ("Back to top") moves focus to
   the H1 and scrolls `main` to the top, which brings the switcher back.
   It fades in via `@starting-style`, with no transition and an instant
   scroll under `prefers-reduced-motion`, and is only in the DOM while

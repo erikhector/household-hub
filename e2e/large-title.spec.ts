@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { commonCopy } from "@/lib/i18n/common";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
 
 // UX-40 (DESIGN.md M2, M7): on a phone the page title starts large and, once
 // scrolled away, reappears compact in the top bar, where a tap scrolls back
@@ -67,4 +67,33 @@ test("desktop: the primary action stays in the page header", async ({ page, isMo
   expect(Math.abs(inviteBox!.y - headingBox!.y)).toBeLessThan(40);
   await page.mouse.wheel(0, 4000);
   await expect(page.getByRole("button", compactTitle)).toHaveCount(0);
+});
+
+// A phone sticky bar (here the planner's week bar) stays below the compact
+// title once it appears. For a single-household user the compact bar hangs
+// below the slim header over the top of `main`, and a bar stuck at main's
+// top edge ended up underneath it, all but hidden (worst in the iOS PWA,
+// where the compact bar also carries the safe-area inset).
+test("phone: a sticky bar stays visible below the compact title", async ({ page, context, baseURL, isMobile }) => {
+  test.skip(!isMobile, "the collapsing title and sticky bars are the phone shell's");
+  await dismissCookieNotice(context, baseURL!);
+  // A short screen, so even an empty week scrolls far enough for the week
+  // bar to stick and the title to collapse.
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: 480 });
+  await gotoRevealed(page, "/dashboard/meal-planning");
+  const weekActions = page.getByRole("button", { name: en.mealPlanning.morePlannerActions });
+  // The title's observer is wired up on hydration; a scroll before that
+  // never collapses it.
+  await expectHydrated(page.getByRole("heading", { level: 1, name: en.mealPlanning.title }));
+  const main = page.locator("main");
+  await main.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  const compact = page.getByRole("button", { name: `${en.mealPlanning.title} ${commonCopy.en.backToTop}` });
+  await expect(compact).toBeVisible();
+  await expect(weekActions).toBeInViewport();
+  await expect
+    .poll(async () => {
+      const [bar, actions] = await Promise.all([compact.boundingBox(), weekActions.boundingBox()]);
+      return actions!.y - (bar!.y + bar!.height);
+    })
+    .toBeGreaterThanOrEqual(0);
 });
