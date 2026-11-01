@@ -541,15 +541,6 @@ left out.
       card; conversions sit behind a "Units" disclosure. `item-page.spec.ts`
       asserts the first heading after the title is the status card.
 
-- [ ] **UX-173. Landing desktop CTA above the fold on short windows**
-      (impact: low, effort: S) — breaks Persuade-mode basics. At 1280×720
-      the hero headline and note stack push "Get started free" to ~y 885
-      (`desktop-en-root.png`; `src/components/landing/fridge-door.tsx`).
-      Mobile is fine.
-      Acceptance: at 1280×720 the primary CTA's bottom edge is inside the
-      first viewport; `landing.spec.ts` asserts it on `desktop` with that
-      viewport.
-
 - [ ] **UX-174. Progressive explanations on budget Manage and Household
       settings** (impact: low, effort: M) — breaks Help ("explain
       progressively") and M6. Budget Manage opens three cards each with a

@@ -7755,6 +7755,11 @@ components directly.
   on screen without scrolling, every feature named, the headline and the
   notes hidden from screen readers, the three re-homed notes, the sticky
   note leading to sign-up, the Swedish preview and headline).
+  UX-173: from `lg` the hero's text column is top-aligned (`lg:items-start`)
+  rather than centred against the tall fridge door, so at 1280x720 "Get
+  started free" sits inside the first screen (it was at ~y 885);
+  `landing.spec.ts` asserts the button's bottom edge is within 720 px on
+  `desktop`.
 - **404 and invalid-link titles (UX-65)**: `src/app/not-found.tsx` is a
   Server Component that checks the session. A logged-out visitor gets the
   `StatusCard` (brand mark, compass icon, "Page not found") with a "Go to
