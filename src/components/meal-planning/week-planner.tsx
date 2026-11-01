@@ -653,7 +653,7 @@ export function WeekPlanner({
       {/* Sticky on phones, so the week and its arrows stay in view down a
           week of day cards, and when the page opens scrolled to today
           (UX-21) — the same frosted bar as the shopping list's add bar. */}
-      <div className="flex items-center gap-2 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2 max-sm:backdrop-blur-sm">
+      <div className="flex items-center gap-2 max-sm:sticky max-sm:top-[var(--compact-title-overlap,0px)] max-sm:z-10 max-sm:-mx-4 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2 max-sm:backdrop-blur-sm">
         <PeriodSwitcher
           className="min-w-0 flex-1"
           label={weekRange}
