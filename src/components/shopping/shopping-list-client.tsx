@@ -892,7 +892,7 @@ export function ShoppingListClient({
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="size-8 shrink-0 text-muted-foreground"
+                      className="size-8 shrink-0 text-muted-foreground max-sm:size-11 pointer-coarse:size-11"
                       aria-label={dict.matchNoteDismissAriaLabel}
                       onClick={() => setMatchNoteDismissed(true)}
                     >

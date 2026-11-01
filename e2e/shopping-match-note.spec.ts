@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
 
 // UX-168: typed (unlinked) rows keep only their "Match item" chip; the
 // explanation is one dismissible note per list, with a "Match all" action.
@@ -28,7 +28,7 @@ test.afterAll(async () => {
   await sql(`DELETE FROM "ShoppingList" WHERE id LIKE 'e2e-ux168-%' AND "householdId" = $1`, [E2E_HOUSEHOLD.id]);
 });
 
-test("two unmatched rows share one explanation, which can be acted on or hidden", async ({ page }) => {
+test("two unmatched rows share one explanation, which can be acted on or hidden", async ({ page, isMobile }) => {
   const t = tag();
   const listId = `e2e-ux168-list-${t}`;
   await sql(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, $3)`, [
@@ -46,10 +46,11 @@ test("two unmatched rows share one explanation, which can be acted on or hidden"
 
   // Each row keeps its chip; the sentence appears once, with the count.
   await expect(page.getByRole("button", { name: "Match item", exact: true })).toHaveCount(2);
-  const note = page.getByText("2 items aren't in your pantry yet. Match them so buying updates your stock.");
+  const note = page.getByRole("main").getByText("2 items aren't in your pantry yet. Match them so buying updates your stock.");
   await expect(note).toHaveCount(1);
   await expect(page.getByText("New to your pantry")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
+  if (isMobile) await expectTouchTargets(page);
 
   // "Match all" opens the batch matcher.
   const matchAll = page.getByRole("button", { name: "Match all" });
