@@ -246,6 +246,9 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-80. Flaky: Safe to spend's income split can't find the "Spent" label on mobile** (low, S) —
+      `e2e/budget-overview.spec.ts:213` ("Safe to spend shows where the month's income goes"), `mobile` project. Failed once in the local `ci:local` gate on `27865a6` (the UX-168 PR #994, 2026-11-01), where the test could not find the "Spent" label; the diff touched only shopping code. It passed in an isolated re-run of the spec and in the full gate on `96ce494`. Find why the split key can render late (or without that label) after the seeded rows are inserted and fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/budget-overview.spec.ts:213 --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
