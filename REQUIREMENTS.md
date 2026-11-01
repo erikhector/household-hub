@@ -3931,6 +3931,15 @@ transaction passes the action's promise to `ConfirmDialog`, so the button
 shows "Deleting…" until the server answers, and recurring-row titles wrap
 instead of truncating. Covered by `e2e/ux-23.spec.ts`.
 
+**Scroll affordance on the tabs track (UX-170).** When the shared `Tabs`
+track can scroll sideways (320 px, 200 % text), it fades out at the edge
+with more tabs behind it (a 24 px mask, so any background works) and opens
+scrolled to the active tab, so a clipped "Insi" reads as "more this way".
+The fade follows the scroll position and the track's size, and is mirrored
+in `data-fade` (`start`/`end`/`both`, absent when everything fits). The
+compact in-card switch doesn't scroll and is unchanged. Covered by
+`e2e/ux-170.spec.ts`.
+
 **The open tab is in the URL (phone pass, Oct 2026).** `BudgetTabs` reads
 the tab from `?tab=` with `useSearchParams` (`parseBudgetTab` in
 `src/lib/budget-url.ts`; anything unknown is Overview) and writes it with

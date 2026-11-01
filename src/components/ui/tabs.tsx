@@ -14,6 +14,14 @@ import { Button } from "@/components/ui/button"
 // UX-23: the bar scrolls sideways instead of wrapping, so a 320 px phone
 // never strands the last tab alone on a second row (each Tab is `shrink-0`).
 //
+// UX-170: a track that can scroll fades out at the edge(s) with more tabs
+// behind it (a mask, so it works on any background), and the active tab is
+// scrolled into view on mount, so "Coo" / "Insi" clipped at 320 px or 200 %
+// text reads as "more this way" instead of as a cut-off label. The fade
+// state is mirrored in `data-fade` ("start" | "end" | "both" | absent) for
+// tests. The compact switch doesn't scroll (overflow-visible), so it's left
+// alone.
+//
 // Only renders the tab bar itself — callers keep owning their own tab panel
 // markup/visibility (e.g. `hidden` toggling or conditional rendering) exactly
 // as before; this component doesn't render `Tabs.Panel`. A caller that wants
@@ -51,6 +59,20 @@ function tabPanelProps(idPrefix: string, value: string) {
   } as const
 }
 
+// Wide enough to cover a clipped label, narrow enough to leave a whole tab
+// readable.
+const FADE_PX = 24
+
+type Fade = "start" | "end" | "both" | null
+
+function fadeMask(fade: Fade): React.CSSProperties | undefined {
+  if (!fade) return undefined
+  const left = fade === "start" || fade === "both" ? `transparent, #000 ${FADE_PX}px` : "#000, #000"
+  const right = fade === "end" || fade === "both" ? `#000 calc(100% - ${FADE_PX}px), transparent` : "#000, #000"
+  const image = `linear-gradient(to right, ${left}, ${right})`
+  return { maskImage: image, WebkitMaskImage: image }
+}
+
 function Tabs<Value extends string = string>({
   tabs,
   value,
@@ -68,8 +90,46 @@ function Tabs<Value extends string = string>({
   idPrefix?: string
 }) {
   const compact = size === "compact"
+  const trackRef = React.useRef<HTMLDivElement>(null)
+  const [fade, setFade] = React.useState<Fade>(null)
+
+  // Scroll the active tab into view once on mount. Done on the track's own
+  // scrollLeft rather than `scrollIntoView`, which would also scroll the
+  // page vertically.
+  React.useLayoutEffect(() => {
+    const track = trackRef.current
+    if (!track || compact) return
+    const active = track.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+    if (active) {
+      const room = (track.clientWidth - active.offsetWidth) / 2
+      track.scrollLeft = Math.max(0, active.offsetLeft - room)
+    }
+  }, [compact])
+
+  React.useEffect(() => {
+    const track = trackRef.current
+    if (!track || compact) return
+    const update = () => {
+      const max = track.scrollWidth - track.clientWidth
+      const atStart = track.scrollLeft <= 1
+      const atEnd = track.scrollLeft >= max - 1
+      setFade(max <= 1 ? null : atStart ? "end" : atEnd ? "start" : "both")
+    }
+    update()
+    track.addEventListener("scroll", update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(track)
+    return () => {
+      track.removeEventListener("scroll", update)
+      observer.disconnect()
+    }
+  }, [compact, tabs.length])
+
   return (
     <TabsPrimitive.Root
+      ref={trackRef}
+      data-fade={fade ?? undefined}
+      style={fadeMask(fade)}
       value={value}
       onValueChange={(nextValue) => onChange(nextValue as Value)}
       className={cn(
