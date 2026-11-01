@@ -962,7 +962,8 @@ export function ShoppingListClient({
           once something was actually bought: a list that was simply emptied
           out has no trip to finish. Like the menu's "Complete list", it
           offers the put-away sheet first when ticked rows still wait; the
-          card's "Put everything away" is the no-questions version. */}
+          card's "Put everything away" is then the view's one primary, so
+          the dock's button drops to outline (DESIGN.md: one primary per view). */}
       {isActive && (canFinishFromDock || (!showCleared && nextUpItems)) && (
         <NextUpDock
           next={canFinishFromDock ? null : nextUpItems}
@@ -971,7 +972,7 @@ export function ShoppingListClient({
           onTick={toggleItem}
           finish={
             canFinishFromDock
-              ? { onFinish: () => finishTrip(false), disabled: isPending || isTicking }
+              ? { onFinish: () => finishTrip(false), disabled: isPending || isTicking, quiet: awaitingPutAway.length > 0 }
               : undefined
           }
         />

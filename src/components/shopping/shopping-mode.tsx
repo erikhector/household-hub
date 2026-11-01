@@ -106,8 +106,8 @@ export function NextUpDock<T extends DockItem>({
   progress: ShoppingProgress;
   dict: ShoppingModeDict;
   onTick: (item: T) => void;
-  /** What the primary runs. */
-  finish?: { onFinish: () => void; disabled: boolean };
+  /** What the button runs. `quiet` steps it down to outline so the view keeps one primary (DESIGN.md hierarchy). */
+  finish?: { onFinish: () => void; disabled: boolean; quiet?: boolean };
 }) {
   const unitLabel = useUnitLabel();
 
@@ -250,7 +250,7 @@ export function NextUpDock<T extends DockItem>({
           })}
         </ul>
         {finish && (
-          <Button size="lg" className="min-h-12 w-full" disabled={finish.disabled || settling !== null} onClick={finish.onFinish}>
+          <Button variant={finish.quiet ? "outline" : "default"} size="lg" className="min-h-12 w-full" disabled={finish.disabled || settling !== null} onClick={finish.onFinish}>
             {dict.finishTrip}
           </Button>
         )}
