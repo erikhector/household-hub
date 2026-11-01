@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, expectOnePrimaryAction } from "./ui";
 
 // UX-112: a member who has only just joined and has no personal categories
 // yet still sees their share of a split bill, and what they owe, on the
 // personal Overview, and what they owe on Home, instead of only "Let's set up
 // your budget".
-// Their shared-expense action is the page's primary one (same slot as the
-// household page's "Add transaction"). A fresh household and two accounts
+// Their shared-expense action is the quiet outline one (UX-153); the
+// starter-set card's button is the page's primary. A fresh household and two accounts
 // keep it independent of the seeded worker household, whose users collect
 // personal categories from other specs.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -105,9 +105,11 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     await expect(main.getByText("Your share this month")).toHaveCount(0);
     await page.goto("/dashboard/personal-budget");
 
-    // The shared-expense action is the primary one, named like "Add transaction".
+    // The shared-expense action is the quiet outline one (UX-153), named like "Add transaction".
     await expect(main.getByRole("button", { name: "Add shared expense" })).toBeVisible();
     await expect(main.getByRole("button", { name: "Log a shared expense" })).toHaveCount(0);
+    // UX-153: with that button on screen, the starter-set card's is the one solid button.
+    await expectOnePrimaryAction(page);
     await expectNoHorizontalOverflow(page);
 
     // The link lands on the Transactions tab, where the share is listed.

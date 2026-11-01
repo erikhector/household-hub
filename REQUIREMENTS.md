@@ -3879,9 +3879,9 @@ share in {month}" rather than "this month") and the same "Your household balance
 with a link to the Transactions tab. Once they have categories the card goes
 and Safe to spend carries the balance as before. The shared-expense action is
 named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
-the household page's "Add transaction", and with no categories it is the
-page's primary action in the `PrimaryAction` slot (floating on phones); once
-Add transaction exists it stays the outline second action. Tested in
+the household page's "Add transaction". It is always the outline, inline
+action (UX-153, it doesn't float): with no categories the starter-set card's
+button is the one solid primary, and once Add transaction exists that is. Tested in
 `e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
 
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
@@ -6969,7 +6969,7 @@ co-managers, not kids earning rewards.
   over to the row's own trash button, so the same confirm dialog opens
   (M7: the sheet is the visible path). From `sm` up the icons stay.
   Above the list, in a household of two or more, an **Everyone / Mine**
-  toggle (`aria-pressed` buttons) shows only the tasks assigned to you
+  switch (a segmented `Tabs` track, UX-153, so it never reads as a second solid button beside "Add task") shows only the tasks assigned to you
   (`filterTasks`, `src/app/dashboard/tasks/task-filter.ts`: open or
   completed; unassigned tasks only show under Everyone). The weekly recap
   stays household-wide. The choice is remembered per device in localStorage
@@ -7830,6 +7830,12 @@ components directly.
   is the primary; "Add note" and "Turn on calendar feed" are `secondary`,
   and the role badge is `secondary` for the owner and `outline` for members.
   Each possible-duplicates group's "Merge" is `secondary`.
+  UX-153: the Tasks "Everyone / Mine" switch is a `Tabs` track; the household
+  budget setup card's "Add income" is `secondary`; the personal budget's
+  "Add shared expense" is always `outline` and inline (it doesn't float), so
+  the starter-set card's "Add N categories" is the one solid button while
+  there are no categories. `e2e/one-primary-action.spec.ts` counts the
+  `bg-primary` buttons on Tasks and both budget pages.
 - **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
   (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
   too) pushes a same-URL history entry while it's open, so Android's back

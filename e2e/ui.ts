@@ -429,6 +429,14 @@ export async function openAllCategories(page: Page) {
   await page.getByRole("main").getByText("All categories, with limits").filter({ visible: true }).click();
 }
 
+/** UX-153, DESIGN.md Hierarchy: exactly one solid `bg-primary` button or
+ * link in the page content. Reads the variant through its background
+ * token, the way one-primary-action.spec.ts does. */
+export async function expectOnePrimaryAction(page: Page) {
+  const primary = page.getByRole("main").locator(':is(button, a)[class~="bg-primary"]:visible');
+  await expect(primary).toHaveCount(1);
+}
+
 /** UX-159: the shopping list's ⋯ menu keeps what ends a trip on top and the
  * rest behind its "List settings" submenu. With the menu already open, opens
  * the submenu and picks `item` from it. */
