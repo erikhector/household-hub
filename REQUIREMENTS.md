@@ -614,9 +614,9 @@ every lookup the old one did.
   location, `lastKnownPrice`. Low stock = `0 < quantity < lowStockThreshold`
   (strict, so restocking to exactly the threshold reads "in stock"); out =
   `quantity <= 0`. The forms call the field "Running low below" (UX-120).
-  The add form pre-fills 2 for a piece count (1 would jump from "In stock"
-  straight to "Out of stock") and nothing for a weight or volume, which
-  follows the unit as it's picked; empty saves as 0, "warn only when out".
+  The add form pre-fills 1 for a piece count (UX-156: never above the
+  default quantity of 1, so a first item reads "In stock", not "Low stock")
+  and nothing for a weight or volume, which follows the unit as it's picked; empty saves as 0, "warn only when out".
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
   status (in/low/out of stock, expiring soon, expired); filter dropdown

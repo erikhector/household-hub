@@ -452,22 +452,6 @@ left out.
 
 
 
-- [ ] **UX-156. Default low-stock threshold never above the entered
-      quantity** (impact: med, effort: S) — breaks Usability ("prevent
-      errors before reporting them") and M4 (a default must be safe). The
-      add-item sheet defaults quantity to 1 and "Running low below" to 2
-      for count units (`src/lib/units.ts:191-193`,
-      `add-item-dialog.tsx:105-107,348`); stock status is strict
-      (`stock-status.ts:17`), so a first-timer's first "Olive oil × 1" is
-      badged "Low stock" and counted on the overview. (It is not auto-added
-      to the list: `default-list.ts:251-256` only fires on a crossing from
-      "in".) Evidence: `dialogs-mobile-dashboard-inventory--1-Add-item.png`.
-      Acceptance: a count item saved with the default quantity reads "In
-      stock" (threshold defaults to 1, or stays empty until the user sets
-      it); the `units.ts` comment is updated to the new intent; unit test on
-      `defaultLowStockThreshold`; e2e adds an item with defaults and asserts
-      no "Low stock" badge, `desktop` and `mobile`.
-
 - [ ] **UX-157. A dark theme that keeps the brand hue** (impact: med,
       effort: M) — breaks Squirrel design principles ("soft, friendly and
       purple … the brand's purple is carried by the mascot and the
