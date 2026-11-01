@@ -209,7 +209,7 @@ test("a recipe is one row whose sheet has its ingredients and actions, delete in
     // UX-165 (M2): Delete is well clear of Save, even scrolled to the end
     // (the tags and nutrition fields sit between them).
     const save = form.getByRole("button", { name: "Save", exact: true });
-    await save.scrollIntoViewIfNeeded();
+    await form.locator('[data-slot="dialog-body"]').evaluate((el) => el.scrollTo(0, el.scrollHeight));
     const deleteButton = form.getByRole("button", { name: "Delete recipe" });
     const saveBox = await save.boundingBox();
     const deleteBox = await deleteButton.boundingBox();
