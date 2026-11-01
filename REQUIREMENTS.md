@@ -2634,6 +2634,13 @@ top of it. No migration was needed.
   [price] [edit] [delete]. "Match item" is a `warning` badge (text on its
   own tint, with a triangle icon) placed in the chip's leading slot, and
   pending rows under a category header omit the chip that would repeat it.
+- An unlinked row shows only that chip (UX-168). The explanation is one
+  note under the label of the first pending section that holds an unlinked
+  row: "N items aren't in your pantry yet. Match them so buying updates
+  your stock.", with a "Match all" button (opens the batch matcher, which is
+  mounted for any number of unlinked rows; the ⋯ menu's "Resolve N items"
+  keeps its three-row threshold) and a dismiss ×. The dismissal lasts for
+  that visit only (component state, nothing stored in the browser).
 - Closing the receipt dialogs (`ReceiptScanDialog`, `RegisterReceiptDialog`)
   or the AI shelf scan while their review step is showing asks first
   ("Discard this review?", `DiscardReviewDialog`), whether by Cancel,

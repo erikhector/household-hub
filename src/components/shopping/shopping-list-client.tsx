@@ -28,6 +28,7 @@ import {
   Settings2,
   Share2,
   Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -239,6 +240,16 @@ export function ShoppingListClient({
   const hasPartialPrices = boughtPriced.priced > 0 && boughtPriced.priced < boughtPriced.total;
 
   const showResolveMappings = isActive && unresolvedItems.length >= BATCH_RESOLVE_THRESHOLD;
+  // UX-168: the batch dialog is also what the match note's "Match all" opens,
+  // so it is mounted for even one unlinked row (the ⋯ menu entry keeps its
+  // threshold). The note is dismissed for this visit only: it nudges about a
+  // state that still exists, so it may return on the next one.
+  const canMatchAll = isActive && unresolvedItems.length > 0;
+  const [matchNoteDismissed, setMatchNoteDismissed] = useState(false);
+  const matchNoteGroupKey = shownPendingGroups.find((group) =>
+    group.items.some((item) => item.inventoryItemId === null),
+  )?.key;
+  const showMatchNote = canMatchAll && !matchNoteDismissed && matchNoteGroupKey !== undefined;
   const resolveMappingsLabel = format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
     count: unresolvedItems.length,
   });
@@ -757,7 +768,7 @@ export function ShoppingListClient({
               />
             )}
           </LazyDialog>
-          {showResolveMappings && (
+          {canMatchAll && (
             <LazyDialog loader={loadResolveMappingsDialog} handle={dialogs.resolveMappings}>
               {(ResolveMappingsDialog) => (
                 <ResolveMappingsDialog
@@ -870,6 +881,25 @@ export function ShoppingListClient({
                 <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
                   {group.label}
                 </p>
+                {showMatchNote && group.key === matchNoteGroupKey && (
+                  <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
+                    <p className="min-w-0 flex-1 text-muted-foreground">
+                      {format(plural(unresolvedItems.length, dict.matchNote), { count: unresolvedItems.length })}
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => openLazyDialog(dialogs.resolveMappings)}>
+                      {dict.matchAll}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0 text-muted-foreground"
+                      aria-label={dict.matchNoteDismissAriaLabel}
+                      onClick={() => setMatchNoteDismissed(true)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                )}
                 {group.items.map((item) => (
                   <ShoppingRow
                     key={item.id}

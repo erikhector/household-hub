@@ -988,7 +988,12 @@ export const sv = {
     },
     needsMappingBadge: "Behöver kopplas",
     addedBy: "Tillagd av {name}",
-    needsMappingHint: "Ny i ditt skafferi — koppla den eller lägg till den som en ny vara så uppdateras lagret när du köper den.",
+    matchNote: {
+      one: "{count} vara finns inte i ditt skafferi än. Koppla den så uppdateras lagret när du köper den.",
+      other: "{count} varor finns inte i ditt skafferi än. Koppla dem så uppdateras lagret när du köper dem.",
+    },
+    matchAll: "Koppla alla",
+    matchNoteDismissAriaLabel: "Dölj den här notisen",
     needsMappingToast: "{name} är ny i ditt skafferi — koppla den eller lägg till den som en ny vara för att hålla lagret synkat.",
     matchItemButton: "Koppla vara",
     autoLinkedName: "Kopplad till {name}",
