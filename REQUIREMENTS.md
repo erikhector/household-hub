@@ -2673,7 +2673,7 @@ template, Export, Print, Archive/Unarchive), then Delete alone at the bottom.
 
 When the last pending item is checked off, the "All done" cleared state
 leaves the thumb-zone dock in place as its last step (UX-159), now just a
-primary **"Finish trip"** button (shown once something was bought; it runs the same
+**"Finish trip"** button (an outline button while the card's "Put everything away" is the view's one primary, otherwise primary; shown once something was bought; it runs the same
 path as the menu's "Complete list", so ticked rows still waiting are offered
 for put-away first) completes the list right away — no confirm dialog, since everything is already checked off. The
 toast ("List completed", with the expense message as its description)
