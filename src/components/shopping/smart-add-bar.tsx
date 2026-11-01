@@ -223,7 +223,7 @@ export function SmartAddBar({
     // always one tap away. Unlike the inventory search bar the bar is fully
     // opaque, as is the field inside it: translucent, the rows scrolling
     // underneath showed through the field over the placeholder (UX-82, M9).
-    <div className="flex flex-col gap-1.5 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-1 max-sm:pb-2">
+    <div className="flex flex-col gap-1.5 max-sm:sticky max-sm:top-[var(--compact-title-overlap,0px)] max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-1 max-sm:pb-2">
       <div className="flex items-center gap-1.5">
         <div className="relative min-w-0 flex-1">
           <Input

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { ChevronUp } from "lucide-react";
@@ -83,6 +83,37 @@ export function PageTitle({
     };
   }, []);
 
+  // While the compact bar is up for a single-household user it overlays the
+  // top of `main` (the solo header is only the status-bar clearance, so the
+  // bar hangs below it). A phone sticky bar pinned at `top: 0` of main (the
+  // planner's week bar, the inventory search, the shopping add bar) then
+  // sticks underneath it, mostly hidden: worst in the iOS PWA, where the
+  // bar also carries the safe-area inset. So publish how far the bar
+  // reaches into main as `--compact-title-overlap` on main, and those bars
+  // stick at that offset instead. Measured, not computed in CSS, so text
+  // size and the inset are whatever they are. Layout offsets rather than
+  // the bar's own getBoundingClientRect: its entrance translate would skew
+  // the first measurement.
+  const compactRef = useRef<HTMLButtonElement>(null);
+  const showCompact = slot !== null && collapsed;
+  useLayoutEffect(() => {
+    const bar = compactRef.current;
+    const main = titleRef.current?.closest("main");
+    if (!showCompact || !bar || !main) return;
+    const measure = () => {
+      const parentTop = bar.offsetParent?.getBoundingClientRect().top ?? 0;
+      const overlap = parentTop + bar.offsetTop + bar.offsetHeight - main.getBoundingClientRect().top;
+      main.style.setProperty("--compact-title-overlap", `${Math.max(0, Math.ceil(overlap))}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      main.style.removeProperty("--compact-title-overlap");
+    };
+  }, [showCompact]);
+
   function backToTop() {
     const title = titleRef.current;
     if (!title) return;
@@ -128,9 +159,10 @@ export function PageTitle({
           header is hidden and the document, not main, scrolls). It fades
           in through `starting:` (@starting-style) and simply goes away. */}
       {slot &&
-        collapsed &&
+        showCompact &&
         createPortal(
           <button
+            ref={compactRef}
             type="button"
             onClick={backToTop}
             className={cn(
