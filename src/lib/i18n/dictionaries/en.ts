@@ -1055,7 +1055,13 @@ export const en = {
     },
     needsMappingBadge: "Needs mapping",
     addedBy: "Added by {name}",
-    needsMappingHint: "New to your pantry — match it or add it as a new item so buying it updates your stock.",
+    // UX-168: one note per list instead of a paragraph under every typed row.
+    matchNote: {
+      one: "{count} item isn't in your pantry yet. Match it so buying updates your stock.",
+      other: "{count} items aren't in your pantry yet. Match them so buying updates your stock.",
+    },
+    matchAll: "Match all",
+    matchNoteDismissAriaLabel: "Hide this note",
     needsMappingToast: "{name} is new to your pantry — match it or add it as a new item to keep stock in sync.",
     matchItemButton: "Match item",
     autoLinkedName: "Linked to {name}",

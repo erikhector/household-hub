@@ -446,7 +446,7 @@ left out.
 **File conflicts.** Don't build these in parallel:
 - `src/components/inventory/inventory-client.tsx`: UX-166
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-160, UX-168
+  UX-160
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
   UX-158, UX-160
 
@@ -563,21 +563,6 @@ left out.
       bottom-bar tabs and More-menu pages have no underline (or get their
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
-
-- [ ] **UX-168. One "match these items" note instead of a paragraph per
-      typed row** (impact: med, effort: S) — breaks M6 ("repeated
-      placeholders collapse") and Aesthetic/minimalist. Each free-text list
-      row shows a "Match item" warning chip, "Add price", a ⋯ menu and a
-      two-line sentence ("New to your pantry — match it or add it as a new
-      item so buying it updates your stock"); three typed rows means three
-      copies, and a first-timer is asked to understand the inventory model
-      before owning one (`src/components/shopping/shopping-row.tsx`,
-      `mobile-en-dashboard-shopping-list-id.png`). Related: UX-89.
-      Acceptance: the row keeps the chip only; one dismissible note under
-      the first affected section reads "N items aren't in your pantry yet.
-      Match them so buying updates your stock." with a "Match all" action.
-      `mobile` e2e adds two unmatched rows and asserts the explanation text
-      appears once.
 
 - [ ] **UX-170. Scroll affordance on the tabs track** (impact: low,
       effort: S) — breaks Recognition. The budget and meal-planning tabs

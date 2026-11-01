@@ -338,15 +338,9 @@ export function ShoppingRow({
             {format(dict.addedBy, { name: item.addedByName })}
           </p>
         )}
-        {/* Persistent, always-visible explanation for as long as the item
-            stays unlinked — the "Match item" badge above (in
-            ShoppingItemFormDialog) is easy to miss on its own, so this spells
-            out the consequence (buying it won't update pantry stock) right
-            under the item the moment it's added, rather than only at
-            list-completion time (see unresolvedNotice). */}
-        {editable && needsMapping && (
-          <p className="pl-7 text-xs text-muted-foreground">{dict.needsMappingHint}</p>
-        )}
+        {/* UX-168: an unlinked row keeps only its "Match item" chip. The
+            consequence (buying it won't update stock) is said once per list
+            by the note in ShoppingListClient, not as a paragraph per row. */}
       </div>
     </SwipeRow>
   );
