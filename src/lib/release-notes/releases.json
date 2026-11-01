@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.128.0",
+    "date": "2026-11-01",
+    "pr": 987,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Keyboard users can now press Tab once on any dashboard page to jump past the sidebar to the page content, and the sign-in and sign-up pages are properly marked up for screen readers.\n\nScreen readers now announce what each inventory filter is (Category, Location, Status, Last updated, Group by), and the actions column in the table has a name.\n\nA budget with no income yet now says \"Budget not set up yet\" and links to adding income, instead of showing a green 0.00 as if you were on track.\n\nWhen you've ticked off everything on your shopping list, a \"Finish trip\" button now waits right at the bottom of the screen. The list's ⋯ menu is tidier too: the trip actions come first, list settings are tucked into one submenu and Delete is on its own.",
+      "sv": "Med tangentbord kan du nu trycka på Tab en gång på valfri sida i appen för att hoppa förbi sidomenyn till innehållet, och inloggnings- och registreringssidorna är bättre märkta för skärmläsare.\n\nSkärmläsare läser nu upp vad varje filter i lagret är (kategori, plats, status, senast uppdaterad, gruppera efter), och åtgärdskolumnen i tabellen har fått ett namn.\n\nEn budget utan inkomst säger nu \"Budgeten är inte uppsatt än\" och länkar till att lägga till inkomst, i stället för att visa en grön 0,00 som om allt var i sin ordning.\n\nNär du har bockat av allt på inköpslistan väntar nu en knapp, \"Avsluta handlingen\", längst ned på skärmen. Listans ⋯-meny är också ordnad: turens åtgärder först, listinställningarna i en egen undermeny och Ta bort för sig."
+    }
+  },
+  {
     "version": "0.127.1",
     "date": "2026-10-31",
     "pr": 981,
