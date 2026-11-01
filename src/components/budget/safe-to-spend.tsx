@@ -239,7 +239,7 @@ export function SafeToSpend({
     <>
       <p className="text-sm text-foreground">{dict.setupSummary}</p>
       <div className="flex flex-wrap gap-2">
-        <Button render={<Link href={setupHrefs.income} />} className="max-sm:min-h-11 pointer-coarse:min-h-11">
+        <Button variant="secondary" render={<Link href={setupHrefs.income} />} className="max-sm:min-h-11 pointer-coarse:min-h-11">
           {dict.setupIncome}
         </Button>
         <Button

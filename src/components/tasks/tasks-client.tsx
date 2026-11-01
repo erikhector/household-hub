@@ -10,6 +10,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Check, Trash2, Repeat, Pencil, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
@@ -204,20 +205,18 @@ export function TasksClient({
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
 
       {canFilter && (
-        <div role="group" aria-label={dict.filterLabel} className="-mb-2 flex gap-2">
-          {(["everyone", "mine"] as const).map((value) => (
-            <Button
-              key={value}
-              variant={filter === value ? "default" : "outline"}
-              size="sm"
-              aria-pressed={filter === value}
-              className="max-sm:min-h-11 pointer-coarse:min-h-11"
-              onClick={() => setStoredFilter(value)}
-            >
-              {value === "mine" ? dict.filterMine : dict.filterEveryone}
-            </Button>
-          ))}
-        </div>
+        // UX-153: a segmented track, not two buttons. The active choice is
+        // a view switch, so it must not read as a second solid primary beside
+        // "Add task".
+        <Tabs
+          className="-mb-2"
+          tabs={[
+            { value: "everyone", label: dict.filterEveryone },
+            { value: "mine", label: dict.filterMine },
+          ]}
+          value={filter}
+          onChange={setStoredFilter}
+        />
       )}
 
       {/* Keyed too, so the list glides down when the recap above grows. */}
