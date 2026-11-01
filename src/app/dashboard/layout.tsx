@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
+import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
 import { COMPACT_TITLE_SLOT_ID, SIDEBAR_COOKIE, type ShellDictionary } from "@/components/dashboard/nav-items";
@@ -64,6 +65,10 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     theme: dict.theme,
   };
   const current = { id: household.id, name: household.name, role };
+  // UX-158: with one household the phone header has nothing to switch, so it
+  // doesn't render the switcher (it cost ~90 px above every page's title);
+  // "Create household" moves to the More menu instead.
+  const soloHousehold = households.length <= 1;
 
   return (
     // max-sm: pinned to the actual device viewport bounds via `h-dvh` and
@@ -139,8 +144,21 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             (UX-40, page-title.tsx), iOS style, instead of adding a bar.
             Named for view transitions (UX-33): it stays still and on top
             while the page below animates, like BottomNav. */}
-        <header className="relative shrink-0 border-b bg-background px-4 [view-transition-name:app-header] pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
-          <HouseholdSwitcher current={current} households={households} dict={dict.household.switcher} />
+        <header
+          data-solo-household={soloHousehold ? "" : undefined}
+          className={cn(
+            "relative shrink-0 bg-background [view-transition-name:app-header] sm:hidden print:hidden",
+            // Solo (UX-158): no switcher, so the bar is only the status-bar
+            // clearance. The compact title (page-title.tsx) overlays the top
+            // of the page when it appears, above the page's own content.
+            soloHousehold
+              ? "z-30 pt-[env(safe-area-inset-top)]"
+              : "border-b px-4 pt-[max(0.25rem,env(safe-area-inset-top))] pb-1",
+          )}
+        >
+          {!soloHousehold && (
+            <HouseholdSwitcher current={current} households={households} dict={dict.household.switcher} />
+          )}
           <div id={COMPACT_TITLE_SLOT_ID} className="contents" />
         </header>
         {/* Below the header, not above it: the header is what carries the
@@ -177,7 +195,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </main>
       </div>
       <CommandPalette dict={dict.commandPalette} nav={dict.nav} />
-      <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} version={CURRENT_VERSION} />
+      <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} version={CURRENT_VERSION} createHouseholdDict={soloHousehold ? dict.household.switcher : undefined} />
     </div>
     </LazyDialogErrorMessage>
   );

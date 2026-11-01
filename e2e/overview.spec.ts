@@ -1,7 +1,13 @@
 import { expect, test, type Locator } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
-import { dismissCookieNotice, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
+import {
+  createHouseholdMenuTrigger,
+  dismissCookieNotice,
+  expectHydrated,
+  expectNoHorizontalOverflow,
+  gotoRevealed,
+} from "./ui";
 
 // UX-26 / UX-HOME-4: setup leads Home only in a household's first days (at
 // most two steps done); after that it is a one-line strip below the cards,
@@ -277,18 +283,21 @@ test("Home puts Today beside the other cards on a wide screen and above them on 
   await expectNoHorizontalOverflow(page);
 });
 
-test("Create household is the last item of the switcher dropdown, not a header +", async ({ page }, testInfo) => {
-  // UX-46. On phones the switcher is in the top header; on desktop, the
-  // expanded sidebar. Neither shows a standalone "+" any more.
+test("Create household is a menu item, not a header +", async ({ page, isMobile }) => {
+  // UX-46. Nothing shows a standalone "+": on desktop it is the last item of
+  // the sidebar switcher's dropdown; on a phone (UX-158, one household, no
+  // switcher in the header) it is an item of the bottom bar's More menu.
   await page.goto("/dashboard");
-  const row = testInfo.project.name === "mobile" ? page.getByRole("banner") : page.getByRole("complementary");
-  await expect(row.getByRole("button", { name: "Create household" })).toHaveCount(0);
+  await expect(page.getByRole("banner").getByRole("button", { name: "Create household" })).toHaveCount(0);
+  await expect(page.getByRole("complementary").getByRole("button", { name: "Create household" })).toHaveCount(0);
 
-  await row.getByRole("button", { name: /E2E Household/ }).click();
-  const items = page.getByRole("menu").getByRole("menuitem");
-  await expect(items.last()).toHaveText("Create household");
+  const trigger = createHouseholdMenuTrigger(page, isMobile);
+  await expectHydrated(trigger);
+  await trigger.click();
+  const item = page.getByRole("menuitem", { name: "Create household" });
+  if (!isMobile) await expect(page.getByRole("menu").getByRole("menuitem").last()).toHaveText("Create household");
 
-  await items.last().click();
+  await item.click();
   const dialog = page.getByRole("dialog", { name: "Create a new household" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Household name")).toBeVisible();

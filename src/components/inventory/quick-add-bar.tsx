@@ -82,7 +82,7 @@ export function QuickAddBar({
           actually shrink instead. */}
       <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap">
         <div className="flex min-w-0 basis-full flex-col gap-1 sm:flex-1 sm:basis-0">
-          <Label htmlFor="quick-add-name" className="text-[11px] font-normal text-muted-foreground">
+          <Label htmlFor="quick-add-name" className="text-xs font-normal text-muted-foreground">
             {dict.nameLabel}
           </Label>
           <Input
@@ -99,7 +99,7 @@ export function QuickAddBar({
           />
         </div>
         <div className="flex w-16 flex-col gap-1">
-          <Label htmlFor="quick-add-quantity" className="text-[11px] font-normal text-muted-foreground">
+          <Label htmlFor="quick-add-quantity" className="text-xs font-normal text-muted-foreground">
             {dict.quantityLabel}
           </Label>
           <Input
@@ -119,7 +119,7 @@ export function QuickAddBar({
             buttons plus padding and border (~74px), so 80px left the input
             about 6px and "pcs" showed as a single letter (UX-1). */}
         <div className="flex w-32 flex-col gap-1 max-sm:w-auto max-sm:min-w-36 max-sm:flex-1">
-          <Label htmlFor="quick-add-unit" className="text-[11px] font-normal text-muted-foreground">
+          <Label htmlFor="quick-add-unit" className="text-xs font-normal text-muted-foreground">
             {dict.unitLabel}
           </Label>
           <ComboField
@@ -136,7 +136,7 @@ export function QuickAddBar({
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1 max-sm:min-w-40">
-          <Label htmlFor="quick-add-category" className="text-[11px] font-normal text-muted-foreground">
+          <Label htmlFor="quick-add-category" className="text-xs font-normal text-muted-foreground">
             {dict.categoryLabel}
           </Label>
           <ComboField

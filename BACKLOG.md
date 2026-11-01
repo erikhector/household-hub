@@ -224,12 +224,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       (a Suspense split, larger than S).
 
 
-- [ ] **MAINT-73. Flaky: `shopping-added-by` "a shared list shows who added each line, never on your own" fails in a loaded run** (low, S) —
-      `e2e/shopping-added-by.spec.ts:44`, `mobile` (desktop once too). It failed in the UX-159 builder's gate runs on 93f8c3b and passed in its gate on fbc2db6. On a clean checkout of `origin/next` at b734060, under the shared ci-local lock,
-      `npx playwright test e2e/shopping-added-by.spec.ts --repeat-each=10` failed 14 of 20 runs (8 passed). Seen 2026-11-01.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/shopping-added-by.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-
 - [ ] **MAINT-74. Flaky: a phone dialog's comboboxes aren't there yet when `form-field-room` measures them** (low, S) `[!]` —
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -242,6 +236,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
+      `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-80. Flaky: Safe to spend's income split can't find the "Spent" label on mobile** (low, S) —
       `e2e/budget-overview.spec.ts:213` ("Safe to spend shows where the month's income goes"), `mobile` project. Failed once in the local `ci:local` gate on `27865a6` (the UX-168 PR #994, 2026-11-01), where the test could not find the "Spent" label; the diff touched only shopping code. It passed in an isolated re-run of the spec and in the full gate on `96ce494`. Find why the split key can render late (or without that label) after the seeded rows are inserted and fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/budget-overview.spec.ts:213 --project=mobile --repeat-each=30` passes 30/30.
@@ -447,7 +445,7 @@ left out.
 - `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
   UX-160
 - `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
-  UX-158, UX-160
+  UX-160
 
 
 
@@ -464,21 +462,6 @@ left out.
       `oklch(0.14 0.03 300)`, `oklch(0.23 0.03 300)`); every pair in
       `globals-contrast.test.ts` still passes; the `light` and default dark
       sweep screenshots of the overview are reviewed side by side.
-
-- [ ] **UX-158. Hide the household switcher for single-household users**
-      (impact: high, effort: M) — breaks M6 ("the key number, status or
-      next step is above the fold") and Hierarchy. Every phone page opens
-      with ~90 px of "Household / <name> ⌃" above the title, even when the
-      user has one household; the popover then offers only "Current" and
-      "Create household" (`src/components/household/household-switcher.tsx`,
-      `dashboard/layout.tsx` header; report `d2-household-switcher`,
-      `s2-320-inventory` where the first row starts ~370 px down).
-      Acceptance: with one household the switcher is not rendered and
-      "Create household" sits in the More menu; with several, the current
-      name lives in the compact title bar `PageTitle` already portals into.
-      `mobile` e2e asserts the page title is the first text in `main`'s
-      viewport for the seeded single-household user; the multi-household
-      case still switches.
 
 - [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
       med, effort: M) — breaks M9 ("200 % … without clipping; Swedish
@@ -524,16 +507,6 @@ left out.
       Acceptance: no `amber-` class in `src/components`; the four sites use
       `bg-warning/10 text-warning` (`attention` for the star if orange is
       wanted); a grep test or lint rule keeps them out.
-
-- [ ] **UX-163. Text under the 12 px floor** (impact: low, effort: S) —
-      breaks M9 ("12 px is the floor for chrome; nothing smaller
-      anywhere"). The notification count badge is `text-[10px]`
-      (`src/components/notifications/notification-bell.tsx:107`); the four
-      quick-add bar labels are `text-[11px]`
-      (`src/components/inventory/quick-add-bar.tsx:85,102,122,139`).
-      Acceptance: both use `text-xs` (badge `size-4.5`); the sweep's
-      `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
-      returns nothing.
 
 - [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
       breaks Consistency ("same icon/colour for the same meaning").

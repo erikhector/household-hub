@@ -168,7 +168,7 @@ export function BarChart({
             {ticks.map((tick) => (
               <span
                 key={tick}
-                className="absolute right-0 -translate-y-1/2 text-[11px] leading-none text-muted-foreground tabular-nums"
+                className="absolute right-0 -translate-y-1/2 text-xs leading-none text-muted-foreground tabular-nums"
                 style={{ top: `${100 - (tick / top) * 100}%` }}
               >
                 {tickFormat.format(tick)}

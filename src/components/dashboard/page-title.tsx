@@ -14,7 +14,8 @@ const subscribeNoop = () => () => {};
 
 // UX-40: iOS-style large title. On a phone the page's H1 starts large in the
 // page itself and scrolls away with the content; once it's gone, the same
-// title appears in the existing top bar (over the household switcher), so the
+// title appears in the existing top bar (over the household switcher, or at
+// the top of the page for a single-household user, UX-158), so the
 // user still knows where they are (DESIGN.md M7) without a second header
 // eating the screen. Tapping the compact title scrolls back to the top, which
 // also brings the household switcher back. On desktop the slot's header is
@@ -134,8 +135,11 @@ export function PageTitle({
             onClick={backToTop}
             className={cn(
               // Same padding as the header it covers, so the title sits where
-              // the switcher sat and the safe-area top stays clear.
-              "absolute inset-0 flex min-w-0 items-center gap-2 bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-left",
+              // the switcher sat and the safe-area top stays clear. With a
+              // switcher the header is as tall as that bar (min-h-full); a
+              // single-household header has none (UX-158), so the bar brings
+              // its own height and bottom rule and overlays the page's top.
+              "absolute inset-x-0 top-0 flex min-h-full [[data-solo-household]_&]:border-b min-w-0 items-center gap-2 bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-left",
               "transition-[opacity,translate] duration-200 ease-out starting:translate-y-1 starting:opacity-0 motion-reduce:transition-none",
             )}
           >
