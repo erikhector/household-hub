@@ -62,12 +62,19 @@ test("a row under the add bar does not show through the field or the bar", async
         const marker = document.createElement("div");
         marker.id = "ux82-marker";
         marker.textContent = "ROW UNDER THE BAR 12345 ■ ● ▲ MMMMMMMMMMMMMMMMMMMM";
+        // One CSS pixel inside the bar's box on every side: the bar's edge
+        // can fall between two device pixels (the page above it has
+        // fractional line heights, which UX-158's shorter header lets
+        // through), and that edge row blends with whatever is behind it. A
+        // marker spilling over that row would be seen there although nothing
+        // shows through the bar's body.
+        const inset = 1;
         Object.assign(marker.style, {
           position: "fixed",
-          left: `${clip.x}px`,
-          top: `${clip.y}px`,
-          width: `${clip.width}px`,
-          height: `${clip.height}px`,
+          left: `${clip.x + inset}px`,
+          top: `${clip.y + inset}px`,
+          width: `${clip.width - 2 * inset}px`,
+          height: `${clip.height - 2 * inset}px`,
           zIndex: String(zIndex),
           background: "rgb(255, 0, 255)",
           color: "rgb(0, 255, 0)",
