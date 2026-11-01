@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.130.0",
+    "date": "2026-11-01",
+    "pr": 1007,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On the shopping list, the \"Finish trip\" button now steps back to an outline style while \"Put everything away\" is the main button, so there is one clear next step.\n\nThe tab bars on Budget and Meal planning now fade at the edge when there are more tabs to scroll to, and open with your current tab in view.\n\nOn phones, the inventory page now fits search, filters and the list on the first screen. The extra actions are an icon menu next to the title, grouped into scanning and managing, and the out, low and expiring counts are in the Filters panel.",
+      "sv": "På inköpslistan blir knappen \"Avsluta handlingen\" en kontur-knapp medan \"Ställ in allt\" är huvudknappen, så det finns ett tydligt nästa steg.\n\nFlikraderna i Budget och Måltidsplanering tonas ut i kanten när det finns fler flikar att bläddra till, och öppnas med din aktuella flik i bild.\n\nPå mobilen får lagersidan nu plats med sök, filter och listan på första skärmen. Extra åtgärder finns i en ikonmeny bredvid rubriken, grupperade i skanning och hantering, och antalen för slut, lågt och snart utgånget ligger i filterpanelen."
+    }
+  },
+  {
     "version": "0.129.1",
     "date": "2026-11-01",
     "pr": 1000,
