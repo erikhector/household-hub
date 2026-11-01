@@ -519,16 +519,6 @@ left out.
       `bg-warning/10 text-warning` (`attention` for the star if orange is
       wanted); a grep test or lint rule keeps them out.
 
-- [ ] **UX-163. Text under the 12 px floor** (impact: low, effort: S) —
-      breaks M9 ("12 px is the floor for chrome; nothing smaller
-      anywhere"). The notification count badge is `text-[10px]`
-      (`src/components/notifications/notification-bell.tsx:107`); the four
-      quick-add bar labels are `text-[11px]`
-      (`src/components/inventory/quick-add-bar.tsx:85,102,122,139`).
-      Acceptance: both use `text-xs` (badge `size-4.5`); the sweep's
-      `tinyText` probe stays at 0 and `grep -rn 'text-\[1[01]px\]' src`
-      returns nothing.
-
 - [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
       breaks Consistency ("same icon/colour for the same meaning").
       Inventory and Household budget share `chart-1`, Shopping and Personal

@@ -105,7 +105,7 @@ function BellIcon({ count }: { count: number }) {
   return (
     <span className="relative inline-flex">
       <Bell className="size-4" />
-      <NotificationCountBadge count={count} className="-top-1.5 -right-1.5 size-4 text-[10px]" />
+      <NotificationCountBadge count={count} className="-top-1.5 -right-1.5 size-4.5 text-xs" />
     </span>
   );
 }
