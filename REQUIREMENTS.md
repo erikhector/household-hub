@@ -7564,6 +7564,10 @@ components directly.
   personal categories the "You" tile is a one-row "Set up" link to
   Personal budget; with no household categories the Household tile is
   left out and the remaining tile takes the card's full width.
+  Each amount sizes itself to its tile (a container-query `clamp`, at most
+  `text-2xl`, at least `text-base`), so a long figure with its currency
+  ("−36 692,00 kr" in a half-width tile on a 375 px phone) stays on one
+  line instead of wrapping mid-word (`e2e/safe-to-spend-tile-fit.spec.ts`).
   A balance with another member shows under the tiles as the budget pages'
   `HouseholdDebtsList` (what you owe or are owed, unpaid bills, Settle up).
   The card always shows, since the "You" tile is either a number or the
