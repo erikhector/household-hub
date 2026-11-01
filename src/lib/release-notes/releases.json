@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.131.2",
+    "date": "2026-11-01",
+    "pr": 1024,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On phones, the bar that stays at the top while you scroll (the meal planner's week, the inventory search) is now solid, so no blurry strip shows under the page title.",
+      "sv": "På mobilen är raden som stannar överst när du scrollar (veckan i matplaneringen, sökfältet i lagret) nu helt täckande, så ingen suddig rand syns under sidrubriken."
+    }
+  },
+  {
     "version": "0.131.1",
     "date": "2026-11-01",
     "pr": 1018,
