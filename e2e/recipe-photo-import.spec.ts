@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { dismissCookieNotice, openRecipesTab } from "./ui";
+import { dismissCookieNotice, expectHydrated, openRecipesTab } from "./ui";
 
 // GAP-54: "Import from a photo" in the recipe form. The vision call is
 // mocked at the Server Action POST (the same technique as
@@ -40,6 +40,15 @@ async function openNewRecipe(page: Page) {
   await page.getByRole("button", { name: "New recipe" }).click();
   const dialog = page.getByRole("dialog", { name: "New recipe" });
   await expect(dialog).toBeVisible();
+  // MAINT-76: the photo is read through a Server Action, and Next's client
+  // runs actions one at a time, behind whatever else is in flight. Under a
+  // loaded runner the Recipes tab's own fetches (the lazy dialog chunk, route
+  // prefetches) can still be pending when the dialog shows, and the action,
+  // and so the toast the test waits on, queues behind them past the 5 s
+  // assertion timeout. Let the page go quiet, and make sure React owns the
+  // file input, before the photo is chosen. The assertions stay as strict.
+  await page.waitForLoadState("networkidle");
+  await expectHydrated(dialog.locator('input[type="file"]'));
   return dialog;
 }
 
