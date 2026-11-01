@@ -224,6 +224,12 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       (a Suspense split, larger than S).
 
 
+- [ ] **MAINT-73. Flaky: `shopping-added-by` "a shared list shows who added each line, never on your own" fails in a loaded run** (low, S) —
+      `e2e/shopping-added-by.spec.ts:44`, `mobile` (desktop once too). It failed in the UX-159 builder's gate runs on 93f8c3b and passed in its gate on fbc2db6. On a clean checkout of `origin/next` at b734060, under the shared ci-local lock,
+      `npx playwright test e2e/shopping-added-by.spec.ts --repeat-each=10` failed 14 of 20 runs (8 passed). Seen 2026-11-01.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/shopping-added-by.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+
 ### UX (2026-09-26 scout)
 
 Found by loading every dashboard route at 390×844 and 1280×800, in English
