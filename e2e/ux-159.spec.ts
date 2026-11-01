@@ -64,6 +64,9 @@ test("ticking every row leaves a Finish trip primary in the dock that completes 
 
   const finish = dock.getByRole("button", { name: t.shoppingMode.finishTrip });
   await expect(finish).toBeEnabled();
+  // The scout's screenshot of the finish state (off unless E2E_SCREENSHOT_DIR is set).
+  const shots = process.env.E2E_SCREENSHOT_DIR;
+  if (shots) await page.screenshot({ path: `${shots}/${test.info().project.name}-ux159-finish-dock.png` });
   await finish.click();
   // Ticked rows still wait to be put away, so the finish path offers that
   // first, exactly like the menu's Complete list.
