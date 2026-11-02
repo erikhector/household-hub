@@ -96,4 +96,12 @@ test("phone: a sticky bar stays visible below the compact title", async ({ page,
       return actions!.y - (bar!.y + bar!.height);
     })
     .toBeGreaterThanOrEqual(0);
+  // And it's solid, so it joins the top bar as one: a translucent, blurred
+  // bar left a smeared strip of the page showing under it on iOS.
+  const bar = await weekActions.evaluate((el) => {
+    const style = getComputedStyle(el.parentElement!);
+    return { blur: style.backdropFilter, background: style.backgroundColor };
+  });
+  expect(bar.blur).toBe("none");
+  expect(bar.background).not.toMatch(/rgba|\/ 0?\.\d|color-mix/);
 });

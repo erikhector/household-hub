@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, openItemUnits } from "./ui";
 
 // MATCH-7: the item catalog at /dashboard/inventory/items, its duplicate
 // groups, merge and "Not duplicates", and "Merge into another item…" on the
@@ -168,6 +168,7 @@ test("“Merge into another item…” on the item page asks for a factor when t
   // Scoped to main: see the reload in item-page.spec.ts.
   const main = page.getByRole("main");
   await expect(main.getByRole("button", { name: /^Adjust .* \(2.5 pcs\)$/ })).toBeVisible();
+  await openItemUnits(page);
   await expect(main.getByText("1 pcs = 2 dl")).toBeVisible();
 });
 
