@@ -18,6 +18,7 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { getActiveNotifications } from "@/lib/notifications";
 import { TimeZoneCookie } from "@/components/dashboard/time-zone-cookie";
+import { TextScaleFlag } from "@/components/dashboard/text-scale-flag";
 import { TIME_ZONE_COOKIE } from "@/lib/time-zone";
 import { CURRENT_VERSION, hasUnseenRelease, LAST_SEEN_RELEASE_COOKIE } from "@/lib/release-notes";
 
@@ -190,6 +191,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             from under it. data-app-main is how globals.css finds the
             dashboard's cards to give them list-bleed on phones (UX-139). */}
         <main id="main-content" tabIndex={-1} data-app-main className="outline-none mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:scroll-pb-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:pb-[calc(4.5rem+var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:has-[[data-primary-action]]:scroll-pb-[calc(4.5rem+var(--bottom-nav-h)+var(--cookie-notice-h,0px))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
+          <TextScaleFlag />
           <TimeZoneCookie current={cookieStore.get(TIME_ZONE_COOKIE)?.value ?? null} />
           <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>{children}</UnitsProvider>
         </main>

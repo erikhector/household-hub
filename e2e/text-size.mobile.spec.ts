@@ -1,8 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { DASHBOARD_ROUTES, PUBLIC_ROUTES, type UiRoute } from "./routes";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { E2E_WORKER } from "./seed-data";
+import { budgetTag, insertHouseholdCategory, withDb as withBudgetDb } from "./budget-seed";
+import { E2E_SHOPPING_LIST, E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, LOCALES, setLocaleCookie } from "./ui";
 
 // UX-9: with the root font-size at 200% (Android "Font size", iOS Larger
@@ -191,6 +192,98 @@ for (const locale of LOCALES) {
           .map((el) => (el.textContent ?? "").trim()),
       );
       expect(clipped, "buttons cut off at their card's edge").toEqual([]);
+    });
+  });
+
+  // UX-160: at 200% in Swedish the budget title broke mid-word, the floating
+  // primary pill spanned the width and covered the month switcher, and the
+  // shopping list's dock and smart-add icons ate the list and the field.
+  test.describe(`budget and shopping list at 200% text (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    test.beforeEach(async ({ context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+    });
+
+    // The element at the centre of `target` must be `target` (or inside it):
+    // nothing floats on top of it.
+    async function expectUncovered(target: Locator, what: string) {
+      await expect(target, `${what} is on screen`).toBeInViewport();
+      const covered = await target.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !top || !(el === top || el.contains(top));
+      });
+      expect(covered, `${what} is covered by something floating`).toBe(false);
+    }
+
+    test("the budget keeps its title, month switcher and a short pill", async ({ page }) => {
+      // The pill only exists once there is a category to add a transaction to.
+      const catId = `e2e-textsize-cat-${budgetTag()}`;
+      await withBudgetDb((client) => insertHouseholdCategory(client, { id: catId, name: "Text size" }));
+      try {
+        await checkBudget(page);
+      } finally {
+        await withBudgetDb((client) => client.query(`DELETE FROM "BudgetCategory" WHERE id = $1 AND "householdId" = $2`, [catId, E2E_HOUSEHOLD.id]));
+      }
+    });
+
+    async function checkBudget(page: Page) {
+      await page.goto("/dashboard/budget");
+      await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("data-large-text", "");
+      const title = page.getByRole("heading", { level: 1 });
+      expect(await title.evaluate((el) => getComputedStyle(el).hyphens)).toBe("auto");
+      expect(await title.evaluate((el) => el.closest("[lang]")?.getAttribute("lang"))).toBe(locale);
+      await expectUncovered(page.getByRole("link", { name: locale === "sv" ? "Föregående månad" : "Previous month" }), "previous month");
+      await expectUncovered(page.getByRole("link", { name: locale === "sv" ? "Nästa månad" : "Next month" }), "next month");
+      const pill = page.locator("[data-primary-action]").first();
+      const [box, viewport] = [await pill.boundingBox(), page.viewportSize()!];
+      expect(box!.width, "the pill is capped at 60% of the screen").toBeLessThanOrEqual(viewport.width * 0.6 + 1);
+      // Above 150% it is the icon alone, its words still the accessible name.
+      // Buttons animate their size (transition-all), so wait for it to settle.
+      await expect.poll(async () => (await pill.boundingBox())!.width).toBeLessThanOrEqual(56);
+      await expect(pill.getByRole("button")).toHaveAccessibleName(/\S/);
+      await expectNoHorizontalOverflow(page);
+    }
+
+    test("the list keeps its field, a row and a collapsed dock", async ({ page }) => {
+      await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
+      await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("data-large-text", "");
+      // The field keeps room for typing: wider than the icons and Add around it.
+      const field = page.getByPlaceholder(locale === "sv" ? /^Lägg till/ : /^Add items/);
+      const fieldBox = (await field.boundingBox())!;
+      expect(fieldBox.width, "the smart-add field").toBeGreaterThanOrEqual(220);
+      const iconButtons = [...(await field.locator("xpath=..").getByRole("button").all()), field.locator("xpath=../following-sibling::button")];
+      for (const button of iconButtons) {
+        await expect.poll(async () => (await button.boundingBox())!.width, "a smart-add icon").toBeLessThanOrEqual(48);
+      }
+      // The dock never takes more than a third of the scroller: it is either
+      // collapsed to ring + count (no rows to tap) or at most a third of main.
+      const dock = page.getByRole("region", { name: locale === "sv" ? "Näst på tur" : "Next up" });
+      await expect(dock).toBeVisible();
+      const mainHeight = await page.locator("main").evaluate((el) => el.clientHeight);
+      const dockHeight = (await dock.boundingBox())!.height;
+      const collapsed = (await dock.getAttribute("data-collapsed")) !== null;
+      if (collapsed) {
+        await expect(dock.getByRole("progressbar")).toBeVisible();
+        await expect(dock.getByRole("button")).toHaveCount(0);
+      } else {
+        expect(dockHeight * 3, "an expanded dock leaves two thirds of main").toBeLessThanOrEqual(mainHeight + 1);
+      }
+      // A list row can be scrolled clear above the dock.
+      const row = page.getByRole("checkbox", { name: /^(Oat milk|Apples)/ }).first();
+      await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const dockTop = (await dock.boundingBox())!.y;
+      await expect
+        .poll(async () => {
+          const b = await row.boundingBox();
+          return !!b && b.y >= 0 && b.y + b.height <= dockTop;
+        }, "a list row stays visible above the dock")
+        .toBe(true);
+      await expectNoHorizontalOverflow(page);
     });
   });
 
