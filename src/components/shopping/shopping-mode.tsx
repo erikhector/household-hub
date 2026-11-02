@@ -149,10 +149,10 @@ export function NextUpDock<T extends DockItem>({
   // of the list: the last rows can still scroll up clear of it.
   const dockRef = useRef<HTMLElement>(null);
   const [dockHeight, setDockHeight] = useState(0);
-  // UX-160: at large text the dock can take most of a phone's screen, and
-  // being fixed it then covers the list it is meant to help with. When `main`
-  // (the scroller) is shorter than three times the dock, the dock collapses to its
-  // ring and count; the rows it hides are all in the list (M7). The check is
+  // UX-160: at large text (above 150 %) the dock can take most of a phone's
+  // screen, and being fixed it then covers the list it is meant to help with.
+  // When `main` (the scroller) is shorter than three times the dock, the dock
+  // collapses to its ring and count; the rows it hides are all in the list (M7). The check is
   // against the dock's *expanded* height, remembered from the last time it
   // was expanded, so collapsing doesn't shrink the dock below the threshold
   // and flip it straight back (a flicker loop).
@@ -172,7 +172,10 @@ export function NextUpDock<T extends DockItem>({
       main?.style.setProperty("--shopping-dock", `calc(${dock.offsetHeight}px + 0.5rem)`);
       // Only the fixed (phone) dock covers anything; from sm it is sticky
       // in the column and never collapses.
-      if (!main || getComputedStyle(dock).position !== "fixed") {
+      // Large text only (TextScaleFlag's attribute): at normal sizes the
+      // dock is designed to be the three-row thumb zone, even on a small
+      // phone, and the e2e specs tick through it.
+      if (!main || getComputedStyle(dock).position !== "fixed" || !document.documentElement.hasAttribute("data-large-text")) {
         setCollapsed(false);
         return;
       }
