@@ -15,8 +15,8 @@
 // Anthropic credits it would rather spend first sets
 // AI_PRIMARY_PROVIDER=anthropic, which flips the order; once those credits
 // run out, Anthropic's "credit balance too low" rejection falls through to
-// Gemini (see isAnthropicCreditExhausted). Gemini uses the REST generateContent endpoint
-// directly (no @google/genai dependency, same fetch-a-JSON-API convention
+// Gemini (see isAnthropicCreditExhausted). Gemini uses the REST
+// generateContent endpoint directly (no @google/genai dependency, same fetch-a-JSON-API convention
 // as lookupBarcodeAction/fetchExchangeRate) with a responseSchema-
 // constrained JSON answer; Anthropic gets the same guarantee through forced
 // tool use.
@@ -103,8 +103,8 @@ export type Attempt =
  * resolves to the same model id as the primary, e.g. both env vars pointing
  * at the same pin — then Anthropic, each only included when its provider's
  * key is set. With AI_PRIMARY_PROVIDER=anthropic, Anthropic moves to the
- * front and both Gemini models follow it. With both keys set, Anthropic is a genuine mid-call fallback
- * for a busy Gemini, not just a fallback for GEMINI_API_KEY being entirely
+ * front and both Gemini models follow it. By default, with both keys set,
+ * Anthropic is a genuine mid-call fallback for a busy Gemini, not just a fallback for GEMINI_API_KEY being entirely
  * unset — a real (if small) cost documented in .env.example next to
  * ANTHROPIC_API_KEY. */
 export function resolveAttempts(options: { anthropicModel: string; geminiFallbackModel: boolean }): Attempt[] {
