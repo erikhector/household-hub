@@ -227,12 +227,19 @@ for (const locale of LOCALES) {
         return {
           rowScroll: row.scrollWidth,
           rowClient: row.clientWidth,
-          cut: el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
-          right: Math.max(el.querySelector("span")!.getBoundingClientRect().right, el.getBoundingClientRect().right),
+          // The name's last line must sit inside the clamped box; the
+          // category after it may be clamped away.
+          cut: (() => {
+            const rects = [...el.querySelector("span")!.getClientRects()];
+            return rects[rects.length - 1].bottom > el.getBoundingClientRect().bottom + 1;
+          })(),
+          lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+          right: Math.max(...[...el.querySelector("span")!.getClientRects()].map((r) => r.right)),
           viewport: window.innerWidth,
         };
       });
       expect(m.rowScroll, "row scrolls sideways").toBe(m.rowClient);
+      expect(m.lines, "name wraps rather than truncating").toBeGreaterThan(1);
       expect(m.cut, "name is cut off").toBe(false);
       expect(m.right, "name runs past the screen").toBeLessThanOrEqual(m.viewport);
     });

@@ -9138,9 +9138,12 @@ approximating them, so the email never disagrees with the app.
   two long names show `nav.shoppingListShort` / `nav.mealPlanningShort`
   ("Shopping", "Meals"; "Inköp", "Mat") in the bar, with the full name as
   the link's `aria-label`, so nothing is clipped at 320 px (UX-151).
-  The inventory phone card's name wraps to two lines (`line-clamp-2
+  The inventory phone card's name line wraps to two lines (`line-clamp-2
   break-words`) instead of truncating to one (UX-180), because `title` never
-  shows on a touch screen; the desktop table keeps `truncate` + `title`.
+  shows on a touch screen. It switches on with a container query on the row
+  (`@max-[14rem]`, a rem threshold so it trips only at large text); at normal
+  size the line stays one truncated line, which keeps the eight-rows-per-screen
+  rule. The desktop table keeps `truncate` + `title`.
   Guarded in `e2e/text-size.mobile.spec.ts` (20-character name, en and sv).
   The "Get set up" step cards (UX-152) are size containers that stack (icon
   tile above the text, chevron hidden) below 15 rem wide; the threshold is in
