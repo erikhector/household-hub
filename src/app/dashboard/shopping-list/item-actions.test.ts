@@ -5,7 +5,7 @@
 // next/navigation, i18n, exchange-rate) is mocked — no database or network
 // call is made. See REQUIREMENTS.md's "Testing" section and the identical
 // convention in src/lib/actions/household.test.ts.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireHouseholdMock,
@@ -36,6 +36,7 @@ const {
   notificationFindFirstMock,
   notificationCreateMock,
   inventoryItemFindUniqueMock,
+  inventoryItemDeleteManyMock,
   resolveShoppingExpenseCategoryMock,
   fetchExchangeRateMock,
   redirectMock,
@@ -87,6 +88,7 @@ const {
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
+  inventoryItemDeleteManyMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
     const tx = {
       shoppingListItem: {
@@ -116,6 +118,7 @@ const {
         findUnique: inventoryItemFindUniqueMock,
         findFirst: inventoryItemFindFirstMock,
         create: inventoryItemCreateMock,
+        deleteMany: inventoryItemDeleteManyMock,
       },
       priceHistory: { create: priceHistoryCreateMock },
       itemAlias: { upsert: itemAliasUpsertMock },
@@ -434,6 +437,7 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
         unit: "kg",
         quantity: 0,
         lowStockThreshold: 0,
+        createdFromList: true,
       },
     });
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
@@ -980,7 +984,7 @@ describe("deleteShoppingListItemAction", () => {
     expect(shoppingListItemDeleteMock).not.toHaveBeenCalled();
   });
 
-  it("deletes an already-purchased item directly, without checking for a LIST_CLEARED transition", async () => {
+  it("deletes an already-purchased item without checking for a LIST_CLEARED transition", async () => {
     shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1", purchased: true });
 
     const result = await deleteShoppingListItemAction("item-1");
@@ -1014,5 +1018,80 @@ describe("deleteShoppingListItemAction", () => {
     await deleteShoppingListItemAction("item-1");
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  describe("UX-89: the pantry item the row created", () => {
+    const orphanCounts = {
+      recipeIngredients: 0,
+      shoppingListItems: 0,
+      listTemplateItems: 0,
+      priceHistory: 0,
+      aliases: 0,
+      unitConversions: 0,
+    };
+
+    beforeEach(() => {
+      shoppingListItemFindFirstMock.mockResolvedValue({
+        id: "item-1",
+        shoppingListId: "list-1",
+        purchased: false,
+        inventoryItemId: "inv-1",
+      });
+      shoppingListItemCountMock.mockResolvedValueOnce(1);
+    });
+
+    it("removes a never-stocked item the row created when nothing else references it", async () => {
+      inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", _count: orphanCounts });
+
+      await deleteShoppingListItemAction("item-1");
+
+      // The lookup itself encodes the rule: created from a list, never
+      // stocked, no stock now, and scoped to the caller's household.
+      expect(inventoryItemFindFirstMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: "inv-1",
+            householdId: "household-1",
+            createdFromList: true,
+            everStocked: false,
+            quantity: { lte: 0 },
+          },
+        }),
+      );
+      expect(inventoryItemDeleteManyMock).toHaveBeenCalledWith({ where: { id: "inv-1", householdId: "household-1" } });
+    });
+
+    it("keeps the item when a recipe, another list row, a price or an alias still uses it", async () => {
+      for (const key of Object.keys(orphanCounts)) {
+        inventoryItemDeleteManyMock.mockClear();
+        shoppingListItemCountMock.mockResolvedValueOnce(1);
+        inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", _count: { ...orphanCounts, [key]: 1 } });
+
+        await deleteShoppingListItemAction("item-1");
+
+        expect(inventoryItemDeleteManyMock, key).not.toHaveBeenCalled();
+      }
+    });
+
+    it("keeps an item that was stocked or not made by a list row (the lookup finds nothing)", async () => {
+      inventoryItemFindFirstMock.mockResolvedValue(null);
+
+      await deleteShoppingListItemAction("item-1");
+
+      expect(inventoryItemDeleteManyMock).not.toHaveBeenCalled();
+    });
+
+    it("does not look for an item when the row was never linked", async () => {
+      shoppingListItemFindFirstMock.mockResolvedValue({
+        id: "item-1",
+        shoppingListId: "list-1",
+        purchased: false,
+        inventoryItemId: null,
+      });
+
+      await deleteShoppingListItemAction("item-1");
+
+      expect(inventoryItemFindFirstMock).not.toHaveBeenCalled();
+    });
   });
 });

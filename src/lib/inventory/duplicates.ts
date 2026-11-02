@@ -12,6 +12,8 @@ export type DuplicateItem = {
   name: string;
   unit: string;
   quantity: number;
+  /** Ever held stock (InventoryItem.everStocked, UX-125). */
+  everStocked: boolean;
   createdAt: Date;
   barcode: string | null;
   recipeCount: number;
@@ -56,10 +58,14 @@ export const FUZZY_MIN_SCORE = 0.8;
 export const FUZZY_MAX_ITEMS = 3000;
 const FUZZY_MAX_NAME_LENGTH = 60;
 
-/** Quantity 0, never bought on a list and no recorded price: mostly
- * phantom items created from recipes (design §6.2). */
-export function isNeverStocked(item: Pick<DuplicateItem, "quantity" | "priceCount" | "purchasedListCount">): boolean {
-  return item.quantity <= 0 && item.priceCount === 0 && item.purchasedListCount === 0;
+/** Quantity 0 and never in stock, never bought on a list and no recorded
+ * price: mostly phantom items created from recipes (design §6.2). `everStocked`
+ * is what keeps an item that was saved with stock and then used up out of
+ * here (UX-125). */
+export function isNeverStocked(
+  item: Pick<DuplicateItem, "quantity" | "everStocked" | "priceCount" | "purchasedListCount">,
+): boolean {
+  return item.quantity <= 0 && !item.everStocked && item.priceCount === 0 && item.purchasedListCount === 0;
 }
 
 const historyCount = (item: DuplicateItem) => item.recipeCount + item.listCount + item.templateCount + item.priceCount;

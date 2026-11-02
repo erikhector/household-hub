@@ -168,7 +168,7 @@ export async function scanStockChangeAction(barcode: string, delta: number): Pro
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
-      data: { quantity: nextQuantity, updatedByUserId: userId },
+      data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
@@ -257,7 +257,12 @@ export async function linkBarcodeAction(
       await releaseBarcode(tx, household.id, code, item.id);
       await tx.inventoryItem.update({
         where: { id: item.id },
-        data: { barcode: code, quantity: nextQuantity, updatedByUserId: userId },
+        data: {
+          barcode: code,
+          quantity: nextQuantity,
+          ...(nextQuantity > 0 ? { everStocked: true } : {}),
+          updatedByUserId: userId,
+        },
       });
       await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity, userId);
       autoAdded = await addToDefaultListOnLowStock(tx, household.id, item.id, item.quantity, nextQuantity);
@@ -316,6 +321,7 @@ export async function createItemFromBarcodeAction(input: {
           name: parsed.data.name,
           category,
           quantity,
+          everStocked: quantity > 0,
           unit: "pcs",
           lowStockThreshold: 1,
           barcode: code,

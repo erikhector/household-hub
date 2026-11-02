@@ -19,6 +19,7 @@ export async function loadCatalog(householdId: string) {
         lowStockThreshold: true,
         unit: true,
         quantity: true,
+        everStocked: true,
         createdAt: true,
         barcode: true,
         _count: {
@@ -69,7 +70,15 @@ export async function loadCatalog(householdId: string) {
  */
 export async function countDuplicateGroups(
   householdId: string,
-  items: readonly { id: string; name: string; unit: string; quantity: number; createdAt: Date; barcode: string | null }[],
+  items: readonly {
+    id: string;
+    name: string;
+    unit: string;
+    quantity: number;
+    everStocked: boolean;
+    createdAt: Date;
+    barcode: string | null;
+  }[],
 ): Promise<number> {
   const [aliases, dismissals] = await Promise.all([duplicateAliases(householdId), duplicateDismissals(householdId)]);
   const counted = items.map((item) => ({

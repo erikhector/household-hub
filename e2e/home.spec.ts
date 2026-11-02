@@ -125,6 +125,8 @@ test("Shopping & pantry: the list row, the out/low warning with Add N, and Use s
               ($4, $2, 'Milk', 'Dairy', 2, 'l', 1, now() + interval '1 day', now())`,
       [`e2e-hp-flour-${tag}`, ids.household, `e2e-hp-salt-${tag}`, `e2e-hp-milk-${tag}`],
     );
+    // UX-89: the salt was used up, not never stocked, so it counts as out.
+    await client.query(`UPDATE "InventoryItem" SET "everStocked" = true WHERE id = $1`, [`e2e-hp-salt-${tag}`]);
     await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, 'Weekly')`, [
       listId,
       ids.household,

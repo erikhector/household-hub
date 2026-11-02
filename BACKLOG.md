@@ -299,8 +299,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-47,
-UX-89.
+build them first: UX-47.
 
 #### Logged out, signup and invites
 
@@ -332,53 +331,9 @@ UX-89.
 
 #### Shopping
 
-- [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
-      items** (impact: high, effort: M) — breaks User-centricity
-      ("automation suggests, the user decides"). One migration (shared
-      with UX-125; build them together).
-      Decided 2026-11-02 by owner: add `everStocked` with backfill, then
-      `createdFromList`; never-stocked items stay hidden from the "out"
-      count (list rows stay linked). See #735.
-      Context: nothing records that an item was ever stocked or that a
-      list row created it (only the current `quantity`), so "never
-      stocked", "out" and "delete the item the row created" can't be told
-      apart from a real used-up item without a new marker. Proposed: the
-      `InventoryItem.everStocked` flag from UX-125 (build them together,
-      one migration), plus an `InventoryItem.createdFromList` boolean set
-      by the five list-side create paths; the overview, inventory
-      "out" filter and OUT_OF_STOCK notifications skip items that are not
-      `everStocked`, and `deleteShoppingListItemAction` removes a
-      `createdFromList`, never-stocked item nothing else references.
-      Original report: Free-text list items
-      silently create inventory items at 0 stock (`addAdHocItemAction`,
-      `smartAddShoppingListItemsAction`). A household that only ever made
-      lists sees "14 out of stock" on the overview: napkins, charcoal,
-      crayfish, even the junk row from UX-88. Deleting the list row
-      leaves the 0-stock item behind.
-      Acceptance: a new household that only adds items to lists shows 0
-      out of stock. Items that were never stocked, or are already on a
-      list, don't count as out. Deleting a list row whose never-stocked
-      inventory item it created removes that item too.
-
 #### Meals and recipes
 
 #### Inventory
-
-- [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
-      med, effort: S) — bug. One migration.
-      Decided 2026-11-02 by owner: add `everStocked`, backfilling `true`
-      where price history, bought rows or a non-default `lastKnownPrice`
-      exist; already-empty items without those stay mislabelled until
-      restocked. See #735.
-      Context: nothing that an item was ever stocked (no stock log; only the
-      current `quantity`), so the fix is a new `InventoryItem.everStocked`
-      flag, set wherever quantity goes above 0 (item form, +/- steppers,
-      bought tick, receipt scan, bulk create, merge). Original report: The rule looks only at price history and
-      bought list rows (`src/lib/inventory/duplicates.ts:60-62`), so items
-      created with stock and then used up (Mellanmjölk, Laxfilé) are tagged
-      "never stocked".
-      Acceptance: an item ever saved with quantity > 0 is never listed
-      under "Never stocked", with a unit test.
 
 ### UX (2026-10-23 scout)
 

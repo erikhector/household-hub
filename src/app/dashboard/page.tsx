@@ -120,6 +120,7 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         category: true,
         unit: true,
         quantity: true,
+        everStocked: true,
         lowStockThreshold: true,
         expiresAt: true,
       },

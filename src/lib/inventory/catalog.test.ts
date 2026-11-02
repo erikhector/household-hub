@@ -8,6 +8,7 @@ function source(id: string, overrides: Partial<CatalogSourceItem> = {}): Catalog
     category: "Pantry",
     unit: "pcs",
     quantity: 0,
+    everStocked: false,
     lowStockThreshold: 1,
     createdAt: new Date(2026, 0, 1),
     barcode: null,
@@ -35,6 +36,8 @@ describe("buildCatalog", () => {
       source("egg", { name: "Egg", quantity: 12, recipeCount: 5 }),
       source("eggs", { name: "eggs", recipeCount: 2 }),
       source("bought", { name: "Salt" }),
+      // UX-125: saved with stock once and used up since, no price or bought row.
+      source("usedUp", { name: "Mellanmjölk", everStocked: true }),
       source("priced", { name: "Pepper", priceCount: 1 }),
       source("aagg", { name: "Ägg", priceCount: 1 }),
     ],
@@ -51,7 +54,7 @@ describe("buildCatalog", () => {
   it("builds a row per item, in the order given, with its tags", () => {
     // The database sorts (as the inventory page does); re-sorting here put
     // "Ägg" first where the inventory has it last (UX-131).
-    expect(catalog.rows.map((row) => row.name)).toEqual(["Wheat flour", "Egg", "eggs", "Salt", "Pepper", "Ägg"]);
+    expect(catalog.rows.map((row) => row.name)).toEqual(["Wheat flour", "Egg", "eggs", "Salt", "Mellanmjölk", "Pepper", "Ägg"]);
     const flour = catalog.rows.find((row) => row.id === "flour")!;
     expect(flour.unitProblems).toEqual(["dl"]);
     expect(catalog.rows.find((row) => row.id === "bought")!.purchasedListCount).toBe(1);
@@ -61,10 +64,10 @@ describe("buildCatalog", () => {
     expect(catalog.groups.map((group) => group.members.map((member) => member.id))).toEqual([["egg", "eggs"]]);
   });
 
-  it("filters never stocked and unit problems", () => {
+  it("filters never stocked (a used-up item is not one) and unit problems", () => {
     expect(filterCatalogRows(catalog.rows, "neverStocked").map((row) => row.id)).toEqual(["eggs"]);
     expect(filterCatalogRows(catalog.rows, "unitProblems").map((row) => row.id)).toEqual(["flour"]);
-    expect(filterCatalogRows(catalog.rows, "all")).toHaveLength(6);
+    expect(filterCatalogRows(catalog.rows, "all")).toHaveLength(7);
   });
 });
 

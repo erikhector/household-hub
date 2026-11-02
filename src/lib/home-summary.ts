@@ -4,7 +4,7 @@
 // never a bare 0; which list "Add N" fills; when setup shrinks) are tested
 // without a database.
 
-import { getStockStatus } from "@/lib/stock-status";
+import { getStockStatus, isNeverStockedAtZero } from "@/lib/stock-status";
 import { lowStockToAdd } from "@/lib/shopping/low-stock-to-add";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { localDayNumber } from "@/app/dashboard/tasks/recurrence";
@@ -22,7 +22,7 @@ export type PantrySummary = {
 };
 
 export function summarizePantry(
-  items: readonly { id: string; quantity: number; lowStockThreshold: number }[],
+  items: readonly { id: string; quantity: number; everStocked: boolean; lowStockThreshold: number }[],
   {
     onAnyListIds,
     targetPendingIds,
@@ -42,6 +42,9 @@ export function summarizePantry(
   for (const item of items) {
     const status = getStockStatus(item.quantity, item.lowStockThreshold);
     if (status === "in") continue;
+    // UX-89: never stocked is not out; it stays out of the count but its
+    // list row is untouched.
+    if (isNeverStockedAtZero(item)) continue;
     if (status === "out") outCount++;
     else lowCount++;
     if (onAnyListIds.has(item.id)) onListCount++;
