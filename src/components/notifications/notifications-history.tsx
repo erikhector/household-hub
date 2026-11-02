@@ -24,21 +24,13 @@ import {
   notificationIcon,
   GOOD_NEWS_KINDS,
 } from "@/components/notifications/notification-bell";
-import {
-  dismissNotificationAction,
-  dismissAllNotificationsAction,
-} from "@/lib/actions/notifications";
+import { dismissNotificationAction, dismissAllNotificationsAction } from "@/lib/actions/notifications";
 import type { NotificationHistoryItem } from "@/lib/notifications";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 function formatTimestamp(date: Date, locale: Locale): string {
-  return date.toLocaleString(locale, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return date.toLocaleString(locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 export function NotificationsHistory({
@@ -57,22 +49,22 @@ export function NotificationsHistory({
     <div className="flex flex-col gap-4">
       {/* UX-171: nothing to mark when there are no notifications. */}
       {items.length > 0 && (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={unreadCount === 0 || isPending}
-            onClick={() =>
-              startTransition(async () => {
-                const result = await dismissAllNotificationsAction();
-                if (result.error) toast.error(result.error);
-              })
-            }
-          >
-            {dict.history.markAllRead}
-          </Button>
-        </div>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={unreadCount === 0 || isPending}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await dismissAllNotificationsAction();
+              if (result.error) toast.error(result.error);
+            })
+          }
+        >
+          {dict.history.markAllRead}
+        </Button>
+      </div>
       )}
 
       {items.length === 0 ? (
@@ -97,15 +89,8 @@ export function NotificationsHistory({
                     isUnread && "bg-primary/5",
                   )}
                 >
-                  <Icon
-                    className={cn(
-                      "size-4 shrink-0",
-                      isGoodNews && "text-success",
-                    )}
-                  />
-                  <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1 text-sm">
-                    {notificationLabel(item, dict)}
-                  </span>
+                  <Icon className={cn("size-4 shrink-0", isGoodNews && "text-success")} />
+                  <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1 text-sm">{notificationLabel(item, dict)}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatTimestamp(item.createdAt, locale)}
                   </span>
@@ -113,10 +98,7 @@ export function NotificationsHistory({
                     <>
                       {/* A role-less span's aria-label is ignored by screen readers, so the
                           dot is decorative and the word itself is read as link text. */}
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 rounded-full bg-primary"
-                      />
+                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" />
                       <span className="sr-only">{dict.history.unread}</span>
                     </>
                   )}
