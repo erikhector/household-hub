@@ -2174,7 +2174,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     [
       [X.sweetPotato, 600, "g", w("in chunks", "i bitar")],
       [X.coconutMilk, 4, "dl"],
-      [X.redCurryPaste, 2, "msk"],
+      [X.redCurryPaste, 2, "msk", w("check it is shrimp-free", "kontrollera att den är fri från räkpasta")],
       [W.onion, 1, "pcs", w("chopped", "hackad")],
       [X.spinach, 100, "g"],
       [W.oil, 1, "msk"],
@@ -2231,7 +2231,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     ["vegan", "glutenFree", "dairyFree", "quick"],
     [
       [X.tofu, 400, "g", w("cubed", "i bitar")],
-      [X.redCurryPaste, 2, "msk"],
+      [X.redCurryPaste, 2, "msk", w("check it is shrimp-free", "kontrollera att den är fri från räkpasta")],
       [X.coconutMilk, 4, "dl"],
       [W.carrot, 2, "pcs", w("in thin sticks", "i tunna stavar")],
       [W.pBell, 1, "pcs", w("in strips", "i strimlor")],
@@ -2345,7 +2345,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     3,
     ["vegan", "dairyFree", "quick"],
     [
-      [w("noodles", "nudlar"), 250, "g"],
+      [w("noodles", "nudlar"), 250, "g", w("egg-free", "äggfria")],
       [X.peanutButter, 4, "msk"],
       [X.soy, 3, "msk"],
       [X.lime, 1, "pcs", w("juice only", "bara saften")],
