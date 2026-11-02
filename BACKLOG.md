@@ -942,23 +942,32 @@ out to be a product-scope question rather than a scoped task should move to
       correction. Squirrel's amounts only drift: items change through
       +/-, trips, receipts and cooking, and nothing prompts anyone to
       reconcile the list with the shelf, so "0.5 left" quietly stays
-      wrong until the item runs out unexpectedly. No stock-take flow
-      exists (nothing in REQUIREMENTS.md covers a recount). Add a
-      "Check stock" entry in the inventory toolbar that opens a
-      full-screen walk-through for one chosen location (or "All"),
-      one item per step, sorted by name: big "Right" (next) and amount
-      field with the unit's `inputMode`, plus "Skip". Saving a changed
-      amount reuses the existing quantity action (household-scoped via
-      `requireHousehold()`, no new schema), and a summary at the end says
+      wrong until the item runs out unexpectedly. The only recount today
+      is the AI shelf scan's restock mode, which needs a camera, an AI
+      key and a photo the model reads correctly, and sets counted
+      amounts through `bulkSetInventoryQuantitiesAction` ("Take stock",
+      see REQUIREMENTS.md "AI shelf scan (beta)" and PERF-15). Add its
+      manual counterpart: a "Check stock" entry in the inventory toolbar
+      that opens a full-screen walk-through for one chosen location (or
+      "All"), one item per step, sorted by name: the amount field with
+      the unit's `inputMode`, a big "Correct, next" button that keeps or
+      takes the typed amount and moves on, plus "Skip". No camera or AI,
+      and every item in the location is shown, not just what a photo
+      caught. Changed amounts are saved as counted values (not deltas)
+      through `bulkSetInventoryQuantitiesAction`, so household scoping,
+      the batched out-of-stock and low-stock side effects and the PERF-15
+      query budget come for free (not `adjustQuantityAction`, which takes
+      a delta); no new action or schema. A summary at the end says
       "12 checked, 3 corrected". Scope: no schema, no history, no
       scheduled reminder, no barcode step; close with Escape or the back
       gesture and keep what was already saved.
-      Acceptance: unit tests that a changed amount writes through the
-      quantity action and an unchanged one writes nothing, scoped to the
-      session household; an `e2e/` step on `mobile` (and the 320 px
-      layout) starts a check on a seeded location, corrects one uniquely
-      named item, taps Right on another, sees "1 corrected" and the new
-      amount after a reload, in `en` and `sv`.
+      Acceptance: unit tests that a changed amount is sent to
+      `bulkSetInventoryQuantitiesAction` and an unchanged one is not,
+      scoped to the session household; an `e2e/` step on `mobile` (and
+      the 320 px layout) starts a check on a seeded location, corrects
+      one uniquely named item, taps "Correct, next" on another without
+      changing it, sees "1 corrected" and the new amount after a reload,
+      in `en` and `sv`.
 
 ## Needs a decision before building
 
