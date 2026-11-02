@@ -563,7 +563,7 @@ export function InventoryTable({
                       {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
                       <div className="@container flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         {/* UX-180: a touch screen never shows `title`, so at large text a one-line name was cut to "Olive oil…" with no way to read the rest. Below 14rem of row width (a rem threshold, so it trips at ~150%+ text, not at normal size) the line takes the full row width (the badges drop under it, as flex-wrap already does) and wraps to two with break-words; at normal size it stays one truncated line, which keeps eight rows on a screen. */}
-                        <p className="min-w-[40%] flex-1 truncate @max-[14rem]:min-w-full @max-[14rem]:line-clamp-2@max-[14rem]:break-words @max-[14rem]:whitespace-normal" title={item.name}>
+                        <p className="min-w-[40%] flex-1 truncate @max-[14rem]:min-w-full @max-[14rem]:line-clamp-2 @max-[14rem]:break-words @max-[14rem]:whitespace-normal" title={item.name}>
                           <span className="font-medium">{item.name}</span>
                           <span className="text-xs text-muted-foreground">
                             {" · "}
