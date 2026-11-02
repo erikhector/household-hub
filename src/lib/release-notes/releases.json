@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.135.0",
+    "date": "2026-11-02",
+    "pr": 1071,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The installed iPhone app no longer shows a faint blur across the top of the screen.\n\nOpening the installed Squirrel app now plays a short launch animation: the squirrel hops in, then the app opens up from the middle. It gets out of the way as soon as the app is ready, and stays still if you've turned on reduced motion.",
+      "sv": "Den installerade iPhone-appen visar inte längre en svag oskärpa högst upp på skärmen.\n\nNär du öppnar den installerade Squirrel-appen spelas nu en kort startanimation: ekorren hoppar in och sedan öppnas appen från mitten. Den försvinner så fort appen är redo och står still om du har slagit på reducerad rörelse."
+    }
+  },
+  {
     "version": "0.134.0",
     "date": "2026-11-02",
     "pr": 1061,
