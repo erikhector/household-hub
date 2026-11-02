@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.136.0",
+    "date": "2026-11-02",
+    "pr": 1072,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Find something to cook with Discover on the Recipes tab. Browse a built-in\ncollection of 120 recipes, ranked by what you already have at home and what\nis about to expire, then save one or add it straight to your meal plan.\n\nIf an AI service is set up for your Squirrel, Discover now has an \"Ask for ideas\" button that suggests recipes based on what you have at home and the diets you pick. Only item names (with which ones expire soon), recipe names and your diet choices are sent, and nothing is saved until you choose to save an idea.",
+      "sv": "Hitta något att laga med Upptäck på fliken Recept. Bläddra bland 120\ninbyggda recept, sorterade efter vad du redan har hemma och vad som snart\ngår ut, och spara ett recept eller lägg det direkt i planen.\n\nOm en AI-tjänst är kopplad till din Squirrel har Upptäck nu en knapp, \"Be om idéer\", som föreslår recept utifrån vad du har hemma och de kostval du gör. Bara namn på varor (och vilka som snart går ut), namn på recept och dina kostval skickas, och inget sparas förrän du själv väljer att spara en idé."
+    }
+  },
+  {
+    "version": "0.135.0",
+    "date": "2026-11-02",
+    "pr": 1071,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The installed iPhone app no longer shows a faint blur across the top of the screen.\n\nOpening the installed Squirrel app now plays a short launch animation: the squirrel hops in, then the app opens up from the middle. It gets out of the way as soon as the app is ready, and stays still if you've turned on reduced motion.",
+      "sv": "Den installerade iPhone-appen visar inte längre en svag oskärpa högst upp på skärmen.\n\nNär du öppnar den installerade Squirrel-appen spelas nu en kort startanimation: ekorren hoppar in och sedan öppnas appen från mitten. Den försvinner så fort appen är redo och står still om du har slagit på reducerad rörelse."
+    }
+  },
+  {
     "version": "0.134.0",
     "date": "2026-11-02",
     "pr": 1061,
