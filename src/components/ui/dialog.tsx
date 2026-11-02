@@ -59,16 +59,30 @@ const HALF = 0.5
 const FULL = 1
 const SNAP_POINTS: DrawerPrimitive.Root.SnapPoint[] = [HALF, FULL]
 
+// An upward swipe at least this long (px) that scrolled nothing takes a
+// phone sheet full screen. Short enough for a flick, long enough that a tap
+// with a wobble doesn't.
+const EXPAND_SWIPE = 48
+
 type SheetState = {
+  /** Phone: the sheet can go full screen, and the grabber is a button. */
+  phone: boolean
   /** The sheet has half/full snap points (a long form, on a phone). */
   snaps: boolean
-  expanded: boolean
+  /** Covering the whole screen (swiped up, or the grabber tapped). */
+  fullScreen: boolean
+  setFullScreen: (fullScreen: boolean) => void
+  /** Resting at the long form's half snap point. */
+  half: boolean
   toggleExpanded: () => void
 }
 
 const SheetContext = React.createContext<SheetState>({
+  phone: false,
   snaps: false,
-  expanded: true,
+  fullScreen: false,
+  setFullScreen: () => {},
+  half: false,
   toggleExpanded: () => {},
 })
 
@@ -141,13 +155,30 @@ function Dialog({
   // grabber button can toggle it. Every open starts full: Base UI resets it
   // to defaultSnapPoint on close.
   const [snapPoint, setSnapPoint] = React.useState<DrawerPrimitive.Root.SnapPoint | null>(FULL)
+  // Full screen: every phone sheet, not just long forms, can be swiped up
+  // to cover the screen, like an iOS sheet's large detent (DialogContent
+  // watches for the swipe). A swipe down from there shrinks it back rather
+  // than closing it (the swipe-dismiss is cancelled below), so the sheet
+  // steps down one size at a time. Off from `sm`, where it's a modal.
+  const [fullScreenState, setFullScreen] = React.useState(false)
+  const fullScreen = phone && fullScreenState
+  const half = snaps && snapPoint === HALF
   const sheet = React.useMemo<SheetState>(
     () => ({
+      phone,
       snaps,
-      expanded: snapPoint === FULL,
-      toggleExpanded: () => setSnapPoint((point) => (point === FULL ? HALF : FULL)),
+      fullScreen,
+      setFullScreen,
+      half,
+      // The grabber steps up a size (half → normal → full screen), and from
+      // full screen back to normal, so a tap always has somewhere to go.
+      toggleExpanded: () => {
+        if (fullScreen) setFullScreen(false)
+        else if (half) setSnapPoint(FULL)
+        else setFullScreen(true)
+      },
     }),
-    [snaps, snapPoint]
+    [phone, snaps, fullScreen, half]
   )
 
   return (
@@ -160,12 +191,31 @@ function Dialog({
         snapPoints={snaps ? SNAP_POINTS : undefined}
         defaultSnapPoint={FULL}
         snapPoint={snapPoint}
-        onSnapPointChange={(point) => setSnapPoint(point)}
+        onSnapPointChange={(point) => {
+          // From full screen a drag down settles one size smaller (the
+          // normal sheet), not straight at half.
+          if (fullScreen && point === HALF) {
+            setFullScreen(false)
+            setSnapPoint(FULL)
+            return
+          }
+          setSnapPoint(point)
+        }}
         onOpenChange={(next, eventDetails) => {
+          // Swiped down while full screen: shrink to the normal sheet instead
+          // of closing. The X, Escape, back and an outside tap still close.
+          if (!next && fullScreen && eventDetails.reason === "swipe") {
+            eventDetails.cancel()
+            setFullScreen(false)
+            return
+          }
           onOpenChange?.(next, eventDetails)
           if (eventDetails.isCanceled) return
           setUncontrolledOpen(next)
-          if (!next) setSnapPoint(FULL)
+          if (!next) {
+            setSnapPoint(FULL)
+            setFullScreen(false)
+          }
         }}
         {...props}
       />
@@ -215,16 +265,20 @@ function DialogOverlay({
 // is covered; the title sits left and the X right, so nothing tappable is
 // under it.
 function SheetGrabber() {
-  const { snaps, expanded, toggleExpanded } = React.useContext(SheetContext)
+  const { phone, fullScreen, half, toggleExpanded } = React.useContext(SheetContext)
   const copy = commonCopy[getDocumentLocale()]
   const pill = <span aria-hidden className="block h-1 w-10 rounded-full bg-muted-foreground/30" />
+  // Every phone sheet can go full screen now, so the grabber is always the
+  // button for it (M7: the swipe up has a tap equivalent). From `sm` the
+  // row is hidden, and with it the button.
+  const expanded = fullScreen
   return (
-    <div data-slot="dialog-grabber" className={cn("flex h-4 shrink-0 touch-none items-end justify-center sm:hidden", snaps && "relative z-10")}>
-      {snaps ? (
+    <div data-slot="dialog-grabber" className="relative z-10 flex h-4 shrink-0 touch-none items-end justify-center sm:hidden">
+      {phone ? (
         <button
           type="button"
           aria-label={expanded ? copy.collapseSheet : copy.expandSheet}
-          aria-expanded={expanded}
+          aria-expanded={expanded && !half}
           onClick={toggleExpanded}
           className="relative flex h-4 w-16 items-end justify-center outline-none after:absolute after:-inset-x-2 after:top-0 after:-bottom-7 focus-visible:ring-3 focus-visible:ring-ring/50 rounded-full"
         >
@@ -256,6 +310,43 @@ function DialogContent({
   const phone = useMediaQuery(PHONE_QUERY)
   const coarsePointer = useMediaQuery(COARSE_POINTER_QUERY)
   const popupRef = React.useRef<HTMLDivElement>(null)
+  const bodyRef = React.useRef<HTMLDivElement>(null)
+  const { fullScreen, setFullScreen, half } = React.useContext(SheetContext)
+
+  // The swipe up to full screen. Base UI only drags a sheet down (to snap or
+  // dismiss) and rubber-bands an upward pull, so the upward swipe is read
+  // here, from the same touch events, once the finger lifts. It counts only
+  // when it scrolled nothing: a sheet whose body scrolls keeps scrolling
+  // under a swipe up (and goes full screen once it's at the end, or from the
+  // grabber, which never scrolls), so reading a long list never jumps the
+  // sheet. A long form at its half point is left to Base UI, which steps it
+  // back up to full on the same swipe.
+  //
+  // The way back is read the same way. Base UI only dismisses a drag past
+  // half the sheet's height (or a fast flick, which Dialog turns into the
+  // step back), so on a full-screen sheet a slower drag down would just
+  // spring back; one that scrolled nothing and travelled the same distance
+  // steps it down to the normal sheet instead.
+  const swipeStart = React.useRef<{ y: number; scrollTop: number } | null>(null)
+  const onTouchStart = (event: React.TouchEvent) => {
+    if (!phone || half || event.touches.length !== 1) {
+      swipeStart.current = null
+      return
+    }
+    swipeStart.current = { y: event.touches[0].clientY, scrollTop: bodyRef.current?.scrollTop ?? 0 }
+  }
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = swipeStart.current
+    swipeStart.current = null
+    if (!start) return
+    const travelled = start.y - event.changedTouches[0].clientY
+    const scrolled = Math.abs((bodyRef.current?.scrollTop ?? 0) - start.scrollTop) > 1
+    if (scrolled) return
+    if (!fullScreen && travelled >= EXPAND_SWIPE) setFullScreen(true)
+    // Only from the body's top: further down, a drag down is a scroll up.
+    else if (fullScreen && -travelled >= EXPAND_SWIPE && start.scrollTop <= 0) setFullScreen(false)
+  }
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -266,6 +357,12 @@ function DialogContent({
         <DrawerPrimitive.Popup
           ref={popupRef}
           data-slot="dialog-content"
+          data-full-screen={fullScreen ? "" : undefined}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={() => {
+            swipeStart.current = null
+          }}
           // No drag from `sm` up: the centred modal isn't a sheet, and a
           // tablet's touch would otherwise drag it off-centre.
           data-base-ui-swipe-ignore={phone ? undefined : ""}
@@ -305,7 +402,15 @@ function DialogContent({
             // Base UI registers its drag variables with `inherits: false`,
             // so the snap offset is copied into --sheet-snap-offset here for
             // DialogFooter (a descendant) to read.
-            "[--sheet-snap-offset:var(--drawer-snap-point-offset,0px)] [transform:translateY(calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))] transition-transform ease-[cubic-bezier(0.32,0.72,0,1)] data-swiping:transition-none data-swiping:select-none motion-reduce:transition-none",
+            "[--sheet-snap-offset:var(--drawer-snap-point-offset,0px)] [transform:translateY(calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))] transition-[transform,min-height,max-height,border-radius] ease-[cubic-bezier(0.32,0.72,0,1)] data-swiping:transition-none data-swiping:select-none motion-reduce:transition-none",
+            // Full screen (swiped up, or the grabber tapped): the sheet grows
+            // to the whole visible screen above the keyboard, loses its top
+            // corners and clears the status bar itself, since it now covers
+            // the header that did. min-height rather than height so the
+            // change animates from the content's height (min-h-0 → full)
+            // instead of jumping; the duration is the slower one the drag
+            // settles with, so it reads as the same motion.
+            "min-h-0 max-sm:data-full-screen:min-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:max-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:rounded-none max-sm:data-full-screen:pt-[env(safe-area-inset-top)] max-sm:data-full-screen:duration-300",
             // sm:inset-x-auto must precede sm:left-1/2: both are in tailwind-merge's
             // "left" conflict group, and it keeps only the later class — reversing
             // this order silently drops sm:left-1/2, leaving the dialog at left:0
@@ -329,6 +434,7 @@ function DialogContent({
               past the screen once no inner scroller was there to clip it.
               pt-1: the grabber row above makes up the rest of the old pt-5. */}
           <DrawerPrimitive.Content
+            ref={bodyRef}
             data-slot="dialog-body"
             className="relative grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto overscroll-contain p-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-4"
           >
