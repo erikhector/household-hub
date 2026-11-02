@@ -9160,7 +9160,8 @@ approximating them, so the email never disagrees with the app.
   the accessible name (`text-[0px]`), and the smart-add bar's mic, scan and Add
   buttons become 44 px (px, not rem) so the field keeps its width. On a
   phone `NextUpDock` collapses to ring + count when `main` is shorter than
-  twice the dock's expanded height (every row it hides is in the list,
+  three times the dock's expanded height (twice still left a half-covered row
+  between the add bar and the dock at 200 %); every row it hides is in the list,
   M7). Covered by the "budget and shopping list at 200% text" specs in
   `e2e/text-size.mobile.spec.ts`: the month switcher stays uncovered, the pill
   stays small, the field stays 220 px+ wide and a list row stays above the

@@ -151,7 +151,7 @@ export function NextUpDock<T extends DockItem>({
   const [dockHeight, setDockHeight] = useState(0);
   // UX-160: at large text the dock can take most of a phone's screen, and
   // being fixed it then covers the list it is meant to help with. When `main`
-  // (the scroller) is shorter than twice the dock, the dock collapses to its
+  // (the scroller) is shorter than three times the dock, the dock collapses to its
   // ring and count; the rows it hides are all in the list (M7). The check is
   // against the dock's *expanded* height, remembered from the last time it
   // was expanded, so collapsing doesn't shrink the dock below the threshold
@@ -177,7 +177,7 @@ export function NextUpDock<T extends DockItem>({
         return;
       }
       if (dock.dataset.collapsed === undefined) expandedHeight.current = dock.offsetHeight;
-      setCollapsed(expandedHeight.current > 0 && main.clientHeight < 2 * expandedHeight.current);
+      setCollapsed(expandedHeight.current > 0 && main.clientHeight < 3 * expandedHeight.current);
     });
     observer.observe(dock);
     if (main) observer.observe(main);

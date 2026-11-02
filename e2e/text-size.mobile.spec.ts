@@ -241,7 +241,8 @@ for (const locale of LOCALES) {
       const [box, viewport] = [await pill.boundingBox(), page.viewportSize()!];
       expect(box!.width, "the pill is capped at 60% of the screen").toBeLessThanOrEqual(viewport.width * 0.6 + 1);
       // Above 150% it is the icon alone, its words still the accessible name.
-      expect(box!.width).toBeLessThanOrEqual(56);
+      // Buttons animate their size (transition-all), so wait for it to settle.
+      await expect.poll(async () => (await pill.boundingBox())!.width).toBeLessThanOrEqual(56);
       await expect(pill.getByRole("button")).toHaveAccessibleName(/\S/);
       await expectNoHorizontalOverflow(page);
     }
@@ -250,16 +251,17 @@ for (const locale of LOCALES) {
       await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
       await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
       await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("data-large-text", "");
       // The field keeps room for typing: wider than the icons and Add around it.
       const field = page.getByPlaceholder(locale === "sv" ? /^Lägg till/ : /^Add items/);
       const fieldBox = (await field.boundingBox())!;
       expect(fieldBox.width, "the smart-add field").toBeGreaterThanOrEqual(220);
       const iconButtons = [...(await field.locator("xpath=..").getByRole("button").all()), field.locator("xpath=../following-sibling::button")];
       for (const button of iconButtons) {
-        expect((await button.boundingBox())!.width, "a smart-add icon").toBeLessThanOrEqual(48);
+        await expect.poll(async () => (await button.boundingBox())!.width, "a smart-add icon").toBeLessThanOrEqual(48);
       }
-      // The dock never takes more than half of the scroller: it is either
-      // collapsed to ring + count (no rows to tap) or at most half of main.
+      // The dock never takes more than a third of the scroller: it is either
+      // collapsed to ring + count (no rows to tap) or at most a third of main.
       const dock = page.getByRole("region", { name: locale === "sv" ? "Näst på tur" : "Next up" });
       await expect(dock).toBeVisible();
       const mainHeight = await page.locator("main").evaluate((el) => el.clientHeight);
@@ -269,18 +271,18 @@ for (const locale of LOCALES) {
         await expect(dock.getByRole("progressbar")).toBeVisible();
         await expect(dock.getByRole("button")).toHaveCount(0);
       } else {
-        expect(dockHeight * 2, "an expanded dock leaves half of main").toBeLessThanOrEqual(mainHeight + 1);
+        expect(dockHeight * 3, "an expanded dock leaves two thirds of main").toBeLessThanOrEqual(mainHeight + 1);
       }
       // A list row can be scrolled clear above the dock.
-      await page.locator("main").evaluate((el) => el.scrollTo(0, el.scrollHeight));
+      const row = page.getByRole("checkbox", { name: /^(Oat milk|Apples)/ }).first();
+      await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
       const dockTop = (await dock.boundingBox())!.y;
-      const rows = await page.getByRole("main").getByRole("checkbox").all();
-      const above = [];
-      for (const row of rows) {
-        const b = await row.boundingBox();
-        if (b && b.y >= 0 && b.y + b.height <= dockTop) above.push(b);
-      }
-      expect(above.length, "a list row stays visible above the dock").toBeGreaterThan(0);
+      await expect
+        .poll(async () => {
+          const b = await row.boundingBox();
+          return !!b && b.y >= 0 && b.y + b.height <= dockTop;
+        }, "a list row stays visible above the dock")
+        .toBe(true);
       await expectNoHorizontalOverflow(page);
     });
   });

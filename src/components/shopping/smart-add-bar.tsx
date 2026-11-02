@@ -269,7 +269,7 @@ export function SmartAddBar({
                 type="button"
                 size="icon"
                 variant="ghost"
-                className={cn("text-muted-foreground large-text:max-sm:size-[44px]", speech.listening && "text-destructive")}
+                className={cn("text-muted-foreground large-text:max-sm:size-[44px] large-text:max-sm:min-h-[44px] large-text:max-sm:min-w-[44px]", speech.listening && "text-destructive")}
                 aria-label={speech.listening ? dict.voiceStop : dict.voiceLabel}
                 onClick={() => (speech.listening ? speech.stop() : speech.start())}
               >
@@ -280,7 +280,7 @@ export function SmartAddBar({
               dict={barcodeDict}
               size="icon"
               variant="ghost"
-              className="text-muted-foreground large-text:max-sm:size-[44px]"
+              className="text-muted-foreground large-text:max-sm:size-[44px] large-text:max-sm:min-h-[44px] large-text:max-sm:min-w-[44px]"
               label={dict.scanLabel}
               onDetected={handleScanned}
             />
@@ -325,7 +325,7 @@ export function SmartAddBar({
         <Button
           type="button"
           size="icon"
-          className="large-text:max-sm:size-[44px]"
+          className="large-text:max-sm:size-[44px] large-text:max-sm:min-h-[44px] large-text:max-sm:min-w-[44px]"
           disabled={!value.trim()}
           aria-label={dict.add}
           onClick={() => commit(parseSmartAddInput(value))}
