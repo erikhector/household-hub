@@ -55,6 +55,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
         category: true,
         location: true,
         quantity: true,
+        everStocked: true,
         unit: true,
         lowStockThreshold: true,
         expiresAt: true,

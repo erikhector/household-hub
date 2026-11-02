@@ -12,7 +12,7 @@ import { InventoryClient } from "@/components/inventory/inventory-client";
 import InventoryHeaderActionsClient from "@/components/inventory/inventory-header-actions";
 import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
 import { ExportButton } from "@/components/export/export-button";
-import { getStockStatus } from "@/lib/stock-status";
+import { getStockStatus, isNeverStockedAtZero } from "@/lib/stock-status";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import type { InventoryStatusFilter } from "@/components/inventory/inventory-table-utils";
 import { getUserPreferences } from "@/lib/preferences";
@@ -98,7 +98,11 @@ const getInventoryData = cache(async (householdId: string) => {
   const isWellStocked =
     items.length > 0 &&
     items.every(
-      (item) => getStockStatus(item.quantity, item.lowStockThreshold) === "in" && !getExpiryStatus(item.expiresAt, now),
+      (item) =>
+        // UX-89: an item that was never stocked doesn't make the pantry
+        // "not well stocked".
+        (isNeverStockedAtZero(item) || getStockStatus(item.quantity, item.lowStockThreshold) === "in") &&
+        !getExpiryStatus(item.expiresAt, now),
     );
 
   return { items, members, categories, locations, units, isWellStocked, autoAddEnabled };

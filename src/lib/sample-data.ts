@@ -58,7 +58,13 @@ export function buildSampleData(content: SampleContent, now: Date, batch: string
       expiresAt: utcMidnight(new Date(now.getTime() + 2 * DAY_MS)),
     },
     { id: id.coffee, name: content.itemCoffee, category: content.categoryPantry, quantity: 1, unit: "pcs", lowStockThreshold: 1 },
-  ].map((row) => ({ ...row, sample }));
+  ].map((row) => ({
+    ...row,
+    // UX-125: the sample milk is "out" because it was used up, so it has
+    // been stocked; without this the demo's out card would read as never.
+    everStocked: true,
+    sample,
+  }));
 
   const list = {
     name: content.listName,

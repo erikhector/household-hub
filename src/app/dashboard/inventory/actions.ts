@@ -116,6 +116,8 @@ export async function createInventoryItemAction(
       ...rest,
       category,
       updatedByUserId: userId,
+      // UX-125: saved with stock, so the item has been stocked.
+      everStocked: rest.quantity > 0,
       // AUTO-7: a date typed on this form is always real, never the
       // estimator's; "doesn't expire" clears any date and permanently
       // opts the item out (shelfLifeDays -1) instead of leaving it to the
@@ -219,6 +221,9 @@ export async function updateInventoryItemAction(
         category,
         location: parsed.data.location ?? null,
         updatedByUserId: userId,
+        // UX-125: set once the item holds stock and never cleared, so
+        // saving it at 0 later keeps it "used up", not "never stocked".
+        ...(rest.quantity > 0 ? { everStocked: true } : {}),
         // "Doesn't expire" clears any date and permanently opts the item
         // out (shelfLifeDays -1); unchecking it resets shelfLifeDays back
         // to null (the category default) rather than leaving -1 in place.
@@ -280,7 +285,13 @@ export async function quickAddInventoryItemAction(input: {
     const guessed = itemData.category || (await createCategoryResolver(household.id)(itemData.name));
     const category = guessed || (await getDictionary()).inventory.uncategorized;
     await prisma.inventoryItem.create({
-      data: { householdId: household.id, ...itemData, category, updatedByUserId: userId },
+      data: {
+        householdId: household.id,
+        ...itemData,
+        category,
+        updatedByUserId: userId,
+        everStocked: itemData.quantity > 0,
+      },
     });
     if (!guessed) scheduleAiCategoryFallback(household.id, [parsed.data.name]);
   } catch (error) {
@@ -386,6 +397,7 @@ export async function bulkCreateInventoryItemsAction(
         householdId: household.id,
         name: item.name,
         quantity: item.quantity,
+        everStocked: item.quantity > 0,
         unit: item.unit,
         category: item.category,
         location,
@@ -476,7 +488,7 @@ export async function bulkSetInventoryQuantitiesAction(
     if (items.length > 0) {
       await prisma.$executeRaw`
         UPDATE "InventoryItem" AS i
-        SET "quantity" = v."quantity", "updatedByUserId" = ${userId}, "updatedAt" = NOW()
+        SET "quantity" = v."quantity", "everStocked" = i."everStocked" OR v."quantity" > 0, "updatedByUserId" = ${userId}, "updatedAt" = NOW()
         FROM unnest(${items.map((item) => item.id)}::text[], ${items.map((item) => newQuantityById.get(item.id)!)}::double precision[])
           AS v("id", "quantity")
         WHERE i."id" = v."id" AND i."householdId" = ${household.id}`;
@@ -548,6 +560,7 @@ export async function addStarterKitItemsAction(
           name,
           category: parsed.data.category,
           quantity: 1,
+          everStocked: true,
           unit: "pcs",
           lowStockThreshold: 1,
           updatedByUserId: userId,
@@ -580,7 +593,7 @@ export async function adjustQuantityAction(
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
-      data: { quantity: nextQuantity, updatedByUserId: userId },
+      data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
@@ -945,7 +958,7 @@ export async function bulkUpdateFieldAction(
       data = { unit: parsed.data as string };
       break;
     case "quantity":
-      data = { quantity: parsed.data as number };
+      data = { quantity: parsed.data as number, ...((parsed.data as number) > 0 ? { everStocked: true } : {}) };
       break;
     case "lowStockThreshold":
       data = { lowStockThreshold: parsed.data as number };

@@ -10,6 +10,16 @@
 
 export type StockStatus = "out" | "low" | "in";
 
+/**
+ * UX-89/UX-125: an item at 0 that never held stock (a free-text list row, a
+ * recipe's ingredient) isn't "out", it was never in. Home's out count, the
+ * inventory "out" filter and its header count skip these; the badge on the
+ * row still says what the quantity says.
+ */
+export function isNeverStockedAtZero(item: { quantity: number; everStocked: boolean }): boolean {
+  return item.quantity <= 0 && !item.everStocked;
+}
+
 export function getStockStatus(quantity: number, threshold: number): StockStatus {
   if (quantity <= 0) return "out";
   // Strict: restocking back up to exactly your own threshold should read as

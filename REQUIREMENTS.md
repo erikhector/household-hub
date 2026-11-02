@@ -617,6 +617,33 @@ every lookup the old one did.
   The add form pre-fills 1 for a piece count (UX-156: never above the
   default quantity of 1, so a first item reads "In stock", not "Low stock")
   and nothing for a weight or volume, which follows the unit as it's picked; empty saves as 0, "warn only when out".
+  **Ever stocked and created from a list (UX-125, UX-89)**: two booleans
+  on `InventoryItem`, `everStocked` and `createdFromList` (both default
+  false; one migration, which backfills `everStocked` to true where the item
+  has stock, a `lastKnownPrice`, `PriceHistory` or a bought list row —
+  already-empty items without any of those stay false until restocked).
+  `everStocked` is set, never cleared, wherever quantity goes above 0: the
+  item form (create and edit), quick add, bulk create and bulk quantity
+  edit, the +/- stepper, the shelf-scan "take stock", barcode scans, stock
+  arrival (`applyStockArrival`, so the bought tick and put-away), receipt
+  registration, cooking leftovers, and a merge (the keeper takes it from any
+  merged item). Opt-in sample data sets it on every row. An item at
+  quantity 0 that was never stocked (`isNeverStockedAtZero`,
+  `src/lib/stock-status.ts`) is not "out": Home's "N out of stock" count,
+  the inventory "out" filter and the header's out count, and the "well
+  stocked" note skip it (the row's badge still says what the quantity says,
+  and an `OUT_OF_STOCK` notification only fires on a drop from stock, so it
+  never fires for one). The catalog's "Never stocked" chip is
+  `isNeverStocked`, which now also needs `!everStocked`, so an item saved
+  with stock and then used up is no longer labelled never stocked.
+  `createdFromList` is set by the list-side create paths (`addAdHocItemAction`
+  and quick add, `createInventoryItemFromShoppingListItemAction`, smart add's
+  two creates, and the receipt-register create).
+  `deleteShoppingListItemAction` deletes the row's linked item too when it is
+  `createdFromList`, not `everStocked`, at quantity 0 and nothing else
+  references it (no recipe ingredient, other list row, template row, price,
+  alias or unit conversion); anything else stays. List rows stay linked while
+  the item exists.
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
   status (in/low/out of stock, expiring soon, expired); filter dropdown

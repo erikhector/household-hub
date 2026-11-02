@@ -4,10 +4,10 @@ import { pickTargetList, pickUseSoon, summarizePantry } from "@/lib/home-summary
 describe("summarizePantry", () => {
   const none = { onAnyListIds: new Set<string>(), targetPendingIds: new Set<string>(), incomingByItem: new Map() };
   const items = [
-    { id: "salt", quantity: 0, lowStockThreshold: 1 },
-    { id: "flour", quantity: 1, lowStockThreshold: 2 },
-    { id: "rice", quantity: 1, lowStockThreshold: 3 },
-    { id: "oil", quantity: 5, lowStockThreshold: 1 },
+    { id: "salt", quantity: 0, everStocked: true, lowStockThreshold: 1 },
+    { id: "flour", quantity: 1, everStocked: true, lowStockThreshold: 2 },
+    { id: "rice", quantity: 1, everStocked: true, lowStockThreshold: 3 },
+    { id: "oil", quantity: 5, everStocked: true, lowStockThreshold: 1 },
   ];
 
   it("splits out from low and counts what is already on a list", () => {
@@ -17,6 +17,18 @@ describe("summarizePantry", () => {
       onListCount: 1,
       toAddCount: 3,
     });
+  });
+
+  it("UX-89: a never-stocked item at 0 is not counted as out, a used-up one is", () => {
+    const summary = summarizePantry(
+      [
+        { id: "napkins", quantity: 0, everStocked: false, lowStockThreshold: 0 },
+        { id: "salt", quantity: 0, everStocked: true, lowStockThreshold: 1 },
+      ],
+      { ...none, onAnyListIds: new Set(["napkins"]) },
+    );
+    expect(summary.outCount).toBe(1);
+    expect(summary.onListCount).toBe(0);
   });
 
   it("with two lists, Add N skips only what the target list already has", () => {
@@ -53,7 +65,7 @@ describe("summarizePantry", () => {
   });
 
   it("is all zeros for a stocked pantry", () => {
-    expect(summarizePantry([{ id: "a", quantity: 3, lowStockThreshold: 3 }], none)).toEqual({
+    expect(summarizePantry([{ id: "a", quantity: 3, everStocked: true, lowStockThreshold: 3 }], none)).toEqual({
       outCount: 0,
       lowCount: 0,
       onListCount: 0,

@@ -278,6 +278,7 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
         shelfLifeDays: null,
         useWithinDaysOpened: null,
         updatedByUserId: "user-1",
+        everStocked: true,
       },
     });
   });
@@ -765,7 +766,7 @@ describe("adjustQuantityAction", () => {
 
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      data: { quantity: 5, updatedByUserId: "user-1" },
+      data: { quantity: 5, everStocked: true, updatedByUserId: "user-1" },
     });
   });
 

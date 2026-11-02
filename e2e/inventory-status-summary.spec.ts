@@ -52,6 +52,11 @@ test.beforeAll(async () => {
         names.fine,
       ],
     );
+    // UX-89: the "out" row was used up, not never stocked, so it counts as out.
+    await client.query(`UPDATE "InventoryItem" SET "everStocked" = true WHERE "householdId" = $1 AND id LIKE $2`, [
+      E2E_HOUSEHOLD.id,
+      `${idPrefix}%`,
+    ]);
   });
 });
 

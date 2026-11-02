@@ -1,5 +1,5 @@
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { getStockStatus, type StockStatus } from "@/lib/stock-status";
+import { getStockStatus, isNeverStockedAtZero, type StockStatus } from "@/lib/stock-status";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 
 // Sentinel values InventoryClient's filter selects use for "no filter
@@ -13,6 +13,8 @@ export type InventoryItemRow = {
   name: string;
   category: string;
   quantity: number;
+  // UX-125: ever held stock; an item at 0 that never did isn't "out".
+  everStocked: boolean;
   unit: string;
   lowStockThreshold: number;
   location: string | null;
@@ -148,24 +150,26 @@ export function groupItems(items: InventoryItemRow[], groupBy: InventoryGroupBy,
  * statuses and the expiry ones are independent: a low item can also be
  * expiring, and shows under both. */
 export function matchesStatusFilter(
-  item: Pick<InventoryItemRow, "quantity" | "lowStockThreshold" | "expiresAt">,
+  item: Pick<InventoryItemRow, "quantity" | "everStocked" | "lowStockThreshold" | "expiresAt">,
   filter: InventoryStatusFilter,
   now: number,
 ): boolean {
   if (filter === "expiring") return getExpiryStatus(item.expiresAt, now) === "soon";
   if (filter === "expired") return getExpiryStatus(item.expiresAt, now) === "expired";
+  // UX-89: a never-stocked item at 0 is not "out" (it was never in).
+  if (filter === "out" && isNeverStockedAtZero(item)) return false;
   return getStockStatus(item.quantity, item.lowStockThreshold) === filter;
 }
 
 /** UX-121: the counts the inventory header shows, one per problem status. */
 export function countProblemStatuses(
-  items: Pick<InventoryItemRow, "quantity" | "lowStockThreshold" | "expiresAt">[],
+  items: Pick<InventoryItemRow, "quantity" | "everStocked" | "lowStockThreshold" | "expiresAt">[],
   now: number,
 ): Record<"out" | "low" | "expiring" | "expired", number> {
   const counts = { out: 0, low: 0, expiring: 0, expired: 0 };
   for (const item of items) {
     const stock = getStockStatus(item.quantity, item.lowStockThreshold);
-    if (stock === "out" || stock === "low") counts[stock] += 1;
+    if (stock === "low" || (stock === "out" && !isNeverStockedAtZero(item))) counts[stock] += 1;
     const expiry = getExpiryStatus(item.expiresAt, now);
     if (expiry === "soon") counts.expiring += 1;
     else if (expiry === "expired") counts.expired += 1;
