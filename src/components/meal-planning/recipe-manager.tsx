@@ -304,6 +304,8 @@ export function RecipeManager({
             locale={locale}
             handle={discoverHandle}
             initialResults={discoverInitial}
+            // The same key check as the photo import: ideas need a model.
+            aiAvailable={photoImportConfigured}
             onSave={(recipe) => setDiscoverPick({ recipe, plan: false })}
             onAddToPlan={(recipe) => setDiscoverPick({ recipe, plan: true })}
           />

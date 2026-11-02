@@ -2,14 +2,16 @@
 // the session household, redirect from requireHousehold propagates), input
 // cleaning, the expiring flag and the error paths. Prisma, session and i18n
 // are mocked, so no database is touched. See REQUIREMENTS.md's "Testing".
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requireHouseholdMock, inventoryFindMany, recipeFindMany } = vi.hoisted(() => ({
+const { requireHouseholdMock, inventoryFindMany, recipeFindMany, checkRateLimitMock } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
+  checkRateLimitMock: vi.fn(),
   inventoryFindMany: vi.fn(),
   recipeFindMany: vi.fn(),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: checkRateLimitMock }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -20,12 +22,22 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/i18n/get-dictionary", () => ({
   getLocale: async () => "sv",
   getDictionary: async () => ({
-    mealPlanning: { discover: { errorLoad: "load-failed", errorNotFound: "not-found" } },
+    mealPlanning: {
+      discover: {
+        errorLoad: "load-failed",
+        errorNotFound: "not-found",
+        ideasNotConfigured: "not-configured",
+        ideasRateLimited: "rate",
+        ideasBusy: "busy",
+        ideasFailed: "failed",
+        ideasNone: "none",
+      },
+    },
   }),
 }));
 
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
-import { getCatalogRecipeAction, searchRecipeCatalogAction } from "./discover-actions";
+import { getCatalogRecipeAction, searchRecipeCatalogAction, suggestRecipeIdeasAction } from "./discover-actions";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -34,6 +46,14 @@ beforeEach(() => {
   requireHouseholdMock.mockResolvedValue({ household: { id: "h1" } });
   inventoryFindMany.mockResolvedValue([]);
   recipeFindMany.mockResolvedValue([]);
+  checkRateLimitMock.mockResolvedValue(true);
+  vi.stubEnv("GEMINI_API_KEY", "test-key");
+  vi.stubEnv("ANTHROPIC_API_KEY", "");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("searchRecipeCatalogAction", () => {
@@ -134,5 +154,82 @@ describe("getCatalogRecipeAction", () => {
   it("returns errorLoad when the inventory query throws", async () => {
     inventoryFindMany.mockRejectedValue(new Error("db down"));
     expect(await getCatalogRecipeAction(RECIPE_CATALOG[0].id)).toEqual({ error: "load-failed" });
+  });
+});
+
+function geminiReply(answer: unknown) {
+  return new Response(
+    JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(answer) }] } }] }),
+    { status: 200 },
+  );
+}
+
+const IDEA = {
+  name: "Pasta med tomat",
+  servings: 4,
+  ingredients: [{ name: "pasta", quantity: 400, unit: "g" }],
+  instructions: ["Koka."],
+  tags: [],
+};
+
+describe("suggestRecipeIdeasAction", () => {
+  it("ideas: requires a household", async () => {
+    requireHouseholdMock.mockRejectedValue(new Error("redirect"));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(suggestRecipeIdeasAction({ tags: [] })).rejects.toThrow("redirect");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ideas: not configured without a key", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await suggestRecipeIdeasAction({ tags: [] })).toEqual({ error: "not-configured" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ideas: rate limited per household", async () => {
+    checkRateLimitMock.mockResolvedValue(false);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await suggestRecipeIdeasAction({ tags: [] })).toEqual({ error: "rate" });
+    expect(checkRateLimitMock).toHaveBeenCalledWith("recipe-ideas:h1", 20, 3600000);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ideas: a pantry load failure is ideasFailed", async () => {
+    inventoryFindMany.mockRejectedValue(new Error("db"));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await suggestRecipeIdeasAction({ tags: [] })).toEqual({ error: "failed" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ideas: busy and failed map to their errors", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("overloaded", { status: 503 })));
+    expect(await suggestRecipeIdeasAction({ tags: [] })).toEqual({ error: "busy" });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ candidates: [] }), { status: 200 })));
+    expect(await suggestRecipeIdeasAction({ tags: [] })).toEqual({ error: "failed" });
+  });
+
+  it("ideas: zero valid ideas returns ideasNone", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => geminiReply({ recipes: [{ ...IDEA, ingredients: [] }] })));
+    expect(await suggestRecipeIdeasAction({ tags: [] })).toEqual({ error: "none" });
+  });
+
+  it("ideas: returns mapped ideas and sends names only", async () => {
+    inventoryFindMany.mockResolvedValue([{ name: "pasta", quantity: 777, expiresAt: null }]);
+    const fetchMock = vi.fn(async () => geminiReply({ recipes: [IDEA] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await suggestRecipeIdeasAction({ tags: ["vegan", "bogus"] });
+    expect(res.error).toBeUndefined();
+    expect(res.ideas).toHaveLength(1);
+    expect(res.ideas![0].name).toBe("Pasta med tomat");
+    const body = String((fetchMock.mock.calls[0] as unknown[])[1] ? ((fetchMock.mock.calls[0] as unknown[])[1] as RequestInit).body : "");
+    expect(body).toContain("pasta");
+    expect(body).not.toContain("777");
   });
 });

@@ -269,3 +269,187 @@ test("sheet fits a phone", async ({ page, isMobile }) => {
   await expectNoHorizontalOverflow(page);
   if (isMobile) await expectTouchTargets(page);
 });
+
+// AI ideas. The webServer env in playwright.config.ts sets a placeholder
+// GEMINI_API_KEY (for the photo import), so the button is offered here; the
+// real call is mocked at the Server Action POST, as in
+// recipe-photo-import.spec.ts, so no provider is contacted. (A run without a
+// key can't be reached from this suite; the gate is a prop check.)
+async function mockIdeasAction(page: Page, payload: unknown) {
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      const body = request.postData() ?? "";
+      // The ideas action is the only POST that carries tags without a query.
+      if (request.method() === "POST" && body.includes('"tags"') && !body.includes('"query"')) {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/x-component",
+          body: `0:{"a":"$@1","f":"","b":"e2e"}\n1:${JSON.stringify(payload)}\n`,
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+}
+
+test("ask for ideas lists AI ideas and previews one without pantry markers", async ({ page }) => {
+  const name = `Idea stew ${Date.now().toString(36)}`;
+  await mockIdeasAction(page, {
+    ideas: [
+      {
+        name,
+        instructions: "Chop everything.\nSimmer for 20 minutes.",
+        servings: 4,
+        tags: [],
+        ingredients: [{ name: "carrot", quantity: 3, unit: "pcs", rawText: "3 carrots" }],
+      },
+    ],
+  });
+  const sheet = await openTabAndDiscover(page);
+  const ask = sheet.getByRole("button", { name: d.askForIdeas });
+  await expectHydrated(ask);
+  await ask.click();
+
+  const ideas = sheet.getByRole("list", { name: d.ideasHeading });
+  await expect(ideas.getByRole("listitem")).toHaveCount(1);
+  await expect(ideas.getByText(d.aiIdeaBadge)).toBeVisible();
+  // The catalog list stays in place under the ideas.
+  await expect(sheet.getByRole("list", { name: d.goodWithWhatYouHave })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await ideas.getByRole("button", { name: new RegExp(name) }).click();
+  const preview = page.getByRole("dialog", { name, exact: true });
+  await expect(preview.getByText("carrot")).toBeVisible();
+  await expect(preview.getByText(d.aiIdeaBadge)).toBeVisible();
+  await expect(preview.getByText(d.haveIt, { exact: true })).toHaveCount(0);
+  await expect(preview.getByText(d.missing, { exact: true })).toHaveCount(0);
+  await expect(preview.getByRole("button", { name: d.save })).toBeEnabled();
+  await expectNoHorizontalOverflow(page);
+
+  // Back keeps the ideas; closing and reopening drops them.
+  await preview.getByRole("button", { name: d.back }).click();
+  await expect(ideas.getByRole("listitem")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  const reopened = await openDiscover(page);
+  await expect(reopened.getByRole("list", { name: d.ideasHeading })).toHaveCount(0);
+});
+
+test("ask for ideas shows the error inline", async ({ page }) => {
+  await mockIdeasAction(page, { error: d.ideasBusy });
+  const sheet = await openTabAndDiscover(page);
+  const ask = sheet.getByRole("button", { name: d.askForIdeas });
+  await expectHydrated(ask);
+  await ask.click();
+  await expect(sheet.getByRole("alert").filter({ hasText: d.ideasBusy })).toBeVisible();
+  await expect(sheet.getByRole("list", { name: d.goodWithWhatYouHave })).toBeVisible();
+});
+
+// M8: offline or a dropped connection rejects the Server Action call itself
+// (no answer at all), which used to escape to the dashboard error boundary
+// and take the sheet with it. These abort the action POST at the network
+// level. The two actions are told apart by their arguments: the search sends
+// a query, the ideas action only tags (as in mockIdeasAction).
+function isActionPost(request: { method(): string; headers(): Record<string, string> }) {
+  return request.method() === "POST" && "next-action" in request.headers();
+}
+
+test("ask for ideas offline shows the error inline and keeps the sheet", async ({ page }) => {
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      const body = request.postData() ?? "";
+      if (isActionPost(request) && body.includes('"tags"') && !body.includes('"query"')) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const sheet = await openTabAndDiscover(page);
+  const ask = sheet.getByRole("button", { name: d.askForIdeas });
+  await expectHydrated(ask);
+  await ask.click();
+  await expect(sheet.getByRole("alert").filter({ hasText: d.ideasFailed })).toBeVisible();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("list", { name: d.goodWithWhatYouHave })).toBeVisible();
+  await expect(ask).toBeEnabled();
+});
+
+test("preview offline shows the inline retry and keeps the sheet", async ({ page }) => {
+  let failPreview = false;
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      // The preview action's only argument is the catalog id, so its body is
+      // a one-string array (no query, no tags).
+      if (failPreview && isActionPost(request) && /^\["[^"]*"\]$/.test(request.postData() ?? "")) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const sheet = await openTabAndDiscover(page);
+  const search = sheet.getByRole("searchbox", { name: d.searchLabel });
+  await expectHydrated(search);
+  await search.fill(NAME_A);
+  const rows = resultRows(page);
+  await expect(rows).toHaveCount(1);
+
+  failPreview = true;
+  await rows.first().getByRole("button").click();
+  const preview = page.getByRole("dialog", { name: NAME_A, exact: true });
+  const alert = preview.getByRole("alert").filter({ hasText: d.errorLoad });
+  await expect(alert).toBeVisible();
+  await expect(preview).toBeVisible();
+
+  // Back online, Retry loads the recipe in place.
+  failPreview = false;
+  await alert.getByRole("button", { name: d.retry }).click();
+  await expect(alert).toBeHidden();
+  await expect(preview.getByRole("button", { name: d.save })).toBeEnabled();
+});
+
+test("search offline shows the inline retry and keeps the previous results", async ({ page }) => {
+  let failSearch = false;
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      if (failSearch && isActionPost(request) && (request.postData() ?? "").includes('"query"')) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const sheet = await openTabAndDiscover(page);
+  const search = sheet.getByRole("searchbox", { name: d.searchLabel });
+  await expectHydrated(search);
+  await search.fill(NAME_A);
+  const rows = resultRows(page);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(NAME_A);
+
+  failSearch = true;
+  await search.fill(NAME_B);
+  const alert = sheet.getByRole("alert").filter({ hasText: d.errorLoad });
+  await expect(alert).toBeVisible();
+  await expect(sheet).toBeVisible();
+  // The rows from the last answer stay rather than an empty list.
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(NAME_A);
+
+  // Back online, Retry runs the same search.
+  failSearch = false;
+  await alert.getByRole("button", { name: d.retry }).click();
+  await expect(alert).toBeHidden();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(NAME_B);
+});

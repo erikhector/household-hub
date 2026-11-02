@@ -32,6 +32,16 @@ import { carryOverPastPicks, loadWeekPicks } from "@/app/dashboard/meal-planning
 import { PageTitle } from "@/components/dashboard/page-title";
 import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 
+// Same reasoning as inventory/page.tsx's maxDuration: Vercel caps a Server
+// Action's own runtime at 15s by default, and two actions this page's
+// triggers invoke run the AI provider chain with a 50s shared deadline —
+// importRecipeFromPhotoAction (recipe-photo-actions.ts, the recipe form's
+// "Import from a photo") and suggestRecipeIdeasAction (discover-actions.ts,
+// the Discover sheet's "Ask for ideas"). A "use server" file can only export
+// async functions, so the limit has to live on this route, which Next.js/
+// Vercel honor as those actions' own timeout. No effect outside Vercel.
+export const maxDuration = 60;
+
 type MealPlanningDict = Dictionary["mealPlanning"];
 
 // SCALE-J: `recipes` is the one dataset every tab needs — Planner for the
