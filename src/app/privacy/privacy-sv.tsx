@@ -31,7 +31,7 @@ const SECTIONS: LegalJumpItem[] = [
 
 export function PrivacySv({ jumpListLabel }: { jumpListLabel: string }) {
   return (
-    <article lang="sv" className="flex flex-col gap-8">
+    <article lang="sv" className="flex min-w-0 flex-col gap-8 break-words hyphens-auto">
       <header className="flex flex-col gap-1">
         <h1 className="font-heading text-3xl font-bold tracking-tight">Integritetspolicy</h1>
         <p className="text-sm text-muted-foreground">Senast uppdaterad: {LAST_UPDATED}</p>
