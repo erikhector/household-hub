@@ -380,6 +380,42 @@ test("ask for ideas offline shows the error inline and keeps the sheet", async (
   await expect(ask).toBeEnabled();
 });
 
+test("preview offline shows the inline retry and keeps the sheet", async ({ page }) => {
+  let failPreview = false;
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      // The preview action's only argument is the catalog id, so its body is
+      // a one-string array (no query, no tags).
+      if (failPreview && isActionPost(request) && /^\["[^"]*"\]$/.test(request.postData() ?? "")) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const sheet = await openTabAndDiscover(page);
+  const search = sheet.getByRole("searchbox", { name: d.searchLabel });
+  await expectHydrated(search);
+  await search.fill(NAME_A);
+  const rows = resultRows(page);
+  await expect(rows).toHaveCount(1);
+
+  failPreview = true;
+  await rows.first().getByRole("button").click();
+  const preview = page.getByRole("dialog", { name: NAME_A, exact: true });
+  const alert = preview.getByRole("alert").filter({ hasText: d.errorLoad });
+  await expect(alert).toBeVisible();
+  await expect(preview).toBeVisible();
+
+  // Back online, Retry loads the recipe in place.
+  failPreview = false;
+  await alert.getByRole("button", { name: d.retry }).click();
+  await expect(alert).toBeHidden();
+  await expect(preview.getByRole("button", { name: d.save })).toBeEnabled();
+});
+
 test("search offline shows the inline retry and keeps the previous results", async ({ page }) => {
   let failSearch = false;
   await page.route(

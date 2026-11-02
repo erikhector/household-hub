@@ -70,7 +70,17 @@ export function DiscoverPreview({
     if (resultId === undefined) return;
     const id = ++requestId.current;
     startTransition(async () => {
-      const answer = await getCatalogRecipeAction(resultId);
+      // Offline or a dropped connection rejects the call itself (M8). Left
+      // uncaught it would reach the dashboard error boundary and take the
+      // whole sheet with it, so it shows the inline failure with Retry
+      // instead, as the search and the ideas call in discover-sheet.tsx do.
+      let answer: Awaited<ReturnType<typeof getCatalogRecipeAction>>;
+      try {
+        answer = await getCatalogRecipeAction(resultId);
+      } catch {
+        if (id === requestId.current) setFailed(true);
+        return;
+      }
       if (id !== requestId.current) return;
       if (answer.recipe && answer.haves) {
         setFailed(false);

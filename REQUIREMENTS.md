@@ -6458,7 +6458,9 @@ AI model for a few recipes built from what the household has at home.
   `ideasNotConfigured` to a direct call without a key.
 - **Rate limit.** Keyed per household (`recipe-ideas:<household>`), 20 requests
   per hour; over it the action answers `ideasRateLimited`.
-- **What is sent** (`src/lib/recipe-ideas/ai.ts`). Names only: inventory items
+- **What is sent** (`src/lib/recipe-ideas/ai.ts`). Names, which of them
+  expire soon, and the diet filters; never quantities, prices or dates
+  (the privacy page says the same): inventory items
   with quantity > 0, items expiring soon first (otherwise in the order the
   pantry query returns them; the cap never cuts an expiring item before a
   non-expiring one), capped at 60, and the names of saved recipes, capped at

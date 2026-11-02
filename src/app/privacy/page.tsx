@@ -208,9 +208,10 @@ export default async function PrivacyPage() {
               </li>
               <li>
                 <strong>Recipe ideas</strong> only runs when you press &quot;Ask for ideas&quot; in
-                Discover. It sends only the names of the items you have at home and the names of
-                your saved recipes — never quantities, prices, or any other household or account
-                data — so the model can suggest recipes you don&apos;t already have. Squirrel
+                Discover. It sends the names of the items you have at home (marking which expire
+                soon), the names of your saved recipes and any diet filters you picked — never
+                quantities, prices, dates, or any other household or account data — so the model
+                can suggest recipes you don&apos;t already have. Squirrel
                 doesn&apos;t store the ideas: nothing is saved unless you choose to save one.
               </li>
               <li>
