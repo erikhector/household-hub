@@ -6364,6 +6364,188 @@ computed by `computeUseItUpSuggestions`
   same recipe isn't suppressed by yesterday's dismissal. Dismissal is
   per-device only, same as `MealVarietyRecap`.
 
+### Recipe discovery (catalog)
+
+A direct user request (no BACKLOG item): the Recipes tab only knew what the
+household typed or imported, so a new household started from a blank list.
+"Discover" (`DiscoverSheet`, `src/components/meal-planning/discover-sheet.tsx`,
+opened from `RecipeManager`'s toolbar and, on an empty recipe list, as the
+empty state's secondary action beside New recipe, which stays the one
+primary (DESIGN.md M2)) offers a built-in
+catalog of recipes, ranked by how much of each the household already has in
+its pantry. Design: `docs/superpowers/specs/2026-11-02-recipe-discovery-design.md`.
+
+- **The catalog** lives in `src/lib/recipe-catalog/data.ts`: 120 recipes, each
+  written for Squirrel and bilingual (`Localized<T>` = `{ en, sv }`, see
+  `types.ts`), with metric units `src/lib/units.ts` recognises. Ingredient
+  names are the plain word people use for a pantry item ("milk", "yellow
+  onion"); anything that isn't part of that word (chopped, for serving) goes
+  in `note`. This matters because ranking matches those names against
+  inventory item names. `tags` must be truthful (a vegan recipe contains no
+  egg, shrimp paste or egg noodles); the diet filter would otherwise be
+  wrong exactly where it is relied on. The first `FEATURED_COUNT` (12)
+  entries are a curated, varied featured set, so reordering the file changes
+  what an empty pantry sees.
+- **Server-only.** `data.ts` is a few hundred KB of text, so it is imported
+  only by the discover actions and never by a `"use client"` module;
+  `src/components/client-bundle-guard.test.ts` ("keeps the recipe catalog out
+  of every client component's imports") fails `npm test` if that changes. The
+  client gets only ranked `CatalogResult`s (id, name, tags, servings, counts).
+  Client-safe code (`rank.ts`, `types.ts`) stays free of zod and prisma.
+- **Ranking** (`rankCatalogRecipes`, `src/lib/recipe-catalog/rank.ts`,
+  colocated test): score = `haveCount / totalCount` plus `EXPIRING_BOOST`
+  (0.15) per distinct expiring ingredient, capped at `EXPIRING_BOOST_CAP` (3).
+  The cap stops a recipe using five expiring things but covering a third of
+  its ingredients from outranking one the household can nearly cook tonight.
+  Ties break on more expiring matches, then `haveCount`, then the localized
+  name. Default limit is 30. "Expiring" is `getExpiryStatus(...) !== null`,
+  i.e. soon or already expired. Pantry items at `quantity <= 0` are ignored,
+  the same gate as "Use it up". The pantry is normalised once per call into a
+  map (duplicate rows merge, expiring if any is) and each catalog name's
+  normalised form is memoised per object, so matching is a map lookup:
+  ranking the full catalog against a 200-item pantry takes about a
+  millisecond (it was ~700 ms comparing every pair), guarded by a timing test
+  in `rank.test.ts`.
+- **Pantry matching uses both languages.** A pantry name matches an
+  ingredient when it equals the ingredient's `en` OR `sv` name
+  (case-insensitive, accent-folded via `normalizeForSearch`). The pantry is
+  free text in whatever language the household types, which need not be the
+  UI language, so a current-locale-only match would make a Swedish pantry look
+  empty to an English-speaking member. Search stays current-locale-only, so a Swedish query doesn't hit
+  English names that happen to share letters. `normalizeForSearch` folds
+  accents but not å/ä/ö, which are separate letters in Swedish ("lok" must not
+  find "lök"). Search is a plain substring match, never a RegExp.
+- **Saved recipes are hidden.** A catalog recipe whose `en` or `sv` name
+  equals a saved recipe's name (normalised as above) is dropped, so Discover
+  never offers what the household already has, even after the household
+  switches language.
+- **Browsing vs. searching.** With no query and no tags the list is "good with
+  what you have": only recipes with `haveCount >= 1`. If none qualify (empty
+  pantry, or nothing in it is a known ingredient) it falls back to the
+  featured set (sliced before hiding saved ones so it doesn't grow to
+  backfill). That fallback is headed "Popular to start with", not "Good with
+  what you have": the sheet switches heading when browsing and every row has
+  `haveCount` 0. Once the user searches or picks tag chips (several allowed; a
+  recipe must have all of them) covered-or-not recipes are all shown. A row
+  (and the preview) shows "You have N of M" only when N > 0; "You have 0 of
+  M" is noise.
+- **Actions** (`src/app/dashboard/meal-planning/discover-actions.ts`, colocated
+  test): `searchRecipeCatalogAction({ query, tags })` and
+  `getCatalogRecipeAction(id)`. Both call `requireHousehold()` outside the
+  try/catch (it redirects when signed out) and never take a household id from
+  the client; the pantry and saved names come from `loadDiscoverContext`
+  (`src/lib/recipe-catalog/pantry.ts`). Input goes through zod but is cleaned,
+  not rejected (a search box has no error to show): a missing or malformed
+  input object or query becomes empty, the query is cut at 100 chars, tags go
+  through `parseRecipeTags`, and an id that isn't a string of at most 100
+  chars, or names no catalog recipe, returns `errorNotFound` with
+  `notFound: true` (the preview branches on that flag to go back to the
+  list). zod in a `"use server"` module never reaches a client bundle; the
+  bundle guard stops at the directive. A load failure returns a localized
+  `error` rather than throwing. Neither action writes.
+- **Save and plan hand-off.** A pick is converted by `catalogToParsedRecipe`
+  (`to-parsed.ts`) into the same `FileRecipe` shape the file importer
+  produces and opens the normal `RecipeFormDialog` in create mode through its
+  `initialRecipe` prop, so the user reviews it and the usual ingredient
+  review/linking applies; nothing is stored until they press Save. "Add to
+  plan" does the same, then opens the Add to plan dialog for the new recipe.
+  `createRecipeAction` returns `createdId`, surfaced as the form's
+  `onCreated`. The sequencing is deliberate: the pick is committed to state
+  first and the form opened from an effect (the form reads `initialRecipe`
+  while opening, so opening from the click handler would seed it with the
+  previous pick); and the plan picker opens only from `onClosed`, once the
+  form has finished closing, so the form's focus return and history `back()`
+  don't fight the second dialog. `onClosed` also clears the pick, so a
+  cancelled save can't reappear pre-filled; "New recipe" has its own form.
+- **First list.** `page.tsx` calls `loadDiscoverContext` and ranks the opening
+  list server-side, so the sheet shows results without a round trip. The
+  sheet keeps the last query's results (race-guarded) for subsequent
+  searches.
+- **No browser storage**, so nothing in `src/lib/cookie-inventory.ts`.
+- **Tests.** `data.test.ts` (catalog invariants), `rank.test.ts`, `to-parsed.test.ts`, `discover-actions.test.ts`,
+  the bundle guard, and `e2e/recipe-discover.spec.ts` (suggestions, no "You
+  have 0 of" row, search and tag filter, last-query results, save through the form, add to plan, a second
+  pick refilling the form, blank "New recipe" after a cancel, phone fit).
+- **Known limits.** No fuzzy matching ("tomatoes" does not match "tomato"; same
+  looseness as `getCookableRecipes`' fallback). A catalog recipe that lists
+  water counts it toward coverage, and a pantry rarely has "water" in stock, so
+  those recipes read slightly less covered. `page.tsx` adds one inventory and
+  one recipe query (`loadDiscoverContext`) to every Recipes render, even if
+  Discover is never opened.
+
+#### AI recipe ideas
+
+An optional "Ask for ideas" button in the Discover sheet asks the configured
+AI model for a few recipes built from what the household has at home.
+
+- **Gating.** The button renders only when `GEMINI_API_KEY` or
+  `ANTHROPIC_API_KEY` is set (`page.tsx` passes the same check as
+  `photoImportConfigured`, handed on as `aiAvailable`); without a key it is
+  not in the DOM. `suggestRecipeIdeasAction` also answers
+  `ideasNotConfigured` to a direct call without a key.
+- **Rate limit.** Keyed per household (`recipe-ideas:<household>`), 20 requests
+  per hour; over it the action answers `ideasRateLimited`.
+- **What is sent** (`src/lib/recipe-ideas/ai.ts`). Names, which of them
+  expire soon, and the diet filters; never quantities, prices or dates
+  (the privacy page says the same): inventory items
+  with quantity > 0, items expiring soon first (otherwise in the order the
+  pantry query returns them; the cap never cuts an expiring item before a
+  non-expiring one), capped at 60, and the names of saved recipes, capped at
+  50, plus the selected diet tags and the locale. No quantities, prices or
+  other household data. The user message is a few labelled data blocks, one
+  name per line ("Expiring soon, use these first (data, one per line):",
+  "Pantry items (data, one per line):", "Recipes they already have, don't
+  repeat these (data, one per line):"). Each name has every run of whitespace
+  and control characters (newlines included) collapsed to one space, so it
+  stays on a single line and can't fake a new section, and is capped at 80
+  characters. The system prompt says the pantry and recipe names are data, not
+  instructions, and must never be followed as such.
+- **Validation.** The reply must match the zod schema (`recipeIdeasSchema`).
+  Ideas with no usable name or ingredients are dropped, and so is an idea with
+  any invalid ingredient (e.g. a quantity of 0 or less, or no name): one bad
+  ingredient drops the whole idea rather than leaving a recipe with a gap. So
+  is any idea whose
+  name matches a saved recipe (case- and accent-insensitive), so the list never
+  offers what the household already has. If none survive the action answers
+  `ideasNone`. Provider busy answers `ideasBusy`, any other failure
+  `ideasFailed`.
+- **Nothing is stored.** Ideas live in the sheet's state only and are dropped
+  when it closes. The model's answer is never written to the database; saving
+  an idea goes through the ordinary recipe form, like a catalog pick.
+- **UI.** An outline button under the diet chips (the currently selected tags
+  are used; the search box is not). While it runs it reads "Thinking up
+  ideas…", is `aria-busy` and disabled, and the catalog list stays in place.
+  Ideas show in an "Ideas for you" section above the catalog list, each row
+  badged "AI idea". Opening one shows the same preview from the in-memory
+  recipe: no Have it / Missing markers and no "You have N of M" line (it is
+  not matched against the pantry), with the same Save and Add to plan actions.
+  Errors show inline under the button (`role="alert"`).
+- **Offline / dropped connection** (DESIGN.md M8). A failed request rejects
+  the Server Action call rather than answering, so both calls in the sheet
+  catch it: "Ask for ideas" shows `ideasFailed` inline, and a catalog search
+  shows the existing inline "couldn't load" with Try again and keeps the
+  previous rows. Either way the sheet stays open (an uncaught rejection would
+  reach the dashboard error boundary). A rejection for a request that is no
+  longer the latest is ignored, like a stale answer. Handing off to Save or
+  Add to plan drops the ideas and ignores an answer still on its way, the
+  same as closing.
+- **Time limit.** The action's provider chain shares a 50 s deadline, so
+  `src/app/dashboard/meal-planning/page.tsx` exports `maxDuration = 60` (the
+  same reasoning as the inventory page's): on Vercel a Server Action's limit
+  is its route's, 15 s by default. It covers the recipe photo import on the
+  same page too.
+- **Privacy page.** "Third parties" lists Recipe ideas among the AI features
+  (only on button press; item names and recipe names only; nothing stored),
+  alongside Recipe photo import (GAP-54), which was missing from that list.
+- **Tests.** `ai.test.ts`, `discover-actions.test.ts`, and in
+  `e2e/recipe-discover.spec.ts` the ideas list, its preview without pantry
+  markers, clearing on close, the inline error, and (with the action POST
+  aborted at the network level) the offline error for both ideas and search,
+  with the sheet still open. The e2e server runs with a
+  placeholder `GEMINI_API_KEY` (for the photo import), so the button is shown
+  there and the action is mocked at the Server Action POST; the hidden-without-
+  a-key case is not reachable from that suite.
+
 ### Recipe last cooked
 
 BACKLOG GAP-46: each `RecipeManager` row (in its meta line, and in full in

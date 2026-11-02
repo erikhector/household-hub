@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return titleOnlyMetadata(dict.meta.privacyTitle);
 }
 
-const LAST_UPDATED = "September 25, 2026";
+const LAST_UPDATED = "November 2, 2026";
 
 const SECTIONS: LegalJumpItem[] = [
   { id: "overview", title: "1. Overview" },
@@ -190,7 +190,7 @@ export default async function PrivacyPage() {
               button at all.
             </p>
             <p>
-              <strong>Gemini</strong> (Google) and <strong>Anthropic</strong> are used by three
+              <strong>Gemini</strong> (Google) and <strong>Anthropic</strong> are used by five
               optional AI features, and only when whoever operates your instance has configured
               an API key for one of them — with no key configured, none of this ever runs.
             </p>
@@ -212,6 +212,21 @@ export default async function PrivacyPage() {
                 used solely to fill in the item&apos;s category. The item is saved right away as
                 &quot;Uncategorized&quot; either way, and a category you&apos;ve already set
                 yourself is never overwritten.
+              </li>
+              <li>
+                <strong>Recipe ideas</strong> only runs when you press &quot;Ask for ideas&quot; in
+                Discover. It sends the names of the items you have at home (marking which expire
+                soon), the names of your saved recipes and any diet filters you picked — never
+                quantities, prices, dates, or any other household or account data — so the model
+                can suggest recipes you don&apos;t already have. Squirrel
+                doesn&apos;t store the ideas: nothing is saved unless you choose to save one.
+              </li>
+              <li>
+                <strong>Recipe photo import</strong> only runs when you press &quot;Import from a
+                photo&quot; in the recipe form. It uploads the photo you pick (of a cookbook page or
+                recipe card, resized on your device first) so a vision model can read the recipe off
+                it. The photo is never saved in our database — the recipe only pre-fills the form,
+                and nothing is saved unless you then save it.
               </li>
             </ul>
             <p>

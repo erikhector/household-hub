@@ -11,7 +11,7 @@ import {
 // ids, same meaning) whenever either changes, and bump LAST_UPDATED in both.
 // Human-only area (AUTOPILOT.md): the owner reviews the wording.
 
-const LAST_UPDATED = "25 september 2026";
+const LAST_UPDATED = "2 november 2026";
 
 const SECTIONS: LegalJumpItem[] = [
   { id: "overview", title: "1. Översikt" },
@@ -152,7 +152,7 @@ export function PrivacySv({ jumpListLabel }: { jumpListLabel: string }) {
           skriva. Webbläsare utan taligenkänning visar inte knappen alls.
         </p>
         <p>
-          <strong>Gemini</strong> (Google) och <strong>Anthropic</strong> används av tre
+          <strong>Gemini</strong> (Google) och <strong>Anthropic</strong> används av fem
           valfria AI-funktioner, och bara när den som driver din instans har konfigurerat en
           API-nyckel för någon av dem – utan konfigurerad nyckel körs inget av detta.
         </p>
@@ -172,6 +172,20 @@ export function PrivacySv({ jumpListLabel }: { jumpListLabel: string }) {
             kontouppgifter – och svaret används enbart för att fylla i varans kategori. Varan
             sparas direkt som ”Okategoriserad” i båda fallen, och en kategori som du redan har satt
             själv skrivs aldrig över.
+          </li>
+          <li>
+            <strong>Receptidéer</strong> körs bara när du trycker på ”Be om idéer” i Upptäck. Den
+            skickar namnen på varorna du har hemma (och vilka som snart går ut), namnen på dina
+            sparade recept och de kostval du har valt – aldrig mängder, priser, datum eller andra
+            hushålls- eller kontouppgifter – så att modellen kan föreslå recept du inte redan har.
+            Squirrel sparar inte idéerna: inget sparas om du inte själv väljer att spara en.
+          </li>
+          <li>
+            <strong>Receptimport från foto</strong> körs bara när du trycker på ”Importera från ett
+            foto” i receptformuläret. Den laddar upp fotot du väljer (av en kokbokssida eller ett
+            receptkort, förminskat på din enhet först) så att en bildmodell kan läsa av receptet.
+            Fotot sparas aldrig i vår databas – receptet fyller bara i formuläret i förväg, och
+            inget sparas om du inte sedan sparar det.
           </li>
         </ul>
         <p>

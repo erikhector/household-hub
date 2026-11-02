@@ -234,6 +234,14 @@ describe("createRecipeAction", () => {
     expect(result.error).toBe("Ingredient quantities must be greater than 0");
   });
 
+  it("returns the new recipe id so a caller can plan it straight away", async () => {
+    recipeCreateMock.mockResolvedValue({ id: "r-new" });
+
+    const result = await createRecipeAction({}, formData({ name: "Soup" }));
+
+    expect(result.createdId).toBe("r-new");
+  });
+
   it("skips blank ingredient rows", async () => {
     recipeCreateMock.mockResolvedValue({});
     const fd = formData({ name: "Soup" });

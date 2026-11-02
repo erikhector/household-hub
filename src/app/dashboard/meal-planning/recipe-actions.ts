@@ -698,10 +698,11 @@ export async function createRecipeAction(
 
   // One transaction for the new items and the recipe (MATCH-1), so a
   // failed recipe write never leaves orphaned items behind.
+  let createdId: string;
   try {
-    await prisma.$transaction(async (tx) => {
+    createdId = await prisma.$transaction(async (tx) => {
       const ingredientData = await createIngredientItems(tx, household.id, ingredients);
-      await tx.recipe.create({
+      const created = await tx.recipe.create({
         data: {
           householdId: household.id,
           name: parsed.data.name,
@@ -716,6 +717,7 @@ export async function createRecipeAction(
           components: { create: components.data },
         },
       });
+      return created.id;
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -725,7 +727,9 @@ export async function createRecipeAction(
   if (ingredients.aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, ingredients.aiCandidates);
 
   revalidatePath(MEAL_PLANNING_PATH);
-  return {};
+  // The id lets a caller that started from the Discover sheet plan the
+  // recipe it just created without a second lookup.
+  return { createdId };
 }
 
 export async function updateRecipeAction(
