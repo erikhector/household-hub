@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { rankCatalogRecipes, ingredientHaves, normalizeForSearch, type PantryEntry, type RankOptions } from "./rank";
 import { FEATURED_COUNT, type CatalogRecipe } from "./types";
+import { RECIPE_CATALOG } from "./data";
 
 // A tiny inline catalog, not RECIPE_CATALOG: the ranking rules are what's
 // under test, and a hand-built fixture lets each case name exactly the
@@ -126,6 +127,15 @@ describe("rankCatalogRecipes filters", () => {
     const withTags = rankCatalogRecipes(FIXTURE, [], { ...opts, locale: "sv", tags: [], savedNames: ["  KÖTTBULLAR "], query: "l" });
     expect(ids(withTags)).not.toContain("meatballs");
   });
+
+  it("hides a saved recipe whichever language it was saved in", () => {
+    // Saved while the household used Swedish, browsed now in English (and
+    // the other way round): still the same recipe, so still hidden.
+    const enView = rankCatalogRecipes(FIXTURE, [], { ...opts, locale: "en", query: "meatballs", savedNames: ["Köttbullar"] });
+    expect(enView).toEqual([]);
+    const svView = rankCatalogRecipes(FIXTURE, [], { ...opts, locale: "sv", query: "köttbullar", savedNames: ["meatballs"] });
+    expect(svView).toEqual([]);
+  });
 });
 
 describe("rankCatalogRecipes pantry matching", () => {
@@ -184,11 +194,11 @@ describe("rankCatalogRecipes pantry matching", () => {
   });
 
   it("breaks ties by expiring count, then haveCount, then localized name", () => {
-    // Equal scores: 1/2 + 0 vs 2/4 + 0 -> tie on score and expiring; haveCount decides.
+    // No tie here and nothing expiring: with pantry a, b the scores differ
+    // (small 2/2, big2 2/4, big 1/4), so score alone sets the order.
     const small = recipe("small", "Aaa", "Aaa", [["a", "a"], ["b", "b"]]);
     const big = recipe("big", "Zzz", "Zzz", [["a", "a"], ["c", "c"], ["d", "d"], ["e", "e"]]);
     const big2 = recipe("big2", "Mmm", "Mmm", [["a", "a"], ["b", "b"], ["x", "x"], ["y", "y"]]);
-    // small: 1/2; big: 1/4 (a only). Use pantry a,b -> small 2/2=1, big2 2/4, big 1/4.
     const res = rankCatalogRecipes([big, big2, small], pantry(["a"], ["b"]), opts);
     expect(ids(res)).toEqual(["small", "big2", "big"]);
 
@@ -224,6 +234,9 @@ describe("rankCatalogRecipes fallback and limit", () => {
     const res = rankCatalogRecipes(many, [], opts);
     expect(ids(res)).toEqual(many.slice(0, FEATURED_COUNT).map((r) => r.id));
     expect(res[0]).toMatchObject({ haveCount: 0, totalCount: 1 });
+    // Every fallback row has nothing from the pantry; the sheet relies on
+    // this to switch its heading to "Popular to start with".
+    expect(res.every((r) => r.haveCount === 0)).toBe(true);
     // Also when the pantry is non-empty but matches nothing.
     expect(ids(rankCatalogRecipes(many, pantry(["unrelated"]), opts))).toHaveLength(FEATURED_COUNT);
   });
@@ -244,5 +257,25 @@ describe("rankCatalogRecipes fallback and limit", () => {
 describe("ingredientHaves", () => {
   it("reports per-ingredient coverage, ignoring empty stock", () => {
     expect(ingredientHaves(MEATBALLS, pantry(["Mjölk"], ["onion", 0]))).toEqual([false, true, false]);
+  });
+});
+
+describe("rankCatalogRecipes performance", () => {
+  it("ranks the full catalog against a 200-item pantry quickly", () => {
+    // A realistic large pantry: real ingredient names (so matching does
+    // work) mixed with free text that matches nothing, some expiring.
+    const names = [...new Set(RECIPE_CATALOG.flatMap((r) => r.ingredients.map((i) => i.name.sv)))];
+    const big: PantryEntry[] = Array.from({ length: 200 }, (_, i) => ({
+      name: i % 2 === 0 ? names[i % names.length] : `Okänd vara ${i}`,
+      quantity: 1,
+      expiring: i % 7 === 0,
+    }));
+    // Warm up once (JIT, memo caches), then time a single call. The bound
+    // is generous so a loaded CI runner doesn't flake; before the pantry
+    // map and memoised names this took ~840 ms.
+    rankCatalogRecipes(RECIPE_CATALOG, big, opts);
+    const start = performance.now();
+    rankCatalogRecipes(RECIPE_CATALOG, big, opts);
+    expect(performance.now() - start).toBeLessThan(100);
   });
 });
