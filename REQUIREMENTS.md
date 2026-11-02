@@ -8569,6 +8569,19 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
 (name "Squirrel", `display: "standalone"`, theme/background colors, and
 192/512/512-maskable icons).
 
+- **Status-bar strip on iOS 26**: Safari 26 ignores `theme-color`, and in a
+  Home Screen app the `apple-mobile-web-app-status-bar-style` tag too. It
+  paints the status-bar strip from a `position: fixed` element touching the
+  top edge, and with none it blurs a soft edge out of the page background.
+  The phone header is a static flex child, so the app showed a light haze
+  across the top in both themes. `src/app/dashboard/layout.tsx` renders a
+  decorative, phone-only fixed strip (`data-slot="status-bar-backdrop"`,
+  `bg-background`, the header's colour, `max(1px, safe-area-inset-top)`
+  tall, under the z-50 dialogs) for iOS to sample.
+  `e2e/status-bar-backdrop.mobile.spec.ts` pins its position and colour.
+  Chromium can't reproduce the blur itself, so the effect is checked on a
+  device.
+
 - **Home-screen shortcuts** (GAP-68): the manifest declares `shortcuts` for
   Shopping list, Meal plan and Tasks (`/dashboard/shopping-list`,
   `/dashboard/meal-planning`, `/dashboard/tasks`), each with a
