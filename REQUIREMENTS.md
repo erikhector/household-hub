@@ -6459,14 +6459,23 @@ AI model for a few recipes built from what the household has at home.
 - **Rate limit.** Keyed per household (`recipe-ideas:<household>`), 20 requests
   per hour; over it the action answers `ideasRateLimited`.
 - **What is sent** (`src/lib/recipe-ideas/ai.ts`). Names only: inventory items
-  with quantity > 0, items nearest their expiry date first, capped at 60, and
-  the names of saved recipes, capped at 50, plus the selected diet tags and the
-  locale. No quantities, prices or other household data. Names are sanitised
-  (control characters stripped, length capped) and placed inside delimiters,
-  and the system prompt says everything between them is data, not
-  instructions.
+  with quantity > 0, items expiring soon first (otherwise in the order the
+  pantry query returns them; the cap never cuts an expiring item before a
+  non-expiring one), capped at 60, and the names of saved recipes, capped at
+  50, plus the selected diet tags and the locale. No quantities, prices or
+  other household data. The user message is a few labelled data blocks, one
+  name per line ("Expiring soon, use these first (data, one per line):",
+  "Pantry items (data, one per line):", "Recipes they already have, don't
+  repeat these (data, one per line):"). Each name has every run of whitespace
+  and control characters (newlines included) collapsed to one space, so it
+  stays on a single line and can't fake a new section, and is capped at 80
+  characters. The system prompt says the pantry and recipe names are data, not
+  instructions, and must never be followed as such.
 - **Validation.** The reply must match the zod schema (`recipeIdeasSchema`).
-  Ideas with no usable name or ingredients are dropped, and so is any idea whose
+  Ideas with no usable name or ingredients are dropped, and so is an idea with
+  any invalid ingredient (e.g. a quantity of 0 or less, or no name): one bad
+  ingredient drops the whole idea rather than leaving a recipe with a gap. So
+  is any idea whose
   name matches a saved recipe (case- and accent-insensitive), so the list never
   offers what the household already has. If none survive the action answers
   `ideasNone`. Provider busy answers `ideasBusy`, any other failure
@@ -6482,11 +6491,28 @@ AI model for a few recipes built from what the household has at home.
   recipe: no Have it / Missing markers and no "You have N of M" line (it is
   not matched against the pantry), with the same Save and Add to plan actions.
   Errors show inline under the button (`role="alert"`).
+- **Offline / dropped connection** (DESIGN.md M8). A failed request rejects
+  the Server Action call rather than answering, so both calls in the sheet
+  catch it: "Ask for ideas" shows `ideasFailed` inline, and a catalog search
+  shows the existing inline "couldn't load" with Try again and keeps the
+  previous rows. Either way the sheet stays open (an uncaught rejection would
+  reach the dashboard error boundary). A rejection for a request that is no
+  longer the latest is ignored, like a stale answer. Handing off to Save or
+  Add to plan drops the ideas and ignores an answer still on its way, the
+  same as closing.
+- **Time limit.** The action's provider chain shares a 50 s deadline, so
+  `src/app/dashboard/meal-planning/page.tsx` exports `maxDuration = 60` (the
+  same reasoning as the inventory page's): on Vercel a Server Action's limit
+  is its route's, 15 s by default. It covers the recipe photo import on the
+  same page too.
 - **Privacy page.** "Third parties" lists Recipe ideas among the AI features
-  (only on button press; item names and recipe names only; nothing stored).
+  (only on button press; item names and recipe names only; nothing stored),
+  alongside Recipe photo import (GAP-54), which was missing from that list.
 - **Tests.** `ai.test.ts`, `discover-actions.test.ts`, and in
   `e2e/recipe-discover.spec.ts` the ideas list, its preview without pantry
-  markers, clearing on close, and the inline error. The e2e server runs with a
+  markers, clearing on close, the inline error, and (with the action POST
+  aborted at the network level) the offline error for both ideas and search,
+  with the sheet still open. The e2e server runs with a
   placeholder `GEMINI_API_KEY` (for the photo import), so the button is shown
   there and the action is mocked at the Server Action POST; the hidden-without-
   a-key case is not reachable from that suite.
