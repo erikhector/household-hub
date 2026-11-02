@@ -4,8 +4,7 @@ import { unitKind } from "@/lib/units";
 import { RECIPE_CATALOG } from "./data";
 import { FEATURED_COUNT } from "./types";
 
-// Raised to 120 in Task 2 when the second half of the catalog lands.
-const MIN_RECIPES = 60;
+const MIN_RECIPES = 120;
 const LANGS = ["en", "sv"] as const;
 // The metric units the catalog sticks to, so recipes scale and convert cleanly.
 const CATALOG_UNITS = new Set(["g", "kg", "dl", "l", "ml", "msk", "tsk", "krm", "pcs"]);
@@ -69,6 +68,16 @@ describe("recipe catalog", () => {
     for (const r of RECIPE_CATALOG)
       for (const lang of LANGS)
         expect(r.instructions[lang].split("\n").length, `${r.id} ${lang}`).toBeGreaterThanOrEqual(2);
+  });
+
+  it("has enough vegetarian or vegan recipes", () => {
+    expect(
+      RECIPE_CATALOG.filter((r) => r.tags.includes("vegetarian") || r.tags.includes("vegan")).length,
+    ).toBeGreaterThanOrEqual(25);
+  });
+
+  it("has enough quick recipes", () => {
+    expect(RECIPE_CATALOG.filter((r) => r.tags.includes("quick")).length).toBeGreaterThanOrEqual(15);
   });
 
   it("the featured set is varied", () => {
