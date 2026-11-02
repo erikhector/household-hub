@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.134.0",
+    "date": "2026-11-02",
+    "pr": 1061,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The privacy policy and terms of service are now available in Swedish, and both start with a short list of links to jump to each section.\n\nDark mode now keeps Squirrel's purple: the background, cards and menus have a soft purple tint instead of plain grey.\n\nItems you only typed onto a shopping list no longer show up as \"out of stock\", and deleting that list row removes the item it created. Items you used up are no longer labelled \"Never stocked\".",
+      "sv": "Integritetspolicyn och användarvillkoren finns nu på svenska, och båda börjar med en kort lista med länkar så att du kan hoppa direkt till rätt avsnitt.\n\nMörkt läge behåller nu Squirrels lila: bakgrund, kort och menyer har en mjuk lila ton i stället för vanligt grått.\n\nVaror du bara skrivit in på en inköpslista räknas inte längre som \"slut i lager\", och när du tar bort raden försvinner varan som den skapade. Varor du har använt upp märks inte längre som \"Aldrig i lager\"."
+    }
+  },
+  {
     "version": "0.133.1",
     "date": "2026-11-02",
     "pr": 1054,

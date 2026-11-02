@@ -283,7 +283,7 @@ describe("toggleItemViaShareTokenAction", () => {
     // per unit (BUG-3): 25 for the row's 3 is 25 / 3 each.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 5, lastKnownPrice: 25 / 3 },
+      data: { quantity: 5, everStocked: true, lastKnownPrice: 25 / 3 },
     });
     // No acting user to exclude from the push — no account behind a link.
     expect(recordOutOfStockTransitionMock).toHaveBeenCalledWith(

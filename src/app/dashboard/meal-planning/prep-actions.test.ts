@@ -337,7 +337,7 @@ describe("undoRecordPrepAction", () => {
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "item-rice" },
-      data: { quantity: 1000, updatedByUserId: userId },
+      data: { quantity: 1000, everStocked: true, updatedByUserId: userId },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory");

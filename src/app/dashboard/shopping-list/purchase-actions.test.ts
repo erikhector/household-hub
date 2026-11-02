@@ -403,7 +403,7 @@ describe("togglePurchasedAction", () => {
       where: { id: "inv-1" },
       // AUTO-4: this purchase's price also becomes the item's lastKnownPrice,
       // per unit (BUG-3): 25 for 3 is 25 / 3 each.
-      data: { quantity: 5, lastKnownPrice: 25 / 3 },
+      data: { quantity: 5, everStocked: true, lastKnownPrice: 25 / 3 },
     });
     // GAP-9: with the line's quantity/unit, then checked for a price spike
     // once the transaction has committed, excluding the acting user's push.

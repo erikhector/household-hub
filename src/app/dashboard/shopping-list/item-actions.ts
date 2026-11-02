@@ -6,6 +6,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
 import { requireHousehold } from "@/lib/session";
@@ -71,6 +72,7 @@ async function createAdHocShoppingListItem(
         unit: newItemDetails.unit || "pcs",
         quantity: 0,
         lowStockThreshold: 0,
+        createdFromList: true,
       },
     });
     if (!guessed) scheduleAiCategoryFallback(householdId, [name]);
@@ -374,6 +376,7 @@ export async function createInventoryItemFromShoppingListItemAction(
         category: guessed || "Uncategorized",
         quantity: 0,
         lowStockThreshold: 0,
+        createdFromList: true,
       },
     });
     if (!guessed) scheduleAiCategoryFallback(household.id, [item.name]);
@@ -551,34 +554,66 @@ export async function importShoppingListItemsAction(
   return { added };
 }
 
+/**
+ * UX-89: deleting the row that created a pantry item takes the item with it,
+ * but only when nothing else could be relying on it: it was made by a list
+ * row (`createdFromList`), never held stock (`everStocked`, quantity 0) and
+ * has no recipe ingredient, other list row, template row, price, alias or
+ * unit conversion left. Anything the household has since used, or stocked,
+ * stays, so a typo'd row costs one tap and a real pantry item is never lost.
+ * Runs after the row itself is deleted, so "other list rows" is a plain count.
+ */
+async function removeOrphanedListItem(tx: Prisma.TransactionClient, householdId: string, inventoryItemId: string) {
+  const inventoryItem = await tx.inventoryItem.findFirst({
+    where: { id: inventoryItemId, householdId, createdFromList: true, everStocked: false, quantity: { lte: 0 } },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          recipeIngredients: true,
+          shoppingListItems: true,
+          listTemplateItems: true,
+          priceHistory: true,
+          aliases: true,
+          unitConversions: true,
+        },
+      },
+    },
+  });
+  if (!inventoryItem) return;
+  if (Object.values(inventoryItem._count).some((count) => count > 0)) return;
+  await tx.inventoryItem.deleteMany({ where: { id: inventoryItem.id, householdId } });
+}
+
 export async function deleteShoppingListItemAction(itemId: string): Promise<ActionState> {
   const { household, userId } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
-    select: { id: true, shoppingListId: true, purchased: true },
+    select: { id: true, shoppingListId: true, purchased: true, inventoryItemId: true },
   });
   if (!item) return await fail("itemNotFound");
 
   try {
-    if (item.purchased) {
+    await prisma.$transaction(async (tx) => {
+      await tx.shoppingListItem.delete({ where: { id: item.id } });
       // Deleting an already-purchased item can't change the pending count
       // — nothing to check for a LIST_CLEARED transition.
-      await prisma.shoppingListItem.delete({ where: { id: item.id } });
-    } else {
-      await prisma.$transaction(async (tx) => {
-        await tx.shoppingListItem.delete({ where: { id: item.id } });
+      if (!item.purchased) {
         const remainingPending = await tx.shoppingListItem.count({
           where: { shoppingListId: item.shoppingListId, purchased: false },
         });
         await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending, userId);
-      }, INTERACTIVE_TX_OPTIONS);
-    }
+      }
+      if (item.inventoryItemId) await removeOrphanedListItem(tx, household.id, item.inventoryItemId);
+    }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
   return {};
 }
 

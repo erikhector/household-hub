@@ -313,6 +313,7 @@ describe("smartAddShoppingListItemsAction", () => {
         unit: "pcs",
         quantity: 0,
         lowStockThreshold: 0,
+        createdFromList: true,
       },
     });
     expect(shoppingListItemCreateMock.mock.calls.map(([arg]) => arg.data)).toEqual([

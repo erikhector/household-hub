@@ -99,19 +99,6 @@ Parallel-safe except where noted.
 
 ### Bugs
 
-- [ ] **BUG-1. Ticking a shopping-list line can fail with an expired 5 s transaction** (impact: med, effort: S) —
-      Sentry JAVASCRIPT-NEXTJS-4 (2 events, 2026-10-26, iOS Safari, `POST /dashboard/shopping-list/[id]`,
-      vercel-production): `Transaction API error: A query cannot be executed on an expired transaction. The timeout was 5000 ms, however 5121 ms passed`,
-      thrown by the first `tx.shoppingListItem.update()` of the tick transaction at `purchase-actions.ts:56-58`
-      (JAVASCRIPT-NEXTJS-5 is a second PrismaClientKnownRequestError, 1 event, same day; check whether it is the same cause).
-      The 5 s default also covers waiting for a pooled connection, so a cold start or a busy pool kills the tick before it does any work,
-      and the shopper sees a failed check-off in the shop. Fix: pass `{ maxWait, timeout }` to the tick `$transaction`
-      (and the sibling ones at `purchase-actions.ts:271`, `receipt-actions.ts:134`), keep the post-commit work
-      (price-spike check) outside it, and make the failure surface as the normal retry toast rather than an unhandled error.
-      Acceptance: unit test that the tick transaction is called with an explicit `timeout` above 5000 and that a
-      transaction-expired error returns an error state instead of throwing.
-
-
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
@@ -231,6 +218,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
 - [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
       It also failed once on the `mobile` project in the local `ci:local` run on d31e8ac (2026-11-01) and passed on re-run, so the fix covers both.
+      Further sighting (2026-11-02, release PR #1061 on commit 059436759a9e): `mobile` project, line 95 again (`getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s), in the local `ci:local` run only; it passed on a re-run of the same commit. It was also seen failing once in #1059's own `ci:local` run. Third mobile sighting after d31e8ac, so MAINT-66's hardening has not closed it.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
@@ -238,8 +226,12 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-82. Flaky: the meal planner's empty-week specs fail under load on mobile** (low, S) —
-      `e2e/meal-planner-empty-slots.spec.ts:20` ("an empty week is one empty state with one primary, not seven add cards": expected 0 `Add meal, ` buttons, found 7) and `:84` ("the planner has one control row with the rare actions in a menu": the "Copy last week" menuitem never became visible after clicking More), `mobile` project. Both failed in the local `npm run ci:local` run on release commit 6be170e (2026-11-02, the release PR #1034, which carried the UX-171 planner change #1027) and both passed on a re-run of the whole spec on the same commit; the GitHub e2e job on that commit was green. Likely the page is measured or clicked before the planner's empty state and its menu have hydrated or settled. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      `e2e/meal-planner-empty-slots.spec.ts:20` ("an empty week is one empty state with one primary, not seven add cards": expected 0 `Add meal, ` buttons, found 7) and `:84` ("the planner has one control row with the rare actions in a menu": the "Copy last week" menuitem never became visible after clicking More), `mobile` project. Both failed in the local `npm run ci:local` run on release commit 6be170e (2026-11-02, the release PR #1034, which carried the UX-171 planner change #1027) and both passed on a re-run of the whole spec on the same commit; the GitHub e2e job on that commit was green. Second sighting (2026-11-02, release PR #1054 on commit d66a529): `:41` ("adding a meal to an empty day asks for the slot", `mobile`) timed out in `expectHydrated` on both the first attempt and the retry in the GitHub e2e job, then passed in the whole-job re-run and in a local `npm run ci:local` on the same commit. Likely the page is measured or clicked before the planner's empty state and its menu have hydrated or settled. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-83. Flaky: the never-stocked Napkins checkbox isn't visible on desktop** (low, S) `[!]` —
+      `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -299,31 +291,9 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-47,
-UX-89.
+build them first: UX-47.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) — breaks Context
-      and Accessibility. ⚠️ Touches the privacy page (human-only area):
-      the Swedish text needs the owner's wording review before merge.
-      Decided 2026-11-02 by owner: translate the policy to Swedish. See #736.
-      Scope: a faithful Swedish translation of the current policy and
-      terms (served by locale cookie like the rest of the app), plus the
-      jump list. Leave the "who we are" sentence's meaning unchanged in
-      both languages; the owner supplies the accurate one in a reply to
-      #736, and that becomes a follow-up item.
-      - The sv cookie notice's "Läs mer" opens an English-only policy
-        inside `<html lang="sv">`, so screen readers read English with a
-        Swedish voice.
-      - The policy says Squirrel "isn't a large multi-tenant SaaS company
-        … it's a self-run app", which contradicts the public "Get started
-        free" (`src/app/privacy/page.tsx:74-75`).
-      - It is about 8,000 px long with no table of contents.
-      Acceptance: sv serves Swedish legal text and en serves English, each
-      page under the matching `lang`. The page starts with a jump list.
-      The PR is flagged for the owner's review of the Swedish wording.
 
 #### First run and the overview
 
@@ -332,53 +302,9 @@ UX-89.
 
 #### Shopping
 
-- [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
-      items** (impact: high, effort: M) — breaks User-centricity
-      ("automation suggests, the user decides"). One migration (shared
-      with UX-125; build them together).
-      Decided 2026-11-02 by owner: add `everStocked` with backfill, then
-      `createdFromList`; never-stocked items stay hidden from the "out"
-      count (list rows stay linked). See #735.
-      Context: nothing records that an item was ever stocked or that a
-      list row created it (only the current `quantity`), so "never
-      stocked", "out" and "delete the item the row created" can't be told
-      apart from a real used-up item without a new marker. Proposed: the
-      `InventoryItem.everStocked` flag from UX-125 (build them together,
-      one migration), plus an `InventoryItem.createdFromList` boolean set
-      by the five list-side create paths; the overview, inventory
-      "out" filter and OUT_OF_STOCK notifications skip items that are not
-      `everStocked`, and `deleteShoppingListItemAction` removes a
-      `createdFromList`, never-stocked item nothing else references.
-      Original report: Free-text list items
-      silently create inventory items at 0 stock (`addAdHocItemAction`,
-      `smartAddShoppingListItemsAction`). A household that only ever made
-      lists sees "14 out of stock" on the overview: napkins, charcoal,
-      crayfish, even the junk row from UX-88. Deleting the list row
-      leaves the 0-stock item behind.
-      Acceptance: a new household that only adds items to lists shows 0
-      out of stock. Items that were never stocked, or are already on a
-      list, don't count as out. Deleting a list row whose never-stocked
-      inventory item it created removes that item too.
-
 #### Meals and recipes
 
 #### Inventory
-
-- [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
-      med, effort: S) — bug. One migration.
-      Decided 2026-11-02 by owner: add `everStocked`, backfilling `true`
-      where price history, bought rows or a non-default `lastKnownPrice`
-      exist; already-empty items without those stay mislabelled until
-      restocked. See #735.
-      Context: nothing that an item was ever stocked (no stock log; only the
-      current `quantity`), so the fix is a new `InventoryItem.everStocked`
-      flag, set wherever quantity goes above 0 (item form, +/- steppers,
-      bought tick, receipt scan, bulk create, merge). Original report: The rule looks only at price history and
-      bought list rows (`src/lib/inventory/duplicates.ts:60-62`), so items
-      created with stock and then used up (Mellanmjölk, Laxfilé) are tagged
-      "never stocked".
-      Acceptance: an item ever saved with quantity > 0 is never listed
-      under "Never stocked", with a unit test.
 
 ### UX (2026-10-23 scout)
 
@@ -441,21 +367,6 @@ left out.
 **File conflicts.** Don't build these in parallel:
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
-
-
-- [ ] **UX-157. A dark theme that keeps the brand hue** (impact: med,
-      effort: M) — breaks Squirrel design principles ("soft, friendly and
-      purple … the brand's purple is carried by the mascot and the
-      gradient"). `.dark` uses a hueless ground (`--background:
-      oklch(0.145 0 0)`), a gradient from `#180828` to `#0a0414` that
-      barely registers, and charcoal cards; purple survives only on the CTA
-      and active tab (`src/app/globals.css:239-270`; report `e1-dark-overview`
-      vs `overview-mobile`).
-      Acceptance: dark ground, gradient and card tokens share light's hue
-      family (around `oklch(0.17 0.03 300)`, `oklch(0.24 0.06 300)` →
-      `oklch(0.14 0.03 300)`, `oklch(0.23 0.03 300)`); every pair in
-      `globals-contrast.test.ts` still passes; the `light` and default dark
-      sweep screenshots of the overview are reviewed side by side.
 
 - [ ] **UX-161. Contrast on avatar initials, selected chips and faded
       table text** (impact: med, effort: S) — breaks Accessibility tokens
@@ -900,6 +811,41 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
+### 2026-11-02 scan
+
+- [ ] **GAP-69. "Stock check": walk one location and confirm or correct each amount** (impact: med, effort: M) —
+      Grocy's stock overview lets you inventory a product by typing the
+      amount you actually counted, and its stock journal records the
+      correction. Squirrel's amounts only drift: items change through
+      +/-, trips, receipts and cooking, and nothing prompts anyone to
+      reconcile the list with the shelf, so "0.5 left" quietly stays
+      wrong until the item runs out unexpectedly. The only recount today
+      is the AI shelf scan's restock mode, which needs a camera, an AI
+      key and a photo the model reads correctly, and sets counted
+      amounts through `bulkSetInventoryQuantitiesAction` ("Take stock",
+      see REQUIREMENTS.md "AI shelf scan (beta)" and PERF-15). Add its
+      manual counterpart: a "Check stock" entry in the inventory toolbar
+      that opens a full-screen walk-through for one chosen location (or
+      "All"), one item per step, sorted by name: the amount field with
+      the unit's `inputMode`, a big "Correct, next" button that keeps or
+      takes the typed amount and moves on, plus "Skip". No camera or AI,
+      and every item in the location is shown, not just what a photo
+      caught. Changed amounts are saved as counted values (not deltas)
+      through `bulkSetInventoryQuantitiesAction`, so household scoping,
+      the batched out-of-stock and low-stock side effects and the PERF-15
+      query budget come for free (not `adjustQuantityAction`, which takes
+      a delta); no new action or schema. A summary at the end says
+      "12 checked, 3 corrected". Scope: no schema, no history, no
+      scheduled reminder, no barcode step; close with Escape or the back
+      gesture and keep what was already saved.
+      Acceptance: unit tests that a changed amount is sent to
+      `bulkSetInventoryQuantitiesAction` and an unchanged one is not,
+      scoped to the session household; an `e2e/` step on `mobile` (and
+      the 320 px layout) starts a check on a seeded location, corrects
+      one uniquely named item, taps "Correct, next" on another without
+      changing it, sees "1 corrected" and the new amount after a reload,
+      in `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
@@ -931,7 +877,7 @@ out to be a product-scope question rather than a scoped task should move to
       (c) the housemate voice in the Today block ("Nothing planned for
       dinner. Last Tuesday's pasta again?" from existing data); (d) each
       section's hue carried into its empty-state dashed box at 10 %
-      (depends on UX-167). The warm dark theme is UX-157. Decide which to
+      (depends on UX-167). The dark theme (UX-157) has shipped. Decide which to
       build and in what order.
       Acceptance: per idea, a before/after on the `mobile` screenshots and
       the e2e spec for the touched component still passing.

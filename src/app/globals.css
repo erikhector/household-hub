@@ -242,11 +242,14 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  /* UX-157: ground, gradient, cards and sidebar share the brand hue (300),
+     as light does, instead of a hueless charcoal that left purple only on
+     the CTA. */
+  --background: oklch(0.17 0.03 300);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.225 0.025 290);
+  --card: oklch(0.23 0.03 300);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.225 0.025 290);
+  --popover: oklch(0.23 0.03 300);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.66 0.22 300);
   /* The lighter dark-theme purple needs dark ink on it: near-white text
@@ -277,7 +280,7 @@
   --chart-3: oklch(0.64 0.13 180);
   --chart-4: oklch(0.66 0.22 300);
   --chart-5: oklch(0.66 0.16 145);
-  --sidebar: oklch(0.205 0.02 290);
+  --sidebar: oklch(0.2 0.03 300);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.66 0.22 300);
   --sidebar-primary-foreground: oklch(0.22 0.05 300);
@@ -286,8 +289,8 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.72 0.19 300);
   --status-tint: 20%;
-  --gradient-start: #180828;
-  --gradient-end: #0a0414;
+  --gradient-start: oklch(0.24 0.06 300);
+  --gradient-end: oklch(0.14 0.03 300);
   --fridge: oklch(0.26 0.03 290);
   --fridge-handle: oklch(0.4 0.04 290);
 }
@@ -525,9 +528,25 @@
 
 /* Only matches an installed/standalone launch (see PwaSplashScreen for why) —
    invisible in a regular browser tab. Colors are manifest.ts's
-   background_color (#0a0a0a); duration/keyframes hold at full opacity long
-   enough to bridge the OS-native splash handoff, then fade out and drop out
-   of hit-testing via `visibility`. */
+   background_color (#0a0a0a). The timeline, on the motion tokens:
+   - 0 ms: the badge, centred like Android's own splash, crouches, hops
+     16 px and lands with a squash, a soft glow shrinking and spreading under
+     it (`intro-hop`, `intro-glow`).
+   - 450 ms: the wordmark rises in as the badge lands (`intro-rise`).
+   - exit: a circle opens from the middle onto the app (`exit-iris`, a mask
+     over the animatable --pwa-splash-hole) while the badge grows and fades
+     and the wordmark fades (`exit-mark`, `exit-word`).
+   The exit is delayed to a 1.4 s cap so the splash always leaves (the old
+   splash's length), and PwaSplashScreen starts it early, once the app has
+   hydrated and the intro is done (src/lib/pwa-splash.ts relies on the
+   `pwa-splash-intro-` / `pwa-splash-exit-` keyframe names). `visibility`
+   drops it out of hit-testing at the end. */
+@property --pwa-splash-hole {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
 .pwa-splash-screen {
   display: none;
 }
@@ -543,19 +562,131 @@
     justify-content: center;
     gap: 1rem;
     background: #0a0a0a;
-    animation: pwa-splash-fade-out 1.4s ease-out forwards;
+    /* Opaque until the exit grows the hole; the fallback keeps it opaque
+       where @property isn't supported (the hole then just isn't animated). */
+    mask-image: radial-gradient(
+      circle,
+      transparent var(--pwa-splash-hole, 0%),
+      #000 calc(var(--pwa-splash-hole, 0%) + 1px)
+    );
+    animation: pwa-splash-exit-iris var(--motion-duration-slow) var(--motion-ease-in) 1.4s both;
+  }
+  .pwa-splash-mark {
+    position: relative;
+    display: grid;
+    place-items: center;
+    animation: pwa-splash-exit-mark var(--motion-duration-slow) var(--motion-ease-in) 1.4s forwards;
+  }
+  .pwa-splash-badge {
+    transform-origin: 50% 100%;
+    animation: pwa-splash-intro-hop 560ms linear both;
+  }
+  .pwa-splash-glow {
+    position: absolute;
+    bottom: -0.75rem;
+    left: 50%;
+    width: 4rem;
+    height: 0.625rem;
+    margin-left: -2rem;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(180 140 255 / 0.35), transparent);
+    animation: pwa-splash-intro-glow 560ms linear both;
+  }
+  .pwa-splash-word {
+    animation:
+      pwa-splash-intro-rise var(--motion-duration-base) var(--motion-ease-out) 450ms both,
+      pwa-splash-exit-word var(--motion-duration-fast) var(--motion-ease-in) 1.4s forwards;
   }
 }
 
-@keyframes pwa-splash-fade-out {
-  0%,
-  60% {
-    opacity: 1;
-    visibility: visible;
+/* DESIGN.md: with reduced motion nothing moves. The global rule above
+   shortens durations but keeps delays, which would hold the wordmark back,
+   so the intro is dropped outright; the exit stays (0.01 ms long) so the
+   splash still leaves, at once, when the app is ready or at the cap. */
+@media (display-mode: standalone) and (prefers-reduced-motion: reduce) {
+  .pwa-splash-badge,
+  .pwa-splash-glow {
+    animation: none;
+  }
+  .pwa-splash-word {
+    animation: pwa-splash-exit-word var(--motion-duration-fast) var(--motion-ease-in) 1.4s forwards;
+  }
+}
+
+@keyframes pwa-splash-intro-hop {
+  0% {
+    transform: none;
+    animation-timing-function: var(--motion-ease-out);
+  }
+  15% {
+    transform: scale(1.08, 0.88);
+    animation-timing-function: var(--motion-ease-out);
+  }
+  45% {
+    transform: translateY(-1rem) scale(0.96, 1.05);
+    animation-timing-function: var(--motion-ease-in);
+  }
+  70% {
+    transform: scale(1.1, 0.86);
+    animation-timing-function: var(--motion-ease-out);
+  }
+  85% {
+    transform: scale(0.97, 1.03);
   }
   100% {
+    transform: none;
+  }
+}
+
+@keyframes pwa-splash-intro-glow {
+  0%,
+  15% {
+    transform: scale(1.1);
+  }
+  45% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  70% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes pwa-splash-intro-rise {
+  from {
+    transform: translateY(0.5rem);
     opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes pwa-splash-exit-iris {
+  from {
+    --pwa-splash-hole: 0%;
+    visibility: visible;
+  }
+  to {
+    --pwa-splash-hole: 100%;
     visibility: hidden;
+  }
+}
+
+@keyframes pwa-splash-exit-mark {
+  to {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+@keyframes pwa-splash-exit-word {
+  to {
+    opacity: 0;
   }
 }
 

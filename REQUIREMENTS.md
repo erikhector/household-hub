@@ -617,6 +617,33 @@ every lookup the old one did.
   The add form pre-fills 1 for a piece count (UX-156: never above the
   default quantity of 1, so a first item reads "In stock", not "Low stock")
   and nothing for a weight or volume, which follows the unit as it's picked; empty saves as 0, "warn only when out".
+  **Ever stocked and created from a list (UX-125, UX-89)**: two booleans
+  on `InventoryItem`, `everStocked` and `createdFromList` (both default
+  false; one migration, which backfills `everStocked` to true where the item
+  has stock, a `lastKnownPrice`, `PriceHistory` or a bought list row —
+  already-empty items without any of those stay false until restocked).
+  `everStocked` is set, never cleared, wherever quantity goes above 0: the
+  item form (create and edit), quick add, bulk create and bulk quantity
+  edit, the +/- stepper, the shelf-scan "take stock", barcode scans, stock
+  arrival (`applyStockArrival`, so the bought tick and put-away), receipt
+  registration, cooking leftovers, and a merge (the keeper takes it from any
+  merged item). Opt-in sample data sets it on every row. An item at
+  quantity 0 that was never stocked (`isNeverStockedAtZero`,
+  `src/lib/stock-status.ts`) is not "out": Home's "N out of stock" count,
+  the inventory "out" filter and the header's out count, and the "well
+  stocked" note skip it (the row's badge still says what the quantity says,
+  and an `OUT_OF_STOCK` notification only fires on a drop from stock, so it
+  never fires for one). The catalog's "Never stocked" chip is
+  `isNeverStocked`, which now also needs `!everStocked`, so an item saved
+  with stock and then used up is no longer labelled never stocked.
+  `createdFromList` is set by the list-side create paths (`addAdHocItemAction`
+  and quick add, `createInventoryItemFromShoppingListItemAction`, smart add's
+  two creates, and the receipt-register create).
+  `deleteShoppingListItemAction` deletes the row's linked item too when it is
+  `createdFromList`, not `everStocked`, at quantity 0 and nothing else
+  references it (no recipe ingredient, other list row, template row, price,
+  alias or unit conversion); anything else stays. List rows stay linked while
+  the item exists.
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
   status (in/low/out of stock, expiring soon, expired); filter dropdown
@@ -7384,8 +7411,11 @@ Both themes share the same `body` background technique: a
 `radial-gradient(circle, var(--gradient-start), var(--gradient-end))` (set
 in `globals.css`'s `@layer base`), where `--gradient-start`/`--gradient-end`
 are defined per-theme in `:root` (light: soft lavender-white,
-`#f3ecfb` → `#fefcff`) and `.dark` (the original near-black purple,
-`#180828` → `#0a0414`). Don't reintroduce a plain `bg-background` on
+`#f3ecfb` → `#fefcff`) and `.dark` (near-black purple at the brand hue,
+`oklch(0.24 0.06 300)` → `oklch(0.14 0.03 300)`; UX-157 also moved `--background`,
+`--card`, `--popover` and `--sidebar` to hue 300 with chroma 0.03, so the dark theme
+reads as the same purple family as light, not charcoal; the browser-chrome hex
+for the outer stop is `#0b0614`). Don't reintroduce a plain `bg-background` on
 `body` — it would paint over the gradient with a flat color. The dark
 gradient's outer stop is deliberately near-black, not literal `#000000` —
 because the background uses `background-attachment: fixed`, it's recentered
@@ -7556,8 +7586,29 @@ stay that way rather than re-adding per-page redirect checks:
   localhost, which only matters in local dev.
 - The page's `<h1>` is the card title: `CardTitle` takes `as="h1"`. The text
   for the titles with no other home is in the dictionaries' `meta` section;
-  `/privacy` and `/terms` titles are localised while their bodies stay English.
+  `/privacy` and `/terms` titles are localised, and so are their bodies (UX-66).
 - Covered by `e2e/public-titles.spec.ts`.
+
+### Legal pages in Swedish (UX-66)
+
+- `/privacy` and `/terms` serve the visitor's language (account locale, then
+  the `locale` cookie, then `Accept-Language`, like every other page). English
+  lives in `page.tsx`, Swedish in `privacy-sv.tsx` / `terms-sv.tsx`: long
+  prose a translator or lawyer reviews as one document, not dictionary
+  strings. The Swedish text is a faithful translation: same sections, same
+  section ids, same meaning, including the "who we are" paragraph (the owner's
+  accurate wording for that is a separate follow-up). Change both languages
+  together and bump `LAST_UPDATED` in both.
+- The `<article>` carries `lang="en"` or `lang="sv"` to match, so a screen
+  reader uses the right voice; the cookie notice's "Läs mer" lands on the
+  Swedish policy.
+- Each page opens with a "On this page" / "På den här sidan" jump list
+  (`LegalJumpList`, `src/components/legal/legal-page.tsx`): a `nav` of
+  in-page anchors, one per section, 44px tall. The privacy cookie list
+  (`CookieList`) shows each `STORAGE_INVENTORY` entry's `purpose` or
+  `purposeSv` and `duration` or `durationSv`.
+- Human-only area: the Swedish wording needs the owner's review before merge.
+- Covered by `e2e/public-pages.spec.ts`.
 
 ### Session revocation on password change (SCALE-H)
 
@@ -7923,9 +7974,9 @@ components directly.
   account email as a hidden `autocomplete="username"` input (UX-67) so
   password managers update the right login. The privacy page lists
   cookies as a definition list per entry (a table clipped "Purpose" to a few
-  characters on phones). The English-only legal body is `lang="en"` and set
-  in `foreground`; "Terms of service" and "Privacy policy" are sentence
-  case; signup's button reads "Create your household" like its title; the
+  characters on phones). The legal body is set in `foreground` and served in
+  the visitor's language (UX-66, below); "Terms of service" and "Privacy
+  policy" are sentence case; signup's button reads "Create your household" like its title; the
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
@@ -8700,6 +8751,19 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
 (name "Squirrel", `display: "standalone"`, theme/background colors, and
 192/512/512-maskable icons).
 
+- **Status-bar strip on iOS 26**: Safari 26 ignores `theme-color`, and in a
+  Home Screen app the `apple-mobile-web-app-status-bar-style` tag too. It
+  paints the status-bar strip from a `position: fixed` element touching the
+  top edge, and with none it blurs a soft edge out of the page background.
+  The phone header is a static flex child, so the app showed a light haze
+  across the top in both themes. `src/app/dashboard/layout.tsx` renders a
+  decorative, phone-only fixed strip (`data-slot="status-bar-backdrop"`,
+  `bg-background`, the header's colour, `max(1px, safe-area-inset-top)`
+  tall, under the z-50 dialogs) for iOS to sample.
+  `e2e/status-bar-backdrop.mobile.spec.ts` pins its position and colour.
+  Chromium can't reproduce the blur itself, so the effect is checked on a
+  device.
+
 - **Home-screen shortcuts** (GAP-68): the manifest declares `shortcuts` for
   Shopping list, Meal plan and Tasks (`/dashboard/shopping-list`,
   `/dashboard/meal-planning`, `/dashboard/tasks`), each with a
@@ -8734,6 +8798,23 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   `e2e/share-target.spec.ts` (en/sv, desktop and mobile); the OS share sheet
   itself needs a real Android device.
 
+- **Launch splash** (`PwaSplashScreen`, `src/components/pwa/pwa-splash-screen.tsx`,
+  `.pwa-splash-*` in `globals.css`): only in an installed app
+  (`display-mode: standalone`); a browser tab never shows it. Android draws
+  its own static splash from the manifest first; iOS has none, so this one
+  covers the blank screen there. It's CSS, so it plays before React loads,
+  on the motion tokens: the badge (centred on `#0a0a0a`, as Android's left
+  it) crouches, hops 16 px and lands with a squash over a soft glow, the
+  "Squirrel" wordmark rises in as it lands (~0.65 s), then a circle opens
+  from the middle onto the app while the badge grows and fades. The exit
+  waits for a 1.4 s cap so the splash always leaves without JavaScript; once
+  the app has hydrated and the intro is done, `exitWhenIntroDone`
+  (`src/lib/pwa-splash.ts`) starts it early, so a quick launch is over in
+  about a second. With reduced motion there is no intro and the splash
+  disappears at once at the same moment. Covered by `pwa-splash.test.ts`
+  and `e2e/pwa-splash.spec.ts`, which serves the app's CSS with the
+  standalone condition rewritten to `all`, since Playwright can't launch an
+  installed app. Nothing is stored in the browser.
 - **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
   following the guide's "InstallPrompt" example): a three-state card —
   already installed (`display-mode: standalone` matched) shows a static
@@ -9732,7 +9813,8 @@ UX-14's rapid ticks and the rollback toast.
   `src/lib/actions/household.ts`) or `*_STORAGE_KEY` constant and fails if
   its value isn't listed in `STORAGE_INVENTORY`
   (`src/lib/cookie-inventory.ts`), which also feeds the privacy page's
-  cookie list (`src/app/privacy/page.tsx`). A new cookie or localStorage
+  cookie list (`src/app/privacy/page.tsx`, with a Swedish `purposeSv` and
+  `durationSv` per entry). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
 - **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`

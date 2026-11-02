@@ -82,6 +82,8 @@ export async function applyStockArrival(
     : estimatedExpiryUpdate(current, previousQuantity, nextQuantity);
   const data = {
     quantity: nextQuantity,
+    // UX-125: stock has been in the house at least once.
+    ...(nextQuantity > 0 ? { everStocked: true } : {}),
     // BUG-3: lastKnownPrice is per unit of the quantity the price was paid
     // for, so a later row of any quantity can scale it (see unit-price.ts).
     ...(price != null ? { lastKnownPrice: unitPriceOf(price, priceQuantity) } : {}),

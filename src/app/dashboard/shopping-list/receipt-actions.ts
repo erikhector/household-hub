@@ -383,6 +383,7 @@ export async function registerReceiptAction(
           unit: line.unit || "pcs",
           quantity: 0,
           lowStockThreshold: 0,
+          createdFromList: true,
         },
       });
       createdThisReceipt.push(inventoryItem);
@@ -505,7 +506,14 @@ export async function registerReceiptAction(
         const frozenReset = frozenResetOnArrival(item, currentQuantity, nextQuantity);
         await tx.inventoryItem.update({
           where: { id: inventoryItemId },
-          data: { quantity: nextQuantity, lastKnownPrice, ...openedReset, ...frozenReset, ...expiryUpdate },
+          data: {
+            quantity: nextQuantity,
+            ...(nextQuantity > 0 ? { everStocked: true } : {}),
+            lastKnownPrice,
+            ...openedReset,
+            ...frozenReset,
+            ...expiryUpdate,
+          },
         });
       }
 

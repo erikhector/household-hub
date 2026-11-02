@@ -1,20 +1,29 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { BrandBadge } from "@/components/brand/brand-badge";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import {
+  CookieList,
+  LegalJumpList,
+  LegalSection as Section,
+  type LegalJumpItem,
+} from "@/components/legal/legal-page";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { titleOnlyMetadata } from "@/lib/page-metadata";
-import { STORAGE_INVENTORY } from "@/lib/cookie-inventory";
+import { PrivacySv } from "./privacy-sv";
 
-// Long-form legal prose, authored directly here in English rather than
-// routed through src/lib/i18n/dictionaries — see the dictionary's `legal`
-// section comment (src/lib/i18n/dictionaries/en.ts) for why. Content below
-// is grounded in the actual data model (prisma/schema.prisma's User model),
-// the actual email flow (src/lib/email.ts, Resend), and a repo-wide check
-// that confirmed there are no analytics/tracking scripts anywhere in
-// src/ — don't add either without updating this page. The cookie list in
-// section 4 is generated from src/lib/cookie-inventory.ts.
-// UX-64: the title follows the visitor's language even though the body below
-// stays English (see the note above).
+// Long-form legal prose, authored directly here in English (and in
+// ./privacy-sv.tsx in Swedish) rather than routed through
+// src/lib/i18n/dictionaries — see the dictionary's `legal` section comment
+// (src/lib/i18n/dictionaries/en.ts) for why. UX-66: the page serves the
+// visitor's language (locale cookie, like the rest of the app) and marks the
+// article with the matching `lang`. The Swedish text is a faithful
+// translation of this one: change both together, and keep the section ids
+// identical. Content below is grounded in the actual data model
+// (prisma/schema.prisma's User model), the actual email flow
+// (src/lib/email.ts, Resend), and a repo-wide check that confirmed there are
+// no analytics/tracking scripts anywhere in src/ — don't add either without
+// updating this page. The cookie list in section 4 is generated from
+// src/lib/cookie-inventory.ts.
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
   return titleOnlyMetadata(dict.meta.privacyTitle);
@@ -22,27 +31,25 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const LAST_UPDATED = "September 25, 2026";
 
-function Section({
-  title,
-  id,
-  children,
-}: {
-  title: string;
-  id?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={id} className="flex scroll-mt-6 flex-col gap-3">
-      <h2 className="font-heading text-xl font-semibold tracking-tight">{title}</h2>
-      <div className="flex flex-col gap-3 text-sm leading-relaxed text-foreground">
-        {children}
-      </div>
-    </section>
-  );
-}
+const SECTIONS: LegalJumpItem[] = [
+  { id: "overview", title: "1. Overview" },
+  { id: "who", title: "2. Who this policy covers" },
+  { id: "collect", title: "3. What we collect" },
+  { id: "cookies", title: "4. Cookies and local storage" },
+  { id: "invites", title: "5. Household invites" },
+  { id: "third-parties", title: "6. Third parties" },
+  { id: "legal-basis", title: "7. Legal basis for processing (EU/EEA users)" },
+  { id: "retention", title: "8. How long we keep data" },
+  { id: "rights", title: "9. Your rights and how to exercise them" },
+  { id: "children", title: "10. Children" },
+  { id: "security", title: "11. Security" },
+  { id: "changes", title: "12. Changes to this policy" },
+  { id: "contact", title: "13. Contact" },
+];
 
 export default async function PrivacyPage() {
   const dict = await getDictionary();
+  const isSv = (await getLocale()) === "sv";
 
   return (
     <div className="flex flex-1 flex-col items-center px-4 py-12">
@@ -55,13 +62,18 @@ export default async function PrivacyPage() {
           {dict.auth.brand}
         </Link>
 
+        {isSv ? (
+          <PrivacySv jumpListLabel={dict.legal.jumpListLabel} />
+        ) : (
         <article lang="en" className="flex flex-col gap-8">
           <header className="flex flex-col gap-1">
             <h1 className="font-heading text-3xl font-bold tracking-tight">Privacy policy</h1>
             <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
           </header>
 
-          <Section title="1. Overview">
+          <LegalJumpList label={dict.legal.jumpListLabel} items={SECTIONS} />
+
+          <Section title="1. Overview" id="overview">
             <p>
               This policy explains what personal data Squirrel collects, why, and what (if
               anything) is shared with anyone else. Squirrel is a small household-management
@@ -71,7 +83,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="2. Who this policy covers">
+          <Section title="2. Who this policy covers" id="who">
             <p>
               &quot;We&quot; means whoever operates the instance of Squirrel your account
               lives on — typically the person who set it up for you and your household, or the
@@ -81,7 +93,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="3. What we collect">
+          <Section title="3. What we collect" id="collect">
             <p>When you create an account, we store:</p>
             <ul className="list-disc pl-5">
               <li>Your email address (used to log in, to send invite emails if you&apos;re invited to or invite others to a household, and to send the weekly digest if you turn it on);</li>
@@ -109,25 +121,20 @@ export default async function PrivacyPage() {
               site-data settings; the only effect is that you&apos;ll be signed out and your
               preferences reset.
             </p>
-            <ul className="flex flex-col gap-3">
-              {STORAGE_INVENTORY.map((entry) => (
-                <li key={entry.name} className="rounded-lg border p-3">
-                  <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 text-sm">
-                    <dt className="text-muted-foreground">Name</dt>
-                    <dd className="font-mono break-all">{entry.name}</dd>
-                    <dt className="text-muted-foreground">Type</dt>
-                    <dd>
-                      {entry.kind === "cookie" ? "Cookie" : entry.kind === "cache" ? "Offline cache" : "Local storage"},{" "}
-                      {entry.category === "necessary" ? "necessary" : "preference"}
-                    </dd>
-                    <dt className="text-muted-foreground">Purpose</dt>
-                    <dd>{entry.purpose}</dd>
-                    <dt className="text-muted-foreground">Lasts</dt>
-                    <dd>{entry.duration}</dd>
-                  </dl>
-                </li>
-              ))}
-            </ul>
+            <CookieList
+              locale="en"
+              labels={{
+                name: "Name",
+                type: "Type",
+                purpose: "Purpose",
+                lasts: "Lasts",
+                cookie: "Cookie",
+                cache: "Offline cache",
+                localStorage: "Local storage",
+                necessary: "necessary",
+                preference: "preference",
+              }}
+            />
             <p>
               On a secure (HTTPS) connection the sign-in cookies carry a browser-enforced prefix
               (<code>__Secure-</code> or <code>__Host-</code>) in front of the names above. If you
@@ -137,7 +144,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="5. Household invites">
+          <Section title="5. Household invites" id="invites">
             <p>
               When you invite someone to your household by email, we send that email via Resend,
               a transactional-email provider — see &quot;Third parties&quot; below. The
@@ -148,7 +155,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="6. Third parties">
+          <Section title="6. Third parties" id="third-parties">
             <p>
               <strong>Resend</strong> receives personal data only to deliver account and
               household-invite emails (recipient email address, the inviting household&apos;s
@@ -246,7 +253,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="7. Legal basis for processing (EU/EEA users)">
+          <Section title="7. Legal basis for processing (EU/EEA users)" id="legal-basis">
             <p>
               If you&apos;re in the EU/EEA (including Sweden), our legal basis for processing your
               account and household data is performance of the contract formed by these terms —
@@ -258,7 +265,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="8. How long we keep data">
+          <Section title="8. How long we keep data" id="retention">
             <p>
               Account and household data is kept for as long as the account or household exists.
               A household owner can permanently delete their household at any time from that
@@ -269,7 +276,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="9. Your rights and how to exercise them">
+          <Section title="9. Your rights and how to exercise them" id="rights">
             <p>
               Depending on where you live, you may have rights to access, correct, export, or
               delete your personal data, and to object to or restrict certain processing — for
@@ -286,7 +293,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="10. Children">
+          <Section title="10. Children" id="children">
             <p>
               Squirrel isn&apos;t directed at children and isn&apos;t knowingly used to
               collect personal data from anyone below the age required to consent to data
@@ -296,7 +303,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="11. Security">
+          <Section title="11. Security" id="security">
             <p>
               Passwords are hashed before storage and are never visible to anyone, including
               whoever operates your instance. Login and signup attempts are rate-limited to slow
@@ -305,7 +312,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="12. Changes to this policy">
+          <Section title="12. Changes to this policy" id="changes">
             <p>
               If this policy changes, we&apos;ll update the &quot;Last updated&quot; date above.
               Material changes — for example, if a new third-party service is ever added — will
@@ -313,7 +320,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="13. Contact">
+          <Section title="13. Contact" id="contact">
             <p>
               For any question about this policy or your data, contact the household owner who
               invited you, or the person who operates your instance of Squirrel. See also
@@ -325,6 +332,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
         </article>
+        )}
       </div>
     </div>
   );
