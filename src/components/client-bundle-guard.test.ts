@@ -57,8 +57,14 @@ function resolve(from: string, spec: string): string | null {
   return null;
 }
 
-// Depth-first search for a chain from `entry` to a `zod` import, or null.
-function zodChain(entry: string, seen = new Set<string>()): string[] | null {
+// Depth-first search for a chain from `entry` to an import that `isTarget`
+// accepts (given the raw specifier and its resolved path, null for a package),
+// or null. The last element of the chain is the target specifier as written.
+function chainTo(
+  entry: string,
+  isTarget: (spec: string, resolved: string | null) => boolean,
+  seen = new Set<string>(),
+): string[] | null {
   if (seen.has(entry)) return null;
   seen.add(entry);
   const source = read(entry);
@@ -66,13 +72,26 @@ function zodChain(entry: string, seen = new Set<string>()): string[] | null {
   // bundle, so what it imports never ships.
   if (hasDirective(source, "use server")) return null;
   for (const spec of valueImports(source)) {
-    if (spec === "zod" || spec.startsWith("zod/")) return [path.relative(SRC, entry), "zod"];
     const next = resolve(entry, spec);
+    if (isTarget(spec, next)) return [path.relative(SRC, entry), spec];
     if (!next) continue;
-    const chain = zodChain(next, seen);
+    const chain = chainTo(next, isTarget, seen);
     if (chain) return [path.relative(SRC, entry), ...chain];
   }
   return null;
+}
+
+const isZod = (spec: string) => spec === "zod" || spec.startsWith("zod/");
+const isRecipeCatalog = (_spec: string, resolved: string | null) =>
+  resolved !== null && resolved.split(path.sep).join("/").endsWith("src/lib/recipe-catalog/data.ts");
+
+function offendersFor(isTarget: Parameters<typeof chainTo>[1]): string[] {
+  return walk(COMPONENTS)
+    .filter((file) => hasDirective(read(file), "use client"))
+    .flatMap((file) => {
+      const chain = chainTo(file, isTarget);
+      return chain ? [chain.join(" -> ")] : [];
+    });
 }
 
 describe("client bundle guard", () => {
@@ -95,12 +114,13 @@ describe("client bundle guard", () => {
   });
 
   it("keeps zod out of every client component's imports", () => {
-    const offenders = walk(COMPONENTS)
-      .filter((file) => hasDirective(read(file), "use client"))
-      .flatMap((file) => {
-        const chain = zodChain(file);
-        return chain ? [chain.join(" -> ")] : [];
-      });
-    expect(offenders).toEqual([]);
+    expect(offendersFor(isZod)).toEqual([]);
+  });
+
+  // The recipe catalog is ~120 recipes of bilingual text. Shipping it to the
+  // client would bloat the meal-planning bundle, and the spec keeps it
+  // server-side: client components get recipes through server actions/props.
+  it("keeps the recipe catalog out of every client component's imports", () => {
+    expect(offendersFor(isRecipeCatalog)).toEqual([]);
   });
 });
