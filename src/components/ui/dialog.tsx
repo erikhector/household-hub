@@ -170,11 +170,15 @@ function Dialog({
       fullScreen,
       setFullScreen,
       half,
-      // The grabber steps up a size (half → normal → full screen), and from
-      // full screen back to normal, so a tap always has somewhere to go.
+      // The grabber steps through every size, up and then round, as iOS's
+      // grabber does for VoiceOver: half → normal → full screen → half (a
+      // long form), normal ↔ full screen (any other sheet). So each size a
+      // drag reaches is a tap away too (M7: nothing gesture-only).
       toggleExpanded: () => {
-        if (fullScreen) setFullScreen(false)
-        else if (half) setSnapPoint(FULL)
+        if (fullScreen) {
+          setFullScreen(false)
+          if (snaps) setSnapPoint(HALF)
+        } else if (half) setSnapPoint(FULL)
         else setFullScreen(true)
       },
     }),
@@ -265,7 +269,7 @@ function DialogOverlay({
 // is covered; the title sits left and the X right, so nothing tappable is
 // under it.
 function SheetGrabber() {
-  const { phone, fullScreen, half, toggleExpanded } = React.useContext(SheetContext)
+  const { phone, fullScreen, toggleExpanded } = React.useContext(SheetContext)
   const copy = commonCopy[getDocumentLocale()]
   const pill = <span aria-hidden className="block h-1 w-10 rounded-full bg-muted-foreground/30" />
   // Every phone sheet can go full screen now, so the grabber is always the
@@ -278,7 +282,7 @@ function SheetGrabber() {
         <button
           type="button"
           aria-label={expanded ? copy.collapseSheet : copy.expandSheet}
-          aria-expanded={expanded && !half}
+          aria-expanded={expanded}
           onClick={toggleExpanded}
           className="relative flex h-4 w-16 items-end justify-center outline-none after:absolute after:-inset-x-2 after:top-0 after:-bottom-7 focus-visible:ring-3 focus-visible:ring-ring/50 rounded-full"
         >

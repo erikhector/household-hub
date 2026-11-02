@@ -8225,10 +8225,10 @@ components directly.
     closes it. A drag that would settle a long form at half goes to the
     normal sheet instead. The X, Escape, back and an outside tap still
     close straight from full screen. The grabber of every phone sheet is a
-    button ("Expand sheet" / "Collapse sheet") for the same steps (M7):
-    half → normal, normal → full screen, full screen → normal. The long
-    form's half point is reached by drag only, as a peek at the page
-    behind. Covered by `e2e/sheet-full-screen.mobile.spec.ts`.
+    button ("Expand sheet" / "Collapse sheet") that steps through every
+    size a drag reaches, as iOS's grabber does for VoiceOver (M7): a long
+    form goes half → normal → full screen → half, any other sheet normal ↔
+    full screen. Covered by `e2e/sheet-full-screen.mobile.spec.ts`.
   - **Background scale-down**: `SheetIndent`
     (`src/components/ui/sheet-indent.tsx`, wrapping the page in the root
     layout) shrinks the page to 94%, drops it below the status bar and
