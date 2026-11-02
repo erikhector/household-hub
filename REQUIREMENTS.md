@@ -9157,7 +9157,7 @@ approximating them, so the email never disagrees with the app.
   Tailwind as the `large-text:` variant (`globals.css`); a media query can't
   see it. Above that, `PrimaryAction` (always capped at 60 % of the screen)
   drops a trigger that has an icon to a 48 px icon circle, its label kept as
-  the accessible name (`text-[0px]`), and the smart-add bar's mic, scan and Add
+  the accessible name (`font-size: 0`), and the smart-add bar's mic, scan and Add
   buttons become 44 px (px, not rem) so the field keeps its width. On a
   phone above 150 % text `NextUpDock` collapses to ring + count when `main` is
   shorter than three times the dock's expanded height (twice still left a half-covered row
