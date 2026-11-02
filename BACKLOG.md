@@ -243,6 +243,9 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
 - [ ] **MAINT-81. Flaky: the budget tab track's scroll fade reads "start" when it should read "end"** (low, S) —
       `e2e/ux-170.spec.ts:29` ("/dashboard/budget: the tab track fades while it can scroll"), `desktop` project. Failed once in the local `npm run ci:local` run on release commit d31e8ac (2026-11-01) at line 36: `data-fade` was `start`, expected `end`. It passed in an isolated re-run of the spec on the same commit. The test scrolls the track to its end and reads the attribute before the scroll handler has updated it, or the handler misses the final scroll position. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-82. Flaky: the meal planner's empty-week specs fail under load on mobile** (low, S) —
+      `e2e/meal-planner-empty-slots.spec.ts:20` ("an empty week is one empty state with one primary, not seven add cards": expected 0 `Add meal, ` buttons, found 7) and `:84` ("the planner has one control row with the rare actions in a menu": the "Copy last week" menuitem never became visible after clicking More), `mobile` project. Both failed in the local `npm run ci:local` run on release commit 6be170e (2026-11-02, the release PR #1034, which carried the UX-171 planner change #1027) and both passed on a re-run of the whole spec on the same commit; the GitHub e2e job on that commit was green. Likely the page is measured or clicked before the planner's empty state and its menu have hydrated or settled. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
