@@ -934,6 +934,32 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
+### 2026-11-02 scan
+
+- [ ] **GAP-69. "Stock check": walk one location and confirm or correct each amount** (impact: med, effort: M) —
+      Grocy's stock overview lets you inventory a product by typing the
+      amount you actually counted, and its stock journal records the
+      correction. Squirrel's amounts only drift: items change through
+      +/-, trips, receipts and cooking, and nothing prompts anyone to
+      reconcile the list with the shelf, so "0.5 left" quietly stays
+      wrong until the item runs out unexpectedly. No stock-take flow
+      exists (nothing in REQUIREMENTS.md covers a recount). Add a
+      "Check stock" entry in the inventory toolbar that opens a
+      full-screen walk-through for one chosen location (or "All"),
+      one item per step, sorted by name: big "Right" (next) and amount
+      field with the unit's `inputMode`, plus "Skip". Saving a changed
+      amount reuses the existing quantity action (household-scoped via
+      `requireHousehold()`, no new schema), and a summary at the end says
+      "12 checked, 3 corrected". Scope: no schema, no history, no
+      scheduled reminder, no barcode step; close with Escape or the back
+      gesture and keep what was already saved.
+      Acceptance: unit tests that a changed amount writes through the
+      quantity action and an unchanged one writes nothing, scoped to the
+      session household; an `e2e/` step on `mobile` (and the 320 px
+      layout) starts a check on a seeded location, corrects one uniquely
+      named item, taps Right on another, sees "1 corrected" and the new
+      amount after a reload, in `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
