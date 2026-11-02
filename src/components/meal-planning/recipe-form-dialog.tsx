@@ -221,6 +221,7 @@ export function RecipeFormDialog({
   initialImportUrl = "",
   initialRecipe,
   onCreated,
+  onClosed,
   onDelete,
 }: {
   dict: MealPlanningDict;
@@ -249,6 +250,10 @@ export function RecipeFormDialog({
   /** Create mode: called with the new recipe's id after a successful save,
    * once the dialog has closed, so the opener can go on to plan it. */
   onCreated?: (recipeId: string) => void;
+  /** Called once the dialog has finished closing (cancel or save, after its
+   * exit animation), so an opener can drop the `initialRecipe` it passed and
+   * open what comes next without racing this dialog's focus return. */
+  onClosed?: () => void;
   /** UX-165: Delete lives here, at the end of the edit form, not in the
    * recipe sheet beside the sticky Cook (M2). The recipe manager passes its
    * undoable delete; only the sheet's Edit gets it. */
@@ -602,7 +607,15 @@ export function RecipeFormDialog({
     );
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} longForm handle={handle}>
+    <Dialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) onClosed?.();
+      }}
+      longForm
+      handle={handle}
+    >
       <DialogContent
         className="sm:max-w-md"
         initialFocus={nameInputRef}

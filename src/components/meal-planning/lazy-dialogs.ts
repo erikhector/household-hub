@@ -55,3 +55,7 @@ export const loadPlacePickDialog = createLazyDialogLoader(() =>
 export const loadSpreadPicksDialog = createLazyDialogLoader(() =>
   import("@/components/meal-planning/spread-picks-dialog").then((m) => m.SpreadPicksDialog),
 );
+// Recipe discovery: the catalog sheet with its search, list and preview.
+export const loadDiscoverSheet = createLazyDialogLoader(() =>
+  import("@/components/meal-planning/discover-sheet").then((m) => m.DiscoverSheet),
+);
