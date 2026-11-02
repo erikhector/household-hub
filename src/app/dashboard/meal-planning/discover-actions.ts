@@ -34,7 +34,9 @@ import { requireHousehold } from "@/lib/session";
 const MAX_QUERY_LENGTH = 100;
 const MAX_ID_LENGTH = 100;
 
-// Same shared-deadline reasoning as REQUEST_TIMEOUT_MS in receipt-scan.ts.
+// Same shared-deadline reasoning as REQUEST_TIMEOUT_MS in receipt-scan.ts:
+// shared across every attempt in the chain, kept a bit under the
+// meal-planning page's maxDuration = 60 (src/app/dashboard/meal-planning/page.tsx).
 const IDEAS_TIMEOUT_MS = 50_000;
 // Its own rate-limit key, separate from the photo import's, same numbers: a
 // household that scanned a lot of recipes shouldn't lose its ideas button.

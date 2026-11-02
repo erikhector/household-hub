@@ -109,7 +109,17 @@ export function DiscoverSheet({
     }
     const run = () =>
       startTransition(async () => {
-        const answer = await searchRecipeCatalogAction({ query: nextQuery, tags: nextTags });
+        // M8: a dropped connection rejects the action call rather than
+        // answering with an error. Uncaught, that would reach the dashboard
+        // error boundary and take the sheet with it, so it shows the same
+        // inline "couldn't load" + Retry and keeps the previous rows.
+        let answer: Awaited<ReturnType<typeof searchRecipeCatalogAction>>;
+        try {
+          answer = await searchRecipeCatalogAction({ query: nextQuery, tags: nextTags });
+        } catch {
+          if (id === requestId.current) setFailed(true);
+          return;
+        }
         if (id !== requestId.current) return;
         if (answer.results) {
           setFailed(false);
@@ -128,7 +138,16 @@ export function DiscoverSheet({
     const id = ++ideasRequestId.current;
     setIdeasError(null);
     startIdeasTransition(async () => {
-      const answer = await suggestRecipeIdeasAction({ tags });
+      // M8: offline or a dropped connection rejects instead of answering;
+      // show the inline failure rather than losing the sheet to the error
+      // boundary (same as the recipe form's photo import).
+      let answer: Awaited<ReturnType<typeof suggestRecipeIdeasAction>>;
+      try {
+        answer = await suggestRecipeIdeasAction({ tags });
+      } catch {
+        if (id === ideasRequestId.current) setIdeasError(t.ideasFailed);
+        return;
+      }
       if (id !== ideasRequestId.current) return;
       if (answer.ideas) {
         setIdeas(answer.ideas);
@@ -171,8 +190,14 @@ export function DiscoverSheet({
 
   // The sheet closes as the recipe form opens over the page (the parent
   // owns that form), the same hand-off a recipe's own sheet does for Edit.
+  // Like closing, it drops the AI ideas and ignores an answer still on its
+  // way, so reopening doesn't show ideas from before the hand-off.
   const handOff = (action: (recipe: FileRecipe) => void) => (recipe: FileRecipe) => {
     setOpen(false);
+    ideasRequestId.current++;
+    setIdeas([]);
+    setIdeasError(null);
+    setPreviewingIdea(null);
     action(recipe);
   };
 

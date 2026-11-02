@@ -347,3 +347,73 @@ test("ask for ideas shows the error inline", async ({ page }) => {
   await expect(sheet.getByRole("alert").filter({ hasText: d.ideasBusy })).toBeVisible();
   await expect(sheet.getByRole("list", { name: d.goodWithWhatYouHave })).toBeVisible();
 });
+
+// M8: offline or a dropped connection rejects the Server Action call itself
+// (no answer at all), which used to escape to the dashboard error boundary
+// and take the sheet with it. These abort the action POST at the network
+// level. The two actions are told apart by their arguments: the search sends
+// a query, the ideas action only tags (as in mockIdeasAction).
+function isActionPost(request: { method(): string; headers(): Record<string, string> }) {
+  return request.method() === "POST" && "next-action" in request.headers();
+}
+
+test("ask for ideas offline shows the error inline and keeps the sheet", async ({ page }) => {
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      const body = request.postData() ?? "";
+      if (isActionPost(request) && body.includes('"tags"') && !body.includes('"query"')) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const sheet = await openTabAndDiscover(page);
+  const ask = sheet.getByRole("button", { name: d.askForIdeas });
+  await expectHydrated(ask);
+  await ask.click();
+  await expect(sheet.getByRole("alert").filter({ hasText: d.ideasFailed })).toBeVisible();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("list", { name: d.goodWithWhatYouHave })).toBeVisible();
+  await expect(ask).toBeEnabled();
+});
+
+test("search offline shows the inline retry and keeps the previous results", async ({ page }) => {
+  let failSearch = false;
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      if (failSearch && isActionPost(request) && (request.postData() ?? "").includes('"query"')) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const sheet = await openTabAndDiscover(page);
+  const search = sheet.getByRole("searchbox", { name: d.searchLabel });
+  await expectHydrated(search);
+  await search.fill(NAME_A);
+  const rows = resultRows(page);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(NAME_A);
+
+  failSearch = true;
+  await search.fill(NAME_B);
+  const alert = sheet.getByRole("alert").filter({ hasText: d.errorLoad });
+  await expect(alert).toBeVisible();
+  await expect(sheet).toBeVisible();
+  // The rows from the last answer stay rather than an empty list.
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(NAME_A);
+
+  // Back online, Retry runs the same search.
+  failSearch = false;
+  await alert.getByRole("button", { name: d.retry }).click();
+  await expect(alert).toBeHidden();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(NAME_B);
+});
