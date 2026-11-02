@@ -259,8 +259,9 @@ function DialogOverlay({
 
 // The pill at the top of a phone sheet. It says "this drags", so it's only
 // there because the sheet really does drag now (UX-12 removed it while it
-// didn't). On a long form it's also the button that does what the half/full
-// drag does (M7: no gesture-only action); the pseudo-element gives it a
+// didn't). On every phone sheet it's also the button that does what the
+// drags do, stepping through the sheet's sizes (M7: no gesture-only
+// action); the pseudo-element gives it a
 // 44px-tall target (M3) without adding height to the sheet. That target runs
 // from the sheet's top edge (not above it: the popup's overflow-hidden would
 // clip it) 28px down over the top of the body, so the row is lifted with
@@ -412,8 +413,9 @@ function DialogContent({
             // corners and clears the status bar itself, since it now covers
             // the header that did. min-height rather than height so the
             // change animates from the content's height (min-h-0 → full)
-            // instead of jumping; the duration is the slower one the drag
-            // settles with, so it reads as the same motion.
+            // instead of jumping, over 300ms rather than the 150ms open:
+            // the sheet travels most of the screen, and faster reads as a
+            // jump.
             "min-h-0 max-sm:data-full-screen:min-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:max-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:rounded-none max-sm:data-full-screen:pt-[env(safe-area-inset-top)] max-sm:data-full-screen:duration-300",
             // sm:inset-x-auto must precede sm:left-1/2: both are in tailwind-merge's
             // "left" conflict group, and it keeps only the later class — reversing
