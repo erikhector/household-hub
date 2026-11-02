@@ -153,6 +153,9 @@ test("a new household's meal planning tabs each hold one primary inside the empt
     await page.goto("/dashboard/meal-planning");
     await expectOneEmptyStatePrimary(page, /Add a few recipes first/, "Add your first dinner");
     await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(0);
+    // UX-171: nothing to search yet, and with no recipes nothing to fill with.
+    await expect(page.getByLabel("Search the meal plan")).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("button", { name: "Fill empty days" })).toHaveCount(0);
     await expectNothingUnderPrimary(page, testInfo);
     await expectNoHorizontalOverflow(page);
 
@@ -200,5 +203,52 @@ test("a brand-new shopping list has no disabled Register receipt above its add l
     );
     await page.reload();
     await expect(page.getByRole("button", { name: "Register receipt" })).toBeVisible();
+  });
+});
+
+// UX-171: controls that have nothing to act on stay out of the way, and the
+// planner's empty state offers "Fill empty days" itself instead of pointing
+// at the ⋯ menu.
+test("an empty planner offers Fill empty days and hides the search field", async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  const tag = `${Date.now().toString(36)}-${testInfo.project.name}-e`;
+  await withEmptyHousehold(page, context, baseURL!, tag, async (client, householdId) => {
+    await client.query(`INSERT INTO "Recipe" (id, "householdId", name) VALUES ($1, $2, 'Empty plan stew')`, [
+      `e2e-es-recipe-${tag}`,
+      householdId,
+    ]);
+    await page.goto("/dashboard/meal-planning");
+    const main = page.getByRole("main");
+    await expect(main.getByText(/Copy last week from the ⋯ menu or fill the empty days/)).toBeVisible();
+    await expect(page.getByLabel("Search the meal plan")).toHaveCount(0);
+    // The empty state still holds exactly one solid primary.
+    await expect(main.locator("button.bg-primary:visible, a.bg-primary:visible")).toHaveCount(1);
+    const fill = main.getByRole("button", { name: "Fill empty days" }).filter({ visible: true });
+    await expect(fill).toHaveCount(1);
+    await expectNoHorizontalOverflow(page);
+    await expectNothingUnderPrimary(page, testInfo);
+
+    await fill.click();
+    await expect(page.getByRole("dialog").getByRole("heading", { name: "Fill empty days" })).toBeVisible();
+  });
+});
+
+test("an empty notification history and transaction list hide Mark all as read and Export CSV", async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  const tag = `${Date.now().toString(36)}-${testInfo.project.name}-f`;
+  await withEmptyHousehold(page, context, baseURL!, tag, async () => {
+    await page.goto("/dashboard/notifications");
+    await expect(page.getByRole("main").getByText("No notifications yet.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mark all as read" })).toHaveCount(0);
+
+    await page.goto("/dashboard/budget?tab=transactions");
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Export CSV" })).toHaveCount(0);
   });
 });

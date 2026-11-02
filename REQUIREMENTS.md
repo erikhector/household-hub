@@ -3987,6 +3987,16 @@ drops the year from its dates. "Export CSV" moved from the top of the tab
 to below the list. Covered by `src/lib/budget-transaction-days.test.ts`,
 `e2e/budget-transaction-rows.spec.ts` and `e2e/swipe-rows.mobile.spec.ts`.
 
+**Controls wait for data (UX-171).** A control with nothing to act on is
+left out until there is something: the meal-plan search field stays hidden
+until any week holds a planned meal (`hasPlannedMeals`, one `findFirst`
+in the planner page), "Mark all as read" until there is a notification, and
+"Export CSV" on the household and personal budget Transactions tabs until
+the month has a transaction. An empty week's empty state also offers a
+secondary "Fill empty days" button (only with recipes to fill from, next to
+its one primary) and its copy points to the ⋯ menu for Copy last week only.
+Covered by `e2e/empty-states.spec.ts`.
+
 **Category filter and drill-down (phone pass, Oct 2026).** The
 Transactions tab opens with a category select ("All categories" or one
 category; its own full-width row on a phone, M1), stored in `?category=`
@@ -7762,6 +7772,11 @@ components directly.
   on screen without scrolling, every feature named, the headline and the
   notes hidden from screen readers, the three re-homed notes, the sticky
   note leading to sign-up, the Swedish preview and headline).
+  UX-173: from `lg` the hero's text column is top-aligned (`lg:items-start`)
+  rather than centred against the tall fridge door, so at 1280x720 "Get
+  started free" sits inside the first screen (it was at ~y 885);
+  `landing.spec.ts` asserts the button's bottom edge is within 720 px on
+  `desktop`.
 - **404 and invalid-link titles (UX-65)**: `src/app/not-found.tsx` is a
   Server Component that checks the session. A logged-out visitor gets the
   `StatusCard` (brand mark, compass icon, "Page not found") with a "Go to
