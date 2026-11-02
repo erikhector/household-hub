@@ -228,14 +228,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-76. Flaky: a failed photo read doesn't show its error toast in time on a phone** (low, S) —
-      `e2e/recipe-photo-import.spec.ts:84` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. Failed once in the GitHub e2e job on release commit b13ba5e (2026-11-01) and passed on its retry (7.2 s then 4.2 s); the failing assertion was not captured in the run summary, so read the trace first. Its sibling at line 50 passed first time in the same run.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
+      It also failed once on the `mobile` project in the local `ci:local` run on d31e8ac (2026-11-01) and passed on re-run, so the fix covers both.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+      Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -243,6 +240,9 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
 - [ ] **MAINT-80. Flaky: Safe to spend's income split can't find the "Spent" label on mobile** (low, S) —
       `e2e/budget-overview.spec.ts:213` ("Safe to spend shows where the month's income goes"), `mobile` project. Failed once in the local `ci:local` gate on `27865a6` (the UX-168 PR #994, 2026-11-01), where the test could not find the "Spent" label; the diff touched only shopping code. It passed in an isolated re-run of the spec and in the full gate on `96ce494`. Find why the split key can render late (or without that label) after the seeded rows are inserted and fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/budget-overview.spec.ts:213 --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-81. Flaky: the budget tab track's scroll fade reads "start" when it should read "end"** (low, S) —
+      `e2e/ux-170.spec.ts:29` ("/dashboard/budget: the tab track fades while it can scroll"), `desktop` project. Failed once in the local `npm run ci:local` run on release commit d31e8ac (2026-11-01) at line 36: `data-fade` was `start`, expected `end`. It passed in an isolated re-run of the spec on the same commit. The test scrolls the track to its end and reads the attribute before the scroll handler has updated it, or the handler misses the final scroll position. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -518,18 +518,6 @@ left out.
       bottom-bar tabs and More-menu pages have no underline (or get their
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
-
-- [ ] **UX-171. Hide controls that have nothing to act on** (impact: low,
-      effort: S) — breaks Usability ("every state is designed"). The meal
-      plan search field shows above an empty planner
-      (`mobile-en-dashboard-meal-planning.png`), "Mark all as read" with no
-      notifications (`mobile-en-dashboard-notifications.png`), "Export CSV"
-      on an empty transactions list, and the planner's empty state says
-      "fill the empty days from the ⋯ menu" instead of offering the action.
-      Acceptance: each control is hidden or disabled with a reason until
-      there is data; the planner empty state has a "Fill empty days" button.
-      `empty-states.spec.ts` asserts the search field is absent on an empty
-      plan and the fill button is present, `desktop` and `mobile`.
 
 - [ ] **UX-172. Item page: status and buy action before unit algebra**
       (impact: low, effort: S) — breaks Match with the real world and

@@ -155,36 +155,42 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           <PageTitle morph={{ kind: "inventory-item", id: item.id }}>{item.name}</PageTitle>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        <ItemPageControls
-          item={item}
-          categories={categories}
-          locations={locations}
-          units={allUnits}
-          members={members.map((member) => ({ userId: member.userId, displayName: member.user.displayName }))}
-          locale={locale}
-          dict={fullDict.inventory}
-          barcodeDict={fullDict.barcodeScanner}
-          autoAddEnabled={householdSettings?.autoAddLowStockToList ?? false}
-          backHref={itemPageBackHref(origin)}
-          bestBeforeLabel={bestBefore}
-        >
-          <span className="text-sm text-muted-foreground">
-            {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${unitLabel(item.unit, fullDict.units)}` })}
-          </span>
-          <LazyChangeUnit
-            item={{
-              id: item.id,
-              unit: item.unit,
-              quantity: item.quantity,
-              lowStockThreshold: item.lowStockThreshold,
-              conversions: conversions.map(({ fromUnit, factor }) => ({ fromUnit, factor })),
-            }}
-            units={units}
-            dict={dict}
-            comboDict={fullDict.inventory}
-          />
-        </ItemPageControls>
-        <p className="text-sm text-muted-foreground">{lastUpdated}</p>
+        {/* UX-172: status, stepper and buy action are the first card, ahead of units. */}
+        <section aria-labelledby="item-status" className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+          <h2 id="item-status" className="font-heading text-lg font-semibold">
+            {dict.statusTitle}
+          </h2>
+          <ItemPageControls
+            item={item}
+            categories={categories}
+            locations={locations}
+            units={allUnits}
+            members={members.map((member) => ({ userId: member.userId, displayName: member.user.displayName }))}
+            locale={locale}
+            dict={fullDict.inventory}
+            barcodeDict={fullDict.barcodeScanner}
+            autoAddEnabled={householdSettings?.autoAddLowStockToList ?? false}
+            backHref={itemPageBackHref(origin)}
+            bestBeforeLabel={bestBefore}
+          >
+            <span className="text-sm text-muted-foreground">
+              {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${unitLabel(item.unit, fullDict.units)}` })}
+            </span>
+            <LazyChangeUnit
+              item={{
+                id: item.id,
+                unit: item.unit,
+                quantity: item.quantity,
+                lowStockThreshold: item.lowStockThreshold,
+                conversions: conversions.map(({ fromUnit, factor }) => ({ fromUnit, factor })),
+              }}
+              units={units}
+              dict={dict}
+              comboDict={fullDict.inventory}
+            />
+          </ItemPageControls>
+          <p className="text-sm text-muted-foreground">{lastUpdated}</p>
+        </section>
       </div>
 
       <ItemUnitsAndUsage

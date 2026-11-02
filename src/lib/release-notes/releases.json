@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.132.0",
+    "date": "2026-11-02",
+    "pr": 1030,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The item page now starts with the item's status, quantity and Add to list. Unit conversions are tucked into a \"Units\" section you can open.",
+      "sv": "Artikelsidan börjar nu med artikelns status, antal och Lägg till i listan. Enhetsomvandlingar finns i en \"Enheter\"-sektion som du kan öppna."
+    }
+  },
+  {
+    "version": "0.131.2",
+    "date": "2026-11-01",
+    "pr": 1024,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On phones, the bar that stays at the top while you scroll (the meal planner's week, the inventory search) is now solid, so no blurry strip shows under the page title.",
+      "sv": "På mobilen är raden som stannar överst när du scrollar (veckan i matplaneringen, sökfältet i lagret) nu helt täckande, så ingen suddig rand syns under sidrubriken."
+    }
+  },
+  {
+    "version": "0.131.1",
+    "date": "2026-11-01",
+    "pr": 1018,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On phones, the week bar in the meal planner (and the search and add bars in inventory and shopping) no longer hides under the page title when you scroll.",
+      "sv": "På mobilen hamnar veckoraden i matplaneringen (och sök- och lägg till-raderna i lager och inköp) inte längre under sidrubriken när du scrollar."
+    }
+  },
+  {
     "version": "0.131.0",
     "date": "2026-11-01",
     "pr": 1015,

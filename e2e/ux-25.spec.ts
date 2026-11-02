@@ -288,14 +288,17 @@ test("fields use the 1px outline", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("phone sticky bars blur over the gradient", async ({ page }) => {
+test("phone sticky bars are solid under the compact title", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 999) >= 640, "max-sm: sticky styles only apply on phones");
   const errors = collectErrors(page);
-  // The inventory search bar used to paint an opaque band over the page
-  // gradient. It is found through the field it holds (any other sticky on
-  // the page — a table header, a checkbox row — is not this bar), then its
-  // nearest sticky ancestor is the painted band. The shopping-list add line
-  // is deliberately opaque instead (UX-82, e2e/ux-82.mobile.spec.ts).
+  // The inventory search bar was translucent with a blur here (UX-25), to
+  // melt into the page gradient. It only sticks once the title has
+  // collapsed into the opaque top bar, though, and on iOS the blur showed
+  // as a smeared strip of rows under that bar, so it's solid now, like the
+  // shopping-list add line (UX-82, e2e/ux-82.mobile.spec.ts). It is found
+  // through the field it holds (any other sticky on the page, a table
+  // header or a checkbox row, is not this bar), then its nearest sticky
+  // ancestor is the painted band.
   const bars = [
     { path: "/dashboard/inventory", field: page.getByRole("searchbox").first() },
   ];
@@ -310,10 +313,8 @@ test("phone sticky bars blur over the gradient", async ({ page }) => {
       return { backdrop: style.backdropFilter, bg: style.backgroundColor };
     });
     expect(painted, `sticky bar on ${path}`).not.toBeNull();
-    expect(painted!.backdrop, `backdrop on ${path}`).toContain("blur");
-    // Translucent: the 85% background resolves with an alpha under 1
-    // however the browser serialises the color-mix.
-    expect(parse(painted!.bg).alpha, `background alpha on ${path}`).toBeLessThan(1);
+    expect(painted!.backdrop, `backdrop on ${path}`).toBe("none");
+    expect(parse(painted!.bg).alpha, `background alpha on ${path}`).toBe(1);
   }
   expect(errors).toEqual([]);
 });

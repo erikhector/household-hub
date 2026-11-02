@@ -1702,6 +1702,7 @@ export const en = {
       bestBefore: "Best before {date}",
       lowStockAt: "running low below {amount}",
       changeUnit: "Change unit…",
+      statusTitle: "Status",
       unitsTitle: "Units",
       countedIn: "Counted in {unit}",
       noConversions: "No conversions. Amounts in units the app can't convert to {unit} on its own need one.",
@@ -1918,7 +1919,7 @@ export const en = {
     // UX-50: an empty week is one empty state with one primary, not seven
     // "Add meal" cards; the ⋯ menu keeps Copy last week and Fill empty days.
     plannerEmpty:
-      "Plan the week's meals and Squirrel works out what you still need to buy. Copy last week or fill the empty days from the ⋯ menu.",
+      "Plan the week's meals and Squirrel works out what you still need to buy. Copy last week from the ⋯ menu or fill the empty days.",
     plannerEmptyNoRecipes:
       "Plan the week's meals and Squirrel works out what you still need to buy. Add a few recipes first and planning gets quicker.",
     addFirstDinner: "Add your first dinner",
