@@ -32,7 +32,15 @@ for (const path of ["/dashboard/budget", "/dashboard/meal-planning"]) {
     const bar = track(page);
     // Narrow the track instead of the viewport: a phone-emulated page
     // doesn't go below ~412 px, and 200 % text is the same overflow.
-    await bar.evaluate((el) => (el.style.maxWidth = "200px"));
+    // The track opens scrolled to the active tab, and that mount effect can
+    // land after this narrowing under a loaded runner (React commits the
+    // hydrated tree a task after the tab gets its props), so the scroll
+    // position is set here rather than left to that race (MAINT-81). The
+    // fade must still follow it: a scroll to 0 reads "end".
+    await bar.evaluate((el) => {
+      el.style.maxWidth = "200px";
+      el.scrollLeft = 0;
+    });
     await expect(bar).toHaveAttribute("data-fade", "end");
     await shootTrack(bar, testInfo, path.split("/").pop()!);
     expect(await bar.evaluate((el) => getComputedStyle(el).maskImage)).toContain("linear-gradient");
