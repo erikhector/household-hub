@@ -7558,6 +7558,11 @@ components directly.
   reset-password, verify-email, join, unsubscribe and no-household pages put
   their content in a `<main>` rather than a plain `div`. Covered by
   `navigation.desktop.spec.ts` and `public.spec.ts`.
+- **No scrollbars on touch screens**: `globals.css` sets
+  `scrollbar-width: none` (and hides `::-webkit-scrollbar`) on every element
+  under `(hover: none) and (pointer: coarse)`, so on a phone or the installed
+  PWA, `main`, dialogs and lists scroll without the iOS indicator. Mouse and
+  trackpad devices keep their scrollbars. Covered by `touch-scrollbars.spec.ts`.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
   and a "More" dropdown menu holding Meal planning, Household, Profile, the
