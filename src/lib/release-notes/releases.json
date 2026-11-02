@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.133.0",
+    "date": "2026-11-02",
+    "pr": 1051,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Item names in the inventory now wrap onto a second line when you use a large text size on your phone, instead of being cut off.\n\nAI scans can now use Anthropic first and switch to Gemini automatically when the Anthropic credits run out.",
+      "sv": "Namn i lagret bryts nu till en andra rad när du använder stor text på mobilen, i stället för att kapas.\n\nAI-skanningar kan nu använda Anthropic först och byta till Gemini automatiskt när Anthropic-krediterna tar slut."
+    }
+  },
+  {
     "version": "0.132.1",
     "date": "2026-11-02",
     "pr": 1034,
