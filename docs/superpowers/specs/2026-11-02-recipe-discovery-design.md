@@ -126,10 +126,14 @@ rankCatalogRecipes(
   localized name equals a saved recipe's name (case-insensitive, trimmed),
   so Discover never offers what the household already has.
 - **Pantry match.** A catalog ingredient matches a pantry item with
-  `quantity > 0` (the same zero-quantity gate as "Use it up") when their
-  case-insensitive, trimmed names are equal in the current locale. The
-  match is deduplicated per pantry item. It's deliberately as loose as
-  `getCookableRecipes`' fallback: no fuzzy matching in v1.
+  `quantity > 0` (the same zero-quantity gate as "Use it up") when the
+  pantry item's case-insensitive, trimmed name equals the ingredient's
+  English OR Swedish name. Matching uses both languages because the pantry
+  is free text in whatever language the household types, which need not be
+  the UI language; a current-locale-only match would make a Swedish pantry
+  look empty to an English-speaking member. Search still uses the current
+  locale only. The match is deduplicated per pantry item. It's deliberately
+  as loose as `getCookableRecipes`' fallback: no fuzzy matching in v1.
 - **Score.** `haveCount / totalCount` plus `0.15 ×` the number of expiring
   matches (capped at 3), so a recipe that uses up something expiring
   ranks above an equally covered one. Ties break on more expiring matches,
