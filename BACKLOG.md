@@ -237,12 +237,12 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-80. Flaky: Safe to spend's income split can't find the "Spent" label on mobile** (low, S) —
-      `e2e/budget-overview.spec.ts:213` ("Safe to spend shows where the month's income goes"), `mobile` project. Failed once in the local `ci:local` gate on `27865a6` (the UX-168 PR #994, 2026-11-01), where the test could not find the "Spent" label; the diff touched only shopping code. It passed in an isolated re-run of the spec and in the full gate on `96ce494`. Find why the split key can render late (or without that label) after the seeded rows are inserted and fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/budget-overview.spec.ts:213 --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-81. Flaky: the budget tab track's scroll fade reads "start" when it should read "end"** (low, S) —
       `e2e/ux-170.spec.ts:29` ("/dashboard/budget: the tab track fades while it can scroll"), `desktop` project. Failed once in the local `npm run ci:local` run on release commit d31e8ac (2026-11-01) at line 36: `data-fade` was `start`, expected `end`. It passed in an isolated re-run of the spec on the same commit. The test scrolls the track to its end and reads the attribute before the scroll handler has updated it, or the handler misses the final scroll position. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-82. Flaky: the meal planner's empty-week specs fail under load on mobile** (low, S) —
+      `e2e/meal-planner-empty-slots.spec.ts:20` ("an empty week is one empty state with one primary, not seven add cards": expected 0 `Add meal, ` buttons, found 7) and `:84` ("the planner has one control row with the rare actions in a menu": the "Copy last week" menuitem never became visible after clicking More), `mobile` project. Both failed in the local `npm run ci:local` run on release commit 6be170e (2026-11-02, the release PR #1034, which carried the UX-171 planner change #1027) and both passed on a re-run of the whole spec on the same commit; the GitHub e2e job on that commit was green. Likely the page is measured or clicked before the planner's empty state and its menu have hydrated or settled. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -308,14 +308,15 @@ UX-89.
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) `[!]` — breaks Context
-      and Accessibility. ⚠️ Touches the privacy page (human-only area).
-      Blocked: needs the owner. Rewriting "who we are" and any Swedish
-      legal text is privacy-policy wording (AUTOPILOT.md `never_decide`).
-      Question: (1) Swedish translation of the policy, or (2) keep it
-      English with `lang="en"` and an "Only available in English" note?
-      And what is the accurate "who we are" sentence for how Squirrel is
-      offered? Once decided, the jump list and `lang` markup are buildable.
+      accurate "who we are"** (impact: med, effort: M) — breaks Context
+      and Accessibility. ⚠️ Touches the privacy page (human-only area):
+      the Swedish text needs the owner's wording review before merge.
+      Decided 2026-11-02 by owner: translate the policy to Swedish. See #736.
+      Scope: a faithful Swedish translation of the current policy and
+      terms (served by locale cookie like the rest of the app), plus the
+      jump list. Leave the "who we are" sentence's meaning unchanged in
+      both languages; the owner supplies the accurate one in a reply to
+      #736, and that becomes a follow-up item.
       - The sv cookie notice's "Läs mer" opens an English-only policy
         inside `<html lang="sv">`, so screen readers read English with a
         Swedish voice.
@@ -323,10 +324,9 @@ UX-89.
         … it's a self-run app", which contradicts the public "Get started
         free" (`src/app/privacy/page.tsx:74-75`).
       - It is about 8,000 px long with no table of contents.
-      Acceptance: sv serves Swedish legal text, or the English body
-      carries `lang="en"` and an "Only available in English" note. "Who
-      we are" matches how Squirrel is offered. The page starts with a
-      jump list.
+      Acceptance: sv serves Swedish legal text and en serves English, each
+      page under the matching `lang`. The page starts with a jump list.
+      The PR is flagged for the owner's review of the Swedish wording.
 
 #### First run and the overview
 
@@ -336,9 +336,13 @@ UX-89.
 #### Shopping
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
-      items** (impact: high, effort: M) `[!]` — breaks User-centricity
-      ("automation suggests, the user decides"). Needs a schema change and
-      a decision: nothing records that an item was ever stocked or that a
+      items** (impact: high, effort: M) — breaks User-centricity
+      ("automation suggests, the user decides"). One migration (shared
+      with UX-125; build them together).
+      Decided 2026-11-02 by owner: add `everStocked` with backfill, then
+      `createdFromList`; never-stocked items stay hidden from the "out"
+      count (list rows stay linked). See #735.
+      Context: nothing records that an item was ever stocked or that a
       list row created it (only the current `quantity`), so "never
       stocked", "out" and "delete the item the row created" can't be told
       apart from a real used-up item without a new marker. Proposed: the
@@ -348,10 +352,7 @@ UX-89.
       "out" filter and OUT_OF_STOCK notifications skip items that are not
       `everStocked`, and `deleteShoppingListItemAction` removes a
       `createdFromList`, never-stocked item nothing else references.
-      Decide: backfill `everStocked` for existing rows (see UX-125), and
-      whether never-stocked items stay hidden from the "out" count or
-      are not created at all until first stocked (bigger change: list rows
-      would stay unlinked, `needsMapping`). Original report: Free-text list items
+      Original report: Free-text list items
       silently create inventory items at 0 stock (`addAdHocItemAction`,
       `smartAddShoppingListItemsAction`). A household that only ever made
       lists sees "14 out of stock" on the overview: napkins, charcoal,
@@ -367,15 +368,15 @@ UX-89.
 #### Inventory
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
-      med, effort: S) `[!]` — bug. Needs a schema change and a decision:
-      nothing records that an item was ever stocked (no stock log; only the
+      med, effort: S) — bug. One migration.
+      Decided 2026-11-02 by owner: add `everStocked`, backfilling `true`
+      where price history, bought rows or a non-default `lastKnownPrice`
+      exist; already-empty items without those stay mislabelled until
+      restocked. See #735.
+      Context: nothing that an item was ever stocked (no stock log; only the
       current `quantity`), so the fix is a new `InventoryItem.everStocked`
       flag, set wherever quantity goes above 0 (item form, +/- steppers,
-      bought tick, receipt scan, bulk create, merge). Existing used-up items
-      can't be backfilled from data: decide between backfilling `true` for
-      every item with price history, bought rows or a non-default
-      `lastKnownPrice` (partial), or accepting that already-empty items stay
-      mislabelled until next restocked. Original report: The rule looks only at price history and
+      bought tick, receipt scan, bulk create, merge). Original report: The rule looks only at price history and
       bought list rows (`src/lib/inventory/duplicates.ts:60-62`), so items
       created with stock and then used up (Mellanmjölk, Laxfilé) are tagged
       "never stocked".
@@ -519,16 +520,6 @@ left out.
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
 
-- [ ] **UX-172. Item page: status and buy action before unit algebra**
-      (impact: low, effort: S) — breaks Match with the real world and
-      Hierarchy. The inventory item page opens with "1 pcs = 2000 g" and
-      "Try it: 1 g = 0.0005 pcs" above the item's status and its buy
-      action (`mobile-en-dashboard-inventory-items-id.png`,
-      `src/components/inventory/item-page/`).
-      Acceptance: status, quantity stepper and "Add to list" are the first
-      card; conversions sit behind a "Units" disclosure. `item-page.spec.ts`
-      asserts the first heading after the title is the status card.
-
 - [ ] **UX-174. Progressive explanations on budget Manage and Household
       settings** (impact: low, effort: M) — breaks Help ("explain
       progressively") and M6. Budget Manage opens three cards each with a
@@ -551,6 +542,26 @@ left out.
       on both primitives; the bulk bar uses a token shadow; What's new has a
       focusable "Back" link or `tabIndex={-1}` on `main`; axe on
       `/dashboard/whats-new` is clean on `mobile`.
+
+### UX (2026-11-02 scout)
+
+- [ ] **UX-180. Inventory row names wrap instead of truncating at 200 % text**
+      (impact: med, effort: S) — breaks M9 ("200 % … without clipping; …
+      strings wrap or truncate with the full value reachable"). In the
+      `text-200` sweep (`text-200-dashboard-inventory.png`, Pixel 7) every
+      row's name is cut to "Crème f…", "Olive oil…", "Tomato…" and the
+      category to "Dai…"; the full text is only in `title`
+      (`inventory-table.tsx:565`, also `:447`, `:452`), which a touch screen
+      never shows. The audit's `clipped` list also flags the "Inventory"
+      and "Shopping" bottom-bar labels (all three inventory routes).
+      Acceptance: on phone widths the name paragraph at
+      `inventory-table.tsx:565` drops `truncate` for `line-clamp-2
+      break-words` (the category stays on the same wrapped line); the
+      `title` stays for desktop. `text-size.mobile.spec.ts` (project
+      `mobile`, 200 % text) seeds an item with a 20-character name and
+      asserts its row's `scrollWidth` equals `clientWidth` and the full
+      name's last word is inside the viewport. Needs a pass on a real
+      device for the bottom-bar labels.
 
 ### UX (2026-10-31 budget redesign follow-ups)
 
@@ -1023,15 +1034,6 @@ out to be a product-scope question rather than a scoped task should move to
       against merging the underlying Prisma models, but left this smaller
       question open. Revisit only after BUDGET-2 → BUDGET-5 land and the
       real prop surface each merged component needs is known.
-
-- [ ] **PERF-11. Pin the Vercel function region next to the database** `[!]` —
-      `vercel.json` sets no `regions` and DEPLOYMENT.md doesn't mention
-      one. A typical action does 3–6 sequential DB round trips; if
-      functions run in the default `iad1` while Postgres is in the EU
-      (Swedish users), each costs ~90 ms. Needs the product owner to check
-      both regions in the dashboards; if they differ, set
-      `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
-      Potentially the single largest latency win.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 

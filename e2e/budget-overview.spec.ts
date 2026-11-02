@@ -218,7 +218,12 @@ test("Safe to spend shows where the month's income goes", async ({ page, isMobil
     await insertHouseholdTransaction(client, {
       id: `e2e-split-tx-inc-${tag}`,
       categoryId: `e2e-split-inc-${tag}`,
-      amount: 900000,
+      // MAINT-80: the key leaves out a part that is zero, so a "Safe to spend"
+      // line (which the key is found by) exists only while income outruns
+      // everything the worker's household already has going out this month
+      // (the donut spec's 900 000 boat, limits kept back). Sized to dwarf
+      // whatever an earlier spec left, not to match it.
+      amount: 900000000,
       type: "INCOME",
     });
     await insertHouseholdTransaction(client, { id: `e2e-split-tx-exp-${tag}`, categoryId: `e2e-split-exp-${tag}`, amount: 1234 });
