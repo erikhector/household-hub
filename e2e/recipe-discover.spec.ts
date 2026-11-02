@@ -269,3 +269,81 @@ test("sheet fits a phone", async ({ page, isMobile }) => {
   await expectNoHorizontalOverflow(page);
   if (isMobile) await expectTouchTargets(page);
 });
+
+// AI ideas. The webServer env in playwright.config.ts sets a placeholder
+// GEMINI_API_KEY (for the photo import), so the button is offered here; the
+// real call is mocked at the Server Action POST, as in
+// recipe-photo-import.spec.ts, so no provider is contacted. (A run without a
+// key can't be reached from this suite; the gate is a prop check.)
+async function mockIdeasAction(page: Page, payload: unknown) {
+  await page.route(
+    (url) => url.pathname.startsWith("/dashboard/meal-planning"),
+    async (route) => {
+      const request = route.request();
+      const body = request.postData() ?? "";
+      // The ideas action is the only POST that carries tags without a query.
+      if (request.method() === "POST" && body.includes('"tags"') && !body.includes('"query"')) {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/x-component",
+          body: `0:{"a":"$@1","f":"","b":"e2e"}\n1:${JSON.stringify(payload)}\n`,
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+}
+
+test("ask for ideas lists AI ideas and previews one without pantry markers", async ({ page }) => {
+  const name = `Idea stew ${Date.now().toString(36)}`;
+  await mockIdeasAction(page, {
+    ideas: [
+      {
+        name,
+        instructions: "Chop everything.\nSimmer for 20 minutes.",
+        servings: 4,
+        tags: [],
+        ingredients: [{ name: "carrot", quantity: 3, unit: "pcs", rawText: "3 carrots" }],
+      },
+    ],
+  });
+  const sheet = await openTabAndDiscover(page);
+  const ask = sheet.getByRole("button", { name: d.askForIdeas });
+  await expectHydrated(ask);
+  await ask.click();
+
+  const ideas = sheet.getByRole("list", { name: d.ideasHeading });
+  await expect(ideas.getByRole("listitem")).toHaveCount(1);
+  await expect(ideas.getByText(d.aiIdeaBadge)).toBeVisible();
+  // The catalog list stays in place under the ideas.
+  await expect(sheet.getByRole("list", { name: d.goodWithWhatYouHave })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await ideas.getByRole("button", { name: new RegExp(name) }).click();
+  const preview = page.getByRole("dialog", { name, exact: true });
+  await expect(preview.getByText("carrot")).toBeVisible();
+  await expect(preview.getByText(d.aiIdeaBadge)).toBeVisible();
+  await expect(preview.getByText(d.haveIt, { exact: true })).toHaveCount(0);
+  await expect(preview.getByText(d.missing, { exact: true })).toHaveCount(0);
+  await expect(preview.getByRole("button", { name: d.save })).toBeEnabled();
+  await expectNoHorizontalOverflow(page);
+
+  // Back keeps the ideas; closing and reopening drops them.
+  await preview.getByRole("button", { name: d.back }).click();
+  await expect(ideas.getByRole("listitem")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  const reopened = await openDiscover(page);
+  await expect(reopened.getByRole("list", { name: d.ideasHeading })).toHaveCount(0);
+});
+
+test("ask for ideas shows the error inline", async ({ page }) => {
+  await mockIdeasAction(page, { error: d.ideasBusy });
+  const sheet = await openTabAndDiscover(page);
+  const ask = sheet.getByRole("button", { name: d.askForIdeas });
+  await expectHydrated(ask);
+  await ask.click();
+  await expect(sheet.getByRole("alert").filter({ hasText: d.ideasBusy })).toBeVisible();
+  await expect(sheet.getByRole("list", { name: d.goodWithWhatYouHave })).toBeVisible();
+});

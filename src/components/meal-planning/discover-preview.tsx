@@ -17,7 +17,9 @@ import type { FileRecipe } from "@/lib/recipe-import/parse-file";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
-type Loaded = { recipe: FileRecipe; haves: boolean[] };
+// `haves` is null for an AI idea: it isn't matched against the pantry, so
+// there is nothing to mark.
+type Loaded = { recipe: FileRecipe; haves: boolean[] | null };
 
 // One catalog recipe, opened from a Discover row: what it needs, which of
 // that the pantry already covers, and the steps, with Save and Add to plan.
@@ -25,10 +27,15 @@ type Loaded = { recipe: FileRecipe; haves: boolean[] };
 // dialog), so Back returns to the list with its search and filters intact.
 // The row's result is shown at once (name, servings, tags) while the full
 // recipe loads, so the header doesn't jump when it arrives.
+//
+// An AI idea (`idea`) has no catalog id to load: it renders straight from the
+// in-memory recipe the action returned, with no Have it / Missing markers and
+// no "You have N of M" line, and the same Save / Add to plan actions.
 export function DiscoverPreview({
   dict,
   locale,
   result,
+  idea,
   titleRef,
   onBack,
   onSave,
@@ -36,7 +43,8 @@ export function DiscoverPreview({
 }: {
   dict: MealPlanningDict;
   locale: Locale;
-  result: CatalogResult;
+  result?: CatalogResult;
+  idea?: FileRecipe;
   titleRef: RefObject<HTMLHeadingElement | null>;
   onBack: () => void;
   onSave: (recipe: FileRecipe) => void;
@@ -44,7 +52,7 @@ export function DiscoverPreview({
 }) {
   const t = dict.discover;
   const unitLabel = useUnitLabel();
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(idea ? { recipe: idea, haves: null } : null);
   const [failed, setFailed] = useState(false);
   const [isPending, startTransition] = useTransition();
   // A slow answer for a recipe the user has already backed out of (or a
@@ -57,10 +65,12 @@ export function DiscoverPreview({
     onBackRef.current = onBack;
   });
 
+  const resultId = result?.id;
   const load = useCallback(() => {
+    if (resultId === undefined) return;
     const id = ++requestId.current;
     startTransition(async () => {
-      const answer = await getCatalogRecipeAction(result.id);
+      const answer = await getCatalogRecipeAction(resultId);
       if (id !== requestId.current) return;
       if (answer.recipe && answer.haves) {
         setFailed(false);
@@ -76,7 +86,7 @@ export function DiscoverPreview({
       }
       setFailed(true);
     });
-  }, [result.id, t.errorNotFound]);
+  }, [resultId, t.errorNotFound]);
 
   useEffect(() => {
     load();
@@ -87,7 +97,8 @@ export function DiscoverPreview({
     };
   }, [load]);
 
-  const servings = loaded?.recipe.servings ?? result.servings;
+  const servings = loaded?.recipe.servings ?? result?.servings ?? 1;
+  const tags = idea?.tags ?? result?.tags ?? [];
   const steps = loaded ? splitSteps(loaded.recipe.instructions) : [];
 
   return (
@@ -98,13 +109,13 @@ export function DiscoverPreview({
             <ArrowLeft className="size-4" />
           </Button>
           <DialogTitle ref={titleRef} tabIndex={-1} className="min-w-0 break-words outline-none">
-            {loaded?.recipe.name ?? result.name}
+            {loaded?.recipe.name ?? result?.name}
           </DialogTitle>
         </div>
         <DialogDescription>
           {format(plural(servings, dict.servingsCount), { count: servings })}
           {/* Same rule as the list rows: "You have 0 of N" is noise. */}
-          {result.haveCount > 0 && (
+          {result && result.haveCount > 0 && (
             <>
               {" · "}
               {format(plural(result.haveCount, t.haveCount), { count: result.haveCount, total: result.totalCount })}
@@ -112,9 +123,10 @@ export function DiscoverPreview({
           )}
         </DialogDescription>
       </DialogHeader>
-      {result.tags.length > 0 && (
+      {(idea || tags.length > 0) && (
         <div className="flex flex-wrap gap-1">
-          {result.tags.map((tag) => (
+          {idea && <Badge variant="outline">{t.aiIdeaBadge}</Badge>}
+          {tags.map((tag) => (
             <Badge key={tag} variant="secondary">
               {dict.recipeTags[tag]}
             </Badge>
@@ -133,7 +145,7 @@ export function DiscoverPreview({
         // Loading: placeholder lines the size of the ingredient list, so
         // the sheet keeps its shape (M8: no jump when the recipe arrives).
         <div aria-busy="true" className="flex animate-pulse flex-col gap-2 motion-reduce:animate-none">
-          {Array.from({ length: Math.min(Math.max(result.totalCount, 3), 8) }).map((_, i) => (
+          {Array.from({ length: Math.min(Math.max(result?.totalCount ?? 3, 3), 8) }).map((_, i) => (
             <div key={i} aria-hidden="true" className="h-5 rounded bg-muted" />
           ))}
         </div>
@@ -148,14 +160,16 @@ export function DiscoverPreview({
                 beside it instead of pushing it off the row. */}
             <ul className="flex flex-col divide-y">
               {loaded.recipe.ingredients.map((ingredient, index) => {
-                const have = loaded.haves[index] ?? false;
+                const markers = loaded.haves !== null;
+                const have = loaded.haves?.[index] ?? false;
                 return (
                   <li key={index} className="flex items-start gap-2 py-1.5">
-                    {have ? (
-                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
-                    ) : (
-                      <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    )}
+                    {markers &&
+                      (have ? (
+                        <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
+                      ) : (
+                        <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      ))}
                     <span className="min-w-0 flex-1 break-words">
                       <span className="text-muted-foreground tabular-nums">
                         {formatCookQuantity(ingredient.quantity, 1, locale)}
@@ -164,9 +178,11 @@ export function DiscoverPreview({
                       {ingredient.name}
                       {ingredient.note && <span className="text-muted-foreground"> ({ingredient.note})</span>}
                     </span>
-                    <span className={have ? "shrink-0 text-success" : "shrink-0 text-muted-foreground"}>
-                      {have ? t.haveIt : t.missing}
-                    </span>
+                    {markers && (
+                      <span className={have ? "shrink-0 text-success" : "shrink-0 text-muted-foreground"}>
+                        {have ? t.haveIt : t.missing}
+                      </span>
+                    )}
                   </li>
                 );
               })}

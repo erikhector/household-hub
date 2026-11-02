@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, type DialogHandle } from "@/components/ui/dialog";
 import { SearchInput } from "@/components/ui/search-input";
 import { ChipScroller } from "@/components/meal-planning/chip-scroller";
 import { DiscoverPreview } from "@/components/meal-planning/discover-preview";
-import { searchRecipeCatalogAction } from "@/app/dashboard/meal-planning/discover-actions";
+import { searchRecipeCatalogAction, suggestRecipeIdeasAction } from "@/app/dashboard/meal-planning/discover-actions";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
@@ -39,6 +39,7 @@ export function DiscoverSheet({
   locale,
   handle,
   initialResults,
+  aiAvailable,
   onSave,
   onAddToPlan,
 }: {
@@ -46,6 +47,9 @@ export function DiscoverSheet({
   locale: Locale;
   handle: DialogHandle;
   initialResults: CatalogResult[];
+  // An AI key is configured, so "Ask for ideas" is offered. Without one the
+  // button is not rendered at all (the action also refuses).
+  aiAvailable: boolean;
   onSave: (recipe: FileRecipe) => void;
   onAddToPlan: (recipe: FileRecipe) => void;
 }) {
@@ -58,6 +62,13 @@ export function DiscoverSheet({
   const [results, setResults] = useState<CatalogResult[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [previewing, setPreviewing] = useState<CatalogResult | null>(null);
+  // AI ideas are held in memory only: nothing is stored until the user saves
+  // one through the recipe form, and closing the sheet drops them.
+  const [ideas, setIdeas] = useState<FileRecipe[]>([]);
+  const [previewingIdea, setPreviewingIdea] = useState<FileRecipe | null>(null);
+  const [ideasError, setIdeasError] = useState<string | null>(null);
+  const [ideasPending, startIdeasTransition] = useTransition();
+  const ideasRequestId = useRef(0);
   const [isPending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
   const listTitleRef = useRef<HTMLHeadingElement>(null);
@@ -67,11 +78,11 @@ export function DiscoverSheet({
   // reader announces it, rather than falling back to the page.
   const wasPreviewing = useRef(false);
   useEffect(() => {
-    const now = previewing !== null;
+    const now = previewing !== null || previewingIdea !== null;
     if (now === wasPreviewing.current) return;
     wasPreviewing.current = now;
     (now ? previewTitleRef : listTitleRef).current?.focus();
-  }, [previewing]);
+  }, [previewing, previewingIdea]);
   // Review Focus 4: every search gets a number, and only the latest one's
   // answer is shown. Next runs a page's Server Actions one after another, so
   // an earlier, slower query would otherwise land last and replace the list
@@ -111,6 +122,22 @@ export function DiscoverSheet({
     else run();
   }
 
+  // Ideas use the tags selected right now; the search box doesn't apply (the
+  // model works from the pantry, not a query).
+  const askForIdeas = () => {
+    const id = ++ideasRequestId.current;
+    setIdeasError(null);
+    startIdeasTransition(async () => {
+      const answer = await suggestRecipeIdeasAction({ tags });
+      if (id !== ideasRequestId.current) return;
+      if (answer.ideas) {
+        setIdeas(answer.ideas);
+      } else {
+        setIdeasError(answer.error ?? t.ideasFailed);
+      }
+    });
+  };
+
   const changeQuery = (value: string) => {
     setQuery(value);
     search(value, tags, SEARCH_DEBOUNCE_MS);
@@ -125,6 +152,11 @@ export function DiscoverSheet({
   // Each open starts fresh: the browse list, no search, no preview.
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
+    // Closing drops the ideas and ignores an answer still on its way.
+    ideasRequestId.current++;
+    setIdeas([]);
+    setIdeasError(null);
+    setPreviewingIdea(null);
     if (next) {
       clearTimeout(debounce.current);
       requestId.current++;
@@ -151,16 +183,20 @@ export function DiscoverSheet({
         // grow and shrink as a search narrows the list; a steady height on
         // desktop for the same reason.
         className="max-sm:h-[85dvh] sm:h-[min(40rem,85dvh)] sm:max-w-md"
-        initialFocus={previewing ? previewTitleRef : searchRef}
+        initialFocus={previewing || previewingIdea ? previewTitleRef : searchRef}
       >
-        {previewing ? (
+        {previewing || previewingIdea ? (
           <DiscoverPreview
-            key={previewing.id}
+            key={previewing ? previewing.id : `idea:${ideas.indexOf(previewingIdea!)}`}
             dict={dict}
             locale={locale}
-            result={previewing}
+            result={previewing ?? undefined}
+            idea={previewingIdea ?? undefined}
             titleRef={previewTitleRef}
-            onBack={() => setPreviewing(null)}
+            onBack={() => {
+              setPreviewing(null);
+              setPreviewingIdea(null);
+            }}
             onSave={handOff(onSave)}
             onAddToPlan={handOff(onAddToPlan)}
           />
@@ -217,7 +253,41 @@ export function DiscoverSheet({
                   );
                 })}
               </ChipScroller>
+              {aiAvailable && (
+                <div className="flex flex-col items-start gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={ideasPending}
+                    aria-busy={ideasPending}
+                    onClick={askForIdeas}
+                  >
+                    <Sparkles className="size-4" aria-hidden="true" />
+                    {ideasPending ? t.ideasLoading : t.askForIdeas}
+                  </Button>
+                  {ideasError && !ideasPending && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {ideasError}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
+
+            {ideas.length > 0 && (
+              <section className="flex min-w-0 flex-col gap-2" aria-labelledby="discover-ideas-title">
+                <h3 id="discover-ideas-title" className="font-heading text-base font-semibold">
+                  {t.ideasHeading}
+                </h3>
+                <ul aria-labelledby="discover-ideas-title" className="flex flex-col divide-y rounded-md border">
+                  {ideas.map((idea, index) => (
+                    <li key={index}>
+                      <IdeaRow dict={dict} idea={idea} onOpen={() => setPreviewingIdea(idea)} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             <section className="flex min-w-0 flex-col gap-2" aria-labelledby="discover-list-title">
               <h3 id="discover-list-title" className="font-heading text-base font-semibold">
@@ -299,6 +369,30 @@ function DiscoverRow({
             ))}
           </span>
         )}
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </button>
+  );
+}
+
+function IdeaRow({ dict, idea, onOpen }: { dict: MealPlanningDict; idea: FileRecipe; onOpen: () => void }) {
+  const t = dict.discover;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left transition-[background-color,scale] outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98]"
+    >
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="line-clamp-2 font-medium break-words">{idea.name}</span>
+        <span className="flex flex-wrap gap-1">
+          <Badge variant="outline">{t.aiIdeaBadge}</Badge>
+          {idea.tags.map((tag) => (
+            <Badge key={tag} variant="secondary">
+              {dict.recipeTags[tag]}
+            </Badge>
+          ))}
+        </span>
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>
