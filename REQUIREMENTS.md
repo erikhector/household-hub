@@ -8569,6 +8569,19 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
 (name "Squirrel", `display: "standalone"`, theme/background colors, and
 192/512/512-maskable icons).
 
+- **Status-bar strip on iOS 26**: Safari 26 ignores `theme-color`, and in a
+  Home Screen app the `apple-mobile-web-app-status-bar-style` tag too. It
+  paints the status-bar strip from a `position: fixed` element touching the
+  top edge, and with none it blurs a soft edge out of the page background.
+  The phone header is a static flex child, so the app showed a light haze
+  across the top in both themes. `src/app/dashboard/layout.tsx` renders a
+  decorative, phone-only fixed strip (`data-slot="status-bar-backdrop"`,
+  `bg-background`, the header's colour, `max(1px, safe-area-inset-top)`
+  tall, under the z-50 dialogs) for iOS to sample.
+  `e2e/status-bar-backdrop.mobile.spec.ts` pins its position and colour.
+  Chromium can't reproduce the blur itself, so the effect is checked on a
+  device.
+
 - **Home-screen shortcuts** (GAP-68): the manifest declares `shortcuts` for
   Shopping list, Meal plan and Tasks (`/dashboard/shopping-list`,
   `/dashboard/meal-planning`, `/dashboard/tasks`), each with a
@@ -8603,6 +8616,23 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   `e2e/share-target.spec.ts` (en/sv, desktop and mobile); the OS share sheet
   itself needs a real Android device.
 
+- **Launch splash** (`PwaSplashScreen`, `src/components/pwa/pwa-splash-screen.tsx`,
+  `.pwa-splash-*` in `globals.css`): only in an installed app
+  (`display-mode: standalone`); a browser tab never shows it. Android draws
+  its own static splash from the manifest first; iOS has none, so this one
+  covers the blank screen there. It's CSS, so it plays before React loads,
+  on the motion tokens: the badge (centred on `#0a0a0a`, as Android's left
+  it) crouches, hops 16 px and lands with a squash over a soft glow, the
+  "Squirrel" wordmark rises in as it lands (~0.65 s), then a circle opens
+  from the middle onto the app while the badge grows and fades. The exit
+  waits for a 1.4 s cap so the splash always leaves without JavaScript; once
+  the app has hydrated and the intro is done, `exitWhenIntroDone`
+  (`src/lib/pwa-splash.ts`) starts it early, so a quick launch is over in
+  about a second. With reduced motion there is no intro and the splash
+  disappears at once at the same moment. Covered by `pwa-splash.test.ts`
+  and `e2e/pwa-splash.spec.ts`, which serves the app's CSS with the
+  standalone condition rewritten to `all`, since Playwright can't launch an
+  installed app. Nothing is stored in the browser.
 - **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
   following the guide's "InstallPrompt" example): a three-state card —
   already installed (`display-mode: standalone` matched) shows a static

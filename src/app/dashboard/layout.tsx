@@ -197,6 +197,22 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </main>
       </div>
       <CommandPalette dict={dict.commandPalette} nav={dict.nav} />
+      {/* iOS 26 ignores theme-color (and, for a Home Screen app, the
+          apple-mobile-web-app-status-bar-style tag in layout.tsx) and
+          paints the status-bar strip from a `position: fixed` element
+          touching the top edge. The header above is a static flex child,
+          so it found none and fell back to a soft blurred edge built from
+          body's radial gradient: a light haze over the top of every
+          phone screen, in both themes. This strip is that fixed element,
+          in the header's own colour so it can't show as a seam. At least
+          1px tall: when WebKit lays the view out below the status bar the
+          inset is 0, and a zero-height box isn't sampled. Under z-50 so
+          dialogs and their overlay still cover it. */}
+      <div
+        aria-hidden
+        data-slot="status-bar-backdrop"
+        className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[max(1px,env(safe-area-inset-top))] bg-background sm:hidden print:hidden"
+      />
       <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} version={CURRENT_VERSION} createHouseholdDict={soloHousehold ? dict.household.switcher : undefined} />
     </div>
     </LazyDialogErrorMessage>
