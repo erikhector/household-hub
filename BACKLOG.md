@@ -99,6 +99,9 @@ Parallel-safe except where noted.
 
 ### Bugs
 
+- [ ] **BUG-6. Check whether Sentry JAVASCRIPT-NEXTJS-5 still recurs after BUG-5 (#925)** (impact: low, effort: S) —
+      check whether JAVASCRIPT-NEXTJS-5 (PrismaClientKnownRequestError, 1 event, 2026-10-26, same route as JAVASCRIPT-NEXTJS-4) still recurs after BUG-5 (#925).
+      Acceptance: no new events after the release containing #925, or a separate cause filed.
 
 ### Security hardening (2026-09-26 audit)
 
