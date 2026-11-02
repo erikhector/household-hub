@@ -7377,8 +7377,29 @@ stay that way rather than re-adding per-page redirect checks:
   localhost, which only matters in local dev.
 - The page's `<h1>` is the card title: `CardTitle` takes `as="h1"`. The text
   for the titles with no other home is in the dictionaries' `meta` section;
-  `/privacy` and `/terms` titles are localised while their bodies stay English.
+  `/privacy` and `/terms` titles are localised, and so are their bodies (UX-66).
 - Covered by `e2e/public-titles.spec.ts`.
+
+### Legal pages in Swedish (UX-66)
+
+- `/privacy` and `/terms` serve the visitor's language (account locale, then
+  the `locale` cookie, then `Accept-Language`, like every other page). English
+  lives in `page.tsx`, Swedish in `privacy-sv.tsx` / `terms-sv.tsx`: long
+  prose a translator or lawyer reviews as one document, not dictionary
+  strings. The Swedish text is a faithful translation: same sections, same
+  section ids, same meaning, including the "who we are" paragraph (the owner's
+  accurate wording for that is a separate follow-up). Change both languages
+  together and bump `LAST_UPDATED` in both.
+- The `<article>` carries `lang="en"` or `lang="sv"` to match, so a screen
+  reader uses the right voice; the cookie notice's "Läs mer" lands on the
+  Swedish policy.
+- Each page opens with a "On this page" / "På den här sidan" jump list
+  (`LegalJumpList`, `src/components/legal/legal-page.tsx`): a `nav` of
+  in-page anchors, one per section, 44px tall. The privacy cookie list
+  (`CookieList`) shows each `STORAGE_INVENTORY` entry's `purpose` or
+  `purposeSv` and `duration` or `durationSv`.
+- Human-only area: the Swedish wording needs the owner's review before merge.
+- Covered by `e2e/public-pages.spec.ts`.
 
 ### Session revocation on password change (SCALE-H)
 
@@ -7744,9 +7765,9 @@ components directly.
   account email as a hidden `autocomplete="username"` input (UX-67) so
   password managers update the right login. The privacy page lists
   cookies as a definition list per entry (a table clipped "Purpose" to a few
-  characters on phones). The English-only legal body is `lang="en"` and set
-  in `foreground`; "Terms of service" and "Privacy policy" are sentence
-  case; signup's button reads "Create your household" like its title; the
+  characters on phones). The legal body is set in `foreground` and served in
+  the visitor's language (UX-66, below); "Terms of service" and "Privacy
+  policy" are sentence case; signup's button reads "Create your household" like its title; the
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
@@ -7871,7 +7892,8 @@ components directly.
   collapsed. The page's primary action is wrapped in `PrimaryAction`
   (`src/components/dashboard/primary-action.tsx`): on a phone it floats
   bottom right, 0.75rem above the bottom bar and the safe area, as a
-  48 px pill (a long label wraps within the screen at 200% text); from
+  48 px pill (a long label wraps within the pill at 200% text; above 150 %
+  it is the icon alone, UX-160); from
   `sm` it stays in the header where it was. The first-visit cookie notice
   (a slim strip on phones, UX-57: the dashboard reserves its height via
   `--cookie-notice-h`, so the button rides above it, and public pages pad
@@ -9167,6 +9189,22 @@ approximating them, so the email never disagrees with the app.
   `bottom-` value. Covered by `e2e/text-size.mobile.spec.ts`, which sets
   `html { font-size: 200% }` and runs `expectNoHorizontalOverflow` on every
   route in `e2e/routes.ts`, in English and Swedish.
+  **Swedish on budget and shopping (UX-160)**: `PageTitle` sets `hyphens-auto`
+  (with `<html lang>`), so "Hushållsbudget" hyphenates instead of breaking
+  mid-word. `TextScaleFlag` (dashboard layout) sets `data-large-text` on
+  `<html>` while the root font-size is past 24 px (150 % text), read in
+  Tailwind as the `large-text:` variant (`globals.css`); a media query can't
+  see it. Above that, `PrimaryAction` (always capped at 60 % of the screen)
+  drops a trigger that has an icon to a 48 px icon circle, its label kept as
+  the accessible name (`font-size: 0`), and the smart-add bar's mic, scan and Add
+  buttons become 44 px (px, not rem) so the field keeps its width. On a
+  phone above 150 % text `NextUpDock` collapses to ring + count when `main` is
+  shorter than three times the dock's expanded height (twice still left a half-covered row
+  between the add bar and the dock at 200 %); every row it hides is in the list,
+  M7). Covered by the "budget and shopping list at 200% text" specs in
+  `e2e/text-size.mobile.spec.ts`: the month switcher stays uncovered, the pill
+  stays small, the field stays 220 px+ wide and a list row stays above the
+  dock.
 - Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
   the page when a smaller field is focused, at any width (an iPad, a phone in
   landscape). `Input`, `Combobox`/`Autocomplete` input groups
@@ -9536,7 +9574,8 @@ UX-14's rapid ticks and the rollback toast.
   `src/lib/actions/household.ts`) or `*_STORAGE_KEY` constant and fails if
   its value isn't listed in `STORAGE_INVENTORY`
   (`src/lib/cookie-inventory.ts`), which also feeds the privacy page's
-  cookie list (`src/app/privacy/page.tsx`). A new cookie or localStorage
+  cookie list (`src/app/privacy/page.tsx`, with a Swedish `purposeSv` and
+  `durationSv` per entry). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
 - **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`

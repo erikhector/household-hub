@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.133.1",
+    "date": "2026-11-02",
+    "pr": 1054,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Text now stays readable when you use a very large font size in Swedish: the budget title splits at a syllable instead of mid-word, the floating \"add\" button shrinks to a round icon so it no longer covers the month switcher, the shopping list's \"Next up\" bar folds down to its progress ring, and the add-items field keeps room for typing.",
+      "sv": "Texten går nu att läsa även med mycket stor textstorlek: budgettiteln delas vid en stavelse i stället för mitt i ordet, den flytande \"lägg till\"-knappen krymper till en rund ikon så att den inte täcker månadsväljaren, inköpslistans \"Näst på tur\"-ruta viker ihop sig till förloppsringen och fältet för att lägga till varor behåller plats för text."
+    }
+  },
+  {
     "version": "0.133.0",
     "date": "2026-11-02",
     "pr": 1051,

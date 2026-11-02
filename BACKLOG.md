@@ -238,7 +238,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-82. Flaky: the meal planner's empty-week specs fail under load on mobile** (low, S) —
-      `e2e/meal-planner-empty-slots.spec.ts:20` ("an empty week is one empty state with one primary, not seven add cards": expected 0 `Add meal, ` buttons, found 7) and `:84` ("the planner has one control row with the rare actions in a menu": the "Copy last week" menuitem never became visible after clicking More), `mobile` project. Both failed in the local `npm run ci:local` run on release commit 6be170e (2026-11-02, the release PR #1034, which carried the UX-171 planner change #1027) and both passed on a re-run of the whole spec on the same commit; the GitHub e2e job on that commit was green. Likely the page is measured or clicked before the planner's empty state and its menu have hydrated or settled. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      `e2e/meal-planner-empty-slots.spec.ts:20` ("an empty week is one empty state with one primary, not seven add cards": expected 0 `Add meal, ` buttons, found 7) and `:84` ("the planner has one control row with the rare actions in a menu": the "Copy last week" menuitem never became visible after clicking More), `mobile` project. Both failed in the local `npm run ci:local` run on release commit 6be170e (2026-11-02, the release PR #1034, which carried the UX-171 planner change #1027) and both passed on a re-run of the whole spec on the same commit; the GitHub e2e job on that commit was green. Second sighting (2026-11-02, release PR #1054 on commit d66a529): `:41` ("adding a meal to an empty day asks for the slot", `mobile`) timed out in `expectHydrated` on both the first attempt and the retry in the GitHub e2e job, then passed in the whole-job re-run and in a local `npm run ci:local` on the same commit. Likely the page is measured or clicked before the planner's empty state and its menu have hydrated or settled. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
@@ -303,27 +303,6 @@ build them first: UX-47,
 UX-89.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) — breaks Context
-      and Accessibility. ⚠️ Touches the privacy page (human-only area):
-      the Swedish text needs the owner's wording review before merge.
-      Decided 2026-11-02 by owner: translate the policy to Swedish. See #736.
-      Scope: a faithful Swedish translation of the current policy and
-      terms (served by locale cookie like the rest of the app), plus the
-      jump list. Leave the "who we are" sentence's meaning unchanged in
-      both languages; the owner supplies the accurate one in a reply to
-      #736, and that becomes a follow-up item.
-      - The sv cookie notice's "Läs mer" opens an English-only policy
-        inside `<html lang="sv">`, so screen readers read English with a
-        Swedish voice.
-      - The policy says Squirrel "isn't a large multi-tenant SaaS company
-        … it's a self-run app", which contradicts the public "Get started
-        free" (`src/app/privacy/page.tsx:74-75`).
-      - It is about 8,000 px long with no table of contents.
-      Acceptance: sv serves Swedish legal text and en serves English, each
-      page under the matching `lang`. The page starts with a jump list.
-      The PR is flagged for the owner's review of the Swedish wording.
 
 #### First run and the overview
 
@@ -440,30 +419,7 @@ left out.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/inventory/inventory-client.tsx`: UX-166
-- `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-160
-- `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
-  UX-160
 
-
-
-- [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
-      med, effort: M) — breaks M9 ("200 % … without clipping; Swedish
-      strings wrap or truncate with the full value reachable"). At 200 %
-      in `sv` the budget title breaks mid-word ("Hushållsbudg / et"), the
-      floating primary pill spans the width and covers the month switcher,
-      and on the shopping list the dock truncates "Näst… / Bak…" and
-      covers the list. In `en` at 200 % the smart-add placeholder collapses
-      to "Ac" because the mic and scan buttons keep their width
-      (`text-200-dashboard-shopping-list-id.png`; report `h11-budget-sv200`,
-      `k5-sv200-shopping`). Files: `page-title.tsx`, `primary-action.tsx`,
-      `shopping-mode.tsx` (dock), `smart-add-bar.tsx`.
-      Acceptance: `PageTitle` sets `hyphens-auto` with the page `lang`;
-      the pill is capped at 60 % width and drops to icon + short label
-      above 150 % text; the dock collapses to ring + count when `main` is
-      shorter than twice the dock; the smart-add icons shrink before the
-      field. `text-size.mobile.spec.ts` extends to `sv` and asserts the
-      month switcher and at least one list row stay visible.
 
 - [ ] **UX-161. Contrast on avatar initials, selected chips and faded
       table text** (impact: med, effort: S) — breaks Accessibility tokens

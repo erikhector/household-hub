@@ -149,6 +149,15 @@ export function NextUpDock<T extends DockItem>({
   // of the list: the last rows can still scroll up clear of it.
   const dockRef = useRef<HTMLElement>(null);
   const [dockHeight, setDockHeight] = useState(0);
+  // UX-160: at large text (above 150 %) the dock can take most of a phone's
+  // screen, and being fixed it then covers the list it is meant to help with.
+  // When `main` (the scroller) is shorter than three times the dock, the dock
+  // collapses to its ring and count; the rows it hides are all in the list (M7). The check is
+  // against the dock's *expanded* height, remembered from the last time it
+  // was expanded, so collapsing doesn't shrink the dock below the threshold
+  // and flip it straight back (a flicker loop).
+  const [collapsed, setCollapsed] = useState(false);
+  const expandedHeight = useRef(0);
   useEffect(() => {
     const dock = dockRef.current;
     if (!dock) return;
@@ -161,8 +170,20 @@ export function NextUpDock<T extends DockItem>({
     const observer = new ResizeObserver(() => {
       setDockHeight(dock.offsetHeight);
       main?.style.setProperty("--shopping-dock", `calc(${dock.offsetHeight}px + 0.5rem)`);
+      // Only the fixed (phone) dock covers anything; from sm it is sticky
+      // in the column and never collapses.
+      // Large text only (TextScaleFlag's attribute): at normal sizes the
+      // dock is designed to be the three-row thumb zone, even on a small
+      // phone, and the e2e specs tick through it.
+      if (!main || getComputedStyle(dock).position !== "fixed" || !document.documentElement.hasAttribute("data-large-text")) {
+        setCollapsed(false);
+        return;
+      }
+      if (dock.dataset.collapsed === undefined) expandedHeight.current = dock.offsetHeight;
+      setCollapsed(expandedHeight.current > 0 && main.clientHeight < 3 * expandedHeight.current);
     });
     observer.observe(dock);
+    if (main) observer.observe(main);
     return () => {
       observer.disconnect();
       main?.style.removeProperty("--shopping-dock");
@@ -175,6 +196,7 @@ export function NextUpDock<T extends DockItem>({
       <section
         ref={dockRef}
         aria-label={dict.nextUp}
+        data-collapsed={collapsed && !finish ? "" : undefined}
         className={cn(
           "z-30 flex flex-col gap-2 rounded-xl bg-card p-3 shadow-lg ring-1 ring-foreground/10 print:hidden",
           // Phones: fixed just above the BottomNav (z-40; its 3.75rem + safe
@@ -194,13 +216,13 @@ export function NextUpDock<T extends DockItem>({
         {!finish && (
           <div className="flex items-center gap-3">
             <ProgressRing progress={progress} dict={dict} />
-            <div className="min-w-0 flex-1">
+            <div className={cn("min-w-0 flex-1", collapsed && "max-sm:hidden")}>
               {/* "+N more" rides on this line, not in a footer of its own:
                   the dock is pinned by its bottom edge, so a footer that
                   appears when the server confirms a just-added fourth row
                   (often past the 500 ms CLS grace) would push the dock's top
                   up by a line, a late layout shift (MAINT-18). */}
-              <span className="block truncate text-xs text-muted-foreground">
+              <span className="block truncate text-xs text-muted-foreground large-text:max-sm:whitespace-normal">
                 {dict.nextUp}
                 {next && next.more > 0 && (
                   <span className="short:hidden">
@@ -211,7 +233,7 @@ export function NextUpDock<T extends DockItem>({
               </span>
               {/* A span, not a <p>: the list's own group header is the <p>
                   that names the aisle. */}
-              <span className="block truncate font-heading text-base font-semibold">{next?.label}</span>
+              <span className="block truncate font-heading text-base font-semibold large-text:max-sm:whitespace-normal large-text:max-sm:line-clamp-2">{next?.label}</span>
             </div>
             {/* The progressbar already says this to a screen reader. */}
             <span aria-hidden className="shrink-0 text-sm font-semibold tabular-nums">
@@ -221,7 +243,7 @@ export function NextUpDock<T extends DockItem>({
         )}
         {/* A short (landscape phone) screen gets the one next item, not three,
             so the dock never covers most of it. */}
-        <ul className="flex flex-col gap-2 short:[&>li:nth-child(n+2)]:hidden">
+        <ul className={cn("flex flex-col gap-2 short:[&>li:nth-child(n+2)]:hidden", collapsed && !finish && "max-sm:hidden")}>
           {rows.map(({ item, ticked }, index) => {
             const text = formatShoppingItemLabel(item, unitLabel);
             return (

@@ -31,27 +31,61 @@ test("the privacy cookie list gives every column room on a phone", async ({ page
   await expectNoHorizontalOverflow(page);
 });
 
-test("legal pages use sentence case, English body text and full-strength text", async ({
-  page,
-  context,
-  baseURL,
-}) => {
-  await setLocaleCookie(context, baseURL!, "sv");
-  await page.goto("/privacy");
-  await expect(page.getByRole("heading", { level: 1, name: "Privacy policy" })).toBeVisible();
-  // The body is English-only, so it says so to screen readers even when the
-  // interface is Swedish (WCAG 3.1.2).
-  await expect(page.locator("article")).toHaveAttribute("lang", "en");
-  await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-  const section = page.locator("article section > div").first();
-  const [text, foreground] = await Promise.all([
-    section.evaluate((el) => getComputedStyle(el).color),
-    page.locator("h1").evaluate((el) => getComputedStyle(el).color),
-  ]);
-  expect(text).toBe(foreground);
+// UX-66: the legal pages follow the visitor's language, mark the article with
+// the matching `lang` (WCAG 3.1.2), and open with a jump list.
+const LEGAL = [
+  { path: "/privacy", en: "Privacy policy", sv: "Integritetspolicy" },
+  { path: "/terms", en: "Terms of service", sv: "Användarvillkor" },
+];
+for (const locale of ["en", "sv"] as const) {
+  for (const legal of LEGAL) {
+    test(`${legal.path} is served in ${locale} with a working jump list`, async ({
+      page,
+      context,
+      baseURL,
+    }) => {
+      await setLocaleCookie(context, baseURL!, locale);
+      await page.goto(legal.path);
+      await expect(page.getByRole("heading", { level: 1, name: legal[locale] })).toBeVisible();
+      await expect(page.locator("article")).toHaveAttribute("lang", locale);
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
 
-  await page.goto("/terms");
-  await expect(page.getByRole("heading", { level: 1, name: "Terms of service" })).toBeVisible();
+      // The page starts with the jump list; every link lands on the section
+      // heading with the same text.
+      const nav = page.getByRole("navigation", {
+        name: locale === "sv" ? "På den här sidan" : "On this page",
+      });
+      await expect(nav).toBeVisible();
+      const links = nav.getByRole("link");
+      const count = await links.count();
+      expect(count).toBeGreaterThan(5);
+      for (let i = 0; i < count; i++) {
+        const title = (await links.nth(i).textContent())!;
+        const id = (await links.nth(i).getAttribute("href"))!.slice(1);
+        await expect(page.locator(`section[id="${id}"] > h2`)).toHaveText(title);
+      }
+
+      // Sentence case and full-strength body text.
+      const section = page.locator("article section > div").first();
+      const [text, foreground] = await Promise.all([
+        section.evaluate((el) => getComputedStyle(el).color),
+        page.locator("h1").evaluate((el) => getComputedStyle(el).color),
+      ]);
+      expect(text).toBe(foreground);
+      await expectNoHorizontalOverflow(page);
+    });
+  }
+}
+
+test("the Swedish privacy page lists the cookies in Swedish", async ({ page, context, baseURL }) => {
+  await setLocaleCookie(context, baseURL!, "sv");
+  await page.goto("/privacy#cookies");
+  await expect(page.locator("#cookies li")).toHaveCount(STORAGE_INVENTORY.length);
+  for (const entry of STORAGE_INVENTORY) {
+    const item = page.locator("#cookies li").filter({ hasText: entry.name }).first();
+    await expect(item).toContainText(entry.purposeSv);
+    await expect(item).toContainText(entry.durationSv);
+  }
 });
 
 test("reset-password with a bad token shows the status card, not the form", async ({ page }) => {
