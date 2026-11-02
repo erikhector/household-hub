@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.132.0",
+    "date": "2026-11-02",
+    "pr": 1030,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The item page now starts with the item's status, quantity and Add to list. Unit conversions are tucked into a \"Units\" section you can open.",
+      "sv": "Artikelsidan börjar nu med artikelns status, antal och Lägg till i listan. Enhetsomvandlingar finns i en \"Enheter\"-sektion som du kan öppna."
+    }
+  },
+  {
     "version": "0.131.2",
     "date": "2026-11-01",
     "pr": 1024,
