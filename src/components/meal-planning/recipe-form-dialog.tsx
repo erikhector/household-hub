@@ -54,6 +54,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_TAGS, type RecipeTag } from "@/lib/recipe-tags";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/actions/auth";
+import type { FileRecipe } from "@/lib/recipe-import/parse-file";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -218,6 +219,9 @@ export function RecipeFormDialog({
   startAtReview = false,
   photoImportConfigured = false,
   initialImportUrl = "",
+  initialRecipe,
+  onCreated,
+  onClosed,
   onDelete,
 }: {
   dict: MealPlanningDict;
@@ -238,6 +242,18 @@ export function RecipeFormDialog({
   /** GAP-67: a link shared to Squirrel from another app. Only fills the
    * "Import from a URL" field; nothing is fetched until the user taps Import. */
   initialImportUrl?: string;
+  /** Create mode: start from this recipe (the Discover sheet's pick) instead
+   * of a blank form. Applied each time the dialog opens while it is set, so
+   * the user still reviews and edits before saving; a later open without it
+   * is blank again, because every open re-seeds the fields first. */
+  initialRecipe?: FileRecipe;
+  /** Create mode: called with the new recipe's id after a successful save,
+   * once the dialog has closed, so the opener can go on to plan it. */
+  onCreated?: (recipeId: string) => void;
+  /** Called once the dialog has finished closing (cancel or save, after its
+   * exit animation), so an opener can drop the `initialRecipe` it passed and
+   * open what comes next without racing this dialog's focus return. */
+  onClosed?: () => void;
   /** UX-165: Delete lives here, at the end of the edit form, not in the
    * recipe sheet beside the sticky Cook (M2). The recipe manager passes its
    * undoable delete; only the sheet's Edit gets it. */
@@ -399,6 +415,7 @@ export function RecipeFormDialog({
         setProteinGramsPerServing("");
         setCarbsGramsPerServing("");
         setFatGramsPerServing("");
+        if (result.createdId) onCreated?.(result.createdId);
       }
     }
     return result;
@@ -418,11 +435,15 @@ export function RecipeFormDialog({
   // Shared by the URL and photo imports (GAP-54): both hand over this shape.
   const applyImportedRecipe = (recipe: {
     name: string;
+    /** Only a file/Discover recipe carries servings; the URL and photo
+     * imports leave the field as it is. */
+    servings?: number;
     instructions: string;
     ingredients: ImportedRecipeIngredient[];
     tags?: RecipeTag[];
   }) => {
     if (recipe.name) setName(recipe.name);
+    if (recipe.servings) setServings(String(recipe.servings));
     if (recipe.instructions) setInstructions(recipe.instructions);
     if (recipe.ingredients.length > 0) {
       setIngredients(
@@ -541,6 +562,9 @@ export function RecipeFormDialog({
         recipe?.carbsGramsPerServing != null ? String(recipe.carbsGramsPerServing) : "",
       );
       setFatGramsPerServing(recipe?.fatGramsPerServing != null ? String(recipe.fatGramsPerServing) : "");
+      // After the blank/edit seeding above, so it overrides those values in
+      // the same batch. Create mode only: edit has its own recipe.
+      if (mode === "create" && initialRecipe) applyImportedRecipe(initialRecipe);
       if (startAtReview && recipe) void openAtReview(rowsFromRecipe(recipe));
     }
   };
@@ -583,7 +607,15 @@ export function RecipeFormDialog({
     );
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} longForm handle={handle}>
+    <Dialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) onClosed?.();
+      }}
+      longForm
+      handle={handle}
+    >
       <DialogContent
         className="sm:max-w-md"
         initialFocus={nameInputRef}

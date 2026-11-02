@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTr
 import Link from "next/link";
 import { SHARE_URL_PARAM } from "@/lib/share-target";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bookmark, CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Upload } from "lucide-react";
+import { Bookmark, CalendarPlus, ChevronRight, Compass, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -30,6 +30,7 @@ import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/laz
 import {
   loadAddToPlanDialog,
   loadCookModeDialog,
+  loadDiscoverSheet,
   loadRecipeFileImportDialog,
   loadRecipeFormDialog,
 } from "@/components/meal-planning/lazy-dialogs";
@@ -49,6 +50,8 @@ import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 import { createMoneyFormat } from "@/lib/currency";
 import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
 import type { RecipePlannedDate } from "@/app/dashboard/meal-planning/recipe-planned-dates";
+import type { CatalogResult } from "@/lib/recipe-catalog/rank";
+import type { FileRecipe } from "@/lib/recipe-import/parse-file";
 import { formatRecipeText } from "@/lib/recipe-text";
 import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
@@ -86,6 +89,7 @@ export function RecipeManager({
   ingredientUnits,
   plannerWeekStartKey,
   photoImportConfigured,
+  discoverInitial,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -109,6 +113,9 @@ export function RecipeManager({
   // GAP-54: a vision provider key is set, so the recipe form offers
   // "Import from a photo".
   photoImportConfigured: boolean;
+  // Recipe discovery: the catalog ranked by this household's pantry with no
+  // search or filter, so the Discover sheet opens with its list in place.
+  discoverInitial: CatalogResult[];
 }) {
   // MATCH-6: the item page links a recipe as `?tab=recipes&recipe=<id>`,
   // which opens the list searched down to that recipe.
@@ -207,6 +214,53 @@ export function RecipeManager({
       {dict.importFileButton}
     </Button>
   );
+  // Recipe discovery. The sheet hands a picked catalog recipe to a recipe
+  // form of its own (create mode, pre-filled through `initialRecipe`), so
+  // "New recipe" keeps its blank form and its shared-link prefill.
+  const [discoverHandle] = useState(() => createDialogHandle());
+  const [discoverFormHandle] = useState(() => createDialogHandle());
+  // The pick the Discover form opens with, and whether a save goes on to
+  // Add to plan. The form reads `initialRecipe` while it opens, from its
+  // latest render, so the pick is committed first and the form opened by
+  // the effect below: opening it from the same handler that sets the pick
+  // would seed an already-mounted form with the previous pick.
+  const [discoverPick, setDiscoverPick] = useState<{ recipe: FileRecipe; plan: boolean } | null>(null);
+  useEffect(() => {
+    if (discoverPick) openLazyDialog(discoverFormHandle);
+  }, [discoverPick, discoverFormHandle]);
+  // The id a Discover save created, held until the form has closed.
+  const discoverCreatedId = useRef<string | null>(null);
+  // Add to plan's picker for a recipe Discover just saved. It opens only
+  // once the form has finished closing (onClosed), so the form's focus
+  // return and history back() are done before the picker takes over.
+  const [planTarget, setPlanTarget] = useState<{ id: string; name: string; servings: number } | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
+  const onDiscoverFormClosed = () => {
+    const createdId = discoverCreatedId.current;
+    discoverCreatedId.current = null;
+    // Cancelled or saved, the pick is spent: clearing it means the form
+    // can't open pre-filled with it again.
+    if (createdId && discoverPick?.plan) {
+      setPlanTarget({ id: createdId, name: discoverPick.recipe.name, servings: discoverPick.recipe.servings });
+      setPlanOpen(true);
+    }
+    setDiscoverPick(null);
+  };
+  // The saved recipe as the refreshed list has it (the user may have
+  // renamed it in the form), falling back to the pick until it arrives.
+  const plannedRecipe = planTarget ? recipes.find((recipe) => recipe.id === planTarget.id) : undefined;
+  const discoverButton = (label: string) => (
+    <Button
+      type="button"
+      variant="outline"
+      aria-haspopup="dialog"
+      onClick={() => openLazyDialog(discoverHandle)}
+      {...preloadOnIntent(loadDiscoverSheet)}
+    >
+      <Compass className="size-4" />
+      {label}
+    </Button>
+  );
   const newRecipeButton = (
     <Button
       type="button"
@@ -221,8 +275,11 @@ export function RecipeManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
+      {/* Wraps: with Discover beside Import, the two buttons left the
+          subtitle a word wide on a phone (worse in Swedish), so they drop
+          below it there instead. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 flex-1 basis-56">
           <h2 className="font-heading text-lg font-semibold">{dict.recipesTitle}</h2>
           <p className="text-sm text-muted-foreground">{dict.recipesSubtitle}</p>
         </div>
@@ -231,6 +288,7 @@ export function RecipeManager({
             from `sm` it stays here in the header. */}
         {recipes.length > 0 && (
           <div className="flex shrink-0 items-center gap-2">
+            {discoverButton(dict.discover.open)}
             {importFileButton}
             <PrimaryAction>{newRecipeButton}</PrimaryAction>
           </div>
@@ -238,6 +296,50 @@ export function RecipeManager({
       </div>
       <LazyDialog loader={loadRecipeFileImportDialog} handle={fileImportHandle}>
         {(FileImport) => <FileImport dict={dict} handle={fileImportHandle} />}
+      </LazyDialog>
+      <LazyDialog loader={loadDiscoverSheet} handle={discoverHandle}>
+        {(Discover) => (
+          <Discover
+            dict={dict}
+            locale={locale}
+            handle={discoverHandle}
+            initialResults={discoverInitial}
+            onSave={(recipe) => setDiscoverPick({ recipe, plan: false })}
+            onAddToPlan={(recipe) => setDiscoverPick({ recipe, plan: true })}
+          />
+        )}
+      </LazyDialog>
+      <LazyDialog loader={loadRecipeFormDialog} handle={discoverFormHandle}>
+        {(RecipeForm) => (
+          <RecipeForm
+            dict={dict}
+            mode="create"
+            allRecipes={recipes}
+            ingredientNames={ingredientNames}
+            ingredientUnits={ingredientUnits}
+            handle={discoverFormHandle}
+            initialRecipe={discoverPick?.recipe}
+            onCreated={(recipeId) => {
+              discoverCreatedId.current = recipeId;
+            }}
+            onClosed={onDiscoverFormClosed}
+          />
+        )}
+      </LazyDialog>
+      <LazyDialog loader={loadAddToPlanDialog} open={planOpen} onLoadError={() => setPlanOpen(false)}>
+        {(AddToPlan) =>
+          planTarget && (
+            <AddToPlan
+              key={planTarget.id}
+              dict={dict}
+              recipeId={planTarget.id}
+              recipeName={plannedRecipe?.name ?? planTarget.name}
+              defaultPortions={plannedRecipe?.servings ?? planTarget.servings}
+              plannerWeekStartKey={plannerWeekStartKey}
+              controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
+            />
+          )
+        }
       </LazyDialog>
       <LazyDialog loader={loadRecipeFormDialog} handle={newRecipeHandle}>
         {(RecipeForm) => (
@@ -257,7 +359,12 @@ export function RecipeManager({
       {recipes.length === 0 ? (
         <MascotEmptyState alt={dict.mascotAlt} action={newRecipeButton}>
           <p className="text-sm text-muted-foreground">{dict.emptyRecipes}</p>
-          <div className="mt-3 flex justify-center">{importFileButton}</div>
+          {/* The two other ways to a first recipe: pick one from the
+              catalog, or bring them from another app. */}
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {discoverButton(dict.discover.emptyRecipesAction)}
+            {importFileButton}
+          </div>
         </MascotEmptyState>
       ) : (
         <>

@@ -22,6 +22,9 @@ import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
 import { parseRecipeTags } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
+import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
+import { toDiscoverContext } from "@/lib/recipe-catalog/pantry";
+import { rankCatalogRecipes } from "@/lib/recipe-catalog/rank";
 import type { ItemUnitConversionLike } from "@/lib/units";
 import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
 import { parseMissingIngredientsRange, weekRange } from "@/app/dashboard/meal-planning/missing-ingredients";
@@ -346,6 +349,14 @@ async function RecipesTabSection({
     getRecipeCookedStats(householdId),
     getRecipePlannedDates(householdId),
   ]);
+  // Recipe discovery: the context the Discover sheet's first list is ranked
+  // from, mapped from the core data's inventory and recipes rather than
+  // queried again, so the sheet opens with its list in place.
+  const discoverContext = toDiscoverContext(
+    inventoryItems,
+    recipes.map((recipe) => recipe.name),
+    new Date().getTime(),
+  );
 
   const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
   // Lets the ingredient row preselect a unit once the name matches a known
@@ -384,6 +395,16 @@ async function RecipesTabSection({
         item.quantity > 0 &&
         (item.expiryStatus !== null || item.stockStatus !== "in"),
     );
+  // The Discover sheet's opening list: no search and no tags, so "good with
+  // what you have" (or the featured set when nothing overlaps). Searches
+  // after that go through searchRecipeCatalogAction. The catalog itself
+  // stays on the server; only these results reach the client.
+  const discoverInitial = rankCatalogRecipes(RECIPE_CATALOG, discoverContext.pantry, {
+    query: "",
+    tags: [],
+    locale,
+    savedNames: discoverContext.savedNames,
+  });
   const useItUpSuggestions = computeUseItUpSuggestions(
     recipes.map((recipe) => ({
       recipeId: recipe.id,
@@ -500,6 +521,7 @@ async function RecipesTabSection({
       // GAP-54: same two keys as recipe-photo-actions.ts's provider chain;
       // there is no OCR fallback, so no key means no button.
       photoImportConfigured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)}
+      discoverInitial={discoverInitial}
     />
   );
 }
