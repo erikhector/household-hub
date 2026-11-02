@@ -308,14 +308,15 @@ UX-89.
 #### Logged out, signup and invites
 
 - [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) `[!]` — breaks Context
-      and Accessibility. ⚠️ Touches the privacy page (human-only area).
-      Blocked: needs the owner. Rewriting "who we are" and any Swedish
-      legal text is privacy-policy wording (AUTOPILOT.md `never_decide`).
-      Question: (1) Swedish translation of the policy, or (2) keep it
-      English with `lang="en"` and an "Only available in English" note?
-      And what is the accurate "who we are" sentence for how Squirrel is
-      offered? Once decided, the jump list and `lang` markup are buildable.
+      accurate "who we are"** (impact: med, effort: M) — breaks Context
+      and Accessibility. ⚠️ Touches the privacy page (human-only area):
+      the Swedish text needs the owner's wording review before merge.
+      Decided 2026-11-02 by owner: translate the policy to Swedish. See #736.
+      Scope: a faithful Swedish translation of the current policy and
+      terms (served by locale cookie like the rest of the app), plus the
+      jump list. Leave the "who we are" sentence's meaning unchanged in
+      both languages; the owner supplies the accurate one in a reply to
+      #736, and that becomes a follow-up item.
       - The sv cookie notice's "Läs mer" opens an English-only policy
         inside `<html lang="sv">`, so screen readers read English with a
         Swedish voice.
@@ -323,10 +324,9 @@ UX-89.
         … it's a self-run app", which contradicts the public "Get started
         free" (`src/app/privacy/page.tsx:74-75`).
       - It is about 8,000 px long with no table of contents.
-      Acceptance: sv serves Swedish legal text, or the English body
-      carries `lang="en"` and an "Only available in English" note. "Who
-      we are" matches how Squirrel is offered. The page starts with a
-      jump list.
+      Acceptance: sv serves Swedish legal text and en serves English, each
+      page under the matching `lang`. The page starts with a jump list.
+      The PR is flagged for the owner's review of the Swedish wording.
 
 #### First run and the overview
 
@@ -336,9 +336,13 @@ UX-89.
 #### Shopping
 
 - [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
-      items** (impact: high, effort: M) `[!]` — breaks User-centricity
-      ("automation suggests, the user decides"). Needs a schema change and
-      a decision: nothing records that an item was ever stocked or that a
+      items** (impact: high, effort: M) — breaks User-centricity
+      ("automation suggests, the user decides"). One migration (shared
+      with UX-125; build them together).
+      Decided 2026-11-02 by owner: add `everStocked` with backfill, then
+      `createdFromList`; never-stocked items stay hidden from the "out"
+      count (list rows stay linked). See #735.
+      Context: nothing records that an item was ever stocked or that a
       list row created it (only the current `quantity`), so "never
       stocked", "out" and "delete the item the row created" can't be told
       apart from a real used-up item without a new marker. Proposed: the
@@ -348,10 +352,7 @@ UX-89.
       "out" filter and OUT_OF_STOCK notifications skip items that are not
       `everStocked`, and `deleteShoppingListItemAction` removes a
       `createdFromList`, never-stocked item nothing else references.
-      Decide: backfill `everStocked` for existing rows (see UX-125), and
-      whether never-stocked items stay hidden from the "out" count or
-      are not created at all until first stocked (bigger change: list rows
-      would stay unlinked, `needsMapping`). Original report: Free-text list items
+      Original report: Free-text list items
       silently create inventory items at 0 stock (`addAdHocItemAction`,
       `smartAddShoppingListItemsAction`). A household that only ever made
       lists sees "14 out of stock" on the overview: napkins, charcoal,
@@ -367,15 +368,15 @@ UX-89.
 #### Inventory
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
-      med, effort: S) `[!]` — bug. Needs a schema change and a decision:
-      nothing records that an item was ever stocked (no stock log; only the
+      med, effort: S) — bug. One migration.
+      Decided 2026-11-02 by owner: add `everStocked`, backfilling `true`
+      where price history, bought rows or a non-default `lastKnownPrice`
+      exist; already-empty items without those stay mislabelled until
+      restocked. See #735.
+      Context: nothing that an item was ever stocked (no stock log; only the
       current `quantity`), so the fix is a new `InventoryItem.everStocked`
       flag, set wherever quantity goes above 0 (item form, +/- steppers,
-      bought tick, receipt scan, bulk create, merge). Existing used-up items
-      can't be backfilled from data: decide between backfilling `true` for
-      every item with price history, bought rows or a non-default
-      `lastKnownPrice` (partial), or accepting that already-empty items stay
-      mislabelled until next restocked. Original report: The rule looks only at price history and
+      bought tick, receipt scan, bulk create, merge). Original report: The rule looks only at price history and
       bought list rows (`src/lib/inventory/duplicates.ts:60-62`), so items
       created with stock and then used up (Mellanmjölk, Laxfilé) are tagged
       "never stocked".
@@ -1033,15 +1034,6 @@ out to be a product-scope question rather than a scoped task should move to
       against merging the underlying Prisma models, but left this smaller
       question open. Revisit only after BUDGET-2 → BUDGET-5 land and the
       real prop surface each merged component needs is known.
-
-- [ ] **PERF-11. Pin the Vercel function region next to the database** `[!]` —
-      `vercel.json` sets no `regions` and DEPLOYMENT.md doesn't mention
-      one. A typical action does 3–6 sequential DB round trips; if
-      functions run in the default `iad1` while Postgres is in the EU
-      (Swedish users), each costs ~90 ms. Needs the product owner to check
-      both regions in the dashboards; if they differ, set
-      `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
-      Potentially the single largest latency win.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
