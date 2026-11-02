@@ -12,7 +12,7 @@ async function inventoryRow(page: Page, url: string, name: string) {
   const search = page.getByRole("searchbox").filter({ visible: true });
   await expect(search).toHaveCount(1);
   await search.fill(name);
-  return page.getByRole("main").getByText(name, { exact: true });
+  return page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true });
 }
 
 test("a typed list item is not out of stock, and deleting its row removes the item", async ({ page, context, baseURL }) => {
