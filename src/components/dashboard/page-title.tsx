@@ -132,7 +132,10 @@ export function PageTitle({
       title={onTap ? tapHint : undefined}
       // break-words: a long name (the overview greeting, an item) or a
       // long Swedish word at 200% text would otherwise widen the page.
-      className={cn("font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl", onTap && "cursor-pointer")}
+      // hyphens-auto (UX-160) turns that break into a proper hyphenation
+      // ("Hushålls-budget", not "Hushållsbudg / et") using the page's lang
+      // (<html lang>, set from the locale cookie).
+      className={cn("font-heading text-2xl font-semibold tracking-tight break-words hyphens-auto outline-none max-sm:text-3xl", onTap && "cursor-pointer")}
     >
       {children}
     </h1>
