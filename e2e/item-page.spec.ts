@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, openItemUnits, openRowSheet } from "./ui";
 
 // MATCH-6: the item page at /dashboard/inventory/items/[id]. Each test
 // writes its own item (straight to Postgres, like recipe-ingredients.spec.ts
@@ -104,6 +104,30 @@ test("an item's details open from the inventory list and show its recipes and le
   await expect(page.getByPlaceholder("Search recipes…").filter({ visible: true })).toHaveValue(flour.recipes.buns);
 });
 
+// UX-172: status, the stepper and "Add to list" are the first card, ahead of
+// the unit algebra, which sits behind a closed "Units" disclosure.
+test("the item page opens with the status card, and units sit behind a disclosure", async ({ page }) => {
+  const flour = await seedFlour();
+  await page.goto(`/dashboard/inventory/items/${flour.id}`);
+  const main = page.getByRole("main");
+  await expect(main.getByRole("heading", { name: flour.name, level: 1 })).toBeVisible();
+
+  // The first heading after the title is the status card.
+  const headings = main.getByRole("heading");
+  await expect(headings.nth(0)).toHaveText(flour.name);
+  await expect(headings.nth(1)).toHaveText("Status");
+  const status = main.getByRole("region", { name: "Status" });
+  await expect(status.getByRole("button", { name: /^Adjust .* \(1 pcs\)$/ })).toBeVisible();
+  await expect(status.getByText("In stock", { exact: true })).toBeVisible();
+
+  // Units come later and start closed: no "1 pcs = 2000 g" until opened.
+  await expect(headings.nth(2)).toHaveText("Units");
+  await expect(main.getByText("1 pcs = 2000 g")).toBeHidden();
+  await openItemUnits(page);
+  await expect(main.getByText("1 pcs = 2000 g")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("adding a conversion from a ⚠ recipe row makes it convert", async ({ page }) => {
   const flour = await seedFlour();
   await page.goto(`/dashboard/inventory/items/${flour.id}`);
@@ -123,6 +147,7 @@ test("adding a conversion from a ⚠ recipe row makes it convert", async ({ page
   // Scoped to main: while the reload streams in, Next.js parks the page in a
   // hidden container outside main until the Suspense swap, so a page-wide
   // getByText can briefly match two copies.
+  await openItemUnits(page);
   await expect(page.getByRole("main").getByText("1 pcs = 20 dl")).toBeVisible();
   await expect(recipeRow(page, flour.recipes.pancakes).getByRole("img", { name: "Converts" })).toBeVisible();
 
@@ -196,6 +221,7 @@ test("changing the unit converts the stock and keeps the old unit as a conversio
   // Scoped to main: see the reload in "adding a conversion from a ⚠ recipe row".
   const main = page.getByRole("main");
   await expect(main.getByRole("button", { name: /^Adjust .* \(2000 g\)$/ })).toBeVisible();
+  await openItemUnits(page);
   await expect(main.getByText("Counted in g")).toBeVisible();
   await expect(main.getByText("1 pcs = 2000 g")).toBeVisible();
   await expect(recipeRow(page, flour.recipes.buns)).toContainText("= 750 g");

@@ -667,7 +667,9 @@ every lookup the old one did.
       chips and the meal-planning tabs also write `?filter=` / `?tab=`
       with `history.replaceState`, so the browser's back button lands on
       the same filter or tab.
-    - **Header**: name, category · location, then the controls the list
+    - **Header**: name, category · location, then a **Status** card (UX-172:
+      an h2 "Status", so it is the first heading after the title, ahead of
+      Units) holding the controls the list
       gives a row (UX-124, `ItemPageControls`, reusing `QuantityStepper`,
       `StockBadge`, `ExpiryBadge` and `ItemActions`): the −/+ stepper (tap
       the number for the exact-amount sheet), the stock badge ("In stock",
@@ -681,7 +683,9 @@ every lookup the old one did.
       unit…". The stock actions also revalidate this page, so the badges
       follow a change. The "Also on" list links are underlined in the link
       colour.
-    - **Units**: "Counted in {unit}" and each conversion, written the way
+    - **Units**: a closed native `<details>` disclosure (UX-172, the h2
+      "Units" in its 44 px summary), so "1 pcs = 2000 g" and "Try it" don't
+      sit above the status. Inside: "Counted in {unit}" and each conversion, written the way
       people know the number (`conversionSentence`, the review's
       `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with
       edit and delete (confirmed). "Add conversion" opens the same dialog

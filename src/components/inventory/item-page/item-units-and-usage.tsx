@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
-import { CircleCheck, Pencil, Plus, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, CircleCheck, Pencil, Plus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,10 +87,16 @@ export function ItemUnitsAndUsage({
 
   return (
     <>
-      <section aria-labelledby="units" className="flex flex-col gap-3">
-        <h2 id="units" className="font-heading text-lg font-semibold">
-          {dict.unitsTitle}
-        </h2>
+      {/* UX-172: unit algebra is set-up, not status, so it sits behind a
+          native <details> (no JS, content stays in the DOM, so the Try it
+          state survives a toggle). The summary is a full-width 44 px row
+          (M3) and keeps the "Units" h2 for screen-reader navigation. */}
+      <details className="group list-bleed rounded-md border">
+        <summary className="touch-target flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <h2 className="font-heading text-lg font-semibold">{dict.unitsTitle}</h2>
+          <ChevronDown aria-hidden className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="flex flex-col gap-3 px-4 pb-4">
         <p className="text-sm">{format(dict.countedIn, { unit: unitLabel(item.unit) })}</p>
         {conversions.length === 0 ? (
           <p className="text-sm text-muted-foreground">{format(dict.noConversions, { unit: unitLabel(item.unit) })}</p>
@@ -142,7 +148,8 @@ export function ItemUnitsAndUsage({
           {dict.addConversion}
         </Button>
         <TryIt item={item} conversions={conversions} units={units} dict={dict} comboDict={comboDict} />
-      </section>
+        </div>
+      </details>
 
       <section aria-labelledby="used-in" className="flex flex-col gap-3">
         <h2 id="used-in" className="font-heading text-lg font-semibold">

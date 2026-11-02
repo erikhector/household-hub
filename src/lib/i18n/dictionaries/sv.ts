@@ -1604,6 +1604,7 @@ export const sv = {
       bestBefore: "Bäst före {date}",
       lowStockAt: "lågt lager under {amount}",
       changeUnit: "Byt enhet…",
+      statusTitle: "Status",
       unitsTitle: "Enheter",
       countedIn: "Räknas i {unit}",
       noConversions: "Inga omvandlingar. Mängder i enheter som appen inte själv kan räkna om till {unit} behöver en.",
