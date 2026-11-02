@@ -134,7 +134,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
       [W.onion, 1, "pcs", w("diced", "tärnad")],
       [W.falukorv, 300, "g", w("diced", "tärnad")],
       [W.butter, 2, "msk"],
-      [W.egg, 3, "pcs", w("one yolk each for serving", "en gula per portion att servera till")],
+      [W.egg, 3, "pcs", w("one yolk each for serving", "en äggula per portion att servera till")],
       [W.salt, 1, "tsk"],
       [W.pepper, 1, "krm"],
     ],
@@ -216,7 +216,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     "pannkakor",
     ["Pancakes", "Pannkakor"],
     4,
-    ["vegetarian", "quick"],
+    ["vegetarian"],
     [
       [W.flour, 3, "dl"],
       [W.milk, 6, "dl"],
@@ -363,6 +363,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     ["glutenFree", "dairyFree"],
     [
       [w("yellow split peas", "gula ärtor"), 500, "g"],
+      [w("water", "vatten"), 2, "l"],
       [w("salted pork", "rimmat fläsk"), 400, "g"],
       [W.onion, 1, "pcs", w("chopped", "hackad")],
       [w("thyme", "timjan"), 1, "tsk"],
@@ -1086,6 +1087,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
       [W.dill, 1, "dl", w("chopped", "hackad")],
       [W.lemon, 0.5, "pcs", w("juice only", "bara saften")],
       [w("bread", "bröd"), 4, "pcs", w("toasted", "rostade")],
+      [W.butter, 1, "msk"],
     ],
     [
       [
@@ -1194,6 +1196,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     ["vegetarian", "glutenFree"],
     [
       [w("porridge rice", "grötris"), 2, "dl"],
+      [w("water", "vatten"), 2, "dl"],
       [W.milk, 8, "dl"],
       [W.butter, 1, "msk"],
       [W.salt, 0.5, "tsk"],
@@ -1221,6 +1224,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     ["vegan", "quick"],
     [
       [W.oats, 2, "dl"],
+      [w("water", "vatten"), 4, "dl"],
       [W.salt, 1, "krm"],
       [w("apple", "äpple"), 1, "pcs", w("grated", "rivet")],
     ],
@@ -1303,6 +1307,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     ["glutenFree", "dairyFree"],
     [
       [w("beef brisket", "oxbringa"), 600, "g", w("in chunks", "i bitar")],
+      [w("water", "vatten"), 1.5, "l"],
       [W.potato, 400, "g", w("diced", "tärnad")],
       [W.carrot, 3, "pcs", w("diced", "tärnade")],
       [w("swede", "kålrot"), 300, "g", w("diced", "tärnad")],
@@ -1388,7 +1393,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
     4,
     [],
     [
-      [w("pork loin", "fläskkotlett"), 4, "pcs", w("pounded thin", "plattade tunt")],
+      [w("pork chop", "fläskkotlett"), 4, "pcs", w("pounded thin", "plattade tunt")],
       [W.egg, 2, "pcs"],
       [W.flour, 1, "dl"],
       [W.breadcrumbs, 2, "dl"],
@@ -1535,6 +1540,7 @@ export const RECIPE_CATALOG: readonly CatalogRecipe[] = [
       [W.onion, 1, "pcs", w("chopped", "hackad")],
       [W.garlic, 3, "pcs", w("cloves, pressed", "klyftor, pressade")],
       [w("coconut milk", "kokosmjölk"), 4, "dl"],
+      [w("water", "vatten"), 3, "dl"],
       [w("curry powder", "currypulver"), 1, "msk"],
       [W.oil, 1, "msk"],
       [W.rice, 3, "dl"],
