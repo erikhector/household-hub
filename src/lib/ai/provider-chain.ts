@@ -9,9 +9,13 @@
 // the environment, one fetch per attempt (no same-model retry), and the
 // fallback rules.
 //
-// Gemini goes first because its free tier (no card required) makes these
-// features genuinely free to run for a single household, where Anthropic's
-// is metered from the first request. Uses the REST generateContent endpoint
+// Gemini goes first by default because its free tier (no card required)
+// makes these features genuinely free to run for a single household, where
+// Anthropic's is metered from the first request. A deployment with prepaid
+// Anthropic credits it would rather spend first sets
+// AI_PRIMARY_PROVIDER=anthropic, which flips the order; once those credits
+// run out, Anthropic's "credit balance too low" rejection falls through to
+// Gemini (see isAnthropicCreditExhausted). Gemini uses the REST generateContent endpoint
 // directly (no @google/genai dependency, same fetch-a-JSON-API convention
 // as lookupBarcodeAction/fetchExchangeRate) with a responseSchema-
 // constrained JSON answer; Anthropic gets the same guarantee through forced
@@ -22,8 +26,18 @@ import { excerptForLog, logger } from "@/lib/logger";
 
 /** A provider-specific failure. The message is one of the codes the calling
  * action already maps to a translated string ("provider_busy" or
- * "analysis_failed"), so callers can just hand it on. */
-export class ProviderError extends Error {}
+ * "analysis_failed"), so callers can just hand it on. `exhausted` marks a
+ * provider that can't serve anything right now for account reasons (no
+ * credit left), which is always worth falling through on — unlike a real
+ * analysis failure, it says nothing about the request itself. */
+export class ProviderError extends Error {
+  constructor(
+    message: "provider_busy" | "analysis_failed",
+    readonly exhausted = false,
+  ) {
+    super(message);
+  }
+}
 
 // Both Gemini and Anthropic occasionally reject a request with a transient
 // "the model is overloaded, try again" (Gemini: 503 UNAVAILABLE; Anthropic:
@@ -56,6 +70,30 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 
+/** Which provider the chain tries first when both keys are set. Anything
+ * other than "anthropic" (unset, a typo) keeps the free-tier-first
+ * default, so a misconfigured value never starts spending money. */
+export function primaryProvider(): "gemini" | "anthropic" {
+  return process.env.AI_PRIMARY_PROVIDER?.trim().toLowerCase() === "anthropic" ? "anthropic" : "gemini";
+}
+
+// Anthropic answers an account with no prepaid credit left with a 400
+// invalid_request_error ("Your credit balance is too low to access the
+// Anthropic API…"), or a 402 billing_error, rather than anything retryable.
+// A reached monthly spend limit reads "You have reached your specified API
+// usage limits…" with the same 400. Matched on the message because the 400
+// error type is shared with genuinely malformed requests, which must still
+// surface as analysis_failed.
+const ANTHROPIC_EXHAUSTED_MESSAGE = /credit balance|usage limits?/i;
+
+export function isAnthropicCreditExhausted(
+  status: number,
+  error: { type?: string; message?: string } | undefined,
+): boolean {
+  if (status === 402 || error?.type === "billing_error") return true;
+  return status === 400 && ANTHROPIC_EXHAUSTED_MESSAGE.test(error?.message ?? "");
+}
+
 export type Attempt =
   | { label: string; kind: "gemini"; apiKey: string; model: string }
   | { label: string; kind: "anthropic"; apiKey: string; model: string };
@@ -64,31 +102,35 @@ export type Attempt =
  * `geminiFallbackModel` is on) Gemini's fallback model — skipped if it
  * resolves to the same model id as the primary, e.g. both env vars pointing
  * at the same pin — then Anthropic, each only included when its provider's
- * key is set. With both keys set, Anthropic is a genuine mid-call fallback
+ * key is set. With AI_PRIMARY_PROVIDER=anthropic, Anthropic moves to the
+ * front and both Gemini models follow it. With both keys set, Anthropic is a genuine mid-call fallback
  * for a busy Gemini, not just a fallback for GEMINI_API_KEY being entirely
  * unset — a real (if small) cost documented in .env.example next to
  * ANTHROPIC_API_KEY. */
 export function resolveAttempts(options: { anthropicModel: string; geminiFallbackModel: boolean }): Attempt[] {
-  const attempts: Attempt[] = [];
+  const geminiAttempts: Attempt[] = [];
+  const anthropicAttempts: Attempt[] = [];
 
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     const primaryModel = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-    attempts.push({ label: `gemini:${primaryModel}`, kind: "gemini", apiKey: geminiKey, model: primaryModel });
+    geminiAttempts.push({ label: `gemini:${primaryModel}`, kind: "gemini", apiKey: geminiKey, model: primaryModel });
     if (options.geminiFallbackModel) {
       const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || DEFAULT_GEMINI_FALLBACK_MODEL;
       if (fallbackModel !== primaryModel) {
-        attempts.push({ label: `gemini:${fallbackModel}`, kind: "gemini", apiKey: geminiKey, model: fallbackModel });
+        geminiAttempts.push({ label: `gemini:${fallbackModel}`, kind: "gemini", apiKey: geminiKey, model: fallbackModel });
       }
     }
   }
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (anthropicKey) {
-    attempts.push({ label: "anthropic", kind: "anthropic", apiKey: anthropicKey, model: options.anthropicModel });
+    anthropicAttempts.push({ label: "anthropic", kind: "anthropic", apiKey: anthropicKey, model: options.anthropicModel });
   }
 
-  return attempts;
+  return primaryProvider() === "anthropic"
+    ? [...anthropicAttempts, ...geminiAttempts]
+    : [...geminiAttempts, ...anthropicAttempts];
 }
 
 export type ChainRequest<T> = {
@@ -124,7 +166,7 @@ type GeminiResponse = {
 };
 
 type AnthropicContentBlock = { type: "text"; text: string } | { type: "tool_use"; name: string; input: unknown };
-type AnthropicResponse = { content?: AnthropicContentBlock[]; error?: { message?: string } };
+type AnthropicResponse = { content?: AnthropicContentBlock[]; error?: { type?: string; message?: string } };
 
 async function callGemini<T>(
   attempt: Extract<Attempt, { kind: "gemini" }>,
@@ -218,6 +260,12 @@ async function callAnthropic<T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as AnthropicResponse | null;
+    if (isAnthropicCreditExhausted(response.status, body?.error)) {
+      // An account state, not a bug in this request: a warning, and the
+      // chain moves on to Gemini if it's configured.
+      logger.warn(`${req.feature} (Anthropic) has no credit left`, { status: response.status });
+      throw new ProviderError("analysis_failed", true);
+    }
     logger[req.failureLevel](`${req.feature} (Anthropic) request failed`, {
       status: response.status,
       message: body?.error?.message,
@@ -270,6 +318,10 @@ export async function runProviderChain<T>(attempts: Attempt[], req: ChainRequest
         if (error instanceof ProviderError) {
           if (error.message === "provider_busy" && next && hasTime) {
             logger.warn(`${req.feature}: ${attempt.label} busy, falling back to ${next.label}`);
+            continue;
+          }
+          if (error.exhausted && next && hasTime) {
+            logger.warn(`${req.feature}: ${attempt.label} out of credit, falling back to ${next.label}`);
             continue;
           }
           return { ok: false, error: error.message };

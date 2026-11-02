@@ -4748,7 +4748,15 @@ where this feature has none.
   (`generativelanguage.googleapis.com`, no card required) makes this
   feature genuinely free to run at a single-household scale, where
   Anthropic's is metered from the first request — see `.env.example` for
-  all three env vars. `runProviderChain` walks the chain in order and moves to
+  all three env vars. A deployment with prepaid Anthropic credits sets
+  `AI_PRIMARY_PROVIDER=anthropic` to flip that: Anthropic goes first, then
+  both Gemini models (any other value keeps Gemini first, so a typo never
+  starts spending). Once the credits run out, Anthropic's rejection (a 400
+  whose message is about the credit balance or reached usage limits, or a
+  402 `billing_error`) marks the attempt `exhausted`, and `runProviderChain`
+  falls through to the next entry in either fallback mode, logging a
+  warning rather than an error, since it's an account state and not a bad
+  request. A plain 400 still stops the chain as `analysis_failed`. `runProviderChain` walks the chain in order and moves to
   the *next* entry only when the current one reports itself busy
   (`provider_busy` — see the retry section just below), trying a different
   Gemini model before ever spending real money falling through to

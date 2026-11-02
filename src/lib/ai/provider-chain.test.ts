@@ -4,7 +4,9 @@
 // built from the environment, the happy path on both providers, the busy
 // fallback (and when it must NOT fall through), the shared deadline (too
 // little budget left, and the abort firing mid-request), and the "any"
-// fallback mode the best-effort category call uses.
+// fallback mode the best-effort category call uses. Plus the
+// AI_PRIMARY_PROVIDER=anthropic order and Anthropic's out-of-credit
+// fall-through to Gemini.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -59,6 +61,7 @@ beforeEach(() => {
   vi.stubEnv("ANTHROPIC_API_KEY", "");
   vi.stubEnv("GEMINI_MODEL", "");
   vi.stubEnv("GEMINI_FALLBACK_MODEL", "");
+  vi.stubEnv("AI_PRIMARY_PROVIDER", "");
 });
 
 afterEach(() => {
@@ -95,6 +98,22 @@ describe("resolveAttempts", () => {
       "gemini:gemini-flash-latest",
       "anthropic",
     ]);
+  });
+
+  it("puts Anthropic first when AI_PRIMARY_PROVIDER=anthropic", () => {
+    bothKeys();
+    vi.stubEnv("AI_PRIMARY_PROVIDER", "Anthropic");
+    expect(resolveAttempts(options).map((a) => a.label)).toEqual([
+      "anthropic",
+      "gemini:gemini-flash-latest",
+      "gemini:gemini-flash-lite-latest",
+    ]);
+  });
+
+  it("keeps Gemini first for an unrecognised AI_PRIMARY_PROVIDER", () => {
+    bothKeys();
+    vi.stubEnv("AI_PRIMARY_PROVIDER", "claude");
+    expect(resolveAttempts(options)[0].label).toBe("gemini:gemini-flash-latest");
   });
 
   it("uses Anthropic alone when only its key is set, with the caller's model", () => {
@@ -215,6 +234,68 @@ describe("runProviderChain", () => {
 
     expect(await runProviderChain(attempts, request())).toEqual({ ok: false, error: "analysis_failed" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  describe("Anthropic first, out of credit", () => {
+    const anthropicError = (status: number, error: { type: string; message: string }) => ({
+      ok: false,
+      status,
+      json: async () => ({ type: "error", error }),
+    });
+    const lowBalance = anthropicError(400, {
+      type: "invalid_request_error",
+      message: "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing.",
+    });
+
+    beforeEach(() => {
+      bothKeys();
+      vi.stubEnv("AI_PRIMARY_PROVIDER", "anthropic");
+    });
+
+    it("uses Anthropic while it has credit, without touching Gemini", async () => {
+      fetchMock.mockResolvedValueOnce(anthropicOk(["e"]));
+      const attempts = resolveAttempts({ anthropicModel: "claude-x", geminiFallbackModel: true });
+
+      expect(await runProviderChain(attempts, request())).toEqual({ ok: true, data: { items: ["e"] } });
+      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["https://api.anthropic.com/v1/messages"]);
+    });
+
+    it.each([
+      ["a too-low credit balance", lowBalance],
+      [
+        "a reached spend limit",
+        anthropicError(400, { type: "invalid_request_error", message: "You have reached your specified API usage limits." }),
+      ],
+      ["a billing_error", anthropicError(402, { type: "billing_error", message: "Billing issue" })],
+    ])("falls through to Gemini on %s", async (_name, response) => {
+      fetchMock.mockResolvedValueOnce(response).mockResolvedValueOnce(geminiOk(["f"]));
+      const attempts = resolveAttempts({ anthropicModel: "claude-x", geminiFallbackModel: true });
+
+      expect(await runProviderChain(attempts, request())).toEqual({ ok: true, data: { items: ["f"] } });
+      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+        "https://api.anthropic.com/v1/messages",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
+      ]);
+    });
+
+    it("still stops on a genuinely bad request (400 without a billing message)", async () => {
+      fetchMock.mockResolvedValueOnce(
+        anthropicError(400, { type: "invalid_request_error", message: "messages: field required" }),
+      );
+      const attempts = resolveAttempts({ anthropicModel: "claude-x", geminiFallbackModel: true });
+
+      expect(await runProviderChain(attempts, request())).toEqual({ ok: false, error: "analysis_failed" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports analysis_failed when Anthropic is out of credit and nothing follows it", async () => {
+      vi.stubEnv("GEMINI_API_KEY", "");
+      fetchMock.mockResolvedValueOnce(lowBalance);
+      const attempts = resolveAttempts({ anthropicModel: "claude-x", geminiFallbackModel: true });
+
+      expect(await runProviderChain(attempts, request())).toEqual({ ok: false, error: "analysis_failed" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("deadline", () => {
