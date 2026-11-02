@@ -12,7 +12,17 @@
 
 import { z } from "zod";
 
+import { DEFAULT_ANTHROPIC_MODEL, resolveAttempts, runProviderChain } from "@/lib/ai/provider-chain";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  mapRecipeIdeas,
+  recipeIdeasSchema,
+  RECIPE_IDEAS_GEMINI_SCHEMA,
+  RECIPE_IDEAS_SYSTEM_PROMPT,
+  RECIPE_IDEAS_TOOL,
+  recipeIdeasUserText,
+} from "@/lib/recipe-ideas/ai";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
 import { loadDiscoverContext } from "@/lib/recipe-catalog/pantry";
 import { ingredientHaves, rankCatalogRecipes, type CatalogResult } from "@/lib/recipe-catalog/rank";
@@ -23,6 +33,13 @@ import { requireHousehold } from "@/lib/session";
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_ID_LENGTH = 100;
+
+// Same shared-deadline reasoning as REQUEST_TIMEOUT_MS in receipt-scan.ts.
+const IDEAS_TIMEOUT_MS = 50_000;
+// Its own rate-limit key, separate from the photo import's, same numbers: a
+// household that scanned a lot of recipes shouldn't lose its ideas button.
+const IDEAS_RATE_LIMIT = 20;
+const IDEAS_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 // Server Actions are callable with any JSON, so the declared parameter types
 // are not trusted. Every field (and the object itself) falls back with
@@ -37,6 +54,8 @@ const searchInputSchema = z
     tags: z.array(z.unknown()).catch([]),
   })
   .catch({ query: "", tags: [] });
+
+const ideasInputSchema = z.object({ tags: z.array(z.unknown()).catch([]) }).catch({ tags: [] });
 
 const catalogIdSchema = z.string().max(MAX_ID_LENGTH);
 
@@ -105,4 +124,64 @@ export async function getCatalogRecipeAction(id: string): Promise<DiscoverRecipe
     recipe: catalogToParsedRecipe(recipe, locale),
     haves: ingredientHaves(recipe, context.pantry),
   };
+}
+
+export type RecipeIdeasResult = { ideas?: FileRecipe[]; error?: string };
+
+// Optional "ideas from your pantry" action; only offered when an AI key is
+// configured (the meal-planning page checks the same two keys), and a direct
+// call without one answers "not configured". Like the photo import it never
+// saves anything: the user previews an idea and saves it through the normal
+// form. The privacy tradeoff mirrors the receipt and photo scans: pantry item
+// names and saved recipe names (no quantities) go to the configured
+// third-party model and are not stored.
+export async function suggestRecipeIdeasAction(input: { tags: string[] }): Promise<RecipeIdeasResult> {
+  // Outside any try/catch, as in the actions above.
+  const { household } = await requireHousehold();
+  const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
+  const discover = dict.mealPlanning.discover;
+
+  const attempts = resolveAttempts({
+    anthropicModel: process.env.RECEIPT_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
+    geminiFallbackModel: true,
+  });
+  if (attempts.length === 0) return { error: discover.ideasNotConfigured };
+
+  if (!(await checkRateLimit(`recipe-ideas:${household.id}`, IDEAS_RATE_LIMIT, IDEAS_RATE_LIMIT_WINDOW_MS))) {
+    return { error: discover.ideasRateLimited };
+  }
+
+  const tags = parseRecipeTags(ideasInputSchema.parse(input).tags);
+
+  let context;
+  try {
+    context = await loadDiscoverContext(household.id, Date.now());
+  } catch {
+    return { error: discover.ideasFailed };
+  }
+
+  const result = await runProviderChain(attempts, {
+    feature: "AI recipe ideas",
+    systemPrompt: RECIPE_IDEAS_SYSTEM_PROMPT,
+    userText: recipeIdeasUserText({
+      pantry: context.pantry,
+      tags,
+      locale,
+      savedNames: context.savedNames,
+    }),
+    geminiSchema: RECIPE_IDEAS_GEMINI_SCHEMA,
+    anthropicTool: RECIPE_IDEAS_TOOL,
+    anthropicMaxTokens: 4096,
+    schema: recipeIdeasSchema,
+    timeoutMs: IDEAS_TIMEOUT_MS,
+    fallbackOn: "busy",
+    failureLevel: "error",
+  });
+  if (!result.ok) {
+    return { error: result.error === "provider_busy" ? discover.ideasBusy : discover.ideasFailed };
+  }
+
+  const ideas = mapRecipeIdeas(result.data, context.savedNames);
+  if (ideas.length === 0) return { error: discover.ideasNone };
+  return { ideas };
 }
