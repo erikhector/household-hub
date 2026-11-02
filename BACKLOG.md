@@ -552,6 +552,26 @@ left out.
       focusable "Back" link or `tabIndex={-1}` on `main`; axe on
       `/dashboard/whats-new` is clean on `mobile`.
 
+### UX (2026-11-02 scout)
+
+- [ ] **UX-180. Inventory row names wrap instead of truncating at 200 % text**
+      (impact: med, effort: S) — breaks M9 ("200 % … without clipping; …
+      strings wrap or truncate with the full value reachable"). In the
+      `text-200` sweep (`text-200-dashboard-inventory.png`, Pixel 7) every
+      row's name is cut to "Crème f…", "Olive oil…", "Tomato…" and the
+      category to "Dai…"; the full text is only in `title`
+      (`inventory-table.tsx:565`, also `:447`, `:452`), which a touch screen
+      never shows. The audit's `clipped` list also flags the "Inventory"
+      and "Shopping" bottom-bar labels (all three inventory routes).
+      Acceptance: on phone widths the name paragraph at
+      `inventory-table.tsx:565` drops `truncate` for `line-clamp-2
+      break-words` (the category stays on the same wrapped line); the
+      `title` stays for desktop. `text-size.mobile.spec.ts` (project
+      `mobile`, 200 % text) seeds an item with a 20-character name and
+      asserts its row's `scrollWidth` equals `clientWidth` and the full
+      name's last word is inside the viewport. Needs a pass on a real
+      device for the bottom-bar labels.
+
 ### UX (2026-10-31 budget redesign follow-ups)
 
 The budget redesign (REQUIREMENTS.md, "Budget page layout") changed layout
