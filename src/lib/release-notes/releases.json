@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.132.1",
+    "date": "2026-11-02",
+    "pr": 1034,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Empty screens are tidier: the meal-plan search, \"Mark all as read\" and \"Export CSV\" only show once there is something to use them on, and an empty week now has a \"Fill empty days\" button.\n\nThe \"Get started free\" button on the home page now stays in view on smaller desktop windows.",
+      "sv": "Tomma vyer är renare: måltidssökningen, \"Markera alla som lästa\" och \"Exportera CSV\" visas först när det finns något att använda dem på, och en tom vecka har nu en knapp för \"Fyll tomma dagar\".\n\nKnappen \"Kom igång gratis\" på startsidan syns nu utan att scrolla även i mindre datorfönster."
+    }
+  },
+  {
     "version": "0.132.0",
     "date": "2026-11-02",
     "pr": 1030,
