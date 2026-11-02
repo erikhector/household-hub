@@ -254,6 +254,7 @@ async function PlannerTabSection({
     locale,
     recipeCooked,
     planTemplates,
+    anyPlannedMeal,
   ] = await Promise.all([
       getMealPlanningCoreData(householdId, weekStartKey),
       getActiveBatches(householdId),
@@ -266,6 +267,9 @@ async function PlannerTabSection({
         select: { id: true, name: true, _count: { select: { entries: true } } },
         orderBy: { name: "asc" },
       }),
+      // UX-171: the search field has something to search only once the
+      // household has planned a meal in any week, not just this one.
+      prisma.mealPlanEntry.findFirst({ where: { mealPlan: { householdId } }, select: { id: true } }),
     ]);
   // UX-91: the count behind the planner's "Add N missing" button. Skipped
   // (no query) for a week with no recipe planned, where nothing can be
@@ -300,6 +304,7 @@ async function PlannerTabSection({
         entries={entries}
         picks={picks}
         carriedCount={carriedCount}
+        hasPlannedMeals={anyPlannedMeal !== null}
         activeShoppingLists={activeShoppingLists}
         batches={batches}
         missingCount={missingCount}

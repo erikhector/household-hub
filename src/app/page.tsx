@@ -99,7 +99,7 @@ export default async function Home() {
             started free" stays on screen. UX-9: at 200% text a single word
             of the headline is wider than a phone, so the column is capped
             at the screen and breaks long words rather than scrolling. */}
-        <section className="flex w-full max-w-6xl flex-col items-center gap-8 px-4 pt-4 pb-16 sm:pt-10 sm:pb-24 lg:flex-row lg:items-center lg:justify-between lg:gap-14 [@media(max-height:500px)]:pt-2">
+        <section className="flex w-full max-w-6xl flex-col items-center gap-8 px-4 pt-4 pb-16 sm:pt-10 sm:pb-24 lg:flex-row lg:items-start lg:justify-between lg:gap-14 [@media(max-height:500px)]:pt-2">
           <div className="flex w-full max-w-xl min-w-0 flex-col items-start gap-5 break-words sm:gap-6">
             <p
               className={cn(

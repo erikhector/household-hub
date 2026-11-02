@@ -730,7 +730,7 @@ async function BudgetTabsSection({
           came for. The export route always exports the active household,
           so it's hidden while another household is on screen rather than
           handing back a different household's CSV. */}
-      {!readOnly && (
+      {!readOnly && transactionRows.length > 0 && (
         <div className="flex justify-start">
           <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
         </div>

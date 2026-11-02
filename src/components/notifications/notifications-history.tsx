@@ -47,6 +47,8 @@ export function NotificationsHistory({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* UX-171: nothing to mark when there are no notifications. */}
+      {items.length > 0 && (
       <div className="flex justify-end">
         <Button
           type="button"
@@ -63,6 +65,7 @@ export function NotificationsHistory({
           {dict.history.markAllRead}
         </Button>
       </div>
+      )}
 
       {items.length === 0 ? (
         <MascotEmptyState alt={dict.history.mascotAlt}>
