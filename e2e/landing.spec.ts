@@ -22,10 +22,9 @@ test("the landing page leads with a phone-framed shopping list", async ({ page }
 
 // UX-173: a short desktop window (1280x720) still shows the primary CTA
 // whole. The hero text column is top-aligned from `lg`; centred against the
-// tall fridge door it sat at ~y 885. A phone stacks the CTA above the door,
-// so this is desktop-only.
-test("the primary call to action is above the fold at 1280x720", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop", "the phone layout stacks the CTA first");
+// tall fridge door it sat at ~y 885. The viewport is set explicitly, so the
+// phone project exercises the same desktop layout.
+test("the primary call to action is above the fold at 1280x720", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/");
   const cta = page.getByRole("main").getByRole("link", { name: "Get started free" });
