@@ -1781,6 +1781,10 @@ export const sv = {
     },
   },
   mealPlanning: {
+    discover: {
+      errorLoad: "Det gick inte att hämta receptförslag. Försök igen.",
+      errorNotFound: "Det här receptet finns inte längre.",
+    },
     title: "Matplanering",
     subtitle: "Planera veckans måltider och spara recept för att återanvända dem.",
     tabPlanner: "Planerare",

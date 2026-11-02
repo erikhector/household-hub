@@ -1879,6 +1879,10 @@ export const en = {
     },
   },
   mealPlanning: {
+    discover: {
+      errorLoad: "Couldn't load recipe suggestions. Try again.",
+      errorNotFound: "This recipe is no longer available.",
+    },
     title: "Meal planning",
     subtitle: "Plan the week's meals and keep a recipe box for quick reuse.",
     tabPlanner: "Planner",
