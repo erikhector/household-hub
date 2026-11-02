@@ -7871,7 +7871,8 @@ components directly.
   collapsed. The page's primary action is wrapped in `PrimaryAction`
   (`src/components/dashboard/primary-action.tsx`): on a phone it floats
   bottom right, 0.75rem above the bottom bar and the safe area, as a
-  48 px pill (a long label wraps within the screen at 200% text); from
+  48 px pill (a long label wraps within the pill at 200% text; above 150 %
+  it is the icon alone, UX-160); from
   `sm` it stays in the header where it was. The first-visit cookie notice
   (a slim strip on phones, UX-57: the dashboard reserves its height via
   `--cookie-notice-h`, so the button rides above it, and public pages pad
@@ -9167,6 +9168,22 @@ approximating them, so the email never disagrees with the app.
   `bottom-` value. Covered by `e2e/text-size.mobile.spec.ts`, which sets
   `html { font-size: 200% }` and runs `expectNoHorizontalOverflow` on every
   route in `e2e/routes.ts`, in English and Swedish.
+  **Swedish on budget and shopping (UX-160)**: `PageTitle` sets `hyphens-auto`
+  (with `<html lang>`), so "Hushållsbudget" hyphenates instead of breaking
+  mid-word. `TextScaleFlag` (dashboard layout) sets `data-large-text` on
+  `<html>` while the root font-size is past 24 px (150 % text), read in
+  Tailwind as the `large-text:` variant (`globals.css`); a media query can't
+  see it. Above that, `PrimaryAction` (always capped at 60 % of the screen)
+  drops a trigger that has an icon to a 48 px icon circle, its label kept as
+  the accessible name (`font-size: 0`), and the smart-add bar's mic, scan and Add
+  buttons become 44 px (px, not rem) so the field keeps its width. On a
+  phone above 150 % text `NextUpDock` collapses to ring + count when `main` is
+  shorter than three times the dock's expanded height (twice still left a half-covered row
+  between the add bar and the dock at 200 %); every row it hides is in the list,
+  M7). Covered by the "budget and shopping list at 200% text" specs in
+  `e2e/text-size.mobile.spec.ts`: the month switcher stays uncovered, the pill
+  stays small, the field stays 220 px+ wide and a list row stays above the
+  dock.
 - Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
   the page when a smaller field is focused, at any width (an iPad, a phone in
   landscape). `Input`, `Combobox`/`Autocomplete` input groups

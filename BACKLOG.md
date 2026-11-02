@@ -440,30 +440,9 @@ left out.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/inventory/inventory-client.tsx`: UX-166
-- `src/components/shopping/shopping-list-client.tsx`, `shopping-mode.tsx`:
-  UX-160
-- `src/components/dashboard/page-title.tsx`, `dashboard/layout.tsx`:
-  UX-160
 
 
 
-- [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
-      med, effort: M) — breaks M9 ("200 % … without clipping; Swedish
-      strings wrap or truncate with the full value reachable"). At 200 %
-      in `sv` the budget title breaks mid-word ("Hushållsbudg / et"), the
-      floating primary pill spans the width and covers the month switcher,
-      and on the shopping list the dock truncates "Näst… / Bak…" and
-      covers the list. In `en` at 200 % the smart-add placeholder collapses
-      to "Ac" because the mic and scan buttons keep their width
-      (`text-200-dashboard-shopping-list-id.png`; report `h11-budget-sv200`,
-      `k5-sv200-shopping`). Files: `page-title.tsx`, `primary-action.tsx`,
-      `shopping-mode.tsx` (dock), `smart-add-bar.tsx`.
-      Acceptance: `PageTitle` sets `hyphens-auto` with the page `lang`;
-      the pill is capped at 60 % width and drops to icon + short label
-      above 150 % text; the dock collapses to ring + count when `main` is
-      shorter than twice the dock; the smart-add icons shrink before the
-      field. `text-size.mobile.spec.ts` extends to `sv` and asserts the
-      month switcher and at least one list row stay visible.
 
 - [ ] **UX-161. Contrast on avatar initials, selected chips and faded
       table text** (impact: med, effort: S) — breaks Accessibility tokens
