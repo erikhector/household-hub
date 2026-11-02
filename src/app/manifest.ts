@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
   // the per-scheme value layout.tsx's viewport themeColor carries for dark —
   // the app's original look) instead of the old fixed brand purple, so the
   // installed app's task-switcher/splash chrome matches the page behind it.
-  theme_color: "#0a0414",
+  theme_color: "#0b0614",
     // GAP-67: Android Chrome/Edge list the installed app in the share sheet;
     // iOS Safari has no Web Share Target. The route only redirects to a
     // dialog with the shared link/text pre-filled (src/lib/share-target.ts).

@@ -242,11 +242,14 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  /* UX-157: ground, gradient, cards and sidebar share the brand hue (300),
+     as light does, instead of a hueless charcoal that left purple only on
+     the CTA. */
+  --background: oklch(0.17 0.03 300);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.225 0.025 290);
+  --card: oklch(0.23 0.03 300);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.225 0.025 290);
+  --popover: oklch(0.23 0.03 300);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.66 0.22 300);
   /* The lighter dark-theme purple needs dark ink on it: near-white text
@@ -277,7 +280,7 @@
   --chart-3: oklch(0.64 0.13 180);
   --chart-4: oklch(0.66 0.22 300);
   --chart-5: oklch(0.66 0.16 145);
-  --sidebar: oklch(0.205 0.02 290);
+  --sidebar: oklch(0.2 0.03 300);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.66 0.22 300);
   --sidebar-primary-foreground: oklch(0.22 0.05 300);
@@ -286,8 +289,8 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.72 0.19 300);
   --status-tint: 20%;
-  --gradient-start: #180828;
-  --gradient-end: #0a0414;
+  --gradient-start: oklch(0.24 0.06 300);
+  --gradient-end: oklch(0.14 0.03 300);
   --fridge: oklch(0.26 0.03 290);
   --fridge-handle: oklch(0.4 0.04 290);
 }
