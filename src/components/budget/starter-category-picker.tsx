@@ -115,7 +115,7 @@ export function StarterCategoryPicker({
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors max-sm:min-h-11 pointer-coarse:min-h-11",
                       isSelected
-                        ? "border-primary bg-primary/10 font-medium text-primary"
+                        ? "border-primary bg-primary/15 font-medium text-foreground"
                         : "border-input text-muted-foreground hover:border-primary/50",
                     )}
                   >

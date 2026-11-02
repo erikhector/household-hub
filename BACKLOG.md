@@ -376,22 +376,6 @@ left out.
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
 
-- [ ] **UX-161. Contrast on avatar initials, selected chips and faded
-      table text** (impact: med, effort: S) — breaks Accessibility tokens
-      ("every text pair passes 4.5:1 in both themes"; WCAG 1.4.3). Avatar
-      initials are `text-white` on `bg-chart-*` (2.05:1 on chart-2 in
-      light, axe `color-contrast`; `src/components/profile/avatar.tsx:48`).
-      Selected chips use `text-primary` on `bg-primary/10` (4.45:1 light,
-      4.40:1 dark at 14 px medium; `recipe-form-dialog.tsx:912`,
-      `starter-category-picker.tsx:118`, `item-catalog.tsx:91`).
-      `text-muted-foreground/70` in the inventory table is 3.27:1 light
-      (`inventory-table.tsx:422,527`). None of the pairs is in
-      `globals-contrast.test.ts`.
-      Acceptance: initials pick their ink per tint by luminance; chips use
-      `bg-primary/15` with an ink that passes; the `/70` opacity is dropped;
-      all three pairs are added to `globals-contrast.test.ts`; axe on
-      `/dashboard/profile` reports no contrast violation.
-
 - [ ] **UX-162. Raw amber utilities where the `warning` token belongs**
       (impact: low, effort: S) — breaks Colour ("status is text on a tint
       of itself … `warning`") and the checklist's "tokens only".

@@ -421,7 +421,7 @@ export function InventoryTable({
               <TableRow data-flip-key={`label:${group.key}`} className="hover:bg-transparent">
                 <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
                   <span className="block max-w-[28rem] truncate" title={group.key}>
-                    {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                    {group.key} <span className="text-muted-foreground">({group.items.length})</span>
                   </span>
                 </TableCell>
               </TableRow>
@@ -526,7 +526,7 @@ export function InventoryTable({
             {groupBy !== "none" && (
               <div data-flip-key={`card-label:${group.key}`} className="list-bleed min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 <span className="block truncate" title={group.key}>
-                  {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                  {group.key} <span className="text-muted-foreground">({group.items.length})</span>
                 </span>
               </div>
             )}

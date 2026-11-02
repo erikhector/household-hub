@@ -7299,6 +7299,12 @@ flat grayscale:
   on, and field outlines (`--input`) and the focus ring hold 3:1, in both
   themes. `src/app/globals-contrast.test.ts` reads `globals.css` and fails
   `npm test` when a token change breaks a pair, naming the pair and ratio.
+  Avatar initials take a per-tint ink (`--avatar-ink-1..5`, picked by
+  luminance: white only on light-theme `chart-4`, a deep ink elsewhere),
+  selected chips are `foreground` on `primary` at 15%, and the inventory
+  group counts use plain `muted-foreground` (no `/70` fade); all are pairs
+  in the test, and `e2e/avatar-contrast.spec.ts` measures the painted
+  initials in the browser (UX-161).
   The status colours (`--destructive`, `--warning`, `--attention`,
   `--success`) are tuned to be text on a `--status-tint` (10% light, 20%
   dark) mix of themselves — that's how Badge, the destructive Button and

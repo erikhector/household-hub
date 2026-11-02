@@ -207,6 +207,14 @@
   --chart-3: oklch(0.6 0.14 180);
   --chart-4: oklch(0.56 0.22 300);
   --chart-5: oklch(0.63 0.16 145);
+  /* Initials ink per avatar tint (UX-161): picked by luminance, so white
+     only where the tint is dark enough (chart-4) and a deep ink elsewhere.
+     globals-contrast.test.ts holds each to 4.5:1. */
+  --avatar-ink-1: oklch(0.2 0.03 290);
+  --avatar-ink-2: oklch(0.2 0.03 290);
+  --avatar-ink-3: oklch(0.2 0.03 290);
+  --avatar-ink-4: oklch(1 0 0);
+  --avatar-ink-5: oklch(0.2 0.03 290);
   --radius: 0.9rem;
   --sidebar: oklch(0.97 0.012 290);
   --sidebar-foreground: oklch(0.24 0.035 290);
@@ -280,6 +288,7 @@
   --chart-3: oklch(0.64 0.13 180);
   --chart-4: oklch(0.66 0.22 300);
   --chart-5: oklch(0.66 0.16 145);
+  --avatar-ink-4: oklch(0.2 0.03 290);
   --sidebar: oklch(0.2 0.03 300);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.66 0.22 300);

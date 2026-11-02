@@ -4,14 +4,16 @@ import { cn } from "cn";
 // background color is picked from the existing --chart-1..5 tokens by
 // hashing a stable seed (the user id, not the display name, so the color
 // doesn't shift every time someone edits their name), and the initials are
-// derived from the current display name. See REQUIREMENTS.md's "Profile"
+// derived from the current display name. The initials' ink is a per-tint
+// token (--avatar-ink-N), because white on the mid-tone chart colors is
+// under 4.5:1 (UX-161). See REQUIREMENTS.md's "Profile"
 // section for why this was chosen over real file upload for this pass.
 const AVATAR_BACKGROUNDS = [
-  "bg-chart-1",
-  "bg-chart-2",
-  "bg-chart-3",
-  "bg-chart-4",
-  "bg-chart-5",
+  "bg-chart-1 text-(--avatar-ink-1)",
+  "bg-chart-2 text-(--avatar-ink-2)",
+  "bg-chart-3 text-(--avatar-ink-3)",
+  "bg-chart-4 text-(--avatar-ink-4)",
+  "bg-chart-5 text-(--avatar-ink-5)",
 ];
 
 function hashSeed(seed: string): number {
@@ -45,7 +47,7 @@ export function UserAvatar({
     <div
       aria-hidden="true"
       className={cn(
-        "flex size-16 shrink-0 items-center justify-center rounded-full font-heading text-xl font-semibold text-white",
+        "flex size-16 shrink-0 items-center justify-center rounded-full font-heading text-xl font-semibold",
         background,
         className,
       )}
