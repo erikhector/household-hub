@@ -254,6 +254,10 @@ export function SmartAddBar({
             className={cn(
               "bg-background dark:bg-background",
               speech.supported ? "pr-[4.5rem] max-sm:pr-24" : "pr-10 max-sm:pr-12",
+              // UX-160: at large text the rem-sized 44 px buttons doubled and
+              // ate the field ("Ac"), so the buttons and their room are px
+              // (44 each) and the icons shrink before the field does.
+              speech.supported ? "large-text:max-sm:pr-[88px]" : "large-text:max-sm:pr-[44px]",
             )}
           />
           {/* Mic and scan sit inside the field (UX-22): on a 320 px phone
@@ -265,7 +269,7 @@ export function SmartAddBar({
                 type="button"
                 size="icon"
                 variant="ghost"
-                className={cn("text-muted-foreground", speech.listening && "text-destructive")}
+                className={cn("text-muted-foreground large-text:max-sm:size-[44px]", speech.listening && "text-destructive")}
                 aria-label={speech.listening ? dict.voiceStop : dict.voiceLabel}
                 onClick={() => (speech.listening ? speech.stop() : speech.start())}
               >
@@ -276,7 +280,7 @@ export function SmartAddBar({
               dict={barcodeDict}
               size="icon"
               variant="ghost"
-              className="text-muted-foreground"
+              className="text-muted-foreground large-text:max-sm:size-[44px]"
               label={dict.scanLabel}
               onDetected={handleScanned}
             />
@@ -321,6 +325,7 @@ export function SmartAddBar({
         <Button
           type="button"
           size="icon"
+          className="large-text:max-sm:size-[44px]"
           disabled={!value.trim()}
           aria-label={dict.add}
           onClick={() => commit(parseSmartAddInput(value))}

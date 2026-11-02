@@ -15,6 +15,13 @@ import type { ReactNode } from "react";
 // layout.tsx) to add room at the end of the page, so the button never sits
 // over the last row for good.
 //
+// UX-160: the pill is capped at 60 % of the screen, so it can't span the
+// width and cover the month switcher or the first rows at large text. Above
+// 150 % text (`large-text:`, set by TextScaleFlag) the trigger drops to a
+// fixed 48 px circle (px, not rem, since rem is what grew) holding its icon,
+// or a "+" when it has none, and keeps its label for screen readers:
+// `text-[0px]` hides the words without taking them out of the accessible name.
+//
 // No "use client": it's plain markup, usable from Server and Client
 // Components alike.
 export function PrimaryAction({ children }: { children: ReactNode }) {
@@ -22,8 +29,8 @@ export function PrimaryAction({ children }: { children: ReactNode }) {
     <div
       data-primary-action=""
       // max-w + whitespace-normal + min-h: a long Swedish label at 200% text
-      // wraps inside the screen instead of running off its left edge.
-      className="max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(var(--bottom-nav-h)+0.75rem+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:max-w-[calc(100vw-2rem)] max-sm:[&_:is(button,a)]:h-auto max-sm:[&_:is(button,a)]:min-h-12 max-sm:[&_:is(button,a)]:max-w-full max-sm:[&_:is(button,a)]:rounded-full max-sm:[&_:is(button,a)]:px-5 max-sm:[&_:is(button,a)]:whitespace-normal print:hidden"
+      // wraps inside the pill instead of running off the screen's left edge.
+      className="max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(var(--bottom-nav-h)+0.75rem+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:max-w-[60vw] max-sm:[&_:is(button,a)]:h-auto max-sm:[&_:is(button,a)]:min-h-12 max-sm:[&_:is(button,a)]:max-w-full max-sm:[&_:is(button,a)]:rounded-full max-sm:[&_:is(button,a)]:px-5 max-sm:[&_:is(button,a)]:whitespace-normal large-text:max-sm:[&_:is(button,a)]:size-[48px] large-text:max-sm:[&_:is(button,a)]:min-h-[48px] large-text:max-sm:[&_:is(button,a)]:justify-center large-text:max-sm:[&_:is(button,a)]:gap-0 large-text:max-sm:[&_:is(button,a)]:p-0 large-text:max-sm:[&_:is(button,a)]:text-[0px] large-text:max-sm:[&_:is(button,a):not(:has(svg))]:before:content-['+'] large-text:max-sm:[&_:is(button,a):not(:has(svg))]:before:text-[28px] large-text:max-sm:[&_:is(button,a):not(:has(svg))]:before:leading-none print:hidden"
     >
       {children}
     </div>
