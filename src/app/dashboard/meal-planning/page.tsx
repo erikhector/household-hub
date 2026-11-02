@@ -23,7 +23,7 @@ import { getStockStatus } from "@/lib/stock-status";
 import { parseRecipeTags } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
-import { loadDiscoverContext } from "@/lib/recipe-catalog/pantry";
+import { toDiscoverContext } from "@/lib/recipe-catalog/pantry";
 import { rankCatalogRecipes } from "@/lib/recipe-catalog/rank";
 import type { ItemUnitConversionLike } from "@/lib/units";
 import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
@@ -353,16 +353,20 @@ async function RecipesTabSection({
 }) {
   // GAP-46: its own groupBy, only run on this tab, like the cost inputs below.
   // GAP-55: and one query for the upcoming plan dates, for the same reason.
+  const [{ recipes, recipeRows, inventoryItems }, locale, recipeCooked, recipePlanned] = await Promise.all([
+    getMealPlanningCoreData(householdId, weekStartKey),
+    getLocale(),
+    getRecipeCookedStats(householdId),
+    getRecipePlannedDates(householdId),
+  ]);
   // Recipe discovery: the context the Discover sheet's first list is ranked
-  // from, loaded alongside so the sheet opens with its list in place.
-  const [{ recipes, recipeRows, inventoryItems }, locale, recipeCooked, recipePlanned, discoverContext] =
-    await Promise.all([
-      getMealPlanningCoreData(householdId, weekStartKey),
-      getLocale(),
-      getRecipeCookedStats(householdId),
-      getRecipePlannedDates(householdId),
-      loadDiscoverContext(householdId, new Date().getTime()),
-    ]);
+  // from, mapped from the core data's inventory and recipes rather than
+  // queried again, so the sheet opens with its list in place.
+  const discoverContext = toDiscoverContext(
+    inventoryItems,
+    recipes.map((recipe) => recipe.name),
+    new Date().getTime(),
+  );
 
   const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
   // Lets the ingredient row preselect a unit once the name matches a known

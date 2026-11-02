@@ -165,7 +165,7 @@ test("search and tag filter narrow the list", async ({ page }) => {
   const chip = sheet.getByRole("button", { name: t.recipeTags[MISSING_TAG], exact: true });
   await chip.click();
   await expect(chip).toHaveAttribute("aria-pressed", "true");
-  await expect(sheet.getByText(d.empty)).toBeVisible();
+  await expect(sheet.getByText(d.emptyFiltered)).toBeVisible();
 
   await chip.click();
   await expect(chip).toHaveAttribute("aria-pressed", "false");
@@ -202,7 +202,7 @@ test("save a catalog recipe through the form", async ({ page }) => {
   // Saved recipes drop out of discovery.
   const sheet = await openDiscover(page);
   await sheet.getByRole("searchbox", { name: d.searchLabel }).fill(NAME_A);
-  await expect(sheet.getByText(d.empty)).toBeVisible();
+  await expect(sheet.getByText(d.emptySearch)).toBeVisible();
 });
 
 test("add to plan saves then opens the plan dialog", async ({ page }) => {

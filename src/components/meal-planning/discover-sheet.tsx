@@ -328,7 +328,7 @@ export function DiscoverSheet({
               )}
               {shown.length === 0 && !failed ? (
                 <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  {t.empty}
+                  {tags.length > 0 ? t.emptyFiltered : t.emptySearch}
                 </p>
               ) : (
                 // While a search is out the previous rows stay, dimmed and
