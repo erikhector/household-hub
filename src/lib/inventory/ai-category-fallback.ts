@@ -7,8 +7,8 @@
 // see the "Works with no AI key configured" guardrail in BACKLOG.md, which
 // this mirrors from src/lib/actions/inventory-scan.ts: same
 // GEMINI_API_KEY/GEMINI_MODEL/ANTHROPIC_API_KEY env vars (see .env.example),
-// Gemini tried first for its free tier, Anthropic as the fallback, nothing
-// configured means this is a silent no-op.
+// Gemini tried first for its free tier (unless AI_PRIMARY_PROVIDER=anthropic),
+// Anthropic as the fallback, nothing configured means this is a silent no-op.
 //
 // Unlike AI shelf scan and AI receipt scan, this never sends a photo — only
 // the bare item *names* that missed the deterministic resolver, batched

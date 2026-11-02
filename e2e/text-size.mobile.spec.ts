@@ -194,6 +194,57 @@ for (const locale of LOCALES) {
     });
   });
 
+  // UX-180: a phone card's name used to truncate to one line ("Olive oil…"),
+  // and `title` never shows on a touch screen. It now wraps (two lines
+  // max), so a 20-character name stays fully readable inside the screen.
+  test.describe(`inventory row name at 200% text (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    const id = `e2e-item-text-size-${E2E_WORKER}-${locale}`;
+    const name = locale === "sv" ? "Inlagd kronärtskocka" : "Marinated artichoke";
+    const drop = (client: Client) =>
+      client.query(`DELETE FROM "InventoryItem" WHERE id = $1 AND "householdId" = $2`, [id, E2E_HOUSEHOLD.id]);
+    test.afterEach(async () => {
+      await withClient(drop);
+    });
+    test("wraps in full instead of truncating", async ({ page, context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+      await withClient(async (client) => {
+        await drop(client);
+        await client.query(
+          `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
+           VALUES ($1, $2, $3, 'Pantry', 3, 'pcs', 1, now())`,
+          [id, E2E_HOUSEHOLD.id, name],
+        );
+      });
+      await page.goto("/dashboard/inventory");
+      await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.waitForLoadState("networkidle");
+      const label = page.locator(`p[title="${name}"]`);
+      await label.scrollIntoViewIfNeeded();
+      await expect(label).toBeVisible();
+      const m = await label.evaluate((el) => {
+        const row = el.closest("li")!;
+        return {
+          rowScroll: row.scrollWidth,
+          rowClient: row.clientWidth,
+          // The name's last line must sit inside the clamped box; the
+          // category after it may be clamped away.
+          cut: (() => {
+            const rects = [...el.querySelector("span")!.getClientRects()];
+            return rects[rects.length - 1].bottom > el.getBoundingClientRect().bottom + 1;
+          })(),
+          lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+          right: Math.max(...[...el.querySelector("span")!.getClientRects()].map((r) => r.right)),
+          viewport: window.innerWidth,
+        };
+      });
+      expect(m.rowScroll, "row scrolls sideways").toBe(m.rowClient);
+      expect(m.lines, "name wraps rather than truncating").toBeGreaterThan(1);
+      expect(m.cut, "name is cut off").toBe(false);
+      expect(m.right, "name runs past the screen").toBeLessThanOrEqual(m.viewport);
+    });
+  });
+
   test.describe(`public pages at 200% text (${locale})`, () => {
     test.use({ storageState: { cookies: [], origins: [] } });
     test.beforeEach(async ({ context, baseURL }) => {

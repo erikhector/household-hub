@@ -16,7 +16,8 @@
 //
 // An ordered chain of attempts, built by resolveAttempts (src/lib/ai/provider-chain.ts) — Gemini's primary
 // model, then Gemini's fallback model, then Anthropic, skipping whichever
-// provider has no key set. Gemini goes first because its free tier
+// provider has no key set (AI_PRIMARY_PROVIDER=anthropic puts Anthropic
+// first instead). Gemini goes first by default because its free tier
 // (generativelanguage.googleapis.com, no card required) makes this feature
 // genuinely free to run for a single household, where Anthropic's is
 // metered from the first request. runProviderChain walks the chain and
