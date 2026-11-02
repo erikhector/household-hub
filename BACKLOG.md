@@ -519,16 +519,6 @@ left out.
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
 
-- [ ] **UX-172. Item page: status and buy action before unit algebra**
-      (impact: low, effort: S) — breaks Match with the real world and
-      Hierarchy. The inventory item page opens with "1 pcs = 2000 g" and
-      "Try it: 1 g = 0.0005 pcs" above the item's status and its buy
-      action (`mobile-en-dashboard-inventory-items-id.png`,
-      `src/components/inventory/item-page/`).
-      Acceptance: status, quantity stepper and "Add to list" are the first
-      card; conversions sit behind a "Units" disclosure. `item-page.spec.ts`
-      asserts the first heading after the title is the status card.
-
 - [ ] **UX-174. Progressive explanations on budget Manage and Household
       settings** (impact: low, effort: M) — breaks Help ("explain
       progressively") and M6. Budget Manage opens three cards each with a
