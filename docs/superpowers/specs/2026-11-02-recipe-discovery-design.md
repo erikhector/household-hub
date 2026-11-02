@@ -116,8 +116,9 @@ rankCatalogRecipes(
 //                   expiringMatches: string[], score }
 ```
 
-- **Filtering.** Each selected tag must be on the recipe (AND, like the
-  GAP-29 recipe-list filter). The query is trimmed, lowercased and
+- **Filtering.** Each selected tag must be on the recipe (AND). The
+  recipe list's GAP-29 filter is a single-select; Discover allows several
+  chips because "vegetarian + quick" is a common combination. The query is trimmed, lowercased and
   diacritic-folded (`ä`→`a` is **not** folded, because Swedish treats it as
   its own letter; only combining marks such as `é` are). It must be a
   substring of the localized name or of any localized ingredient name.
@@ -200,10 +201,13 @@ household.
     and tags are pre-set too. The user then goes through the usual
     ingredient matching (MATCH review) and saves. The dialog gets the
     parsed recipe through a new `initialRecipe?: FileRecipe` prop, the same
-    shape file import already hands over.
+    shape file import produces (`src/lib/recipe-import/parse-file.ts`).
   - **Add to plan** does the same, but after a successful create it opens
-    `AddToPlanDialog` for the new recipe id (the hand-off file import's
-    "save then plan" already uses).
+    `AddToPlanDialog` for the new recipe. No "save then plan" hand-off
+    exists yet, so `createRecipeAction` starts returning the new id in
+    `ActionState.createdId` (the field UX-109 added for transactions), and
+    `RecipeFormDialog` gets an optional `onCreated(recipeId)` callback. The
+    normal create path ignores it, so its behaviour doesn't change.
 - **Copy.** Every string goes in `mealPlanning.discover` in `en.ts` and
   `sv.ts`. Plurals ("You have {n} of {total}") use `{ one, other }` pairs.
 
@@ -223,8 +227,10 @@ household.
     household's saved recipes (capped at 50), so it doesn't suggest them.
     The pantry item names are household data sent to a third party, the
     same privacy tradeoff the receipt and photo scans already make. The
-    privacy page's AI paragraph gets "recipe ideas" added to its list of
-    uses.
+    privacy page's "Third parties" Gemini/Anthropic paragraph
+    (`src/app/privacy/page.tsx`, currently listing the scans) gets a
+    **Recipe ideas** entry saying only pantry item names and recipe names
+    are sent.
   - `runProviderChain` without an image, with a text-only prompt in
     `src/lib/recipe-ideas/ai.ts` asking for exactly 3 recipes in the
     user's language, metric units, and ingredient names as plain words.
