@@ -6446,6 +6446,51 @@ its pantry. Design: `docs/superpowers/specs/2026-11-02-recipe-discovery-design.m
   one recipe query (`loadDiscoverContext`) to every Recipes render, even if
   Discover is never opened.
 
+#### AI recipe ideas
+
+An optional "Ask for ideas" button in the Discover sheet asks the configured
+AI model for a few recipes built from what the household has at home.
+
+- **Gating.** The button renders only when `GEMINI_API_KEY` or
+  `ANTHROPIC_API_KEY` is set (`page.tsx` passes the same check as
+  `photoImportConfigured`, handed on as `aiAvailable`); without a key it is
+  not in the DOM. `suggestRecipeIdeasAction` also answers
+  `ideasNotConfigured` to a direct call without a key.
+- **Rate limit.** Keyed per household (`recipe-ideas:<household>`), 20 requests
+  per hour; over it the action answers `ideasRateLimited`.
+- **What is sent** (`src/lib/recipe-ideas/ai.ts`). Names only: inventory items
+  with quantity > 0, items nearest their expiry date first, capped at 60, and
+  the names of saved recipes, capped at 50, plus the selected diet tags and the
+  locale. No quantities, prices or other household data. Names are sanitised
+  (control characters stripped, length capped) and placed inside delimiters,
+  and the system prompt says everything between them is data, not
+  instructions.
+- **Validation.** The reply must match the zod schema (`recipeIdeasSchema`).
+  Ideas with no usable name or ingredients are dropped, and so is any idea whose
+  name matches a saved recipe (case- and accent-insensitive), so the list never
+  offers what the household already has. If none survive the action answers
+  `ideasNone`. Provider busy answers `ideasBusy`, any other failure
+  `ideasFailed`.
+- **Nothing is stored.** Ideas live in the sheet's state only and are dropped
+  when it closes. The model's answer is never written to the database; saving
+  an idea goes through the ordinary recipe form, like a catalog pick.
+- **UI.** An outline button under the diet chips (the currently selected tags
+  are used; the search box is not). While it runs it reads "Thinking up
+  ideas…", is `aria-busy` and disabled, and the catalog list stays in place.
+  Ideas show in an "Ideas for you" section above the catalog list, each row
+  badged "AI idea". Opening one shows the same preview from the in-memory
+  recipe: no Have it / Missing markers and no "You have N of M" line (it is
+  not matched against the pantry), with the same Save and Add to plan actions.
+  Errors show inline under the button (`role="alert"`).
+- **Privacy page.** "Third parties" lists Recipe ideas among the AI features
+  (only on button press; item names and recipe names only; nothing stored).
+- **Tests.** `ai.test.ts`, `discover-actions.test.ts`, and in
+  `e2e/recipe-discover.spec.ts` the ideas list, its preview without pantry
+  markers, clearing on close, and the inline error. The e2e server runs with a
+  placeholder `GEMINI_API_KEY` (for the photo import), so the button is shown
+  there and the action is mocked at the Server Action POST; the hidden-without-
+  a-key case is not reachable from that suite.
+
 ### Recipe last cooked
 
 BACKLOG GAP-46: each `RecipeManager` row (in its meta line, and in full in
