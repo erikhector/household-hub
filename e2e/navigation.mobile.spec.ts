@@ -137,6 +137,16 @@ test("bottom bar tabs share one tile and the active one keeps its hue", async ({
   await expect(page.locator("[data-section-accent='chart-1']")).toBeVisible();
 });
 
+// UX-167: the bar names one section, so pages behind "More" (whose hues are
+// shared in pairs) draw none.
+test("a More-menu page has no section accent bar", async ({ page }) => {
+  for (const path of ["/dashboard/budget", "/dashboard/tasks", "/dashboard/profile"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+    await expect(page.locator("[data-section-accent]")).toHaveCount(0);
+  }
+});
+
 // UX-151: at 320 px a fifth of the bar is 64 px, so "Shopping list" and
 // "Meal planning" were ellipsized to fragments. The bar shows short labels
 // instead, each link keeps its full name as its accessible name, and no label

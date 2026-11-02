@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { navItemForPath } from "./nav-items";
+import { navAccentColor, navItemForPath, primaryMobileNavItems } from "./nav-items";
 
 // navItemForPath drives PageTitle's section hue, so a wrong match tints a
 // page with another section's colour. The cases below pin the three branches
@@ -25,5 +25,24 @@ describe("navItemForPath", () => {
 
   it("returns undefined for a page that is not a nav section", () => {
     expect(navItemForPath("/dashboard/whats-new")).toBeUndefined();
+  });
+});
+
+// UX-167: the title bar's hue must name one section.
+describe("navAccentColor", () => {
+  it("gives every coloured primary tab its own hue", () => {
+    const hues = primaryMobileNavItems.map((item) => item.color).filter(Boolean);
+    expect(hues.length).toBeGreaterThan(0);
+    expect(new Set(hues).size).toBe(hues.length);
+  });
+
+  it("draws no bar for a More-menu section", () => {
+    for (const path of ["/dashboard/budget", "/dashboard/tasks", "/dashboard/household", "/dashboard/profile"]) {
+      expect(navAccentColor(navItemForPath(path))).toBeUndefined();
+    }
+  });
+
+  it("draws the bar for a primary tab", () => {
+    expect(navAccentColor(navItemForPath("/dashboard/inventory"))).toBe("chart-1");
   });
 });
