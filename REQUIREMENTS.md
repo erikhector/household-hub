@@ -7202,8 +7202,11 @@ Both themes share the same `body` background technique: a
 `radial-gradient(circle, var(--gradient-start), var(--gradient-end))` (set
 in `globals.css`'s `@layer base`), where `--gradient-start`/`--gradient-end`
 are defined per-theme in `:root` (light: soft lavender-white,
-`#f3ecfb` → `#fefcff`) and `.dark` (the original near-black purple,
-`#180828` → `#0a0414`). Don't reintroduce a plain `bg-background` on
+`#f3ecfb` → `#fefcff`) and `.dark` (near-black purple at the brand hue,
+`oklch(0.24 0.06 300)` → `oklch(0.14 0.03 300)`; UX-157 also moved `--background`,
+`--card`, `--popover` and `--sidebar` to hue 300 with chroma 0.03, so the dark theme
+reads as the same purple family as light, not charcoal; the browser-chrome hex
+for the outer stop is `#0b0614`). Don't reintroduce a plain `bg-background` on
 `body` — it would paint over the gradient with a flat color. The dark
 gradient's outer stop is deliberately near-black, not literal `#000000` —
 because the background uses `background-attachment: fixed`, it's recentered

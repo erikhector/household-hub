@@ -447,20 +447,6 @@ left out.
 
 
 
-- [ ] **UX-157. A dark theme that keeps the brand hue** (impact: med,
-      effort: M) — breaks Squirrel design principles ("soft, friendly and
-      purple … the brand's purple is carried by the mascot and the
-      gradient"). `.dark` uses a hueless ground (`--background:
-      oklch(0.145 0 0)`), a gradient from `#180828` to `#0a0414` that
-      barely registers, and charcoal cards; purple survives only on the CTA
-      and active tab (`src/app/globals.css:239-270`; report `e1-dark-overview`
-      vs `overview-mobile`).
-      Acceptance: dark ground, gradient and card tokens share light's hue
-      family (around `oklch(0.17 0.03 300)`, `oklch(0.24 0.06 300)` →
-      `oklch(0.14 0.03 300)`, `oklch(0.23 0.03 300)`); every pair in
-      `globals-contrast.test.ts` still passes; the `light` and default dark
-      sweep screenshots of the overview are reviewed side by side.
-
 - [ ] **UX-160. Swedish at 200 % text on budget and shopping** (impact:
       med, effort: M) — breaks M9 ("200 % … without clipping; Swedish
       strings wrap or truncate with the full value reachable"). At 200 %
@@ -953,7 +939,7 @@ out to be a product-scope question rather than a scoped task should move to
       (c) the housemate voice in the Today block ("Nothing planned for
       dinner. Last Tuesday's pasta again?" from existing data); (d) each
       section's hue carried into its empty-state dashed box at 10 %
-      (depends on UX-167). The warm dark theme is UX-157. Decide which to
+      (depends on UX-167). The dark theme (UX-157) has shipped. Decide which to
       build and in what order.
       Acceptance: per idea, a before/after on the `mobile` screenshots and
       the e2e spec for the touched component still passing.

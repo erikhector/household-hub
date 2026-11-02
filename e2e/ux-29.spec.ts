@@ -54,7 +54,7 @@ test.describe("server-rendered theme-color", () => {
     );
     expect(colors).toEqual([
       { media: "(prefers-color-scheme: light)", color: "#fefcff" },
-      { media: "(prefers-color-scheme: dark)", color: "#0a0414" },
+      { media: "(prefers-color-scheme: dark)", color: "#0b0614" },
     ]);
     expect(errors).toEqual([]);
   });

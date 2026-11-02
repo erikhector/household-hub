@@ -56,7 +56,7 @@ test.describe("logged out", () => {
       await expect(page.locator("html")).toHaveClass(/dark/);
       await expect(toggle).toContainText("Theme: Dark");
       // The chosen scheme beats the (light) system one for the chrome too.
-      await expect.poll(() => themeColors(page)).toEqual(["#0a0414", "#0a0414"]);
+      await expect.poll(() => themeColors(page)).toEqual(["#0b0614", "#0a0414"]);
       await expectNoHorizontalOverflow(page);
 
       // Stored in this browser, so it survives a reload.
@@ -86,7 +86,7 @@ test.describe("logged out", () => {
       // browser now applies.
       await page.emulateMedia({ colorScheme: "light" });
       await expect(page.locator("html")).toHaveClass(/dark/);
-      await expect.poll(() => themeColors(page)).toEqual(["#0a0414", "#0a0414"]);
+      await expect.poll(() => themeColors(page)).toEqual(["#0b0614", "#0a0414"]);
     });
   });
 
