@@ -282,6 +282,7 @@ const mergeItemSelect = {
   name: true,
   unit: true,
   quantity: true,
+  everStocked: true,
   lowStockThreshold: true,
   lastKnownPrice: true,
   expiresAt: true,
@@ -423,6 +424,9 @@ export async function mergeInventoryItemsAction(input: {
         where: { id: keeper.id, householdId: household.id, quantity: keeper.quantity, unit: keeper.unit },
         data: {
           quantity: plan.quantity,
+          // UX-125: the merged item was the same thing, so if any of them
+          // was ever stocked, the survivor was.
+          everStocked: keeper.everStocked || merged.some((item) => item.everStocked) || plan.quantity > 0,
           lowStockThreshold: plan.lowStockThreshold,
           lastKnownPrice: plan.lastKnownPrice,
           expiresAt: plan.expiresAt,

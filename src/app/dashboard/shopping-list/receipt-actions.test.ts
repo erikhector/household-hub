@@ -288,7 +288,7 @@ describe("applyReceiptScanAction", () => {
     // Stock still counts the list row's quantity, as before.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 2, lastKnownPrice: 15 },
+      data: { quantity: 2, everStocked: true, lastKnownPrice: 15 },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 45, quantity: 3, unit: "l", store: null },
@@ -367,11 +367,11 @@ describe("applyReceiptScanAction", () => {
     // AUTO-4: a scanned receipt price also becomes the item's lastKnownPrice.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 3, lastKnownPrice: 5 }, // 10 for the row's 2
+      data: { quantity: 3, everStocked: true, lastKnownPrice: 5 }, // 10 for the row's 2
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-2" },
-      data: { quantity: 6, lastKnownPrice: 25 },
+      data: { quantity: 6, everStocked: true, lastKnownPrice: 25 },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 10, quantity: 2, unit: "pcs", store: null },
@@ -446,7 +446,7 @@ describe("applyReceiptScanAction", () => {
     expect(result.totalAmount).toBe(10);
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 3, lastKnownPrice: 5 }, // 1 + quantity(2); 10 converted, for the row's 2
+      data: { quantity: 3, everStocked: true, lastKnownPrice: 5 }, // 1 + quantity(2); 10 converted, for the row's 2
     });
   });
 
@@ -567,7 +567,7 @@ describe("registerReceiptAction", () => {
     // lastKnownPrice.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 4, lastKnownPrice: 7.5 }, // 15 for 2
+      data: { quantity: 4, everStocked: true, lastKnownPrice: 7.5 }, // 15 for 2
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 15, quantity: 2, unit: "l", store: null },
@@ -719,7 +719,7 @@ describe("registerReceiptAction", () => {
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 4, lastKnownPrice: 15 },
+      data: { quantity: 4, everStocked: true, lastKnownPrice: 15 },
     });
   });
 
@@ -738,7 +738,7 @@ describe("registerReceiptAction", () => {
       where: { id: "inv-1" },
       // AUTO-4: the later of the two lines' prices wins as lastKnownPrice,
       // per unit: 6 for 3 is 2 (BUG-3).
-      data: { quantity: 15, lastKnownPrice: 2 }, // 10 + 2 + 3
+      data: { quantity: 15, everStocked: true, lastKnownPrice: 2 }, // 10 + 2 + 3
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledTimes(2);
     // GAP-9: both lines go to recordPriceSpikes in one call, which pools
@@ -993,7 +993,7 @@ describe("applyReceiptScanAction — put-away mode (ON_PUT_AWAY)", () => {
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 3, lastKnownPrice: 5 },
+      data: { quantity: 3, everStocked: true, lastKnownPrice: 5 },
     });
   });
 

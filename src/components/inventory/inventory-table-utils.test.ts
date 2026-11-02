@@ -18,6 +18,7 @@ function item(overrides: Partial<InventoryItemRow>): InventoryItemRow {
     name: "Milk",
     category: "Dairy",
     quantity: 2,
+    everStocked: true,
     unit: "l",
     lowStockThreshold: 1,
     location: "Fridge",
@@ -135,6 +136,13 @@ describe("matchesStatusFilter / countProblemStatuses (UX-121)", () => {
   const soon = item({ expiresAt: new Date(now + 2 * DAY_MS) });
   const expired = item({ expiresAt: new Date(now - DAY_MS) });
   const fine = item({ expiresAt: new Date(now + 30 * DAY_MS) });
+
+  it("UX-89: an item at 0 that was never stocked is not out, a used-up one is", () => {
+    const neverStocked = item({ quantity: 0, everStocked: false });
+    expect(matchesStatusFilter(neverStocked, "out", now)).toBe(false);
+    expect(matchesStatusFilter(out, "out", now)).toBe(true);
+    expect(countProblemStatuses([neverStocked, out], now)).toEqual({ out: 1, low: 0, expiring: 0, expired: 0 });
+  });
 
   it("matches the stock statuses by quantity", () => {
     expect(matchesStatusFilter(out, "out", now)).toBe(true);

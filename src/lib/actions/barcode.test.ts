@@ -144,7 +144,7 @@ describe("scanStockChangeAction (AUTO-6)", () => {
     findFirstMock.mockResolvedValueOnce(milk);
     const result = await scanStockChangeAction("7310865004703", 1);
 
-    expect(updateMock).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { quantity: 3, updatedByUserId: "user-1" } });
+    expect(updateMock).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { quantity: 3, everStocked: true, updatedByUserId: "user-1" } });
     expect(result).toEqual({
       kind: "applied",
       item: { id: "item-1", name: "Milk", unit: "pcs", quantity: 3 },
@@ -247,7 +247,7 @@ describe("linkBarcodeAction (AUTO-6)", () => {
     });
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      data: { barcode: "7310865004703", quantity: 3, updatedByUserId: "user-1" },
+      data: { barcode: "7310865004703", quantity: 3, everStocked: true, updatedByUserId: "user-1" },
     });
     // Released before it's set, so the unique index never sees two holders.
     expect(updateManyMock.mock.invocationCallOrder[0]).toBeLessThan(updateMock.mock.invocationCallOrder[0]);

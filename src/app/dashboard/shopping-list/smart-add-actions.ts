@@ -154,6 +154,7 @@ export async function smartAddShoppingListItemsAction(
               unit: item.unit,
               quantity: 0,
               lowStockThreshold: 0,
+              createdFromList: true,
             },
           });
           createdIds.set(key, created.id);
@@ -273,6 +274,7 @@ export async function resolveShoppingListMappingsAction(
               category: trimmedCategory || guessedCategories.get(item.id) || "Uncategorized",
               quantity: 0,
               lowStockThreshold: 0,
+              createdFromList: true,
             },
           });
           await tx.shoppingListItem.update({

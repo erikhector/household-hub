@@ -174,7 +174,7 @@ export async function creditCookedIngredients(
       const nextQuantity = round2(item.quantity + row.quantity);
       await tx.inventoryItem.update({
         where: { id: item.id },
-        data: { quantity: nextQuantity, updatedByUserId: userId },
+        data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
       });
     }
   }

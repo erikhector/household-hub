@@ -19,6 +19,7 @@ function item(name: string, overrides: Partial<DuplicateItem> = {}): DuplicateIt
     name,
     unit: "pcs",
     quantity: 0,
+    everStocked: false,
     createdAt: new Date(2026, 0, 1, 0, seq),
     barcode: null,
     recipeCount: 0,
@@ -200,8 +201,10 @@ describe("compareKeeper", () => {
 
 describe("isNeverStocked", () => {
   it("needs no stock, no price and no bought list row", () => {
-    const base = { quantity: 0, priceCount: 0, purchasedListCount: 0 };
+    const base = { quantity: 0, everStocked: false, priceCount: 0, purchasedListCount: 0 };
     expect(isNeverStocked(base)).toBe(true);
+    // UX-125: saved with stock once, then used up (no price, no bought row).
+    expect(isNeverStocked({ ...base, everStocked: true })).toBe(false);
     expect(isNeverStocked({ ...base, quantity: 1 })).toBe(false);
     expect(isNeverStocked({ ...base, priceCount: 1 })).toBe(false);
     expect(isNeverStocked({ ...base, purchasedListCount: 1 })).toBe(false);

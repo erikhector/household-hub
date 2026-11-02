@@ -427,6 +427,21 @@ model InventoryItem {
   // moves it rather than sharing it. Never sent anywhere — only the scanned
   // digits of an *unknown* code go to Open Food Facts.
   barcode            String?
+  // UX-125/UX-89: true once the item has ever held stock (quantity went above
+  // 0 through any path: item form, +/- stepper, bought tick, receipt scan,
+  // bulk create, merge). Nothing else records it (there's no stock log, only
+  // the current `quantity`), so without it a used-up item can't be told from
+  // a phantom one created at 0 by a free-text list row or a recipe. Never set
+  // back to false. The overview, the inventory "out" filter and the catalog's
+  // "Never stocked" chip read it: an item at 0 that was never stocked isn't
+  // "out", it was never in. The migration backfilled true for rows with
+  // price history, bought list rows or a lastKnownPrice; already-empty items
+  // without those stay false until restocked.
+  everStocked        Boolean   @default(false)
+  // UX-89: true when a shopping-list row created this item (the five
+  // list-side create paths), so deleting that row can remove the item too
+  // when it was never stocked and nothing else references it.
+  createdFromList    Boolean   @default(false)
   // UX-136: batch id of the opt-in sample data this row came from (see
   // src/lib/sample-data.ts); null for everything a person made. "Clear sample
   // data" deletes exactly the rows where this is set.
