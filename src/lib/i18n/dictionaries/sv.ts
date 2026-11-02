@@ -4057,6 +4057,7 @@ export const sv = {
     consentAnd: "och",
     privacyLink: "integritetspolicy",
     consentSuffix: ".",
+    jumpListLabel: "På den här sidan",
   },
   notFound: {
     title: "Sidan hittades inte",

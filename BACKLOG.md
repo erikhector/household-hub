@@ -304,27 +304,6 @@ UX-89.
 
 #### Logged out, signup and invites
 
-- [ ] **UX-66. Legal pages in Swedish (or marked English), with an
-      accurate "who we are"** (impact: med, effort: M) — breaks Context
-      and Accessibility. ⚠️ Touches the privacy page (human-only area):
-      the Swedish text needs the owner's wording review before merge.
-      Decided 2026-11-02 by owner: translate the policy to Swedish. See #736.
-      Scope: a faithful Swedish translation of the current policy and
-      terms (served by locale cookie like the rest of the app), plus the
-      jump list. Leave the "who we are" sentence's meaning unchanged in
-      both languages; the owner supplies the accurate one in a reply to
-      #736, and that becomes a follow-up item.
-      - The sv cookie notice's "Läs mer" opens an English-only policy
-        inside `<html lang="sv">`, so screen readers read English with a
-        Swedish voice.
-      - The policy says Squirrel "isn't a large multi-tenant SaaS company
-        … it's a self-run app", which contradicts the public "Get started
-        free" (`src/app/privacy/page.tsx:74-75`).
-      - It is about 8,000 px long with no table of contents.
-      Acceptance: sv serves Swedish legal text and en serves English, each
-      page under the matching `lang`. The page starts with a jump list.
-      The PR is flagged for the owner's review of the Swedish wording.
-
 #### First run and the overview
 
 

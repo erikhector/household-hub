@@ -4286,6 +4286,8 @@ export const en = {
     consentAnd: "and",
     privacyLink: "Privacy policy",
     consentSuffix: ".",
+    // The jump list at the top of the long Terms/Privacy pages (UX-66).
+    jumpListLabel: "On this page",
   },
   // UX-65: the 404 page. Logged-out visitors get the token pages' status
   // card with a way to the landing page; signed-in users get the way back

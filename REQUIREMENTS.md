@@ -7374,8 +7374,29 @@ stay that way rather than re-adding per-page redirect checks:
   localhost, which only matters in local dev.
 - The page's `<h1>` is the card title: `CardTitle` takes `as="h1"`. The text
   for the titles with no other home is in the dictionaries' `meta` section;
-  `/privacy` and `/terms` titles are localised while their bodies stay English.
+  `/privacy` and `/terms` titles are localised, and so are their bodies (UX-66).
 - Covered by `e2e/public-titles.spec.ts`.
+
+### Legal pages in Swedish (UX-66)
+
+- `/privacy` and `/terms` serve the visitor's language (account locale, then
+  the `locale` cookie, then `Accept-Language`, like every other page). English
+  lives in `page.tsx`, Swedish in `privacy-sv.tsx` / `terms-sv.tsx`: long
+  prose a translator or lawyer reviews as one document, not dictionary
+  strings. The Swedish text is a faithful translation: same sections, same
+  section ids, same meaning, including the "who we are" paragraph (the owner's
+  accurate wording for that is a separate follow-up). Change both languages
+  together and bump `LAST_UPDATED` in both.
+- The `<article>` carries `lang="en"` or `lang="sv"` to match, so a screen
+  reader uses the right voice; the cookie notice's "Läs mer" lands on the
+  Swedish policy.
+- Each page opens with a "On this page" / "På den här sidan" jump list
+  (`LegalJumpList`, `src/components/legal/legal-page.tsx`): a `nav` of
+  in-page anchors, one per section, 44px tall. The privacy cookie list
+  (`CookieList`) shows each `STORAGE_INVENTORY` entry's `purpose` or
+  `purposeSv` and `duration` or `durationSv`.
+- Human-only area: the Swedish wording needs the owner's review before merge.
+- Covered by `e2e/public-pages.spec.ts`.
 
 ### Session revocation on password change (SCALE-H)
 
@@ -7741,9 +7762,9 @@ components directly.
   account email as a hidden `autocomplete="username"` input (UX-67) so
   password managers update the right login. The privacy page lists
   cookies as a definition list per entry (a table clipped "Purpose" to a few
-  characters on phones). The English-only legal body is `lang="en"` and set
-  in `foreground`; "Terms of service" and "Privacy policy" are sentence
-  case; signup's button reads "Create your household" like its title; the
+  characters on phones). The legal body is set in `foreground` and served in
+  the visitor's language (UX-66, below); "Terms of service" and "Privacy
+  policy" are sentence case; signup's button reads "Create your household" like its title; the
   landing hero tightens its padding in `max-height: 500px` (landscape
   phones) so "Get started free" stays on screen. Covered by
   `e2e/public-pages.spec.ts`.
@@ -9550,7 +9571,8 @@ UX-14's rapid ticks and the rollback toast.
   `src/lib/actions/household.ts`) or `*_STORAGE_KEY` constant and fails if
   its value isn't listed in `STORAGE_INVENTORY`
   (`src/lib/cookie-inventory.ts`), which also feeds the privacy page's
-  cookie list (`src/app/privacy/page.tsx`). A new cookie or localStorage
+  cookie list (`src/app/privacy/page.tsx`, with a Swedish `purposeSv` and
+  `durationSv` per entry). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
 - **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`
