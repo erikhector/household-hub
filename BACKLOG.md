@@ -519,17 +519,15 @@ left out.
       own hues); `nav-items.test.ts` asserts no two primary tabs share a
       colour.
 
-- [ ] **UX-171. Hide controls that have nothing to act on** (impact: low,
-      effort: S) — breaks Usability ("every state is designed"). The meal
-      plan search field shows above an empty planner
-      (`mobile-en-dashboard-meal-planning.png`), "Mark all as read" with no
-      notifications (`mobile-en-dashboard-notifications.png`), "Export CSV"
-      on an empty transactions list, and the planner's empty state says
-      "fill the empty days from the ⋯ menu" instead of offering the action.
-      Acceptance: each control is hidden or disabled with a reason until
-      there is data; the planner empty state has a "Fill empty days" button.
-      `empty-states.spec.ts` asserts the search field is absent on an empty
-      plan and the fill button is present, `desktop` and `mobile`.
+- [ ] **UX-172. Item page: status and buy action before unit algebra**
+      (impact: low, effort: S) — breaks Match with the real world and
+      Hierarchy. The inventory item page opens with "1 pcs = 2000 g" and
+      "Try it: 1 g = 0.0005 pcs" above the item's status and its buy
+      action (`mobile-en-dashboard-inventory-items-id.png`,
+      `src/components/inventory/item-page/`).
+      Acceptance: status, quantity stepper and "Add to list" are the first
+      card; conversions sit behind a "Units" disclosure. `item-page.spec.ts`
+      asserts the first heading after the title is the status card.
 
 - [ ] **UX-173. Landing desktop CTA above the fold on short windows**
       (impact: low, effort: S) — breaks Persuade-mode basics. At 1280×720

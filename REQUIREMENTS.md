@@ -3987,6 +3987,16 @@ drops the year from its dates. "Export CSV" moved from the top of the tab
 to below the list. Covered by `src/lib/budget-transaction-days.test.ts`,
 `e2e/budget-transaction-rows.spec.ts` and `e2e/swipe-rows.mobile.spec.ts`.
 
+**Controls wait for data (UX-171).** A control with nothing to act on is
+left out until there is something: the meal-plan search field stays hidden
+until any week holds a planned meal (`hasPlannedMeals`, one `findFirst`
+in the planner page), "Mark all as read" until there is a notification, and
+"Export CSV" on the household and personal budget Transactions tabs until
+the month has a transaction. An empty week's empty state also offers a
+secondary "Fill empty days" button (only with recipes to fill from, next to
+its one primary) and its copy points to the ⋯ menu for Copy last week only.
+Covered by `e2e/empty-states.spec.ts`.
+
 **Category filter and drill-down (phone pass, Oct 2026).** The
 Transactions tab opens with a category select ("All categories" or one
 category; its own full-width row on a phone, M1), stored in `?category=`
