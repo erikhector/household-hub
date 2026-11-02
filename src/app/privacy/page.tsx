@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return titleOnlyMetadata(dict.meta.privacyTitle);
 }
 
-const LAST_UPDATED = "September 25, 2026";
+const LAST_UPDATED = "November 2, 2026";
 
 const SECTIONS: LegalJumpItem[] = [
   { id: "overview", title: "1. Overview" },
