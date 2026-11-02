@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
 import { normalizeForSearch } from "@/lib/recipe-catalog/rank";
 import { RECIPE_TAGS } from "@/lib/recipe-tags";
@@ -48,6 +48,10 @@ const RECIPE_B = findsOnlyItself.find((recipe) => recipe !== RECIPE_A)!;
 const NAME_A = RECIPE_A.name.en;
 const NAME_B = RECIPE_B.name.en;
 const MISSING_TAG = RECIPE_TAGS.find((tag) => !RECIPE_A.tags.includes(tag))!;
+
+// "You have 0 of", the start of a count line for a recipe the pantry
+// covers none of. No row may show it.
+const HAVE_NONE = format(plural(0, d.haveCount), { count: 0, total: "" }).trim();
 
 let startedAt: Date;
 
@@ -123,10 +127,10 @@ async function previewRecipe(page: Page, name: string) {
 // Saves the open recipe form, through the ingredient review: catalog
 // ingredients the pantry doesn't know start on "Create new", which is kept.
 async function saveThroughReview(page: Page) {
-  await page.getByRole("dialog", { name: t.newRecipeDialogTitle }).getByRole("button", { name: "Create recipe" }).click();
-  const review = page.getByRole("dialog", { name: "Match ingredients" });
+  await page.getByRole("dialog", { name: t.newRecipeDialogTitle }).getByRole("button", { name: t.create }).click();
+  const review = page.getByRole("dialog", { name: t.ingredientReview.title });
   await expect(review).toBeVisible();
-  await review.getByRole("button", { name: "Create recipe" }).click();
+  await review.getByRole("button", { name: t.create }).click();
 }
 
 test("discover shows pantry-based suggestions", async ({ page }) => {
@@ -136,6 +140,20 @@ test("discover shows pantry-based suggestions", async ({ page }) => {
   await expect(rows.first()).toBeVisible();
   // Each row says how much of it the pantry covers.
   await expect(rows.first()).toContainText(/You have \d+ of \d+/);
+  await expect(sheet.getByText(HAVE_NONE)).toHaveCount(0);
+});
+
+test("rows never say the pantry has none of a recipe", async ({ page }) => {
+  // A tag filter lists recipes whatever the pantry covers, so most rows
+  // here share nothing with the seeded pantry. They show no count at all
+  // rather than "You have 0 of N".
+  const sheet = await openTabAndDiscover(page);
+  const chip = sheet.getByRole("button", { name: t.recipeTags[RECIPE_TAGS[0]], exact: true });
+  await expectHydrated(chip);
+  await chip.click();
+  await expect(sheet.getByRole("heading", { name: d.results })).toBeVisible();
+  await expect(resultRows(page).first()).toBeVisible();
+  await expect(sheet.getByText(HAVE_NONE)).toHaveCount(0);
 });
 
 test("search and tag filter narrow the list", async ({ page }) => {
@@ -173,7 +191,7 @@ test("save a catalog recipe through the form", async ({ page }) => {
   await preview.getByRole("button", { name: d.save }).click();
 
   const form = page.getByRole("dialog", { name: t.newRecipeDialogTitle });
-  await expect(form.getByRole("textbox", { name: "Name" })).toHaveValue(NAME_A);
+  await expect(form.getByRole("textbox", { name: t.recipeNameLabel })).toHaveValue(NAME_A);
   await saveThroughReview(page);
   await waitForDialogHistory(page);
 
@@ -193,7 +211,7 @@ test("add to plan saves then opens the plan dialog", async ({ page }) => {
   await preview.getByRole("button", { name: d.addToPlan }).click();
 
   const form = page.getByRole("dialog", { name: t.newRecipeDialogTitle });
-  await expect(form.getByRole("textbox", { name: "Name" })).toHaveValue(NAME_B);
+  await expect(form.getByRole("textbox", { name: t.recipeNameLabel })).toHaveValue(NAME_B);
   await saveThroughReview(page);
 
   // The picker opens for the recipe just created, and plans it. A day far
@@ -213,7 +231,7 @@ test("a second discover pick fills the form with that recipe", async ({ page }) 
   let preview = await previewRecipe(page, NAME_A);
   await preview.getByRole("button", { name: d.save }).click();
   const form = page.getByRole("dialog", { name: t.newRecipeDialogTitle });
-  const name = form.getByRole("textbox", { name: "Name" });
+  const name = form.getByRole("textbox", { name: t.recipeNameLabel });
   await expect(name).toHaveValue(NAME_A);
   await page.keyboard.press("Escape");
   await waitForDialogHistory(page);
@@ -230,14 +248,14 @@ test("new recipe is blank after a cancelled discover save", async ({ page }) => 
   const preview = await previewRecipe(page, NAME_A);
   await preview.getByRole("button", { name: d.save }).click();
   const form = page.getByRole("dialog", { name: t.newRecipeDialogTitle });
-  await expect(form.getByRole("textbox", { name: "Name" })).toHaveValue(NAME_A);
+  await expect(form.getByRole("textbox", { name: t.recipeNameLabel })).toHaveValue(NAME_A);
   await page.keyboard.press("Escape");
   await waitForDialogHistory(page);
 
   const newRecipe = page.getByRole("main").getByRole("button", { name: t.newRecipe, exact: true }).filter({ visible: true });
   await expectHydrated(newRecipe);
   await newRecipe.click();
-  await expect(page.getByRole("dialog", { name: t.newRecipeDialogTitle }).getByRole("textbox", { name: "Name" })).toHaveValue("");
+  await expect(page.getByRole("dialog", { name: t.newRecipeDialogTitle }).getByRole("textbox", { name: t.recipeNameLabel })).toHaveValue("");
 });
 
 test("sheet fits a phone", async ({ page, isMobile }) => {

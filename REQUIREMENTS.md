@@ -6342,7 +6342,9 @@ computed by `computeUseItUpSuggestions`
 A direct user request (no BACKLOG item): the Recipes tab only knew what the
 household typed or imported, so a new household started from a blank list.
 "Discover" (`DiscoverSheet`, `src/components/meal-planning/discover-sheet.tsx`,
-opened from `RecipeManager` and from the empty state) offers a built-in
+opened from `RecipeManager`'s toolbar and, on an empty recipe list, as the
+empty state's secondary action beside New recipe, which stays the one
+primary (DESIGN.md M2)) offers a built-in
 catalog of recipes, ranked by how much of each the household already has in
 its pantry. Design: `docs/superpowers/specs/2026-11-02-recipe-discovery-design.md`.
 
@@ -6371,36 +6373,49 @@ its pantry. Design: `docs/superpowers/specs/2026-11-02-recipe-discovery-design.m
   Ties break on more expiring matches, then `haveCount`, then the localized
   name. Default limit is 30. "Expiring" is `getExpiryStatus(...) !== null`,
   i.e. soon or already expired. Pantry items at `quantity <= 0` are ignored,
-  the same gate as "Use it up".
+  the same gate as "Use it up". The pantry is normalised once per call into a
+  map (duplicate rows merge, expiring if any is) and each catalog name's
+  normalised form is memoised per object, so matching is a map lookup:
+  ranking the full catalog against a 200-item pantry takes about a
+  millisecond (it was ~700 ms comparing every pair), guarded by a timing test
+  in `rank.test.ts`.
 - **Pantry matching uses both languages.** A pantry name matches an
   ingredient when it equals the ingredient's `en` OR `sv` name
   (case-insensitive, accent-folded via `normalizeForSearch`). The pantry is
   free text in whatever language the household types, which need not be the
   UI language, so a current-locale-only match would make a Swedish pantry look
-  empty to an English-speaking member. This deviates from the original spec
-  (approved). Search stays current-locale-only, so a Swedish query doesn't hit
+  empty to an English-speaking member. Search stays current-locale-only, so a Swedish query doesn't hit
   English names that happen to share letters. `normalizeForSearch` folds
   accents but not å/ä/ö, which are separate letters in Swedish ("lok" must not
   find "lök"). Search is a plain substring match, never a RegExp.
-- **Saved recipes are hidden.** A catalog recipe whose localized name equals a
-  saved recipe's name (case-insensitive) is dropped, so Discover never offers
-  what the household already has.
+- **Saved recipes are hidden.** A catalog recipe whose `en` or `sv` name
+  equals a saved recipe's name (normalised as above) is dropped, so Discover
+  never offers what the household already has, even after the household
+  switches language.
 - **Browsing vs. searching.** With no query and no tags the list is "good with
   what you have": only recipes with `haveCount >= 1`. If none qualify (empty
   pantry, or nothing in it is a known ingredient) it falls back to the
   featured set (sliced before hiding saved ones so it doesn't grow to
-  backfill). Once the user searches or picks tag chips (several allowed; a
-  recipe must have all of them) covered-or-not recipes are all shown.
+  backfill). That fallback is headed "Popular to start with", not "Good with
+  what you have": the sheet switches heading when browsing and every row has
+  `haveCount` 0. Once the user searches or picks tag chips (several allowed; a
+  recipe must have all of them) covered-or-not recipes are all shown. A row
+  (and the preview) shows "You have N of M" only when N > 0; "You have 0 of
+  M" is noise.
 - **Actions** (`src/app/dashboard/meal-planning/discover-actions.ts`, colocated
   test): `searchRecipeCatalogAction({ query, tags })` and
   `getCatalogRecipeAction(id)`. Both call `requireHousehold()` outside the
   try/catch (it redirects when signed out) and never take a household id from
   the client; the pantry and saved names come from `loadDiscoverContext`
-  (`src/lib/recipe-catalog/pantry.ts`). Input is validated by hand, not zod,
-  because the module's types are imported by client components and PERF-7
-  keeps zod out of client bundles: query capped at 100 chars, tags through
-  `parseRecipeTags`, id capped and looked up in the catalog. A load failure
-  returns a localized `error` rather than throwing. Neither action writes.
+  (`src/lib/recipe-catalog/pantry.ts`). Input goes through zod but is cleaned,
+  not rejected (a search box has no error to show): a missing or malformed
+  input object or query becomes empty, the query is cut at 100 chars, tags go
+  through `parseRecipeTags`, and an id that isn't a string of at most 100
+  chars, or names no catalog recipe, returns `errorNotFound` with
+  `notFound: true` (the preview branches on that flag to go back to the
+  list). zod in a `"use server"` module never reaches a client bundle; the
+  bundle guard stops at the directive. A load failure returns a localized
+  `error` rather than throwing. Neither action writes.
 - **Save and plan hand-off.** A pick is converted by `catalogToParsedRecipe`
   (`to-parsed.ts`) into the same `FileRecipe` shape the file importer
   produces and opens the normal `RecipeFormDialog` in create mode through its
@@ -6421,8 +6436,8 @@ its pantry. Design: `docs/superpowers/specs/2026-11-02-recipe-discovery-design.m
   searches.
 - **No browser storage**, so nothing in `src/lib/cookie-inventory.ts`.
 - **Tests.** `data.test.ts` (catalog invariants), `rank.test.ts`, `to-parsed.test.ts`, `discover-actions.test.ts`,
-  the bundle guard, and `e2e/recipe-discover.spec.ts` (suggestions, search and
-  tag filter, last-query results, save through the form, add to plan, a second
+  the bundle guard, and `e2e/recipe-discover.spec.ts` (suggestions, no "You
+  have 0 of" row, search and tag filter, last-query results, save through the form, add to plan, a second
   pick refilling the form, blank "New recipe" after a cancel, phone fit).
 - **Known limits.** No fuzzy matching ("tomatoes" does not match "tomato"; same
   looseness as `getCookableRecipes`' fallback). A catalog recipe that lists

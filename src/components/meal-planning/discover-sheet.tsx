@@ -48,9 +48,6 @@ export function DiscoverSheet({
   initialResults: CatalogResult[];
   onSave: (recipe: FileRecipe) => void;
   onAddToPlan: (recipe: FileRecipe) => void;
-  /** A model provider key is set. Task 11's "Ask for ideas" reads it; until
-   * then nothing renders for it. */
-  aiAvailable?: boolean;
 }) {
   const t = dict.discover;
   const [open, setOpen] = useState(false);
@@ -85,6 +82,10 @@ export function DiscoverSheet({
 
   const browsing = query.trim() === "" && tags.length === 0;
   const shown = results ?? initialResults;
+  // Browsing with nothing in the pantry that any recipe uses, the server
+  // falls back to the curated featured set (rank.ts). Calling that "Good
+  // with what you have" would contradict every row, so it gets its own name.
+  const featured = browsing && shown.length > 0 && shown.every((result) => result.haveCount === 0);
 
   function search(nextQuery: string, nextTags: RecipeTag[], delay: number) {
     clearTimeout(debounce.current);
@@ -166,9 +167,13 @@ export function DiscoverSheet({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle ref={listTitleRef} tabIndex={-1} className="outline-none">
-                {t.title}
-              </DialogTitle>
+              {/* The preview header's row height (its Back button's), so the
+                  title sits level with the close button in both views. */}
+              <div className="flex min-h-7 items-center max-sm:min-h-11 pointer-coarse:min-h-11">
+                <DialogTitle ref={listTitleRef} tabIndex={-1} className="min-w-0 break-words outline-none">
+                  {t.title}
+                </DialogTitle>
+              </div>
             </DialogHeader>
             <div className="flex flex-col gap-2">
               <SearchInput
@@ -216,7 +221,7 @@ export function DiscoverSheet({
 
             <section className="flex min-w-0 flex-col gap-2" aria-labelledby="discover-list-title">
               <h3 id="discover-list-title" className="font-heading text-base font-semibold">
-                {browsing ? t.goodWithWhatYouHave : t.results}
+                {featured ? t.featured : browsing ? t.goodWithWhatYouHave : t.results}
               </h3>
               {failed && !isPending && (
                 <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-dashed p-4 text-sm">
@@ -274,9 +279,12 @@ function DiscoverRow({
     >
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="line-clamp-2 font-medium break-words">{result.name}</span>
-        <span className="text-sm text-muted-foreground">
-          {format(plural(result.haveCount, t.haveCount), { count: result.haveCount, total: result.totalCount })}
-        </span>
+        {/* "You have 0 of 6" says nothing a row without the line doesn't. */}
+        {result.haveCount > 0 && (
+          <span className="text-sm text-muted-foreground">
+            {format(plural(result.haveCount, t.haveCount), { count: result.haveCount, total: result.totalCount })}
+          </span>
+        )}
         {result.expiringMatches.length > 0 && (
           <span className="text-sm break-words text-muted-foreground">
             {format(t.usesExpiring, { items: result.expiringMatches.join(", ") })}

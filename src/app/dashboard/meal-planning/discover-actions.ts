@@ -3,9 +3,14 @@
 // Server Actions behind recipe discovery: search the built-in catalog ranked
 // by the household's pantry, and fetch one catalog recipe for preview.
 //
-// Input validation is hand-written rather than zod: this module's exported
-// types are imported by client components, and PERF-7 keeps zod out of client
-// bundles.
+// Input is validated with zod but cleaned rather than rejected: a bad query
+// becomes "", unknown tags are dropped, an over-long query is cut. A search
+// box has no error to show, so a stale or hand-crafted request just gets a
+// sensible list. zod is fine here: a "use server" module is replaced by
+// reference stubs in the client bundle, so it never ships to the browser
+// (client-bundle-guard.test.ts stops walking at the directive).
+
+import { z } from "zod";
 
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
@@ -19,8 +24,32 @@ import { requireHousehold } from "@/lib/session";
 const MAX_QUERY_LENGTH = 100;
 const MAX_ID_LENGTH = 100;
 
+// Server Actions are callable with any JSON, so the declared parameter types
+// are not trusted. Every field (and the object itself) falls back with
+// `.catch` instead of failing; tags are narrowed by parseRecipeTags, which
+// drops anything outside the closed set.
+const searchInputSchema = z
+  .object({
+    query: z
+      .string()
+      .catch("")
+      .transform((query) => query.slice(0, MAX_QUERY_LENGTH)),
+    tags: z.array(z.unknown()).catch([]),
+  })
+  .catch({ query: "", tags: [] });
+
+const catalogIdSchema = z.string().max(MAX_ID_LENGTH);
+
 export type DiscoverSearchResult = { results?: CatalogResult[]; error?: string };
-export type DiscoverRecipeResult = { recipe?: FileRecipe; haves?: boolean[]; error?: string };
+// `notFound` is set alongside `error` when the id names no catalog recipe, so
+// the preview can tell "gone" (go back to the list) from "failed to load"
+// (try again) without comparing message strings.
+export type DiscoverRecipeResult = {
+  recipe?: FileRecipe;
+  haves?: boolean[];
+  error?: string;
+  notFound?: true;
+};
 
 export async function searchRecipeCatalogAction(input: {
   query: string;
@@ -32,9 +61,9 @@ export async function searchRecipeCatalogAction(input: {
   const { household } = await requireHousehold();
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
-  // Server Actions are callable with any JSON, so don't trust the types.
-  const query = typeof input?.query === "string" ? input.query.slice(0, MAX_QUERY_LENGTH) : "";
-  const tags = parseRecipeTags(Array.isArray(input?.tags) ? input.tags : []);
+  const parsed = searchInputSchema.parse(input);
+  const query = parsed.query;
+  const tags = parseRecipeTags(parsed.tags);
 
   let context;
   try {
@@ -58,11 +87,11 @@ export async function getCatalogRecipeAction(id: string): Promise<DiscoverRecipe
   const { household } = await requireHousehold();
   const [locale, dict] = await Promise.all([getLocale(), getDictionary()]);
 
-  const recipe =
-    typeof id === "string" && id.length <= MAX_ID_LENGTH
-      ? RECIPE_CATALOG.find((candidate) => candidate.id === id)
-      : undefined;
-  if (!recipe) return { error: dict.mealPlanning.discover.errorNotFound };
+  const parsedId = catalogIdSchema.safeParse(id);
+  const recipe = parsedId.success
+    ? RECIPE_CATALOG.find((candidate) => candidate.id === parsedId.data)
+    : undefined;
+  if (!recipe) return { error: dict.mealPlanning.discover.errorNotFound, notFound: true };
 
   // The pantry is read only to tick off ingredients the household has.
   let context;

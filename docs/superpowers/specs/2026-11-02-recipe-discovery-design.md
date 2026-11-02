@@ -181,8 +181,9 @@ household.
 
 - **Entry point.** A **Discover** button in the Recipes tab's action row,
   beside "New recipe" and the import buttons. It also appears in the
-  Recipes empty state as the primary suggestion when the household has no
-  recipes ("Find a recipe to start with").
+  Recipes empty state, when the household has no recipes, as the secondary
+  action beside "New recipe", which stays the empty state's primary (one
+  primary per view, DESIGN.md M2).
 - **Discover sheet** (`discover-sheet.tsx`). A Base UI dialog, full height
   on phones (follows DESIGN.md M1–M10: thumb-reachable close, no
   horizontal scroll at 320 px, 44 px targets, the search field not hidden

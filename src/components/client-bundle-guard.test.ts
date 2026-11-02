@@ -2,7 +2,8 @@
 // client component imported a constant from a module that also defined a zod
 // schema, which put ~30 KB gz of zod into the meal-planning page. Walks the
 // value imports of every "use client" file under src/components/ and fails
-// with the import chain when one leads to `zod`.
+// with the import chain when one leads to `zod`. It also keeps the server-only
+// recipe catalog (src/lib/recipe-catalog/data.ts) out of client bundles.
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import path from "node:path";

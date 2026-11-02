@@ -1790,6 +1790,7 @@ export const sv = {
       scrollPrev: "Visa tidigare filter",
       scrollNext: "Visa fler filter",
       goodWithWhatYouHave: "Passar det du har hemma",
+      featured: "Populära att börja med",
       results: "Träffar",
       haveCount: { one: "Du har {count} av {total}", other: "Du har {count} av {total}" },
       usesExpiring: "Använder {items} (går snart ut)",

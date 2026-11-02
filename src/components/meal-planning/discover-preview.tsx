@@ -69,8 +69,8 @@ export function DiscoverPreview({
       }
       // Gone from the catalog (a deploy removed it since the list loaded):
       // nothing to retry, so say so and go back to the list.
-      if (answer.error === t.errorNotFound) {
-        toast.error(t.errorNotFound);
+      if (answer.notFound) {
+        toast.error(answer.error ?? t.errorNotFound);
         onBackRef.current();
         return;
       }
@@ -103,8 +103,13 @@ export function DiscoverPreview({
         </div>
         <DialogDescription>
           {format(plural(servings, dict.servingsCount), { count: servings })}
-          {" · "}
-          {format(plural(result.haveCount, t.haveCount), { count: result.haveCount, total: result.totalCount })}
+          {/* Same rule as the list rows: "You have 0 of N" is noise. */}
+          {result.haveCount > 0 && (
+            <>
+              {" · "}
+              {format(plural(result.haveCount, t.haveCount), { count: result.haveCount, total: result.totalCount })}
+            </>
+          )}
         </DialogDescription>
       </DialogHeader>
       {result.tags.length > 0 && (

@@ -1889,6 +1889,7 @@ export const en = {
       scrollPrev: "Show earlier filters",
       scrollNext: "Show more filters",
       goodWithWhatYouHave: "Good with what you have",
+      featured: "Popular to start with",
       results: "Results",
       haveCount: { one: "You have {count} of {total}", other: "You have {count} of {total}" },
       usesExpiring: "Uses {items} (expiring)",

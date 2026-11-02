@@ -1,9 +1,9 @@
 // Loads what discovery needs to know about a household: its pantry (for
 // ranking) and the names of recipes it already saved (hidden from discovery).
 //
-// Server-only: it imports prisma. Shared by the discover Server Actions, the
-// meal-planning page and the add-to-recipes path, so the "what counts as
-// expiring" rule lives in one place.
+// Server-only: it imports prisma. Shared by the discover Server Actions and
+// the meal-planning page (which ranks the sheet's first list as it renders),
+// so the "what counts as expiring" rule lives in one place.
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { prisma } from "@/lib/prisma";
 import type { PantryEntry } from "./rank";
