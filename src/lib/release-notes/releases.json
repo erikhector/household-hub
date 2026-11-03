@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.139.1",
+    "date": "2026-11-03",
+    "pr": 1103,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Error messages when splitting a recurring bill between household members now show in Swedish if you use Squirrel in Swedish.",
+      "sv": "Felmeddelanden när du delar en återkommande räkning mellan hushållsmedlemmar visas nu på svenska om du använder Squirrel på svenska."
+    }
+  },
+  {
     "version": "0.139.0",
     "date": "2026-11-03",
     "pr": 1099,
