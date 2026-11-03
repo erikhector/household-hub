@@ -23,7 +23,7 @@ test.afterEach(async () => {
 test("an owner renames the household and the new name survives a reload", async ({ page }) => {
   const newName = `Renamed ${Date.now().toString(36)}`;
 
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=settings");
   const field = page.getByRole("textbox", { name: "Name", exact: true });
   const save = page.getByRole("button", { name: "Save name" });
   // Nothing to save until the name actually changes.
@@ -40,7 +40,7 @@ test("an owner renames the household and the new name survives a reload", async 
 });
 
 test("a blank name is refused and the old name stays", async ({ page }) => {
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=settings");
   const field = page.getByRole("textbox", { name: "Name", exact: true });
   await field.fill("   ");
   await page.getByRole("button", { name: "Save name" }).click();

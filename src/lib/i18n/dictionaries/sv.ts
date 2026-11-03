@@ -466,6 +466,8 @@ export const sv = {
         confirming: "Tar bort…",
       },
     },
+    // UX-174: the page's three sections.
+    tabs: { members: "Medlemmar", notes: "Anteckningar", settings: "Inställningar" },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:
       "Om hushållet tas bort försvinner det, och allt i det, för alla medlemmar. Det går inte att ångra.",
@@ -2708,6 +2710,10 @@ export const sv = {
     },
     categories: {
       title: "Kategorier",
+      subtitle: "Så grupperas dina in- och utgifter.",
+      learnMore: "Läs mer",
+      learnMoreBody:
+        "Utgiftskategorier kan ha en månadsgräns, och outnyttjad budget kan rullas över till nästa månad. Sparkategorier kan ha ett mål. Inkomstkategorier grupperar det som kommer in.",
       addCategory: "Lägg till kategori",
       addDialogTitle: "Lägg till kategori",
       nameLabel: "Namn",
@@ -3008,6 +3014,9 @@ export const sv = {
     billsAndIncome: {
       title: "Räkningar & inkomster",
       subtitle: "Det du räknar med att betala eller få. Allt räknas in i Säkert att spendera.",
+      learnMore: "Läs mer",
+      learnMoreBody:
+        "Återkommande poster, som hyra eller lön, kommer tillbaka varje månad eller år. Enstaka räkningar och inkomster sker en gång, på ett datum du väljer. Allt du lägger till här räknas in i Säkert att spendera.",
       add: "Lägg till",
       addRepeating: "Återkommer varje månad eller år",
       addOneOffBill: "Engångsräkning",
@@ -3236,6 +3245,10 @@ export const sv = {
     },
     categories: {
       title: "Kategorier",
+      subtitle: "Så grupperas dina in- och utgifter.",
+      learnMore: "Läs mer",
+      learnMoreBody:
+        "Utgiftskategorier kan ha en månadsgräns, och outnyttjad budget kan rullas över till nästa månad. Sparkategorier kan ha ett mål. Inkomstkategorier grupperar det som kommer in.",
       addCategory: "Lägg till kategori",
       addDialogTitle: "Lägg till kategori",
       nameLabel: "Namn",
@@ -3480,6 +3493,9 @@ export const sv = {
     billsAndIncome: {
       title: "Räkningar & inkomster",
       subtitle: "Det du räknar med att betala eller få. Allt räknas in i Säkert att spendera.",
+      learnMore: "Läs mer",
+      learnMoreBody:
+        "Återkommande poster, som hyra eller lön, kommer tillbaka varje månad eller år. Enstaka räkningar och inkomster sker en gång, på ett datum du väljer. Allt du lägger till här räknas in i Säkert att spendera.",
       add: "Lägg till",
       addRepeating: "Återkommer varje månad eller år",
       addOneOffBill: "Engångsräkning",

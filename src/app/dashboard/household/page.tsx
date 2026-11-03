@@ -20,6 +20,8 @@ import { CurrencySetting } from "@/components/household/currency-setting";
 import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
 import { ShoppingExpenseSetting } from "@/components/household/shopping-expense-setting";
 import { calendarFeedPath } from "@/lib/calendar-feed";
+import { HouseholdTabs } from "@/components/household/household-tabs";
+import { householdHref } from "@/lib/household-url";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 
@@ -200,87 +202,100 @@ export default async function HouseholdPage() {
           <InviteButton dict={dict.household.invite} />
         </PrimaryAction>
       </div>
-      {/* Anchor for the danger zone's "has other members" link (UX-77). */}
-      <div id="household-members" className="scroll-mt-4">
-        <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
-      </div>
-      <PendingInvitesSection
-        householdId={household.id}
-        userId={userId}
-        isOwner={isOwner}
-        locale={locale}
-        dict={dict.household.pendingInvites}
-      />
-      <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
-      {/* Owner-only (see renameHouseholdAction). */}
-      {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}
-      {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
-          shopping behaviour every member already fully operates. */}
-      <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
-      {/* Owner-gated inside (see setInventorySyncModeAction); contributors
-          see the current value read-only. */}
-      <InventorySyncSetting
-        mode={household.inventorySyncMode}
-        isOwner={isOwner}
-        dict={dict.household.inventorySync}
-      />
-      {/* Not owner-gated (see setShoppingExpenseCategoryAction). */}
-      <ShoppingExpenseSetting
-        categoryId={household.shoppingExpenseCategoryId}
-        categories={expenseCategories}
-        dict={dict.household.shoppingExpense}
-      />
-      {/* Owner-gated inside (see setHouseholdCurrencyAction); contributors
-          see the current value read-only. */}
-      <CurrencySetting
-        currencyCode={household.currencyCode}
-        isOwner={isOwner}
-        locale={locale}
-        dict={dict.household.currency}
-      />
-      {/* Owner-gated inside (see setBudgetMonthStartDayAction). */}
-      <BudgetMonthSetting
-        id="household-budget-month-start"
-        startDay={household.budgetMonthStartDay}
-        canEdit={isOwner}
-        action={setBudgetMonthStartDayAction}
-        dict={dict.household.budgetMonth}
-      />
-      <CalendarFeedSetting
-        feedUrl={feedUrl}
-        isOwner={isOwner}
-        dict={dict.household.calendarFeed}
-      />
-      {isOwner && (
-        <div className="list-bleed flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
-          <div>
-            <h2 className="font-heading text-base font-semibold">{dict.household.dangerZoneTitle}</h2>
-            <p className="text-sm text-muted-foreground">{dict.household.dangerZoneDescription}</p>
+      <HouseholdTabs
+        dict={dict.household.tabs}
+        members={
+          <>
+          {/* Anchor for the danger zone's "has other members" link (UX-77). */}
+          <div id="household-members" className="scroll-mt-4">
+            <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
           </div>
-          {/* The server refuses to delete a user's only household (see
-              deleteHouseholdAction), so with one household we say so and
-              point at the way out instead of offering a button that opens a
-              refusal (UX-77, User control). The way out depends on who else
-              is in it: deleteAccountAction removes a household only for its
-              sole member, and blocks an owner whose household has other
-              members, so those get the member list instead. */}
-          {households.length <= 1 ? (
-            <p className="text-sm">
-              {memberCount <= 1 ? dict.household.delete.onlyHousehold : dict.household.delete.onlyHouseholdWithMembers}{" "}
-              <Link
-                href={memberCount <= 1 ? "/dashboard/profile?open=danger#profile-danger" : "#household-members"}
-                className="touch-target font-medium text-primary underline-offset-4 hover:underline"
-              >
-                {memberCount <= 1 ? dict.household.delete.onlyHouseholdLink : dict.household.delete.onlyHouseholdWithMembersLink}
-              </Link>
-            </p>
-          ) : (
-            <div>
-              <DeleteHouseholdDialog householdName={household.name} dict={dict.household.delete} />
+          <PendingInvitesSection
+            householdId={household.id}
+            userId={userId}
+            isOwner={isOwner}
+            locale={locale}
+            dict={dict.household.pendingInvites}
+          />
+          </>
+        }
+        notes={
+          <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
+        }
+        settings={
+          <>
+          {/* Owner-only (see renameHouseholdAction). */}
+          {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}
+          {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
+              shopping behaviour every member already fully operates. */}
+          <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
+          {/* Owner-gated inside (see setInventorySyncModeAction); contributors
+              see the current value read-only. */}
+          <InventorySyncSetting
+            mode={household.inventorySyncMode}
+            isOwner={isOwner}
+            dict={dict.household.inventorySync}
+          />
+          {/* Not owner-gated (see setShoppingExpenseCategoryAction). */}
+          <ShoppingExpenseSetting
+            categoryId={household.shoppingExpenseCategoryId}
+            categories={expenseCategories}
+            dict={dict.household.shoppingExpense}
+          />
+          {/* Owner-gated inside (see setHouseholdCurrencyAction); contributors
+              see the current value read-only. */}
+          <CurrencySetting
+            currencyCode={household.currencyCode}
+            isOwner={isOwner}
+            locale={locale}
+            dict={dict.household.currency}
+          />
+          {/* Owner-gated inside (see setBudgetMonthStartDayAction). */}
+          <BudgetMonthSetting
+            id="household-budget-month-start"
+            startDay={household.budgetMonthStartDay}
+            canEdit={isOwner}
+            action={setBudgetMonthStartDayAction}
+            dict={dict.household.budgetMonth}
+          />
+          <CalendarFeedSetting
+            feedUrl={feedUrl}
+            isOwner={isOwner}
+            dict={dict.household.calendarFeed}
+          />
+          {isOwner && (
+            <div className="list-bleed flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+              <div>
+                <h2 className="font-heading text-base font-semibold">{dict.household.dangerZoneTitle}</h2>
+                <p className="text-sm text-muted-foreground">{dict.household.dangerZoneDescription}</p>
+              </div>
+              {/* The server refuses to delete a user's only household (see
+                  deleteHouseholdAction), so with one household we say so and
+                  point at the way out instead of offering a button that opens a
+                  refusal (UX-77, User control). The way out depends on who else
+                  is in it: deleteAccountAction removes a household only for its
+                  sole member, and blocks an owner whose household has other
+                  members, so those get the member list instead. */}
+              {households.length <= 1 ? (
+                <p className="text-sm">
+                  {memberCount <= 1 ? dict.household.delete.onlyHousehold : dict.household.delete.onlyHouseholdWithMembers}{" "}
+                  <Link
+                    href={memberCount <= 1 ? "/dashboard/profile?open=danger#profile-danger" : `${householdHref("members")}#household-members`}
+                    className="touch-target font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    {memberCount <= 1 ? dict.household.delete.onlyHouseholdLink : dict.household.delete.onlyHouseholdWithMembersLink}
+                  </Link>
+                </p>
+              ) : (
+                <div>
+                  <DeleteHouseholdDialog householdName={household.name} dict={dict.household.delete} />
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
+          </>
+        }
+      />
     </div>
   );
 }
