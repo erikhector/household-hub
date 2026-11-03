@@ -164,15 +164,18 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       inventory, meal planning, tasks, the shared list link, household,
       auth and profile, the invite email, and checked the receipt and shelf
       scans and `parse-import-csv.ts` (codes their clients already
-      translate), all done. Still English: the string-literal `error:`
+      translate), all done, and the shared share-split parser
+      (`share-split-form.ts`). Still English: the string-literal `error:`
       values and Zod messages in the files on `PENDING` in
       `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19), plus `lib/recipe-import.ts` (MAINT-65 is splitting it),
-      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
-      feature at a time, add its keys to `dict.errors` (or a feature
-      namespace, as `template-actions.ts` does), and delete the file from
-      `PENDING`: the test fails if a clean file stays listed. Leave budget
-      until BUDGET-6 is decided.
+      19), plus `lib/recipe-import.ts` (MAINT-65 is splitting it) and the
+      Zod messages in `savings-goal-calc.ts` and `budget-category-limit.ts`,
+      which only the two budget action files use, so convert them with
+      those (`v()` keys plus `zodFail()`, otherwise the key itself would
+      show). Convert a feature at a time, add its keys to `dict.errors` (or
+      a feature namespace, as `template-actions.ts` does), and delete the
+      file from `PENDING`: the test fails if a clean file stays listed.
+      Leave budget until BUDGET-6 is decided.
 - [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
       the migration drift check, Node pinning and Dependabot are done
       (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
