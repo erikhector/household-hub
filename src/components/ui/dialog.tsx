@@ -64,6 +64,30 @@ const SNAP_POINTS: DrawerPrimitive.Root.SnapPoint[] = [HALF, FULL]
 // with a wobble doesn't.
 const EXPAND_SWIPE = 48
 
+type SwipeStart = {
+  x: number
+  y: number
+  /** Every element that can scroll between the touch and the sheet, with
+   * where it was scrolled to when the finger landed. */
+  scrollers: { el: Element; top: number; left: number }[]
+}
+
+// The elements from `target` up to `popup` (inclusive) that have something
+// to scroll on either axis: the sheet's body, a textarea, a chip row, a
+// nested list. Overflow that's clipped rather than scrollable never moves,
+// so including it is harmless and saves a getComputedStyle per level.
+function scrollersBetween(target: Node, popup: Element) {
+  const scrollers: SwipeStart["scrollers"] = []
+  let el: Element | null = target instanceof Element ? target : target.parentElement
+  while (el) {
+    if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
+      scrollers.push({ el, top: el.scrollTop, left: el.scrollLeft })
+    if (el === popup) break
+    el = el.parentElement
+  }
+  return scrollers
+}
+
 type SheetState = {
   /** Phone: the sheet can go full screen, and the grabber is a button. */
   phone: boolean
@@ -315,7 +339,6 @@ function DialogContent({
   const phone = useMediaQuery(PHONE_QUERY)
   const coarsePointer = useMediaQuery(COARSE_POINTER_QUERY)
   const popupRef = React.useRef<HTMLDivElement>(null)
-  const bodyRef = React.useRef<HTMLDivElement>(null)
   const { fullScreen, setFullScreen, half } = React.useContext(SheetContext)
 
   // The swipe up to full screen. Base UI only drags a sheet down (to snap or
@@ -332,24 +355,48 @@ function DialogContent({
   // step back), so on a full-screen sheet a slower drag down would just
   // spring back; one that scrolled nothing and travelled the same distance
   // steps it down to the normal sheet instead.
-  const swipeStart = React.useRef<{ y: number; scrollTop: number } | null>(null)
+  //
+  // Only touches that start in this sheet's own DOM count. React touch
+  // events bubble through portals, so without that check a Select's
+  // listbox, a nested sheet or a menu opened from here (all portalled out
+  // to <body>) would hand their scrolls to this handler too, and flicking
+  // through a Select list would take the sheet underneath full screen.
+  // And "scrolled nothing" means nothing between the finger and the sheet:
+  // a long textarea, a horizontal chip scroller or a nested list scrolls
+  // on its own, so every scroller from the touch target up to the body is
+  // recorded and the swipe counts only if none of them moved, which is
+  // also what "that scroller is already at its end" looks like. A mostly
+  // sideways drag is a chip scroll or a wobble, never a sheet swipe.
+  const swipeStart = React.useRef<SwipeStart | null>(null)
   const onTouchStart = (event: React.TouchEvent) => {
-    if (!phone || half || event.touches.length !== 1) {
+    const popup = popupRef.current
+    const target = event.target as Node
+    if (!phone || half || event.touches.length !== 1 || !popup || !popup.contains(target)) {
       swipeStart.current = null
       return
     }
-    swipeStart.current = { y: event.touches[0].clientY, scrollTop: bodyRef.current?.scrollTop ?? 0 }
+    swipeStart.current = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY,
+      scrollers: scrollersBetween(target, popup),
+    }
   }
   const onTouchEnd = (event: React.TouchEvent) => {
     const start = swipeStart.current
     swipeStart.current = null
-    if (!start) return
+    if (!start || !popupRef.current?.contains(event.target as Node)) return
     const travelled = start.y - event.changedTouches[0].clientY
-    const scrolled = Math.abs((bodyRef.current?.scrollTop ?? 0) - start.scrollTop) > 1
+    const sideways = Math.abs(start.x - event.changedTouches[0].clientX)
+    if (sideways > Math.abs(travelled)) return
+    const scrolled = start.scrollers.some(
+      ({ el, top, left }) => Math.abs(el.scrollTop - top) > 1 || Math.abs(el.scrollLeft - left) > 1
+    )
     if (scrolled) return
     if (!fullScreen && travelled >= EXPAND_SWIPE) setFullScreen(true)
-    // Only from the body's top: further down, a drag down is a scroll up.
-    else if (fullScreen && -travelled >= EXPAND_SWIPE && start.scrollTop <= 0) setFullScreen(false)
+    // Only with every scroller under the finger at its top: further down,
+    // a drag down is a scroll up.
+    else if (fullScreen && -travelled >= EXPAND_SWIPE && start.scrollers.every(({ top }) => top <= 0))
+      setFullScreen(false)
   }
 
   return (
@@ -413,10 +460,10 @@ function DialogContent({
             // corners and clears the status bar itself, since it now covers
             // the header that did. min-height rather than height so the
             // change animates from the content's height (min-h-0 → full)
-            // instead of jumping, over 300ms rather than the 150ms open:
-            // the sheet travels most of the screen, and faster reads as a
-            // jump.
-            "min-h-0 max-sm:data-full-screen:min-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:max-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:rounded-none max-sm:data-full-screen:pt-[env(safe-area-inset-top)] max-sm:data-full-screen:duration-300",
+            // instead of jumping, over the slow motion token (320ms, a
+            // morph) rather than the 150ms open: the sheet travels most of
+            // the screen, and faster reads as a jump.
+            "min-h-0 max-sm:data-full-screen:min-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:max-h-[calc(100dvh-var(--kb-inset,0px))] max-sm:data-full-screen:rounded-none max-sm:data-full-screen:pt-[env(safe-area-inset-top)] max-sm:data-full-screen:duration-(--motion-duration-slow)",
             // sm:inset-x-auto must precede sm:left-1/2: both are in tailwind-merge's
             // "left" conflict group, and it keeps only the later class — reversing
             // this order silently drops sm:left-1/2, leaving the dialog at left:0
@@ -440,7 +487,6 @@ function DialogContent({
               past the screen once no inner scroller was there to clip it.
               pt-1: the grabber row above makes up the rest of the old pt-5. */}
           <DrawerPrimitive.Content
-            ref={bodyRef}
             data-slot="dialog-body"
             className="relative grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto overscroll-contain p-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-4"
           >

@@ -79,3 +79,41 @@ test("a swipe up goes full screen, a swipe down steps back, then closes", async 
   await swipe(page, heading, page.viewportSize()!.height - top - 20);
   await expect(dialog).toBeHidden();
 });
+
+// A scroller inside the sheet keeps its own swipes: flicking through a long
+// textarea scrolls the text and leaves the sheet's size alone, both ways.
+// The same swipe on the sheet's heading (which scrolls nothing) still takes
+// it full screen.
+test("scrolling a textarea inside the sheet doesn't resize it", async ({ page }) => {
+  await page.goto("/dashboard/inventory");
+  // On a phone the header keeps one Add item; the rest live in its menu.
+  const more = page.getByRole("main").getByRole("button", { name: "More inventory actions", exact: true });
+  await expectHydrated(more);
+  await expectRouterPatched(page);
+  await more.click();
+  await page.getByRole("menuitem", { name: "Paste a list" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add items in bulk" });
+  const textarea = dialog.getByRole("textbox").first();
+  await textarea.fill(Array.from({ length: 40 }, (_, i) => `Item ${i + 1}`).join("\n"));
+  // Blur and rewind it, so the swipe up has text below to scroll to.
+  await textarea.evaluate((el: HTMLTextAreaElement) => {
+    el.blur();
+    el.scrollTop = 0;
+  });
+  await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+
+  await swipe(page, textarea, -150);
+  await expect.poll(() => textarea.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  await expect(dialog).not.toHaveAttribute("data-full-screen");
+
+  // The heading scrolls nothing, so the same swipe there still expands it.
+  await swipe(page, dialog.getByRole("heading").first(), -150);
+  await expect(dialog).toHaveAttribute("data-full-screen", "");
+
+  // Full screen, a swipe down in the scrolled textarea scrolls it back up
+  // and leaves the sheet full screen.
+  const scrolledTo = await textarea.evaluate((el) => el.scrollTop);
+  await swipe(page, textarea, 100);
+  await expect.poll(() => textarea.evaluate((el) => el.scrollTop)).toBeLessThan(scrolledTo);
+  await expect(dialog).toHaveAttribute("data-full-screen", "");
+});

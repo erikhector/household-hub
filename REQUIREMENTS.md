@@ -8218,6 +8218,10 @@ components directly.
     48 px that scrolled nothing goes full screen. A sheet whose body
     scrolls keeps scrolling under a swipe up, and goes full screen once
     it's at the end of the body or from the grabber, which never scrolls.
+    The same goes for any scroller under the finger (a long textarea, a
+    chip row): only a swipe that moved none of them counts, a mostly
+    sideways drag never does, and touches from anything portalled out of
+    the sheet (a Select's list, a nested sheet) are ignored.
     From full screen, a swipe down from the top of the body steps back to
     the normal sheet. A flick or long drag that Base UI would dismiss on is
     cancelled in `Dialog`'s `onOpenChange` (reason `swipe`) and steps back
