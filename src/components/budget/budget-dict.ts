@@ -146,6 +146,8 @@ export type BudgetDict = {
   billsAndIncome: {
     title: string;
     subtitle: string;
+    learnMore: string;
+    learnMoreBody: string;
     add: string;
     addRepeating: string;
     addOneOffBill: string;

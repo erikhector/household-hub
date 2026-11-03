@@ -505,6 +505,8 @@ export const en = {
         confirming: "Deleting…",
       },
     },
+    // UX-174: the page's three sections.
+    tabs: { members: "Members", notes: "Notes", settings: "Settings" },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:
       "Deleting this household removes it, and everything in it, for every member. There's no undo.",
@@ -2845,6 +2847,10 @@ export const en = {
     },
     categories: {
       title: "Categories",
+      subtitle: "How your money in and out is grouped.",
+      learnMore: "Learn more",
+      learnMoreBody:
+        "Expense categories can have a monthly limit, and unspent budget can roll over to the next month. Savings categories can have a goal. Income categories group what comes in.",
       addCategory: "Add category",
       addDialogTitle: "Add category",
       nameLabel: "Name",
@@ -3166,6 +3172,9 @@ export const en = {
     billsAndIncome: {
       title: "Bills & income",
       subtitle: "What you expect to pay or get. It all counts in Safe to spend.",
+      learnMore: "Learn more",
+      learnMoreBody:
+        "Repeating items, like the rent or a salary, come back every month or year. One-off bills and income happen once, on a date you pick. Everything you add here counts in Safe to spend.",
       add: "Add",
       addRepeating: "Repeats every month or year",
       addOneOffBill: "One-off bill",
@@ -3404,6 +3413,10 @@ export const en = {
     },
     categories: {
       title: "Categories",
+      subtitle: "How your money in and out is grouped.",
+      learnMore: "Learn more",
+      learnMoreBody:
+        "Expense categories can have a monthly limit, and unspent budget can roll over to the next month. Savings categories can have a goal. Income categories group what comes in.",
       addCategory: "Add category",
       addDialogTitle: "Add category",
       nameLabel: "Name",
@@ -3668,6 +3681,9 @@ export const en = {
     billsAndIncome: {
       title: "Bills & income",
       subtitle: "What you expect to pay or get. It all counts in Safe to spend.",
+      learnMore: "Learn more",
+      learnMoreBody:
+        "Repeating items, like the rent or a salary, come back every month or year. One-off bills and income happen once, on a date you pick. Everything you add here counts in Safe to spend.",
       add: "Add",
       addRepeating: "Repeats every month or year",
       addOneOffBill: "One-off bill",

@@ -3831,6 +3831,9 @@ Insights, three Add panels on Manage). No data model changed.
   item: a status chip, Log payment or Log income while unpaid, and the same
   ⋯ menu (Edit, then Delete apart). Then Categories, and on Personal Budget
   the budget month setting.
+  Each Setup card says what it is in one line and keeps the longer
+  explanation behind a native-`<details>` "Learn more" disclosure
+  (`LearnMore`, UX-174), so the tab opens on the data, not on paragraphs.
   With no category at all, Add is disabled and the card says so in place of
   its empty text: "Add a category under Categories below first, then you can
   add bills and income here." (`billsAndIncome.needsCategory`). Without an
@@ -8553,6 +8556,17 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   to it as "What's new · vX.Y.Z", so a visitor sees which version they're
   looking at and that the app is being worked on. Covered by
   `e2e/whats-new-public.spec.ts`.
+
+**Household tabs (UX-174)**: `/dashboard/household` was ~3 000 CSS px of
+stacked cards on a phone, so it is three tabs (`HouseholdTabs`, the shared
+pill `Tabs`): **Members** (the landing tab: member list and pending
+invites), **Notes** (the shared board) and **Settings** (rename, shopping,
+inventory sync, currency, budget month, calendar feed and the danger
+zone). The open tab is `?tab=members|notes|settings` (`parseHouseholdTab`,
+`src/lib/household-url.ts`), unknown values land on Members, and the
+panels stay mounted (`hidden`) so a half-typed note survives a look at
+Settings. The danger zone's "Go to the members" link opens Members. Covered
+by `e2e/ux-174.spec.ts`.
 
 **Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
 `h2` region, instead of eleven loose cards: **Account** (display name,

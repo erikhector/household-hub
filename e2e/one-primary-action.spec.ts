@@ -37,9 +37,10 @@ test("profile save buttons are quiet until their form has changes", async ({ pag
 });
 
 test("household page: Invite member is the one primary action", async ({ page }) => {
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=notes");
   await expect(page.getByRole("button", { name: "Invite member" })).toHaveClass(PRIMARY);
   await expect(page.getByRole("button", { name: "Add note" })).toHaveClass(SECONDARY);
+  await page.goto("/dashboard/household?tab=settings");
   const turnOn = page.getByRole("button", { name: "Turn on calendar feed" });
   // Only the owner sees it; the seeded user may be either.
   if (await turnOn.count()) await expect(turnOn).toHaveClass(SECONDARY);

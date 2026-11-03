@@ -65,7 +65,7 @@ test.afterEach(async () => {
 test("a completed shopping list logs its total to the category picked on the Household page", async ({ page }) => {
   const { category, listId } = await seedCategoryAndTrip();
 
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=settings");
   const select = page.getByRole("combobox", { name: "Log shopping to" });
   await select.click();
   await page.getByRole("option", { name: category.name }).click();

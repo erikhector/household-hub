@@ -28,6 +28,7 @@
 
 import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
+import { LearnMore } from "@/components/budget/learn-more";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -125,6 +126,7 @@ export function BillsAndIncomePanel({
             {t.title}
           </h2>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+          <LearnMore label={t.learnMore}>{t.learnMoreBody}</LearnMore>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger

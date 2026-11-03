@@ -35,7 +35,7 @@ test("a month starting on the 25th counts an early payment in the month it is du
   });
 
   // --- The owner sets the start day on the Household page -------------------
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=settings");
   const startDay = page.getByRole("combobox", { name: "Budget month starts on day" });
   await expect(startDay).toBeVisible();
   await startDay.click();

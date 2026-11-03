@@ -10,7 +10,7 @@ const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 test("export my data includes a note I wrote and isn't cached", async ({ page }) => {
   const note = unique("Plumber comes Thursday");
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=notes");
   await page.getByRole("textbox", { name: "New note" }).fill(note);
   await page.getByRole("button", { name: "Add note" }).click();
   await expect(page.getByText(note)).toBeVisible();
