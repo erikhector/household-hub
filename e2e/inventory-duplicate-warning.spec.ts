@@ -24,6 +24,9 @@ test("the add dialog warns about a duplicate and adds to the existing item", asy
   await dialog.getByLabel("Name").fill(`${id} Wobblebananer`);
   const warning = dialog.getByRole("status").filter({ hasText: "already in your pantry" });
   await expect(warning).toContainText(`${base} is already in your pantry (500 pcs).`);
+  // UX-162: the box is tinted from the `warning` token, not a raw amber
+  // utility, so it carries the theme's light/dark pair.
+  await expect(warning).toHaveClass(/bg-warning\/10/);
 
   // An unrelated name clears it.
   await dialog.getByLabel("Name").fill(`${id} zzunrelated`);

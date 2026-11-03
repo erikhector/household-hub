@@ -256,7 +256,7 @@ export function ItemFormDialog({
               onChange={(e) => setName(e.target.value)}
             />
             {duplicate && (
-              <div role="status" className="flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+              <div role="status" className="flex flex-col gap-2 rounded-md border border-warning/50 bg-warning/10 p-3 text-sm">
                 <p>
                   {format(dict.duplicateWarning, {
                     name: duplicate.name,

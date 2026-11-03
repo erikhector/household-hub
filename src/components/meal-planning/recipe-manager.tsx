@@ -672,7 +672,7 @@ function RecipeRow({
         size="icon-sm"
         className={cn(
           "shrink-0",
-          optimisticFavorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground",
+          optimisticFavorite ? "text-attention hover:text-attention" : "text-muted-foreground",
         )}
         disabled={isFavoritePending}
         aria-pressed={optimisticFavorite}

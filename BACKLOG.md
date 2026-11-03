@@ -365,17 +365,6 @@ left out.
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
 
-- [ ] **UX-162. Raw amber utilities where the `warning` token belongs**
-      (impact: low, effort: S) — breaks Colour ("status is text on a tint
-      of itself … `warning`") and the checklist's "tokens only".
-      `calendar-feed-setting.tsx:62-63` (`bg-amber-500/10`,
-      `text-amber-600 dark:text-amber-400`), `item-catalog.tsx:178`,
-      `add-item-dialog.tsx:259`, `recipe-manager.tsx:495` (favourite star);
-      `amber-600` on its tint over card is 2.91:1 in light.
-      Acceptance: no `amber-` class in `src/components`; the four sites use
-      `bg-warning/10 text-warning` (`attention` for the star if orange is
-      wanted); a grep test or lint rule keeps them out.
-
 - [ ] **UX-174. Progressive explanations on budget Manage and Household
       settings** (impact: low, effort: M) — breaks Help ("explain
       progressively") and M6. Budget Manage opens three cards each with a
