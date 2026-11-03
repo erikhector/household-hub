@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.139.0",
+    "date": "2026-11-03",
+    "pr": 1099,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Custom meals can now list their ingredients, one per line. Whatever you are missing is offered when you add the week's missing items to your shopping list.\n\nWhen you add a transaction you can now switch on \"Repeats\". Squirrel also adds it as a monthly item under Repeating and marks this month as logged.\n\nNew \"Check stock\" on Inventory: pick a place, such as the pantry, and go through its items one by one, confirming or correcting each amount so your list matches the shelf.",
+      "sv": "Egna måltider kan nu ha en ingredienslista, en per rad. Det du saknar föreslås när du lägger till veckans saknade varor på inköpslistan.\n\nNär du lägger till en transaktion kan du nu slå på \"Upprepas\". Squirrel lägger då även till den som en månadspost under Återkommande och markerar den här månaden som loggad.\n\nNytt \"Kontrollera lager\" i Lager: välj en plats, till exempel skafferiet, och gå igenom varorna en i taget. Bekräfta eller rätta varje mängd så att listan stämmer med hyllan."
+    }
+  },
+  {
     "version": "0.138.1",
     "date": "2026-11-03",
     "pr": 1093,
