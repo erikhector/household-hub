@@ -19,15 +19,16 @@ import {
   loadBulkPasteDialog,
   loadBulkScanDialog,
   loadItemFormDialog,
+  loadStockCheckDialog,
   loadStockScanDialog,
 } from "@/components/inventory/lazy-dialogs";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format, plural } from "@/lib/i18n/format";
-import { Download, Ellipsis, ListChecks, ScanBarcode, ScanLine, ClipboardList, Sparkles, Plus } from "lucide-react";
+import { ClipboardCheck, Download, Ellipsis, ListChecks, ScanBarcode, ScanLine, ClipboardList, Sparkles, Plus } from "lucide-react";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 
-type InventoryHeaderItem = { id: string; name: string; quantity: number; unit: string };
+type InventoryHeaderItem = { id: string; name: string; quantity: number; unit: string; location: string | null };
 
 export function InventoryHeaderActionsClient({
   items,
@@ -67,9 +68,12 @@ export function InventoryHeaderActionsClient({
   const [bulkHandle] = useState(() => createDialogHandle());
   const [aiHandle] = useState(() => createDialogHandle());
   const [addHandle] = useState(() => createDialogHandle());
+  const [checkHandle] = useState(() => createDialogHandle());
   // UX-126: what the Add dialog checks a typed name against.
   const existingItems = items.map((it) => ({ id: it.id, name: it.name, quantity: it.quantity, unit: it.unit }));
   const stockItems = items.map((it: InventoryHeaderItem) => ({ id: it.id, name: it.name }));
+  // GAP-69: what the stock-check walk needs from each item.
+  const checkItems = items.map((it) => ({ id: it.id, name: it.name, quantity: it.quantity, unit: it.unit, location: it.location }));
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -94,6 +98,9 @@ export function InventoryHeaderActionsClient({
             handle={aiHandle}
           />
         )}
+      </LazyDialog>
+      <LazyDialog loader={loadStockCheckDialog} handle={checkHandle}>
+        {(StockCheck) => <StockCheck dict={dict} items={checkItems} locations={locations} handle={checkHandle} />}
       </LazyDialog>
       <LazyDialog loader={loadItemFormDialog} handle={addHandle}>
         {(ItemForm) => (
@@ -129,6 +136,12 @@ export function InventoryHeaderActionsClient({
           <Sparkles className="size-4" />
           <span className="sr-only sm:not-sr-only">{dict.aiShelfScan.triggerLabel}</span>
         </Button>
+        {items.length > 0 && (
+          <Button variant="outline" className="gap-1.5" aria-haspopup="dialog" onClick={() => openLazyDialog(checkHandle)} {...preloadOnIntent(loadStockCheckDialog)}>
+            <ClipboardCheck className="size-4" />
+            <span className="sr-only sm:not-sr-only">{dict.stockCheck.triggerLabel}</span>
+          </Button>
+        )}
         {/* UX-50: with no items the empty state holds "Add item" (one primary
             on screen), so it only joins the header once there is a list. */}
         {items.length > 0 && (
@@ -171,6 +184,11 @@ export function InventoryHeaderActionsClient({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>{dict.moreGroupManage}</DropdownMenuLabel>
+              {items.length > 0 && (
+                <DropdownMenuItem onClick={() => openLazyDialog(checkHandle)}>
+                  <ClipboardCheck className="size-4" /> {dict.stockCheck.triggerLabel}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => openLazyDialog(pasteHandle)}>
                 <ClipboardList className="size-4" /> {dict.pasteList.triggerLabel}
               </DropdownMenuItem>

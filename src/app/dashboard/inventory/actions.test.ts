@@ -1142,6 +1142,18 @@ describe("bulkSetInventoryQuantitiesAction (PERF-15)", () => {
     expect(sqlArgs).toContainEqual(["mine"]);
   });
 
+  it("sets one counted amount (GAP-69 stock check) for the session household, as a value not a delta", async () => {
+    findManyMock.mockResolvedValue([row("flour", 2)]);
+
+    const result = await bulkSetInventoryQuantitiesAction([{ itemId: "flour", quantity: 0.5 }]);
+
+    expect(result.updated).toBe(1);
+    expect(findManyMock).toHaveBeenCalledWith({ where: { householdId: "household-1", id: { in: ["flour"] } } });
+    const sqlArgs = executeRawMock.mock.calls[0].slice(1);
+    expect(sqlArgs).toContainEqual([0.5]);
+    expect(sqlArgs).toContain("household-1");
+  });
+
   it("creates one out-of-stock alert for each item that hit zero and none for the rest", async () => {
     findManyMock.mockResolvedValue([row("a", 2), row("b", 2), row("c", 0)]);
     notificationFindManyMock.mockResolvedValue([{ inventoryItemId: "b" }]);
