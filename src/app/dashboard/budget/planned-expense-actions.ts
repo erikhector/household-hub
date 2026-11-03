@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { fail, toFriendlyError, v, zodFail, type ErrorKey } from "@/lib/actions/errors";
+import { errorText, fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 import { parseDueDate } from "@/lib/planned-expense-calc";
 
@@ -31,18 +31,6 @@ function revalidateBudgetPages() {
   revalidatePath("/dashboard/personal-budget");
   revalidatePath("/dashboard");
 }
-
-// parseShareSplitFormData is shared with the not-yet-converted actions.ts and
-// returns English text, so this file maps each message it can return to an
-// `errors` key here rather than changing what actions.ts answers with. An
-// unknown message falls back to "invalidInput" instead of leaking English.
-const BILL_SPLIT_SUM_MISMATCH = "The split amounts must add up to the bill's amount";
-const SPLIT_ERROR_KEYS: Record<string, ErrorKey> = {
-  "Invalid split": "splitInvalid",
-  "Each split amount must be zero or more": "splitAmountNegative",
-  "One of the selected members no longer belongs to this household": "splitMemberGone",
-  [BILL_SPLIT_SUM_MISMATCH]: "billSplitSumMismatch",
-};
 
 // The household's own expense or income category, or null. A share of
 // expected income would have to be added to each member's personal budget
@@ -84,9 +72,9 @@ export async function createPlannedExpenseAction(
     formData,
     household.id,
     parsed.data.amount,
-    BILL_SPLIT_SUM_MISMATCH,
+    await errorText("billSplitSumMismatch"),
   );
-  if (split && "error" in split) return fail(SPLIT_ERROR_KEYS[split.error] ?? "invalidInput");
+  if (split && "error" in split) return split;
   if (split && category.type === "INCOME") return fail("plannedIncomeNoSplit");
 
   try {
@@ -152,9 +140,9 @@ export async function updatePlannedExpenseAction(
     formData,
     household.id,
     parsed.data.amount,
-    BILL_SPLIT_SUM_MISMATCH,
+    await errorText("billSplitSumMismatch"),
   );
-  if (split && "error" in split) return fail(SPLIT_ERROR_KEYS[split.error] ?? "invalidInput");
+  if (split && "error" in split) return split;
   if (split && category.type === "INCOME") return fail("plannedIncomeNoSplit");
 
   // Splits are replaced wholesale (delete-all then recreate) rather than

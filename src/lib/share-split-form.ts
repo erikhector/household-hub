@@ -1,3 +1,4 @@
+import { fail } from "@/lib/actions/errors";
 import { prisma } from "@/lib/prisma";
 
 // Amounts within this tolerance of the total are accepted — guards against
@@ -18,6 +19,8 @@ export const SPLIT_SUM_TOLERANCE = 0.01;
  * unaffected — no retroactive backfill for existing templates either way.
  * `sumMismatchError` is the message shown when the shares don't add up, so
  * each caller can name its own thing ("template's amount", "bill's amount").
+ * The other messages are translated here (MAINT-7); a caller passing a
+ * translated `sumMismatchError` gets a fully translated `{ error }` back.
  */
 export async function parseShareSplitFormData(
   formData: FormData,
@@ -30,10 +33,10 @@ export async function parseShareSplitFormData(
   const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
   const amounts = formData.getAll("splitAmount").map((v) => Number(v));
   if (memberIds.length === 0 || memberIds.length !== amounts.length) {
-    return { error: "Invalid split" };
+    return fail("splitInvalid");
   }
   if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
-    return { error: "Each split amount must be zero or more" };
+    return fail("splitAmountNegative");
   }
 
   const validMembers = await prisma.householdMember.findMany({
@@ -41,7 +44,7 @@ export async function parseShareSplitFormData(
     select: { id: true },
   });
   if (validMembers.length !== new Set(memberIds).size) {
-    return { error: "One of the selected members no longer belongs to this household" };
+    return fail("splitMemberGone");
   }
 
   const splitTotal = amounts.reduce((sum, a) => sum + a, 0);
