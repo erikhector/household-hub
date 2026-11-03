@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.140.0",
+    "date": "2026-11-03",
+    "pr": 1106,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The Household page is now split into Members, Notes and Settings tabs, so you no longer scroll through every setting to find what you need. Budget Setup cards are shorter, with the longer explanations behind \"Learn more\".",
+      "sv": "Hushållssidan är nu uppdelad i flikarna Medlemmar, Anteckningar och Inställningar, så du slipper scrolla förbi alla inställningar. Korten under Upplägg i budgeten är kortare, med de längre förklaringarna bakom \"Läs mer\"."
+    }
+  },
+  {
     "version": "0.139.1",
     "date": "2026-11-03",
     "pr": 1103,
