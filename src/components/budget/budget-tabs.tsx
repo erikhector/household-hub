@@ -87,12 +87,13 @@ import type {
 } from "@/lib/safe-to-spend-calc";
 import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import type { ActionState } from "@/lib/actions/auth";
+import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/budget/actions";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { BudgetStartDayProvider } from "@/components/budget/budget-period-context";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { parseBudgetTab, type BudgetTab } from "@/lib/budget-url";
-import { LazyTransactionDialog, LazyLogSharedExpenseDialog } from "@/components/budget/lazy-budget-dialogs";
+import { LazyTransactionDialog } from "@/components/budget/lazy-budget-dialogs";
 
 export type { BudgetTab };
 type Tab = BudgetTab;
@@ -234,12 +235,12 @@ export function BudgetTabs({
    * Always `false` on the household budget page. */
   showHouseholdName?: boolean;
   /** Households the user can log a shared expense into (more than one
-   * member each) — gates both the standalone "Log a shared expense" trigger
-   * next to the tab bar and each due row's "Log payment" button. Always `[]`
+   * member each) — gates both the Add transaction sheet's "Split with
+   * household" switch (UX-178) and each due row's "Log payment" button. Always `[]`
    * on the household budget page. See LogSharedExpenseDialog. */
   sharedExpenseHouseholds?: ShareableHousehold[];
-  /** The full personal-budget dictionary, needed only to satisfy
-   * LogSharedExpenseDialog's own (wider) dict type — see DueRecurringWidget's
+  /** The full personal-budget dictionary, needed for the split switch's
+   * strings and to satisfy LogSharedExpenseDialog's own (wider) dict type — see DueRecurringWidget's
    * identical prop. Only ever read when sharedExpenseHouseholds is
    * non-empty, which never happens on the household budget page. */
   logSharedDialogDict?: Dictionary["personalBudget"];
@@ -291,6 +292,8 @@ export function BudgetTabs({
     return `${basePath}?${params.toString()}`;
   };
   const hasCategories = categories.length > 0;
+  // UX-178: Personal Budget only (the household page passes no households).
+  const canLogShared = sharedExpenseHouseholds.length > 0 && !!logSharedDialogDict;
 
   // UX-15: the split warnings in the two dialogs below.
   const numberFormat = createMoneyFormat(locale, currencyCode);
@@ -327,32 +330,17 @@ export function BudgetTabs({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Tabs tabs={tabItems} value={tab} onChange={setTab} />
           <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
-            {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (() => {
-              const dialog = (
-                <LazyLogSharedExpenseDialog
-                  numberFormat={numberFormat}
-                  dict={logSharedDialogDict}
-                  households={sharedExpenseHouseholds}
-                  monthKey={monthKey}
-                  trigger={
-                    <Button variant="outline">
-                      {logSharedDialogDict.logShared.button}
-                    </Button>
-                  }
-                />
-              );
-              // UX-153: always the quiet action. With no category yet the
-              // starter-set card's solid button is the page's one primary
-              // (DESIGN.md Hierarchy), so this neither floats nor fills; once
-              // Add transaction exists it is the primary and this stays second.
-              return dialog;
-            })()}
             {/* UX-23: with no category yet there is nothing to log against, and
                 a disabled primary read as broken. The onboarding card on
                 Overview is the next step, so the button appears once it is
                 possible. */}
-            {hasCategories && (
-              <PrimaryAction>
+            {/* UX-178: "Split with household" lives in this sheet now, so on
+                Personal Budget a member with no category of their own still
+                has an Add transaction (it can only add a shared expense).
+                That one is the quiet action: the starter-set card's button
+                is the page's primary (UX-153). */}
+            {(hasCategories || canLogShared) && (() => {
+              const addDialog = (
                 <LazyTransactionDialog
                   numberFormat={numberFormat}
                   dict={dict}
@@ -368,10 +356,20 @@ export function BudgetTabs({
                   // old ?category= left in the URL elsewhere shouldn't
                   // steer Add.
                   filterCategoryId={tab === "transactions" ? searchParams.get("category") : null}
-                  trigger={<Button>{dict.addTransaction}</Button>}
+                  sharedSplit={
+                    canLogShared && logSharedDialogDict
+                      ? {
+                          households: sharedExpenseHouseholds,
+                          dict: logSharedDialogDict,
+                          action: createSharedExpenseFromPersonalBudgetAction,
+                        }
+                      : undefined
+                  }
+                  trigger={<Button variant={hasCategories ? "default" : "outline"}>{dict.addTransaction}</Button>}
                 />
-              </PrimaryAction>
-            )}
+              );
+              return hasCategories ? <PrimaryAction>{addDialog}</PrimaryAction> : addDialog;
+            })()}
           </fieldset>
         </div>
       </div>

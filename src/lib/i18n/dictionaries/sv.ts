@@ -3387,7 +3387,10 @@ export const sv = {
     logShared: {
       logPayment: "Logga betalning",
       paymentDialogTitle: "Logga betalning för {name}",
-      button: "Lägg till delad utgift",
+      splitToggle: "Dela med hushållet",
+      splitSummary: "Betalt av dig, delas med {members}.",
+      splitShare: "Andel för {name}: {amount}",
+      splitChange: "Ändra",
       dialogTitle: "Lägg till delad utgift",
       subtitle:
         "Det här skapar en riktig transaktion i hushållets budget, delad som du väljer nedan — det är inte en separat personlig post.",

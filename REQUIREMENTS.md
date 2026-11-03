@@ -3921,12 +3921,32 @@ whole bill; on the personal page's past months the row is labelled "Your
 share in {month}" rather than "this month") and the same "Your household balance" lines Safe to spend uses
 (`HouseholdDebtsList`, extracted from `SafeToSpend` so the two can't drift),
 with a link to the Transactions tab. Once they have categories the card goes
-and Safe to spend carries the balance as before. The shared-expense action is
-named "Add shared expense" (en) / "Lägg till delad utgift" (sv), parallel to
-the household page's "Add transaction". It is always the outline, inline
-action (UX-153, it doesn't float): with no categories the starter-set card's
-button is the one solid primary, and once Add transaction exists that is. Tested in
+and Safe to spend carries the balance as before. There is no separate
+shared-expense button (UX-178): Add transaction carries a "Split with
+household" switch, see "Split with household from Add transaction". With no
+personal categories Add transaction is the outline, inline action (UX-153, it
+doesn't float, and its split switch is on and fixed, since a shared expense is
+all it can add): the starter-set card's button is the one solid primary, and
+once there are categories Add transaction is. Tested in
 `e2e/ux-112.spec.ts` and `shared-costs-summary.test.ts`.
+
+**Split with household from Add transaction (UX-178).** On Personal Budget
+the Add transaction sheet has a "Split with household" switch (shown when the
+user belongs to a household with more than one member; new transactions
+only). On, the sheet logs a household expense instead of a personal one: the
+category chips become that household's, a household select appears when the
+user is in several, and a summary reads "Paid by you, shared with {members}."
+with "{name}'s share {amount}" per other member (an even split of the amount)
+and a Change button that opens the same `SplitEditor` grid for uneven shares
+or partial payments. Save posts through
+`createSharedExpenseFromPersonalBudgetAction`, the write
+`LogSharedExpenseDialog` always used, so it is a real household Transaction
+with splits, listed on the household budget and counted in the other
+members' debt. State lives in `useSharedSplit`
+(`src/components/budget/shared-split-section.tsx`). The old "Add shared
+expense" button next to the tabs is gone; `LogSharedExpenseDialog` remains
+only for "Log payment" on a shared bill's due row. Tested in
+`e2e/ux-178.spec.ts`.
 
 **Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
 optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
@@ -8160,9 +8180,9 @@ components directly.
   Each possible-duplicates group's "Merge" is `secondary`.
   UX-153: the Tasks "Everyone / Mine" switch is a `Tabs` track; the household
   budget setup card's "Add income" is `secondary`; the personal budget's
-  "Add shared expense" is always `outline` and inline (it doesn't float), so
-  the starter-set card's "Add N categories" is the one solid button while
-  there are no categories. `e2e/one-primary-action.spec.ts` counts the
+  "Add transaction" is `outline` and inline (it doesn't float) while there
+  are no personal categories (UX-178), so the starter-set card's "Add N
+  categories" is the one solid button then. `e2e/one-primary-action.spec.ts` counts the
   `bg-primary` buttons on Tasks and both budget pages.
 - **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
   (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
