@@ -12,7 +12,7 @@ export const RECIPE_NOTES_MAX = 2000;
  * server, so the SSRF host rules of the URL import don't apply here. A
  * `javascript:` or `data:` address must never reach an `href`, which is why
  * this is checked on the way in (every write) and again on the way out
- * (`safeSourceUrl` in the sheet) for rows saved before a rule changed.
+ * (`normalizeSourceUrl` in the sheet) for rows saved before a rule changed.
  */
 export function normalizeSourceUrl(raw: unknown): string | null {
   if (typeof raw !== "string") return null;

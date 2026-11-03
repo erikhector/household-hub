@@ -7017,7 +7017,10 @@ tweaks, apart from the method (which Cook mode reads out as steps).
   opens in a new tab. The address is re-checked with `normalizeSourceUrl`
   before it reaches the `href`.
 - **Copy as text** appends the notes and the source address after the steps.
-  **Cook mode** shows the notes once, under the first step.
+  **Cook mode** shows the notes once, under the first step. Cook mode only
+  opens for a recipe that has instructions (`canCook` in `recipe-manager.tsx`),
+  so a recipe with notes but no steps never reaches it and the notes stay on
+  the recipe sheet. That is intended.
 - **Tests**: `recipe-source.test.ts`, `recipe-actions.test.ts` (household
   scoping, `javascript:` refused, URL import returns the source),
   `parse-file.test.ts` (Paprika and JSON-LD), `recipe-text.test.ts`,
