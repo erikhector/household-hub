@@ -27,6 +27,17 @@ test("a fixed strip in the header's colour sits on the top edge", async ({ page 
     .evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(style.background).toBe(headerBackground);
 
+  // WebKit finds the edge's element by hit testing, the way
+  // elementFromPoint does: the first version of the strip had
+  // pointer-events: none, the hit test went straight through it, and iOS
+  // kept blurring the top edge.
+  const atTopEdge = await page.evaluate(
+    () => document.elementFromPoint(innerWidth / 2, 0)?.getAttribute("data-slot") ?? null,
+  );
+  expect(atTopEdge).toBe("status-bar-backdrop");
+  // The header is a second, full-height sticky signal at the same edge.
+  expect(await page.locator("header").first().evaluate((el) => getComputedStyle(el).position)).toBe("sticky");
+
   const box = (await strip.boundingBox())!;
   expect(box.y).toBe(0);
   expect(box.height).toBeGreaterThanOrEqual(1);

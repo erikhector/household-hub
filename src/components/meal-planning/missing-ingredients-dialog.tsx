@@ -289,10 +289,19 @@ export function MissingIngredientsDialog({
                   come last, under their own label, so it's clear why a
                   week with nothing on Tuesday still asks for coriander. */}
               {[
-                ...items.filter((item) => !item.fromPicksOnly),
+                ...items.filter((item) => !item.fromPicksOnly && !item.fromCustomOnly),
                 ...items.filter((item) => item.fromPicksOnly),
+                ...items.filter((item) => item.fromCustomOnly && !item.fromPicksOnly),
               ].map((item, index, ordered) => (
                 <Fragment key={item.key}>
+                  {item.fromCustomOnly && !ordered[index - 1]?.fromCustomOnly && (
+                    <div className="pt-2 pb-0.5">
+                      <p className="text-xs font-medium uppercase text-muted-foreground">
+                        {dict.fromCustomMeals}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{dict.fromCustomMealsHint}</p>
+                    </div>
+                  )}
                   {item.fromPicksOnly && !ordered[index - 1]?.fromPicksOnly && (
                     <div className="pt-2 pb-0.5">
                       <p className="text-xs font-medium uppercase text-muted-foreground">

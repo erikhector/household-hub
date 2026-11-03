@@ -95,14 +95,15 @@ test.describe("on a phone", () => {
     await expect.poll(async () => Math.round((await dialog.boundingBox())!.y)).toBe(Math.round(before!.y));
   });
 
-  test("a long form rests at half height with Save still in reach, and the grabber toggles it", async ({ page }) => {
+  test("a long form rests at half height with Save still in reach, and the grabber steps through its sizes", async ({ page }) => {
     const t = en.inventory;
     await page.goto("/dashboard/inventory");
     await page.getByRole("button", { name: t.addItem }).first().click();
     const dialog = page.getByRole("dialog", { name: t.addDialogTitle });
     await expect(dialog).toBeVisible();
-    // Opens full.
+    // Opens at its full snap point, not full screen.
     await expect(dialog).toHaveAttribute("data-expanded", "");
+    await expect(dialog).not.toHaveAttribute("data-full-screen", "");
 
     const viewport = page.viewportSize()!;
     // M3: the grabber button's visible pill is 16px tall, but its hit area
@@ -113,8 +114,14 @@ test.describe("on a phone", () => {
       ({ x, y }) => document.elementFromPoint(x, y)?.closest("button")?.getAttribute("aria-label") ?? null,
       { x: grabber.x, y: grabber.y + 20 },
     );
-    expect(hit).toBe(en.common.collapseSheet);
+    expect(hit).toBe(en.common.expandSheet);
+
+    // Normal → full screen → half → normal (sheet-full-screen.mobile.spec.ts
+    // covers the swipes).
+    await dialog.getByRole("button", { name: en.common.expandSheet }).click();
+    await expect(dialog).toHaveAttribute("data-full-screen", "");
     await dialog.getByRole("button", { name: en.common.collapseSheet }).click();
+    await expect(dialog).not.toHaveAttribute("data-full-screen", "");
     await expect(dialog).not.toHaveAttribute("data-expanded", "");
     // Half: the sheet's top (its box includes the snap translate) sits at
     // about mid-screen…
@@ -127,6 +134,7 @@ test.describe("on a phone", () => {
 
     await dialog.getByRole("button", { name: en.common.expandSheet }).click();
     await expect(dialog).toHaveAttribute("data-expanded", "");
+    await expect(dialog).not.toHaveAttribute("data-full-screen", "");
     await expect(dialog.getByRole("textbox", { name: "Name" })).toBeInViewport();
   });
 

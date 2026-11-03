@@ -37,7 +37,7 @@ export type ExpandedIngredientNeed = {
 // One node of the in-memory recipe graph fetched by loadRecipeGraph below —
 // same shape prisma.recipe.findUnique used to return per node, now held for
 // every recipe in the household at once.
-type RecipeGraphNode = {
+export type RecipeGraphNode = {
   ingredients: {
     inventoryItemId: string | null;
     inventoryItem: {

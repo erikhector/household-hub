@@ -148,7 +148,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         <header
           data-solo-household={soloHousehold ? "" : undefined}
           className={cn(
-            "relative shrink-0 bg-background [view-transition-name:app-header] sm:hidden print:hidden",
+            // max-sm:sticky top-0 (a positioned box like relative, for the
+            // compact title it hosts): the column above never scrolls, so
+            // the header doesn't move, but iOS 26 samples a fixed *or
+            // sticky* box at the top edge for its status-bar area. It's a
+            // second, full-height signal next to the status-bar strip
+            // below, so the soft blur iOS draws without one can't reach
+            // down over the compact title.
+            "relative max-sm:sticky max-sm:top-0 shrink-0 bg-background [view-transition-name:app-header] sm:hidden print:hidden",
             // Solo (UX-158): no switcher, so the bar is only the status-bar
             // clearance. The compact title (page-title.tsx) overlays the top
             // of the page when it appears, above the page's own content.
@@ -207,11 +214,17 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           in the header's own colour so it can't show as a seam. At least
           1px tall: when WebKit lays the view out below the status bar the
           inset is 0, and a zero-height box isn't sampled. Under z-50 so
-          dialogs and their overlay still cover it. */}
+          dialogs and their overlay still cover it.
+          No pointer-events: none. WebKit finds the edge's element by hit
+          testing, which skips a box that ignores the pointer, so with it
+          the first version of this strip was invisible to iOS and the
+          blur stayed (it smeared the compact title below the clock).
+          Nothing in the app is tappable under the status bar, and the
+          tap-to-scroll-to-top there is iOS's own, not the page's. */}
       <div
         aria-hidden
         data-slot="status-bar-backdrop"
-        className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[max(1px,env(safe-area-inset-top))] bg-background sm:hidden print:hidden"
+        className="fixed inset-x-0 top-0 z-40 h-[max(1px,env(safe-area-inset-top))] bg-background sm:hidden print:hidden"
       />
       <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} version={CURRENT_VERSION} createHouseholdDict={soloHousehold ? dict.household.switcher : undefined} />
     </div>
