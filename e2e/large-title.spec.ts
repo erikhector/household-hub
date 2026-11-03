@@ -19,7 +19,7 @@ test("phone: the title collapses into the top bar and the primary action floats 
 }) => {
   test.skip(!isMobile, "the collapsing title and floating action are the phone shell's");
   await dismissCookieNotice(context, baseURL!);
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=settings");
   const main = page.locator("main");
   const viewport = page.viewportSize()!;
 
