@@ -105,9 +105,16 @@ test("a new member sees what they owe from a split dinner before setting up a bu
     await expect(main.getByText("Your share this month")).toHaveCount(0);
     await page.goto("/dashboard/personal-budget");
 
-    // The shared-expense action is the quiet outline one (UX-153), named like "Add transaction".
-    await expect(main.getByRole("button", { name: "Add shared expense" })).toBeVisible();
-    await expect(main.getByRole("button", { name: "Log a shared expense" })).toHaveCount(0);
+    // UX-178: with no personal category yet, Add transaction (the quiet outline
+    // one, UX-153) can only add a shared expense, so its split switch is on.
+    await expect(main.getByRole("button", { name: "Add shared expense" })).toHaveCount(0);
+    await main.getByRole("button", { name: "Add transaction" }).click();
+    const sheet = page.getByRole("dialog", { name: "Add transaction" });
+    await expect(sheet.getByLabel("Split with household")).toBeChecked();
+    await expect(sheet.getByLabel("Split with household")).toBeDisabled();
+    await expect(sheet.getByRole("radio", { name: "Dinner out" })).toBeAttached();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
     // UX-153: with that button on screen, the starter-set card's is the one solid button.
     await expectOnePrimaryAction(page);
     await expectNoHorizontalOverflow(page);

@@ -175,7 +175,7 @@ function CatalogRows({
                   </MorphTitle>
                   {row.neverStocked && <Badge variant="secondary">{dict.neverStocked}</Badge>}
                   {row.unitProblems.length > 0 && (
-                    <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+                    <span className="inline-flex items-center gap-1 text-xs text-warning">
                       <TriangleAlert className="size-3.5" aria-hidden="true" />
                       {format(dict.unitProblem, { units: row.unitProblems.join(", ") })}
                     </span>
