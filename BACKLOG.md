@@ -395,17 +395,6 @@ left out.
       `bg-warning/10 text-warning` (`attention` for the star if orange is
       wanted); a grep test or lint rule keeps them out.
 
-- [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
-      breaks Consistency ("same icon/colour for the same meaning").
-      Inventory and Household budget share `chart-1`, Shopping and Personal
-      budget `chart-2`, Meals and Household `chart-3`, Tasks and Profile
-      `chart-5` (`src/components/dashboard/nav-items.ts:84-92`), so the
-      underline under a page title says "pink", not "inventory".
-      Acceptance: the four hues are reserved for the four coloured
-      bottom-bar tabs and More-menu pages have no underline (or get their
-      own hues); `nav-items.test.ts` asserts no two primary tabs share a
-      colour.
-
 - [ ] **UX-174. Progressive explanations on budget Manage and Household
       settings** (impact: low, effort: M) — breaks Help ("explain
       progressively") and M6. Budget Manage opens three cards each with a
@@ -877,7 +866,7 @@ out to be a product-scope question rather than a scoped task should move to
       (c) the housemate voice in the Today block ("Nothing planned for
       dinner. Last Tuesday's pasta again?" from existing data); (d) each
       section's hue carried into its empty-state dashed box at 10 %
-      (depends on UX-167). The dark theme (UX-157) has shipped. Decide which to
+      The dark theme (UX-157) has shipped. Decide which to
       build and in what order.
       Acceptance: per idea, a before/after on the `mobile` screenshots and
       the e2e spec for the touched component still passing.

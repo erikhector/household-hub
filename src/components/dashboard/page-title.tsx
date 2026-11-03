@@ -7,7 +7,7 @@ import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { commonCopy } from "@/lib/i18n/common";
 import { getDocumentLocale } from "@/lib/i18n/client-locale";
-import { COMPACT_TITLE_SLOT_ID, NAV_ACCENT_BAR_CLASSES, navItemForPath } from "@/components/dashboard/nav-items";
+import { COMPACT_TITLE_SLOT_ID, NAV_ACCENT_BAR_CLASSES, navAccentColor, navItemForPath } from "@/components/dashboard/nav-items";
 import { MorphTitle, type MorphKind } from "@/components/shared/view-transitions";
 
 const subscribeNoop = () => () => {};
@@ -46,6 +46,7 @@ export function PageTitle({
   // for rows (UX-79).
   const pathname = usePathname();
   const section = navItemForPath(pathname);
+  const accent = navAccentColor(section);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   // The portal target only exists in the browser; reading it through
@@ -150,11 +151,11 @@ export function PageTitle({
       ) : (
         title
       )}
-      {section?.color && section.href === pathname && (
+      {section && accent && section.href === pathname && (
         <span
           aria-hidden="true"
-          data-section-accent={section.color}
-          className={cn("mt-1.5 mb-1 block h-1 w-8 rounded-full", NAV_ACCENT_BAR_CLASSES[section.color])}
+          data-section-accent={accent}
+          className={cn("mt-1.5 mb-1 block h-1 w-8 rounded-full", NAV_ACCENT_BAR_CLASSES[accent])}
         />
       )}
       {/* Mounted only while collapsed, so the title isn't in the DOM twice
