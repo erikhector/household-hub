@@ -8245,8 +8245,30 @@ components directly.
     opens full; a drag down rests at half (to peek at the page behind) and
     a further drag dismisses. At half, the sticky footer is lifted by the
     snap offset (`--drawer-snap-point-offset`, copied to an inheriting `--sheet-snap-offset` since Base UI registers its own with `inherits: false`), so Save stays on screen.
-    The grabber of a long form is a button ("Collapse sheet" / "Expand
-    sheet") that does the same, so the gesture isn't the only way (M7).
+    From half, the grabber button steps it back up to full.
+  - **Full screen**: on phones any sheet, long form or not, can be swiped
+    up to cover the whole screen (`data-full-screen` on the popup: height
+    `100dvh` minus the keyboard inset, no top corners, the status-bar inset
+    as top padding). `DialogContent` reads the swipe from its own touch
+    events, since Base UI only drags a sheet down: a swipe up of at least
+    48 px that scrolled nothing goes full screen. A sheet whose body
+    scrolls keeps scrolling under a swipe up, and goes full screen once
+    it's at the end of the body or from the grabber, which never scrolls.
+    The same goes for any scroller under the finger (a long textarea, a
+    chip row): only a swipe that moved none of them counts, a mostly
+    sideways drag never does, and touches from anything portalled out of
+    the sheet (a Select's list, a nested sheet) are ignored.
+    From full screen, a swipe down from the top of the body steps back to
+    the normal sheet. A flick or long drag that Base UI would dismiss on is
+    cancelled in `Dialog`'s `onOpenChange` (reason `swipe`) and steps back
+    too, so the sheet goes down one size at a time and a second swipe
+    closes it. A drag that would settle a long form at half goes to the
+    normal sheet instead. The X, Escape, back and an outside tap still
+    close straight from full screen. The grabber of every phone sheet is a
+    button ("Expand sheet" / "Collapse sheet") that steps through every
+    size a drag reaches, as iOS's grabber does for VoiceOver (M7): a long
+    form goes half → normal → full screen → half, any other sheet normal ↔
+    full screen. Covered by `e2e/sheet-full-screen.mobile.spec.ts`.
   - **Background scale-down**: `SheetIndent`
     (`src/components/ui/sheet-indent.tsx`, wrapping the page in the root
     layout) shrinks the page to 94%, drops it below the status bar and
