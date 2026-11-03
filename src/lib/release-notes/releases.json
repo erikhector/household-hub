@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.138.1",
+    "date": "2026-11-03",
+    "pr": 1093,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The installed iPhone app no longer shows a blur across the top of the screen.",
+      "sv": "Den installerade iPhone-appen visar inte längre någon oskärpa högst upp på skärmen."
+    }
+  },
+  {
+    "version": "0.138.0",
+    "date": "2026-11-03",
+    "pr": 1089,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "What's new now has a \"Back to overview\" link, and keyboard users can scroll the page on phones.\n\nOn your phone, swipe a sheet up to make it fill the screen, and swipe down to shrink it again. You can also tap the handle at the top of the sheet.",
+      "sv": "Nyheter har nu en länk \"Tillbaka till översikten\", och tangentbordsanvändare kan scrolla sidan på mobilen.\n\nPå mobilen kan du svepa uppåt på ett ark så att det fyller skärmen, och svepa nedåt för att göra det mindre igen. Du kan också trycka på handtaget högst upp på arket."
+    }
+  },
+  {
     "version": "0.137.0",
     "date": "2026-11-03",
     "pr": 1083,

@@ -376,17 +376,6 @@ left out.
       phones; `mobile` smoke screenshots of both pages fit in two screens
       of content before the first form.
 
-- [ ] **UX-175. Small code hygiene from the audit** (impact: low, effort:
-      S) — `transition-all` on `button.tsx:8` and `badge.tsx:7` animates
-      layout properties (DESIGN.md prefers explicit properties); an ad-hoc
-      shadow with raw rgb on the inventory bulk bar
-      (`inventory-table.tsx:292`); `/dashboard/whats-new`'s `main` is a
-      scroll region with nothing focusable on phones (axe
-      `scrollable-region-focusable`).
-      Acceptance: `transition-[color,background-color,border-color,box-shadow,transform]`
-      on both primitives; the bulk bar uses a token shadow; What's new has a
-      focusable "Back" link or `tabIndex={-1}` on `main`; axe on
-      `/dashboard/whats-new` is clean on `mobile`.
 
 ### Dependencies
 
@@ -661,28 +650,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-16 scan
-
-- [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
-      AnyList's December 2025 meal-planning update lets a plain note on the
-      calendar carry ingredients that go straight to the shopping list.
-      Squirrel's "Custom meal…" (`MealPlanEntry.freeformName`) has none, and
-      the meal-plan → shopping-list bridge skips it (`recipeId: { not: null }`,
-      REQUIREMENTS.md "Meal-plan → shopping-list bridge"), so "taco night"
-      or "pasta with whatever" adds nothing to the shop and is invisible to
-      the missing-ingredients check. Add an optional multi-line
-      "Ingredients" field to the custom-meal form (nullable
-      `MealPlanEntry.freeformIngredients String?`, Phase 2), one per line,
-      read with the same line parser as smart add. The bridge preview lists those lines as
-      "From custom meals", matched to inventory by the existing
-      case-insensitive name rule and scaled by nothing (a custom meal has
-      no portions). Marking it cooked still decrements nothing.
-      Acceptance: a bridge test covers a custom meal's lines being listed,
-      household scoping, blank lines dropped and a recipe-less, ingredient-less
-      meal still skipped; an e2e step adds a custom meal with "2 tortillas"
-      and asserts it in the bridge preview and on the list after "Add",
-      on desktop and mobile.
-
 ### 2026-10-23 scan
 
 - [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —
@@ -780,6 +747,39 @@ out to be a product-scope question rather than a scoped task should move to
       one uniquely named item, taps "Correct, next" on another without
       changing it, sees "1 corrected" and the new amount after a reload,
       in `en` and `sv`.
+
+### 2026-11-03 scan
+
+- [ ] **GAP-70. Recipe source link and personal notes** (impact: med, effort: M) `[schema]` —
+      Paprika, AnyList and Plan to Eat keep the page a recipe came from
+      and a free-text notes field ("use half the sugar", "Anna's version").
+      Squirrel's URL import (REQUIREMENTS.md "Recipe import from URL") and
+      file import (GAP-67) only pre-fill name, method and ingredients and
+      then forget where the recipe came from; `Recipe` has `instructions`
+      but no source or note field (`prisma/schema.prisma`, model `Recipe`),
+      so the cook can't get back to the original photo, video or comments,
+      and tweaks have to be squeezed into the method text, which cook mode
+      then reads out as steps. Add two nullable columns, `sourceUrl`
+      (http/https only, max 2048, validated with Zod and rendered as a
+      plain external link with `rel="noopener noreferrer"`, never fetched
+      server-side) and `notes` (max 2000), both on the recipe form and
+      sheet. URL import fills `sourceUrl` from the imported address; the
+      file import maps Paprika `source_url` / JSON-LD `url` to `sourceUrl`
+      (same http/https check, dropped if invalid) and Paprika `notes` to
+      `notes` instead of appending them to the method as GAP-67 does
+      today; the recipe sheet shows the link as its host name
+      ("bbc.co.uk") and notes under the method; "Copy as text" (GAP-43)
+      includes both; cook mode shows notes on the first step only. Scope:
+      no scraping of the source later, no per-member notes, no
+      note history. Human-only area: migration `recipe_source_notes`.
+      Acceptance: unit tests that both fields are household-scoped on
+      create/update, that a `javascript:` URL is rejected with a field
+      error, that URL import returns the source address, and that
+      `parseRecipeFile` returns `sourceUrl` and `notes` from a Paprika and
+      a JSON-LD file (notes no longer in the method); an `e2e/`
+      step on `mobile` and `desktop` creates a recipe with a unique name,
+      a link and a note, reloads, sees the host name link and the note in
+      the sheet, in `en` and `sv`.
 
 ## Needs a decision before building
 

@@ -5844,11 +5844,26 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   shopper sees it under the item on the list and the share page. No schema
   change. The low-stock auto-add (`default-list.ts`) doesn't build rows from
   recipe ingredients, so it has nothing to carry.
+- **Custom meal ingredients (GAP-58)**: the "Custom meal…" form has an
+  optional multi-line "Ingredients" field, one per line (`maxLength` 1000,
+  shown again on Edit), stored as the typed text in the nullable
+  `MealPlanEntry.freeformIngredients` (`normalizeFreeformIngredients`,
+  `custom-meal-ingredients.ts`: lines trimmed, blanks dropped, `null` when
+  nothing is left). Choosing a recipe instead clears it. "Copy last week"
+  carries it. The bridge reads the text with the smart add line parser
+  (`parseFreeformIngredients`: "2 tortillas" is 2 pcs, "salsa" 1 pcs) for
+  recipe-less entries only, matches each line to inventory by the same
+  case-insensitive name rule as an unlinked recipe ingredient, and scales
+  nothing (a custom meal has no portions). Rows only custom meals need come
+  back `fromCustomOnly` and the review dialog lists them last under "From
+  custom meals". Marking a custom meal cooked still decrements nothing.
+  Plan templates and week picks don't carry the lines.
 - **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
   (`src/app/dashboard/meal-planning/cooking-actions.ts`), a read-only preview — no
   rows are written until the user commits. It collects every
-  `MealPlanEntry` with a `recipeId` dated inside the chosen range (freeform
-  entries have no ingredients and are skipped via `recipeId: { not: null }`),
+  `MealPlanEntry` with a `recipeId` dated inside the chosen range (a
+  freeform entry counts only when it lists ingredients, see "Custom meal
+  ingredients (GAP-58)" below; one with neither is skipped),
   gathers each recipe's `RecipeIngredient` rows, and resolves each to its
   linked `InventoryItem`. `RecipeIngredient.inventoryItemId` can be null —
   a row saved without a match (see "Ingredient → inventory linking"
@@ -8255,8 +8270,30 @@ components directly.
     opens full; a drag down rests at half (to peek at the page behind) and
     a further drag dismisses. At half, the sticky footer is lifted by the
     snap offset (`--drawer-snap-point-offset`, copied to an inheriting `--sheet-snap-offset` since Base UI registers its own with `inherits: false`), so Save stays on screen.
-    The grabber of a long form is a button ("Collapse sheet" / "Expand
-    sheet") that does the same, so the gesture isn't the only way (M7).
+    From half, the grabber button steps it back up to full.
+  - **Full screen**: on phones any sheet, long form or not, can be swiped
+    up to cover the whole screen (`data-full-screen` on the popup: height
+    `100dvh` minus the keyboard inset, no top corners, the status-bar inset
+    as top padding). `DialogContent` reads the swipe from its own touch
+    events, since Base UI only drags a sheet down: a swipe up of at least
+    48 px that scrolled nothing goes full screen. A sheet whose body
+    scrolls keeps scrolling under a swipe up, and goes full screen once
+    it's at the end of the body or from the grabber, which never scrolls.
+    The same goes for any scroller under the finger (a long textarea, a
+    chip row): only a swipe that moved none of them counts, a mostly
+    sideways drag never does, and touches from anything portalled out of
+    the sheet (a Select's list, a nested sheet) are ignored.
+    From full screen, a swipe down from the top of the body steps back to
+    the normal sheet. A flick or long drag that Base UI would dismiss on is
+    cancelled in `Dialog`'s `onOpenChange` (reason `swipe`) and steps back
+    too, so the sheet goes down one size at a time and a second swipe
+    closes it. A drag that would settle a long form at half goes to the
+    normal sheet instead. The X, Escape, back and an outside tap still
+    close straight from full screen. The grabber of every phone sheet is a
+    button ("Expand sheet" / "Collapse sheet") that steps through every
+    size a drag reaches, as iOS's grabber does for VoiceOver (M7): a long
+    form goes half → normal → full screen → half, any other sheet normal ↔
+    full screen. Covered by `e2e/sheet-full-screen.mobile.spec.ts`.
   - **Background scale-down**: `SheetIndent`
     (`src/components/ui/sheet-indent.tsx`, wrapping the page in the root
     layout) shrinks the page to 94%, drops it below the status bar and
@@ -8459,6 +8496,13 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   date and the note in the user's locale. A note wraps at any width
   (`break-words`), so a URL or long Swedish compound in it can't push the
   page sideways on a phone (BUG-4).
+  The page opens with a "Back to overview" link, the first focusable
+  thing in `main`, so the phone scroll region passes axe's
+  `scrollable-region-focusable` (UX-175; `e2e/whats-new-a11y.mobile.spec.ts`).
+  Also UX-175: `Button` and `Badge` transition explicit properties
+  (`color, background-color, border-color, box-shadow, transform`) rather
+  than `transition-all`, and the phone inventory bulk bar uses the
+  `shadow-md` scale shadow instead of a raw-rgb one.
 - The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
@@ -8805,8 +8849,15 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   across the top in both themes. `src/app/dashboard/layout.tsx` renders a
   decorative, phone-only fixed strip (`data-slot="status-bar-backdrop"`,
   `bg-background`, the header's colour, `max(1px, safe-area-inset-top)`
-  tall, under the z-50 dialogs) for iOS to sample.
-  `e2e/status-bar-backdrop.mobile.spec.ts` pins its position and colour.
+  tall, under the z-50 dialogs) for iOS to sample. It takes pointer events:
+  WebKit finds the edge's element by hit testing, and the first version's
+  `pointer-events: none` hid it from that, so the blur stayed and smeared
+  the compact title. The phone header is also `sticky top-0` (it never
+  moves, since its column doesn't scroll) as a second, full-height fixed
+  or sticky box at the edge.
+  `e2e/status-bar-backdrop.mobile.spec.ts` pins its position and colour,
+  that `elementFromPoint` at the top edge lands on it, and the sticky
+  header.
   Chromium can't reproduce the blur itself, so the effect is checked on a
   device.
 
