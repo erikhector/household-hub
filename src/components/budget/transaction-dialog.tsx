@@ -289,6 +289,11 @@ export function TransactionDialog({
   const [isRecurring, setIsRecurring] = useState(
     transaction?.isRecurring ?? !!prefillFromTemplate?.templateId,
   );
+  // UX-179: a plain new transaction can be made to repeat monthly. Not on an
+  // edit, nor on a payment logged from a recurring item or planned bill
+  // (they have their own item), nor on a shared expense logged from here.
+  const [repeats, setRepeats] = useState(false);
+  const canRepeat = !isEdit && !prefillFromTemplate && !sharedOn;
   const showRecurringBox = isEdit ? !!transaction?.isRecurring : !!prefillFromTemplate?.templateId;
   const [date, setDate] = useState(() =>
     toLocalDateKey(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)),
@@ -333,7 +338,10 @@ export function TransactionDialog({
             amount: numberFormat.format(Number(formData.get("amount"))),
             category: savedCategory?.name ?? "",
           }),
-          savedId && onUndoCreate
+          // Undo removes only the row, which would leave the repeating item
+          // behind showing Due, so a repeating save offers none; both are
+          // removed from Transactions and Manage.
+          savedId && onUndoCreate && formData.get("repeatsMonthly") !== "on"
             ? {
                 action: {
                   label: dict.swipe.undo,
@@ -362,6 +370,7 @@ export function TransactionDialog({
   function resetForTransaction() {
     setCategoryId(initialCategoryId());
     setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate?.templateId);
+    setRepeats(false);
     setAmount(
       transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
     );
@@ -522,6 +531,23 @@ export function TransactionDialog({
               defaultValue={kept.values.description ?? transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />
           </div>
+          {/* UX-179: "Repeats" brings repeating back to a new transaction,
+              properly this time: saving also adds a monthly recurring item
+              (Bills & income), listed, due and counted by name, with this
+              month already Logged. */}
+          {canRepeat && (
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Checkbox
+                  name="repeatsMonthly"
+                  checked={repeats}
+                  onChange={(e) => setRepeats(e.target.checked)}
+                />
+                {dict.repeatsLabel}
+              </label>
+              {repeats && <p className="text-sm text-muted-foreground">{dict.repeatsHint}</p>}
+            </div>
+          )}
           {/* UX-113: a new transaction can't be ticked "This repeats". The flag
               only fed a hidden fallback estimate in Safe to spend: nothing
               showed under Recurring items or "Due this period", so the

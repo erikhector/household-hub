@@ -54,3 +54,52 @@ test("an already-flagged transaction still shows 'This repeats', ticked", async 
   const dialog = page.getByRole("dialog", { name: "Edit transaction" });
   await expect(dialog.getByRole("checkbox", { name: "This repeats" })).toBeChecked();
 });
+
+// UX-179: a "Repeats" switch on a new transaction. Saving also adds a monthly
+// item under Repeating (Bills & income) and logs this month against it, so
+// the item reads Logged, not Due.
+test("Repeats on a new transaction adds a monthly item that is already Logged", async ({ page }) => {
+  const tag = budgetTag();
+  const category = `Subscriptions ${tag}`;
+  const described = `Streaming ${tag}`;
+  await withDb((client) => insertHouseholdCategory(client, { id: `e2e-rep-sw-${tag}`, name: category }));
+
+  await page.goto("/dashboard/budget");
+  await page.getByRole("button", { name: "Add transaction" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Add transaction" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Amount", { exact: true }).fill("119");
+  await dialog.getByLabel("Description").fill(described);
+  await dialog.getByRole("radio", { name: category }).check({ force: true });
+  await dialog.getByRole("checkbox", { name: "Repeats" }).check();
+  await expect(dialog.getByText(/monthly item under Repeating/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Add transaction" }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.goto("/dashboard/budget?tab=manage");
+  const repeating = page.getByRole("main").getByRole("region", { name: "Repeating" });
+  const row = repeating.getByRole("listitem").filter({ hasText: described });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("Logged", { exact: true })).toBeVisible();
+  await expect(row.getByText("Due", { exact: true })).toHaveCount(0);
+});
+
+test("without the Repeats switch no recurring item is added", async ({ page }) => {
+  const tag = budgetTag();
+  const category = `Once ${tag}`;
+  const described = `One-off ${tag}`;
+  await withDb((client) => insertHouseholdCategory(client, { id: `e2e-rep-off-${tag}`, name: category }));
+
+  await page.goto("/dashboard/budget");
+  await page.getByRole("button", { name: "Add transaction" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Add transaction" });
+  await dialog.getByLabel("Amount", { exact: true }).fill("20");
+  await dialog.getByLabel("Description").fill(described);
+  await dialog.getByRole("radio", { name: category }).check({ force: true });
+  await expect(dialog.getByRole("checkbox", { name: "Repeats" })).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Add transaction" }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.goto("/dashboard/budget?tab=manage");
+  await expect(page.getByRole("main").getByText(described)).toHaveCount(0);
+});

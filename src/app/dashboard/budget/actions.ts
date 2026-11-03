@@ -17,6 +17,7 @@ import {
   rolloverEnabledField,
   rolloverForLimit,
 } from "@/lib/budget-category-limit";
+import { repeatTemplateFields } from "@/lib/repeat-template";
 import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
 
 // --- Categories --------------------------------------------------------
@@ -278,6 +279,12 @@ const transactionSchema = z.object({
   // createTransactionAction reads it; the other callers of
   // parseTransactionFormData ignore it. Household-checked below.
   plannedExpenseId: z.string().optional(),
+  // UX-179: the Add transaction sheet's "Repeats" switch. On a plain new
+  // transaction it also creates a monthly recurring item from it (see
+  // repeatTemplateFields) and links the two, so the item starts the period
+  // as Logged. Ignored when the row is already a payment against a
+  // recurring item or a planned bill, which have their own item.
+  repeatsMonthly: z.boolean().optional(),
 });
 
 function parseTransactionFormData(formData: FormData) {
@@ -290,6 +297,7 @@ function parseTransactionFormData(formData: FormData) {
     recurrenceFrequency: formData.get("recurrenceFrequency") || undefined,
     recurringTemplateId: formData.get("recurringTemplateId") || undefined,
     plannedExpenseId: formData.get("plannedExpenseId") || undefined,
+    repeatsMonthly: formData.get("repeatsMonthly") === "on",
   });
 }
 
@@ -490,27 +498,73 @@ export async function createTransactionAction(
   const planned = await resolvePlannedExpenseId(household.id, parsed.data.plannedExpenseId, category.type);
   if ("error" in planned) return { error: planned.error };
 
+  // UX-179: "Repeats" also makes a monthly recurring item from this row.
+  const repeat =
+    parsed.data.repeatsMonthly && !recurringTemplate.id && !planned.id
+      ? repeatTemplateFields({
+          description: parsed.data.description,
+          categoryName: category.name,
+          date: parsed.data.date,
+        })
+      : null;
+
+  const transactionData = {
+    householdId: household.id,
+    categoryId: category.id,
+    amount: parsed.data.amount,
+    // Derived from the category rather than taken as a separate field, so
+    // a transaction can never disagree with its own category's type.
+    type: category.type,
+    description: parsed.data.description || null,
+    date: new Date(parsed.data.date),
+    isRecurring: repeat ? true : parsed.data.isRecurring,
+    recurrenceFrequency: repeat
+      ? ("MONTHLY" as const)
+      : parsed.data.isRecurring
+        ? parsed.data.recurrenceFrequency
+        : null,
+    createdByUserId: userId,
+    recurringTemplateId: repeat?.id ?? recurringTemplate.id ?? null,
+    plannedExpenseId: planned.id ?? null,
+    splits: split ? { create: split.splits } : undefined,
+  };
+
   let created;
   try {
-    created = await prisma.transaction.create({
-      data: {
-        householdId: household.id,
-        categoryId: category.id,
-        amount: parsed.data.amount,
-        // Derived from the category rather than taken as a separate field, so
-        // a transaction can never disagree with its own category's type.
-        type: category.type,
-        description: parsed.data.description || null,
-        date: new Date(parsed.data.date),
-        isRecurring: parsed.data.isRecurring,
-        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-        createdByUserId: userId,
-        recurringTemplateId: recurringTemplate.id ?? null,
-        plannedExpenseId: planned.id ?? null,
-        splits: split ? { create: split.splits } : undefined,
-      },
-      select: { id: true },
-    });
+    if (repeat) {
+      // One database transaction: the item and the row that logs it stand
+      // or fall together, so a failure never leaves an item that is Due with
+      // its payment already made. The template's id is chosen up front so
+      // the row can point at it.
+      const [, tx] = await prisma.$transaction([
+        prisma.recurringTemplate.create({
+          data: {
+            id: repeat.id,
+            householdId: household.id,
+            categoryId: category.id,
+            name: repeat.name,
+            amount: parsed.data.amount,
+            type: category.type,
+            frequency: "MONTHLY",
+            dayOfMonth: repeat.dayOfMonth,
+            // A split bill repeats as a split bill: carry the shares.
+            splits: split
+              ? {
+                  create: split.splits.map((s) => ({
+                    householdMemberId: s.householdMemberId,
+                    amountOwed: s.amountOwed,
+                  })),
+                }
+              : undefined,
+          },
+          select: { id: true },
+        }),
+        prisma.transaction.create({ data: transactionData, select: { id: true } }),
+      ]);
+      created = tx;
+    } else {
+      created = await prisma.transaction.create({ data: transactionData, select: { id: true } });
+    }
   } catch (error) {
     // Two members paying the same bill at once both pass the pre-check; the
     // unique index on plannedExpenseId rejects the loser.
