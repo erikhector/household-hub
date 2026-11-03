@@ -823,14 +823,14 @@ function RecipeRow({
             </section>
           )}
           {sourceHref && sourceHostName && (
-            <p className="break-words text-sm">
-              <span className="text-muted-foreground">{dict.recipeSourceLabel}: </span>
+            <p className="flex min-h-11 flex-wrap items-center gap-x-1 break-words text-sm">
+              <span className="text-muted-foreground">{dict.recipeSourceLabel}:</span>
               <a
                 href={sourceHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={format(dict.sourceLinkAriaLabel, { host: sourceHostName })}
-                className="underline underline-offset-4"
+                className="inline-flex min-h-11 items-center underline underline-offset-4"
               >
                 {sourceHostName}
               </a>
