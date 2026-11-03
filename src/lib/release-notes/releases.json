@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.137.0",
+    "date": "2026-11-03",
+    "pr": 1083,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Warning notices (the calendar feed notice, unit problems in the catalogue, the duplicate-item warning) now use the app's warning colour, which is easier to read in both light and dark mode.\n\nOn Personal Budget you can now split an expense with your household right from Add transaction: turn on \"Split with household\". The separate \"Add shared expense\" button is gone.",
+      "sv": "Varningsrutor (kalenderflödets notis, enhetsproblem i katalogen och varningen för dubbletter) använder nu appens varningsfärg, som är lättare att läsa i både ljust och mörkt läge.\n\nI Personlig budget kan du nu dela en utgift med hushållet direkt i Lägg till transaktion: slå på \"Dela med hushållet\". Den separata knappen \"Lägg till delad utgift\" är borta."
+    }
+  },
+  {
     "version": "0.136.1",
     "date": "2026-11-03",
     "pr": 1078,
