@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.136.1",
+    "date": "2026-11-03",
+    "pr": 1078,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The coloured bar under a page title now only appears on Inventory, Shopping list and Meal planning, so each colour means one section.\n\nScrolling on a phone no longer shows a scrollbar down the side of lists and dialogs.\n\nInitials in profile pictures, selected options in pickers, and the counts in inventory group headings are now easier to read.",
+      "sv": "Det färgade strecket under sidrubriken visas nu bara på Lager, Inköpslista och Måltidsplanering, så varje färg betyder en enda sektion.\n\nNär du scrollar på mobilen syns inte längre någon rullningslist vid sidan av listor och dialogrutor.\n\nInitialerna i profilbilder, valda alternativ i väljare och antalen i lagrets gruppsrubriker är nu lättare att läsa."
+    }
+  },
+  {
     "version": "0.136.0",
     "date": "2026-11-02",
     "pr": 1072,
