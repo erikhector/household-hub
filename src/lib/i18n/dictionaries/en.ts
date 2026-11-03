@@ -234,6 +234,7 @@ export const en = {
     },
   },
   whatsNew: {
+    back: "Back to overview",
     title: "What's new",
     subtitle: "Every Squirrel update and what it changed.",
     currentVersion: "You're on version {version}.",
