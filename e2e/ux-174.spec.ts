@@ -13,7 +13,7 @@ test("household opens on Members, with the first form within two screens", async
   const main = page.getByRole("main");
 
   await expect(main.getByRole("tab", { name: "Members" })).toHaveAttribute("aria-selected", "true");
-  await expect(main.getByText("E2E Tester", { exact: true })).toBeVisible();
+  await expect(main.getByText("Owner", { exact: true }).first()).toBeVisible();
   // Notes and Settings are not on screen until their tab is opened.
   await expect(main.getByRole("heading", { name: "Notes" })).toBeHidden();
   await expect(main.getByRole("heading", { name: "Currency" })).toBeHidden();
