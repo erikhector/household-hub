@@ -8795,8 +8795,15 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   across the top in both themes. `src/app/dashboard/layout.tsx` renders a
   decorative, phone-only fixed strip (`data-slot="status-bar-backdrop"`,
   `bg-background`, the header's colour, `max(1px, safe-area-inset-top)`
-  tall, under the z-50 dialogs) for iOS to sample.
-  `e2e/status-bar-backdrop.mobile.spec.ts` pins its position and colour.
+  tall, under the z-50 dialogs) for iOS to sample. It takes pointer events:
+  WebKit finds the edge's element by hit testing, and the first version's
+  `pointer-events: none` hid it from that, so the blur stayed and smeared
+  the compact title. The phone header is also `sticky top-0` (it never
+  moves, since its column doesn't scroll) as a second, full-height fixed
+  or sticky box at the edge.
+  `e2e/status-bar-backdrop.mobile.spec.ts` pins its position and colour,
+  that `elementFromPoint` at the top edge lands on it, and the sticky
+  header.
   Chromium can't reproduce the blur itself, so the effect is checked on a
   device.
 
