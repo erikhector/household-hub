@@ -109,6 +109,10 @@ test("scrolling a textarea inside the sheet doesn't resize it", async ({ page })
   // The heading scrolls nothing, so the same swipe there still expands it.
   await swipe(page, dialog.getByRole("heading").first(), -150);
   await expect(dialog).toHaveAttribute("data-full-screen", "");
+  // The attribute lands before the 320 ms min-height transition ends; let it
+  // settle so the swipe below measures the textarea where it will stay.
+  await expect.poll(() => coversScreen(page, dialog)).toBe(true);
+  await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
 
   // Full screen, a swipe down in the scrolled textarea scrolls it back up
   // and leaves the sheet full screen.
