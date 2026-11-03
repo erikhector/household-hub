@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.141.0",
+    "date": "2026-11-03",
+    "pr": 1113,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes can now keep a link to the page they came from and your own notes (\"use half the sugar\"). Imports fill in the link, and the notes show under the steps, in Cook mode on the first step, and when you copy the recipe as text.",
+      "sv": "Recept kan nu spara en länk till sidan de kommer från och dina egna anteckningar (\"använd hälften så mycket socker\"). Importer fyller i länken, och anteckningarna visas under stegen, i matlagningsläget på första steget och när du kopierar receptet som text."
+    }
+  },
+  {
     "version": "0.140.0",
     "date": "2026-11-03",
     "pr": 1106,
