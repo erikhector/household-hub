@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { MarkReleaseSeen } from "@/components/whats-new/mark-release-seen";
 import { ReleaseList } from "@/components/whats-new/release-list";
 import { requireHousehold } from "@/lib/session";
@@ -23,10 +25,23 @@ export default async function WhatsNewPage() {
   return (
     <div className="flex flex-col gap-6">
       <MarkReleaseSeen version={CURRENT_VERSION} alreadySeen={alreadySeen} />
-      <div>
-        <PageTitle>{t.title}</PageTitle>
-        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{format(t.currentVersion, { version: CURRENT_VERSION })}</p>
+      <div className="flex flex-col gap-2">
+        {/* UX-175: on phones <main> is the only scroll region and this page
+            had nothing focusable in it (axe scrollable-region-focusable), so
+            a keyboard user couldn't scroll it. The link is also the way back
+            to where More was opened from. */}
+        <Link
+          href="/dashboard"
+          className="touch-target inline-flex w-fit items-center gap-1 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5" />
+          {t.back}
+        </Link>
+        <div>
+          <PageTitle>{t.title}</PageTitle>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{format(t.currentVersion, { version: CURRENT_VERSION })}</p>
+        </div>
       </div>
       <ReleaseList dict={t} locale={locale} />
     </div>
