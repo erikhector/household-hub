@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/select";
 import { checkSplitForm, evenSplitAmounts } from "@/components/budget/split-amounts";
 import { SplitEditor } from "@/components/budget/split-editor";
+import { SharedSplitFields, useSharedSplit } from "@/components/budget/shared-split-section";
+import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { dateInPeriod, periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
 import { useBudgetStartDay } from "@/components/budget/budget-period-context";
@@ -198,6 +201,7 @@ export function TransactionDialog({
   recentCategoryIds = [],
   filterCategoryId,
   onUndoCreate,
+  sharedSplit,
 }: {
   dict: BudgetDict;
   categories: CategoryRow[];
@@ -244,6 +248,17 @@ export function TransactionDialog({
   /** UX-109: deletes a transaction this dialog just created, for the saved
    * toast's Undo (deleteTransactionAction or its personal twin). */
   onUndoCreate?: (id: string) => Promise<ActionState>;
+  /** UX-178: Personal Budget only. The households the user can split an
+   * expense with (more than one member each), the personal dictionary the
+   * split strings live in, and createSharedExpenseFromPersonalBudgetAction.
+   * Offers a "Split with household" switch on a new transaction; on, the sheet
+   * logs a household expense (the household's categories, paid by you, split
+   * as chosen) instead of a personal one. Absent on the household budget. */
+  sharedSplit?: {
+    households: ShareableHousehold[];
+    dict: Dictionary["personalBudget"];
+    action: TransactionFormAction;
+  };
 }) {
   const isEdit = !!transaction;
   const canSplit = members.length > 1;
@@ -262,13 +277,19 @@ export function TransactionDialog({
     defaultLoggingCategoryId(categories, filterCategoryId, recentCategoryIds) ??
     "";
   const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const canShare = !!sharedSplit && sharedSplit.households.length > 0 && !isEdit && !prefillFromTemplate;
+  const [amount, setAmount] = useState(
+    transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
+  );
+  const shared = useSharedSplit(sharedSplit?.households ?? [], amount);
+  // With no personal category there is nothing to log a personal expense
+  // against, so a shared one is all the sheet can add.
+  const sharedForced = canShare && categories.length === 0;
+  const sharedOn = canShare && (shared.enabled || sharedForced);
   const [isRecurring, setIsRecurring] = useState(
     transaction?.isRecurring ?? !!prefillFromTemplate?.templateId,
   );
   const showRecurringBox = isEdit ? !!transaction?.isRecurring : !!prefillFromTemplate?.templateId;
-  const [amount, setAmount] = useState(
-    transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
-  );
   const [date, setDate] = useState(() =>
     toLocalDateKey(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)),
   );
@@ -296,11 +317,13 @@ export function TransactionDialog({
     prevState: ActionState,
     formData: FormData,
   ) => {
-    const action = isEdit ? updateAction : createAction;
+    const action = sharedOn && sharedSplit ? sharedSplit.action : isEdit ? updateAction : createAction;
     const result = await action(prevState, formData);
     if (!result.error) {
       setOpen(false);
-      if (!isEdit && !prefillFromTemplate) {
+      if (sharedOn && sharedSplit) {
+        toast.success(format(sharedSplit.dict.logShared.loggedToast, { household: shared.household?.name ?? "" }));
+      } else if (!isEdit && !prefillFromTemplate) {
         // UX-109: say what was saved and offer to take it back, since the
         // sheet closes on the new row and a mis-tapped chip is easy.
         const savedCategory = categories.find((c) => c.id === formData.get("categoryId"));
@@ -355,6 +378,7 @@ export function TransactionDialog({
     setPaidTouched(false);
     setSharesTouched(hasSplit(transaction, prefillFromTemplate));
     kept.reset();
+    shared.reset();
     setDate(toLocalDateKey(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)));
   }
 
@@ -363,11 +387,23 @@ export function TransactionDialog({
     setSplitAmounts(Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])));
   }
 
+  // The category chips: the household's while "Split with household" is on.
+  const sharedGroups = useMemo(
+    () => groupCategoriesForLogging(shared.household?.categories ?? [], []),
+    [shared.household],
+  );
+  const chipGroups = sharedOn ? sharedGroups : categoryGroups;
+  const chipValue = sharedOn ? shared.categoryId : categoryId;
+  const chipSelect = sharedOn ? shared.setCategoryId : setCategoryId;
+
   const splitCheck = checkSplitForm(amount, splitAmounts, paidAmounts);
-  const splitInvalid = splitEnabled && (splitCheck.shareMismatch || splitCheck.overpaid);
+  const splitInvalid = sharedOn
+    ? shared.invalid
+    : splitEnabled && (splitCheck.shareMismatch || splitCheck.overpaid);
 
   function handleAmountChange(next: string) {
     setAmount(next);
+    shared.onAmountChange(next);
     if (!sharesTouched) resetToEvenSplit(next);
     if (!isEdit && !paidTouched) {
       setPaidAmounts(buildInitialPaidAmounts(undefined, next, members, currentMemberId));
@@ -419,14 +455,24 @@ export function TransactionDialog({
               required
             />
           </div>
+          {canShare && sharedSplit && (
+            <SharedSplitFields
+              split={shared}
+              amount={amount}
+              forced={sharedForced}
+              dict={sharedSplit.dict.logShared}
+              numberFormat={numberFormat}
+            />
+          )}
           {/* UX-109: chips, not a combobox: one tap picks, nothing to type
               (DESIGN.md M4). Expenses lead, recent categories lead their
               group, and each chip is a 44 px target (M3). The radios are
               visually hidden but real, so the group is a native radiogroup
               with arrow keys, and `required` blocks an empty save. */}
-          <fieldset className="flex min-w-0 flex-col gap-3">
+          {/* Keyed so a household switch starts the group unchecked. */}
+          <fieldset key={sharedOn ? shared.household?.id : "personal"} className="flex min-w-0 flex-col gap-3">
             <legend className="mb-2 text-sm font-medium">{dict.categoryLabel}</legend>
-            {categoryGroups.map((group) => (
+            {chipGroups.map((group) => (
               <div key={group.type} className="flex flex-col gap-1.5">
                 <p className="text-xs font-medium text-muted-foreground">
                   {dict.categoryGroups[group.type === "EXPENSE" ? "expense" : group.type === "SAVINGS" ? "savings" : "income"]}
@@ -438,8 +484,8 @@ export function TransactionDialog({
                         type="radio"
                         name="categoryId"
                         value={c.id}
-                        checked={categoryId === c.id}
-                        onChange={() => setCategoryId(c.id)}
+                        checked={chipValue === c.id}
+                        onChange={() => chipSelect(c.id)}
                         required
                         className="peer sr-only"
                       />

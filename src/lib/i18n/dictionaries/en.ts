@@ -3568,9 +3568,11 @@ export const en = {
     logShared: {
       logPayment: "Log payment",
       paymentDialogTitle: "Log payment for {name}",
-      // UX-112: "Add" like the household page's "Add transaction", which is
-      // where the same action lives next to a "Split this expense" checkbox.
-      button: "Add shared expense",
+      // UX-178: the Add transaction sheet's "Split with household" switch.
+      splitToggle: "Split with household",
+      splitSummary: "Paid by you, shared with {members}.",
+      splitShare: "{name}'s share {amount}",
+      splitChange: "Change",
       dialogTitle: "Add shared expense",
       subtitle:
         "This creates a real transaction in the household's budget, split the way you choose below — it isn't a separate personal entry.",
