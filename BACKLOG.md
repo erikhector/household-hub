@@ -376,20 +376,6 @@ left out.
       phones; `mobile` smoke screenshots of both pages fit in two screens
       of content before the first form.
 
-### UX (2026-10-31 budget redesign follow-ups)
-
-The budget redesign (REQUIREMENTS.md, "Budget page layout") changed layout
-only. These two from its design add a write path each, so they're their own
-items. Mock-ups: the "Add transaction — split built in" artboard of the
-owner's budget redesign canvas.
-
-- [ ] **UX-179. "Repeats" switch on a new transaction** (M) — UX-113 took
-      "This repeats" off new transactions because the flag fed a hidden
-      estimate. Bring the idea back properly: a "Repeats" switch on the
-      Add transaction sheet that, on save, also creates a monthly recurring
-      item (Bills & income) from the transaction and marks this period
-      logged. Server Action plus unit tests (tenancy, both budgets); e2e:
-      the item shows under Repeating as Logged.
 
 ### Dependencies
 

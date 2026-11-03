@@ -101,6 +101,9 @@ export type BudgetDict = {
   frequencyWeekly: string;
   frequencyYearly: string;
   recurringLabel: string;
+  // UX-179: the Add transaction sheet's "Repeats" switch.
+  repeatsLabel: string;
+  repeatsHint: string;
   save: string;
   saving: string;
   // Household-only: TransactionDialog's/TransactionList's expense-split UI.

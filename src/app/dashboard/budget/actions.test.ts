@@ -648,6 +648,98 @@ describe("createTransactionAction", () => {
     isRecurring: "",
   };
 
+  describe("Repeats switch (UX-179)", () => {
+    beforeEach(() => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", name: "Rent", type: "EXPENSE" });
+      recurringTemplateCreateMock.mockResolvedValue({ id: "tpl" });
+      transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+    });
+
+    it("creates a monthly item in the caller's household and logs this row against it, in one database transaction", async () => {
+      const result = await createTransactionAction(
+        {},
+        formData({ ...base, repeatsMonthly: "on", description: "Gym" }),
+      );
+
+      expect(result).toEqual({ createdId: "new-tx" });
+      expect(transactionMock).toHaveBeenCalledTimes(1);
+      const tplData = recurringTemplateCreateMock.mock.calls[0][0].data;
+      expect(tplData).toMatchObject({
+        householdId: household.id,
+        categoryId: "cat-1",
+        name: "Gym",
+        amount: 50,
+        type: "EXPENSE",
+        frequency: "MONTHLY",
+        dayOfMonth: 15,
+      });
+      expect(transactionCreateMock.mock.calls[0][0].data).toMatchObject({
+        householdId: household.id,
+        recurringTemplateId: tplData.id,
+        isRecurring: true,
+        recurrenceFrequency: "MONTHLY",
+      });
+    });
+
+    it("names the item after the category when there is no description", async () => {
+      await createTransactionAction({}, formData({ ...base, repeatsMonthly: "on" }));
+
+      expect(recurringTemplateCreateMock.mock.calls[0][0].data.name).toBe("Rent");
+    });
+
+    it("carries a split's shares onto the item", async () => {
+      householdMemberFindManyMock.mockResolvedValue([{ id: "m1" }, { id: "m2" }]);
+
+      // FormData.set keeps one value per key, so append the repeated inputs.
+      const fd = formData({ ...base, repeatsMonthly: "on", splitEnabled: "on" });
+      fd.append("splitMemberId", "m1");
+      fd.append("splitMemberId", "m2");
+      fd.append("splitAmount", "30");
+      fd.append("splitAmount", "20");
+      fd.append("splitPaid", "50");
+      fd.append("splitPaid", "0");
+      await createTransactionAction({}, fd);
+
+      expect(recurringTemplateCreateMock.mock.calls[0][0].data.splits).toEqual({
+        create: [
+          { householdMemberId: "m1", amountOwed: 30 },
+          { householdMemberId: "m2", amountOwed: 20 },
+        ],
+      });
+    });
+
+    it("creates no item without the switch", async () => {
+      await createTransactionAction({}, formData(base));
+
+      expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+      expect(transactionMock).not.toHaveBeenCalled();
+    });
+
+    it("creates no item for a payment logged against an existing recurring item", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue({ id: "tpl-1", frequency: "MONTHLY" });
+
+      await createTransactionAction(
+        {},
+        formData({ ...base, repeatsMonthly: "on", recurringTemplateId: "tpl-1" }),
+      );
+
+      expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("creates nothing for a category outside the caller's household (IDOR guard)", async () => {
+      categoryFindFirstMock.mockResolvedValue(null);
+
+      const result = await createTransactionAction({}, formData({ ...base, repeatsMonthly: "on" }));
+
+      expect(result.error).toBe("Category not found");
+      expect(categoryFindFirstMock).toHaveBeenCalledWith({
+        where: { id: "cat-1", householdId: household.id },
+      });
+      expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("rejects a non-positive amount", async () => {
     const result = await createTransactionAction({}, formData({ ...base, amount: "0" }));
     expect(result.error).toBe("Amount must be greater than 0");

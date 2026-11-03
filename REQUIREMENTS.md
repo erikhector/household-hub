@@ -2176,7 +2176,8 @@ every lookup the old one did.
   (Manage), which is listed, due and counted by name. The checkbox stays
   only for a payment logged from a recurring item and for an existing
   transaction already flagged, so it can be cleared. Covered by
-  `e2e/transaction-repeats.spec.ts`.
+  `e2e/transaction-repeats.spec.ts`. (UX-179 later added a separate
+  "Repeats" switch that does create an item; see "Repeats switch".)
 - **Recurring budget templates** (a separate, later-added system — see
   `RecurringTemplate`/`RecurringTemplateAck` in `prisma/schema.prisma`,
   the pure `src/app/dashboard/budget/recurring-template-calc.ts`, and
@@ -3883,9 +3884,18 @@ Insights, three Add panels on Manage). No data model changed.
   behind a "Grocery prices, stores and waste" disclosure. `?prices=1` opens
   it, which a price-spike notification's link sets. With nothing owed,
   who owes whom is last, as a record.
-- **Still open**: logging a shared expense from the Add transaction sheet,
-  and making a new transaction repeat from that sheet, are BACKLOG items
-  (UX-178, UX-179).
+- **Repeats switch (UX-179)**: the Add transaction sheet (household and
+  Personal Budget) has a "Repeats" switch. On save, `createTransactionAction`
+  / `createPersonalTransactionAction` also create a monthly recurring item
+  (Bills & income) from the row, named by its description (else its
+  category), with the same amount and category and the transaction's day of
+  month as the due-day hint, and link the row to it
+  (`recurringTemplateId`), all in one database transaction. This period then
+  reads Logged under Repeating, not Due. A split bill's shares carry onto
+  the household item. Not offered on an edit, on a payment logged from a
+  recurring item or planned bill, or on a shared expense logged from the
+  sheet. A saved repeat shows no Undo, since Undo would remove only the row
+  and leave the item Due. Covered by `e2e/transaction-repeats.spec.ts`.
 
 #### Personal starter categories (BUDGET-5)
 
