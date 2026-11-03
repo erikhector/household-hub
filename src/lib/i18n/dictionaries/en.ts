@@ -1487,6 +1487,25 @@ export const en = {
       addedToast: "Added {name} — this barcode is remembered",
       done: "Done",
     },
+    // GAP-69: the manual stock check, one item per step.
+    stockCheck: {
+      triggerLabel: "Check stock",
+      dialogTitle: "Check stock",
+      pickSubtitle: "Walk one place and confirm or correct each amount.",
+      pickGroupLabel: "Where are you checking?",
+      allLocations: "All locations",
+      itemCount: { one: "{count} item", other: "{count} items" },
+      progress: "Item {current} of {total}",
+      currentAmount: "On the list: {quantity} {unit}",
+      countedLabel: "Amount you counted ({unit})",
+      next: "Correct, next",
+      skip: "Skip",
+      invalidError: "Enter an amount of 0 or more.",
+      summaryTitle: "Stock check done",
+      summary: "{checked} checked, {corrected} corrected",
+      summarySkipped: "{skipped} skipped",
+      done: "Done",
+    },
     aiShelfScan: {
       discard: {
         title: "Discard this scan?",

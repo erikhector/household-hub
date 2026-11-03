@@ -18,6 +18,9 @@ export const loadBulkScanDialog = createLazyDialogLoader(() =>
 export const loadAiShelfScanDialog = createLazyDialogLoader(() =>
   import("@/components/inventory/ai-shelf-scan-dialog").then((m) => m.AiShelfScanDialog),
 );
+export const loadStockCheckDialog = createLazyDialogLoader(() =>
+  import("@/components/inventory/stock-check-dialog").then((m) => m.StockCheckDialog),
+);
 export const loadItemFormDialog = createLazyDialogLoader(() =>
   import("@/components/inventory/add-item-dialog").then((m) => m.ItemFormDialog),
 );

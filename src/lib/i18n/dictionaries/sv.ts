@@ -1393,6 +1393,25 @@ export const sv = {
       addedToast: "La till {name} — streckkoden är sparad",
       done: "Klar",
     },
+    // GAP-69: den manuella lagerkontrollen, en vara per steg.
+    stockCheck: {
+      triggerLabel: "Kontrollera lager",
+      dialogTitle: "Kontrollera lager",
+      pickSubtitle: "Gå igenom ett ställe och bekräfta eller rätta varje mängd.",
+      pickGroupLabel: "Var kontrollerar du?",
+      allLocations: "Alla platser",
+      itemCount: { one: "{count} vara", other: "{count} varor" },
+      progress: "Vara {current} av {total}",
+      currentAmount: "I listan: {quantity} {unit}",
+      countedLabel: "Mängd du räknade ({unit})",
+      next: "Stämmer, nästa",
+      skip: "Hoppa över",
+      invalidError: "Ange en mängd på 0 eller mer.",
+      summaryTitle: "Lagerkontrollen är klar",
+      summary: "{checked} kontrollerade, {corrected} rättade",
+      summarySkipped: "{skipped} överhoppade",
+      done: "Klar",
+    },
     aiShelfScan: {
       discard: {
         title: "Kasta bort skanningen?",

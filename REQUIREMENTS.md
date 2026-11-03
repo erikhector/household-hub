@@ -4759,6 +4759,35 @@ below.
 - **i18n**: all new strings live under `shoppingList.receiptScan`/
   `shoppingList.registerReceipt` in `en.ts`/`sv.ts`.
 
+## Stock check
+
+A "Check stock" entry in the Inventory toolbar (the ⋯ menu's Manage group on
+phones; hidden while the household has no items) opens `StockCheckDialog`
+(`src/components/inventory/stock-check-dialog.tsx`), the manual counterpart
+of the AI shelf scan's restock mode: no camera, no AI, no schema, no history.
+
+- **Pick, walk, summary.** The first step lists "All locations" and each
+  location with its item count (a location with none is disabled). The walk
+  shows one item per step, sorted by name, every item in the place
+  (including those at 0), with "Item 3 of 12", the amount the list says and
+  an amount field pre-filled with it (`inputMode` numeric for whole piece
+  counts, decimal otherwise, `inputModeForUnit`). A big "Correct, next"
+  keeps or takes the typed amount and moves on; "Skip" moves on without
+  counting. The last step leads to a summary, "12 checked, 3 corrected"
+  (plus "N skipped" when any were).
+- **Saving.** A changed amount is saved at once as a counted value through
+  `bulkSetInventoryQuantitiesAction` (household from the session, the
+  batched out-of-stock and low-stock side effects, auto-add toast), never as
+  a delta; an unchanged amount sends nothing (`confirmStockCheckStep`,
+  `src/lib/stock-check.ts`). Because each step saves, closing early
+  (Escape, the back gesture, the X) keeps what was already checked and asks
+  nothing. A blank or negative amount shows an inline error and stays on the
+  item.
+- Not included: a history of corrections, scheduled reminders, a barcode
+  step.
+- Tests: `src/lib/stock-check.test.ts`, `e2e/inventory-stock-check.spec.ts`
+  (desktop and mobile, `en` and `sv`, plus the 320 px layout).
+
 ## AI shelf scan (beta)
 
 A "Scan a shelf" button (with a "Beta" badge, `AiShelfScanDialog`,
