@@ -283,6 +283,10 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   barcode scan, link and create-item actions (`lib/actions/barcode.ts`) are
   converted too. `householdNoteTooLong` spells out the 1000-character limit
   for the same reason, with a test that it matches `NOTE_BODY_MAX_LENGTH`.
+  The shared share-split parser (`lib/share-split-form.ts`) now translates its own
+  three messages (invalid split, negative amount, member no longer in the household),
+  so the planned-bill actions return its `{ error }` as is instead of mapping English
+  text back to keys.
   It has also converted the auth actions (`lib/actions/auth.ts`: signup,
   login, password reset, email verification and its resend, including the
   "if an account exists" confirmations, which stay identical whether or not
