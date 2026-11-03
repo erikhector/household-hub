@@ -99,8 +99,8 @@ easy for AI coding agents to work in correctly:
   edits show at once; another household member's change can take up to 15 s
   to appear on a client navigation (a reload always shows it). `static`
   keeps its 5 min default. The flag is experimental in Next; reverting is
-  deleting the block. If PERF-22 goes ahead, `cacheLife`'s `stale` value
-  controls this instead. `e2e/flows.spec.ts` ("an edit still shows after
+  deleting the block. If the Cache Components work (PERF-31) goes ahead,
+  `cacheLife`'s `stale` value controls this instead. `e2e/flows.spec.ts` ("an edit still shows after
   navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
