@@ -184,10 +184,60 @@ describe("previewMissingIngredientsAction", () => {
             gte: new Date("2026-01-05T00:00:00.000Z"),
             lt: new Date("2026-01-12T00:00:00.000Z"),
           },
-          recipeId: { not: null },
+          // GAP-58: a custom meal counts only when it lists ingredients.
+          OR: [{ recipeId: { not: null } }, { freeformIngredients: { not: null } }],
         },
       }),
     );
+  });
+
+  it("lists a custom meal's lines unscaled, matched to inventory by name, with blank lines dropped (GAP-58)", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { recipeId: null, freeformIngredients: "2 tortillas\n\n  \nsalsa\nMilk", portions: 4, recipe: null },
+      // Same line on another day adds up; portions scale nothing.
+      { recipeId: null, freeformIngredients: "3 tortillas", portions: 8, recipe: null },
+      { recipeId: null, freeformIngredients: null, portions: 4, recipe: null },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-milk", name: "Milk", quantity: 5, unit: "pcs", unitConversions: [] },
+    ]);
+
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    // Milk is on hand (5 >= 1), so only salsa and the tortillas are missing.
+    expect(result).toEqual({
+      items: [
+        { key: "name:salsa::pcs", name: "salsa", unit: "pcs", missingQuantity: 1, unitMismatch: false, note: null, fromCustomOnly: true },
+        { key: "name:tortillas::pcs", name: "tortillas", unit: "pcs", missingQuantity: 5, unitMismatch: false, note: null, fromCustomOnly: true },
+      ],
+    });
+    // Household scope is the same entry query's MealPlan guard.
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ mealPlan: { householdId: "household-1" } }),
+      }),
+    );
+  });
+
+  it("skips a recipe-less meal with no ingredients and ignores typed lines on a recipe entry (GAP-58)", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { recipeId: null, freeformIngredients: null, portions: 4, recipe: null },
+      { recipeId: "soup", freeformIngredients: "99 truffles", portions: 4, recipe: { servings: 4 } },
+    ]);
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "soup",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Carrot", unit: "kg", quantity: 1 }],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    expect(result).toEqual({
+      items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 1, unitMismatch: false, note: null }],
+    });
   });
 
   it("converts through saved item conversions, linked or matched by name, with no extra query per recipe (MATCH-3)", async () => {

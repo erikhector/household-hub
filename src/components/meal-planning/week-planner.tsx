@@ -421,6 +421,7 @@ export function WeekPlanner({
         recipeId: pick.recipeId,
         recipeName: pick.name,
         freeformName: null,
+        freeformIngredients: null,
         portions: pick.portions,
         consumedAt: null,
         preparedBatchId: null,

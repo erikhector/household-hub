@@ -5834,11 +5834,26 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   shopper sees it under the item on the list and the share page. No schema
   change. The low-stock auto-add (`default-list.ts`) doesn't build rows from
   recipe ingredients, so it has nothing to carry.
+- **Custom meal ingredients (GAP-58)**: the "Custom meal…" form has an
+  optional multi-line "Ingredients" field, one per line (`maxLength` 1000,
+  shown again on Edit), stored as the typed text in the nullable
+  `MealPlanEntry.freeformIngredients` (`normalizeFreeformIngredients`,
+  `custom-meal-ingredients.ts`: lines trimmed, blanks dropped, `null` when
+  nothing is left). Choosing a recipe instead clears it. "Copy last week"
+  carries it. The bridge reads the text with the smart add line parser
+  (`parseFreeformIngredients`: "2 tortillas" is 2 pcs, "salsa" 1 pcs) for
+  recipe-less entries only, matches each line to inventory by the same
+  case-insensitive name rule as an unlinked recipe ingredient, and scales
+  nothing (a custom meal has no portions). Rows only custom meals need come
+  back `fromCustomOnly` and the review dialog lists them last under "From
+  custom meals". Marking a custom meal cooked still decrements nothing.
+  Plan templates and week picks don't carry the lines.
 - **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
   (`src/app/dashboard/meal-planning/cooking-actions.ts`), a read-only preview — no
   rows are written until the user commits. It collects every
-  `MealPlanEntry` with a `recipeId` dated inside the chosen range (freeform
-  entries have no ingredients and are skipped via `recipeId: { not: null }`),
+  `MealPlanEntry` with a `recipeId` dated inside the chosen range (a
+  freeform entry counts only when it lists ingredients, see "Custom meal
+  ingredients (GAP-58)" below; one with neither is skipped),
   gathers each recipe's `RecipeIngredient` rows, and resolves each to its
   linked `InventoryItem`. `RecipeIngredient.inventoryItemId` can be null —
   a row saved without a match (see "Ingredient → inventory linking"

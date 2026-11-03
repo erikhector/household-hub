@@ -178,6 +178,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     recipeId: entry.recipeId,
     recipeName: entry.recipe?.name ?? null,
     freeformName: entry.freeformName,
+    freeformIngredients: entry.freeformIngredients,
     portions: entry.portions,
     consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
     preparedBatchId: entry.preparedBatchId,

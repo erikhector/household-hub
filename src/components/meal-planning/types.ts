@@ -62,6 +62,8 @@ export type MealPlanEntryData = {
   recipeId: string | null;
   recipeName: string | null;
   freeformName: string | null;
+  // GAP-58: a custom meal's ingredient lines as typed (null when none).
+  freeformIngredients: string | null;
   // How many portions of the linked recipe this slot is for — see
   // MealPlanEntry.portions' doc comment in schema.prisma. Meaningless when
   // recipeId is null (a freeform entry has no recipe to scale).
@@ -121,6 +123,9 @@ export type MissingIngredientData = {
   // row, so the review dialog can list it under "Not on a day yet". Absent
   // when any placed meal needs it too.
   fromPicksOnly?: true;
+  // GAP-58: set when only custom meals' typed ingredients need this row, so
+  // the review dialog can list it under "From custom meals".
+  fromCustomOnly?: true;
 };
 
 // An ACTIVE shopping list the "add missing ingredients" dialog can add to.
