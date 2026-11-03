@@ -393,6 +393,16 @@ function CookModeContent({
                       {step}
                     </span>
                   </button>
+                  {/* GAP-70: the household's notes show once, on the first
+                      step, where a cook reads before starting. */}
+                  {index === 0 && recipe.notes?.trim() && (
+                    <div className="mt-2 rounded-xl border border-dashed p-3 text-base">
+                      <p className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+                        {dict.recipeNotesLabel}
+                      </p>
+                      <p className="mt-1 break-words whitespace-pre-line">{recipe.notes}</p>
+                    </div>
+                  )}
                   {seconds != null && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 pl-10">
                       {endsAt != null ? (

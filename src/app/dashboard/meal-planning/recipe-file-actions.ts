@@ -169,6 +169,8 @@ export async function importRecipesFromFileAction(
             householdId: household.id,
             name: recipe.name,
             instructions: recipe.instructions || null,
+            sourceUrl: recipe.sourceUrl,
+            notes: recipe.notes,
             servings: recipe.servings,
             tags: recipe.tags,
             ingredients: {

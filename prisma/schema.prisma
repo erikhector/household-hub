@@ -782,6 +782,14 @@ model Recipe {
   householdId            String
   name                   String
   instructions           String?
+  // GAP-70: the page the recipe came from (http/https only, max 2048,
+  // validated by normalizeSourceUrl in src/lib/recipe-source.ts) and the
+  // household's own free-text notes ("use half the sugar"). Both nullable
+  // and both plain text: the link is shown as an external link and never
+  // fetched server-side, and the notes live apart from `instructions` so
+  // Cook mode doesn't read a tweak out as a step.
+  sourceUrl              String?
+  notes                  String?
   // How many portions the ingredient quantities on this recipe (as entered)
   // actually make. MealPlanEntry.portions is scaled against this — see its
   // doc comment below — so ingredient totals for a meal-plan entry reflect

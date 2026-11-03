@@ -43,7 +43,7 @@ import { importRecipesFromFileAction, previewRecipeFileAction } from "./recipe-f
 const t = en.mealPlanning;
 
 const archive = buildPaprikaArchive([
-  { name: "Pancakes", ingredients: "2 dl flour\n3 eggs", directions: "Fry." },
+  { name: "Pancakes", ingredients: "2 dl flour\n3 eggs", directions: "Fry.", notes: "Less salt", source_url: "https://example.com/pancakes" },
   { name: "Soup", ingredients: "1 onion" },
   { name: "Stew", ingredients: "500 g beef" },
 ]);
@@ -112,7 +112,10 @@ describe("importRecipesFromFileAction", () => {
     expect(result).toEqual({ imported: 2 });
     expect(recipeCreateMock).toHaveBeenCalledTimes(2);
     const first = recipeCreateMock.mock.calls[0][0] as { data: Record<string, unknown> };
-    expect(first.data).toMatchObject({ householdId: "h1", name: "Pancakes", instructions: "Fry.", servings: 4 });
+    expect(first.data).toMatchObject({ householdId: "h1", name: "Pancakes", instructions: "Fry.", servings: 4,
+      notes: "Less salt",
+      sourceUrl: "https://example.com/pancakes",
+    });
     const second = recipeCreateMock.mock.calls[1][0] as { data: Record<string, unknown> };
     expect(second.data).toMatchObject({ householdId: "h1", name: "Stew" });
     expect(transactionMock).toHaveBeenCalledTimes(1);

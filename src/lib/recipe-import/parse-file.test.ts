@@ -8,6 +8,7 @@ const pancakes = {
   ingredients: "2 dl flour\n1 tbsp sugar\n\n3 eggs, beaten",
   directions: "Whisk.\nFry.",
   notes: "Serve warm.",
+  source_url: "https://www.bbc.co.uk/food/pancakes",
   servings: "Serves 6-8",
   categories: ["Breakfast"],
 };
@@ -24,11 +25,23 @@ describe("parseRecipeFile: .paprikarecipes", () => {
     const [recipe] = result.recipes;
     expect(recipe.name).toBe("Pancakes");
     expect(recipe.servings).toBe(6);
-    expect(recipe.instructions).toBe("Whisk.\nFry.\n\nServe warm.");
+    // GAP-70: the notes are no longer appended to the method.
+    expect(recipe.instructions).toBe("Whisk.\nFry.");
+    expect(recipe.notes).toBe("Serve warm.");
+    expect(recipe.sourceUrl).toBe("https://www.bbc.co.uk/food/pancakes");
     expect(recipe.ingredients).toHaveLength(3);
     expect(recipe.ingredients[0]).toMatchObject({ name: "flour", quantity: 2 });
     expect(recipe.ingredients[1]).toMatchObject({ name: "sugar", quantity: 1, unit: "tbsp" });
     expect(recipe.ingredients[2]).toMatchObject({ name: "eggs", quantity: 3, note: "beaten" });
+  });
+
+  it("drops a Paprika source_url that is not http(s), and leaves notes null when absent (GAP-70)", () => {
+    const result = parseRecipeFile(
+      buildPaprikaArchive([{ ...pancakes, source_url: "javascript:alert(1)", notes: "" }]),
+    );
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.recipes[0].sourceUrl).toBeNull();
+    expect(result.recipes[0].notes).toBeNull();
   });
 
   it("also reads deflated entries and a plain (ungzipped) JSON entry", () => {
@@ -110,6 +123,16 @@ describe("parseRecipeFile: JSON", () => {
     expect(result.recipes[0]).toMatchObject({ name: "Tomato soup", instructions: "Simmer.", servings: 4 });
     expect(result.recipes[0].ingredients).toHaveLength(2);
     expect(result.recipes[0].tags).toContain("vegan");
+  });
+
+  it("maps JSON-LD url to sourceUrl and drops an invalid one (GAP-70)", () => {
+    const ok = parseRecipeFile(json({ ...ld, url: "https://example.com/tomato-soup" }));
+    if (!ok.ok) throw new Error("expected ok");
+    expect(ok.recipes[0].sourceUrl).toBe("https://example.com/tomato-soup");
+    expect(ok.recipes[0].notes).toBeNull();
+    const bad = parseRecipeFile(json({ ...ld, url: "javascript:alert(1)" }));
+    if (!bad.ok) throw new Error("expected ok");
+    expect(bad.recipes[0].sourceUrl).toBeNull();
   });
 
   it("reads an array and a @graph, skipping unusable recipes", () => {
