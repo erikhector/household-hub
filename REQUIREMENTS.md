@@ -7453,9 +7453,10 @@ flat grayscale:
   (`oklch(0.66 0.22 300)`) so buttons, focus rings, and the active sidebar
   item feel like one consistent brand color rather than three different
   accents. `--chart-1..5` are a small rainbow (pink/amber/teal/violet/green)
-  for future charts. Amber (`bg-amber-500`, see `inventory-table.tsx`) is
-  reserved for the "low stock" semantic and shouldn't be reused as a generic
-  accent color. When adding new colored UI, pick from these existing tokens
+  for future charts. Amber is reserved for the "low stock" / warning semantic and
+  shouldn't be reused as a generic accent color. Use the `warning` token
+  (`bg-warning/10 text-warning`; `text-attention` for orange), never a raw
+  `amber-<shade>` utility: `src/components/no-raw-palette.test.ts` fails on one. When adding new colored UI, pick from these existing tokens
   before introducing a new ad-hoc color.
 - **Radius**: `--radius` is `0.9rem` (bumped up from shadcn's default
   `0.625rem`) — this is the single lever for the app's rounded, friendly

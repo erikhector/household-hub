@@ -59,8 +59,8 @@ export function CalendarFeedSetting({
       </div>
       {/* Shown whether the feed is on or off: the owner should read it
           before turning the feed on, not only after. */}
-      <p className="flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-sm">
-        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+      <p className="flex items-start gap-2 rounded-md bg-warning/10 p-3 text-sm">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
         <span>{dict.publicWarning}</span>
       </p>
       {feedUrl && webcalUrl ? (
