@@ -664,28 +664,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-16 scan
-
-- [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
-      AnyList's December 2025 meal-planning update lets a plain note on the
-      calendar carry ingredients that go straight to the shopping list.
-      Squirrel's "Custom meal…" (`MealPlanEntry.freeformName`) has none, and
-      the meal-plan → shopping-list bridge skips it (`recipeId: { not: null }`,
-      REQUIREMENTS.md "Meal-plan → shopping-list bridge"), so "taco night"
-      or "pasta with whatever" adds nothing to the shop and is invisible to
-      the missing-ingredients check. Add an optional multi-line
-      "Ingredients" field to the custom-meal form (nullable
-      `MealPlanEntry.freeformIngredients String?`, Phase 2), one per line,
-      read with the same line parser as smart add. The bridge preview lists those lines as
-      "From custom meals", matched to inventory by the existing
-      case-insensitive name rule and scaled by nothing (a custom meal has
-      no portions). Marking it cooked still decrements nothing.
-      Acceptance: a bridge test covers a custom meal's lines being listed,
-      household scoping, blank lines dropped and a recipe-less, ingredient-less
-      meal still skipped; an e2e step adds a custom meal with "2 tortillas"
-      and asserts it in the bridge preview and on the list after "Add",
-      on desktop and mobile.
-
 ### 2026-10-23 scan
 
 - [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —

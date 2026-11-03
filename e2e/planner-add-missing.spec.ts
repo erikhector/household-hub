@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
 
 // UX-91: a planned week has a labelled, bottom-anchored "Add N missing to
 // shopping list" button (not just the ⋯ menu), hidden on an empty week; the
@@ -18,6 +18,9 @@ const sheets = `Lasagne sheets ${tag}`;
 const ricotta = `Ricotta ${tag}`;
 // GAP-62: the ingredient's note should reach the list row.
 const ricottaNote = `well drained ${tag}`;
+// GAP-58: a custom meal's typed ingredient, in weeks of its own.
+const tortillas = `Tortillas${tag}`;
+const customWeek = (project: string) => (project === "mobile" ? "2031-04-14" : "2031-04-07");
 
 async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -70,16 +73,16 @@ test.afterEach(async () => {
     // far-future weeks has a different id and would otherwise outlive the test.
     await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::date[])`, [
       E2E_HOUSEHOLD.id,
-      [EMPTY_WEEK, plannedWeek("mobile"), plannedWeek("desktop")],
+      [EMPTY_WEEK, plannedWeek("mobile"), plannedWeek("desktop"), customWeek("mobile"), customWeek("desktop")],
     ]);
     await client.query(`DELETE FROM "Recipe" WHERE "householdId" = $1 AND id = $2`, [
       E2E_HOUSEHOLD.id,
       `e2e-recipe-${tag}`,
     ]);
     await client.query(
-      `DELETE FROM "ShoppingListItem" WHERE name IN ($1, $2)
+      `DELETE FROM "ShoppingListItem" WHERE name IN ($1, $2, $4)
          AND "shoppingListId" IN (SELECT id FROM "ShoppingList" WHERE "householdId" = $3)`,
-      [sheets, ricotta, E2E_HOUSEHOLD.id],
+      [sheets, ricotta, E2E_HOUSEHOLD.id, tortillas],
     );
   });
 });
@@ -120,4 +123,30 @@ test("a planned week's primary button adds the missing items and the toast opens
   // GAP-62: the ingredient's note shows under its row; the one without stays bare.
   await expect(page.getByText(ricottaNote)).toBeVisible();
   await expect(page.getByText(ricottaNote)).toHaveCount(1);
+});
+
+// GAP-58: a custom meal's ingredient lines reach the bridge preview and the list.
+test("a custom meal's ingredients appear in the bridge preview and land on the list", async ({ page }, testInfo) => {
+  await page.goto(`/dashboard/meal-planning?week=${customWeek(testInfo.project.name)}`);
+  const first = page.getByRole("button", { name: "Add your first dinner" });
+  await expectHydrated(first);
+  await first.click();
+  const sheet = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
+  await sheet.getByRole("combobox", { name: "Recipe" }).click();
+  await page.getByRole("option", { name: "Custom meal…" }).click();
+  await sheet.getByRole("textbox", { name: "Meal name" }).fill(`Taco night ${tag}`);
+  await sheet.getByRole("textbox", { name: "Ingredients (optional)" }).fill(`2 ${tortillas}\n\n`);
+  await sheet.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText(`Taco night ${tag}`)).toBeVisible();
+
+  await page.getByRole("button", { name: "Add 1 missing to shopping list" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add missing ingredients" });
+  await expect(dialog.getByText("From custom meals")).toBeVisible();
+  await expect(dialog.getByText(tortillas)).toBeVisible();
+  await dialog.getByRole("button", { name: "Add to list", exact: true }).click();
+
+  await expect(page.getByText(/^Added 1 item to ".+"$/)).toBeVisible();
+  await page.getByRole("button", { name: "Open list", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/]+$/);
+  await expect(page.getByRole("checkbox", { name: new RegExp(`^${tortillas}`) })).toBeVisible();
 });

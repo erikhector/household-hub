@@ -5,9 +5,11 @@ import {
 } from "@/app/dashboard/meal-planning/missing-ingredients";
 import {
   loadRecipeGraph,
+  type RecipeGraphNode,
   expandFromGraph,
   portionsMultiplier,
 } from "@/app/dashboard/meal-planning/recipe-expansion";
+import { parseFreeformIngredients } from "@/app/dashboard/meal-planning/custom-meal-ingredients";
 import type { MissingIngredientData } from "@/components/meal-planning/types";
 import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays } from "@/app/dashboard/meal-planning/date-utils";
@@ -46,10 +48,17 @@ export async function loadMissingIngredients(
       where: {
         mealPlan: { householdId: householdId },
         date: { gte: range.from, lt: range.to },
-        recipeId: { not: null },
+        // GAP-58: a custom meal counts when it lists ingredients; one with
+        // neither a recipe nor ingredients has nothing to shop for.
+        OR: [{ recipeId: { not: null } }, { freeformIngredients: { not: null } }],
         ...(mealType ? { mealType } : {}),
       },
-      select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
+      select: {
+        recipeId: true,
+        freeformIngredients: true,
+        portions: true,
+        recipe: { select: { servings: true } },
+      },
     }),
     mealType
       ? []
@@ -62,7 +71,14 @@ export async function loadMissingIngredients(
         }),
   ]);
 
-  if (entries.length === 0 && picks.length === 0) {
+  // A recipe entry's ingredients are its recipe's, whatever else is stored;
+  // only a recipe-less entry reads its own typed lines.
+  const recipeEntries = entries.filter((entry) => entry.recipeId !== null);
+  const customLines = entries
+    .filter((entry) => entry.recipeId === null)
+    .flatMap((entry) => parseFreeformIngredients(entry.freeformIngredients));
+
+  if (recipeEntries.length === 0 && customLines.length === 0 && picks.length === 0) {
     return { items: [] };
   }
 
@@ -84,9 +100,11 @@ export async function loadMissingIngredients(
   // whole range and walking it per entry with expandFromGraph keeps the
   // same expansion (cycle handling, scaling, component recipes) at one
   // query total.
-  const recipesById = await loadRecipeGraph(householdId);
+  // Custom meals only (GAP-58) need no recipe graph, so skip its query.
+  const recipesById =
+    recipeEntries.length + picks.length > 0 ? await loadRecipeGraph(householdId) : new Map<string, RecipeGraphNode>();
   const expanded = [
-    ...entries.map((entry) => ({ ...entry, fromPick: false })),
+    ...recipeEntries.map((entry) => ({ ...entry, fromPick: false })),
     ...picks.map((pick) => ({ ...pick, fromPick: true })),
   ].flatMap((meal) =>
     expandFromGraph(
@@ -108,6 +126,7 @@ export async function loadMissingIngredients(
   for (const ingredient of expanded) {
     if (!ingredient.inventoryItemId) looseNames.add(ingredient.name.toLowerCase());
   }
+  for (const line of customLines) looseNames.add(line.name.toLowerCase());
   const looseMatches =
     looseNames.size > 0
       ? await prisma.inventoryItem.findMany({
@@ -148,6 +167,23 @@ export async function loadMissingIngredients(
       fromPick: ingredient.fromPick,
     };
   });
+
+  // GAP-58: a custom meal's typed lines have no recipe link, so they take
+  // the name match above, unscaled (a custom meal has no portions).
+  for (const line of customLines) {
+    const loose = looseByName.get(line.name.toLowerCase());
+    needs.push({
+      key: loose ? loose.id : `name:${line.name.toLowerCase()}`,
+      name: loose?.name ?? line.name,
+      unit: line.unit,
+      quantity: line.quantity,
+      onHandQuantity: loose?.quantity ?? 0,
+      onHandUnit: loose?.unit ?? null,
+      conversions: loose?.unitConversions ?? [],
+      note: null,
+      fromCustom: true,
+    });
+  }
 
   // Only ingredients the household doesn't already have enough of are
   // proposed — never an item that's already sufficiently stocked. This

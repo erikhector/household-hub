@@ -4,6 +4,7 @@ import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { MAX_FREEFORM_INGREDIENTS_LENGTH } from "@/app/dashboard/meal-planning/custom-meal-ingredients";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -339,6 +341,18 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
                 maxLength={120}
                 defaultValue={isEdit ? (props.entry.freeformName ?? "") : undefined}
               />
+              <Label htmlFor="freeformIngredients" className="mt-2">
+                {dict.customMealIngredientsLabel}
+              </Label>
+              <Textarea
+                id="freeformIngredients"
+                name="freeformIngredients"
+                rows={3}
+                placeholder={dict.customMealIngredientsPlaceholder}
+                maxLength={MAX_FREEFORM_INGREDIENTS_LENGTH}
+                defaultValue={isEdit ? (props.entry.freeformIngredients ?? "") : undefined}
+              />
+              <p className="text-xs text-muted-foreground">{dict.customMealIngredientsHint}</p>
             </div>
           ) : choice === NO_CHOICE ? null : (
             <div className="flex flex-col gap-2">

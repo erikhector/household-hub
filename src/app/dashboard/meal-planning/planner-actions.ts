@@ -17,6 +17,10 @@ import {
 } from "@/app/dashboard/meal-planning/prep-assign";
 import { weekKeySchema } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { clearCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
+import {
+  MAX_FREEFORM_INGREDIENTS_LENGTH,
+  normalizeFreeformIngredients,
+} from "@/app/dashboard/meal-planning/custom-meal-ingredients";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -26,6 +30,8 @@ const addEntrySchema = z.object({
   mealType: z.enum(MEAL_TYPES),
   recipeId: z.string().optional(),
   freeformName: z.string().trim().max(120).optional(),
+  // GAP-58: a custom meal's ingredients, one per line. Ignored for a recipe.
+  freeformIngredients: z.string().max(MAX_FREEFORM_INGREDIENTS_LENGTH).optional(),
   // How many portions of the recipe this slot is for — see
   // MealPlanEntry.portions' doc comment in schema.prisma. Optional because a
   // freeform entry has no recipe to scale; when omitted for a recipe entry,
@@ -49,6 +55,7 @@ export async function addMealEntryAction(
     mealType: formData.get("mealType"),
     recipeId: formData.get("recipeId") || undefined,
     freeformName: formData.get("freeformName") || undefined,
+    freeformIngredients: formData.get("freeformIngredients") || undefined,
     portions: formData.get("portions") || undefined,
     preparedBatchId: formData.get("preparedBatchId") || undefined,
   });
@@ -82,6 +89,7 @@ export async function addMealEntryAction(
 
   let linkedRecipeId: string | null = null;
   let freeformMealName: string | null = null;
+  let freeformIngredients: string | null = null;
   // Falls back to the recipe's own serving size (i.e. "one full recipe")
   // when the form doesn't send an explicit portions count.
   let portions = parsed.data.portions ?? 4;
@@ -96,6 +104,7 @@ export async function addMealEntryAction(
   } else {
     if (!freeformName) return await fail("chooseRecipeOrMeal");
     freeformMealName = freeformName;
+    freeformIngredients = normalizeFreeformIngredients(parsed.data.freeformIngredients);
   }
 
   const plan = await prisma.mealPlan.upsert({
@@ -119,6 +128,7 @@ export async function addMealEntryAction(
       mealType,
       recipeId: linkedRecipeId,
       freeformName: freeformMealName,
+      freeformIngredients,
       portions,
     },
   });
@@ -133,6 +143,7 @@ const updateEntrySchema = z.object({
   entryId: z.string().min(1),
   recipeId: z.string().optional(),
   freeformName: z.string().trim().max(120).optional(),
+  freeformIngredients: z.string().max(MAX_FREEFORM_INGREDIENTS_LENGTH).optional(),
   portions: z.coerce.number().int().min(1, v("portionsMin")).max(1_000).optional(),
 });
 
@@ -146,6 +157,7 @@ export async function updateMealEntryAction(
     entryId: formData.get("entryId"),
     recipeId: formData.get("recipeId") || undefined,
     freeformName: formData.get("freeformName") || undefined,
+    freeformIngredients: formData.get("freeformIngredients") || undefined,
     portions: formData.get("portions") || undefined,
   });
   if (!parsed.success) {
@@ -161,6 +173,7 @@ export async function updateMealEntryAction(
 
   let linkedRecipeId: string | null = null;
   let freeformMealName: string | null = null;
+  let freeformIngredients: string | null = null;
   let portions = parsed.data.portions ?? 4;
 
   if (recipeId && recipeId !== CUSTOM_RECIPE_SENTINEL) {
@@ -173,11 +186,12 @@ export async function updateMealEntryAction(
   } else {
     if (!freeformName) return await fail("chooseRecipeOrMeal");
     freeformMealName = freeformName;
+    freeformIngredients = normalizeFreeformIngredients(parsed.data.freeformIngredients);
   }
 
   const edit = {
     where: { id: entry.id },
-    data: { recipeId: linkedRecipeId, freeformName: freeformMealName, portions },
+    data: { recipeId: linkedRecipeId, freeformName: freeformMealName, freeformIngredients, portions },
   };
 
   // GAP-49: an entry eating from a batch eats that batch's dish, its
@@ -422,7 +436,7 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
     const [sourceEntries, targetEntries] = await Promise.all([
       prisma.mealPlanEntry.findMany({
         where: { mealPlan: { householdId: household.id, weekStartDate: fromDate } },
-        select: { date: true, mealType: true, recipeId: true, freeformName: true, portions: true },
+        select: { date: true, mealType: true, recipeId: true, freeformName: true, freeformIngredients: true, portions: true },
         orderBy: [{ date: "asc" }, { mealType: "asc" }],
       }),
       prisma.mealPlanEntry.findMany({
@@ -467,6 +481,7 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
           mealType: entry.mealType,
           recipeId,
           freeformName: recipeId ? null : entry.freeformName,
+          freeformIngredients: recipeId ? null : entry.freeformIngredients,
           portions: entry.portions,
         },
       ];

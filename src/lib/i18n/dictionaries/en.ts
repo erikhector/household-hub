@@ -2131,6 +2131,11 @@ export const en = {
     // The add-meal picker before anything is chosen (M4: pick, don't type).
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
+    customMealIngredientsLabel: "Ingredients (optional)",
+    customMealIngredientsPlaceholder: "2 tortillas\n1 jar salsa",
+    customMealIngredientsHint: "One per line. What you are missing goes on the shopping list.",
+    fromCustomMeals: "From custom meals",
+    fromCustomMealsHint: "Ingredients you typed on a custom meal. Nothing is scaled.",
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
