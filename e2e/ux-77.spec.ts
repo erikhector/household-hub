@@ -15,7 +15,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 test("only household with other members: points at the member list, not Delete account", async ({ page }) => {
   // The seeded household has two members.
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=settings");
 
   await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
   await expect(page.getByText(/it has other members/)).toBeVisible();
@@ -56,7 +56,7 @@ test.describe("sole member", () => {
   });
 
   test("danger zone explains the rule and the link lands on an open Delete account", async ({ page }) => {
-    await page.goto("/dashboard/household");
+    await page.goto("/dashboard/household?tab=settings");
 
     await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
     await expect(page.getByText(/This is your only household, so it can't be deleted on its own/)).toBeVisible();

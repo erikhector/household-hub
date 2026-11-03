@@ -13,7 +13,7 @@ test("a pinned note stays above a newer one until it is unpinned", async ({ page
   const older = unique("Wifi code is on the router");
   const newer = unique("Out of coffee");
 
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=notes");
   await expectHydrated(page.getByRole("textbox", { name: "New note" }));
   for (const body of [older, newer]) {
     await page.getByRole("textbox", { name: "New note" }).fill(body);

@@ -79,7 +79,7 @@ test("delete household: confirm field is exact-match, has a Cancel and no autoco
   );
   try {
     await dismissCookieNotice(context, baseURL!);
-    await page.goto("/dashboard/household");
+    await page.goto("/dashboard/household?tab=settings");
     await page.getByRole("button", { name: "Delete household" }).click();
     const field = page.getByRole("textbox", { name: /Type .* to confirm/ });
     await expect(field).toHaveAttribute("autocapitalize", "off");
@@ -99,7 +99,7 @@ test("delete household: confirm field is exact-match, has a Cancel and no autoco
 
 test("invite email is a form, so Enter submits it", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
-  await page.goto("/dashboard/household");
+  await page.goto("/dashboard/household?tab=settings");
   await page.getByRole("button", { name: "Invite member" }).click();
   const email = page.getByRole("textbox", { name: "Their email address" });
   await expect(email).toBeVisible();

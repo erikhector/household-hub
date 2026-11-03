@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition, type ReactElement } from "react";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
+import { LearnMore } from "@/components/budget/learn-more";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,9 @@ export type DeleteCategoryAction = (categoryId: string) => Promise<ActionState>;
 export type CategoryManagerDict = {
   categories: {
     title: string;
+    subtitle: string;
+    learnMore: string;
+    learnMoreBody: string;
     addCategory: string;
     addDialogTitle: string;
     nameLabel: string;
@@ -149,8 +153,12 @@ export function CategoryManager({
 
   return (
     <div className="list-bleed flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="font-heading text-base font-semibold">{dict.categories.title}</h2>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="font-heading text-base font-semibold">{dict.categories.title}</h2>
+          <p className="text-sm text-muted-foreground">{dict.categories.subtitle}</p>
+          <LearnMore label={dict.categories.learnMore}>{dict.categories.learnMoreBody}</LearnMore>
+        </div>
         <AddCategoryDialog dict={dict} createAction={createAction} />
       </div>
       {categories.length === 0 ? (

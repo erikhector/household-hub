@@ -369,18 +369,6 @@ left out.
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
 
-- [ ] **UX-174. Progressive explanations on budget Manage and Household
-      settings** (impact: low, effort: M) — breaks Help ("explain
-      progressively") and M6. Budget Manage opens three cards each with a
-      four-line paragraph and a button wrapped to half width before any
-      data; Household settings is ~3 000 CSS px of stacked forms on a phone
-      (`mobile-en-dashboard-household.png`; report `h9-manage`).
-      Acceptance: one line per Manage card with a "Learn more" disclosure;
-      Household settings split into Members / Notes / Settings tabs on
-      phones; `mobile` smoke screenshots of both pages fit in two screens
-      of content before the first form.
-
-
 ### Dependencies
 
 ---
