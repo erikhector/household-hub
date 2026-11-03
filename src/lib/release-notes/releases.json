@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.138.1",
+    "date": "2026-11-03",
+    "pr": 1093,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The installed iPhone app no longer shows a blur across the top of the screen.",
+      "sv": "Den installerade iPhone-appen visar inte längre någon oskärpa högst upp på skärmen."
+    }
+  },
+  {
     "version": "0.138.0",
     "date": "2026-11-03",
     "pr": 1089,
