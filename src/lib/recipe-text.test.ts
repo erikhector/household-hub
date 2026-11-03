@@ -8,11 +8,15 @@ const enLabels = (servings: number) => ({
   servings: format(plural(servings, en.mealPlanning.servingsCount), { count: servings }),
   ingredients: en.mealPlanning.ingredientsLabel,
   instructions: en.mealPlanning.instructionsLabel,
+  notes: en.mealPlanning.recipeNotesLabel,
+  source: en.mealPlanning.recipeSourceLabel,
 });
 const svLabels = (servings: number) => ({
   servings: format(plural(servings, sv.mealPlanning.servingsCount), { count: servings }),
   ingredients: sv.mealPlanning.ingredientsLabel,
   instructions: sv.mealPlanning.instructionsLabel,
+  notes: sv.mealPlanning.recipeNotesLabel,
+  source: sv.mealPlanning.recipeSourceLabel,
 });
 
 describe("formatRecipeText", () => {
@@ -101,5 +105,33 @@ describe("formatRecipeText", () => {
       ].join("\n"),
     );
     expect(svLabels(4).servings).not.toBe(enLabels(4).servings);
+  });
+
+  it("adds the notes after the steps and the source address last (GAP-70)", () => {
+    const text = formatRecipeText(
+      {
+        name: "Tea",
+        instructions: "Steep",
+        notes: "Use half the sugar",
+        sourceUrl: "https://www.bbc.co.uk/food/tea",
+        ingredients: [],
+      },
+      enLabels(2),
+      "en",
+    );
+    expect(text).toBe(
+      [
+        "Tea",
+        "2 portions",
+        "",
+        en.mealPlanning.instructionsLabel,
+        "1. Steep",
+        "",
+        en.mealPlanning.recipeNotesLabel,
+        "Use half the sugar",
+        "",
+        `${en.mealPlanning.recipeSourceLabel}: https://www.bbc.co.uk/food/tea`,
+      ].join("\n"),
+    );
   });
 });

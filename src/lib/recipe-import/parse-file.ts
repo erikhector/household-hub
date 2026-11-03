@@ -2,6 +2,7 @@ import { gunzipSync, inflateRawSync } from "node:zlib";
 import { tagsFromSchemaOrgDiet, type RecipeTag } from "@/lib/recipe-tags";
 import { flattenInstructions, mapJsonLdToRecipe } from "./parse-jsonld";
 import { parseIngredientLine } from "./parse-ingredient";
+import { normalizeSourceUrl, RECIPE_NOTES_MAX } from "@/lib/recipe-source";
 import type { ParsedIngredient, ParsedRecipe } from "./types";
 
 // GAP-67: recipes from a file instead of a URL. Two inputs, told apart by
@@ -47,7 +48,14 @@ const MAX_NOTE_LENGTH = 200;
 const MAX_SERVINGS = 1_000;
 const DEFAULT_SERVINGS = 4;
 
-export type FileRecipe = ParsedRecipe & { servings: number; tags: RecipeTag[] };
+// GAP-70: optional because catalog and AI ideas have none; `sourceUrl` is null unless the file gave an http(s) address, and
+// `notes` is null unless it had a notes field; both are stored as given.
+export type FileRecipe = ParsedRecipe & {
+  servings: number;
+  tags: RecipeTag[];
+  sourceUrl?: string | null;
+  notes?: string | null;
+};
 
 export type RecipeFileError =
   /** Zero bytes, or nothing that looked like a recipe at all. */
@@ -166,6 +174,8 @@ function finish(
   ingredients: ParsedIngredient[],
   servings: number,
   tags: RecipeTag[],
+  sourceUrl: unknown = null,
+  notes = "",
 ): FileRecipe | null {
   const cleanName = name.trim().slice(0, RECIPE_FILE_NAME_MAX).trim();
   if (!cleanName) return null;
@@ -181,6 +191,8 @@ function finish(
     ingredients: rows,
     servings,
     tags,
+    sourceUrl: normalizeSourceUrl(sourceUrl),
+    notes: notes.trim().slice(0, RECIPE_NOTES_MAX) || null,
   };
 }
 
@@ -206,15 +218,20 @@ export function mapPaprikaRecipe(entry: JsonObject): FileRecipe | null {
     .map((line) => line.trim())
     .filter(Boolean)
     .flatMap(parseIngredientLine);
-  // Paprika keeps its own notes in a separate field; nothing in Squirrel's
-  // recipe has a notes box, so they ride along under the method rather than
-  // being dropped.
-  const directions = str(entry.directions);
-  const notes = str(entry.notes);
-  const instructions = notes ? (directions ? `${directions}\n\n${notes}` : notes) : directions;
+  // Paprika keeps its own notes in a separate field. They map to the
+  // recipe's own notes (GAP-70) rather than riding along under the method,
+  // where Cook mode would read them out as steps.
   // Paprika's categories are the user's own free text ("Dinner"), not a diet
   // claim, so they are not mapped onto tags.
-  return finish(str(entry.name), instructions, ingredients, servingsFrom(entry.servings), []);
+  return finish(
+    str(entry.name),
+    str(entry.directions),
+    ingredients,
+    servingsFrom(entry.servings),
+    [],
+    entry.source_url,
+    str(entry.notes),
+  );
 }
 
 /** One schema.org Recipe object. */
@@ -226,6 +243,7 @@ export function mapSchemaRecipe(node: JsonObject): FileRecipe | null {
     mapped.ingredients,
     servingsFrom(node.recipeYield),
     tagsFromSchemaOrgDiet(node.suitableForDiet),
+    node.url,
   );
 }
 

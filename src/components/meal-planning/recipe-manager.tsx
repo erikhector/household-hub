@@ -53,6 +53,7 @@ import type { RecipePlannedDate } from "@/app/dashboard/meal-planning/recipe-pla
 import type { CatalogResult } from "@/lib/recipe-catalog/rank";
 import type { FileRecipe } from "@/lib/recipe-import/parse-file";
 import { formatRecipeText } from "@/lib/recipe-text";
+import { normalizeSourceUrl, sourceHost } from "@/lib/recipe-source";
 import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
@@ -534,6 +535,8 @@ function RecipeRow({
         servings: format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings }),
         ingredients: dict.ingredientsLabel,
         instructions: dict.instructionsLabel,
+        notes: dict.recipeNotesLabel,
+        source: dict.recipeSourceLabel,
       },
       locale,
       unitLabel,
@@ -617,6 +620,9 @@ function RecipeRow({
   };
 
   const instructionSteps = splitSteps(recipe.instructions);
+  // Re-checked on the way out: only an http(s) address ever reaches an href.
+  const sourceHref = recipe.sourceUrl ? normalizeSourceUrl(recipe.sourceUrl) : null;
+  const sourceHostName = recipe.sourceUrl ? sourceHost(recipe.sourceUrl) : null;
   const servingsSummary = format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings });
   // The row's one meta line: tags, servings, last cooked. Everything else
   // (ingredients, nutrition, cost) is in the recipe's sheet, so a row is
@@ -807,6 +813,28 @@ function RecipeRow({
                 ))}
               </ol>
             </section>
+          )}
+          {/* GAP-70: the household's own notes sit under the method; the link
+              is a plain external one, shown as its host name. */}
+          {recipe.notes?.trim() && (
+            <section className="flex flex-col gap-1">
+              <h3 className="font-medium">{dict.recipeNotesLabel}</h3>
+              <p className="break-words whitespace-pre-line">{recipe.notes}</p>
+            </section>
+          )}
+          {sourceHref && sourceHostName && (
+            <p className="flex min-h-11 flex-wrap items-center gap-x-1 break-words text-sm">
+              <span className="text-muted-foreground">{dict.recipeSourceLabel}:</span>
+              <a
+                href={sourceHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={format(dict.sourceLinkAriaLabel, { host: sourceHostName })}
+                className="inline-flex min-h-11 items-center underline underline-offset-4"
+              >
+                {sourceHostName}
+              </a>
+            </p>
           )}
           <div className="flex flex-col gap-2">
             <Button

@@ -264,6 +264,8 @@ export function RecipeFormDialog({
   const [name, setName] = useState(recipe?.name ?? "");
   const [servings, setServings] = useState(String(recipe?.servings ?? 4));
   const [instructions, setInstructions] = useState(recipe?.instructions ?? "");
+  const [sourceUrl, setSourceUrl] = useState(recipe?.sourceUrl ?? "");
+  const [notes, setNotes] = useState(recipe?.notes ?? "");
   const [ingredients, setIngredients] = useState<IngredientRow[]>(() => rowsFromRecipe(recipe));
   const [components, setComponents] = useState<ComponentRow[]>(() => componentRowsFromRecipe(recipe));
   // GAP-29: a Set for the toggle logic; rendered in RECIPE_TAGS order below
@@ -406,6 +408,8 @@ export function RecipeFormDialog({
         setName("");
         setServings("4");
         setInstructions("");
+        setSourceUrl("");
+        setNotes("");
         setIngredients([blankRow()]);
         setComponents([]);
         setTags(new Set());
@@ -441,10 +445,15 @@ export function RecipeFormDialog({
     instructions: string;
     ingredients: ImportedRecipeIngredient[];
     tags?: RecipeTag[];
+    /** GAP-70: the imported address (URL import, file or Discover recipe). */
+    sourceUrl?: string | null;
+    notes?: string | null;
   }) => {
     if (recipe.name) setName(recipe.name);
     if (recipe.servings) setServings(String(recipe.servings));
     if (recipe.instructions) setInstructions(recipe.instructions);
+    if (recipe.sourceUrl) setSourceUrl(recipe.sourceUrl);
+    if (recipe.notes) setNotes(recipe.notes);
     if (recipe.ingredients.length > 0) {
       setIngredients(
         // The parser splits the prep note off the name (MATCH-4) and
@@ -549,6 +558,8 @@ export function RecipeFormDialog({
       setName(recipe?.name ?? "");
       setServings(String(recipe?.servings ?? 4));
       setInstructions(recipe?.instructions ?? "");
+      setSourceUrl(recipe?.sourceUrl ?? "");
+      setNotes(recipe?.notes ?? "");
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
       setTags(new Set(recipe?.tags ?? []));
@@ -934,6 +945,44 @@ export function RecipeFormDialog({
             />
             <p id="recipe-instructions-hint" className="text-xs text-muted-foreground">
               {dict.instructionsHint}
+            </p>
+          </div>
+
+          {/* GAP-70: where it came from, and the household's own tweaks. */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="recipe-notes">{dict.recipeNotesLabel}</Label>
+            <Textarea
+              autoComplete="off"
+              id="recipe-notes"
+              name="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={dict.recipeNotesPlaceholder}
+              maxLength={2000}
+              rows={3}
+              aria-describedby="recipe-notes-hint"
+            />
+            <p id="recipe-notes-hint" className="text-xs text-muted-foreground">
+              {dict.recipeNotesHint}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="recipe-source-url">{dict.sourceUrlLabel}</Label>
+            <Input
+              id="recipe-source-url"
+              name="sourceUrl"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder={dict.sourceUrlPlaceholder}
+              maxLength={2048}
+              aria-describedby="recipe-source-url-hint"
+            />
+            <p id="recipe-source-url-hint" className="text-xs text-muted-foreground">
+              {dict.sourceUrlHint}
             </p>
           </div>
 

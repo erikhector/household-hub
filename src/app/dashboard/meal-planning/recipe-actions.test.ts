@@ -1157,6 +1157,95 @@ describe("createRecipeAction tags (GAP-29)", () => {
   });
 });
 
+describe("recipe source link and notes (GAP-70)", () => {
+  it("saves a trimmed source link and notes on create, scoped to the session household", async () => {
+    recipeCreateMock.mockResolvedValue({});
+
+    const result = await createRecipeAction(
+      {},
+      formData({ name: "Soup", sourceUrl: " https://www.bbc.co.uk/food/soup ", notes: " Use half the sugar " }),
+    );
+
+    expect(result).toEqual({});
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: "household-1",
+        sourceUrl: "https://www.bbc.co.uk/food/soup",
+        notes: "Use half the sugar",
+      }),
+    });
+  });
+
+  it("saves null for both when the boxes are empty", async () => {
+    recipeCreateMock.mockResolvedValue({});
+
+    await createRecipeAction({}, formData({ name: "Soup" }));
+
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ sourceUrl: null, notes: null }),
+    });
+  });
+
+  it.each(["javascript:alert(1)", "data:text/html,hi", "ftp://example.com/x", "not a url"])(
+    "rejects %s as a source link with a field error and saves nothing",
+    async (sourceUrl) => {
+      const created = await createRecipeAction({}, formData({ name: "Soup", sourceUrl }));
+      expect(created.error).toBe("The source link must start with http:// or https:// and be 2048 characters or fewer");
+      expect(recipeCreateMock).not.toHaveBeenCalled();
+
+      recipeFindFirstMock.mockResolvedValue({ id: "soup" });
+      const updated = await updateRecipeAction({}, formData({ recipeId: "soup", name: "Soup", sourceUrl }));
+      expect(updated.error).toBe("The source link must start with http:// or https:// and be 2048 characters or fewer");
+      expect(recipeUpdateMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a source link over 2048 characters and notes over 2000", async () => {
+    const long = await createRecipeAction(
+      {},
+      formData({ name: "Soup", sourceUrl: `https://example.com/${"a".repeat(2048)}` }),
+    );
+    expect(long.error).toContain("2048");
+    const notes = await createRecipeAction({}, formData({ name: "Soup", notes: "n".repeat(2001) }));
+    expect(notes.error).toBe("Notes must be 2000 characters or fewer");
+    expect(recipeCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("updates both fields only on a recipe found in the caller's household", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "soup" });
+    recipeUpdateMock.mockResolvedValue({});
+
+    await updateRecipeAction(
+      {},
+      formData({ recipeId: "soup", name: "Soup", sourceUrl: "https://example.com/soup", notes: "Less salt" }),
+    );
+
+    expect(recipeFindFirstMock).toHaveBeenCalledWith({ where: { id: "soup", householdId: "household-1" } });
+    expect(recipeUpdateMock).toHaveBeenCalledWith({
+      where: { id: "soup" },
+      data: expect.objectContaining({ sourceUrl: "https://example.com/soup", notes: "Less salt" }),
+    });
+  });
+
+  it("clears both when an edit empties the boxes, and writes nothing for a foreign recipe", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "soup" });
+    recipeUpdateMock.mockResolvedValue({});
+    await updateRecipeAction({}, formData({ recipeId: "soup", name: "Soup" }));
+    expect(recipeUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ sourceUrl: null, notes: null }) }),
+    );
+
+    recipeUpdateMock.mockClear();
+    recipeFindFirstMock.mockResolvedValue(null);
+    const result = await updateRecipeAction(
+      {},
+      formData({ recipeId: "foreign", name: "Soup", sourceUrl: "https://example.com/x", notes: "x" }),
+    );
+    expect(result.error).toBe("Recipe not found");
+    expect(recipeUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("updateRecipeAction", () => {
   it("replaces tags with the validated posted set (GAP-29)", async () => {
     recipeFindFirstMock.mockResolvedValue({ id: "lasagna" });
@@ -1708,7 +1797,23 @@ describe("importRecipeFromUrlAction", () => {
       ingredients: [],
       source: "jsonld",
       tags: ["vegan"],
+      sourceUrl: "https://example.com/recipe",
     });
+  });
+
+  it("returns the imported address as the source link (GAP-70)", async () => {
+    fetchRecipeHtmlMock.mockResolvedValue({ ok: true, html: "<html/>" });
+    parseRecipeFromHtmlMock.mockReturnValue({
+      name: "Soup",
+      instructions: "",
+      ingredients: [],
+      source: "jsonld",
+      tags: [],
+    });
+
+    const result = await importRecipeFromUrlAction({}, formData({ url: " https://www.bbc.co.uk/food/soup " }));
+
+    expect(result.recipe?.sourceUrl).toBe("https://www.bbc.co.uk/food/soup");
   });
 
   // SEC-2: this action makes the server fetch an arbitrary URL, so it needs
