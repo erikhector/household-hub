@@ -49,6 +49,8 @@ export type IngredientNeed = {
   // Week picks: this need comes from a pick, not a meal on a day. A row
   // every need of which is from picks comes back `fromPicksOnly`.
   fromPick?: boolean;
+  // GAP-58: this need is a line typed on a custom meal, not a recipe's.
+  fromCustom?: boolean;
 };
 
 // Sums `quantity` per ingredient (key), then splits that total across one
@@ -96,17 +98,30 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
     // GAP-62: a cluster keeps the first non-blank note among its needs, the
     // same "first row wins, never merge text" rule the list's own dedupe
     // uses, so two recipes noting the same item don't glue sentences together.
-    const clusters: { unit: string; required: number; note: string | null; fromPicksOnly: boolean }[] = [];
+    const clusters: {
+      unit: string;
+      required: number;
+      note: string | null;
+      fromPicksOnly: boolean;
+      fromCustomOnly: boolean;
+    }[] = [];
     for (const need of restated) {
       const cluster = clusters.find((c) => unitsAreComparable(c.unit, need.unit));
       const note = need.note?.trim() || null;
       if (cluster) {
         cluster.note ??= note;
         cluster.fromPicksOnly &&= need.fromPick === true;
+        cluster.fromCustomOnly &&= need.fromCustom === true;
         const sameUnit = normalizeUnit(cluster.unit) === normalizeUnit(need.unit);
         cluster.required += sameUnit ? need.quantity : convertQuantity(need.quantity, need.unit, cluster.unit)!;
       } else {
-        clusters.push({ unit: need.unit, required: need.quantity, note, fromPicksOnly: need.fromPick === true });
+        clusters.push({
+          unit: need.unit,
+          required: need.quantity,
+          note,
+          fromPicksOnly: need.fromPick === true,
+          fromCustomOnly: need.fromCustom === true,
+        });
       }
     }
 
@@ -139,6 +154,7 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
           unitMismatch,
           note: cluster.note,
           ...(cluster.fromPicksOnly ? { fromPicksOnly: true as const } : {}),
+          ...(cluster.fromCustomOnly ? { fromCustomOnly: true as const } : {}),
         });
       }
     }

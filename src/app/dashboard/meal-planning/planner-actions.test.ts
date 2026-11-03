@@ -152,6 +152,7 @@ describe("addMealEntryAction", () => {
         mealType: "DINNER",
         recipeId: "recipe-1",
         freeformName: null,
+        freeformIngredients: null,
         portions: 6,
       },
     });
@@ -262,7 +263,7 @@ describe("updateMealEntryAction", () => {
     expect(result).toEqual({});
     expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
       where: { id: "entry-1" },
-      data: { recipeId: "recipe-2", freeformName: null, portions: 3 },
+      data: { recipeId: "recipe-2", freeformName: null, freeformIngredients: null, portions: 3 },
     });
   });
 
@@ -293,7 +294,78 @@ describe("updateMealEntryAction", () => {
     expect(result).toEqual({});
     expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
       where: { id: "entry-1" },
-      data: { recipeId: null, freeformName: "Taco night", portions: 4 },
+      data: { recipeId: null, freeformName: "Taco night", freeformIngredients: null, portions: 4 },
+    });
+  });
+});
+
+describe("custom meal ingredients (GAP-58)", () => {
+  it("stores a new custom meal's lines with blanks dropped, and nothing for a recipe", async () => {
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+    mealPlanEntryCreateMock.mockResolvedValue({});
+
+    await addMealEntryAction(
+      {},
+      formData({
+        weekStartDate: "2026-01-05",
+        date: "2026-01-06",
+        mealType: "DINNER",
+        freeformName: "Taco night",
+        freeformIngredients: "2 tortillas\n\n  salsa  \n",
+      }),
+    );
+    expect(mealPlanEntryCreateMock).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ freeformName: "Taco night", freeformIngredients: "2 tortillas\nsalsa" }),
+    });
+
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", servings: 4 });
+    await addMealEntryAction(
+      {},
+      formData({
+        weekStartDate: "2026-01-05",
+        date: "2026-01-06",
+        mealType: "DINNER",
+        recipeId: "recipe-1",
+        freeformIngredients: "99 truffles",
+      }),
+    );
+    expect(mealPlanEntryCreateMock).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ recipeId: "recipe-1", freeformIngredients: null }),
+    });
+  });
+
+  it("rejects an over-long ingredient list without writing", async () => {
+    const result = await addMealEntryAction(
+      {},
+      formData({
+        weekStartDate: "2026-01-05",
+        date: "2026-01-06",
+        mealType: "DINNER",
+        freeformName: "Taco night",
+        freeformIngredients: "x".repeat(1001),
+      }),
+    );
+    expect(result.error).toBeTruthy();
+    expect(mealPlanEntryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("edits a custom meal's lines, and clears them when emptied", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    await updateMealEntryAction(
+      {},
+      formData({ entryId: "entry-1", freeformName: "Taco night", freeformIngredients: " 2 tortillas " }),
+    );
+    expect(mealPlanEntryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "entry-1" },
+      data: expect.objectContaining({ freeformIngredients: "2 tortillas" }),
+    });
+
+    await updateMealEntryAction({}, formData({ entryId: "entry-1", freeformName: "Taco night" }));
+    expect(mealPlanEntryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "entry-1" },
+      data: expect.objectContaining({ freeformIngredients: null }),
     });
   });
 });
@@ -459,7 +531,7 @@ describe("copyWeekAction", () => {
   // findMany is called twice in a Promise.all: source week first, then the
   // target week's existing entries.
   function mockWeeks(
-    source: Array<{ date: Date; mealType: string; recipeId: string | null; freeformName: string | null; portions: number }>,
+    source: Array<{ date: Date; mealType: string; recipeId: string | null; freeformName: string | null; freeformIngredients?: string | null; portions: number }>,
     target: Array<{ date: Date; mealType: string }> = [],
   ) {
     mealPlanEntryFindManyMock.mockResolvedValueOnce(source).mockResolvedValueOnce(target);
@@ -505,8 +577,8 @@ describe("copyWeekAction", () => {
 
   it("re-dates entries by a week, keeps recipe/freeform/portions, and lazily upserts the target plan", async () => {
     mockWeeks([
-      { date: d("2026-01-06"), mealType: "DINNER", recipeId: "recipe-1", freeformName: null, portions: 2 },
-      { date: d("2026-01-11"), mealType: "LUNCH", recipeId: null, freeformName: "Leftovers", portions: 4 },
+      { date: d("2026-01-06"), mealType: "DINNER", recipeId: "recipe-1", freeformName: null, freeformIngredients: null, portions: 2 },
+      { date: d("2026-01-11"), mealType: "LUNCH", recipeId: null, freeformName: "Leftovers", freeformIngredients: null, portions: 4 },
     ]);
     recipeFindManyMock.mockResolvedValue([{ id: "recipe-1" }]);
     mealPlanUpsertMock.mockResolvedValue({ id: "plan-2" });
@@ -526,8 +598,8 @@ describe("copyWeekAction", () => {
     });
     expect(mealPlanEntryCreateManyAndReturnMock).toHaveBeenCalledWith({
       data: [
-        { date: d("2026-01-13"), mealType: "DINNER", recipeId: "recipe-1", freeformName: null, portions: 2, mealPlanId: "plan-2" },
-        { date: d("2026-01-18"), mealType: "LUNCH", recipeId: null, freeformName: "Leftovers", portions: 4, mealPlanId: "plan-2" },
+        { date: d("2026-01-13"), mealType: "DINNER", recipeId: "recipe-1", freeformName: null, freeformIngredients: null, portions: 2, mealPlanId: "plan-2" },
+        { date: d("2026-01-18"), mealType: "LUNCH", recipeId: null, freeformName: "Leftovers", freeformIngredients: null, portions: 4, mealPlanId: "plan-2" },
       ],
       select: { id: true },
     });
@@ -936,7 +1008,7 @@ describe("planner actions × prepared batches (GAP-49)", () => {
     });
     expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
       where: { id: "entry-1" },
-      data: { recipeId: "recipe-2", freeformName: null, portions: 4 },
+      data: { recipeId: "recipe-2", freeformName: null, freeformIngredients: null, portions: 4 },
     });
   });
 

@@ -1044,6 +1044,12 @@ model MealPlanEntry {
   mealType     MealType
   recipeId     String?
   freeformName String?
+  // GAP-58: what a custom meal needs from the shop, one ingredient per line
+  // ("2 tortillas"), read with the smart-add line parser. Null when none was
+  // entered. Only meaningful with `freeformName` (a recipe entry's
+  // ingredients are its recipe's); the meal-plan -> shopping-list bridge
+  // lists these lines unscaled, since a custom meal has no portions.
+  freeformIngredients String?
   // How many portions of `recipe` this specific slot is cooking — lets two
   // entries of the same recipe in one week (e.g. lasagna for Thursday dinner
   // and Friday lunch) split one batch instead of each demanding a full

@@ -178,6 +178,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     recipeId: entry.recipeId,
     recipeName: entry.recipe?.name ?? null,
     freeformName: entry.freeformName,
+    freeformIngredients: entry.freeformIngredients,
     portions: entry.portions,
     consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
     preparedBatchId: entry.preparedBatchId,
@@ -285,12 +286,12 @@ async function PlannerTabSection({
       prisma.mealPlanEntry.findFirst({ where: { mealPlan: { householdId } }, select: { id: true } }),
     ]);
   // UX-91: the count behind the planner's "Add N missing" button. Skipped
-  // (no query) for a week with no recipe planned, where nothing can be
-  // missing.
+  // (no query) for a week with no recipe and no custom-meal ingredients
+  // (GAP-58) planned, where nothing can be missing.
   // Week picks count too: a picked recipe is shopped for before it has a day.
   const weekDates = parseMissingIngredientsRange(weekRange(weekStartKey));
   const [missingCount, picks] = await Promise.all([
-    weekDates && (entries.some((entry) => entry.recipeId) || pickRows.some((pick) => pick.recipeId))
+    weekDates && (entries.some((entry) => entry.recipeId || entry.freeformIngredients) || pickRows.some((pick) => pick.recipeId))
       ? loadMissingIngredients(householdId, weekDates).then((result) => result.items.length)
       : 0,
     loadWeekPicks({ householdId, userId, picks: pickRows, recipes, inventoryItems, now: new Date() }),

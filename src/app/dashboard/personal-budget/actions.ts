@@ -8,6 +8,7 @@ import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/rec
 import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
+import { repeatTemplateFields } from "@/lib/repeat-template";
 import { plannedItemType } from "@/lib/planned-expense-calc";
 import {
   limitForType,
@@ -257,6 +258,9 @@ const transactionSchema = z.object({
   // Set when logging a payment against a personal planned bill. Only read
   // on create, like the household's (src/app/dashboard/budget/actions.ts).
   plannedExpenseId: z.string().optional(),
+  // UX-179: the "Repeats" switch — also creates a monthly recurring item
+  // from a plain new transaction. See the household budget's schema.
+  repeatsMonthly: z.boolean().optional(),
 });
 
 function parseTransactionFormData(formData: FormData) {
@@ -269,6 +273,7 @@ function parseTransactionFormData(formData: FormData) {
     recurrenceFrequency: formData.get("recurrenceFrequency") || undefined,
     recurringTemplateId: formData.get("recurringTemplateId") || undefined,
     plannedExpenseId: formData.get("plannedExpenseId") || undefined,
+    repeatsMonthly: formData.get("repeatsMonthly") === "on",
   });
 }
 
@@ -370,25 +375,61 @@ export async function createPersonalTransactionAction(
   const planned = await resolvePersonalPlannedExpenseId(userId, parsed.data.plannedExpenseId, category.type);
   if ("error" in planned) return { error: planned.error };
 
+  // UX-179: "Repeats" also makes a monthly recurring item from this row.
+  const repeat =
+    parsed.data.repeatsMonthly && !recurringTemplate.id && !planned.id
+      ? repeatTemplateFields({
+          description: parsed.data.description,
+          categoryName: category.name,
+          date: parsed.data.date,
+        })
+      : null;
+
+  const transactionData = {
+    userId,
+    categoryId: category.id,
+    amount: parsed.data.amount,
+    // Derived from the category rather than taken as a separate field, so
+    // a transaction can never disagree with its own category's type.
+    type: category.type,
+    description: parsed.data.description || null,
+    date: new Date(parsed.data.date),
+    isRecurring: repeat ? true : parsed.data.isRecurring,
+    recurrenceFrequency: repeat
+      ? ("MONTHLY" as const)
+      : parsed.data.isRecurring
+        ? parsed.data.recurrenceFrequency
+        : null,
+    recurringTemplateId: repeat?.id ?? recurringTemplate.id ?? null,
+    plannedExpenseId: planned.id ?? null,
+  };
+
   let created;
   try {
-    created = await prisma.personalTransaction.create({
-      data: {
-        userId,
-        categoryId: category.id,
-        amount: parsed.data.amount,
-        // Derived from the category rather than taken as a separate field, so
-        // a transaction can never disagree with its own category's type.
-        type: category.type,
-        description: parsed.data.description || null,
-        date: new Date(parsed.data.date),
-        isRecurring: parsed.data.isRecurring,
-        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-        recurringTemplateId: recurringTemplate.id ?? null,
-        plannedExpenseId: planned.id ?? null,
-      },
-      select: { id: true },
-    });
+    if (repeat) {
+      // One database transaction, so the item and the row that logs it
+      // stand or fall together (the id is chosen up front so the row can
+      // point at the item).
+      const [, tx] = await prisma.$transaction([
+        prisma.personalRecurringTemplate.create({
+          data: {
+            id: repeat.id,
+            userId,
+            categoryId: category.id,
+            name: repeat.name,
+            amount: parsed.data.amount,
+            type: category.type,
+            frequency: "MONTHLY",
+            dayOfMonth: repeat.dayOfMonth,
+          },
+          select: { id: true },
+        }),
+        prisma.personalTransaction.create({ data: transactionData, select: { id: true } }),
+      ]);
+      created = tx;
+    } else {
+      created = await prisma.personalTransaction.create({ data: transactionData, select: { id: true } });
+    }
   } catch (error) {
     // Two payments for the same bill racing past the check above: the
     // unique index on plannedExpenseId rejects the loser.

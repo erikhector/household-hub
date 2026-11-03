@@ -29,6 +29,7 @@ const {
   recurringTemplateDeleteManyMock,
   recurringTemplateAckUpsertMock,
   recurringTemplateAckDeleteManyMock,
+  dbTransactionMock,
   plannedExpenseFindFirstMock,
   userFindUniqueMock,
   userUpdateMock,
@@ -54,6 +55,7 @@ const {
   recurringTemplateAckUpsertMock: vi.fn(),
   recurringTemplateAckDeleteManyMock: vi.fn(),
   plannedExpenseFindFirstMock: vi.fn(),
+  dbTransactionMock: vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
   userFindUniqueMock: vi.fn(),
   userUpdateMock: vi.fn(),
   revalidatePathMock: vi.fn(),
@@ -90,6 +92,7 @@ vi.mock("@/lib/prisma", () => ({
     personalPlannedExpense: { findFirst: plannedExpenseFindFirstMock },
     // The user's Personal Budget month start day (getPersonalBudgetStartDay).
     user: { findUnique: userFindUniqueMock, update: userUpdateMock },
+    $transaction: dbTransactionMock,
   },
 }));
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
@@ -396,6 +399,75 @@ describe("deletePersonalCategoryAction", () => {
 
 describe("createPersonalTransactionAction", () => {
   const base = { categoryId: "cat-1", amount: "50", date: "2026-01-15", isRecurring: "" };
+
+  describe("Repeats switch (UX-179)", () => {
+    beforeEach(() => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", name: "Rent", type: "EXPENSE" });
+      recurringTemplateCreateMock.mockResolvedValue({ id: "tpl" });
+      transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+    });
+
+    it("creates a monthly item for the user and logs this row against it, in one database transaction", async () => {
+      const result = await createPersonalTransactionAction(
+        {},
+        formData({ ...base, repeatsMonthly: "on", description: "Gym" }),
+      );
+
+      expect(result).toEqual({ createdId: "new-tx" });
+      expect(dbTransactionMock).toHaveBeenCalledTimes(1);
+      const tplData = recurringTemplateCreateMock.mock.calls[0][0].data;
+      expect(tplData).toMatchObject({
+        userId,
+        categoryId: "cat-1",
+        name: "Gym",
+        amount: 50,
+        type: "EXPENSE",
+        frequency: "MONTHLY",
+        dayOfMonth: 15,
+      });
+      expect(transactionCreateMock.mock.calls[0][0].data).toMatchObject({
+        userId,
+        recurringTemplateId: tplData.id,
+        isRecurring: true,
+        recurrenceFrequency: "MONTHLY",
+      });
+    });
+
+    it("names the item after the category when there is no description", async () => {
+      await createPersonalTransactionAction({}, formData({ ...base, repeatsMonthly: "on" }));
+
+      expect(recurringTemplateCreateMock.mock.calls[0][0].data.name).toBe("Rent");
+    });
+
+    it("creates no item without the switch", async () => {
+      await createPersonalTransactionAction({}, formData(base));
+
+      expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+      expect(dbTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it("creates no item for a payment logged against an existing recurring item", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue({ id: "tpl-1", frequency: "MONTHLY" });
+      transactionFindManyMock.mockResolvedValue([]);
+
+      await createPersonalTransactionAction(
+        {},
+        formData({ ...base, repeatsMonthly: "on", recurringTemplateId: "tpl-1" }),
+      );
+
+      expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("scopes the category to the caller, so another user's category creates nothing", async () => {
+      categoryFindFirstMock.mockResolvedValue(null);
+
+      const result = await createPersonalTransactionAction({}, formData({ ...base, repeatsMonthly: "on" }));
+
+      expect(result.error).toBe("Category not found");
+      expect(categoryFindFirstMock).toHaveBeenCalledWith({ where: { id: "cat-1", userId } });
+      expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+    });
+  });
 
   it("returns 'Category not found' for another user's category (IDOR guard)", async () => {
     categoryFindFirstMock.mockResolvedValue(null);

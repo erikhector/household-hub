@@ -219,6 +219,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
       It also failed once on the `mobile` project in the local `ci:local` run on d31e8ac (2026-11-01) and passed on re-run, so the fix covers both.
       Further sighting (2026-11-02, release PR #1061 on commit 059436759a9e): `mobile` project, line 95 again (`getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s), in the local `ci:local` run only; it passed on a re-run of the same commit. It was also seen failing once in #1059's own `ci:local` run. Third mobile sighting after d31e8ac, so MAINT-66's hardening has not closed it.
+      Further sighting (2026-11-03, GAP-69 builder run on b6238113): `mobile` project, failed once in the full local `ci:local` run and passed on the rerun and 32/32 with `--repeat-each=10`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
@@ -376,20 +377,6 @@ left out.
       phones; `mobile` smoke screenshots of both pages fit in two screens
       of content before the first form.
 
-### UX (2026-10-31 budget redesign follow-ups)
-
-The budget redesign (REQUIREMENTS.md, "Budget page layout") changed layout
-only. These two from its design add a write path each, so they're their own
-items. Mock-ups: the "Add transaction — split built in" artboard of the
-owner's budget redesign canvas.
-
-- [ ] **UX-179. "Repeats" switch on a new transaction** (M) — UX-113 took
-      "This repeats" off new transactions because the flag fed a hidden
-      estimate. Bring the idea back properly: a "Repeats" switch on the
-      Add transaction sheet that, on save, also creates a monthly recurring
-      item (Bills & income) from the transaction and marks this period
-      logged. Server Action plus unit tests (tenancy, both budgets); e2e:
-      the item shows under Repeating as Logged.
 
 ### Dependencies
 
@@ -664,28 +651,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-16 scan
-
-- [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
-      AnyList's December 2025 meal-planning update lets a plain note on the
-      calendar carry ingredients that go straight to the shopping list.
-      Squirrel's "Custom meal…" (`MealPlanEntry.freeformName`) has none, and
-      the meal-plan → shopping-list bridge skips it (`recipeId: { not: null }`,
-      REQUIREMENTS.md "Meal-plan → shopping-list bridge"), so "taco night"
-      or "pasta with whatever" adds nothing to the shop and is invisible to
-      the missing-ingredients check. Add an optional multi-line
-      "Ingredients" field to the custom-meal form (nullable
-      `MealPlanEntry.freeformIngredients String?`, Phase 2), one per line,
-      read with the same line parser as smart add. The bridge preview lists those lines as
-      "From custom meals", matched to inventory by the existing
-      case-insensitive name rule and scaled by nothing (a custom meal has
-      no portions). Marking it cooked still decrements nothing.
-      Acceptance: a bridge test covers a custom meal's lines being listed,
-      household scoping, blank lines dropped and a recipe-less, ingredient-less
-      meal still skipped; an e2e step adds a custom meal with "2 tortillas"
-      and asserts it in the bridge preview and on the list after "Add",
-      on desktop and mobile.
-
 ### 2026-10-23 scan
 
 - [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —
@@ -748,41 +713,6 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
-
-### 2026-11-02 scan
-
-- [ ] **GAP-69. "Stock check": walk one location and confirm or correct each amount** (impact: med, effort: M) —
-      Grocy's stock overview lets you inventory a product by typing the
-      amount you actually counted, and its stock journal records the
-      correction. Squirrel's amounts only drift: items change through
-      +/-, trips, receipts and cooking, and nothing prompts anyone to
-      reconcile the list with the shelf, so "0.5 left" quietly stays
-      wrong until the item runs out unexpectedly. The only recount today
-      is the AI shelf scan's restock mode, which needs a camera, an AI
-      key and a photo the model reads correctly, and sets counted
-      amounts through `bulkSetInventoryQuantitiesAction` ("Take stock",
-      see REQUIREMENTS.md "AI shelf scan (beta)" and PERF-15). Add its
-      manual counterpart: a "Check stock" entry in the inventory toolbar
-      that opens a full-screen walk-through for one chosen location (or
-      "All"), one item per step, sorted by name: the amount field with
-      the unit's `inputMode`, a big "Correct, next" button that keeps or
-      takes the typed amount and moves on, plus "Skip". No camera or AI,
-      and every item in the location is shown, not just what a photo
-      caught. Changed amounts are saved as counted values (not deltas)
-      through `bulkSetInventoryQuantitiesAction`, so household scoping,
-      the batched out-of-stock and low-stock side effects and the PERF-15
-      query budget come for free (not `adjustQuantityAction`, which takes
-      a delta); no new action or schema. A summary at the end says
-      "12 checked, 3 corrected". Scope: no schema, no history, no
-      scheduled reminder, no barcode step; close with Escape or the back
-      gesture and keep what was already saved.
-      Acceptance: unit tests that a changed amount is sent to
-      `bulkSetInventoryQuantitiesAction` and an unchanged one is not,
-      scoped to the session household; an `e2e/` step on `mobile` (and
-      the 320 px layout) starts a check on a seeded location, corrects
-      one uniquely named item, taps "Correct, next" on another without
-      changing it, sees "1 corrected" and the new amount after a reload,
-      in `en` and `sv`.
 
 ### 2026-11-03 scan
 

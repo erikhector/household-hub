@@ -2176,7 +2176,8 @@ every lookup the old one did.
   (Manage), which is listed, due and counted by name. The checkbox stays
   only for a payment logged from a recurring item and for an existing
   transaction already flagged, so it can be cleared. Covered by
-  `e2e/transaction-repeats.spec.ts`.
+  `e2e/transaction-repeats.spec.ts`. (UX-179 later added a separate
+  "Repeats" switch that does create an item; see "Repeats switch".)
 - **Recurring budget templates** (a separate, later-added system — see
   `RecurringTemplate`/`RecurringTemplateAck` in `prisma/schema.prisma`,
   the pure `src/app/dashboard/budget/recurring-template-calc.ts`, and
@@ -3883,9 +3884,18 @@ Insights, three Add panels on Manage). No data model changed.
   behind a "Grocery prices, stores and waste" disclosure. `?prices=1` opens
   it, which a price-spike notification's link sets. With nothing owed,
   who owes whom is last, as a record.
-- **Still open**: logging a shared expense from the Add transaction sheet,
-  and making a new transaction repeat from that sheet, are BACKLOG items
-  (UX-178, UX-179).
+- **Repeats switch (UX-179)**: the Add transaction sheet (household and
+  Personal Budget) has a "Repeats" switch. On save, `createTransactionAction`
+  / `createPersonalTransactionAction` also create a monthly recurring item
+  (Bills & income) from the row, named by its description (else its
+  category), with the same amount and category and the transaction's day of
+  month as the due-day hint, and link the row to it
+  (`recurringTemplateId`), all in one database transaction. This period then
+  reads Logged under Repeating, not Due. A split bill's shares carry onto
+  the household item. Not offered on an edit, on a payment logged from a
+  recurring item or planned bill, or on a shared expense logged from the
+  sheet. A saved repeat shows no Undo, since Undo would remove only the row
+  and leave the item Due. Covered by `e2e/transaction-repeats.spec.ts`.
 
 #### Personal starter categories (BUDGET-5)
 
@@ -4758,6 +4768,35 @@ below.
   `receipt-scan.test.ts` and `inventory-scan.test.ts`.
 - **i18n**: all new strings live under `shoppingList.receiptScan`/
   `shoppingList.registerReceipt` in `en.ts`/`sv.ts`.
+
+## Stock check
+
+A "Check stock" entry in the Inventory toolbar (the ⋯ menu's Manage group on
+phones; hidden while the household has no items) opens `StockCheckDialog`
+(`src/components/inventory/stock-check-dialog.tsx`), the manual counterpart
+of the AI shelf scan's restock mode: no camera, no AI, no schema, no history.
+
+- **Pick, walk, summary.** The first step lists "All locations" and each
+  location with its item count (a location with none is disabled). The walk
+  shows one item per step, sorted by name, every item in the place
+  (including those at 0), with "Item 3 of 12", the amount the list says and
+  an amount field pre-filled with it (`inputMode` numeric for whole piece
+  counts, decimal otherwise, `inputModeForUnit`). A big "Correct, next"
+  keeps or takes the typed amount and moves on; "Skip" moves on without
+  counting. The last step leads to a summary, "12 checked, 3 corrected"
+  (plus "N skipped" when any were).
+- **Saving.** A changed amount is saved at once as a counted value through
+  `bulkSetInventoryQuantitiesAction` (household from the session, the
+  batched out-of-stock and low-stock side effects, auto-add toast), never as
+  a delta; an unchanged amount sends nothing (`confirmStockCheckStep`,
+  `src/lib/stock-check.ts`). Because each step saves, closing early
+  (Escape, the back gesture, the X) keeps what was already checked and asks
+  nothing. A blank or negative amount shows an inline error and stays on the
+  item.
+- Not included: a history of corrections, scheduled reminders, a barcode
+  step.
+- Tests: `src/lib/stock-check.test.ts`, `e2e/inventory-stock-check.spec.ts`
+  (desktop and mobile, `en` and `sv`, plus the 320 px layout).
 
 ## AI shelf scan (beta)
 
@@ -5834,11 +5873,26 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   shopper sees it under the item on the list and the share page. No schema
   change. The low-stock auto-add (`default-list.ts`) doesn't build rows from
   recipe ingredients, so it has nothing to carry.
+- **Custom meal ingredients (GAP-58)**: the "Custom meal…" form has an
+  optional multi-line "Ingredients" field, one per line (`maxLength` 1000,
+  shown again on Edit), stored as the typed text in the nullable
+  `MealPlanEntry.freeformIngredients` (`normalizeFreeformIngredients`,
+  `custom-meal-ingredients.ts`: lines trimmed, blanks dropped, `null` when
+  nothing is left). Choosing a recipe instead clears it. "Copy last week"
+  carries it. The bridge reads the text with the smart add line parser
+  (`parseFreeformIngredients`: "2 tortillas" is 2 pcs, "salsa" 1 pcs) for
+  recipe-less entries only, matches each line to inventory by the same
+  case-insensitive name rule as an unlinked recipe ingredient, and scales
+  nothing (a custom meal has no portions). Rows only custom meals need come
+  back `fromCustomOnly` and the review dialog lists them last under "From
+  custom meals". Marking a custom meal cooked still decrements nothing.
+  Plan templates and week picks don't carry the lines.
 - **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
   (`src/app/dashboard/meal-planning/cooking-actions.ts`), a read-only preview — no
   rows are written until the user commits. It collects every
-  `MealPlanEntry` with a `recipeId` dated inside the chosen range (freeform
-  entries have no ingredients and are skipped via `recipeId: { not: null }`),
+  `MealPlanEntry` with a `recipeId` dated inside the chosen range (a
+  freeform entry counts only when it lists ingredients, see "Custom meal
+  ingredients (GAP-58)" below; one with neither is skipped),
   gathers each recipe's `RecipeIngredient` rows, and resolves each to its
   linked `InventoryItem`. `RecipeIngredient.inventoryItemId` can be null —
   a row saved without a match (see "Ingredient → inventory linking"
