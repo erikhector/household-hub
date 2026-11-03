@@ -31,6 +31,9 @@ export type RecipeData = {
   id: string;
   name: string;
   instructions: string | null;
+  // GAP-70: Recipe.sourceUrl (shown as its host name) and Recipe.notes.
+  sourceUrl: string | null;
+  notes: string | null;
   // How many portions the ingredient amounts above make — see Recipe.servings'
   // doc comment in schema.prisma. Used to scale ingredient totals down to
   // however many portions a given meal-plan entry (MealPlanEntryData.portions

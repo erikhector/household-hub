@@ -32,6 +32,7 @@ import { canonicalUnit, classifyUnits, type ItemUnitConversionLike } from "@/lib
 import { MAX_UNIT_FACTOR, MIN_UNIT_FACTOR } from "@/lib/recipes/unit-choice";
 import type { Prisma } from "@/generated/prisma/client";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
+import { normalizeSourceUrl, RECIPE_NOTES_MAX } from "@/lib/recipe-source";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -596,6 +597,14 @@ const RECIPE_NAME_MAX = 120;
 const recipeSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(RECIPE_NAME_MAX),
   instructions: z.string().trim().max(4000).optional(),
+  // GAP-70: http/https only (a `javascript:` link would run when clicked) and
+  // never fetched. An empty box arrives as undefined and saves as null.
+  sourceUrl: z
+    .string()
+    .trim()
+    .optional()
+    .refine((value) => !value || normalizeSourceUrl(value) !== null, v("sourceUrlInvalid")),
+  notes: z.string().trim().max(RECIPE_NOTES_MAX, v("recipeNotesTooLong")).optional(),
   servings: z.coerce.number().int().min(1, v("servingsMin")).max(1_000),
   caloriesPerServing: optionalNonNegativeInt,
   proteinGramsPerServing: optionalNonNegativeNumber,
@@ -677,6 +686,8 @@ export async function createRecipeAction(
   const parsed = recipeSchema.safeParse({
     name: formData.get("name"),
     instructions: formData.get("instructions") || undefined,
+    sourceUrl: formData.get("sourceUrl") || undefined,
+    notes: formData.get("notes") || undefined,
     servings: formData.get("servings") || 4,
     caloriesPerServing: formData.get("caloriesPerServing") || undefined,
     proteinGramsPerServing: formData.get("proteinGramsPerServing") || undefined,
@@ -707,6 +718,8 @@ export async function createRecipeAction(
           householdId: household.id,
           name: parsed.data.name,
           instructions: parsed.data.instructions || null,
+          sourceUrl: normalizeSourceUrl(parsed.data.sourceUrl),
+          notes: parsed.data.notes || null,
           servings: parsed.data.servings,
           caloriesPerServing: parsed.data.caloriesPerServing,
           proteinGramsPerServing: parsed.data.proteinGramsPerServing,
@@ -743,6 +756,8 @@ export async function updateRecipeAction(
   const parsed = recipeSchema.safeParse({
     name: formData.get("name"),
     instructions: formData.get("instructions") || undefined,
+    sourceUrl: formData.get("sourceUrl") || undefined,
+    notes: formData.get("notes") || undefined,
     servings: formData.get("servings") || 4,
     caloriesPerServing: formData.get("caloriesPerServing") || undefined,
     proteinGramsPerServing: formData.get("proteinGramsPerServing") || undefined,
@@ -781,6 +796,8 @@ export async function updateRecipeAction(
         data: {
           name: parsed.data.name,
           instructions: parsed.data.instructions || null,
+          sourceUrl: normalizeSourceUrl(parsed.data.sourceUrl),
+          notes: parsed.data.notes || null,
           servings: parsed.data.servings,
           caloriesPerServing: parsed.data.caloriesPerServing,
           proteinGramsPerServing: parsed.data.proteinGramsPerServing,
@@ -943,6 +960,8 @@ export async function duplicateRecipeAction(
       householdId: household.id,
       name,
       instructions: source.instructions,
+      sourceUrl: source.sourceUrl,
+      notes: source.notes,
       servings: source.servings,
       caloriesPerServing: source.caloriesPerServing,
       proteinGramsPerServing: source.proteinGramsPerServing,
@@ -989,6 +1008,9 @@ export type ImportRecipeState = ActionState & {
     name: string;
     instructions: string;
     ingredients: ImportedRecipeIngredient[];
+    // GAP-70: the address that was imported (validated http/https), so the
+    // form's source link is pre-filled. Null for a recipe with no address.
+    sourceUrl?: string | null;
     // GAP-29: from JSON-LD `suitableForDiet` only; empty for the other
     // tiers. Pre-ticks the form's chips — still only saved on submit.
     tags: RecipeTag[];
@@ -1054,5 +1076,7 @@ export async function importRecipeFromUrlAction(
   const recipe = parseRecipeFromHtml(fetched.html);
   if (!recipe) return { error: dict.mealPlanning.importErrorNoRecipeFound };
 
-  return { recipe };
+  // The address the person pasted, not the post-redirect one: it is the link
+  // they recognise. fetchRecipeHtml already rejected anything but http(s).
+  return { recipe: { ...recipe, sourceUrl: normalizeSourceUrl(url) } };
 }

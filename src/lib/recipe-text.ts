@@ -9,11 +9,16 @@ export type RecipeTextLabels = {
   servings: string;
   ingredients: string;
   instructions: string;
+  // GAP-70: headings for the notes and source lines.
+  notes: string;
+  source: string;
 };
 
 export type RecipeTextInput = {
   name: string;
   instructions: string | null;
+  notes?: string | null;
+  sourceUrl?: string | null;
   ingredients: { name: string; quantity: number; unit: string; note: string | null }[];
 };
 
@@ -49,6 +54,13 @@ export function formatRecipeText(
   if (steps.length > 0) {
     sections.push(`${labels.instructions}\n${steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}`);
   }
+
+  // GAP-70: the household's notes after the method, then the address the
+  // recipe came from, so a pasted copy still points back to its origin.
+  const notes = recipe.notes?.trim();
+  if (notes) sections.push(`${labels.notes}\n${notes}`);
+  const source = recipe.sourceUrl?.trim();
+  if (source) sections.push(`${labels.source}: ${source}`);
 
   return sections.join("\n\n");
 }

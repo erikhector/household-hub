@@ -5788,7 +5788,8 @@ opens `RecipeFileImportDialog`
   maps Paprika's `ingredients` lines through `parseIngredientLine`, JSON-LD
   through `mapJsonLdToRecipe` / `flattenInstructions`, and takes servings
   from the first number in Paprika's `servings` or the JSON-LD
-  `recipeYield` (default 4). Paprika's `notes` are appended to the method.
+  `recipeYield` (default 4). Paprika's `notes` and `source_url` and a JSON-LD
+  `url` go to the recipe's own notes and source link (GAP-70), not the method.
   Every field is clamped to the bounds a hand-typed recipe has (name 120,
   method 4000, 100 ingredients, servings 1-1000). An entry that is corrupt,
   unreadable or has no name is skipped and counted (`skipped`), never
@@ -6985,6 +6986,46 @@ the recipe on the clipboard as plain text and confirms with a toast.
 - **Tests**: `recipe-text.test.ts` (both locales, no quantity, no
   instructions, no ingredients); `e2e/copy-recipe-text.spec.ts` clicks the
   button on desktop and mobile, asserts the toast and the clipboard text.
+
+### Recipe source link and notes (GAP-70)
+
+A recipe remembers the page it came from and carries the household's own
+tweaks, apart from the method (which Cook mode reads out as steps).
+
+- **Schema**: two nullable columns on `Recipe`, `sourceUrl` and `notes`
+  (migration `recipe_source_notes`). Plain text; no history, no per-member
+  notes.
+- **Validation** (`src/lib/recipe-source.ts`, shared by every writer):
+  `normalizeSourceUrl` accepts only `http:` / `https:` addresses of at most
+  2048 characters and returns the parsed form; anything else (`javascript:`,
+  `data:`, junk) is refused. `createRecipeAction` / `updateRecipeAction`
+  check it in Zod (`errors.sourceUrlInvalid`, a field error in both
+  languages) and notes are capped at 2000 (`errors.recipeNotesTooLong`). An
+  empty box saves `null`. Both are written through the household-scoped
+  create/update like every other recipe field. The address is never fetched
+  server-side, so the URL import's SSRF host rules don't apply to it.
+- **Form**: a "Notes" textarea and a "Source link" URL input after the
+  instructions in `RecipeFormDialog`.
+- **Imports**: the URL import returns the pasted address as
+  `recipe.sourceUrl` and the form fills the field. The file import maps
+  Paprika `source_url` / JSON-LD `url` to `sourceUrl` (same check, dropped
+  if invalid) and Paprika `notes` to `notes`; `importRecipesFromFileAction`
+  saves both. Duplicating a recipe copies both.
+- **Sheet**: the notes show under the method, then "Source: bbc.co.uk", a
+  plain `<a target="_blank" rel="noopener noreferrer">` whose text is the
+  host without `www.` (`sourceHost`) and whose accessible name says it
+  opens in a new tab. The address is re-checked with `normalizeSourceUrl`
+  before it reaches the `href`.
+- **Copy as text** appends the notes and the source address after the steps.
+  **Cook mode** shows the notes once, under the first step. Cook mode only
+  opens for a recipe that has instructions (`canCook` in `recipe-manager.tsx`),
+  so a recipe with notes but no steps never reaches it and the notes stay on
+  the recipe sheet. That is intended.
+- **Tests**: `recipe-source.test.ts`, `recipe-actions.test.ts` (household
+  scoping, `javascript:` refused, URL import returns the source),
+  `parse-file.test.ts` (Paprika and JSON-LD), `recipe-text.test.ts`,
+  `e2e/recipe-source-notes.spec.ts` (create, reload, host-name link and note
+  in `en` and `sv`, on desktop and mobile).
 
 ### Duplicate a recipe (GAP-48)
 
