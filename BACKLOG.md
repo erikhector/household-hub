@@ -387,18 +387,6 @@ left out.
       phones; `mobile` smoke screenshots of both pages fit in two screens
       of content before the first form.
 
-- [ ] **UX-175. Small code hygiene from the audit** (impact: low, effort:
-      S) — `transition-all` on `button.tsx:8` and `badge.tsx:7` animates
-      layout properties (DESIGN.md prefers explicit properties); an ad-hoc
-      shadow with raw rgb on the inventory bulk bar
-      (`inventory-table.tsx:292`); `/dashboard/whats-new`'s `main` is a
-      scroll region with nothing focusable on phones (axe
-      `scrollable-region-focusable`).
-      Acceptance: `transition-[color,background-color,border-color,box-shadow,transform]`
-      on both primitives; the bulk bar uses a token shadow; What's new has a
-      focusable "Back" link or `tabIndex={-1}` on `main`; axe on
-      `/dashboard/whats-new` is clean on `mobile`.
-
 ### UX (2026-10-31 budget redesign follow-ups)
 
 The budget redesign (REQUIREMENTS.md, "Budget page layout") changed layout

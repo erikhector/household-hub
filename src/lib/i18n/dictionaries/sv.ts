@@ -223,6 +223,7 @@ export const sv = {
     },
   },
   whatsNew: {
+    back: "Tillbaka till översikten",
     title: "Nyheter",
     subtitle: "Alla uppdateringar av Squirrel och vad de ändrade.",
     currentVersion: "Du använder version {version}.",

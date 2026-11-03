@@ -8428,6 +8428,13 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   date and the note in the user's locale. A note wraps at any width
   (`break-words`), so a URL or long Swedish compound in it can't push the
   page sideways on a phone (BUG-4).
+  The page opens with a "Back to overview" link, the first focusable
+  thing in `main`, so the phone scroll region passes axe's
+  `scrollable-region-focusable` (UX-175; `e2e/whats-new-a11y.mobile.spec.ts`).
+  Also UX-175: `Button` and `Badge` transition explicit properties
+  (`color, background-color, border-color, box-shadow, transform`) rather
+  than `transition-all`, and the phone inventory bulk bar uses the
+  `shadow-md` scale shadow instead of a raw-rgb one.
 - The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
