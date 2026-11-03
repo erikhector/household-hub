@@ -977,7 +977,7 @@ export function RecipeFormDialog({
                     className={cn(
                       "rounded-full border px-4 py-1 text-sm transition-colors max-sm:min-h-11 pointer-coarse:min-h-11",
                       isSelected
-                        ? "border-primary bg-primary/10 text-primary"
+                        ? "border-primary bg-primary/15 text-foreground"
                         : "border-input text-muted-foreground hover:border-primary/50",
                     )}
                   >
