@@ -205,7 +205,7 @@ export function SharedSplitFields({
                   </Fragment>
                 ))}
               </div>
-              <Button type="button" variant="outline" size="xs" onClick={() => split.setChanging(true)}>
+              <Button type="button" variant="outline" className="h-auto min-h-11 min-w-11" onClick={() => split.setChanging(true)}>
                 {dict.splitChange}
               </Button>
             </div>
