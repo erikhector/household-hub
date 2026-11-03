@@ -101,5 +101,7 @@ test("without the Repeats switch no recurring item is added", async ({ page }) =
   await expect(dialog).toBeHidden();
 
   await page.goto("/dashboard/budget?tab=manage");
-  await expect(page.getByRole("main").getByText(described)).toHaveCount(0);
+  // The payment itself may be listed on this tab; only the Repeating list
+  // would show an item made from it.
+  await expect(page.getByRole("main").getByRole("region", { name: "Repeating" }).getByText(described)).toHaveCount(0);
 });
