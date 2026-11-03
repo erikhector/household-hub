@@ -3,7 +3,7 @@ import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { dismissCookieNotice, expectHydrated, openRecipesTab, openRowSheet, waitForDialogHistory } from "./ui";
+import { dismissCookieNotice, expectHydrated, openRowSheet, waitForDialogHistory } from "./ui";
 
 // GAP-70: a recipe keeps the page it came from (shown as its host name, a
 // plain external link) and the household's own notes (under the method in the
@@ -34,8 +34,7 @@ for (const [locale, storageState, t] of [
     test.use({ storageState });
 
     test("a saved link shows as its host name and the note shows in the sheet after a reload", async ({ page }) => {
-      await page.goto("/dashboard/meal-planning");
-      await openRecipesTab(page);
+      await page.goto("/dashboard/meal-planning?tab=recipes");
       const newRecipe = page.getByRole("button", { name: t.newRecipe });
       await expectHydrated(newRecipe);
       await newRecipe.click();
@@ -49,7 +48,6 @@ for (const [locale, storageState, t] of [
       await waitForDialogHistory(page);
 
       await page.reload();
-      await openRecipesTab(page);
       const sheet = await openRowSheet(page, name);
       const link = sheet.getByRole("link", { name: "bbc.co.uk" });
       await expect(link).toHaveAttribute("href", "https://www.bbc.co.uk/food/recipes/pancakes");
@@ -59,8 +57,7 @@ for (const [locale, storageState, t] of [
     });
 
     test("a javascript: link is refused with the field error and nothing is saved", async ({ page }) => {
-      await page.goto("/dashboard/meal-planning");
-      await openRecipesTab(page);
+      await page.goto("/dashboard/meal-planning?tab=recipes");
       const newRecipe = page.getByRole("button", { name: t.newRecipe });
       await expectHydrated(newRecipe);
       await newRecipe.click();
