@@ -811,15 +811,20 @@ out to be a product-scope question rather than a scoped task should move to
       (http/https only, max 2048, validated with Zod and rendered as a
       plain external link with `rel="noopener noreferrer"`, never fetched
       server-side) and `notes` (max 2000), both on the recipe form and
-      sheet. URL import and the file import fill `sourceUrl` from the
-      imported address; the recipe sheet shows the link as its host name
+      sheet. URL import fills `sourceUrl` from the imported address; the
+      file import maps Paprika `source_url` / JSON-LD `url` to `sourceUrl`
+      (same http/https check, dropped if invalid) and Paprika `notes` to
+      `notes` instead of appending them to the method as GAP-67 does
+      today; the recipe sheet shows the link as its host name
       ("bbc.co.uk") and notes under the method; "Copy as text" (GAP-43)
       includes both; cook mode shows notes on the first step only. Scope:
       no scraping of the source later, no per-member notes, no
       note history. Human-only area: migration `recipe_source_notes`.
       Acceptance: unit tests that both fields are household-scoped on
       create/update, that a `javascript:` URL is rejected with a field
-      error, and that URL import returns the source address; an `e2e/`
+      error, that URL import returns the source address, and that
+      `parseRecipeFile` returns `sourceUrl` and `notes` from a Paprika and
+      a JSON-LD file (notes no longer in the method); an `e2e/`
       step on `mobile` and `desktop` creates a recipe with a unique name,
       a link and a note, reloads, sees the host name link and the note in
       the sheet, in `en` and `sv`.
