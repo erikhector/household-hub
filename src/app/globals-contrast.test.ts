@@ -128,6 +128,21 @@ describe.each(Object.entries(THEMES))("globals.css %s theme", (theme, vars) => {
     pairs.push([`${fg} on night`, solid(fg), solid("night"), 4.5]);
   }
 
+  // UX-161: avatar initials on each chart tint, the selected-chip pair
+  // (foreground on primary at 15% over the surfaces chips sit on) and the
+  // inventory group counts (muted-foreground, no longer faded to 70%).
+  for (const n of [1, 2, 3, 4, 5]) {
+    pairs.push([`avatar-ink-${n} on chart-${n}`, solid(`avatar-ink-${n}`), solid(`chart-${n}`), 4.5]);
+  }
+  for (const s of ["background", "card", "popover"] as const) {
+    pairs.push([
+      `foreground on selected chip (primary 15% over ${s})`,
+      solid("foreground"),
+      over(solid("primary"), 0.15, solid(s)),
+      4.5,
+    ]);
+  }
+
   // UX-25 (light theme polish) fixed its usages by pointing them at pairs
   // already guarded above, so no new token — and no new pair — was needed:
   // disabled solid buttons use muted-foreground on muted (was white at 50%

@@ -7481,6 +7481,12 @@ flat grayscale:
   on, and field outlines (`--input`) and the focus ring hold 3:1, in both
   themes. `src/app/globals-contrast.test.ts` reads `globals.css` and fails
   `npm test` when a token change breaks a pair, naming the pair and ratio.
+  Avatar initials take a per-tint ink (`--avatar-ink-1..5`, picked by
+  luminance: white only on light-theme `chart-4`, a deep ink elsewhere),
+  selected chips are `foreground` on `primary` at 15%, and the inventory
+  group counts use plain `muted-foreground` (no `/70` fade); all are pairs
+  in the test, and `e2e/avatar-contrast.spec.ts` measures the painted
+  initials in the browser (UX-161).
   The status colours (`--destructive`, `--warning`, `--attention`,
   `--success`) are tuned to be text on a `--status-tint` (10% light, 20%
   dark) mix of themselves — that's how Badge, the destructive Button and
@@ -7740,6 +7746,11 @@ components directly.
   reset-password, verify-email, join, unsubscribe and no-household pages put
   their content in a `<main>` rather than a plain `div`. Covered by
   `navigation.desktop.spec.ts` and `public.spec.ts`.
+- **No scrollbars on touch screens**: `globals.css` sets
+  `scrollbar-width: none` (and hides `::-webkit-scrollbar`) on every element
+  under `(hover: none) and (pointer: coarse)`, so on a phone or the installed
+  PWA, `main`, dialogs and lists scroll without the iOS indicator. Mouse and
+  trackpad devices keep their scrollbars. Covered by `touch-scrollbars.spec.ts`.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
   and a "More" dropdown menu holding Meal planning, Household, Profile, the
@@ -7778,7 +7789,11 @@ components directly.
   (`NAV_ICON_TILE_CLASSES`) active or not, and `PageTitle` draws a short bar
   in the same hue under the large title of the section's own page (`navItemForPath`,
   `NAV_ACCENT_BAR_CLASSES`), so the colour marks the page you're on. Covered by
-  `e2e/navigation.mobile.spec.ts`.
+  `e2e/navigation.mobile.spec.ts`. The bar is drawn only
+  for the primary tabs (Inventory, Shopping list, Meal planning), whose hues
+  are unique; the palette's four hues are shared in pairs by the eight
+  sections, so the More-menu pages get no bar rather than one that reads as
+  another section (UX-167, `navAccentColor`, `nav-items.test.ts`).
 - **Where you are (UX-27)**: the current page is marked in both layouts
   (`aria-current="page"` plus the active fill). On a phone, What's new and
   the notification centre belong to the "More" menu, so while one is open

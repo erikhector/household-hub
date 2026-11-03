@@ -225,9 +225,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-82. Flaky: the meal planner's empty-week specs fail under load on mobile** (low, S) —
-      `e2e/meal-planner-empty-slots.spec.ts:20` ("an empty week is one empty state with one primary, not seven add cards": expected 0 `Add meal, ` buttons, found 7) and `:84` ("the planner has one control row with the rare actions in a menu": the "Copy last week" menuitem never became visible after clicking More), `mobile` project. Both failed in the local `npm run ci:local` run on release commit 6be170e (2026-11-02, the release PR #1034, which carried the UX-171 planner change #1027) and both passed on a re-run of the whole spec on the same commit; the GitHub e2e job on that commit was green. Second sighting (2026-11-02, release PR #1054 on commit d66a529): `:41` ("adding a meal to an empty day asks for the slot", `mobile`) timed out in `expectHydrated` on both the first attempt and the retry in the GitHub e2e job, then passed in the whole-job re-run and in a local `npm run ci:local` on the same commit. Likely the page is measured or clicked before the planner's empty state and its menu have hydrated or settled. Fix it in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-83. Flaky: the never-stocked Napkins checkbox isn't visible on desktop** (low, S) `[!]` —
       `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -368,22 +365,6 @@ left out.
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
 
-- [ ] **UX-161. Contrast on avatar initials, selected chips and faded
-      table text** (impact: med, effort: S) — breaks Accessibility tokens
-      ("every text pair passes 4.5:1 in both themes"; WCAG 1.4.3). Avatar
-      initials are `text-white` on `bg-chart-*` (2.05:1 on chart-2 in
-      light, axe `color-contrast`; `src/components/profile/avatar.tsx:48`).
-      Selected chips use `text-primary` on `bg-primary/10` (4.45:1 light,
-      4.40:1 dark at 14 px medium; `recipe-form-dialog.tsx:912`,
-      `starter-category-picker.tsx:118`, `item-catalog.tsx:91`).
-      `text-muted-foreground/70` in the inventory table is 3.27:1 light
-      (`inventory-table.tsx:422,527`). None of the pairs is in
-      `globals-contrast.test.ts`.
-      Acceptance: initials pick their ink per tint by luminance; chips use
-      `bg-primary/15` with an ink that passes; the `/70` opacity is dropped;
-      all three pairs are added to `globals-contrast.test.ts`; axe on
-      `/dashboard/profile` reports no contrast violation.
-
 - [ ] **UX-162. Raw amber utilities where the `warning` token belongs**
       (impact: low, effort: S) — breaks Colour ("status is text on a tint
       of itself … `warning`") and the checklist's "tokens only".
@@ -394,17 +375,6 @@ left out.
       Acceptance: no `amber-` class in `src/components`; the four sites use
       `bg-warning/10 text-warning` (`attention` for the star if orange is
       wanted); a grep test or lint rule keeps them out.
-
-- [ ] **UX-167. Unique hue per section** (impact: low, effort: S) —
-      breaks Consistency ("same icon/colour for the same meaning").
-      Inventory and Household budget share `chart-1`, Shopping and Personal
-      budget `chart-2`, Meals and Household `chart-3`, Tasks and Profile
-      `chart-5` (`src/components/dashboard/nav-items.ts:84-92`), so the
-      underline under a page title says "pink", not "inventory".
-      Acceptance: the four hues are reserved for the four coloured
-      bottom-bar tabs and More-menu pages have no underline (or get their
-      own hues); `nav-items.test.ts` asserts no two primary tabs share a
-      colour.
 
 - [ ] **UX-174. Progressive explanations on budget Manage and Household
       settings** (impact: low, effort: M) — breaks Help ("explain
@@ -877,7 +847,7 @@ out to be a product-scope question rather than a scoped task should move to
       (c) the housemate voice in the Today block ("Nothing planned for
       dinner. Last Tuesday's pasta again?" from existing data); (d) each
       section's hue carried into its empty-state dashed box at 10 %
-      (depends on UX-167). The dark theme (UX-157) has shipped. Decide which to
+      The dark theme (UX-157) has shipped. Decide which to
       build and in what order.
       Acceptance: per idea, a before/after on the `mobile` screenshots and
       the e2e spec for the touched component still passing.

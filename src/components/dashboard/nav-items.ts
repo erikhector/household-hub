@@ -138,3 +138,12 @@ export function navItemForPath(pathname: string): NavItem | undefined {
     .filter((item) => isNavItemActive(pathname, item.href))
     .sort((a, b) => b.href.length - a.href.length)[0];
 }
+
+// UX-167: the page-title bar says "this is Inventory", which only holds if a
+// hue names one section. The tile hues are shared by pairs of sections (the
+// palette has four usable hues for eight sections), so the bar is drawn only
+// for the primary tabs, whose three hues are unique. Pages behind "More" get
+// no bar rather than one that reads as another section's.
+export function navAccentColor(item: NavItem | undefined): NavColor | undefined {
+  return item && primaryMobileHrefs.has(item.href) ? item.color : undefined;
+}

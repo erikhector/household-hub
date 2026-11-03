@@ -96,7 +96,7 @@ export function StarterKitPicker({ dict }: { dict: Dictionary["inventory"] }) {
                 // making the badge look oversized.
                 "inline-flex min-h-11 items-center justify-center rounded-full border px-3 py-1 text-xs transition-colors",
                 isSelected
-                  ? "border-primary bg-primary/10 text-primary"
+                  ? "border-primary bg-primary/15 text-foreground"
                   : "border-input text-muted-foreground hover:border-primary/50",
               )}
             >
