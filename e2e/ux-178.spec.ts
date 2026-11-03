@@ -79,7 +79,7 @@ test("a split expense logged from the Add transaction sheet reaches the househol
     await expect(dialog.getByText(/Other Olle's share 200[\s  ,.]?00/)).toBeVisible();
     await dialog.getByText("Dinner out", { exact: true }).click();
     await dialog.getByLabel("Description").fill(description);
-    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await dialog.getByRole("button", { name: "Add transaction" }).click();
     await expect(dialog).toBeHidden();
 
     // It's a household transaction: listed on the household budget.
