@@ -27,6 +27,8 @@ import { addMealEntryAction } from "@/app/dashboard/meal-planning/planner-action
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format } from "@/lib/i18n/format";
+import { MissingDietBadges } from "@/components/meal-planning/missing-diet-badges";
+import type { RecipeTag } from "@/lib/recipe-tags";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
@@ -58,6 +60,8 @@ export function AddToPlanDialog({
   recipeId,
   recipeName,
   defaultPortions,
+  recipeTags,
+  requiredTags,
   plannerWeekStartKey,
   defaultDate,
   hint,
@@ -69,6 +73,11 @@ export function AddToPlanDialog({
   recipeId: string;
   recipeName: string;
   defaultPortions: number;
+  // GAP-71: with the household's required tags, a "Not nut-free" warning
+  // under the title when the recipe lacks one. Optional: callers without the
+  // recipe's tags (Plan leftovers, Cook now) show none.
+  recipeTags?: readonly RecipeTag[];
+  requiredTags?: readonly RecipeTag[];
   plannerWeekStartKey: string;
   // GAP-39: "Plan leftovers" opens this same dialog prefilled with a day
   // (instead of today) and a line saying why, from a toast action rather
@@ -134,6 +143,11 @@ export function AddToPlanDialog({
           <DialogTitle>{format(dict.addToPlanDialogTitle, { recipe: recipeName })}</DialogTitle>
         </DialogHeader>
         {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
+        {recipeTags && requiredTags && requiredTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 empty:hidden">
+            <MissingDietBadges dict={dict} recipeTags={recipeTags} requiredTags={requiredTags} />
+          </div>
+        )}
         <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="recipeId" value={recipeId} />
           <input type="hidden" name="weekStartDate" value={weekStartKey} />

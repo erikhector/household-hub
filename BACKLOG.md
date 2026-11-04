@@ -708,28 +708,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-11-04 scan
 
-- [ ] **GAP-71. Household "must be" diet: flag planned recipes that don't fit** (impact: med, effort: M) `[schema]` —
-      Mealime builds its plans around the household's diet and allergies
-      set once; Plan to Eat and Paprika only filter. Squirrel has recipe
-      dietary tags (GAP-29) but they only filter the recipe list, so a
-      household with a nut allergy or a vegetarian member can still drop a
-      non-matching recipe into the week without any signal. Add
-      `Household.requiredTags String[] @default([])` (keys from the closed
-      `RECIPE_TAGS` set, parsed with `parseRecipeTags`), edited by any
-      member in household settings as the same toggle chips the recipe form
-      uses. In the week plan and the recipe sheet's "Add to plan", an entry
-      whose recipe lacks a required tag (honouring `vegan` implying
-      `vegetarian`/`dairyFree`) shows a small "Not nut-free" badge with the
-      missing tag in text, never colour alone. A warning only: never blocks
-      or hides anything, and untagged recipes warn too (the user hasn't said
-      either way). Scope: no per-member diets, no ingredient-name allergen
-      detection, no auto-swap.
-      Acceptance: unit tests for the missing-tag helper (implication,
-      untagged, empty requirement = no badge) and that the settings action
-      uses `requireHousehold()` and drops unknown keys; an e2e step on
-      `mobile` sets "Vegetarian", plans an uniquely named untagged recipe
-      and sees "Not vegetarian" on its entry, in `en` and `sv`.
-
 - [ ] **GAP-72. Recipe course (breakfast / dinner / snack) that pre-fills the meal type** (impact: low-med, effort: S) `[schema]` —
       AnyList, Plan to Eat and Paprika file recipes by course, so planning a
       breakfast offers breakfast recipes first. In Squirrel the "Add to

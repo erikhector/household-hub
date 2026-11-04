@@ -14,6 +14,7 @@ import { isEmailConfigured, sendHouseholdInviteEmail, sendVerificationEmail } fr
 import type { ActionState, SignupState } from "@/lib/actions/auth";
 import { errorText, fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { hashToken } from "@/lib/token-hash";
+import { parseRecipeTags } from "@/lib/recipe-tags";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
@@ -707,6 +708,30 @@ export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<
   }
 
   revalidatePath("/dashboard/household");
+  return {};
+}
+
+// GAP-71: the household's "must be" diet (Household.requiredTags). Open to
+// every member like the auto-add switch above. A click action (each chip
+// toggle saves the whole set); the keys come from the client, so they go
+// through parseRecipeTags, which drops anything outside the closed RECIPE_TAGS
+// set. Only a non-array is rejected outright.
+export async function setRequiredTagsAction(tags: string[]): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  if (!Array.isArray(tags)) return await fail("invalidInput");
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { requiredTags: parseRecipeTags(tags) },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  revalidatePath("/dashboard/meal-planning");
   return {};
 }
 

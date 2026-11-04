@@ -112,3 +112,20 @@ export function tagsFromSchemaOrgDiet(value: unknown): RecipeTag[] {
   }
   return parseRecipeTags(tags);
 }
+
+/**
+ * GAP-71: the household's required tags (`Household.requiredTags`) that a
+ * recipe carrying `tags` does not satisfy, in canonical order. Reuses
+ * recipeMatchesTag so a vegan recipe satisfies "vegetarian" and "dairyFree".
+ * An untagged recipe lacks every requirement (we can't tell it fits), and an
+ * empty requirement yields an empty list, i.e. no badge. Only ever drives a
+ * warning: nothing is blocked or hidden by it.
+ */
+export function missingRequiredTags(
+  tags: readonly RecipeTag[],
+  required: readonly RecipeTag[],
+): RecipeTag[] {
+  return RECIPE_TAGS.filter(
+    (tag) => required.includes(tag) && !recipeMatchesTag(tags, tag),
+  );
+}

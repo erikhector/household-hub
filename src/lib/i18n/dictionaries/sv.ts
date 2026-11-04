@@ -351,6 +351,13 @@ export const sv = {
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
     },
+    requiredDiet: {
+      title: "Hushållets kost",
+      description:
+        'Välj de taggar som alla planerade recept ska ha, till exempel Vegetariskt eller Nötfritt. Ett recept som saknar en får märket "Inte …" i veckoplanen. Det är bara en varning: inget blockeras eller döljs, och det gäller alla i hushållet.',
+      groupLabel: "Obligatoriska taggar",
+      savedToast: "Hushållets kost sparades",
+    },
     inventorySync: {
       title: "Uppdatera lagret",
       label: "Uppdatera lagret",
@@ -2330,6 +2337,7 @@ export const sv = {
       lowCarb: "Lågkolhydrat",
       quick: "Snabbt",
     },
+    notTagBadge: "Inte {tag}",
     recipeTagsLabel: "Taggar",
     recipeTagsHint: "Används för att filtrera receptlistan.",
     tagFilterLabel: "Filtrera på tagg",

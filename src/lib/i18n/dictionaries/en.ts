@@ -381,6 +381,14 @@ export const en = {
       disabledToast: "Low-stock items won't be added automatically",
     },
     // InventorySyncSetting — Household.inventorySyncMode.
+    // RequiredDietSetting — Household.requiredTags (GAP-71).
+    requiredDiet: {
+      title: "Household diet",
+      description:
+        'Pick the tags every planned recipe should have, like Vegetarian or Nut-free. A recipe that lacks one gets a "Not …" badge in the week plan. It\'s only a warning: nothing is blocked or hidden, and it applies to everyone in the household.',
+      groupLabel: "Required tags",
+      savedToast: "Household diet saved",
+    },
     inventorySync: {
       title: "Updating inventory",
       label: "Update inventory",
@@ -2450,6 +2458,10 @@ export const en = {
       lowCarb: "Low-carb",
       quick: "Quick",
     },
+    // GAP-71: the warning badge for a planned recipe that lacks one of the
+    // household's required tags; {tag} is the lowercased recipeTags label
+    // ("Not nut-free"). Words, never colour alone.
+    notTagBadge: "Not {tag}",
     recipeTagsLabel: "Tags",
     recipeTagsHint: "Used to filter your recipe list.",
     tagFilterLabel: "Filter by tag",
