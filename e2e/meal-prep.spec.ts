@@ -341,7 +341,7 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
 
     // Add a meal on the planner from the batch.
     await page.goto(`/dashboard/meal-planning?week=${key(week)}`);
-    const firstDinner = page.getByRole("button", { name: "Add your first dinner" }).filter({ visible: true });
+    const firstDinner = page.getByRole("button", { name: "Add first dinner" }).filter({ visible: true });
     await expectHydrated(firstDinner);
     await firstDinner.click();
     const add = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });

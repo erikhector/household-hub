@@ -369,6 +369,15 @@ left out.
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
 
+### UX (2026-11-04 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the popup probe's only phone-size hit
+(the 64x16 sheet grabber, 44 px via `::after`) and the `text-200` bottom-bar
+ellipsis (UX-150) are already known. WebKit was not run, and the per-action
+deep dive was a screenshot and code read, not driven through the UI.
+
 ### Dependencies
 
 ---
@@ -642,29 +651,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-23 scan
-
-- [ ] **GAP-64. "Opened today" on an item, so its use-by date shortens** (impact: low-med, effort: M) `[schema]` —
-      Grocy tracks when a product was opened and applies a "days until
-      due after opening" so a jar of pesto or a carton of milk shows the
-      real deadline once the seal is broken. Squirrel only has the
-      sealed best-before date (`InventoryItem.expiresAt`,
-      `prisma/schema.prisma:335`), so an opened item reads "fine for
-      2 weeks" when it's good for 3 days, and the expiring-soon count and
-      digest miss it. Add a nullable `openedAt` and an optional per-item
-      "days good after opening" (`shelfLifeOpenedDays`); an "Opened" row
-      action stamps today, and `getExpiryStatus` (`src/lib/stock-status.ts`)
-      uses the earlier of `expiresAt` and `openedAt + shelfLifeOpenedDays`.
-      Nothing changes for items that never use it. Reuse the existing
-      expiring/expired filters, counts and notifications; no new
-      screen. Edge cases: undo within the toast, restocking clears
-      `openedAt`, a typed date is never overwritten (as with
-      `expiresAtEstimated`).
-      Acceptance: unit tests for the effective-date maths (sealed only,
-      opened earlier, opened later than sealed, no shelf-life set); an e2e
-      step on `mobile` marks a uniquely named item Opened with 3 days,
-      sees it under "expiring", reloads and still sees it, in `en` and `sv`.
-
 ### 2026-10-27 scan
 
 - [ ] **GAP-66. Per-item stock history ("who changed the amount, and when")** (impact: low-med, effort: M) `[schema]` —
@@ -704,6 +690,24 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
+
+### 2026-11-04 scan
+
+- [ ] **GAP-72. Recipe course (breakfast / dinner / snack) that pre-fills the meal type** (impact: low-med, effort: S) `[schema]` —
+      AnyList, Plan to Eat and Paprika file recipes by course, so planning a
+      breakfast offers breakfast recipes first. In Squirrel the "Add to
+      plan" sheet (UX-92) defaults the meal type to a fixed guess and the
+      recipe list can't be narrowed to "breakfast", so pancakes get planned
+      as dinner unless the user notices. Add `Recipe.mealTypes` (same enum
+      values as `MealPlanEntry`'s meal type, `@default([])`), set in the
+      recipe form as toggle chips beside the dietary tags. "Add to plan"
+      preselects the recipe's first meal type, and the recipe list gains a
+      meal-type filter next to the tag filter. Scope: no auto-generated
+      plans, no import mapping (leave empty on import).
+      Acceptance: unit test that the action stores only valid meal types
+      and that an update replaces the set; an e2e step on `mobile` marks a
+      new recipe "Breakfast", opens Add to plan and sees Breakfast
+      preselected, in `en` and `sv`.
 
 ## Needs a decision before building
 

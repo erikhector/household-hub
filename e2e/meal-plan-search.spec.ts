@@ -20,7 +20,7 @@ test("search finds a custom meal planned two weeks ahead and links to its week",
   try {
     // Plan it two weeks ahead, through the UI.
     await page.goto(`/dashboard/meal-planning?week=${targetWeek}`);
-    const addMeal = page.getByRole("button", { name: /^Add (your first dinner|meal, )/ }).first();
+    const addMeal = page.getByRole("button", { name: /^Add (first dinner|meal, )/ }).first();
     await expectHydrated(addMeal);
     await expectRouterPatched(page);
     await addMeal.click();

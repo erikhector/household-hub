@@ -11,6 +11,8 @@ import { PendingInvites } from "@/components/household/pending-invites";
 import { MemberList } from "@/components/household/member-list";
 import { DeleteHouseholdDialog } from "@/components/household/delete-household-dialog";
 import { AutoAddSetting } from "@/components/household/auto-add-setting";
+import { RequiredDietSetting } from "@/components/household/required-diet-setting";
+import { parseRecipeTags } from "@/lib/recipe-tags";
 import { HouseholdNotes } from "@/components/household/household-notes";
 import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
 import { RenameHousehold } from "@/components/household/rename-household";
@@ -229,6 +231,12 @@ export default async function HouseholdPage() {
             {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
                 shopping behaviour every member already fully operates. */}
             <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
+            {/* Not owner-gated (see setRequiredTagsAction). */}
+            <RequiredDietSetting
+              tags={parseRecipeTags(household.requiredTags)}
+              dict={dict.household.requiredDiet}
+              tagLabels={dict.mealPlanning.recipeTags}
+            />
             {/* Owner-gated inside (see setInventorySyncModeAction); contributors
                 see the current value read-only. */}
             <InventorySyncSetting

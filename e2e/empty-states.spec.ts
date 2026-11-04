@@ -151,7 +151,7 @@ test("a new household's meal planning tabs each hold one primary inside the empt
   await withEmptyHousehold(page, context, baseURL!, tag, async () => {
     // Planner: one empty state instead of seven "Add meal" cards.
     await page.goto("/dashboard/meal-planning");
-    await expectOneEmptyStatePrimary(page, /Add a few recipes first/, "Add your first dinner");
+    await expectOneEmptyStatePrimary(page, /Add a few recipes first/, "Add first dinner");
     await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(0);
     // UX-171: nothing to search yet, and with no recipes nothing to fill with.
     await expect(page.getByLabel("Search the meal plan")).toHaveCount(0);

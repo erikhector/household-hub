@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   RECIPE_TAGS,
   isRecipeTag,
+  missingRequiredTags,
   parseRecipeTags,
   recipeMatchesTag,
   tagsFromSchemaOrgDiet,
@@ -59,6 +60,27 @@ describe("recipeMatchesTag", () => {
 
   it("doesn't run implications backwards", () => {
     expect(recipeMatchesTag(["vegetarian", "dairyFree"], "vegan")).toBe(false);
+  });
+});
+
+describe("missingRequiredTags (GAP-71)", () => {
+  it("returns no tags when nothing is required, tagged or not", () => {
+    expect(missingRequiredTags([], [])).toEqual([]);
+    expect(missingRequiredTags(["quick"], [])).toEqual([]);
+  });
+
+  it("flags every requirement for an untagged recipe, in canonical order", () => {
+    expect(missingRequiredTags([], ["nutFree", "vegetarian"])).toEqual(["vegetarian", "nutFree"]);
+  });
+
+  it("returns only the requirements the recipe lacks", () => {
+    expect(missingRequiredTags(["nutFree", "quick"], ["nutFree", "glutenFree"])).toEqual(["glutenFree"]);
+  });
+
+  it("lets vegan satisfy vegetarian and dairyFree, but nothing else", () => {
+    expect(missingRequiredTags(["vegan"], ["vegetarian", "dairyFree"])).toEqual([]);
+    expect(missingRequiredTags(["vegan"], ["nutFree"])).toEqual(["nutFree"]);
+    expect(missingRequiredTags(["vegetarian"], ["vegan"])).toEqual(["vegan"]);
   });
 });
 

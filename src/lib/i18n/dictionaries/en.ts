@@ -381,6 +381,14 @@ export const en = {
       disabledToast: "Low-stock items won't be added automatically",
     },
     // InventorySyncSetting — Household.inventorySyncMode.
+    // RequiredDietSetting — Household.requiredTags (GAP-71).
+    requiredDiet: {
+      title: "Household diet",
+      description:
+        'Pick the tags every planned recipe should have, like Vegetarian or Nut-free. A recipe that lacks one gets a "Not …" badge in the week plan. It\'s only a warning: nothing is blocked or hidden, and it applies to everyone in the household.',
+      groupLabel: "Required tags",
+      savedToast: "Household diet saved",
+    },
     inventorySync: {
       title: "Updating inventory",
       label: "Update inventory",
@@ -1981,7 +1989,7 @@ export const en = {
       "Plan the week's meals and Squirrel works out what you still need to buy. Copy last week from the ⋯ menu or fill the empty days.",
     plannerEmptyNoRecipes:
       "Plan the week's meals and Squirrel works out what you still need to buy. Add a few recipes first and planning gets quicker.",
-    addFirstDinner: "Add your first dinner",
+    addFirstDinner: "Add first dinner",
     fillEmptyDaysDescription: "Dinners picked for the days with nothing planned, favorites first and then your other recipes. Nothing is saved until you add them.",
     fillEmptyDaysNoRecipes: "No recipes to pick from yet. Add a few in the Recipes tab and they will show up here.",
     fillEmptyDaysNoneLeft: "Every recipe is already planned this week, so there is nothing new to propose.",
@@ -2450,6 +2458,10 @@ export const en = {
       lowCarb: "Low-carb",
       quick: "Quick",
     },
+    // GAP-71: the warning badge for a planned recipe that lacks one of the
+    // household's required tags; {tag} is the lowercased recipeTags label
+    // ("Not nut-free"). Words, never colour alone.
+    notTagBadge: "Not {tag}",
     recipeTagsLabel: "Tags",
     recipeTagsHint: "Used to filter your recipe list.",
     tagFilterLabel: "Filter by tag",
