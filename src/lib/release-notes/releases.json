@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.142.0",
+    "date": "2026-11-04",
+    "pr": 1130,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Add first dinner\" button on an empty meal plan now fits on one line on small phones.\n\nSet your household's diet (for example Vegetarian or Nut-free) under Household > Settings. Planned recipes that don't have that tag now show a \"Not vegetarian\"-style badge, as a heads-up only.",
+      "sv": "Knappen \"Lägg till middag\" på en tom matplan ryms nu på en rad på små telefoner.\n\nAnge hushållets kost (till exempel Vegetariskt eller Nötfritt) under Hushåll > Inställningar. Planerade recept som saknar taggen får ett märke som \"Inte vegetariskt\", bara som en påminnelse."
+    }
+  },
+  {
     "version": "0.141.0",
     "date": "2026-11-03",
     "pr": 1113,
