@@ -8,6 +8,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { round2 } from "@/lib/math";
 import { recordOutOfStockTransition } from "@/lib/notifications";
+import { recordStockEvent } from "@/lib/inventory/stock-history";
 import { addToDefaultListOnLowStock, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
 import { expandRecipeIngredients, portionsMultiplier } from "@/app/dashboard/meal-planning/recipe-expansion";
@@ -137,6 +138,14 @@ export async function deductCookedIngredients(
         data: { quantity: nextQuantity, updatedByUserId: userId },
       });
       await recordOutOfStockTransition(tx, householdId, item.id, item.quantity, nextQuantity, userId);
+      await recordStockEvent(tx, {
+        householdId,
+        itemId: item.id,
+        userId,
+        previousQuantity: item.quantity,
+        nextQuantity,
+        reason: "cooked",
+      });
       const added = await addToDefaultListOnLowStock(tx, householdId, item.id, item.quantity, nextQuantity);
       if (added) autoAdded.push(added);
     }
@@ -175,6 +184,15 @@ export async function creditCookedIngredients(
       await tx.inventoryItem.update({
         where: { id: item.id },
         data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
+      });
+      // Undoing a cook isn't a cook: "adjusted" keeps the journal honest.
+      await recordStockEvent(tx, {
+        householdId,
+        itemId: item.id,
+        userId,
+        previousQuantity: item.quantity,
+        nextQuantity,
+        reason: "adjusted",
       });
     }
   }

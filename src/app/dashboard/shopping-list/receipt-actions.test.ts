@@ -195,6 +195,17 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: transactionMock,
   },
 }));
+// GAP-66: the history journal has its own unit (src/lib/inventory/stock-history.test.ts);
+// here we only check which quantity changes record an event, and for whom.
+const { recordStockEventMock, recordStockEventsMock } = vi.hoisted(() => ({
+  recordStockEventMock: vi.fn(),
+  recordStockEventsMock: vi.fn(),
+}));
+vi.mock("@/lib/inventory/stock-history", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/inventory/stock-history")>()),
+  recordStockEvent: recordStockEventMock,
+  recordStockEvents: recordStockEventsMock,
+}));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => ({
   getDictionary: vi.fn(async () => ({

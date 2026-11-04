@@ -746,6 +746,29 @@ every lookup the old one did.
       read goes through `requireHousehold()` and
       `inventoryItem.householdId`, so another household's item id returns
       nothing. An item with no history shows no section at all.
+    - **History (GAP-66)**: a collapsed "History" disclosure (native
+      `<details>`, a 44 px summary row) listing who changed the item's amount
+      and when, newest first: "Anna used 1 pcs · 2 days ago" (the age via
+      `Intl.RelativeTimeFormat` in the viewer's locale, the date beyond 30
+      days; `describeStockEvent`, `src/lib/inventory/stock-history-view.ts`).
+      It is backed by the append-only `InventoryItemEvent` table (`itemId`
+      cascading with the item, `householdId`, nullable plain-string `userId`
+      with no `@relation` so a member who leaves takes no history with them
+      and the row reads "Someone", signed `delta` in the item's own unit,
+      `reason`, `createdAt`). `recordStockEvent(s)`
+      (`src/lib/inventory/stock-history.ts`) is called beside
+      `recordOutOfStockTransition` in every quantity write, with the session
+      user's id and household from `requireHousehold()` (never the client's):
+      the +/- taps and barcode scans (`used` for a decrease, `restocked` for
+      an increase), mark empty (`used`), marking a meal cooked (`cooked`),
+      ticking/putting away a shopping row (`trip`), and any absolute set,
+      i.e. the edit form, bulk quantity edit, stock check/shelf scan, and the
+      undo of a scan, cook or tick (`adjusted`, shown with a sign). A write
+      that leaves the amount unchanged records nothing. Each write trims the
+      item to its newest 50 events (two queries however many items a batch
+      touches). The page reads by item id and `householdId`. An item with no
+      events shows no section. No chart, household-wide feed, backfill or
+      notification; merging items drops the merged item's history with it.
     - **Names that map here**: the item's learned aliases, each removable
       (`removeItemAliasAction`, household-scoped), so the name is asked
       about again.

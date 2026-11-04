@@ -46,6 +46,17 @@ vi.mock("@/lib/prisma", () => {
   transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
   return { prisma };
 });
+// GAP-66: the history journal has its own unit (src/lib/inventory/stock-history.test.ts);
+// here we only check which quantity changes record an event, and for whom.
+const { recordStockEventMock, recordStockEventsMock } = vi.hoisted(() => ({
+  recordStockEventMock: vi.fn(),
+  recordStockEventsMock: vi.fn(),
+}));
+vi.mock("@/lib/inventory/stock-history", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/inventory/stock-history")>()),
+  recordStockEvent: recordStockEventMock,
+  recordStockEvents: recordStockEventsMock,
+}));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => {
   const { en } = await import("@/lib/i18n/dictionaries/en");
@@ -164,6 +175,27 @@ describe("scanStockChangeAction (AUTO-6)", () => {
     expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "item-1", 0.5, 0);
   });
 
+  it("records a history event for the session user: 'restocked' for +1, 'used' for -1 (GAP-66)", async () => {
+    findFirstMock.mockResolvedValueOnce(milk);
+    await scanStockChangeAction("7310865004703", 1);
+    findFirstMock.mockResolvedValueOnce(milk);
+    await scanStockChangeAction("7310865004703", -1);
+
+    expect(recordStockEventMock).toHaveBeenNthCalledWith(1, expect.anything(), {
+      householdId: "household-1",
+      itemId: "item-1",
+      userId: "user-1",
+      previousQuantity: 2,
+      nextQuantity: 3,
+      reason: "restocked",
+    });
+    expect(recordStockEventMock).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.objectContaining({ nextQuantity: 1, reason: "used", userId: "user-1" }),
+    );
+  });
+
   it("resolves a 12-digit UPC-A decode to the item stored under its GTIN-13 form", async () => {
     findFirstMock.mockResolvedValueOnce(milk);
     await scanStockChangeAction("036000291452", 1);
@@ -214,6 +246,19 @@ describe("undoScanStockChangeAction (AUTO-6)", () => {
     expect(result.item?.quantity).toBe(3);
   });
 
+  it("records the undo as an 'adjusted' event (GAP-66)", async () => {
+    findFirstMock.mockResolvedValueOnce({ ...milk, quantity: 4 });
+    await undoScanStockChangeAction("item-1", 1);
+    expect(recordStockEventMock).toHaveBeenCalledWith(expect.anything(), {
+      householdId: "household-1",
+      itemId: "item-1",
+      userId: "user-1",
+      previousQuantity: 4,
+      nextQuantity: 3,
+      reason: "adjusted",
+    });
+  });
+
   it("puts back a 'Used up' scan", async () => {
     findFirstMock.mockResolvedValueOnce({ ...milk, quantity: 0 });
     await undoScanStockChangeAction("item-1", -1);
@@ -252,6 +297,10 @@ describe("linkBarcodeAction (AUTO-6)", () => {
     // Released before it's set, so the unique index never sees two holders.
     expect(updateManyMock.mock.invocationCallOrder[0]).toBeLessThan(updateMock.mock.invocationCallOrder[0]);
     expect(result).toMatchObject({ kind: "applied", appliedDelta: 1 });
+    expect(recordStockEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ itemId: "item-1", userId: "user-1", reason: "restocked" }),
+    );
   });
 });
 

@@ -24,6 +24,7 @@ import { normalizeBarcode } from "@/lib/barcode";
 import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-life";
 import { frozenExpiryUpdate, openedExpiryUpdate } from "@/lib/inventory/expiry";
+import { recordStockEvent, recordStockEvents, reasonForDelta } from "@/lib/inventory/stock-history";
 import { canonicalUnit } from "@/lib/units";
 
 const itemSchema = z.object({
@@ -237,6 +238,14 @@ export async function updateInventoryItemAction(
       },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity, userId);
+    await recordStockEvent(prisma, {
+      householdId: household.id,
+      itemId: item.id,
+      userId,
+      previousQuantity: item.quantity,
+      nextQuantity: parsed.data.quantity,
+      reason: "adjusted",
+    });
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, parsed.data.quantity);
   } catch (error) {
     return toFriendlyError(error);
@@ -517,6 +526,17 @@ export async function bulkSetInventoryQuantitiesAction(
       addToDefaultListOnLowStockBatch(prisma, household.id, changes),
     ]);
     autoAdded.push(...added);
+    await recordStockEvents(
+      prisma,
+      changes.map(({ item, previousQuantity, nextQuantity }) => ({
+        householdId: household.id,
+        itemId: item.id,
+        userId,
+        previousQuantity,
+        nextQuantity,
+        reason: "adjusted" as const,
+      })),
+    );
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -596,6 +616,14 @@ export async function adjustQuantityAction(
       data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
+    await recordStockEvent(prisma, {
+      householdId: household.id,
+      itemId: item.id,
+      userId,
+      previousQuantity: item.quantity,
+      nextQuantity,
+      reason: reasonForDelta(delta),
+    });
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
     return toFriendlyError(error);
@@ -641,6 +669,14 @@ export async function markItemEmptyAction(
       data: { quantity: 0, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, 0, userId);
+    await recordStockEvent(prisma, {
+      householdId: household.id,
+      itemId: item.id,
+      userId,
+      previousQuantity: item.quantity,
+      nextQuantity: 0,
+      reason: "used",
+    });
     if (!addToShoppingList) {
       autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, 0);
     }
@@ -990,6 +1026,17 @@ export async function bulkUpdateFieldAction(
         previousQuantities.map((item) =>
           recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId),
         ),
+      );
+      await recordStockEvents(
+        prisma,
+        previousQuantities.map((item) => ({
+          householdId: household.id,
+          itemId: item.id,
+          userId,
+          previousQuantity: item.quantity,
+          nextQuantity,
+          reason: "adjusted" as const,
+        })),
       );
       // Sequential, unlike the notifications above: the first crossing may
       // have to create the default list, and running the rest in parallel

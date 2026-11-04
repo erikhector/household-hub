@@ -15,6 +15,7 @@ import type { InventoryItem, Prisma } from "@/generated/prisma/client";
 import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
 import { frozenResetOnArrival, openedResetOnArrival } from "@/lib/inventory/expiry";
 import { recordOutOfStockTransition, type RecordedPrice } from "@/lib/notifications";
+import { recordStockEvent } from "@/lib/inventory/stock-history";
 import { addToDefaultListOnLowStock, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { unitPriceOf } from "@/lib/shopping/unit-price";
 
@@ -95,6 +96,14 @@ export async function applyStockArrival(
   await tx.inventoryItem.update({ where: { id: current.id }, data });
 
   await recordOutOfStockTransition(tx, householdId, current.id, previousQuantity, nextQuantity, options.actingUserId);
+  await recordStockEvent(tx, {
+    householdId,
+    itemId: current.id,
+    userId: options.actingUserId,
+    previousQuantity,
+    nextQuantity,
+    reason: "trip",
+  });
   const autoAdded = await addToDefaultListOnLowStock(tx, householdId, current.id, previousQuantity, nextQuantity);
 
   let recordedPrice: RecordedPrice | null = null;
@@ -142,6 +151,15 @@ export async function reverseStockArrival(
   const nextQuantity = Math.max(0, current.quantity - options.quantity);
   await tx.inventoryItem.update({ where: { id: current.id }, data: { quantity: nextQuantity } });
   await recordOutOfStockTransition(tx, householdId, current.id, current.quantity, nextQuantity, options.actingUserId);
+  // An un-tick takes back a trip's stock; "adjusted", not another "trip".
+  await recordStockEvent(tx, {
+    householdId,
+    itemId: current.id,
+    userId: options.actingUserId,
+    previousQuantity: current.quantity,
+    nextQuantity,
+    reason: "adjusted",
+  });
   const autoAdded = await addToDefaultListOnLowStock(tx, householdId, current.id, current.quantity, nextQuantity);
   return { nextQuantity, autoAdded };
 }
