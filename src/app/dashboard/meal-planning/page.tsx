@@ -20,7 +20,7 @@ import { MAX_PREP_DISHES } from "@/app/dashboard/meal-planning/prepared-batch-ca
 import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
-import { parseRecipeTags } from "@/lib/recipe-tags";
+import { parseRecipeTags, type RecipeTag } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
 import { toDiscoverContext } from "@/lib/recipe-catalog/pantry";
@@ -256,11 +256,14 @@ async function MealNutritionRecapSection({
 async function PlannerTabSection({
   householdId,
   userId,
+  requiredTags,
   dict,
   weekStartKey,
 }: {
   householdId: string;
   userId: string;
+  // GAP-71: Household.requiredTags, already parsed.
+  requiredTags: RecipeTag[];
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
@@ -324,6 +327,7 @@ async function PlannerTabSection({
         activeShoppingLists={activeShoppingLists}
         batches={batches}
         missingCount={missingCount}
+        requiredTags={requiredTags}
         planTemplates={planTemplates.map((t) => ({ id: t.id, name: t.name, entryCount: t._count.entries }))}
       />
       <MealVarietyRecapSection householdId={householdId} dict={dict} />
@@ -345,12 +349,15 @@ function PlannerTabSkeleton({ label }: { label: string }) {
 async function RecipesTabSection({
   householdId,
   currencyCode,
+  requiredTags,
   dict,
   weekStartKey,
 }: {
   householdId: string;
   // GAP-13: labels the recipe cost lines; null keeps plain numbers.
   currencyCode: string | null;
+  // GAP-71: Household.requiredTags, already parsed.
+  requiredTags: RecipeTag[];
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
@@ -531,6 +538,7 @@ async function RecipesTabSection({
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
       plannerWeekStartKey={weekStartKey}
+      requiredTags={requiredTags}
       // GAP-54: same two keys as recipe-photo-actions.ts's provider chain;
       // there is no OCR fallback, so no key means no button.
       photoImportConfigured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)}
@@ -663,6 +671,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
             <PlannerTabSection
               householdId={household.id}
               userId={userId}
+              requiredTags={parseRecipeTags(household.requiredTags)}
               dict={dict.mealPlanning}
               weekStartKey={weekStartKey}
             />
@@ -673,6 +682,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
             <RecipesTabSection
               householdId={household.id}
               currencyCode={household.currencyCode}
+              requiredTags={parseRecipeTags(household.requiredTags)}
               dict={dict.mealPlanning}
               weekStartKey={weekStartKey}
             />

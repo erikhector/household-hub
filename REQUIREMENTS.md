@@ -7125,6 +7125,35 @@ everywhere.
 - **Not in scope**: multi-tag (AND/OR) filtering, custom household tags,
   and using tags in the Cook tab or "use it up" ranking.
 
+### Household required diet (GAP-71)
+
+Mealime builds plans around a diet set once; Squirrel's recipe tags
+(above) only filtered. `Household.requiredTags String[] @default([])`
+(migration `household_required_tags`) holds keys from the same closed
+`RECIPE_TAGS` set, always read through `parseRecipeTags`.
+
+- **Setting**: Household > Settings has a "Household diet" card
+  (`RequiredDietSetting`) with the recipe form's toggle chips
+  (`aria-pressed`). Each toggle saves the whole set through
+  `setRequiredTagsAction`, which is open to every member (not owner-gated),
+  takes the household from `requireHousehold()`, and drops unknown keys via
+  `parseRecipeTags`; a non-array is rejected. The chips flip at once
+  (`useOptimistic`) and snap back if the save fails.
+- **Warning**: `missingRequiredTags(recipeTags, required)` returns the
+  required tags a recipe lacks, honouring the `vegan` implication through
+  `recipeMatchesTag`. An untagged recipe lacks every requirement; an empty
+  requirement yields none. `MissingDietBadges` renders one outline `Badge`
+  per missing tag ("Not vegetarian" / "Inte vegetariskt", the lowercased tag
+  label in `mealPlanning.notTagBadge`), in words, never colour alone. It
+  shows on each linked-recipe entry in the week plan (under the name, so it
+  wraps on a phone) and at the top of the recipe sheet's "Add to plan"
+  dialog before saving.
+- **Only a warning**: nothing is blocked or hidden. Custom (freeform)
+  meals, week picks, the Cook tab's add-to-plan and "Plan leftovers" show no
+  badge.
+- **Not in scope**: per-member diets, ingredient-name allergen detection,
+  auto-swap.
+
 ## Household tasks
 
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from

@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { ArrowRightLeft, BookmarkPlus, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, LayoutTemplate, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Undo2, Unlink, Utensils } from "lucide-react";
 import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
+import { MissingDietBadges } from "@/components/meal-planning/missing-diet-badges";
+import type { RecipeTag } from "@/lib/recipe-tags";
 import { Button } from "@/components/ui/button";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -159,11 +161,14 @@ export function WeekPlanner({
   batches,
   missingCount,
   planTemplates,
+  requiredTags,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
   weekStartKey: string;
   recipes: RecipeData[];
+  // GAP-71: Household.requiredTags; a planned recipe lacking one gets a badge.
+  requiredTags: RecipeTag[];
   // UX-96: orders the add-meal sheet's recipe list.
   recipeCooked: Record<string, RecipeCookedStats>;
   entries: MealPlanEntryData[];
@@ -960,6 +965,7 @@ export function WeekPlanner({
                     entry={entry}
                     dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
                     recipes={recipes}
+                    requiredTags={requiredTags}
                     weekStartKey={weekStartKey}
                     onPlanLeftovers={setLeftoversPlan}
                     selectMode={selectMode}
@@ -1066,6 +1072,7 @@ function MealEntryRow({
   entry,
   dayLabel,
   recipes,
+  requiredTags,
   weekStartKey,
   onPlanLeftovers,
   selectMode,
@@ -1081,6 +1088,7 @@ function MealEntryRow({
   entry: MealPlanEntryData;
   dayLabel: string;
   recipes: RecipeData[];
+  requiredTags: RecipeTag[];
   weekStartKey: string;
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
   // GAP-56: in Select mode the row is a checkbox instead of a sheet opener.
@@ -1165,6 +1173,12 @@ function MealEntryRow({
         <span>{label}</span>
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
       </span>
+      {/* GAP-71: a warning in words, wrapping under the name; never blocks. */}
+      {linkedRecipe && requiredTags.length > 0 && (
+        <span className="flex flex-wrap gap-1 pt-0.5">
+          <MissingDietBadges dict={dict} recipeTags={linkedRecipe.tags} requiredTags={requiredTags} />
+        </span>
+      )}
     </span>
     {/* Words, not just a colour or an icon, so the state reads the
         same to everyone (GAP-49's badge, the cooked tick). */}
