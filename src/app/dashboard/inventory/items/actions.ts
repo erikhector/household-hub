@@ -11,6 +11,7 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { canonicalUnit } from "@/lib/units";
 import { conversionProblem, isFactorInRange, planUnitChange } from "@/lib/inventory/item-units";
 import { sortedPair } from "@/lib/inventory/duplicates";
+import { recordStockEvent } from "@/lib/inventory/stock-history";
 import {
   convertBetweenUnits,
   MAX_MERGE_ITEMS,
@@ -179,6 +180,14 @@ export async function changeItemUnitAction(_prevState: ActionState, formData: Fo
         },
       });
       if (updated.count === 0) throw new StockChanged();
+      // GAP-66: the stock history stores each change in the item's unit
+      // without naming it, and the page labels every row with the current
+      // unit. So rescale the item's history by the same factor as its stock,
+      // or "used 200 g" would read "used 200 kg" after a switch to kg.
+      await tx.inventoryItemEvent.updateMany({
+        where: { itemId: item.id, householdId: household.id },
+        data: { delta: { multiply: parsed.data.factor } },
+      });
       // lastKnownPrice and PriceHistory stay: they're per purchase line and
       // record their own unit (GAP-9).
       await tx.itemUnitConversion.deleteMany({ where: { inventoryItemId: item.id } });
@@ -436,6 +445,17 @@ export async function mergeInventoryItemsAction(input: {
         },
       });
       if (keeperUpdated.count === 0) throw new MergeStockChanged();
+      // GAP-66: the keeper's amount jumps by the merged items' stock; that's
+      // a change like any other, so it goes in the keeper's history. (The
+      // merged items' own history goes with them, by cascade.)
+      await recordStockEvent(tx, {
+        householdId: household.id,
+        itemId: keeper.id,
+        userId,
+        previousQuantity: keeper.quantity,
+        nextQuantity: plan.quantity,
+        reason: "adjusted",
+      });
 
       // Barcode: cleared on the merged items first, because of
       // @@unique([householdId, barcode]), then given to the keeper if it

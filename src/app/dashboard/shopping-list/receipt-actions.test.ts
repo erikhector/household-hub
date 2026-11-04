@@ -765,6 +765,29 @@ describe("registerReceiptAction", () => {
     ]);
   });
 
+  it("records one 'bought' history line per restocked item, by the session user, with the summed change (GAP-66)", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 10, unit: "pcs" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await registerReceiptAction("My receipt", "SEK", [
+      { name: "Apple", quantity: 2, price: 5 },
+      { name: "Apple", quantity: 3, price: 6 },
+    ]);
+
+    expect(recordStockEventsMock).toHaveBeenCalledTimes(1);
+    expect(recordStockEventsMock).toHaveBeenCalledWith(expect.anything(), [
+      {
+        householdId: "household-1",
+        itemId: "inv-1",
+        userId: "user-1",
+        previousQuantity: 10,
+        nextQuantity: 15,
+        reason: "trip",
+      },
+    ]);
+  });
+
   it("stamps every PriceHistory row it writes with the receipt's store, trimmed (GAP-6)", async () => {
     shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
     inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 2, unit: "l" });

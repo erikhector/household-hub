@@ -24,6 +24,7 @@ import type { InventoryItem } from "@/generated/prisma/client";
 import { unitPriceOf } from "@/lib/shopping/unit-price";
 import { findExactInventoryItem, findFuzzyInventoryItem } from "./inventory-lookup";
 import { LoggedExpense, logGroceriesExpense, formatExpenseLogged } from "./expense-log";
+import { recordStockEvents } from "@/lib/inventory/stock-history";
 
 export type ReceiptScanMatch = {
   shoppingListItemId: string;
@@ -516,6 +517,19 @@ export async function registerReceiptAction(
           },
         });
       }
+      // GAP-66: every item the receipt restocked gets a "bought" line in its
+      // history, in the same transaction as the stock change.
+      await recordStockEvents(
+        tx,
+        [...inventoryDeltas].map(([itemId, { currentQuantity, delta }]) => ({
+          householdId: household.id,
+          itemId,
+          userId,
+          previousQuantity: currentQuantity,
+          nextQuantity: currentQuantity + delta,
+          reason: "trip" as const,
+        })),
+      );
 
       const expense = await logGroceriesExpense(tx, {
         householdId: household.id,

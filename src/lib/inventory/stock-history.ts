@@ -58,10 +58,11 @@ export async function recordStockEvents(db: DbClient, changes: readonly StockCha
   await db.inventoryItemEvent.createMany({ data: rows });
 
   const itemIds = [...new Set(rows.map((row) => row.itemId))];
+  const householdIds = [...new Set(rows.map((row) => row.householdId))];
   const kept = new Map<string, number>();
   const surplus: string[] = [];
   const existing = await db.inventoryItemEvent.findMany({
-    where: { itemId: { in: itemIds } },
+    where: { itemId: { in: itemIds }, householdId: { in: householdIds } },
     orderBy: [{ itemId: "asc" }, { createdAt: "desc" }, { id: "desc" }],
     select: { id: true, itemId: true },
   });

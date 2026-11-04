@@ -761,14 +761,18 @@ every lookup the old one did.
       user's id and household from `requireHousehold()` (never the client's):
       the +/- taps and barcode scans (`used` for a decrease, `restocked` for
       an increase), mark empty (`used`), marking a meal cooked (`cooked`),
-      ticking/putting away a shopping row (`trip`), and any absolute set,
-      i.e. the edit form, bulk quantity edit, stock check/shelf scan, and the
-      undo of a scan, cook or tick (`adjusted`, shown with a sign). A write
-      that leaves the amount unchanged records nothing. Each write trims the
-      item to its newest 50 events (two queries however many items a batch
-      touches). The page reads by item id and `householdId`. An item with no
-      events shows no section. No chart, household-wide feed, backfill or
-      notification; merging items drops the merged item's history with it.
+      ticking/putting away a shopping row or registering a receipt
+      (`trip`), and any absolute set, i.e. the edit form, bulk quantity edit,
+      stock check/shelf scan, the undo of a scan, cook or tick, and the
+      keeper's new total after a merge (`adjusted`, shown with a sign). A
+      write that leaves the amount unchanged records nothing. Each write
+      trims the item to its newest 50 events (two household-scoped queries
+      however many items a batch touches). "Change unit…" rescales the
+      item's events by the same factor as its stock, in the same
+      transaction, so past rows read right in the new unit. The page reads
+      by item id and `householdId`. An item with no events shows no section.
+      No chart, household-wide feed, backfill or notification; merging items
+      drops the merged item's history with it.
     - **Names that map here**: the item's learned aliases, each removable
       (`removeItemAliasAction`, household-scoped), so the name is asked
       about again.

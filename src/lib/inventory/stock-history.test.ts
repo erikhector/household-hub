@@ -18,9 +18,10 @@ function fakeDb() {
           rows.push({ ...d, id: `e${String(clock).padStart(5, "0")}`, createdAt: clock });
         }
       },
-      findMany: async ({ where }: { where: { itemId: { in: string[] } } }) =>
+      findMany: async ({ where }: { where: { itemId: { in: string[] }; householdId?: { in: string[] } } }) =>
         rows
           .filter((r) => where.itemId.in.includes(r.itemId))
+          .filter((r) => !where.householdId || where.householdId.in.includes(r.householdId))
           .sort((a, b) => a.itemId.localeCompare(b.itemId) || b.createdAt - a.createdAt || b.id.localeCompare(a.id))
           .map(({ id, itemId }) => ({ id, itemId })),
       deleteMany: async ({ where }: { where: { id: { in: string[] } } }) => {
@@ -97,6 +98,16 @@ describe("recordStockEvent", () => {
 
     expect(rows.filter((r) => r.itemId === "item-1")).toHaveLength(STOCK_HISTORY_CAP);
     expect(rows.filter((r) => r.itemId === "item-2")).toHaveLength(1);
+  });
+
+  it("trims only the writing household's rows (every query scoped by household)", async () => {
+    const { rows, db } = fakeDb();
+    for (let i = 0; i < STOCK_HISTORY_CAP; i++) await recordStockEvent(db, change({ householdId: "household-2" }));
+
+    await recordStockEvent(db, change());
+
+    expect(rows.filter((r) => r.householdId === "household-2")).toHaveLength(STOCK_HISTORY_CAP);
+    expect(rows.filter((r) => r.householdId === "household-1")).toHaveLength(1);
   });
 });
 
