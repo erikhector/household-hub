@@ -60,6 +60,17 @@ for (const locale of LOCALES) {
       await decrease.click();
       await expect(main.getByRole("button", { name: new RegExp(`${item.name} \\(2 `) })).toBeVisible();
 
+      // The stepper updates optimistically, so the reload must wait until the
+      // action has really written (else it races the server action).
+      await expect
+        .poll(() =>
+          withClient(async (client) => {
+            const { rows } = await client.query(`SELECT count(*)::int AS n FROM "InventoryItemEvent" WHERE "itemId" = $1`, [item.id]);
+            return rows[0].n as number;
+          }),
+        )
+        .toBe(1);
+
       await page.reload();
       const summary = main.getByText(strings.history, { exact: true });
       await expect(summary).toBeVisible();
