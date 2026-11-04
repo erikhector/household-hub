@@ -128,8 +128,8 @@ const nextConfig: NextConfig = {
     // show at once; only another household member's change can wait up to 15 s
     // to appear on a client navigation (a reload always fetches fresh).
     // `static` stays at its 5 min default. Marked experimental by Next; to
-    // revert, delete this block. If PERF-22 lands, cacheLife's `stale` value
-    // takes over.
+    // revert, delete this block. If the Cache Components work (PERF-31)
+    // goes ahead, cacheLife's `stale` value takes over.
     staleTimes: {
       dynamic: 15,
     },
