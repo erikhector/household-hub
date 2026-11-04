@@ -1981,7 +1981,7 @@ export const en = {
       "Plan the week's meals and Squirrel works out what you still need to buy. Copy last week from the ⋯ menu or fill the empty days.",
     plannerEmptyNoRecipes:
       "Plan the week's meals and Squirrel works out what you still need to buy. Add a few recipes first and planning gets quicker.",
-    addFirstDinner: "Add your first dinner",
+    addFirstDinner: "Add first dinner",
     fillEmptyDaysDescription: "Dinners picked for the days with nothing planned, favorites first and then your other recipes. Nothing is saved until you add them.",
     fillEmptyDaysNoRecipes: "No recipes to pick from yet. Add a few in the Recipes tab and they will show up here.",
     fillEmptyDaysNoneLeft: "Every recipe is already planned this week, so there is nothing new to propose.",

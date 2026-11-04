@@ -631,7 +631,7 @@ export function WeekPlanner({
   const emptyDays = days
     .filter((day) => !entriesByDay.has(day.dateKey) && day.dateKey >= todayKey)
     .map((day) => ({ dateKey: day.dateKey, label: `${day.weekdayLabel} ${day.dayOfMonth}` }));
-  // UX-50: where an empty week's "Add your first dinner" lands: today, or
+  // UX-50: where an empty week's "Add first dinner" lands: today, or
   // the next day this week, or Monday of a week already over.
   const firstOpenDay = days.find((day) => day.dateKey >= todayKey) ?? days[0];
   const plannedRecipeIds = [...new Set(entries.flatMap((e) => (e.recipeId ? [e.recipeId] : [])))];
@@ -1378,7 +1378,7 @@ function MealEntryRow({
   );
 }
 
-// PERF-26: a day's "+ Add meal" (or an empty week's "Add your first dinner")
+// PERF-26: a day's "+ Add meal" (or an empty week's "Add first dinner")
 // and the meal form behind it. The button stays in the planner's own chunk;
 // the form loads on first use, warmed on pointer-enter or focus.
 function AddMealSlot({
