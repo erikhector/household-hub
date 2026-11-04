@@ -37,9 +37,7 @@ export function RequiredDietSetting({
 
   return (
     <div className="list-bleed flex flex-col gap-3 rounded-md border p-4">
-      <h2 id="required-diet-title" className="font-heading text-base font-semibold">
-        {dict.title}
-      </h2>
+      <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
       <p className="text-sm text-muted-foreground">{dict.description}</p>
       <div role="group" aria-label={dict.groupLabel} className="flex flex-wrap gap-2">
         {RECIPE_TAGS.map((tag) => {
