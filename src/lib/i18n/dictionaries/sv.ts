@@ -351,6 +351,13 @@ export const sv = {
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
     },
+    requiredDiet: {
+      title: "Hushållets kost",
+      description:
+        'Välj de taggar som alla planerade recept ska ha, till exempel Vegetariskt eller Nötfritt. Ett recept som saknar en får märket "Inte …" i veckoplanen. Det är bara en varning: inget blockeras eller döljs, och det gäller alla i hushållet.',
+      groupLabel: "Obligatoriska taggar",
+      savedToast: "Hushållets kost sparades",
+    },
     inventorySync: {
       title: "Uppdatera lagret",
       label: "Uppdatera lagret",
@@ -1878,7 +1885,7 @@ export const sv = {
       "Planera veckans måltider så räknar Squirrel ut vad du ännu behöver handla. Kopiera förra veckan från ⋯-menyn eller fyll de tomma dagarna.",
     plannerEmptyNoRecipes:
       "Planera veckans måltider så räknar Squirrel ut vad du ännu behöver handla. Lägg först till några recept så går planeringen snabbare.",
-    addFirstDinner: "Lägg till din första middag",
+    addFirstDinner: "Lägg till middag",
     fillEmptyDaysDescription: "Middagar för dagarna utan något planerat, först dina favoriter och sedan dina övriga recept. Inget sparas förrän du lägger till dem.",
     fillEmptyDaysNoRecipes: "Inga recept att välja från än. Lägg till några under fliken Recept så dyker de upp här.",
     fillEmptyDaysNoneLeft: "Alla recept är redan planerade den här veckan, så det finns inget nytt att föreslå.",
@@ -2338,6 +2345,7 @@ export const sv = {
       lowCarb: "Lågkolhydrat",
       quick: "Snabbt",
     },
+    notTagBadge: "Inte {tag}",
     recipeTagsLabel: "Taggar",
     recipeTagsHint: "Används för att filtrera receptlistan.",
     tagFilterLabel: "Filtrera på tagg",

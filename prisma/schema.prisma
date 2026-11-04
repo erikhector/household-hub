@@ -162,6 +162,14 @@ model Household {
   categoryOrderLearned  Json?
   categoryOrderManual   String[] @default([])
 
+  // GAP-71: the household's "must be" diet — keys from the closed RECIPE_TAGS
+  // set (src/lib/recipe-tags.ts), always read through parseRecipeTags so a
+  // since-removed key is silently dropped. A planned recipe lacking one of
+  // these (honouring vegan implying vegetarian/dairyFree) shows a "Not
+  // nut-free" badge in the week plan and the Add to plan dialog. A warning
+  // only: nothing is blocked or hidden. Empty = no requirement, no badges.
+  requiredTags          String[] @default([])
+
   // GAP-3: secret for the read-only iCalendar feed at
   // /api/calendar/[token] (meal plan + recurring bill due dates). Null means
   // the feed is off, which is the default: calendar apps can't send cookies,

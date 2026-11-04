@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag } from "@/lib/recipe-tags";
+import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag, type RecipeTag } from "@/lib/recipe-tags";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import {
@@ -89,6 +89,7 @@ export function RecipeManager({
   ingredientNames,
   ingredientUnits,
   plannerWeekStartKey,
+  requiredTags,
   photoImportConfigured,
   discoverInitial,
 }: {
@@ -111,6 +112,8 @@ export function RecipeManager({
   // The week shown in the Planner tab, so AddToPlanDialog can say when it
   // saves into another week (UX-92).
   plannerWeekStartKey: string;
+  // GAP-71: Household.requiredTags, for the Add to plan dialog's warning.
+  requiredTags: RecipeTag[];
   // GAP-54: a vision provider key is set, so the recipe form offers
   // "Import from a photo".
   photoImportConfigured: boolean;
@@ -173,6 +176,7 @@ export function RecipeManager({
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
       plannerWeekStartKey={plannerWeekStartKey}
+      requiredTags={requiredTags}
       photoImportConfigured={photoImportConfigured}
       openEditOnMount={editNewId === recipe.id}
       onEditOpened={() => setEditNewId(null)}
@@ -338,6 +342,8 @@ export function RecipeManager({
               recipeId={planTarget.id}
               recipeName={plannedRecipe?.name ?? planTarget.name}
               defaultPortions={plannedRecipe?.servings ?? planTarget.servings}
+              recipeTags={plannedRecipe?.tags}
+              requiredTags={requiredTags}
               plannerWeekStartKey={plannerWeekStartKey}
               controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
             />
@@ -440,6 +446,7 @@ function RecipeRow({
   ingredientNames,
   ingredientUnits,
   plannerWeekStartKey,
+  requiredTags,
   photoImportConfigured,
   openEditOnMount,
   onEditOpened,
@@ -458,6 +465,7 @@ function RecipeRow({
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
   plannerWeekStartKey: string;
+  requiredTags: RecipeTag[];
   photoImportConfigured: boolean;
   openEditOnMount: boolean;
   onEditOpened: () => void;
@@ -915,6 +923,8 @@ function RecipeRow({
             recipeId={recipe.id}
             recipeName={recipe.name}
             defaultPortions={recipe.servings}
+            recipeTags={recipe.tags}
+            requiredTags={requiredTags}
             plannerWeekStartKey={plannerWeekStartKey}
             controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
           />

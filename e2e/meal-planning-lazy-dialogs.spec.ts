@@ -24,7 +24,7 @@ test.describe("without the idle prefetch", () => {
     });
   });
 
-  test("Add your first dinner opens the meal form on the first tap", async ({ page }) => {
+  test("Add first dinner opens the meal form on the first tap", async ({ page }) => {
     await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
     const first = page.getByRole("button", { name: t.addFirstDinner });
     await expectHydrated(first);

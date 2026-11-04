@@ -99,9 +99,9 @@ easy for AI coding agents to work in correctly:
   edits show at once; another household member's change can take up to 15 s
   to appear on a client navigation (a reload always shows it). `static`
   keeps its 5 min default. The flag is experimental in Next; reverting is
-  deleting the block. If PERF-22 goes ahead, `cacheLife`'s `stale` value
-  controls this instead. `e2e/flows.spec.ts` ("an edit still shows after
-  navigating away and back") covers it.
+  deleting the block. If the Cache Components work (PERF-31) goes ahead,
+  `cacheLife`'s `stale` value controls this instead. `e2e/flows.spec.ts`
+  ("an edit still shows after navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
   `createLazyDialogLoader(() => import(...))` (module level, shared; the
@@ -7148,6 +7148,35 @@ everywhere.
 - **Not in scope**: multi-tag (AND/OR) filtering, custom household tags,
   and using tags in the Cook tab or "use it up" ranking.
 
+### Household required diet (GAP-71)
+
+Mealime builds plans around a diet set once; Squirrel's recipe tags
+(above) only filtered. `Household.requiredTags String[] @default([])`
+(migration `household_required_tags`) holds keys from the same closed
+`RECIPE_TAGS` set, always read through `parseRecipeTags`.
+
+- **Setting**: Household > Settings has a "Household diet" card
+  (`RequiredDietSetting`) with the recipe form's toggle chips
+  (`aria-pressed`). Each toggle saves the whole set through
+  `setRequiredTagsAction`, which is open to every member (not owner-gated),
+  takes the household from `requireHousehold()`, and drops unknown keys via
+  `parseRecipeTags`; a non-array is rejected. The chips flip at once
+  (`useOptimistic`) and snap back if the save fails.
+- **Warning**: `missingRequiredTags(recipeTags, required)` returns the
+  required tags a recipe lacks, honouring the `vegan` implication through
+  `recipeMatchesTag`. An untagged recipe lacks every requirement; an empty
+  requirement yields none. `MissingDietBadges` renders one outline `Badge`
+  per missing tag ("Not vegetarian" / "Inte vegetariskt", the lowercased tag
+  label in `mealPlanning.notTagBadge`), in words, never colour alone. It
+  shows on each linked-recipe entry in the week plan (under the name, so it
+  wraps on a phone) and at the top of the recipe sheet's "Add to plan"
+  dialog before saving.
+- **Only a warning**: nothing is blocked or hidden. Custom (freeform)
+  meals, week picks, the Cook tab's add-to-plan and "Plan leftovers" show no
+  badge.
+- **Not in scope**: per-member diets, ingredient-name allergen detection,
+  auto-swap.
+
 ## Household tasks
 
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
@@ -9762,7 +9791,7 @@ header's own Add item and FAB only appear once there are items). Cook now
 gets the mascot and a link button: "Add a recipe" (to the Recipes tab) with
 no recipes, "Update your inventory" with recipes but none close to ready
 (`PrimaryAction` styles links as the phone pill too). An empty planner week
-is one empty state with "Add your first dinner" (the same `MealEntryDialog`,
+is one empty state with "Add first dinner" (the same `MealEntryDialog`,
 opened for today or the week's first day) instead of seven "+ Add meal"
 cards; its copy names "Copy last week" and "Fill empty days" in the ⋯ menu
 and, with no recipes yet, says to add a few first. A brand-new shopping
@@ -9770,6 +9799,9 @@ list hides "Register receipt" until it has a row (the add line is its one
 action). Covered by `e2e/empty-states.spec.ts` (fresh empty household,
 desktop and mobile, including a check that no control sits under the
 floating button) and the planner specs that start from an empty week.
+The first-dinner label is kept short ("Add first dinner" / "Lägg till
+middag") so it fits on one line inside the phone pill's 60 % width cap at
+320 px (UX-181, `e2e/ux-181.spec.ts`).
 
 **The one celebration.** Ticking the last pending item on an `ACTIVE`
 shopping list swaps the "All done" ring's tick for the mark, which rises

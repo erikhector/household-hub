@@ -80,7 +80,7 @@ type CreateProps = CommonProps & {
   // slot and closes the sheet. Absent or empty, no such row.
   picks?: WeekPickData[];
   onPlacePick?: (pick: WeekPickData, mealType: MealType) => void;
-  // Opened by the day's "+ Add meal" (or UX-50's "Add your first dinner" on
+  // Opened by the day's "+ Add meal" (or UX-50's "Add first dinner" on
   // an empty week), which the planner keeps in its own chunk so this dialog
   // can load on first use (PERF-26).
   handle: DialogHandle;

@@ -369,6 +369,15 @@ left out.
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
 
+### UX (2026-11-04 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the popup probe's only phone-size hit
+(the 64x16 sheet grabber, 44 px via `::after`) and the `text-200` bottom-bar
+ellipsis (UX-150) are already known. WebKit was not run, and the per-action
+deep dive was a screenshot and code read, not driven through the UI.
+
 ### Dependencies
 
 ---
@@ -448,38 +457,128 @@ fresh per request, `React.cache()` only dedupes within one request, and
 the 31 action files invalidate with `revalidatePath` (46 calls for
 `"/dashboard"` alone), which mostly just clears the browser's router cache.
 
-- [ ] **PERF-22. Spike: Cache Components with household-scoped tags** (L) —
-      a time-boxed spike that ends in follow-up items, not a merged
-      migration. Next 16's `cacheComponents: true` plus `"use cache"`,
-      `cacheTag` and `updateTag` would give each page a static shell and
-      serve cached data, rendered only when a household's data changes.
-      The flag is app-wide, so the spike is a throwaway branch that turns
-      it on and records:
-      - Which routes fail the build (uncached reads or `cookies()` outside
-        a `<Suspense>`). Locale comes from a cookie, so expect most,
-        starting with `src/app/dashboard/layout.tsx`.
-      - A pilot: the home page summary (`src/app/dashboard/page.tsx:67-142`,
-        ~13 queries plus `loadHouseholdSafeToSpend`) behind `"use cache"`,
-        with before/after server timings.
-      - Whether Vercel needs `"use cache: remote"` for hits across
-        serverless instances (the default store is in-memory per
-        instance).
-      Rules the follow-up design must keep:
-      - Cached functions take `householdId` (or `userId` for the personal
-        budget) as an argument so it's in the cache key, and are only
-        called after `requireHousehold()`. One helper builds every tag
-        (`householdTag(id, "inventory")`), so no tag is ever unscoped.
-      - Every write clears the tags it touches: `updateTag` in Server
-        Actions, `revalidateTag` in the cron routes
-        (`api/cron/sync-notifications`, `weekly-digest`) and the share-link
-        actions (`src/app/share/shopping-list/actions.ts`), which write outside a
-        session.
-      - Never cache `requireHousehold()` / `requireUserId()`: their DB read
-        is the SCALE-H revocation check. Keep the open shopping list
-        uncached too (other members tick it live).
-      Output: a short write-up in the PR (route failures, pilot timings,
-      remote-cache answer, a go/no-go) plus follow-up items in this file,
-      one per feature area.
+**PERF-22 spike findings (2026-11-03, Next 16.4.3).** The spike ran on a
+throwaway branch and merged nothing. The follow-ups below are the work it
+leaves.
+
+- **Turning `cacheComponents: true` on fails the whole build, in two
+  layers.** First, five route handlers export
+  `dynamic = "force-dynamic"`, which Next rejects outright under the flag
+  ("not compatible with `nextConfig.cacheComponents`"):
+  `api/health`, `api/calendar/[token]`, `api/digest/unsubscribe/[token]`,
+  `api/cron/sync-notifications` and `api/cron/weekly-digest`. Second, with
+  those removed, every page fails prerender: all 27 `page.tsx` routes plus
+  `/_not-found`, with "uncached or runtime data outside `<Suspense>`". One
+  cause covers them all: `src/app/layout.tsx` reads `cookies()` (locale,
+  theme) and runs Prisma through `getLocale()`/`getUserPrefs`, above any
+  Suspense boundary. `src/app/dashboard/layout.tsx` adds `requireHousehold()`
+  and the cookie reads. Nothing below the root layout can be judged until
+  that is fixed, so this spike can't say how many routes fail for their own
+  queries on top. The build also warns that `partialPrefetching` must be set.
+- **The Home pilot works, with one constraint.** The page's parallel batch
+  (`dashboard/page.tsx:67-142`, household queries plus
+  `loadHouseholdSafeToSpend`) went behind `"use cache"` with
+  `cacheTag("household:<id>:home")`, taking `householdId`, `userId` and a
+  day key as arguments. It needed `experimental.useCache` rather than the
+  app-wide flag, so it could be built and served. The page also reads three
+  cookie-backed helpers (`dashboard/page.tsx:182-184`, outside that batch):
+  `isHouseholdStepSkipped`, `isGettingStartedDismissed` and
+  `isGettingStartedCelebrated` (per-device cookies). `cookies()` throws inside
+  a cached function, so they must stay outside the cache, read by the page
+  and passed in where the cached part needs them. The rest (tasks, inventory,
+  lists, budget, planner, batches, incoming stock) cached cleanly.
+- **Pilot timings.** Production build, `next start`, local Postgres with one
+  household of 400 inventory items, 60 tasks, 40 list rows and 310
+  transactions, driven by a throwaway route calling the same batch with and
+  without the directive (3 rounds of 40-60 requests after warm-up). Server
+  time for the batch: uncached median 26-34 ms, p90 56-94 ms, min 15-20 ms;
+  cached (hit) median about 2 ms, p90 2-3 ms. Treat these as indicative only:
+  the machine was shared with other builds (hence the wide uncached spread),
+  Postgres was on localhost with ~0 ms round trip, and the data is small.
+  Production pays a network round trip per query (roughly 15 queries, some
+  sequential inside safe-to-spend), so the uncached figure there will be
+  higher and the cached one the same. No production timing was taken.
+- **Does Vercel need `"use cache: remote"`? Yes, for hits to be reliable.**
+  Per the Next 16 docs (`use-cache.md` "Runtime caching considerations",
+  `use-cache-remote.md`, `self-hosting.md`), plain `"use cache"` stores in
+  per-instance memory, and on serverless "cache entries typically don't
+  persist across requests (each request can be a different instance)".
+  `"use cache: remote"` stores via a configured `cacheHandlers` backend shared
+  by all instances, at the cost of a handler lookup per hit and the storage.
+  Entries never survive a deploy (the key includes the build or deployment
+  id). Multi-instance tag invalidation also needs the handler's
+  `refreshTags()`. The repo already has Upstash Redis, so a Redis-backed
+  handler is the natural fit, but a Redis REST round trip is itself a few
+  milliseconds to tens of milliseconds, which eats into the gain for a
+  15-query batch only when the DB is close.
+- **Go/no-go: conditional go, staged.** Not worth it as a bulk migration.
+  Worth doing as PERF-31 first (it is the gate and also unlocks static
+  shells), then PERF-32 (helper, remote handler, Home) with a production
+  measurement before any more areas. Stop after PERF-32 if the Home batch's
+  production saving behind the remote handler is under ~50 ms. The risk is
+  correctness rather than speed: a missed `updateTag` shows a stale page to
+  the household, which is why PERF-36 adds a guard.
+
+Rules every follow-up keeps (from the original item):
+
+- Cached functions take `householdId` (or `userId` for the personal budget)
+  as an argument so it's in the cache key, and are only called after
+  `requireHousehold()`. One helper builds every tag
+  (`householdTag(id, "inventory")`), so no tag is ever unscoped.
+- Every write clears the tags it touches: `updateTag` in Server Actions,
+  `revalidateTag` in the cron routes and the share-link actions, which write
+  outside a session.
+- Never cache `requireHousehold()` / `requireUserId()`: their DB read is the
+  SCALE-H revocation check. Keep the open shopping list uncached too (other
+  members tick it live). Anything reading `cookies()` stays outside a cached
+  function.
+
+- [ ] **PERF-31. Cache Components prerequisite: make every route build with
+      the flag on** (L) — remove `dynamic = "force-dynamic"` from the five
+      route handlers (the handlers are already uncached: they read the
+      request or the DB, and Next treats a handler that does as dynamic);
+      set `partialPrefetching`; move the root layout's `cookies()` and
+      locale/theme/prefs reads under a `<Suspense>` (or into a runtime
+      boundary) so the shell can prerender; do the same for
+      `dashboard/layout.tsx`'s `requireHousehold()` and cookies, and give each
+      route a `loading` fallback that matches DESIGN.md. No `"use cache"` yet
+      and no behaviour change. Acceptance: `cacheComponents: true` builds,
+      `npm run ci:local` is green on desktop and mobile with no layout shift
+      from the new boundaries, and `staleTimes` (PERF-21) is replaced by
+      `cacheLife`'s `stale` if it conflicts. Blocks PERF-32 to PERF-36.
+- [ ] **PERF-32. Household cache helper, remote handler and Home summary**
+      (M) — `householdTag(id, area)` in one module, a Redis-backed
+      `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
+      timeout) used through `"use cache: remote"`, and Home's batch cached
+      behind it with the three cookie-backed helpers kept outside. Takes
+      `householdId`/`userId`/a day key; every action that changes Home's data
+      calls `updateTag(householdTag(id, "home"))`. Acceptance: a production
+      before/after of the Home batch, stopping here if the saving is under
+      ~50 ms, and an e2e spec that
+      edits a task or an item and sees Home change without a reload delay.
+      Depends on PERF-31.
+- [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
+      reads for the inventory list and item pages (tags
+      `householdTag(id, "inventory")`) and for completed shopping lists. The
+      open list stays uncached. Every inventory, stock and list write in
+      `inventory/actions.ts` and `shopping-list/actions.ts` calls `updateTag`.
+      Depends on PERF-32.
+- [ ] **PERF-34. Cache tasks and meal planning** (M) — the same for
+      `dashboard/tasks` and `dashboard/meal-planning` (recipes, planner,
+      prepared batches), with day-keyed arguments so "today" never goes
+      stale across midnight. Depends on PERF-32.
+- [ ] **PERF-35. Cache the household and personal budgets** (M) — budget
+      pages and `loadHouseholdSafeToSpend`/`loadPersonalBudgetPosition`,
+      tagged by household and (personal) by `userId`, invalidated by every
+      transaction, template, planned-expense and split write, including the
+      recurring-template acks. Depends on PERF-32.
+- [ ] **PERF-36. Invalidate from the writers outside a session, and guard it**
+      (M) — `revalidateTag` in `api/cron/sync-notifications`,
+      `api/cron/weekly-digest` and `share/shopping-list/actions.ts` (no
+      `updateTag` there: it is Server Actions only), plus a unit test that
+      fails when a Server Action calls a Prisma write on a cached model
+      without a matching tag call. Ship together with the first area that
+      lands after PERF-32.
 
 ## Competitive gap scan
 
@@ -656,6 +755,24 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
+
+### 2026-11-04 scan
+
+- [ ] **GAP-72. Recipe course (breakfast / dinner / snack) that pre-fills the meal type** (impact: low-med, effort: S) `[schema]` —
+      AnyList, Plan to Eat and Paprika file recipes by course, so planning a
+      breakfast offers breakfast recipes first. In Squirrel the "Add to
+      plan" sheet (UX-92) defaults the meal type to a fixed guess and the
+      recipe list can't be narrowed to "breakfast", so pancakes get planned
+      as dinner unless the user notices. Add `Recipe.mealTypes` (same enum
+      values as `MealPlanEntry`'s meal type, `@default([])`), set in the
+      recipe form as toggle chips beside the dietary tags. "Add to plan"
+      preselects the recipe's first meal type, and the recipe list gains a
+      meal-type filter next to the tag filter. Scope: no auto-generated
+      plans, no import mapping (leave empty on import).
+      Acceptance: unit test that the action stores only valid meal types
+      and that an update replaces the set; an e2e step on `mobile` marks a
+      new recipe "Breakfast", opens Add to plan and sees Breakfast
+      preselected, in `en` and `sv`.
 
 ## Needs a decision before building
 

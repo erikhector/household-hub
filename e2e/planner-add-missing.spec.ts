@@ -89,7 +89,7 @@ test.afterEach(async () => {
 
 test("an empty week has no Add missing button", async ({ page }) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
-  await expect(page.getByRole("button", { name: "Add your first dinner" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add first dinner" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Add \d+ missing to shopping list$/ })).toHaveCount(0);
 });
 
@@ -128,7 +128,7 @@ test("a planned week's primary button adds the missing items and the toast opens
 // GAP-58: a custom meal's ingredient lines reach the bridge preview and the list.
 test("a custom meal's ingredients appear in the bridge preview and land on the list", async ({ page }, testInfo) => {
   await page.goto(`/dashboard/meal-planning?week=${customWeek(testInfo.project.name)}`);
-  const first = page.getByRole("button", { name: "Add your first dinner" });
+  const first = page.getByRole("button", { name: "Add first dinner" });
   await expectHydrated(first);
   await first.click();
   const sheet = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });

@@ -4,13 +4,13 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expect
 
 // UX-5 / UX-21 / UX-50: a day with nothing planned is one "+ Add meal" button
 // that asks for the slot, not four "<slot> + Add meal" rows, and a week with
-// nothing planned at all is a single empty state with "Add your first dinner"
+// nothing planned at all is a single empty state with "Add first dinner"
 // instead of seven of those buttons, so an empty week isn't a wall of
 // identical text on a phone. The household is shared by the desktop
 // and mobile runs, so each test uses a far-future week nobody else plans in;
 // the add test picks its own per run, since a meal added by an earlier run
 // would make its day non-empty for the next one (MAINT-82: --repeat-each and
-// a retry are runs too, and the second found no "Add your first dinner").
+// a retry are runs too, and the second found no "Add first dinner").
 // Its weeks sit in 2033, clear of every other spec's 2031 weeks.
 const EMPTY_WEEK = "2031-01-06";
 const addWeek = (testInfo: TestInfo) => {
@@ -28,7 +28,7 @@ test("an empty week is one empty state with one primary, not seven add cards", a
   // The planner streams in behind a skeleton. Wait for its empty state to be
   // on screen before asserting what is absent, so the absence is about the
   // settled planner and not the page mid-stream (MAINT-82).
-  await expect(page.getByRole("main").getByRole("button", { name: "Add your first dinner" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("button", { name: "Add first dinner" })).toBeVisible();
 
   // UX-50: no per-day cards and no repeated placeholder at all.
   await expect(page.getByRole("button", { name: /^Add meal, / })).toHaveCount(0);
@@ -39,7 +39,7 @@ test("an empty week is one empty state with one primary, not seven add cards", a
   await expect(main.getByRole("img", { name: "Squirrel mascot" })).toBeVisible();
   // One line on why it is worth using, and exactly one primary button.
   await expect(main.getByText("Squirrel works out what you still need to buy")).toBeVisible();
-  const first = main.getByRole("button", { name: "Add your first dinner" });
+  const first = main.getByRole("button", { name: "Add first dinner" });
   await expect(first).toBeVisible();
   await expect(first).toHaveClass(/(^|\s)bg-primary(\s|$)/);
 
@@ -54,7 +54,7 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
 
   // UX-50: an empty week has no per-day cards; its one button opens the same
   // dialog, for the first open day.
-  const first = page.getByRole("button", { name: "Add your first dinner" });
+  const first = page.getByRole("button", { name: "Add first dinner" });
   await expectHydrated(first);
   await expectRouterPatched(page);
   await first.click();
@@ -95,7 +95,7 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
 test("the planner has one control row with the rare actions in a menu", async ({ page }, testInfo) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
   // The planner streams in behind a skeleton: measure the settled row.
-  await expect(page.getByRole("main").getByRole("button", { name: "Add your first dinner" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("button", { name: "Add first dinner" })).toBeVisible();
 
   // Previous, next and the ⋯ menu share one row, and the week range is in it.
   const prev = await page.getByRole("link", { name: "Previous week" }).boundingBox();

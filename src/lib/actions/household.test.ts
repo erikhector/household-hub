@@ -177,6 +177,7 @@ const {
   dismissGettingStartedAction,
   markGettingStartedCelebratedAction,
   setAutoAddLowStockToListAction,
+  setRequiredTagsAction,
   enableCalendarFeedAction,
   regenerateCalendarFeedAction,
   disableCalendarFeedAction,
@@ -1254,6 +1255,54 @@ describe("setAutoAddLowStockToListAction (AUTO-8)", () => {
     requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
 
     const result = await setAutoAddLowStockToListAction("false" as unknown as boolean);
+
+    expect(result.error).toBeDefined();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setRequiredTagsAction (GAP-71)", () => {
+  it("saves the parsed tags on the session's household, for any member", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setRequiredTagsAction(["nutFree", "vegetarian"]);
+
+    expect(result).toEqual({});
+    expect(requireHouseholdMock).toHaveBeenCalled();
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { requiredTags: ["vegetarian", "nutFree"] },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
+  });
+
+  it("drops unknown keys and duplicates", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    await setRequiredTagsAction(["vegan", "paleo", "vegan", "__proto__"]);
+
+    expect(householdUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { requiredTags: ["vegan"] } }),
+    );
+  });
+
+  it("clears the requirement with an empty list", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    await setRequiredTagsAction([]);
+
+    expect(householdUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { requiredTags: [] } }),
+    );
+  });
+
+  it("rejects a non-array from a hand-crafted request", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await setRequiredTagsAction("vegan" as unknown as string[]);
 
     expect(result.error).toBeDefined();
     expect(householdUpdateMock).not.toHaveBeenCalled();
