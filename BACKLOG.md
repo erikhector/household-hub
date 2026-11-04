@@ -369,6 +369,30 @@ left out.
 - `src/components/inventory/inventory-client.tsx`: UX-166
 
 
+### UX (2026-11-04 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the popup probe's only phone-size hit
+(the 64x16 sheet grabber, 44 px via `::after`) and the `text-200` bottom-bar
+ellipsis (UX-150) are already known. WebKit was not run, and the per-action
+deep dive was a screenshot and code read, not driven through the UI.
+
+- [ ] **UX-181. Keep "Add your first dinner" on one line at 320 px** (impact:
+      low, effort: S) — in `small-phone-dashboard-meal-planning.png` (the
+      empty week, `/dashboard/meal-planning`, 320 px) the primary pill wraps
+      to two lines, so the `+` icon floats beside a two-line label and the
+      button grows taller than its siblings. Swedish ("Lägg till din första
+      middag") is longer still. `src/components/meal-planning/week-planner.tsx:1417`
+      renders `dict.addFirstDinner` with no `whitespace-nowrap` or width
+      allowance. Breaks DESIGN.md's tidy-hierarchy principle on the one
+      screen whose single job is to point at this button. Fix by shortening
+      the label ("Add first dinner" / "Lägg till middag"), or letting the
+      button fill the card width on a phone.
+      Acceptance: in the `mobile` and a 320 px project, in `en` and `sv`,
+      the empty planner's button has a single-line label (its height equals
+      the neighbouring "Fill empty days" button's) and no horizontal overflow.
+
 ### Dependencies
 
 ---
