@@ -533,19 +533,6 @@ Rules every follow-up keeps (from the original item):
   members tick it live). Anything reading `cookies()` stays outside a cached
   function.
 
-- [ ] **PERF-31. Cache Components prerequisite: make every route build with
-      the flag on** (L) — remove `dynamic = "force-dynamic"` from the five
-      route handlers (the handlers are already uncached: they read the
-      request or the DB, and Next treats a handler that does as dynamic);
-      set `partialPrefetching`; move the root layout's `cookies()` and
-      locale/theme/prefs reads under a `<Suspense>` (or into a runtime
-      boundary) so the shell can prerender; do the same for
-      `dashboard/layout.tsx`'s `requireHousehold()` and cookies, and give each
-      route a `loading` fallback that matches DESIGN.md. No `"use cache"` yet
-      and no behaviour change. Acceptance: `cacheComponents: true` builds,
-      `npm run ci:local` is green on desktop and mobile with no layout shift
-      from the new boundaries, and `staleTimes` (PERF-21) is replaced by
-      `cacheLife`'s `stale` if it conflicts. Blocks PERF-32 to PERF-36.
 - [ ] **PERF-32. Household cache helper, remote handler and Home summary**
       (M) — `householdTag(id, area)` in one module, a Redis-backed
       `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
