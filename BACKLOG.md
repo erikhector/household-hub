@@ -682,6 +682,46 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
+### 2026-11-04 scan
+
+- [ ] **GAP-71. Household "must be" diet: flag planned recipes that don't fit** (impact: med, effort: M) `[schema]` —
+      Mealime builds its plans around the household's diet and allergies
+      set once; Plan to Eat and Paprika only filter. Squirrel has recipe
+      dietary tags (GAP-29) but they only filter the recipe list, so a
+      household with a nut allergy or a vegetarian member can still drop a
+      non-matching recipe into the week without any signal. Add
+      `Household.requiredTags String[] @default([])` (keys from the closed
+      `RECIPE_TAGS` set, parsed with `parseRecipeTags`), edited by any
+      member in household settings as the same toggle chips the recipe form
+      uses. In the week plan and the recipe sheet's "Add to plan", an entry
+      whose recipe lacks a required tag (honouring `vegan` implying
+      `vegetarian`/`dairyFree`) shows a small "Not nut-free" badge with the
+      missing tag in text, never colour alone. A warning only: never blocks
+      or hides anything, and untagged recipes warn too (the user hasn't said
+      either way). Scope: no per-member diets, no ingredient-name allergen
+      detection, no auto-swap.
+      Acceptance: unit tests for the missing-tag helper (implication,
+      untagged, empty requirement = no badge) and that the settings action
+      uses `requireHousehold()` and drops unknown keys; an e2e step on
+      `mobile` sets "Vegetarian", plans an uniquely named untagged recipe
+      and sees "Not vegetarian" on its entry, in `en` and `sv`.
+
+- [ ] **GAP-72. Recipe course (breakfast / dinner / snack) that pre-fills the meal type** (impact: low-med, effort: S) `[schema]` —
+      AnyList, Plan to Eat and Paprika file recipes by course, so planning a
+      breakfast offers breakfast recipes first. In Squirrel the "Add to
+      plan" sheet (UX-92) defaults the meal type to a fixed guess and the
+      recipe list can't be narrowed to "breakfast", so pancakes get planned
+      as dinner unless the user notices. Add `Recipe.mealTypes` (same enum
+      values as `MealPlanEntry`'s meal type, `@default([])`), set in the
+      recipe form as toggle chips beside the dietary tags. "Add to plan"
+      preselects the recipe's first meal type, and the recipe list gains a
+      meal-type filter next to the tag filter. Scope: no auto-generated
+      plans, no import mapping (leave empty on import).
+      Acceptance: unit test that the action stores only valid meal types
+      and that an update replaces the set; an e2e step on `mobile` marks a
+      new recipe "Breakfast", opens Add to plan and sees Breakfast
+      preselected, in `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
