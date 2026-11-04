@@ -1870,7 +1870,7 @@ export const sv = {
       "Planera veckans måltider så räknar Squirrel ut vad du ännu behöver handla. Kopiera förra veckan från ⋯-menyn eller fyll de tomma dagarna.",
     plannerEmptyNoRecipes:
       "Planera veckans måltider så räknar Squirrel ut vad du ännu behöver handla. Lägg först till några recept så går planeringen snabbare.",
-    addFirstDinner: "Lägg till din första middag",
+    addFirstDinner: "Lägg till middag",
     fillEmptyDaysDescription: "Middagar för dagarna utan något planerat, först dina favoriter och sedan dina övriga recept. Inget sparas förrän du lägger till dem.",
     fillEmptyDaysNoRecipes: "Inga recept att välja från än. Lägg till några under fliken Recept så dyker de upp här.",
     fillEmptyDaysNoneLeft: "Alla recept är redan planerade den här veckan, så det finns inget nytt att föreslå.",

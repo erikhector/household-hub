@@ -9739,7 +9739,7 @@ header's own Add item and FAB only appear once there are items). Cook now
 gets the mascot and a link button: "Add a recipe" (to the Recipes tab) with
 no recipes, "Update your inventory" with recipes but none close to ready
 (`PrimaryAction` styles links as the phone pill too). An empty planner week
-is one empty state with "Add your first dinner" (the same `MealEntryDialog`,
+is one empty state with "Add first dinner" (the same `MealEntryDialog`,
 opened for today or the week's first day) instead of seven "+ Add meal"
 cards; its copy names "Copy last week" and "Fill empty days" in the ⋯ menu
 and, with no recipes yet, says to add a few first. A brand-new shopping
@@ -9747,6 +9747,9 @@ list hides "Register receipt" until it has a row (the add line is its one
 action). Covered by `e2e/empty-states.spec.ts` (fresh empty household,
 desktop and mobile, including a check that no control sits under the
 floating button) and the planner specs that start from an empty week.
+The first-dinner label is kept short ("Add first dinner" / "Lägg till
+middag") so it fits on one line inside the phone pill's 60 % width cap at
+320 px (UX-181, `e2e/ux-181.spec.ts`).
 
 **The one celebration.** Ticking the last pending item on an `ACTIVE`
 shopping list swaps the "All done" ring's tick for the mark, which rises
