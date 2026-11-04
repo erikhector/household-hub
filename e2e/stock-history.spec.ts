@@ -77,8 +77,13 @@ for (const locale of LOCALES) {
       // Collapsed until opened.
       const row = main.getByText(strings.line);
       await expect(row).toBeHidden();
-      await summary.click();
-      await expect(row).toBeVisible();
+      // The streamed page can swap the disclosure's DOM right after first
+      // paint and close it again, so click only while the row is still
+      // hidden and retry until it shows.
+      await expect(async () => {
+        if (!(await row.isVisible())) await summary.click();
+        await expect(row).toBeVisible({ timeout: 1000 });
+      }).toPass();
       await expect(row).toContainText("·");
       await expectNoHorizontalOverflow(page);
     });
