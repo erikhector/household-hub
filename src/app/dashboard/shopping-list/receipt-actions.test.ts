@@ -195,6 +195,17 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: transactionMock,
   },
 }));
+// GAP-66: the history journal has its own unit (src/lib/inventory/stock-history.test.ts);
+// here we only check which quantity changes record an event, and for whom.
+const { recordStockEventMock, recordStockEventsMock } = vi.hoisted(() => ({
+  recordStockEventMock: vi.fn(),
+  recordStockEventsMock: vi.fn(),
+}));
+vi.mock("@/lib/inventory/stock-history", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/inventory/stock-history")>()),
+  recordStockEvent: recordStockEventMock,
+  recordStockEvents: recordStockEventsMock,
+}));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => ({
   getDictionary: vi.fn(async () => ({
@@ -751,6 +762,29 @@ describe("registerReceiptAction", () => {
         { priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 6, quantity: 3, unit: "pcs" },
       ],
       "user-1",
+    ]);
+  });
+
+  it("records one 'bought' history line per restocked item, by the session user, with the summed change (GAP-66)", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 10, unit: "pcs" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await registerReceiptAction("My receipt", "SEK", [
+      { name: "Apple", quantity: 2, price: 5 },
+      { name: "Apple", quantity: 3, price: 6 },
+    ]);
+
+    expect(recordStockEventsMock).toHaveBeenCalledTimes(1);
+    expect(recordStockEventsMock).toHaveBeenCalledWith(expect.anything(), [
+      {
+        householdId: "household-1",
+        itemId: "inv-1",
+        userId: "user-1",
+        previousQuantity: 10,
+        nextQuantity: 15,
+        reason: "trip",
+      },
     ]);
   });
 

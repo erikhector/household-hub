@@ -95,6 +95,17 @@ vi.mock("@/lib/prisma", () => {
   transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
   return { prisma };
 });
+// GAP-66: the history journal has its own unit (src/lib/inventory/stock-history.test.ts);
+// here we only check which quantity changes record an event, and for whom.
+const { recordStockEventMock, recordStockEventsMock } = vi.hoisted(() => ({
+  recordStockEventMock: vi.fn(),
+  recordStockEventsMock: vi.fn(),
+}));
+vi.mock("@/lib/inventory/stock-history", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/inventory/stock-history")>()),
+  recordStockEvent: recordStockEventMock,
+  recordStockEvents: recordStockEventsMock,
+}));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => {
   const { en } = await import("@/lib/i18n/dictionaries/en");
@@ -1219,5 +1230,92 @@ describe("addInventoryItemsToShoppingListAction (UX-122)", () => {
 
     expect(result.error).toBe("Item not found");
     expect(findManyMock).not.toHaveBeenCalled();
+  });
+});
+
+// GAP-66: every quantity write records one history event for the *session*
+// user (never an id from the client), under the session's household.
+describe("stock history events (GAP-66)", () => {
+  const event = (over: Record<string, unknown>) => ({
+    householdId: "household-1",
+    userId: "user-1",
+    ...over,
+  });
+
+  it("+/- records 'used' for a decrease and 'restocked' for an increase", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 3 });
+    updateMock.mockResolvedValue({});
+
+    await adjustQuantityAction("item-1", -1);
+    await adjustQuantityAction("item-1", 2);
+
+    expect(recordStockEventMock).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      event({ itemId: "item-1", previousQuantity: 3, nextQuantity: 2, reason: "used" }),
+    );
+    expect(recordStockEventMock).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      event({ itemId: "item-1", previousQuantity: 3, nextQuantity: 5, reason: "restocked" }),
+    );
+  });
+
+  it("records nothing for an item that isn't this household's", async () => {
+    findFirstMock.mockResolvedValue(null);
+
+    await adjustQuantityAction("other-households-item", -1);
+
+    expect(recordStockEventMock).not.toHaveBeenCalled();
+  });
+
+  it("the edit form records an 'adjusted' event with the new quantity", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "kg", quantity: 5 });
+    unitConversionCountMock.mockResolvedValue(0);
+    updateMock.mockResolvedValue({});
+
+    await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1" }));
+
+    expect(recordStockEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      event({ itemId: "item-1", previousQuantity: 5, nextQuantity: 2, reason: "adjusted" }),
+    );
+  });
+
+  it("mark-empty records a 'used' event down to zero", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", quantity: 3, lowStockThreshold: 2 });
+    updateMock.mockResolvedValue({});
+
+    await markItemEmptyAction("item-1", false);
+
+    expect(recordStockEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      event({ itemId: "item-1", previousQuantity: 3, nextQuantity: 0, reason: "used" }),
+    );
+  });
+
+  it("a bulk quantity edit records one 'adjusted' event per household item", async () => {
+    findManyMock.mockResolvedValue([
+      { id: "item-1", quantity: 4, lowStockThreshold: 1 },
+      { id: "item-2", quantity: 0, lowStockThreshold: 1 },
+    ]);
+    updateManyMock.mockResolvedValue({ count: 2 });
+
+    await bulkUpdateFieldAction(["item-1", "item-2"], "quantity", "2");
+
+    expect(recordStockEventsMock).toHaveBeenCalledWith(expect.anything(), [
+      event({ itemId: "item-1", previousQuantity: 4, nextQuantity: 2, reason: "adjusted" }),
+      event({ itemId: "item-2", previousQuantity: 0, nextQuantity: 2, reason: "adjusted" }),
+    ]);
+  });
+
+  it("a counted stock-check batch records its events in one call", async () => {
+    findManyMock.mockResolvedValue([{ id: "i1", name: "A", unit: "pcs", quantity: 5, lowStockThreshold: 1, lastKnownPrice: null }]);
+
+    await bulkSetInventoryQuantitiesAction([{ itemId: "i1", quantity: 2 }]);
+
+    expect(recordStockEventsMock).toHaveBeenCalledWith(expect.anything(), [
+      event({ itemId: "i1", previousQuantity: 5, nextQuantity: 2, reason: "adjusted" }),
+    ]);
   });
 });

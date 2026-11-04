@@ -29,6 +29,17 @@ vi.mock("@/lib/inventory/expiry", () => ({
   frozenResetOnArrival: frozenResetOnArrivalMock,
 }));
 vi.mock("@/lib/inventory/shelf-life", () => ({ estimatedExpiryUpdate: estimatedExpiryUpdateMock }));
+// GAP-66: the history journal has its own unit (src/lib/inventory/stock-history.test.ts);
+// here we only check which quantity changes record an event, and for whom.
+const { recordStockEventMock, recordStockEventsMock } = vi.hoisted(() => ({
+  recordStockEventMock: vi.fn(),
+  recordStockEventsMock: vi.fn(),
+}));
+vi.mock("@/lib/inventory/stock-history", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/inventory/stock-history")>()),
+  recordStockEvent: recordStockEventMock,
+  recordStockEvents: recordStockEventsMock,
+}));
 vi.mock("@/lib/notifications", () => ({ recordOutOfStockTransition: recordOutOfStockTransitionMock }));
 vi.mock("@/lib/shopping/default-list", () => ({ addToDefaultListOnLowStock: addToDefaultListOnLowStockMock }));
 
@@ -87,6 +98,31 @@ describe("applyStockArrival", () => {
     expect(tx.inventoryItem.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "item-1" }, data: expect.objectContaining({ quantity: 5 }) }),
     );
+  });
+
+  it("journals the arrival as a 'trip' event for the acting user (GAP-66)", async () => {
+    const tx = fakeTx();
+    openedResetOnArrivalMock.mockReturnValue(null);
+    estimatedExpiryUpdateMock.mockReturnValue(null);
+    addToDefaultListOnLowStockMock.mockResolvedValue(null);
+
+    await applyStockArrival(tx, {
+      householdId: "household-1",
+      actingUserId: "user-7",
+      inventoryItem: fakeItem({ quantity: 2 }),
+      quantity: 3,
+      unit: "pcs",
+      price: null,
+    });
+
+    expect(recordStockEventMock).toHaveBeenCalledWith(tx, {
+      householdId: "household-1",
+      itemId: "item-1",
+      userId: "user-7",
+      previousQuantity: 2,
+      nextQuantity: 5,
+      reason: "trip",
+    });
   });
 
   it("floors the resulting quantity at zero even for a negative delta", async () => {
@@ -356,6 +392,27 @@ describe("reverseStockArrival", () => {
 
     expect(result.nextQuantity).toBe(0);
     expect(tx.inventoryItem.update).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { quantity: 0 } });
+  });
+
+  it("journals the take-back as an 'adjusted' event (GAP-66)", async () => {
+    const tx = fakeTx();
+    addToDefaultListOnLowStockMock.mockResolvedValue(null);
+
+    await reverseStockArrival(tx, {
+      householdId: "household-1",
+      actingUserId: "user-9",
+      inventoryItem: fakeItem({ quantity: 5 }),
+      quantity: 2,
+    });
+
+    expect(recordStockEventMock).toHaveBeenCalledWith(tx, {
+      householdId: "household-1",
+      itemId: "item-1",
+      userId: "user-9",
+      previousQuantity: 5,
+      nextQuantity: 3,
+      reason: "adjusted",
+    });
   });
 
   it("writes only the quantity, leaving price/expiry/opened fields untouched", async () => {

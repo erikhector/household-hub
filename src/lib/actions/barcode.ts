@@ -11,6 +11,7 @@ import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/invent
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { recordOutOfStockTransition } from "@/lib/notifications";
+import { reasonForDelta, recordStockEvent } from "@/lib/inventory/stock-history";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 
@@ -171,6 +172,14 @@ export async function scanStockChangeAction(barcode: string, delta: number): Pro
       data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
+    await recordStockEvent(prisma, {
+      householdId: household.id,
+      itemId: item.id,
+      userId,
+      previousQuantity: item.quantity,
+      nextQuantity,
+      reason: reasonForDelta(parsedDelta.data),
+    });
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
     return { kind: "error", error: (await toFriendlyError(error)).error ?? "Something went wrong" };
@@ -216,6 +225,14 @@ export async function undoScanStockChangeAction(
       data: { quantity: nextQuantity, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
+    await recordStockEvent(prisma, {
+      householdId: household.id,
+      itemId: item.id,
+      userId,
+      previousQuantity: item.quantity,
+      nextQuantity,
+      reason: "adjusted",
+    });
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
     return toFriendlyError(error);
@@ -265,6 +282,14 @@ export async function linkBarcodeAction(
         },
       });
       await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity, userId);
+      await recordStockEvent(tx, {
+        householdId: household.id,
+        itemId: item.id,
+        userId,
+        previousQuantity: item.quantity,
+        nextQuantity,
+        reason: reasonForDelta(parsedDelta.data),
+      });
       autoAdded = await addToDefaultListOnLowStock(tx, household.id, item.id, item.quantity, nextQuantity);
     });
   } catch (error) {
