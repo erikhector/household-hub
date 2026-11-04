@@ -78,11 +78,16 @@ for (const locale of LOCALES) {
       const row = main.getByText(strings.line);
       await expect(row).toBeHidden();
       // The streamed page can swap the disclosure's DOM right after first
-      // paint and close it again, so click only while the row is still
-      // hidden and retry until it shows.
+      // paint and close it again, so wait for hydration, then retry until
+      // the row shows. Each retry clicks only while the <details> is really
+      // closed: keying it on the row's visibility (as before) re-clicked a
+      // disclosure that was open but not yet painted under a loaded run,
+      // toggling it shut, and could flip it back and forth until timeout.
+      const disclosure = summary.locator("xpath=ancestor::details[1]");
+      await expectHydrated(summary);
       await expect(async () => {
-        if (!(await row.isVisible())) await summary.click();
-        await expect(row).toBeVisible({ timeout: 1000 });
+        if (!(await disclosure.evaluate((el) => (el as HTMLDetailsElement).open))) await summary.click();
+        await expect(row).toBeVisible({ timeout: 2000 });
       }).toPass();
       await expect(row).toContainText("·");
       await expectNoHorizontalOverflow(page);
