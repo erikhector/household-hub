@@ -471,11 +471,12 @@ leaves.
   `loadHouseholdSafeToSpend`) went behind `"use cache"` with
   `cacheTag("household:<id>:home")`, taking `householdId`, `userId` and a
   day key as arguments. It needed `experimental.useCache` rather than the
-  app-wide flag, so it could be built and served. Three helpers in that batch
-  read `cookies()` and throw inside a cached function:
+  app-wide flag, so it could be built and served. The page also reads three
+  cookie-backed helpers (`dashboard/page.tsx:182-184`, outside that batch):
   `isHouseholdStepSkipped`, `isGettingStartedDismissed` and
-  `isGettingStartedCelebrated` (per-device cookies). They have to stay outside
-  the cache and be passed in or read by the page. The rest (tasks, inventory,
+  `isGettingStartedCelebrated` (per-device cookies). `cookies()` throws inside
+  a cached function, so they must stay outside the cache, read by the page
+  and passed in where the cached part needs them. The rest (tasks, inventory,
   lists, budget, planner, batches, incoming stock) cached cleanly.
 - **Pilot timings.** Production build, `next start`, local Postgres with one
   household of 400 inventory items, 60 tasks, 40 list rows and 310
