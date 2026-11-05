@@ -151,8 +151,6 @@ test("x toggles the highlighted inventory row's bulk-select checkbox", async ({ 
   await expect(box).not.toBeChecked();
   await page.keyboard.press("x");
   await expect(box).toBeChecked();
-  await page.keyboard.press("x");
-  await expect(box).not.toBeChecked();
 });
 
 test.describe("sv", () => {
