@@ -102,7 +102,11 @@ easy for AI coding agents to work in correctly:
   and cookies (dashboard) sit in `RootChrome` / `DashboardShell` under a
   `<Suspense fallback={null}>`, so the layouts can prerender. The empty
   fallback matches what a blocking render showed, and each route's own
-  `loading.tsx` still shows inside the shell. One visible difference: the
+  `loading.tsx` still shows inside the shell. `getUserPreferences`, `requireUserId`,
+  `requireHousehold` and the three public pages that call `auth()` directly
+  `await connection()` first, because Auth.js can reach
+  `crypto.getRandomValues()` for a visitor with no session cookie, which Next
+  rejects as an unstable value unless the render is already per-request. One visible difference: the
   server-rendered `<html lang>` is `en` and `HtmlLang`
   (`src/components/i18n/html-lang.tsx`) sets the real locale from an inline
   script before any content paints (the locale needs a DB read, which would

@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { connection } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -10,6 +11,10 @@ import { prisma } from "@/lib/prisma";
 // query instead of one each. Returns null for anonymous requests — callers
 // fall back to their pre-existing cookie/hardcoded default in that case.
 export const getUserPreferences = cache(async () => {
+  // PERF-31: say "per request" before auth(), which can reach
+  // crypto.getRandomValues() for a visitor with no session cookie. Next logs
+  // that as an unstable value read while prerendering (Cache Components).
+  await connection();
   const session = await auth();
   if (!session?.user?.id) return null;
 

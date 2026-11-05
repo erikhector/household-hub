@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -22,6 +23,8 @@ const loadInvitation = cache(getInvitationForDisplay);
 // household, so the person receiving it sees what they're being asked to join.
 export async function generateMetadata(props: PageProps<"/join/[token]">): Promise<Metadata> {
   const { token } = await props.params;
+  // PERF-31: say "per request" before auth() (see getUserPreferences).
+  await connection();
   const [invitation, dict] = await Promise.all([loadInvitation(token), getDictionary()]);
   if (!invitation) {
     return buildMetadata({
