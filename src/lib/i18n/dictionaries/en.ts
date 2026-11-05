@@ -214,6 +214,17 @@ export const en = {
     whatsNew: "What's new",
     whatsNewUnseen: "New update",
   },
+  // UX-41c: the single-key list shortcuts and their `?` overlay.
+  shortcuts: {
+    title: "Keyboard shortcuts",
+    description: "On the shopping, inventory and task lists. They work when you are not typing in a field.",
+    new: "Add a new item or task",
+    search: "Search",
+    next: "Next row",
+    previous: "Previous row",
+    tick: "Tick the highlighted row",
+    help: "Show this list",
+  },
   // UX-41a: the ⌘K / Ctrl+K command palette (command-palette.tsx).
   commandPalette: {
     title: "Command palette",

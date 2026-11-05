@@ -427,7 +427,7 @@ export function InventoryTable({
               </TableRow>
             )}
             {group.items.map((item) => (
-              <TableRow key={item.id} data-flip-key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
+              <TableRow key={item.id} data-flip-key={item.id} data-shortcut-row data-state={selected.has(item.id) ? "selected" : undefined}>
                 <TableCell>
                   <Checkbox
                     checked={selected.has(item.id)}

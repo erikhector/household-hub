@@ -93,7 +93,7 @@ function addTaskDialog(memberOptions: { id: string; displayName: string }[],dict
       members={memberOptions}
       dict={dict}
       trigger={
-        <Button className="gap-1.5">
+        <Button className="gap-1.5" data-shortcut="new">
           <Plus className="size-4" />
           {/* Visible at every width: on a phone this is the page's one primary
               action, and a lone "+" in a full-width bar names nothing (UX-4). */}

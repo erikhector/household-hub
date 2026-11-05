@@ -397,7 +397,7 @@ function TaskItemRow({
       deleteLabel={dict.swipe.delete}
       onDelete={() => onDelete(task)}
     >
-      <div className="flex items-center gap-3 rounded-md border px-3 py-1 sm:py-2">
+      <div data-shortcut-row className="flex items-center gap-3 rounded-md border px-3 py-1 sm:py-2">
         {/* UX-106: a phone row is one line, checkbox, title, assignee, so
             about eight fit a screen (M6). Whatever else the task carries
             (repeat, next due, whose turn, who last did it) wraps in a small
