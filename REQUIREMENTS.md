@@ -7175,6 +7175,30 @@ everywhere.
 - **Not in scope**: multi-tag (AND/OR) filtering, custom household tags,
   and using tags in the Cook tab or "use it up" ranking.
 
+### Recipe course (GAP-72)
+
+AnyList, Plan to Eat and Paprika file recipes by course. `Recipe.mealTypes
+MealType[] @default([])` (migration `recipe_meal_types`) uses the same enum
+as `MealPlanEntry`, so nothing needs mapping, and an empty list (every
+existing and every imported recipe) changes nothing.
+
+- **Setting**: the recipe form has a "Course" group of toggle chips
+  (`aria-pressed`, labels from `mealTypeBreakfast` etc.) beside the tags,
+  posted as hidden `mealTypes` inputs. `createRecipeAction` and
+  `updateRecipeAction` run them through `parseMealTypes`
+  (`meal-types.ts`), which drops anything outside the enum and returns
+  canonical order, so an edit replaces the whole set and posting none
+  clears it. Duplicating a recipe copies the set.
+- **Add to plan**: the dialog's meal type starts on the recipe's first
+  course (`defaultMealType`, Breakfast before Lunch, Dinner, Snack), and on
+  Dinner without one. The user can still change it.
+- **Filter**: the Recipes tab has a meal filter ("All meals" / one course)
+  next to the tag filter. On a phone the search takes its own row and the
+  two filters share the next.
+- Not done: no auto-generated plans, no import mapping.
+- Tests: `recipe-actions.test.ts` ("recipe meal types"),
+  `e2e/recipe-meal-types.spec.ts` (en and sv, desktop and mobile).
+
 ### Household required diet (GAP-71)
 
 Mealime builds plans around a diet set once; Squirrel's recipe tags

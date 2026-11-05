@@ -1157,6 +1157,47 @@ describe("createRecipeAction tags (GAP-29)", () => {
   });
 });
 
+describe("recipe meal types (GAP-72)", () => {
+  it("create stores only valid meal types, deduped and in canonical order", async () => {
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Pancakes" });
+    for (const type of ["SNACK", "BREAKFAST", "BRUNCH", "breakfast", "SNACK", "<script>"]) fd.append("mealTypes", type);
+
+    await createRecipeAction({}, fd);
+
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ mealTypes: ["BREAKFAST", "SNACK"] }),
+    });
+  });
+
+  it("create stores an empty list when none are posted", async () => {
+    recipeCreateMock.mockResolvedValue({});
+
+    await createRecipeAction({}, formData({ name: "Pancakes" }));
+
+    expect(recipeCreateMock).toHaveBeenCalledWith({ data: expect.objectContaining({ mealTypes: [] }) });
+  });
+
+  it("update replaces the set with the posted valid types, and clears it when none are posted", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "pancakes" });
+    recipeUpdateMock.mockResolvedValue({});
+    const fd = formData({ recipeId: "pancakes", name: "Pancakes" });
+    fd.append("mealTypes", "DINNER");
+    fd.append("mealTypes", "BRUNCH");
+
+    await updateRecipeAction({}, fd);
+    expect(recipeUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "pancakes" },
+      data: expect.objectContaining({ mealTypes: ["DINNER"] }),
+    });
+
+    await updateRecipeAction({}, formData({ recipeId: "pancakes", name: "Pancakes" }));
+    expect(recipeUpdateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ mealTypes: [] }) }),
+    );
+  });
+});
+
 describe("recipe source link and notes (GAP-70)", () => {
   it("saves a trimmed source link and notes on create, scoped to the session household", async () => {
     recipeCreateMock.mockResolvedValue({});
