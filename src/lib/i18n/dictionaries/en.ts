@@ -215,6 +215,16 @@ export const en = {
     whatsNewUnseen: "New update",
   },
   // UX-41a: the ⌘K / Ctrl+K command palette (command-palette.tsx).
+  shortcuts: {
+    title: "Keyboard shortcuts",
+    description: "On the shopping, inventory and task lists. They work when you are not typing in a field.",
+    new: "Add a new item or task",
+    search: "Search",
+    next: "Next row",
+    previous: "Previous row",
+    tick: "Tick the highlighted row",
+    help: "Show this list",
+  },
   commandPalette: {
     title: "Command palette",
     inputLabel: "Type a command",

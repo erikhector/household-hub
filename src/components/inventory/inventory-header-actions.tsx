@@ -145,7 +145,7 @@ export function InventoryHeaderActionsClient({
         {/* UX-50: with no items the empty state holds "Add item" (one primary
             on screen), so it only joins the header once there is a list. */}
         {items.length > 0 && (
-          <Button className="gap-1.5" aria-haspopup="dialog" onClick={() => openLazyDialog(addHandle)} {...preloadOnIntent(loadItemFormDialog)}>
+          <Button className="gap-1.5" data-shortcut="new" aria-haspopup="dialog" onClick={() => openLazyDialog(addHandle)} {...preloadOnIntent(loadItemFormDialog)}>
             <Plus className="size-4" />
             <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
           </Button>

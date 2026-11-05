@@ -204,6 +204,16 @@ export const sv = {
     whatsNew: "Nyheter",
     whatsNewUnseen: "Ny uppdatering",
   },
+  shortcuts: {
+    title: "Kortkommandon",
+    description: "På inköps-, lager- och uppgiftslistorna. De fungerar när du inte skriver i ett fält.",
+    new: "Lägg till ny vara eller uppgift",
+    search: "Sök",
+    next: "Nästa rad",
+    previous: "Föregående rad",
+    tick: "Kryssa i markerad rad",
+    help: "Visa den här listan",
+  },
   commandPalette: {
     title: "Kommandopalett",
     inputLabel: "Skriv ett kommando",

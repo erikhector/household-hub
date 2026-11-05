@@ -408,12 +408,6 @@ gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline ticks in the shop) shipped; UX-36b parks offline adds
 and price edits.
 
-- [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
-      UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
-      focus search, `j`/`k` move, `x` tick. Ignored while typing in a
-      field or with a dialog open. A `?` overlay lists them. Desktop only
-      (hidden on touch). e2e spec on the desktop project.
-
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten

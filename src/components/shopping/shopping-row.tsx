@@ -141,6 +141,7 @@ export function ShoppingRow({
     >
       <div
         ref={rowRef}
+        data-shortcut-row
         className={cn(
           "relative flex flex-col gap-1 rounded-md border transition-colors duration-700",
           // AUTO-3: a bigger touch target while the list is ACTIVE (shopping

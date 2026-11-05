@@ -11,6 +11,7 @@ import {
 } from "@/components/dashboard/email-verification-banner";
 import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { CommandPalette } from "@/components/dashboard/command-palette";
+import { KeyboardShortcuts } from "@/components/dashboard/keyboard-shortcuts";
 import { UnitsProvider } from "@/components/units-provider";
 import { requireHousehold } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
@@ -204,6 +205,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </main>
       </div>
       <CommandPalette dict={dict.commandPalette} nav={dict.nav} />
+      <KeyboardShortcuts dict={dict.shortcuts} />
       {/* iOS 26 ignores theme-color (and, for a Home Screen app, the
           apple-mobile-web-app-status-bar-style tag in layout.tsx) and
           paints the status-bar strip from a `position: fixed` element

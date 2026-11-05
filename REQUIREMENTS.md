@@ -8503,6 +8503,37 @@ Covered by `e2e/command-palette.spec.ts`,
 `command-palette-commands.test.ts` and `src/lib/actions/search.test.ts`
 (tenancy scoping, validation, rate limit).
 
+### Single-key list shortcuts (UX-41c)
+
+`src/components/dashboard/keyboard-shortcuts.tsx`, mounted once in the
+dashboard layout beside the palette. On the shopping list pages, Inventory
+and Tasks (`isShortcutPath`), for people at a keyboard:
+
+| Key | Does |
+| --- | --- |
+| `n` | New: clicks the page's add button (Tasks, Inventory) or focuses the shopping list's add field |
+| `/` | Focuses the page's search field (Inventory; Shopping and Tasks have none, so nothing happens) |
+| `j` / `k` | Highlights the next / previous row (an inset ring, no wrapping; the first press lands on the first row) |
+| `x` | Ticks the highlighted row: a task done, a shopping item bought, an inventory row selected |
+| `?` | Opens the "Keyboard shortcuts" overlay listing these |
+
+- The page owns the meaning of each key by marking its controls:
+  `data-shortcut="new"`, `data-shortcut="search"` and `data-shortcut-row`
+  (the row's first checkbox is what `x` clicks). The component knows no
+  feature, and an unmarked or hidden control is skipped.
+- Ignored while typing in a text field, combobox or editable element, with a
+  modifier held (Ctrl+K stays the palette), with any dialog, alert dialog,
+  menu or listbox open, and on a touch-first device (`(hover: hover) and
+  (pointer: fine)` must match). Held-key repeats are ignored.
+- Never the only way to anything (M7): each key has a visible button, field
+  or checkbox. No mobile UI, and nothing is stored in the browser
+  (`cookie-inventory.ts` unchanged).
+- Strings are in `dict.shortcuts` (en and sv). The key logic is in
+  `keyboard-shortcuts-logic.ts`.
+
+Covered by `e2e/keyboard-shortcuts.desktop.spec.ts` and
+`keyboard-shortcuts-logic.test.ts`.
+
 
 ## Releases & What's new
 
