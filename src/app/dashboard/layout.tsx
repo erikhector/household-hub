@@ -43,7 +43,20 @@ async function EmailVerificationCheck({
   return <EmailVerificationBanner dict={dict} />;
 }
 
-export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
+// PERF-31 (Cache Components): the shell needs the session, the household and
+// cookies, all request-bound, so DashboardLayout itself reads nothing and
+// renders the shell under one Suspense boundary. No fallback: before this the
+// whole response waited on the same reads, so the page is blank for the same
+// time and nothing shifts. The route's loading.tsx shows inside the shell.
+export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
+  return (
+    <Suspense fallback={null}>
+      <DashboardShell>{children}</DashboardShell>
+    </Suspense>
+  );
+}
+
+async function DashboardShell({ children }: { children: React.ReactNode }) {
   const { userId, household, role, households } = await requireHousehold();
   const [cookieStore, dict, locale] = await Promise.all([cookies(), getDictionary(), getLocale()]);
   // Not awaited: this layout uses cookies()/auth() above, which forces it to

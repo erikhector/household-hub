@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Nunito, Baloo_2, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
@@ -6,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { getUserPreferences } from "@/lib/preferences";
 import { isThemeChoice, THEME_COLORS } from "@/components/theme/theme-choice";
+import { HtmlLang } from "@/components/i18n/html-lang";
 import { ThemeColorSync } from "@/components/theme/theme-color-sync";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash-screen";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
@@ -96,7 +98,42 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+// PERF-31 (Cache Components): everything in the document that depends on the
+// request (the locale and theme preference from the account or its cookies,
+// the cookie-notice cookie) lives in RootChrome under one Suspense boundary,
+// so the layout itself reads no runtime data and the shell around it can be
+// prerendered. The boundary has no fallback on purpose: the shell is empty
+// until RootChrome resolves, exactly what a blocking render showed before,
+// so there is no visible shift. Each route's own loading.tsx still shows
+// inside it as before.
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  return (
+    // The server-rendered lang is a placeholder: the locale needs the
+    // account's preference (a DB read), which would make this element, and
+    // with it the whole document, request-bound. HtmlLang sets the real one
+    // before the first paint of any content (see its comment).
+    <html
+      lang="en"
+      suppressHydrationWarning
+      // Use the dynamic viewport height on the root so fixed/positioned
+      // children (bottom bars, sheets) are anchored to the true device
+      // viewport edge instead of a shorter layout viewport. h-dvh is the
+      // unit used elsewhere in the app for the same purpose.
+      className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-dvh antialiased`}
+    >
+      <body className="min-h-dvh flex flex-col pb-[var(--cookie-notice-space,0px)]">
+        <PwaSplashScreen />
+        <ServiceWorkerRegistration />
+        <DialogHistoryListener />
+        <Suspense fallback={null}>
+          <RootChrome>{children}</RootChrome>
+        </Suspense>
+      </body>
+    </html>
+  );
+}
+
+async function RootChrome({ children }: { children: React.ReactNode }) {
   const [locale, prefs, dict, cookieStore] = await Promise.all([
     getLocale(),
     getUserPreferences(),
@@ -111,28 +148,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const defaultTheme = prefs && isThemeChoice(prefs.theme) ? prefs.theme : "system";
 
   return (
-    <html
-      lang={locale}
-      suppressHydrationWarning
-      // Use the dynamic viewport height on the root so fixed/positioned
-      // children (bottom bars, sheets) are anchored to the true device
-      // viewport edge instead of a shorter layout viewport. h-dvh is the
-      // unit used elsewhere in the app for the same purpose.
-      className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-dvh antialiased`}
-    >
-      <body className="min-h-dvh flex flex-col pb-[var(--cookie-notice-space,0px)]">
-        <PwaSplashScreen />
-        <ServiceWorkerRegistration />
-        <BrowserFloorNotice dict={dict.browserFloor} />
-        <DialogHistoryListener />
-        <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
-          <ThemeColorSync />
-          {/* UX-34: scales the page down behind an open bottom sheet. */}
-          <SheetIndent>{children}</SheetIndent>
-          <Toaster />
-          <CookieNotice dict={dict.cookieNotice} acknowledged={cookieNoticeAcknowledged} />
-        </ThemeProvider>
-      </body>
-    </html>
+    <>
+      <HtmlLang locale={locale} />
+      <BrowserFloorNotice dict={dict.browserFloor} />
+      <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
+        <ThemeColorSync />
+        {/* UX-34: scales the page down behind an open bottom sheet. */}
+        <SheetIndent>{children}</SheetIndent>
+        <Toaster />
+        <CookieNotice dict={dict.cookieNotice} acknowledged={cookieNoticeAcknowledged} />
+      </ThemeProvider>
+    </>
   );
 }

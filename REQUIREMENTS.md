@@ -91,6 +91,28 @@ easy for AI coding agents to work in correctly:
   what the privacy page describes (message, stack trace, page address,
   browser and device). `sentry-data-collection.test.ts` pins the opt-outs
   and that the server's `register()` passes them.
+- **Cache Components is on, with nothing cached yet (PERF-31).**
+  `next.config.ts` sets `cacheComponents` and `partialPrefetching`, the
+  prerequisite for `"use cache"` (PERF-32 on). The five route handlers
+  (`/api/health`, both crons, the digest unsubscribe redirect and the
+  calendar feed) dropped `dynamic = "force-dynamic"`, which the flag
+  rejects; they read the request or the DB, so they stay uncached. The root
+  layout and `dashboard/layout.tsx` read no runtime data themselves: the
+  locale, theme preference and cookies (root) and the session, household
+  and cookies (dashboard) sit in `RootChrome` / `DashboardShell` under a
+  `<Suspense fallback={null}>`, so the layouts can prerender. The empty
+  fallback matches what a blocking render showed, and each route's own
+  `loading.tsx` still shows inside the shell. `getUserPreferences`, `requireUserId`,
+  `requireHousehold` and the three public pages that call `auth()` directly
+  `await connection()` first, because Auth.js can reach
+  `crypto.getRandomValues()` for a visitor with no session cookie, which Next
+  rejects as an unstable value unless the render is already per-request. One visible difference: the
+  server-rendered `<html lang>` is `en` and `HtmlLang`
+  (`src/components/i18n/html-lang.tsx`) sets the real locale from an inline
+  script before any content paints (the locale needs a DB read, which would
+  make the whole document request-bound), so a client that runs no
+  JavaScript sees `lang="en"`. `e2e/smoke.spec.ts` and `public.spec.ts`
+  assert `html[lang]` in both languages.
 - **Recently visited pages stay in the browser for 15 s (PERF-21).**
   `next.config.ts` sets `experimental.staleTimes.dynamic` to 15 (Next 16's
   default is 0), so switching back to a tab seen seconds ago reuses its
@@ -99,8 +121,9 @@ easy for AI coding agents to work in correctly:
   edits show at once; another household member's change can take up to 15 s
   to appear on a client navigation (a reload always shows it). `static`
   keeps its 5 min default. The flag is experimental in Next; reverting is
-  deleting the block. If the Cache Components work (PERF-31) goes ahead,
-  `cacheLife`'s `stale` value controls this instead. `e2e/flows.spec.ts`
+  deleting the block. It still applies with Cache Components on (PERF-31):
+  nothing uses `cacheLife` yet, so there is no `stale` value to conflict
+  with it; once routes do, `cacheLife`'s `stale` replaces it per route. `e2e/flows.spec.ts`
   ("an edit still shows after navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
