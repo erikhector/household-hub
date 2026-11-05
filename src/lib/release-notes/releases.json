@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.143.0",
+    "date": "2026-11-05",
+    "pr": 1143,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Item pages now have a History section showing who changed an item's amount and when, for example \"Anna used 1 pcs · 2 days ago\".",
+      "sv": "Varusidorna har nu en Historik som visar vem som ändrade en varas mängd och när, till exempel \"Anna använde 1 st · för 2 dagar sedan\"."
+    }
+  },
+  {
     "version": "0.142.0",
     "date": "2026-11-04",
     "pr": 1130,
