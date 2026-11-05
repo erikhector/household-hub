@@ -56,12 +56,18 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
     if (!token || !email.trim()) return;
     const recipientEmail = email.trim();
     startSendTransition(async () => {
-      const result = await sendInviteEmailAction(token, recipientEmail);
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success(format(dict.sent, { email: recipientEmail }));
-        setEmail("");
+      // A dropped request throws: toast it and keep the typed address so
+      // the retry is one tap (UX-182).
+      try {
+        const result = await sendInviteEmailAction(token, recipientEmail);
+        if (result.error) {
+          toast.error(result.error);
+        } else {
+          toast.success(format(dict.sent, { email: recipientEmail }));
+          setEmail("");
+        }
+      } catch {
+        toast.error(dict.sendFailed);
       }
     });
   }
