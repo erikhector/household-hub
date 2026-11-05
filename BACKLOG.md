@@ -564,7 +564,7 @@ Rules every follow-up keeps (from the original item):
   function.
 
 - [ ] **PERF-32. Household cache helper, remote handler and Home summary**
-      (M) — `householdTag(id, area)` in one module, a Redis-backed
+      (M) `[!]` — `householdTag(id, area)` in one module, a Redis-backed
       `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
       timeout) used through `"use cache: remote"`, and Home's batch cached
       behind it with the three cookie-backed helpers kept outside. Takes
@@ -573,7 +573,17 @@ Rules every follow-up keeps (from the original item):
       before/after of the Home batch, stopping here if the saving is under
       ~50 ms, and an e2e spec that
       edits a task or an item and sees Home change without a reload delay.
-      Depends on PERF-31.
+      Depends on PERF-31 (shipped).
+      **Blocked, question for the owner:** the acceptance needs a
+      production before/after of the Home batch behind the Redis remote
+      handler, and a build session has no production access or Upstash
+      credentials, so it can't take that measurement and the stop-if-under-50 ms
+      gate can't be applied. Either (a) the owner supplies a way to measure
+      (a preview deploy with `UPSTASH_REDIS_REST_URL`/`TOKEN` and timings
+      from Vercel logs), or (b) split into PERF-32a (helper module plus
+      handler plus Home cached, behind an env flag that defaults to off)
+      and PERF-32b (measure in production, then flip the flag or revert).
+      Say which.
 - [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
       reads for the inventory list and item pages (tags
       `householdTag(id, "inventory")`) and for completed shopping lists. The
