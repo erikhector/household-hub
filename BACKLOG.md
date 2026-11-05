@@ -101,6 +101,7 @@ Parallel-safe except where noted.
 
 - [ ] **BUG-1. Red next: `stock-history.spec.ts:38` fails in the full e2e run** (medium, S) —
       `e2e/stock-history.spec.ts:38` "a decrement shows under History with who made it, after a reload" (en, `desktop` and `mobile`) times out waiting for the History row. It failed in a full `npm run ci:local` on clean `origin/next` (65220cb, 2026-11-05) and on PR #1151's head, 2 of 2 times each, yet passes when the spec runs alone, so it depends on load or on state another spec leaves in the worker's household. Start from the failure trace and the spec's waiting (`waitForUndoableDelete`/`expectHydrated`, AGENTS.md "UI tests").
+      Likely cause (GitHub e2e job, run 41947757548 on release PR #1143, `desktop`): it failed twice in attempt 1 on `getByRole("main").getByText("E2E Tester used 1 pcs")`, which hardcodes `E2E_USER.displayName`, and passed on the re-run. A spec that renames the worker's shared seeded user through the profile form (suspects: `pending-button-width.spec.ts`, `one-primary-action.spec.ts`) leaves the new name behind, so the result depends on spec order. Fix: read the user's current displayName from the DB as `task-compact-rows.spec.ts` (`currentDisplayName`) and `split-remainder.spec.ts` do, for both locales. It also timed out under load in PR #1151's local run.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: the full `npm run ci:local` is green on this spec, and `npx playwright test e2e/stock-history.spec.ts --repeat-each=30` passes 30/30 on both projects.
 
@@ -241,8 +242,13 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
       `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
+      Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
+      `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
