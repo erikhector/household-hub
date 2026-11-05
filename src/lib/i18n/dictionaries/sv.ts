@@ -310,6 +310,7 @@ export const sv = {
       send: "Skicka",
       sending: "Skickar…",
       sent: "Inbjudan skickad till {email}",
+      sendFailed: "Det gick inte att skicka inbjudan. Kontrollera anslutningen och försök igen.",
     },
     pendingInvites: {
       title: "Väntande inbjudningar",
@@ -335,6 +336,7 @@ export const sv = {
       ariaLabel: "Medlemsåtgärder för {name}",
       transfer: "Gör till ägare",
       remove: "Ta bort från hushållet",
+      removeFailed: "Det gick inte att ta bort medlemmen. Kontrollera anslutningen och försök igen.",
     },
     confirmRemoveMember: {
       title: "Ta bort {name}?",
@@ -506,6 +508,7 @@ export const sv = {
       confirmButton: "Överför ägarskap",
       transferring: "Överför…",
       cancel: "Avbryt",
+      failed: "Det gick inte att överföra ägarskapet. Kontrollera anslutningen och försök igen.",
     },
     leave: {
       ariaLabel: "Lämna hushållet",
@@ -517,6 +520,7 @@ export const sv = {
       confirmButton: "Lämna hushållet",
       leaving: "Lämnar…",
       cancel: "Avbryt",
+      failed: "Det gick inte att lämna hushållet. Kontrollera anslutningen och försök igen.",
     },
   },
   dashboard: {

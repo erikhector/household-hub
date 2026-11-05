@@ -339,6 +339,7 @@ export const en = {
       send: "Send",
       sending: "Sending…",
       sent: "Invite sent to {email}",
+      sendFailed: "Could not send the invite. Check your connection and try again.",
     },
     pendingInvites: {
       title: "Pending invites",
@@ -364,6 +365,7 @@ export const en = {
       ariaLabel: "Member actions for {name}",
       transfer: "Make owner",
       remove: "Remove from household",
+      removeFailed: "Could not remove the member. Check your connection and try again.",
     },
     confirmRemoveMember: {
       title: "Remove {name}?",
@@ -546,6 +548,7 @@ export const en = {
       confirmButton: "Transfer ownership",
       transferring: "Transferring…",
       cancel: "Cancel",
+      failed: "Could not transfer ownership. Check your connection and try again.",
     },
     leave: {
       ariaLabel: "Leave household",
@@ -557,6 +560,7 @@ export const en = {
       confirmButton: "Leave household",
       leaving: "Leaving…",
       cancel: "Cancel",
+      failed: "Could not leave the household. Check your connection and try again.",
     },
   },
   dashboard: {
