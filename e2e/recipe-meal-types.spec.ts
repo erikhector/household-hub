@@ -59,13 +59,35 @@ for (const [locale, storageState, t] of [
       await page.keyboard.press("Escape");
       await expect(plan).toHaveCount(0);
 
-      // The list's meal filter drops it under Snack and keeps it under Breakfast.
+      // Change the course and open Add to plan again with no reload: the
+      // dialog stays mounted, so it must pick up the new course, not the old.
+      const sheet2 = await openRowSheet(page, name);
+      await sheet2.getByRole("button", { name: t.editAriaLabel, exact: true }).click();
+      const edit = page.getByRole("dialog", { name: t.editRecipeDialogTitle });
+      await expect(edit).toBeVisible();
+      const breakfastChip = edit.getByRole("button", { name: t.mealTypeBreakfast, exact: true });
+      await breakfastChip.click();
+      await expect(breakfastChip).toHaveAttribute("aria-pressed", "false");
+      const snackChip = edit.getByRole("button", { name: t.mealTypeSnack, exact: true });
+      await snackChip.click();
+      await expect(snackChip).toHaveAttribute("aria-pressed", "true");
+      await edit.getByRole("button", { name: t.save, exact: true }).click();
+      await expect(edit).toBeHidden();
+      await waitForDialogHistory(page);
+      const sheet3 = await openRowSheet(page, name);
+      await sheet3.getByRole("button", { name: t.addToPlanButton, exact: true }).click();
+      const plan2 = page.getByRole("dialog", { name: format(t.addToPlanDialogTitle, { recipe: name }) });
+      await expect(plan2.getByRole("combobox", { name: t.mealTypeLabel })).toContainText(t.mealTypeSnack);
+      await page.keyboard.press("Escape");
+      await expect(plan2).toHaveCount(0);
+
+      // The list's meal filter drops it under Breakfast and keeps it under Snack.
       const filter = page.getByRole("combobox", { name: t.mealTypeFilterLabel });
       await filter.click();
-      await page.getByRole("option", { name: t.mealTypeSnack, exact: true }).click();
+      await page.getByRole("option", { name: t.mealTypeBreakfast, exact: true }).click();
       await expect(page.getByText(name, { exact: true })).toHaveCount(0);
       await filter.click();
-      await page.getByRole("option", { name: t.mealTypeBreakfast, exact: true }).click();
+      await page.getByRole("option", { name: t.mealTypeSnack, exact: true }).click();
       await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
     });
   });

@@ -104,6 +104,14 @@ export function AddToPlanDialog({
   const setOpen = controlled ? controlled.onOpenChange : setOwnOpen;
   const [date, setDate] = useState(() => defaultDate ?? toDateKey(new Date()));
   const [mealType, setMealType] = useState<MealType>(defaultMealType ?? "DINNER");
+  // The recipe sheet keeps this dialog mounted between opens, so a course edited
+  // in the meantime would otherwise show the stale one. Re-read the default each
+  // time it opens (adjusting state during render, not in an effect).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setMealType(defaultMealType ?? "DINNER");
+  }
   const [portions, setPortions] = useState(String(defaultPortions));
 
   const weekStartKey = toDateKey(getWeekStart(parseDateKey(date)));
