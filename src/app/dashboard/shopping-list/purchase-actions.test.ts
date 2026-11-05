@@ -195,6 +195,17 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: transactionMock,
   },
 }));
+// GAP-66: the history journal has its own unit (src/lib/inventory/stock-history.test.ts);
+// here we only check which quantity changes record an event, and for whom.
+const { recordStockEventMock, recordStockEventsMock } = vi.hoisted(() => ({
+  recordStockEventMock: vi.fn(),
+  recordStockEventsMock: vi.fn(),
+}));
+vi.mock("@/lib/inventory/stock-history", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/inventory/stock-history")>()),
+  recordStockEvent: recordStockEventMock,
+  recordStockEvents: recordStockEventsMock,
+}));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => ({
   getDictionary: vi.fn(async () => ({
@@ -370,6 +381,29 @@ describe("togglePurchasedAction", () => {
     const result = await togglePurchasedAction("someone-elses-item");
 
     expect(result.error).toBe("Item not found");
+  });
+
+  it("journals the arrival as a 'trip' event for the session user (GAP-66)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 3,
+      unit: "pcs",
+      estimatedPrice: null,
+      inventoryItem: { id: "inv-1", quantity: 2 },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    expect(recordStockEventMock).toHaveBeenCalledWith(expect.anything(), {
+      householdId: "household-1",
+      itemId: "inv-1",
+      userId: "user-1",
+      previousQuantity: 2,
+      nextQuantity: 5,
+      reason: "trip",
+    });
   });
 
   it("marking purchased increases linked inventory quantity and logs a price history entry", async () => {

@@ -220,6 +220,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
+      Seen again on release commit 2f0ac69 (2026-11-04): it failed once in the local `ci:local` gate on the `mobile` project (so mobile is not fully fixed either) and passed on a re-run of the same commit; the GitHub e2e job was green.
       It also failed once on the `mobile` project in the local `ci:local` run on d31e8ac (2026-11-01) and passed on re-run, so the fix covers both.
       Further sighting (2026-11-02, release PR #1061 on commit 059436759a9e): `mobile` project, line 95 again (`getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s), in the local `ci:local` run only; it passed on a re-run of the same commit. It was also seen failing once in #1059's own `ci:local` run. Third mobile sighting after d31e8ac, so MAINT-66's hardening has not closed it.
       Further sighting (2026-11-03, GAP-69 builder run on b6238113): `mobile` project, failed once in the full local `ci:local` run and passed on the rerun and 32/32 with `--repeat-each=10`.
@@ -740,31 +741,6 @@ out to be a product-scope question rather than a scoped task should move to
       per-item assignment replaces or layers on top of the existing
       share/paid model — a schema and UX design question, not a routine
       slice.
-
-### 2026-10-27 scan
-
-- [ ] **GAP-66. Per-item stock history ("who changed the amount, and when")** (impact: low-med, effort: M) `[schema]` —
-      Grocy's "Stock journal" lists every change to a product (consumed,
-      purchased, spoiled, adjusted) with who made it, and Bring! shows who
-      did what on a shared list. Squirrel's item page shows the current
-      quantity and a few derived dates, but nothing explains why the
-      amount is what it is, so "who used the last of the rice?" or "why
-      does it say 0?" has no answer in a shared household. Add an
-      append-only `InventoryItemEvent` (itemId, householdId, nullable
-      plain-string `userId` with no `@relation` so a leaving member takes
-      no history with them, `delta`, `reason`: `used | restocked |
-      adjusted | cooked | trip`, `createdAt`), written by the existing
-      quantity actions (+/-, quantity sheet, mark cooked, finish trip)
-      and capped to the last 50 per item. Show it as a collapsed "History"
-      list at the bottom of the item page (`/dashboard/inventory/items/[id]`),
-      newest first, "Anna used 1 · 2 days ago". Scope: no chart, no
-      household-wide feed, no backfill, no notification.
-      Acceptance: unit tests that each quantity action writes one event
-      with the session user's id (never one from the client), scoped by
-      `requireHousehold()`, and that the 51st event drops the oldest; an
-      e2e step on `mobile` decrements a uniquely named item and sees
-      "used 1" with the actor's name under History after a reload, in
-      `en` and `sv`.
 
 ### 2026-10-31 scan
 

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
+import { STOCK_HISTORY_CAP } from "@/lib/inventory/stock-history";
 import { usedInRows } from "@/lib/inventory/item-units";
 import { canonicalUnit, unitLabel, withCommonUnits } from "@/lib/units";
 import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
@@ -14,6 +15,7 @@ import { ItemRecentPrices } from "@/components/inventory/item-page/item-recent-p
 import { ItemUnitsAndUsage } from "@/components/inventory/item-page/item-units-and-usage";
 import { LazyChangeUnit, LazyMergeInto } from "@/components/inventory/item-page/lazy-item-dialogs";
 import { ItemPageControls } from "@/components/inventory/item-page/item-page-controls";
+import { ItemHistory } from "@/components/inventory/item-page/item-history";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
 import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page-origin";
 import { PageTitle } from "@/components/dashboard/page-title";
@@ -24,14 +26,14 @@ import { PageTitle } from "@/components/dashboard/page-title";
 const short = (value: number) => String(Number(value.toPrecision(3)));
 
 // MATCH-6 (design §6.1): one inventory item, where it's used and its units.
-// Everything comes from eight household-scoped queries run together, never
+// Everything comes from nine household-scoped queries run together, never
 // one per recipe or list. The fifth lists the other items, for "Merge into
 // another item…" (MATCH-7). The sixth names the household's members, so
 // "Last updated … by …" can say who; phones don't show that on the
 // inventory list (UX-45), so this page is where they find it. The seventh is
 // the last purchases for "Recent prices" (GAP-47). The eighth is the
 // household's low-stock auto-add setting, for the Mark-as-empty menu
-// (UX-124, same as the list's).
+// (UX-124, same as the list's). The ninth is the item's stock history (GAP-66).
 export default async function InventoryItemPage(props: PageProps<"/dashboard/inventory/items/[id]">) {
   const [{ household }, fullDict, locale, { id }, searchParams] = await Promise.all([
     requireHousehold(),
@@ -46,7 +48,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
   const origin = parseItemPageOrigin(searchParams.from);
   const backLabel = { inventory: dict.back, catalog: dict.backToCatalog, recipes: dict.backToRecipes }[origin.kind];
 
-  const [item, ingredients, listRows, templateRows, otherItems, members, recentPrices, householdSettings] = await Promise.all([
+  const [item, ingredients, listRows, templateRows, otherItems, members, recentPrices, householdSettings, historyRows] = await Promise.all([
     prisma.inventoryItem.findFirst({
       where: { id, householdId: household.id },
       select: {
@@ -101,6 +103,14 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
     }),
     getRecentPrices(id),
     prisma.household.findUnique({ where: { id: household.id }, select: { autoAddLowStockToList: true } }),
+    // GAP-66: scoped by the session's household as well as the item id.
+    // The writer keeps at most STOCK_HISTORY_CAP rows per item.
+    prisma.inventoryItemEvent.findMany({
+      where: { itemId: id, householdId: household.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: STOCK_HISTORY_CAP,
+      select: { id: true, reason: true, delta: true, userId: true, createdAt: true },
+    }),
   ]);
   if (!item) notFound();
 
@@ -238,6 +248,21 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
         money={createMoneyFormat(locale, HOUSEHOLD_BASE_CURRENCY)}
         locale={locale}
         unitLabels={fullDict.units}
+        dict={dict}
+      />
+
+      <ItemHistory
+        events={historyRows.map((row) => ({
+          id: row.id,
+          reason: row.reason,
+          delta: row.delta,
+          createdAt: row.createdAt,
+          // A member who has since left is not in the list: "Someone".
+          userName: members.find((member) => member.userId === row.userId)?.user.displayName ?? null,
+        }))}
+        unit={unitLabel(item.unit, fullDict.units)}
+        now={new Date()}
+        locale={locale}
         dict={dict}
       />
 

@@ -459,6 +459,7 @@ model InventoryItem {
   shoppingListItems ShoppingListItem[]
   listTemplateItems ShoppingListTemplateItem[]
   priceHistory      PriceHistory[]
+  stockEvents       InventoryItemEvent[]
   recipeIngredients RecipeIngredient[]
   aliases           ItemAlias[]
   unitConversions   ItemUnitConversion[]
@@ -758,6 +759,31 @@ model ShoppingListTemplateItem {
 
   @@index([templateId])
   @@index([inventoryItemId])
+}
+
+// GAP-66: the item page's "History" — an append-only journal of every change
+// to an item's amount, written beside each quantity write (see
+// src/lib/inventory/stock-history.ts, which also caps it at the last 50 per
+// item). `userId` is a plain string with no @relation on purpose: a member
+// who leaves the household takes no history with them, and the page just
+// shows "Someone" for an id it can no longer name. `householdId` is kept on
+// the row (and set from the session, never the client) so every read can be
+// scoped by household without joining through the item.
+model InventoryItemEvent {
+  id          String   @id @default(cuid())
+  itemId      String
+  householdId String
+  userId      String?
+  // Signed change in the item's own unit: negative for a decrease.
+  delta       Float
+  // used | restocked | adjusted | cooked | trip — see STOCK_EVENT_REASONS.
+  reason      String
+  createdAt   DateTime @default(now())
+
+  item InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
+  @@index([householdId])
 }
 
 model PriceHistory {

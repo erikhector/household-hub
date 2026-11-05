@@ -19,6 +19,7 @@ const {
   transactionMock,
   revalidatePathMock,
   db,
+  recordStockEventMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   itemFindFirstMock: vi.fn(),
@@ -42,7 +43,9 @@ const {
     priceHistory: { updateMany: vi.fn() },
     itemAlias: { updateMany: vi.fn(), upsert: vi.fn() },
     notification: { deleteMany: vi.fn() },
+    inventoryItemEvent: { updateMany: vi.fn() },
   },
+  recordStockEventMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -55,6 +58,7 @@ vi.mock("@/lib/prisma", () => {
     shoppingListTemplateItem: db.shoppingListTemplateItem,
     priceHistory: db.priceHistory,
     notification: db.notification,
+    inventoryItemEvent: db.inventoryItemEvent,
     itemUnitConversion: {
       findFirst: conversionFindFirstMock,
       delete: conversionDeleteMock,
@@ -68,6 +72,12 @@ vi.mock("@/lib/prisma", () => {
   return { prisma };
 });
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
+// GAP-66: the history journal has its own unit (src/lib/inventory/stock-history.test.ts);
+// here only what the merge hands it matters.
+vi.mock("@/lib/inventory/stock-history", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/inventory/stock-history")>()),
+  recordStockEvent: recordStockEventMock,
+}));
 vi.mock("@/lib/i18n/get-dictionary", async () => {
   const { en } = await import("@/lib/i18n/dictionaries/en");
   return { getDictionary: vi.fn(async () => en) };
@@ -233,6 +243,12 @@ describe("changeItemUnitAction", () => {
         { inventoryItemId: "item-1", fromUnit: "pcs", factor: 2000 },
       ],
     });
+    // GAP-66: the item's stock history is rescaled with it, so an old
+    // "used 1 pcs" now reads "used 2000 g", not "used 1 g".
+    expect(db.inventoryItemEvent.updateMany).toHaveBeenCalledWith({
+      where: { itemId: "item-1", householdId: "household-1" },
+      data: { delta: { multiply: 2000 } },
+    });
   });
 
   it("rejects another household's item", async () => {
@@ -268,6 +284,7 @@ describe("changeItemUnitAction", () => {
     expect(result.error).toBe(errors.stockChanged);
     expect(conversionDeleteManyMock).not.toHaveBeenCalled();
     expect(conversionCreateManyMock).not.toHaveBeenCalled();
+    expect(db.inventoryItemEvent.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -460,6 +477,15 @@ describe("mergeInventoryItemsAction", () => {
     expect(db.notification.deleteMany).toHaveBeenCalledWith({ where: { ...moved, householdId: household.id } });
     expect(db.inventoryItem.deleteMany).toHaveBeenCalledWith({
       where: { householdId: household.id, OR: [{ id: "eggs", quantity: 2, unit: "pcs" }] },
+    });
+      // GAP-66: the keeper's jump in stock goes in its history, by the merging user.
+    expect(recordStockEventMock).toHaveBeenCalledWith(expect.anything(), {
+      householdId: household.id,
+      itemId: "egg",
+      userId: "user-1",
+      previousQuantity: 12,
+      nextQuantity: 14,
+      reason: "adjusted",
     });
   });
 
