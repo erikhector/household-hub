@@ -110,6 +110,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // PERF-31: the prerequisite for "use cache" (PERF-32 on). Nothing is cached
+  // yet: every request-bound read sits under a <Suspense> (the root and
+  // dashboard layouts), so behaviour is unchanged. partialPrefetching is what
+  // the Next docs recommend for any Cache Components app without legacy
+  // full prefetches (this one has none).
+  cacheComponents: true,
+  partialPrefetching: true,
   turbopack: {
     root: path.resolve(__dirname),
   },
@@ -128,8 +135,9 @@ const nextConfig: NextConfig = {
     // show at once; only another household member's change can wait up to 15 s
     // to appear on a client navigation (a reload always fetches fresh).
     // `static` stays at its 5 min default. Marked experimental by Next; to
-    // revert, delete this block. If the Cache Components work (PERF-31)
-    // goes ahead, cacheLife's `stale` value takes over.
+    // revert, delete this block. Still in force with cacheComponents on
+    // (PERF-31): no route uses cacheLife yet, so nothing conflicts; where
+    // one does, its `stale` value takes over.
     staleTimes: {
       dynamic: 15,
     },

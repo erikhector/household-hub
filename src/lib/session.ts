@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -27,6 +28,10 @@ export const NO_HOUSEHOLD_PATH = "/no-household";
 // change (SCALE-H, see src/lib/session-revocation.ts). That's the one DB
 // read this function does — a JWT alone can't know the password changed.
 export const requireUserId = cache(async () => {
+  // PERF-31: say "per request" before auth(), which can reach
+  // crypto.getRandomValues() for a visitor with no session cookie. Next logs
+  // that as an unstable value read while prerendering (Cache Components).
+  await connection();
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
@@ -58,6 +63,10 @@ export async function requireUserWithoutHousehold() {
 }
 
 export const requireHousehold = cache(async () => {
+  // PERF-31: say "per request" before auth(), which can reach
+  // crypto.getRandomValues() for a visitor with no session cookie. Next logs
+  // that as an unstable value read while prerendering (Cache Components).
+  await connection();
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");

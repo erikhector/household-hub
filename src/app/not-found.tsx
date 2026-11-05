@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { Compass } from "lucide-react";
 import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
@@ -19,6 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function NotFound() {
+  // PERF-31: say "per request" before auth() (see getUserPreferences).
+  await connection();
   const [session, dict] = await Promise.all([auth(), getDictionary()]);
   const copy = dict.notFound;
 

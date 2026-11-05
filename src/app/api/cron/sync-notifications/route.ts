@@ -31,7 +31,9 @@ import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
 // Never cache this response — same reasoning as /api/health's matching
 // comment, though the risk here is stale success/failure status rather than
 // a masked outage.
-export const dynamic = "force-dynamic";
+// PERF-31: no `dynamic = "force-dynamic"` (not allowed with Cache Components).
+// A handler that reads the request or the DB is dynamic on its own, and
+// nothing here uses "use cache", so it is never cached.
 
 // PERF-13: an explicit execution budget instead of the platform default,
 // which the old walk over every household would eventually outgrow. The run

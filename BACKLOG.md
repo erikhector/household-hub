@@ -388,6 +388,35 @@ sweeps; all 290 + 132 tests pass, and the popup probe's only phone-size hit
 ellipsis (UX-150) are already known. WebKit was not run, and the per-action
 deep dive was a screenshot and code read, not driven through the UI.
 
+### UX (2026-11-05 scout)
+
+Thursday area: tasks, household, members and invites. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 290 + 132 tests pass, and the popup probe's only
+phone-size hit (the sheet grabber) and the `text-200` bottom-bar ellipsis
+(UX-150) are already known. The household tab bar scrolls at 200% text
+(Settings is cut by its fade), which is by design. WebKit was not run (no
+browser installed here), and the per-action deep dive was a screenshot and
+code read, not driven through the UI.
+
+- [ ] **UX-182. A dropped request on the household member actions and the
+      invite email shows an error toast, not the error page** (impact: med,
+      effort: S) — `src/components/household/member-list.tsx:113-137`
+      (`handleRemove`, `handleTransfer`, `handleLeave`) and
+      `src/components/household/invite-button.tsx:58-66` (`handleSend`)
+      `await` a Server Action inside `startTransition` with no `try/catch`.
+      On a flaky phone connection the action throws and the error boundary
+      replaces the page (and the transfer dialog never closes), while
+      `pending-invites.tsx:38-45` and `invite-button.tsx:33-47` already
+      catch and toast. Breaks DESIGN.md's "errors next to the action, keep
+      the user's input" (the typed invite email is kept). Fix: catch, show
+      a `toast.error` with a new `*Failed` string in `en.ts` and `sv.ts`,
+      close the transfer dialog, keep the email in the field.
+      Acceptance: an e2e spec in `mobile` aborts the action request
+      (`page.route` on the POST), clicks Send in the invite dialog and
+      sees a "Could not send" toast with the typed email still in the field
+      and no error boundary.
+
 ### Dependencies
 
 ---
@@ -543,19 +572,6 @@ Rules every follow-up keeps (from the original item):
   members tick it live). Anything reading `cookies()` stays outside a cached
   function.
 
-- [ ] **PERF-31. Cache Components prerequisite: make every route build with
-      the flag on** (L) — remove `dynamic = "force-dynamic"` from the five
-      route handlers (the handlers are already uncached: they read the
-      request or the DB, and Next treats a handler that does as dynamic);
-      set `partialPrefetching`; move the root layout's `cookies()` and
-      locale/theme/prefs reads under a `<Suspense>` (or into a runtime
-      boundary) so the shell can prerender; do the same for
-      `dashboard/layout.tsx`'s `requireHousehold()` and cookies, and give each
-      route a `loading` fallback that matches DESIGN.md. No `"use cache"` yet
-      and no behaviour change. Acceptance: `cacheComponents: true` builds,
-      `npm run ci:local` is green on desktop and mobile with no layout shift
-      from the new boundaries, and `staleTimes` (PERF-21) is replaced by
-      `cacheLife`'s `stale` if it conflicts. Blocks PERF-32 to PERF-36.
 - [ ] **PERF-32. Household cache helper, remote handler and Home summary**
       (M) — `householdTag(id, area)` in one module, a Redis-backed
       `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
