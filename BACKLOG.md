@@ -775,6 +775,38 @@ out to be a product-scope question rather than a scoped task should move to
       new recipe "Breakfast", opens Add to plan and sees Breakfast
       preselected, in `en` and `sv`.
 
+### 2026-11-05 scan
+
+- [ ] **GAP-73. Notes on a household task** (impact: med, effort: S) `[schema]` —
+      Chores Tracker, Todoist and Cozi let a task carry a few lines of
+      detail ("filter is under the sink, replace the 20x25 one"), so the
+      person whose turn it is doesn't have to ask. `HouseholdTask` has only
+      a title (REQUIREMENTS.md, "Household tasks" → Model), so that
+      detail goes in the title or nowhere. Add nullable `HouseholdTask.notes`
+      (max 500 chars, plain text, no links rendered), edited in the task
+      sheet as a textarea (16 px, `autoComplete="off"`), shown as one
+      truncated line under the title on the row that expands in the sheet.
+      Scope: no checklists, no attachments, no comments thread.
+      Acceptance: unit test that the action trims, caps at 500 and clears
+      on empty; an e2e step on `mobile` adds a note, reloads and sees it in
+      the sheet, in `en` and `sv`.
+
+- [ ] **GAP-74. Tell me when a task is assigned to me or due today** (impact: med, effort: M) —
+      Chores Tracker (v2.2) and Home Chores AI push a reminder when a chore
+      is yours or due. Squirrel has assignment, rotation and due dates for
+      tasks but `NotificationKind` has no task kind, so a rotation that
+      lands on you, or a task due today, is only seen if you open Tasks
+      (the Home "Today" card shows it only after opening the app). Add
+      `TASK_DUE`: one bell entry per member per day listing their open
+      tasks that are assigned to them and due today or overdue, built the
+      same way as `TONIGHTS_DINNER` (GAP-57: per-user opt-in toggle, default
+      off, one entry per day, no streaks or nagging). Scope: no
+      "assigned to you" instant ping, no reminders for unassigned tasks.
+      Acceptance: unit test for the day-dedupe and that it skips
+      unassigned, completed and skipped tasks; e2e on `mobile` turns the
+      toggle on, has a task due today assigned to the member, and sees one
+      bell entry linking to Tasks, in `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
