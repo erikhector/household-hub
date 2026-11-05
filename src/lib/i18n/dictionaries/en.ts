@@ -2472,6 +2472,11 @@ export const en = {
     notTagBadge: "Not {tag}",
     recipeTagsLabel: "Tags",
     recipeTagsHint: "Used to filter your recipe list.",
+    // GAP-72: course chips in the recipe form and the list's meal filter.
+    recipeMealTypesLabel: "Course",
+    recipeMealTypesHint: 'Where this recipe fits. "Add to plan" preselects the first one.',
+    mealTypeFilterLabel: "Filter by meal",
+    allMealTypes: "All meals",
     tagFilterLabel: "Filter by tag",
     allTags: "All tags",
     ingredientCount: {

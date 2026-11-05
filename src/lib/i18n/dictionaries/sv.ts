@@ -2348,6 +2348,11 @@ export const sv = {
     notTagBadge: "Inte {tag}",
     recipeTagsLabel: "Taggar",
     recipeTagsHint: "Används för att filtrera receptlistan.",
+    // GAP-72: course chips in the recipe form and the list's meal filter.
+    recipeMealTypesLabel: "Måltid",
+    recipeMealTypesHint: 'Var receptet passar. "Lägg till i planen" förväljer den första.',
+    mealTypeFilterLabel: "Filtrera på måltid",
+    allMealTypes: "Alla måltider",
     tagFilterLabel: "Filtrera på tagg",
     allTags: "Alla taggar",
     ingredientCount: {
