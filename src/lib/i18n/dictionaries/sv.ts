@@ -204,6 +204,7 @@ export const sv = {
     whatsNew: "Nyheter",
     whatsNewUnseen: "Ny uppdatering",
   },
+  // UX-41c: the single-key list shortcuts and their `?` overlay.
   shortcuts: {
     title: "Kortkommandon",
     description: "På inköps-, lager- och uppgiftslistorna. De fungerar när du inte skriver i ett fält.",

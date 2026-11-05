@@ -20,6 +20,10 @@ describe("shortcutFor", () => {
     expect(shortcutFor(key("?", { shiftKey: true }))).toBe("help");
   });
 
+  it("keeps / working where it needs Shift (Swedish keyboards)", () => {
+    expect(shortcutFor(key("/", { shiftKey: true }))).toBe("search");
+  });
+
   it("leaves modified keys to the browser and the command palette", () => {
     expect(shortcutFor(key("k", { ctrlKey: true }))).toBeNull();
     expect(shortcutFor(key("k", { metaKey: true }))).toBeNull();

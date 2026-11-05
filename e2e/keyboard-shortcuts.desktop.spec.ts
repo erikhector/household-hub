@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_SHOPPING_LIST } from "./seed-data";
+import { Client } from "pg";
+import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
+import { E2E_SHOPPING_LIST, E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, gotoRevealed } from "./ui";
 
 // UX-41c: single-key shortcuts on the list pages and the `?` overlay. A
@@ -103,4 +105,71 @@ test("the keys do nothing on other pages", async ({ page }) => {
   await page.waitForTimeout(500);
   await page.keyboard.press("Shift+?");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("x ticks the highlighted shopping row into \"In the cart\"", async ({ page, context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+  const tag = `${Date.now().toString(36)}-w${E2E_WORKER}`;
+  const listId = `e2e-ux41c-list-${tag}`;
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, $3)`, [
+      listId,
+      E2E_HOUSEHOLD.id,
+      `Keys ${tag}`,
+    ]);
+    // Two rows, so ticking one leaves the list in its normal (not "all cleared") state.
+    for (const i of [0, 1]) {
+      await client.query(`INSERT INTO "ShoppingListItem" (id, "shoppingListId", name) VALUES ($1, $2, $3)`, [
+        `e2e-ux41c-item-${tag}-${i}`,
+        listId,
+        `Key item ${i} ${tag}`,
+      ]);
+    }
+    await gotoRevealed(page, `/dashboard/shopping-list/${listId}`);
+    const active = page.locator("[data-shortcut-active]");
+    await pressUntil(page, "j", async () => {
+      await expect(active).toHaveCount(1, { timeout: 1000 });
+    });
+    await page.keyboard.press("x");
+    await expect(page.getByRole("button", { name: /^In the cart/ })).toContainText("1");
+  } finally {
+    await client.query(`DELETE FROM "ShoppingList" WHERE id = $1 AND "householdId" = $2`, [listId, E2E_HOUSEHOLD.id]);
+    await client.end();
+  }
+});
+
+test("x toggles the highlighted inventory row's bulk-select checkbox", async ({ page, context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+  await gotoRevealed(page, "/dashboard/inventory");
+  const active = page.locator("[data-shortcut-active]");
+  await pressUntil(page, "j", async () => {
+    await expect(active).toHaveCount(1, { timeout: 1000 });
+  });
+  const box = active.getByRole("checkbox");
+  await expect(box).not.toBeChecked();
+  await page.keyboard.press("x");
+  await expect(box).toBeChecked();
+  await page.keyboard.press("x");
+  await expect(box).not.toBeChecked();
+});
+
+test.describe("sv", () => {
+  test.use({ storageState: STORAGE_STATE_SV });
+
+  test("/ still focuses the search when the layout needs Shift for it", async ({ page, context, baseURL }) => {
+    await dismissCookieNotice(context, baseURL!);
+    await gotoRevealed(page, "/dashboard/inventory");
+    const search = page.getByRole("searchbox");
+    // A Swedish keyboard types "/" as Shift+7, so the event is key "/" with
+    // shiftKey set. Playwright's own press("Shift+/") would yield "?" on a US
+    // layout, so dispatch the event the Swedish layout produces.
+    await expect(async () => {
+      await page.evaluate(() =>
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "/", shiftKey: true, bubbles: true, cancelable: true })),
+      );
+      await expect(search).toBeFocused({ timeout: 1000 });
+    }).toPass();
+  });
 });

@@ -13,18 +13,18 @@ export function isShortcutPath(pathname: string): boolean {
 }
 
 // Plain keys only: Ctrl/Cmd/Alt combinations belong to the browser and to the
-// command palette (Ctrl+K). Shift is allowed only because `?` needs it.
+// command palette (Ctrl+K). Shift is refused for letters, but `?` and `/` are
+// let through: `?` needs it, and `/` is Shift+7 on a Swedish keyboard.
 export function shortcutFor(
   event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
 ): ShortcutAction | null {
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
   if (event.key === "?") return "help";
+  if (event.key === "/") return "search";
   if (event.shiftKey) return null;
   switch (event.key) {
     case "n":
       return "new";
-    case "/":
-      return "search";
     case "j":
       return "next";
     case "k":
