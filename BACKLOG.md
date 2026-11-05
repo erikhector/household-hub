@@ -99,6 +99,11 @@ Parallel-safe except where noted.
 
 ### Bugs
 
+- [ ] **BUG-1. Red next: `stock-history.spec.ts:38` fails in the full e2e run** (medium, S) —
+      `e2e/stock-history.spec.ts:38` "a decrement shows under History with who made it, after a reload" (en, `desktop` and `mobile`) times out waiting for the History row. It failed in a full `npm run ci:local` on clean `origin/next` (65220cb, 2026-11-05) and on PR #1151's head, 2 of 2 times each, yet passes when the spec runs alone, so it depends on load or on state another spec leaves in the worker's household. Start from the failure trace and the spec's waiting (`waitForUndoableDelete`/`expectHydrated`, AGENTS.md "UI tests").
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: the full `npm run ci:local` is green on this spec, and `npx playwright test e2e/stock-history.spec.ts --repeat-each=30` passes 30/30 on both projects.
+
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
@@ -234,6 +239,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
+      `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
