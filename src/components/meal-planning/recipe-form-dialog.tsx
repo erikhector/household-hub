@@ -52,6 +52,7 @@ import {
 } from "@/lib/recipes/ingredient-match";
 import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_TAGS, type RecipeTag } from "@/lib/recipe-tags";
+import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/actions/auth";
 import type { FileRecipe } from "@/lib/recipe-import/parse-file";
@@ -208,6 +209,13 @@ function componentRowsFromRecipe(recipe: RecipeData | undefined): ComponentRow[]
   }));
 }
 
+const mealTypeDictKey = {
+  BREAKFAST: "mealTypeBreakfast",
+  LUNCH: "mealTypeLunch",
+  DINNER: "mealTypeDinner",
+  SNACK: "mealTypeSnack",
+} as const;
+
 export function RecipeFormDialog({
   dict,
   mode,
@@ -276,6 +284,15 @@ export function RecipeFormDialog({
       const next = new Set(current);
       if (next.has(tag)) next.delete(tag);
       else next.add(tag);
+      return next;
+    });
+  // GAP-72: the course chips, same mechanics as the tags above.
+  const [mealTypes, setMealTypes] = useState<Set<MealType>>(() => new Set(recipe?.mealTypes ?? []));
+  const toggleMealType = (type: MealType) =>
+    setMealTypes((current) => {
+      const next = new Set(current);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
       return next;
     });
   const [importUrl, setImportUrl] = useState(initialImportUrl);
@@ -413,6 +430,7 @@ export function RecipeFormDialog({
         setIngredients([blankRow()]);
         setComponents([]);
         setTags(new Set());
+        setMealTypes(new Set());
         setImportUrl("");
         setShowNutrition(false);
         setCaloriesPerServing("");
@@ -563,6 +581,7 @@ export function RecipeFormDialog({
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
       setTags(new Set(recipe?.tags ?? []));
+      setMealTypes(new Set(recipe?.mealTypes ?? []));
       setImportUrl(prefillImportUrl.current);
       setShowNutrition(hasNutrition(recipe));
       setCaloriesPerServing(recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : "");
@@ -1039,6 +1058,37 @@ export function RecipeFormDialog({
               <input key={tag} type="hidden" name="tags" value={tag} />
             ))}
             <p className="text-xs text-muted-foreground">{dict.recipeTagsHint}</p>
+          </div>
+
+          {/* GAP-72: the course chips, beside the tags. Posted as hidden
+              `mealTypes` inputs and re-validated against the enum server-side. */}
+          <div className="flex flex-col gap-2">
+            <Label id="recipe-meal-types-label">{dict.recipeMealTypesLabel}</Label>
+            <div role="group" aria-labelledby="recipe-meal-types-label" className="flex flex-wrap gap-2">
+              {MEAL_TYPES.map((type) => {
+                const isSelected = mealTypes.has(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => toggleMealType(type)}
+                    className={cn(
+                      "rounded-full border px-4 py-1 text-sm transition-colors max-sm:min-h-11 pointer-coarse:min-h-11",
+                      isSelected
+                        ? "border-primary bg-primary/15 text-foreground"
+                        : "border-input text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    {dict[mealTypeDictKey[type]]}
+                  </button>
+                );
+              })}
+            </div>
+            {MEAL_TYPES.filter((type) => mealTypes.has(type)).map((type) => (
+              <input key={type} type="hidden" name="mealTypes" value={type} />
+            ))}
+            <p className="text-xs text-muted-foreground">{dict.recipeMealTypesHint}</p>
           </div>
 
           <div className="flex flex-col gap-2">

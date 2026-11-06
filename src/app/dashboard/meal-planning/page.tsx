@@ -20,6 +20,7 @@ import { MAX_PREP_DISHES } from "@/app/dashboard/meal-planning/prepared-batch-ca
 import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
+import { parseMealTypes } from "@/app/dashboard/meal-planning/meal-types";
 import { parseRecipeTags, type RecipeTag } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
@@ -155,6 +156,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     // GAP-29: re-parsed on read too, so a key since removed from
     // RECIPE_TAGS is dropped here instead of rendering as a raw key.
     tags: parseRecipeTags(recipe.tags),
+    mealTypes: parseMealTypes(recipe.mealTypes),
     ingredients: recipe.ingredients.map((ingredient) => ({
       id: ingredient.id,
       name: ingredient.name,

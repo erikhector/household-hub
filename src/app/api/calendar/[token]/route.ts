@@ -17,7 +17,9 @@ import { format } from "@/lib/i18n/format";
 // excludes, so the login redirect never runs for it. See REQUIREMENTS.md's
 // "Calendar feed" for the product decisions (opt-in, owner-managed, no
 // amounts).
-export const dynamic = "force-dynamic";
+// PERF-31: no `dynamic = "force-dynamic"` (not allowed with Cache Components).
+// A handler that reads the request or the DB is dynamic on its own, and
+// nothing here uses "use cache", so it is never cached.
 
 // A calendar client polls a few times an hour at most, so even a household
 // with several people subscribed on several devices stays well under this.

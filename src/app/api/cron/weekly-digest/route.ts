@@ -15,7 +15,9 @@ import { runWeeklyDigest } from "@/lib/weekly-digest";
 // Safe to call more than once in a week: WeeklyDigestSend (see
 // src/lib/weekly-digest.ts's sendHouseholdDigest) makes a repeat run a no-op
 // for everyone who already got this week's digest.
-export const dynamic = "force-dynamic";
+// PERF-31: no `dynamic = "force-dynamic"` (not allowed with Cache Components).
+// A handler that reads the request or the DB is dynamic on its own, and
+// nothing here uses "use cache", so it is never cached.
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;

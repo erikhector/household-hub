@@ -228,6 +228,7 @@ export function SmartAddBar({
         <div className="relative min-w-0 flex-1">
           <Input
             ref={inputRef}
+            data-shortcut="new"
             role="combobox"
             aria-label={dict.inputLabel}
             aria-autocomplete="list"

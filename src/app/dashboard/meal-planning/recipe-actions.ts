@@ -19,6 +19,7 @@ import {
 // are dropped, so nothing outside RECIPE_TAGS can reach Recipe.tags no
 // matter what the client posts.
 import { parseRecipeTags, type RecipeTag } from "@/lib/recipe-tags";
+import { parseMealTypes } from "@/app/dashboard/meal-planning/meal-types";
 import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-components";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { normalizeItemName } from "@/lib/item-matching";
@@ -726,6 +727,8 @@ export async function createRecipeAction(
           carbsGramsPerServing: parsed.data.carbsGramsPerServing,
           fatGramsPerServing: parsed.data.fatGramsPerServing,
           tags: parseRecipeTags(formData.getAll("tags")),
+          // GAP-72: validated against the MealType enum; none ticked stores [].
+          mealTypes: parseMealTypes(formData.getAll("mealTypes")),
           ingredients: { create: ingredientData },
           components: { create: components.data },
         },
@@ -806,6 +809,8 @@ export async function updateRecipeAction(
           // Replaced wholesale, like ingredients/components — an edit that
           // un-ticks every chip sends no `tags` at all and clears them.
           tags: parseRecipeTags(formData.getAll("tags")),
+          // GAP-72: replaced wholesale like tags; un-ticking every chip clears.
+          mealTypes: parseMealTypes(formData.getAll("mealTypes")),
           ingredients: { create: ingredientData },
           components: { create: components.data },
         },
@@ -968,6 +973,7 @@ export async function duplicateRecipeAction(
       carbsGramsPerServing: source.carbsGramsPerServing,
       fatGramsPerServing: source.fatGramsPerServing,
       tags: source.tags,
+      mealTypes: source.mealTypes,
       isFavorite: false,
       ingredients: {
         create: source.ingredients.map((ingredient) => ({

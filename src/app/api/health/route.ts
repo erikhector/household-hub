@@ -7,7 +7,9 @@ import { reportError } from "@/lib/report-error";
 // this over plain HTTP, not a logged-in browser.
 //
 // Never cache this response — a stale 200 would mask a real outage.
-export const dynamic = "force-dynamic";
+// PERF-31: no `dynamic = "force-dynamic"` (not allowed with Cache Components).
+// A handler that reads the request or the DB is dynamic on its own, and
+// nothing here uses "use cache", so it is never cached.
 
 export async function GET() {
   try {

@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import { titleOnlyMetadata } from "@/lib/page-metadata";
 import { VerifyEmailClient } from "@/components/auth/verify-email-client";
@@ -26,6 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function VerifyEmailPage(props: PageProps<"/verify-email/[token]">) {
+  await connection();
   const [{ token }, session, dict] = await Promise.all([props.params, auth(), getDictionary()]);
 
   return (

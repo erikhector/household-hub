@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import { XCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,13 @@ import { buildMetadata } from "@/lib/page-metadata";
 
 // UX-64: the lookup is rate limited per token, so generateMetadata and the page
 // must share one call per request (cache()) or each load would count twice.
-const loadList = cache(getShoppingListByShareToken);
+//
+// PERF-31: connection() first; the rate limiter reads the clock, which Next
+// rejects before the render is marked per-request (Cache Components).
+const loadList = cache(async (token: string) => {
+  await connection();
+  return getShoppingListByShareToken(token);
+});
 
 export async function generateMetadata(
   props: PageProps<"/share/shopping-list/[token]">,

@@ -379,6 +379,17 @@ sweeps; all 290 + 132 tests pass, and the popup probe's only phone-size hit
 ellipsis (UX-150) are already known. WebKit was not run, and the per-action
 deep dive was a screenshot and code read, not driven through the UI.
 
+### UX (2026-11-05 scout)
+
+Thursday area: tasks, household, members and invites. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 290 + 132 tests pass, and the popup probe's only
+phone-size hit (the sheet grabber) and the `text-200` bottom-bar ellipsis
+(UX-150) are already known. The household tab bar scrolls at 200% text
+(Settings is cut by its fade), which is by design. WebKit was not run (no
+browser installed here), and the per-action deep dive was a screenshot and
+code read, not driven through the UI.
+
 ### Dependencies
 
 ---
@@ -407,12 +418,6 @@ polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline ticks in the shop) shipped; UX-36b parks offline adds
 and price edits.
-
-- [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
-      UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
-      focus search, `j`/`k` move, `x` tick. Ignored while typing in a
-      field or with a dialog open. A `?` overlay lists them. Desktop only
-      (hidden on touch). e2e spec on the desktop project.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
@@ -534,21 +539,8 @@ Rules every follow-up keeps (from the original item):
   members tick it live). Anything reading `cookies()` stays outside a cached
   function.
 
-- [ ] **PERF-31. Cache Components prerequisite: make every route build with
-      the flag on** (L) — remove `dynamic = "force-dynamic"` from the five
-      route handlers (the handlers are already uncached: they read the
-      request or the DB, and Next treats a handler that does as dynamic);
-      set `partialPrefetching`; move the root layout's `cookies()` and
-      locale/theme/prefs reads under a `<Suspense>` (or into a runtime
-      boundary) so the shell can prerender; do the same for
-      `dashboard/layout.tsx`'s `requireHousehold()` and cookies, and give each
-      route a `loading` fallback that matches DESIGN.md. No `"use cache"` yet
-      and no behaviour change. Acceptance: `cacheComponents: true` builds,
-      `npm run ci:local` is green on desktop and mobile with no layout shift
-      from the new boundaries, and `staleTimes` (PERF-21) is replaced by
-      `cacheLife`'s `stale` if it conflicts. Blocks PERF-32 to PERF-36.
 - [ ] **PERF-32. Household cache helper, remote handler and Home summary**
-      (M) — `householdTag(id, area)` in one module, a Redis-backed
+      (M) `[!]` — `householdTag(id, area)` in one module, a Redis-backed
       `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
       timeout) used through `"use cache: remote"`, and Home's batch cached
       behind it with the three cookie-backed helpers kept outside. Takes
@@ -557,7 +549,17 @@ Rules every follow-up keeps (from the original item):
       before/after of the Home batch, stopping here if the saving is under
       ~50 ms, and an e2e spec that
       edits a task or an item and sees Home change without a reload delay.
-      Depends on PERF-31.
+      Depends on PERF-31 (shipped).
+      **Blocked, question for the owner:** the acceptance needs a
+      production before/after of the Home batch behind the Redis remote
+      handler, and a build session has no production access or Upstash
+      credentials, so it can't take that measurement and the stop-if-under-50 ms
+      gate can't be applied. Either (a) the owner supplies a way to measure
+      (a preview deploy with `UPSTASH_REDIS_REST_URL`/`TOKEN` and timings
+      from Vercel logs), or (b) split into PERF-32a (helper module plus
+      handler plus Home cached, behind an env flag that defaults to off)
+      and PERF-32b (measure in production, then flip the flag or revert).
+      Say which.
 - [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
       reads for the inventory list and item pages (tags
       `householdTag(id, "inventory")`) and for completed shopping lists. The
@@ -757,24 +759,6 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-04 scan
-
-- [ ] **GAP-72. Recipe course (breakfast / dinner / snack) that pre-fills the meal type** (impact: low-med, effort: S) `[schema]` —
-      AnyList, Plan to Eat and Paprika file recipes by course, so planning a
-      breakfast offers breakfast recipes first. In Squirrel the "Add to
-      plan" sheet (UX-92) defaults the meal type to a fixed guess and the
-      recipe list can't be narrowed to "breakfast", so pancakes get planned
-      as dinner unless the user notices. Add `Recipe.mealTypes` (same enum
-      values as `MealPlanEntry`'s meal type, `@default([])`), set in the
-      recipe form as toggle chips beside the dietary tags. "Add to plan"
-      preselects the recipe's first meal type, and the recipe list gains a
-      meal-type filter next to the tag filter. Scope: no auto-generated
-      plans, no import mapping (leave empty on import).
-      Acceptance: unit test that the action stores only valid meal types
-      and that an update replaces the set; an e2e step on `mobile` marks a
-      new recipe "Breakfast", opens Add to plan and sees Breakfast
-      preselected, in `en` and `sv`.
-
 ### 2026-11-05 scan
 
 - [ ] **GAP-73. Notes on a household task** (impact: med, effort: S) `[schema]` —
@@ -791,21 +775,30 @@ out to be a product-scope question rather than a scoped task should move to
       on empty; an e2e step on `mobile` adds a note, reloads and sees it in
       the sheet, in `en` and `sv`.
 
-- [ ] **GAP-74. Tell me when a task is assigned to me or due today** (impact: med, effort: M) —
+- [ ] **GAP-74. Tell the household when tasks are due today** (impact: med, effort: M) `[schema]` —
       Chores Tracker (v2.2) and Home Chores AI push a reminder when a chore
       is yours or due. Squirrel has assignment, rotation and due dates for
       tasks but `NotificationKind` has no task kind, so a rotation that
       lands on you, or a task due today, is only seen if you open Tasks
       (the Home "Today" card shows it only after opening the app). Add
-      `TASK_DUE`: one bell entry per member per day listing their open
-      tasks that are assigned to them and due today or overdue, built the
-      same way as `TONIGHTS_DINNER` (GAP-57: per-user opt-in toggle, default
-      off, one entry per day, no streaks or nagging). Scope: no
-      "assigned to you" instant ping, no reminders for unassigned tasks.
-      Acceptance: unit test for the day-dedupe and that it skips
-      unassigned, completed and skipped tasks; e2e on `mobile` turns the
-      toggle on, has a task due today assigned to the member, and sees one
-      bell entry linking to Tasks, in `en` and `sv`.
+      `TASK_DUE`, built the same way as `TONIGHTS_DINNER` (GAP-57;
+      REQUIREMENTS.md, "Tonight's dinner"): one household-wide bell entry
+      per day listing the open tasks that are due today or overdue, each
+      with its assignee. Tasks are already visible to every member, so a
+      household-wide row leaks nothing. Only the push is per member: it
+      goes to members who turned on a new per-user toggle (default off)
+      and have at least one listed task assigned to them, and names only
+      their own tasks. No streaks or nagging. Schema: a `TASK_DUE` value
+      on `NotificationKind`, a nullable `Notification.taskDueDate` with a
+      unique on `(householdId, taskDueDate)` as the day dedupe, and the
+      `User` toggle column, in one migration. Scope: no "assigned to you"
+      instant ping, no push for unassigned tasks, no per-member bell rows.
+      Acceptance: unit test that a second run the same day creates no
+      second entry (the `(householdId, taskDueDate)` unique), that
+      completed and skipped tasks are left out, and that the push skips
+      members who are opted out or have nothing assigned; e2e on `mobile`
+      turns the toggle on, has a task due today assigned to the member,
+      and sees one bell entry linking to Tasks, in `en` and `sv`.
 
 ## Needs a decision before building
 

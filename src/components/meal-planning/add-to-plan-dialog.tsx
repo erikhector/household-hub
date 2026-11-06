@@ -62,6 +62,7 @@ export function AddToPlanDialog({
   defaultPortions,
   recipeTags,
   requiredTags,
+  defaultMealType,
   plannerWeekStartKey,
   defaultDate,
   hint,
@@ -78,6 +79,8 @@ export function AddToPlanDialog({
   // recipe's tags (Plan leftovers, Cook now) show none.
   recipeTags?: readonly RecipeTag[];
   requiredTags?: readonly RecipeTag[];
+  // GAP-72: the recipe's first course (Recipe.mealTypes[0]); Dinner without.
+  defaultMealType?: MealType;
   plannerWeekStartKey: string;
   // GAP-39: "Plan leftovers" opens this same dialog prefilled with a day
   // (instead of today) and a line saying why, from a toast action rather
@@ -100,7 +103,15 @@ export function AddToPlanDialog({
   const open = controlled ? controlled.open : ownOpen;
   const setOpen = controlled ? controlled.onOpenChange : setOwnOpen;
   const [date, setDate] = useState(() => defaultDate ?? toDateKey(new Date()));
-  const [mealType, setMealType] = useState<MealType>("DINNER");
+  const [mealType, setMealType] = useState<MealType>(defaultMealType ?? "DINNER");
+  // The recipe sheet keeps this dialog mounted between opens, so a course edited
+  // in the meantime would otherwise show the stale one. Re-read the default each
+  // time it opens (adjusting state during render, not in an effect).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setMealType(defaultMealType ?? "DINNER");
+  }
   const [portions, setPortions] = useState(String(defaultPortions));
 
   const weekStartKey = toDateKey(getWeekStart(parseDateKey(date)));

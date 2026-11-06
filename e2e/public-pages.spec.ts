@@ -141,7 +141,9 @@ test("verify-email rate limiting is titled 'Too many attempts', not 'Link expire
 test("a logged-out 404 uses the status card and leads to the landing page", async ({ page }) => {
   const response = await page.goto("/no-such-page");
   expect(response?.status()).toBe(404);
-  await expect(page.getByText("Page not found")).toBeVisible();
+  // By role: with Cache Components the page's <title> streams in with the
+  // body (PERF-31), and getByText matches it as well as the heading.
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Squirrel" }).first()).toBeVisible();
   await expect(page.getByText("Back to dashboard")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
@@ -152,7 +154,7 @@ test("a logged-out 404 uses the status card and leads to the landing page", asyn
 test("a logged-out 404 is in Swedish with the Swedish cookie", async ({ page, context, baseURL }) => {
   await setLocaleCookie(context, baseURL!, "sv");
   await page.goto("/no-such-page");
-  await expect(page.getByText("Sidan hittades inte")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sidan hittades inte" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Gå till Squirrel" })).toBeVisible();
 });
 

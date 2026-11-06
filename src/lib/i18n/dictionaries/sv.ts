@@ -204,6 +204,17 @@ export const sv = {
     whatsNew: "Nyheter",
     whatsNewUnseen: "Ny uppdatering",
   },
+  // UX-41c: the single-key list shortcuts and their `?` overlay.
+  shortcuts: {
+    title: "Kortkommandon",
+    description: "På inköps-, lager- och uppgiftslistorna. De fungerar när du inte skriver i ett fält.",
+    new: "Lägg till ny vara eller uppgift",
+    search: "Sök",
+    next: "Nästa rad",
+    previous: "Föregående rad",
+    tick: "Kryssa i markerad rad",
+    help: "Visa den här listan",
+  },
   commandPalette: {
     title: "Kommandopalett",
     inputLabel: "Skriv ett kommando",
@@ -310,6 +321,7 @@ export const sv = {
       send: "Skicka",
       sending: "Skickar…",
       sent: "Inbjudan skickad till {email}",
+      sendFailed: "Det gick inte att skicka inbjudan. Kontrollera anslutningen och försök igen.",
     },
     pendingInvites: {
       title: "Väntande inbjudningar",
@@ -335,6 +347,7 @@ export const sv = {
       ariaLabel: "Medlemsåtgärder för {name}",
       transfer: "Gör till ägare",
       remove: "Ta bort från hushållet",
+      removeFailed: "Det gick inte att ta bort medlemmen. Kontrollera anslutningen och försök igen.",
     },
     confirmRemoveMember: {
       title: "Ta bort {name}?",
@@ -506,6 +519,7 @@ export const sv = {
       confirmButton: "Överför ägarskap",
       transferring: "Överför…",
       cancel: "Avbryt",
+      failed: "Det gick inte att överföra ägarskapet. Kontrollera anslutningen och försök igen.",
     },
     leave: {
       ariaLabel: "Lämna hushållet",
@@ -517,6 +531,7 @@ export const sv = {
       confirmButton: "Lämna hushållet",
       leaving: "Lämnar…",
       cancel: "Avbryt",
+      failed: "Det gick inte att lämna hushållet. Kontrollera anslutningen och försök igen.",
     },
   },
   dashboard: {
@@ -2348,6 +2363,11 @@ export const sv = {
     notTagBadge: "Inte {tag}",
     recipeTagsLabel: "Taggar",
     recipeTagsHint: "Används för att filtrera receptlistan.",
+    // GAP-72: course chips in the recipe form and the list's meal filter.
+    recipeMealTypesLabel: "Måltid",
+    recipeMealTypesHint: 'Var receptet passar. "Lägg till i planen" förväljer den första.',
+    mealTypeFilterLabel: "Filtrera på måltid",
+    allMealTypes: "Alla måltider",
     tagFilterLabel: "Filtrera på tagg",
     allTags: "Alla taggar",
     ingredientCount: {

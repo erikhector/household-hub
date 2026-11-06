@@ -91,6 +91,28 @@ easy for AI coding agents to work in correctly:
   what the privacy page describes (message, stack trace, page address,
   browser and device). `sentry-data-collection.test.ts` pins the opt-outs
   and that the server's `register()` passes them.
+- **Cache Components is on, with nothing cached yet (PERF-31).**
+  `next.config.ts` sets `cacheComponents` and `partialPrefetching`, the
+  prerequisite for `"use cache"` (PERF-32 on). The five route handlers
+  (`/api/health`, both crons, the digest unsubscribe redirect and the
+  calendar feed) dropped `dynamic = "force-dynamic"`, which the flag
+  rejects; they read the request or the DB, so they stay uncached. The root
+  layout and `dashboard/layout.tsx` read no runtime data themselves: the
+  locale, theme preference and cookies (root) and the session, household
+  and cookies (dashboard) sit in `RootChrome` / `DashboardShell` under a
+  `<Suspense fallback={null}>`, so the layouts can prerender. The empty
+  fallback matches what a blocking render showed, and each route's own
+  `loading.tsx` still shows inside the shell. `getUserPreferences`, `requireUserId`,
+  `requireHousehold` and the three public pages that call `auth()` directly
+  `await connection()` first, because Auth.js can reach
+  `crypto.getRandomValues()` for a visitor with no session cookie, which Next
+  rejects as an unstable value unless the render is already per-request. One visible difference: the
+  server-rendered `<html lang>` is `en` and `HtmlLang`
+  (`src/components/i18n/html-lang.tsx`) sets the real locale from an inline
+  script before any content paints (the locale needs a DB read, which would
+  make the whole document request-bound), so a client that runs no
+  JavaScript sees `lang="en"`. `e2e/smoke.spec.ts` and `public.spec.ts`
+  assert `html[lang]` in both languages.
 - **Recently visited pages stay in the browser for 15 s (PERF-21).**
   `next.config.ts` sets `experimental.staleTimes.dynamic` to 15 (Next 16's
   default is 0), so switching back to a tab seen seconds ago reuses its
@@ -99,8 +121,9 @@ easy for AI coding agents to work in correctly:
   edits show at once; another household member's change can take up to 15 s
   to appear on a client navigation (a reload always shows it). `static`
   keeps its 5 min default. The flag is experimental in Next; reverting is
-  deleting the block. If the Cache Components work (PERF-31) goes ahead,
-  `cacheLife`'s `stale` value controls this instead. `e2e/flows.spec.ts`
+  deleting the block. It still applies with Cache Components on (PERF-31):
+  nothing uses `cacheLife` yet, so there is no `stale` value to conflict
+  with it; once routes do, `cacheLife`'s `stale` replaces it per route. `e2e/flows.spec.ts`
   ("an edit still shows after navigating away and back") covers it.
 - **Dialogs load on first use (PERF-26).** A dialog is most of a heavy
   page's unused JS, so a page declares each one's chunk with
@@ -542,7 +565,7 @@ email is built server-side from request headers (`x-forwarded-host`/
 Action is a POST endpoint reachable by anyone, not just through the UI that
 renders it. `InviteButton` (`src/components/household/invite-button.tsx`)
 adds an email input + send button below the existing link/copy UI, reusing
-the same invitation token the link already points at. If creating the link fails (a returned error or a dropped request), the dialog shows the error with a "Try again" button; every attempt clears the previous error first, so a retry that works never shows the old failure above the link (UX-146). `sendInviteEmailAction`
+the same invitation token the link already points at. If creating the link fails (a returned error or a dropped request), the dialog shows the error with a "Try again" button; every attempt clears the previous error first, so a retry that works never shows the old failure above the link (UX-146). A dropped request on the email send, and on the member actions (remove, transfer ownership, leave in `member-list.tsx`), is caught and shown as an error toast (`invite.sendFailed`, `memberActions.removeFailed`, `transfer.failed`, `leave.failed`) instead of reaching the error boundary; the typed email stays in the field and the transfer dialog closes (UX-182). `sendInviteEmailAction`
 is rate-limited (`checkRateLimit`, 10/hour) keyed on the *sending* household
 member (`invite-email:<userId>`), returning `{ error }` past the limit —
 without it, any authenticated household member could trigger unlimited
@@ -7152,6 +7175,30 @@ everywhere.
 - **Not in scope**: multi-tag (AND/OR) filtering, custom household tags,
   and using tags in the Cook tab or "use it up" ranking.
 
+### Recipe course (GAP-72)
+
+AnyList, Plan to Eat and Paprika file recipes by course. `Recipe.mealTypes
+MealType[] @default([])` (migration `recipe_meal_types`) uses the same enum
+as `MealPlanEntry`, so nothing needs mapping, and an empty list (every
+existing and every imported recipe) changes nothing.
+
+- **Setting**: the recipe form has a "Course" group of toggle chips
+  (`aria-pressed`, labels from `mealTypeBreakfast` etc.) beside the tags,
+  posted as hidden `mealTypes` inputs. `createRecipeAction` and
+  `updateRecipeAction` run them through `parseMealTypes`
+  (`meal-types.ts`), which drops anything outside the enum and returns
+  canonical order, so an edit replaces the whole set and posting none
+  clears it. Duplicating a recipe copies the set.
+- **Add to plan**: the dialog's meal type starts on the recipe's first
+  course (`defaultMealType`, Breakfast before Lunch, Dinner, Snack), and on
+  Dinner without one. The user can still change it.
+- **Filter**: the Recipes tab has a meal filter ("All meals" / one course)
+  next to the tag filter. On a phone the search takes its own row and the
+  two filters share the next.
+- Not done: no auto-generated plans, no import mapping.
+- Tests: `recipe-actions.test.ts` ("recipe meal types"),
+  `e2e/recipe-meal-types.spec.ts` (en and sv, desktop and mobile).
+
 ### Household required diet (GAP-71)
 
 Mealime builds plans around a diet set once; Squirrel's recipe tags
@@ -8502,6 +8549,37 @@ arrows, Enter, the click and the live count work the same on both.
 Covered by `e2e/command-palette.spec.ts`,
 `command-palette-commands.test.ts` and `src/lib/actions/search.test.ts`
 (tenancy scoping, validation, rate limit).
+
+### Single-key list shortcuts (UX-41c)
+
+`src/components/dashboard/keyboard-shortcuts.tsx`, mounted once in the
+dashboard layout beside the palette. On the shopping list pages, Inventory
+and Tasks (`isShortcutPath`), for people at a keyboard:
+
+| Key | Does |
+| --- | --- |
+| `n` | New: clicks the page's add button (Tasks, Inventory) or focuses the shopping list's add field |
+| `/` | Focuses the page's search field (Inventory; Shopping and Tasks have none, so nothing happens) |
+| `j` / `k` | Highlights the next / previous row (an inset ring, no wrapping; the first press lands on the first row) |
+| `x` | Ticks the highlighted row: a task done, a shopping item bought, an inventory row selected |
+| `?` | Opens the "Keyboard shortcuts" overlay listing these |
+
+- The page owns the meaning of each key by marking its controls:
+  `data-shortcut="new"`, `data-shortcut="search"` and `data-shortcut-row`
+  (the row's first checkbox is what `x` clicks). The component knows no
+  feature, and an unmarked or hidden control is skipped.
+- Ignored while typing in a text field, combobox or editable element, with a
+  modifier held (Ctrl+K stays the palette), with any dialog, alert dialog,
+  menu or listbox open, and on a touch-first device (`(hover: hover) and
+  (pointer: fine)` must match). Held-key repeats are ignored.
+- Never the only way to anything (M7): each key has a visible button, field
+  or checkbox. No mobile UI, and nothing is stored in the browser
+  (`cookie-inventory.ts` unchanged).
+- Strings are in `dict.shortcuts` (en and sv). The key logic is in
+  `keyboard-shortcuts-logic.ts`.
+
+Covered by `e2e/keyboard-shortcuts.desktop.spec.ts` and
+`keyboard-shortcuts-logic.test.ts`.
 
 
 ## Releases & What's new

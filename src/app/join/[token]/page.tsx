@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -16,7 +17,13 @@ import { buildMetadata } from "@/lib/page-metadata";
 
 // UX-64: generateMetadata and the page both need the invitation; cache()
 // makes it one lookup per request.
-const loadInvitation = cache(getInvitationForDisplay);
+// PERF-31: connection() first, so the lookup (which reads crypto/time) runs
+// after the render is marked per-request; generateMetadata and the page both
+// go through this.
+const loadInvitation = cache(async (token: string) => {
+  await connection();
+  return getInvitationForDisplay(token);
+});
 
 // The link preview WhatsApp or iMessage draws for an invite names the
 // household, so the person receiving it sees what they're being asked to join.
@@ -37,6 +44,7 @@ export async function generateMetadata(props: PageProps<"/join/[token]">): Promi
 
 export default async function JoinPage(props: PageProps<"/join/[token]">) {
   const { token } = await props.params;
+  await connection();
   const [invitation, session, dict] = await Promise.all([
     loadInvitation(token),
     auth(),
