@@ -392,7 +392,7 @@ code read, not driven through the UI.
 
 ### Dependencies
 
-- [ ] **DEPS-1. Bump `@sentry/nextjs` to 11.11 to clear the moderate `npm audit` advisories** (impact: med, effort: S) —
+- [ ] **DEPS-6. Bump `@sentry/nextjs` to 11.11 to clear the moderate `npm audit` advisories** (impact: med, effort: S) —
       `npm audit --omit=dev` reports 5 moderate findings, all through
       `@sentry/nextjs` 11.10.0 (range 10.76.2–11.10.0) → `@sentry/node` /
       `@sentry/bundler-plugins` → `glob` (AbortSignal cancellation bypass,
@@ -401,7 +401,7 @@ code read, not driven through the UI.
       Acceptance: `npm audit --omit=dev` reports 0 vulnerabilities;
       `npm run check && npm run build` pass; Sentry init in
       `instrumentation*.ts` and `next.config.ts` unchanged.
-- [ ] **DEPS-2. Group the in-range patch/minor bumps into one PR** (impact: low, effort: S) —
+- [ ] **DEPS-7. Group the in-range patch/minor bumps into one PR** (impact: low, effort: S) —
       `next`/`eslint-config-next` 16.4.3→16.4.5, `@upstash/redis` 1.39→1.41,
       `resend` 6.34→6.37, `lucide-react` 1.61→1.70, `@tailwindcss/postcss` and
       `tailwindcss` 4.3.3→4.3.4, `@vercel/functions` 3.10→3.11, `vitest`
