@@ -99,12 +99,6 @@ Parallel-safe except where noted.
 
 ### Bugs
 
-- [ ] **BUG-1. Red next: `stock-history.spec.ts:38` fails in the full e2e run** (medium, S) —
-      `e2e/stock-history.spec.ts:38` "a decrement shows under History with who made it, after a reload" (en, `desktop` and `mobile`) times out waiting for the History row. It failed in a full `npm run ci:local` on clean `origin/next` (65220cb, 2026-11-05) and on PR #1151's head, 2 of 2 times each, yet passes when the spec runs alone, so it depends on load or on state another spec leaves in the worker's household. Start from the failure trace and the spec's waiting (`waitForUndoableDelete`/`expectHydrated`, AGENTS.md "UI tests").
-      Likely cause (GitHub e2e job, run 41947757548 on release PR #1143, `desktop`): it failed twice in attempt 1 on `getByRole("main").getByText("E2E Tester used 1 pcs")`, which hardcodes `E2E_USER.displayName`, and passed on the re-run. A spec that renames the worker's shared seeded user through the profile form (suspects: `pending-button-width.spec.ts`, `one-primary-action.spec.ts`) leaves the new name behind, so the result depends on spec order. Fix: read the user's current displayName from the DB as `task-compact-rows.spec.ts` (`currentDisplayName`) and `split-remainder.spec.ts` do, for both locales. It also timed out under load in PR #1151's local run.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: the full `npm run ci:local` is green on this spec, and `npx playwright test e2e/stock-history.spec.ts --repeat-each=30` passes 30/30 on both projects.
-
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
