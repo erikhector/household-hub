@@ -234,6 +234,15 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
+      `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
+      Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
+      `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
