@@ -45,10 +45,18 @@ for (const locale of LOCALES) {
           [item.id, E2E_HOUSEHOLD.id, item.name],
         ),
       );
+      // Another spec (pending-button-width) saves a new display name for the
+      // en user, so read the current name rather than the seeded one: in a
+      // full run the seeded "E2E Tester" is long gone by the time this runs.
+      const user = locale === "sv" ? E2E_USER_SV : E2E_USER;
+      const actor = await withClient(async (client) => {
+        const { rows } = await client.query(`SELECT "displayName" FROM "User" WHERE id = $1`, [user.id]);
+        return rows[0].displayName as string;
+      });
       const strings =
         locale === "sv"
-          ? { decrease: "Minska", history: "Historik", line: `${E2E_USER_SV.displayName} använde 1 st` }
-          : { decrease: "Decrease", history: "History", line: `${E2E_USER.displayName} used 1 pcs` };
+          ? { decrease: "Minska", history: "Historik", line: `${actor} använde 1 st` }
+          : { decrease: "Decrease", history: "History", line: `${actor} used 1 pcs` };
 
       await page.goto(`/dashboard/inventory/items/${item.id}`);
       const main = page.getByRole("main");
