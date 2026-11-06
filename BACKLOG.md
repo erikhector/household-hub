@@ -392,6 +392,26 @@ code read, not driven through the UI.
 
 ### Dependencies
 
+- [ ] **DEPS-6. Bump `@sentry/nextjs` to 11.11 to clear the moderate `npm audit` advisories** (impact: med, effort: S) —
+      `npm audit --omit=dev` reports 5 moderate findings, all through
+      `@sentry/nextjs` 11.10.0 (range 10.76.2–11.10.0) → `@sentry/node` /
+      `@sentry/bundler-plugins` → `glob` (AbortSignal cancellation bypass,
+      <=14.0.1) and `minimatch` (globparts DoS, <11.0.1). Build-time
+      tooling mostly, but it is the only audit noise and a bump fixes it.
+      Acceptance: `npm audit --omit=dev` reports 0 vulnerabilities;
+      `npm run check && npm run build` pass; Sentry init in
+      `instrumentation*.ts` and `next.config.ts` unchanged.
+- [ ] **DEPS-7. Group the in-range patch/minor bumps into one PR** (impact: low, effort: S) —
+      `next`/`eslint-config-next` 16.4.3→16.4.5, `@upstash/redis` 1.39→1.41,
+      `resend` 6.34→6.37, `lucide-react` 1.61→1.70, `@tailwindcss/postcss` and
+      `tailwindcss` 4.3.3→4.3.4, `@vercel/functions` 3.10→3.11, `vitest`
+      5.0.5→5.1.0, `@playwright/test` 1.64→1.65, `axe-core` 4.13→4.14,
+      `shadcn` 4.22→4.23, `cn` 0.5→0.5.2. Skip the majors (`eslint` 10,
+      `typescript` 7, `prisma` 8 rc, `@types/node` 26, `next-auth` 4 is a
+      downgrade tag): none is due. Keep Playwright's browser version in
+      step with the pre-installed one. Acceptance: `npm run ci:local`
+      green on the bumped lockfile (desktop and mobile e2e).
+
 ---
 
 ## Phase 2 — schema changes, one at a time
