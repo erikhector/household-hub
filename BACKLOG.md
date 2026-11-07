@@ -427,16 +427,12 @@ screenshot and code read, not driven through the UI.
 
 ### Dependencies
 
-- [ ] **DEPS-7. Group the in-range patch/minor bumps into one PR** (impact: low, effort: S) —
-      `next`/`eslint-config-next` 16.4.3→16.4.5, `@upstash/redis` 1.39→1.41,
-      `resend` 6.34→6.37, `lucide-react` 1.61→1.70, `@tailwindcss/postcss` and
-      `tailwindcss` 4.3.3→4.3.4, `@vercel/functions` 3.10→3.11, `vitest`
-      5.0.5→5.1.0, `@playwright/test` 1.64→1.65, `axe-core` 4.13→4.14,
-      `shadcn` 4.22→4.23, `cn` 0.5→0.5.2. Skip the majors (`eslint` 10,
-      `typescript` 7, `prisma` 8 rc, `@types/node` 26, `next-auth` 4 is a
-      downgrade tag): none is due. Keep Playwright's browser version in
-      step with the pre-installed one. Acceptance: `npm run ci:local`
-      green on the bumped lockfile (desktop and mobile e2e).
+- [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
+      Held back from DEPS-7: 1.65 wants Chromium build 1254 but the
+      pre-installed one is 1243, so the e2e suite can't launch until the
+      environment's browsers move. Bump once `npx playwright install
+      chromium` (or the image) provides 1254. Acceptance: `npm run
+      ci:local` green (desktop and mobile e2e).
 
 ---
 
