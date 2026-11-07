@@ -8757,6 +8757,14 @@ the sections sit in two columns, row by row, so the DOM order is the phone
 order. The display-name card no longer repeats "Display name" as its own
 heading. `e2e/ux-76.spec.ts` covers it.
 
+**Profile jump bar (UX-178)**: below `lg`, a row of four chips under the
+title (Account, Preferences, Notifications, Data & privacy, reusing the
+section headings) jumps to each section. Plain hash anchors (`#profile-<key>`)
+in a `nav` named `profile.jumpBar`, 44 px targets, wrapping rather than
+scrolling sideways so Swedish fits at 320 px; the headings carry `scroll-mt-4`.
+Hidden from `lg`, where both columns are on screen. `e2e/ux-178.mobile.spec.ts`
+covers it.
+
 ## Notification center
 
 A bell icon in the nav (desktop sidebar, mobile bottom nav's "More" menu —

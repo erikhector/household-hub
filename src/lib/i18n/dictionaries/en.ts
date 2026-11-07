@@ -3945,6 +3945,8 @@ export const en = {
     // current-password re-auth check is throttled. One string shared by
     // all three since they share one rate-limit bucket.
     reauthRateLimited: "Too many attempts. Please wait 15 minutes and try again.",
+    // UX-178: accessible name of the chip row that jumps between them.
+    jumpBar: "Jump to a section",
     // UX-76: the four section headings that group the page's cards.
     sections: {
       account: "Account",
