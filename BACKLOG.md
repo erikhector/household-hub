@@ -234,6 +234,15 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
+      `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
+      Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
+      `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -379,7 +388,38 @@ sweeps; all 290 + 132 tests pass, and the popup probe's only phone-size hit
 ellipsis (UX-150) are already known. WebKit was not run, and the per-action
 deep dive was a screenshot and code read, not driven through the UI.
 
+### UX (2026-11-05 scout)
+
+Thursday area: tasks, household, members and invites. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 290 + 132 tests pass, and the popup probe's only
+phone-size hit (the sheet grabber) and the `text-200` bottom-bar ellipsis
+(UX-150) are already known. The household tab bar scrolls at 200% text
+(Settings is cut by its fade), which is by design. WebKit was not run (no
+browser installed here), and the per-action deep dive was a screenshot and
+code read, not driven through the UI.
+
 ### Dependencies
+
+- [ ] **DEPS-6. Bump `@sentry/nextjs` to 11.11 to clear the moderate `npm audit` advisories** (impact: med, effort: S) —
+      `npm audit --omit=dev` reports 5 moderate findings, all through
+      `@sentry/nextjs` 11.10.0 (range 10.76.2–11.10.0) → `@sentry/node` /
+      `@sentry/bundler-plugins` → `glob` (AbortSignal cancellation bypass,
+      <=14.0.1) and `minimatch` (globparts DoS, <11.0.1). Build-time
+      tooling mostly, but it is the only audit noise and a bump fixes it.
+      Acceptance: `npm audit --omit=dev` reports 0 vulnerabilities;
+      `npm run check && npm run build` pass; Sentry init in
+      `instrumentation*.ts` and `next.config.ts` unchanged.
+- [ ] **DEPS-7. Group the in-range patch/minor bumps into one PR** (impact: low, effort: S) —
+      `next`/`eslint-config-next` 16.4.3→16.4.5, `@upstash/redis` 1.39→1.41,
+      `resend` 6.34→6.37, `lucide-react` 1.61→1.70, `@tailwindcss/postcss` and
+      `tailwindcss` 4.3.3→4.3.4, `@vercel/functions` 3.10→3.11, `vitest`
+      5.0.5→5.1.0, `@playwright/test` 1.64→1.65, `axe-core` 4.13→4.14,
+      `shadcn` 4.22→4.23, `cn` 0.5→0.5.2. Skip the majors (`eslint` 10,
+      `typescript` 7, `prisma` 8 rc, `@types/node` 26, `next-auth` 4 is a
+      downgrade tag): none is due. Keep Playwright's browser version in
+      step with the pre-installed one. Acceptance: `npm run ci:local`
+      green on the bumped lockfile (desktop and mobile e2e).
 
 ---
 
@@ -407,12 +447,6 @@ polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline ticks in the shop) shipped; UX-36b parks offline adds
 and price edits.
-
-- [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
-      UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
-      focus search, `j`/`k` move, `x` tick. Ignored while typing in a
-      field or with a dialog open. A `?` overlay lists them. Desktop only
-      (hidden on touch). e2e spec on the desktop project.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
@@ -534,21 +568,8 @@ Rules every follow-up keeps (from the original item):
   members tick it live). Anything reading `cookies()` stays outside a cached
   function.
 
-- [ ] **PERF-31. Cache Components prerequisite: make every route build with
-      the flag on** (L) — remove `dynamic = "force-dynamic"` from the five
-      route handlers (the handlers are already uncached: they read the
-      request or the DB, and Next treats a handler that does as dynamic);
-      set `partialPrefetching`; move the root layout's `cookies()` and
-      locale/theme/prefs reads under a `<Suspense>` (or into a runtime
-      boundary) so the shell can prerender; do the same for
-      `dashboard/layout.tsx`'s `requireHousehold()` and cookies, and give each
-      route a `loading` fallback that matches DESIGN.md. No `"use cache"` yet
-      and no behaviour change. Acceptance: `cacheComponents: true` builds,
-      `npm run ci:local` is green on desktop and mobile with no layout shift
-      from the new boundaries, and `staleTimes` (PERF-21) is replaced by
-      `cacheLife`'s `stale` if it conflicts. Blocks PERF-32 to PERF-36.
 - [ ] **PERF-32. Household cache helper, remote handler and Home summary**
-      (M) — `householdTag(id, area)` in one module, a Redis-backed
+      (M) `[!]` — `householdTag(id, area)` in one module, a Redis-backed
       `cacheHandlers` entry on Upstash (check `refreshTags()` and a GET
       timeout) used through `"use cache: remote"`, and Home's batch cached
       behind it with the three cookie-backed helpers kept outside. Takes
@@ -557,7 +578,17 @@ Rules every follow-up keeps (from the original item):
       before/after of the Home batch, stopping here if the saving is under
       ~50 ms, and an e2e spec that
       edits a task or an item and sees Home change without a reload delay.
-      Depends on PERF-31.
+      Depends on PERF-31 (shipped).
+      **Blocked, question for the owner:** the acceptance needs a
+      production before/after of the Home batch behind the Redis remote
+      handler, and a build session has no production access or Upstash
+      credentials, so it can't take that measurement and the stop-if-under-50 ms
+      gate can't be applied. Either (a) the owner supplies a way to measure
+      (a preview deploy with `UPSTASH_REDIS_REST_URL`/`TOKEN` and timings
+      from Vercel logs), or (b) split into PERF-32a (helper module plus
+      handler plus Home cached, behind an env flag that defaults to off)
+      and PERF-32b (measure in production, then flip the flag or revert).
+      Say which.
 - [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
       reads for the inventory list and item pages (tags
       `householdTag(id, "inventory")`) and for completed shopping lists. The
@@ -757,23 +788,46 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-04 scan
+### 2026-11-05 scan
 
-- [ ] **GAP-72. Recipe course (breakfast / dinner / snack) that pre-fills the meal type** (impact: low-med, effort: S) `[schema]` —
-      AnyList, Plan to Eat and Paprika file recipes by course, so planning a
-      breakfast offers breakfast recipes first. In Squirrel the "Add to
-      plan" sheet (UX-92) defaults the meal type to a fixed guess and the
-      recipe list can't be narrowed to "breakfast", so pancakes get planned
-      as dinner unless the user notices. Add `Recipe.mealTypes` (same enum
-      values as `MealPlanEntry`'s meal type, `@default([])`), set in the
-      recipe form as toggle chips beside the dietary tags. "Add to plan"
-      preselects the recipe's first meal type, and the recipe list gains a
-      meal-type filter next to the tag filter. Scope: no auto-generated
-      plans, no import mapping (leave empty on import).
-      Acceptance: unit test that the action stores only valid meal types
-      and that an update replaces the set; an e2e step on `mobile` marks a
-      new recipe "Breakfast", opens Add to plan and sees Breakfast
-      preselected, in `en` and `sv`.
+- [ ] **GAP-73. Notes on a household task** (impact: med, effort: S) `[schema]` —
+      Chores Tracker, Todoist and Cozi let a task carry a few lines of
+      detail ("filter is under the sink, replace the 20x25 one"), so the
+      person whose turn it is doesn't have to ask. `HouseholdTask` has only
+      a title (REQUIREMENTS.md, "Household tasks" → Model), so that
+      detail goes in the title or nowhere. Add nullable `HouseholdTask.notes`
+      (max 500 chars, plain text, no links rendered), edited in the task
+      sheet as a textarea (16 px, `autoComplete="off"`), shown as one
+      truncated line under the title on the row that expands in the sheet.
+      Scope: no checklists, no attachments, no comments thread.
+      Acceptance: unit test that the action trims, caps at 500 and clears
+      on empty; an e2e step on `mobile` adds a note, reloads and sees it in
+      the sheet, in `en` and `sv`.
+
+- [ ] **GAP-74. Tell the household when tasks are due today** (impact: med, effort: M) `[schema]` —
+      Chores Tracker (v2.2) and Home Chores AI push a reminder when a chore
+      is yours or due. Squirrel has assignment, rotation and due dates for
+      tasks but `NotificationKind` has no task kind, so a rotation that
+      lands on you, or a task due today, is only seen if you open Tasks
+      (the Home "Today" card shows it only after opening the app). Add
+      `TASK_DUE`, built the same way as `TONIGHTS_DINNER` (GAP-57;
+      REQUIREMENTS.md, "Tonight's dinner"): one household-wide bell entry
+      per day listing the open tasks that are due today or overdue, each
+      with its assignee. Tasks are already visible to every member, so a
+      household-wide row leaks nothing. Only the push is per member: it
+      goes to members who turned on a new per-user toggle (default off)
+      and have at least one listed task assigned to them, and names only
+      their own tasks. No streaks or nagging. Schema: a `TASK_DUE` value
+      on `NotificationKind`, a nullable `Notification.taskDueDate` with a
+      unique on `(householdId, taskDueDate)` as the day dedupe, and the
+      `User` toggle column, in one migration. Scope: no "assigned to you"
+      instant ping, no push for unassigned tasks, no per-member bell rows.
+      Acceptance: unit test that a second run the same day creates no
+      second entry (the `(householdId, taskDueDate)` unique), that
+      completed and skipped tasks are left out, and that the push skips
+      members who are opted out or have nothing assigned; e2e on `mobile`
+      turns the toggle on, has a task due today assigned to the member,
+      and sees one bell entry linking to Tasks, in `en` and `sv`.
 
 ## Needs a decision before building
 

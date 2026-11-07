@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag, type RecipeTag } from "@/lib/recipe-tags";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
@@ -66,6 +67,17 @@ type MealPlanningDict = Dictionary["mealPlanning"];
 // Tag filter's "no filter" value — a sentinel that can't collide with a
 // RecipeTag key, same as inventory-client.tsx's.
 const ALL = "__all__";
+
+const mealTypeDictKey = {
+  BREAKFAST: "mealTypeBreakfast",
+  LUNCH: "mealTypeLunch",
+  DINNER: "mealTypeDinner",
+  SNACK: "mealTypeSnack",
+} as const;
+
+function isMealType(value: string): value is MealType {
+  return (MEAL_TYPES as readonly string[]).includes(value);
+}
 
 function matchesQuery(recipe: RecipeData, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -131,6 +143,8 @@ export function RecipeManager({
   // GAP-29: ALL or one RecipeTag key. Combines with the name search (both
   // must match); vegan implies vegetarian/dairy-free via recipeMatchesTag.
   const [tagFilter, setTagFilter] = useState<string>(ALL);
+  // GAP-72: "all / one course", next to the tag filter.
+  const [mealTypeFilter, setMealTypeFilter] = useState<string>(ALL);
   // GAP-48: the id of a just-duplicated recipe. Its row opens the edit
   // dialog once it exists in the refreshed list, then clears this.
   const [editNewId, setEditNewId] = useState<string | null>(null);
@@ -156,9 +170,10 @@ export function RecipeManager({
     () =>
       recipes.filter(
         (recipe) =>
-          matchesQuery(recipe, query) && (!isRecipeTag(tagFilter) || recipeMatchesTag(recipe.tags, tagFilter)),
+          matchesQuery(recipe, query) && (!isRecipeTag(tagFilter) || recipeMatchesTag(recipe.tags, tagFilter)) &&
+          (!isMealType(mealTypeFilter) || recipe.mealTypes.includes(mealTypeFilter)),
       ),
-    [recipes, query, tagFilter],
+    [recipes, query, tagFilter, mealTypeFilter],
   );
   // GAP-51: queued recipes pin to a "Cook soon" shelf above the list.
   const { shelf, rest } = useMemo(() => splitCookSoon(filteredRecipes), [filteredRecipes]);
@@ -344,6 +359,7 @@ export function RecipeManager({
               defaultPortions={plannedRecipe?.servings ?? planTarget.servings}
               recipeTags={plannedRecipe?.tags}
               requiredTags={requiredTags}
+              defaultMealType={plannedRecipe?.mealTypes[0]}
               plannerWeekStartKey={plannerWeekStartKey}
               controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
             />
@@ -381,17 +397,17 @@ export function RecipeManager({
               Select the inventory page uses for category and location. Only
               one row's worth of controls, so unlike inventory there's no
               folded mobile "Filters" dialog — both fit side by side. */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <SearchInput
               value={query}
               onValueChange={setQuery}
               placeholder={dict.searchRecipesPlaceholder}
               aria-label={dict.searchRecipesPlaceholder}
               clearLabel={dict.clearSearch}
-              containerClassName="min-w-0 flex-1"
+              containerClassName="min-w-0 basis-full sm:basis-0 sm:flex-1"
             />
             <Select value={tagFilter} onValueChange={(v) => setTagFilter(v ?? ALL)}>
-              <SelectTrigger className="w-36 shrink-0 sm:w-44" aria-label={dict.tagFilterLabel}>
+              <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label={dict.tagFilterLabel}>
                 <SelectValue>
                   {(v: string) => (isRecipeTag(v) ? dict.recipeTags[v] : dict.allTags)}
                 </SelectValue>
@@ -401,6 +417,21 @@ export function RecipeManager({
                 {RECIPE_TAGS.map((tag) => (
                   <SelectItem key={tag} value={tag}>
                     {dict.recipeTags[tag]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={mealTypeFilter} onValueChange={(v) => setMealTypeFilter(v ?? ALL)}>
+              <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label={dict.mealTypeFilterLabel}>
+                <SelectValue>
+                  {(v: string) => (isMealType(v) ? dict[mealTypeDictKey[v]] : dict.allMealTypes)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{dict.allMealTypes}</SelectItem>
+                {MEAL_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {dict[mealTypeDictKey[type]]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -925,6 +956,7 @@ function RecipeRow({
             defaultPortions={recipe.servings}
             recipeTags={recipe.tags}
             requiredTags={requiredTags}
+            defaultMealType={recipe.mealTypes[0]}
             plannerWeekStartKey={plannerWeekStartKey}
             controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
           />

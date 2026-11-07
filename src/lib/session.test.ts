@@ -31,6 +31,8 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ get: cookiesGetMock })),
 }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+// PERF-31: connection() throws outside a request; the guards call it before auth().
+vi.mock("next/server", () => ({ connection: async () => {} }));
 
 const { requireHousehold, requireUserId, requireUserWithoutHousehold, NO_HOUSEHOLD_PATH } = await import(
   "@/lib/session"

@@ -214,6 +214,17 @@ export const en = {
     whatsNew: "What's new",
     whatsNewUnseen: "New update",
   },
+  // UX-41c: the single-key list shortcuts and their `?` overlay.
+  shortcuts: {
+    title: "Keyboard shortcuts",
+    description: "On the shopping, inventory and task lists. They work when you are not typing in a field.",
+    new: "Add a new item or task",
+    search: "Search",
+    next: "Next row",
+    previous: "Previous row",
+    tick: "Tick the highlighted row",
+    help: "Show this list",
+  },
   // UX-41a: the ⌘K / Ctrl+K command palette (command-palette.tsx).
   commandPalette: {
     title: "Command palette",
@@ -339,6 +350,7 @@ export const en = {
       send: "Send",
       sending: "Sending…",
       sent: "Invite sent to {email}",
+      sendFailed: "Could not send the invite. Check your connection and try again.",
     },
     pendingInvites: {
       title: "Pending invites",
@@ -364,6 +376,7 @@ export const en = {
       ariaLabel: "Member actions for {name}",
       transfer: "Make owner",
       remove: "Remove from household",
+      removeFailed: "Could not remove the member. Check your connection and try again.",
     },
     confirmRemoveMember: {
       title: "Remove {name}?",
@@ -546,6 +559,7 @@ export const en = {
       confirmButton: "Transfer ownership",
       transferring: "Transferring…",
       cancel: "Cancel",
+      failed: "Could not transfer ownership. Check your connection and try again.",
     },
     leave: {
       ariaLabel: "Leave household",
@@ -557,6 +571,7 @@ export const en = {
       confirmButton: "Leave household",
       leaving: "Leaving…",
       cancel: "Cancel",
+      failed: "Could not leave the household. Check your connection and try again.",
     },
   },
   dashboard: {
@@ -2472,6 +2487,11 @@ export const en = {
     notTagBadge: "Not {tag}",
     recipeTagsLabel: "Tags",
     recipeTagsHint: "Used to filter your recipe list.",
+    // GAP-72: course chips in the recipe form and the list's meal filter.
+    recipeMealTypesLabel: "Course",
+    recipeMealTypesHint: 'Where this recipe fits. "Add to plan" preselects the first one.',
+    mealTypeFilterLabel: "Filter by meal",
+    allMealTypes: "All meals",
     tagFilterLabel: "Filter by tag",
     allTags: "All tags",
     ingredientCount: {

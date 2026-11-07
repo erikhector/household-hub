@@ -243,6 +243,7 @@ export function InventoryClient({
           <SearchInput
             value={name}
             onValueChange={setName}
+            data-shortcut="search"
             placeholder={dict.searchPlaceholder}
             clearLabel={dict.clearSearch}
             containerClassName="flex-1 sm:flex-none sm:w-48"

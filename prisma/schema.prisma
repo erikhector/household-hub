@@ -860,6 +860,11 @@ model Recipe {
   // every write goes through parseRecipeTags, and so does every read, so a
   // key later removed from the set is silently ignored rather than shown.
   tags                   String[] @default([])
+  // GAP-72: the course(s) this recipe suits, using the same MealType enum as
+  // MealPlanEntry so no mapping is needed. Only ever a hint: "Add to plan"
+  // preselects the first one and the recipe list can be filtered by it; an
+  // empty list (every pre-existing and imported recipe) changes nothing.
+  mealTypes              MealType[] @default([])
   // GAP-51 "Cook soon": when the household queued this recipe for the pinned
   // shelf at the top of the Recipes tab. Null means not queued. A timestamp
   // rather than a boolean so the shelf can list recipes in the order they

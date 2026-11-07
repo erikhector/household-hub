@@ -13,7 +13,9 @@ import { reportError } from "@/lib/report-error";
 // fetch every URL in a message, and a GET that unsubscribed would switch
 // people off without them ever clicking. The page does the actual write
 // through a Server Action (same pattern as /verify-email/[token]).
-export const dynamic = "force-dynamic";
+// PERF-31: no `dynamic = "force-dynamic"` (not allowed with Cache Components).
+// A handler that reads the request or the DB is dynamic on its own, and
+// nothing here uses "use cache", so it is never cached.
 
 export async function POST(_request: Request, ctx: RouteContext<"/api/digest/unsubscribe/[token]">) {
   const { token } = await ctx.params;

@@ -54,6 +54,8 @@ export type RecipeData = {
   // Recipe.tags (GAP-29), already run through parseRecipeTags in page.tsx
   // so only known keys in canonical order ever reach the client.
   tags: RecipeTag[];
+  // Recipe.mealTypes (GAP-72), canonical order via parseMealTypes in page.tsx.
+  mealTypes: MealType[];
   ingredients: RecipeIngredientData[];
   components: RecipeComponentData[];
 };

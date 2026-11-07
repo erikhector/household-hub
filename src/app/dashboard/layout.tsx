@@ -11,6 +11,7 @@ import {
 } from "@/components/dashboard/email-verification-banner";
 import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { CommandPalette } from "@/components/dashboard/command-palette";
+import { KeyboardShortcuts } from "@/components/dashboard/keyboard-shortcuts";
 import { UnitsProvider } from "@/components/units-provider";
 import { requireHousehold } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
@@ -43,7 +44,20 @@ async function EmailVerificationCheck({
   return <EmailVerificationBanner dict={dict} />;
 }
 
-export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
+// PERF-31 (Cache Components): the shell needs the session, the household and
+// cookies, all request-bound, so DashboardLayout itself reads nothing and
+// renders the shell under one Suspense boundary. No fallback: before this the
+// whole response waited on the same reads, so the page is blank for the same
+// time and nothing shifts. The route's loading.tsx shows inside the shell.
+export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
+  return (
+    <Suspense fallback={null}>
+      <DashboardShell>{children}</DashboardShell>
+    </Suspense>
+  );
+}
+
+async function DashboardShell({ children }: { children: React.ReactNode }) {
   const { userId, household, role, households } = await requireHousehold();
   const [cookieStore, dict, locale] = await Promise.all([cookies(), getDictionary(), getLocale()]);
   // Not awaited: this layout uses cookies()/auth() above, which forces it to
@@ -204,6 +218,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </main>
       </div>
       <CommandPalette dict={dict.commandPalette} nav={dict.nav} />
+      <KeyboardShortcuts dict={dict.shortcuts} />
       {/* iOS 26 ignores theme-color (and, for a Home Screen app, the
           apple-mobile-web-app-status-bar-style tag in layout.tsx) and
           paints the status-bar strip from a `position: fixed` element

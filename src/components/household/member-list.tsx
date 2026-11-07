@@ -112,8 +112,14 @@ export function MemberList({
 
   function handleRemove(memberId: string) {
     startTransition(async () => {
-      const result = await removeMemberAction(memberId);
-      if (result.error) toast.error(result.error);
+      // A dropped request throws; toast it rather than let the error
+      // boundary replace the page (UX-182).
+      try {
+        const result = await removeMemberAction(memberId);
+        if (result.error) toast.error(result.error);
+      } catch {
+        toast.error(dict.memberActions.removeFailed);
+      }
     });
   }
 
@@ -121,17 +127,26 @@ export function MemberList({
     if (!transferTarget) return;
     const memberId = transferTarget.id;
     startTransition(async () => {
-      const result = await transferOwnershipAction(memberId);
-      if (result.error) toast.error(result.error);
+      try {
+        const result = await transferOwnershipAction(memberId);
+        if (result.error) toast.error(result.error);
+      } catch {
+        toast.error(dict.transfer.failed);
+      }
       setTransferTarget(null);
     });
   }
 
   function handleLeave() {
     startTransition(async () => {
-      const result = await leaveHouseholdAction();
-      if (result.error) {
-        toast.error(result.error);
+      try {
+        const result = await leaveHouseholdAction();
+        if (result.error) {
+          toast.error(result.error);
+          setLeaveOpen(false);
+        }
+      } catch {
+        toast.error(dict.leave.failed);
         setLeaveOpen(false);
       }
     });
