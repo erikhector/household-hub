@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { en } from "../src/lib/i18n/dictionaries/en";
 import { sv } from "../src/lib/i18n/dictionaries/sv";
-import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets, setLocaleCookie } from "./ui";
+import { STORAGE_STATE_SV } from "./seed";
+import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
 
 // UX-178: the profile page is ~7 700 px tall on a phone, so a row of chips
 // under the title jumps straight to each section.
@@ -26,12 +27,17 @@ test("tapping Notifications brings the push notifications heading into view", as
   await expect(push).toBeInViewport();
 });
 
-test("the chip row has 44 px targets and fits a 320 px screen in Swedish", async ({ page, context, baseURL }) => {
-  await setLocaleCookie(context, baseURL!, "sv");
-  await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto("/dashboard/profile");
-  const nav = page.getByRole("navigation", { name: sv.profile.jumpBar });
-  await expect(nav.getByRole("link", { name: sv.profile.sections.data })).toBeVisible();
-  await expectNoHorizontalOverflow(page);
-  await expectTouchTargets(page);
+// The Swedish seeded user, since the locale of a signed-in user comes from
+// their account rather than a cookie.
+test.describe("in Swedish", () => {
+  test.use({ storageState: STORAGE_STATE_SV });
+
+  test("the chip row has 44 px targets and fits a 320 px screen in Swedish", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto("/dashboard/profile");
+    const nav = page.getByRole("navigation", { name: sv.profile.jumpBar });
+    await expect(nav.getByRole("link", { name: sv.profile.sections.data })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectTouchTargets(page);
+  });
 });
