@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.144.1",
+    "date": "2026-11-07",
+    "pr": 1190,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Behind-the-scenes update to our error-reporting tooling. Nothing changes in how Squirrel looks or works.",
+      "sv": "Uppdatering i kulisserna av verktyget för felrapportering. Inget ändras i hur Squirrel ser ut eller fungerar."
+    }
+  },
+  {
     "version": "0.144.0",
     "date": "2026-11-07",
     "pr": 1186,
