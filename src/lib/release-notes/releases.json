@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.146.0",
+    "date": "2026-11-07",
+    "pr": 1206,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "A household task can now carry a few lines of notes, such as where the filter is and which size to buy. They show under the task's title, and you edit them by tapping the task.",
+      "sv": "En uppgift kan nu ha några rader anteckningar, till exempel var filtret finns och vilken storlek man ska köpa. De visas under uppgiftens titel, och du ändrar dem genom att trycka på uppgiften."
+    }
+  },
+  {
     "version": "0.145.0",
     "date": "2026-11-07",
     "pr": 1201,
