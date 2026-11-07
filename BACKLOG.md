@@ -255,6 +255,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/week-picks.spec.ts:128` ("pick a meal, shop for it, place it and send it back to the tray"), `mobile` project. In the same `ci:local` run on #1190's head (373f534) "Pick the meals you want this week…" wasn't visible in the "Picked for this week" region (line 131); it passed on a re-run of the same spec. Start from the failing trace: the region may be read before the pick has re-rendered.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/week-picks.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-89. Flaky: an item's name doesn't morph from the catalogue into its page on mobile** (low, S) —
+      `e2e/motion.spec.ts:303` ("an item's name morphs from the catalogue into its page"), `mobile` project. In the first full `ci:local` run on PR #1202's head (e934f6d, 2026-11-07) it failed; it passed in the next full run on the final head (48c43c6), with the diff not touching inventory or motion. Start from the failing trace: the check may read the transition before the view transition has started on a loaded runner.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-90. Flaky: the "In the cart" button isn't found after pressing x on a shopping row on desktop** (low, S) —
+      `e2e/keyboard-shortcuts.desktop.spec.ts:110` ("x ticks the highlighted shopping row into In the cart"), `desktop` project. In one full `ci:local` run on PR #1203's head (862c398, 2026-11-07) the "In the cart" button wasn't found within 5 s; it passed in the next full run on the same commit and 22/22 in isolation, with the diff touching only e2e helper timeouts. Start from the failing trace: the key press may land before the list's key handler is attached.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/keyboard-shortcuts.desktop.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
