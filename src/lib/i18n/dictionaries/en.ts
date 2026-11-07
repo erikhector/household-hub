@@ -2732,6 +2732,9 @@ export const en = {
     addTaskPlaceholder: "e.g. Take out the bins",
     addTaskAriaLabel: "Task title",
     titleCounter: "{count} of {max} characters",
+    // GAP-73
+    notesLabel: "Notes",
+    notesPlaceholder: "e.g. The filter is under the sink, replace the 20x25 one",
     assigneeLabel: "Assign to",
     unassignedOption: "Unassigned",
     add: "Add",

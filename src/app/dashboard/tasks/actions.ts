@@ -45,6 +45,18 @@ function dueDateFor(value: string | null | undefined, recurrenceIntervalDays: nu
   return parseDueDateInput(value);
 }
 
+// GAP-73: free-text detail on a task. Browsers send a textarea's line breaks
+// as CRLF, so they are normalised first; the text is trimmed and cut at the
+// cap (the form's maxLength already stops typing there, so this only guards a
+// forged call). Empty or missing means no note: `undefined` leaves an
+// existing note alone on edit, `null`/"" clears it.
+const TASK_NOTES_MAX_LENGTH = 500;
+const notesSchema = z
+  .string()
+  .nullable()
+  .optional()
+  .transform((value) => (value == null ? value : value.replace(/\r\n?/g, "\n").trim().slice(0, TASK_NOTES_MAX_LENGTH).trim()));
+
 // GAP-38: the ordered "take turns" list. Empty means no rotation. Shape is
 // checked here; the cross-field rules (needs a repeat, needs ≥2 people,
 // everyone must belong to this household) live in resolveTaskAssignment
@@ -57,6 +69,7 @@ const rotationMemberIdsSchema = z
 
 const createTaskSchema = z.object({
   title: z.string().trim().min(1, v("titleRequired")).max(120, v("titleTooLong")),
+  notes: notesSchema,
   assignedToMemberId: z.string().trim().min(1).optional(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
   dueDate: dueDateSchema,
@@ -67,6 +80,7 @@ const updateTaskSchema = z.object({
   // UX-24: the edit dialog can rename a task. Optional so a caller that only
   // reassigns or re-repeats leaves the title alone.
   title: createTaskSchema.shape.title.optional(),
+  notes: notesSchema,
   assignedToMemberId: z.string().trim().min(1).nullable(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
   dueDate: dueDateSchema,
@@ -144,6 +158,7 @@ export async function createTaskAction(
 
   const parsed = createTaskSchema.safeParse({
     title: formData.get("title"),
+    notes: formData.get("notes") ?? undefined,
     assignedToMemberId: formData.get("assignedToMemberId") || undefined,
     recurrenceIntervalDays: formData.get("recurrenceIntervalDays") || undefined,
     dueDate: formData.get("dueDate") || undefined,
@@ -166,6 +181,7 @@ export async function createTaskAction(
       data: {
         householdId: household.id,
         title: parsed.data.title,
+        notes: parsed.data.notes || null,
         ...resolved.data,
         dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
         // UX-144: a repeating task's anchor day starts as the day it is made.
@@ -184,6 +200,7 @@ export async function updateTaskAction(
   taskId: string,
   input: {
     title?: string;
+    notes?: string | null;
     assignedToMemberId: string | null;
     recurrenceIntervalDays: number | null;
     dueDate?: string | null;
@@ -217,6 +234,7 @@ export async function updateTaskAction(
         ...resolved.data,
         dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
         ...(parsed.data.title !== undefined && { title: parsed.data.title }),
+        ...(parsed.data.notes !== undefined && { notes: parsed.data.notes || null }),
         // UX-144: editing the interval re-anchors the schedule on today, which
         // is how "every Thursday" is set (edit on a Thursday). Saving the same
         // interval leaves the anchor alone; dropping the repeat clears it.
