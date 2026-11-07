@@ -64,9 +64,25 @@ async function planFor(client: Client, week: string): Promise<string> {
   return plan.rows[0].id;
 }
 
+// Drops whatever this spec's weeks hold in the worker's household. The
+// afterEach runs it too, but a test must set up what it needs rather than
+// count on the last run having tidied: a pick or meal left in one of these
+// weeks (a run killed before its afterEach, a write still in flight when it
+// ran) turns the tray into its "N picks" or one-line form, and the empty
+// tray's invitation the first test reads (MAINT-88) is never shown.
+async function clearSpecWeeks(client: Client) {
+  // By week, not id: plans the app made for these weeks have their own ids.
+  // Their entries and picks go with them.
+  await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::date[])`, [
+    E2E_HOUSEHOLD.id,
+    ALL_WEEKS,
+  ]);
+}
+
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await withClient(async (client) => {
+    await clearSpecWeeks(client);
     // Two recipes, one unstocked ingredient each, so each pick is "1 missing".
     for (const [suffix, name, ingredient] of [
       ["curry", curry, coconut],
@@ -88,12 +104,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 test.afterEach(async () => {
   await withClient(async (client) => {
-    // By week, not id: plans the app made for these weeks have their own ids.
-    // Their entries and picks go with them.
-    await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::date[])`, [
-      E2E_HOUSEHOLD.id,
-      ALL_WEEKS,
-    ]);
+    await clearSpecWeeks(client);
     // Meals cooked today and carried picks live in this week's plan, which
     // other specs use too: only this test's own rows go.
     await client.query(
