@@ -27,6 +27,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -49,6 +50,8 @@ type MemberOption = { id: string; displayName: string };
 type EditableTask = {
   id: string;
   title: string;
+  /** GAP-73: plain-text detail, or null. */
+  notes: string | null;
   assignedToMemberId: string | null;
   recurrenceIntervalDays: number | null;
   /** UX-133: a one-off's due date as YYYY-MM-DD. */
@@ -65,6 +68,9 @@ const initialState: ActionState = {};
 // characters before it so the limit is never a surprise (UX-107).
 const TITLE_MAX_LENGTH = 120;
 const TITLE_COUNTER_FROM = 100;
+// GAP-73: same cap as the server schema; the counter shows from 450.
+const NOTES_MAX_LENGTH = 500;
+const NOTES_COUNTER_FROM = 450;
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_REPEAT_VALUE = "__no_repeat__";
 const RECURRENCE_OPTION_DAYS = [1, 2, 3, 7] as const;
@@ -103,6 +109,8 @@ export function TaskFormDialog({
   );
   const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
   const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");
+  const [notes, setNotes] = useState(mode === "edit" ? (task?.notes ?? "") : "");
+  const showNotesCounter = notes.length >= NOTES_COUNTER_FROM;
 
   // UX-41a: the command palette's "Add task" lands here with `?add=1`. Only
   // the create form listens (the edit dialogs share this component). The
@@ -131,6 +139,7 @@ export function TaskFormDialog({
       );
       setRotation(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
       setDueDate(mode === "edit" ? (task?.dueDate ?? "") : "");
+      setNotes(mode === "edit" ? (task?.notes ?? "") : "");
     }
   };
 
@@ -182,6 +191,7 @@ export function TaskFormDialog({
           if (!task) return { error: dict.editTask.notFound };
           return updateTaskAction(task.id, {
             title: String(formData.get("title") ?? ""),
+            notes: String(formData.get("notes") ?? ""),
             assignedToMemberId: (formData.get("assignedToMemberId") as string | null) ?? null,
             recurrenceIntervalDays: formData.has("recurrenceIntervalDays")
               ? Number(formData.get("recurrenceIntervalDays"))
@@ -235,6 +245,31 @@ export function TaskFormDialog({
                 className={`text-xs ${title.length >= TITLE_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"}`}
               >
                 {format(dict.titleCounter, { count: title.length, max: TITLE_MAX_LENGTH })}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="task-notes">{dict.notesLabel}</Label>
+            {/* GAP-73: plain text only; 16 px (the Textarea's base size) so iOS
+                doesn't zoom on focus. */}
+            <Textarea
+              id="task-notes"
+              name="notes"
+              autoComplete="off"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={dict.notesPlaceholder}
+              maxLength={NOTES_MAX_LENGTH}
+              aria-describedby={showNotesCounter ? "task-notes-counter" : undefined}
+            />
+            {showNotesCounter && (
+              <p
+                id="task-notes-counter"
+                role="status"
+                className={`text-xs ${notes.length >= NOTES_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"}`}
+              >
+                {format(dict.titleCounter, { count: notes.length, max: NOTES_MAX_LENGTH })}
               </p>
             )}
           </div>

@@ -803,19 +803,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-11-05 scan
 
-- [ ] **GAP-73. Notes on a household task** (impact: med, effort: S) `[schema]` —
-      Chores Tracker, Todoist and Cozi let a task carry a few lines of
-      detail ("filter is under the sink, replace the 20x25 one"), so the
-      person whose turn it is doesn't have to ask. `HouseholdTask` has only
-      a title (REQUIREMENTS.md, "Household tasks" → Model), so that
-      detail goes in the title or nowhere. Add nullable `HouseholdTask.notes`
-      (max 500 chars, plain text, no links rendered), edited in the task
-      sheet as a textarea (16 px, `autoComplete="off"`), shown as one
-      truncated line under the title on the row that expands in the sheet.
-      Scope: no checklists, no attachments, no comments thread.
-      Acceptance: unit test that the action trims, caps at 500 and clears
-      on empty; an e2e step on `mobile` adds a note, reloads and sees it in
-      the sheet, in `en` and `sv`.
 
 - [ ] **GAP-74. Tell the household when tasks are due today** (impact: med, effort: M) `[schema]` —
       Chores Tracker (v2.2) and Home Chores AI push a reminder when a chore

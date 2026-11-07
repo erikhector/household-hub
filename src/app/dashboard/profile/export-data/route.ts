@@ -230,6 +230,7 @@ export async function GET() {
     householdTasks: tasks.map((task) => ({
       householdName: task.household.name,
       title: task.title,
+      notes: task.notes,
       assignedToMe: task.assignedToMember?.userId === userId,
       completedByMe: task.completedByMember?.userId === userId,
       completedAt: task.completedAt,
