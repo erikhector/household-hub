@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.145.0",
+    "date": "2026-11-07",
+    "pr": 1201,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On phones, the Profile page now has a row of shortcuts under the title that jump straight to Account, Preferences, Notifications or Data & privacy.",
+      "sv": "På mobilen har Profil nu en rad genvägar under rubriken som tar dig direkt till Konto, Inställningar, Aviseringar eller Data och integritet."
+    }
+  },
+  {
     "version": "0.144.1",
     "date": "2026-11-07",
     "pr": 1190,
