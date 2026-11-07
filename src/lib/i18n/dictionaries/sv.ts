@@ -266,6 +266,7 @@ export const sv = {
     priceSpikePlain: "{name} kostade mer än vanligt",
     putAwayReminder: "Dags att ställa in varorna från {name}?",
     tonightsDinner: "På menyn idag: {names}",
+    taskDue: "Sysslor att göra idag: {tasks}",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
@@ -3864,6 +3865,14 @@ export const sv = {
         "En avisering om dagen med dagens planerade måltider. Inget skickas om inget är planerat eller allt redan är lagat.",
       enabledToast: "Du får en menypåminnelse på morgonen",
       disabledToast: "Menypåminnelsen är avstängd",
+    },
+    taskDue: {
+      title: "Sysslor att göra idag",
+      label: "Påminn mig varje morgon om mina sysslor som ska göras idag",
+      description:
+        "En pushnotis om dagen med dina egna sysslor som ska göras idag eller är försenade. Inget skickas om ingen av dem är din.",
+      enabledToast: "Du får en syssloppåminnelse på morgonen",
+      disabledToast: "Syssloppåminnelsen är avstängd",
     },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:

@@ -8914,6 +8914,26 @@ Exactly seven triggers exist — nothing else creates a notification:
   household-wide like every other kind, but the push goes only to the
   opted-in members (`sendPushToHouseholdMembers`, quiet hours apply).
   Covered by `e2e/tonights-dinner-nudge.spec.ts`.
+- **Tasks due today** (GAP-74, opt-in, off by default): one `TASK_DUE`
+  entry per household per day listing the open tasks that are due today or
+  overdue, each with its assignee ("Take out bins (Anna)"), linking to
+  Tasks. Built like Tonight's dinner: `syncTaskDueNudge` runs from the same
+  `/api/cron/sync-notifications` job, gated on `User.taskDueNudge` (default
+  `false`; Profile, Notifications section, "Tasks due today",
+  `setTaskDueNudgeAction`, included in the data export), and does nothing
+  unless a member has it on and at least one task qualifies. "Open" and
+  "due" are the Tasks page's own rules (`isTaskOpen`, `getTaskDueDay`), so
+  completed, ticked-repeating and skipped tasks are left out; "today" is
+  the UTC date. Once a day is the `Notification` unique on
+  `(householdId, taskDueDate)` (the create is the claim; a repeat run or a
+  dismissed entry sends nothing more). The task lines are snapshotted on
+  the row (`taskLines`). Tasks are visible to every member, so the bell
+  entry is household-wide; only the push is per member: each opted-in
+  member with at least one listed task assigned to them gets one naming
+  only their own tasks (`sendPushToHouseholdMembers`, quiet hours apply).
+  No push for unassigned tasks, no "assigned to you" instant ping and no
+  per-member bell rows. Covered by `e2e/task-due-nudge.spec.ts` (`en` and
+  `sv`).
 - **List cleared** (good news): a `ShoppingList`'s unpurchased item count
   crossing from >0 to 0 — `recordListClearedTransition`, called from
   `togglePurchasedAction`/`deleteShoppingListItemAction` and their
@@ -8990,7 +9010,7 @@ Exactly seven triggers exist — nothing else creates a notification:
     apply as for every push (`sendPushToHousehold`). A share-link visitor
     has no account, so a jump they record pushes every member. There are
     no per-kind notification settings to respect — none exist for any
-    kind except the opt-in Tonight's dinner nudge above.
+    kind except the opt-in Tonight's dinner and Tasks due today nudges above.
 - All of these triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a

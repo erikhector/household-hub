@@ -53,7 +53,11 @@
 //   listing that day's planned meals that aren't cooked yet — synced by
 //   `syncTonightsDinnerNudge` below on the same cron run, and only for
 //   households where at least one member turned on
-//   `User.tonightsDinnerNudge`. The only trigger that is off by default.
+//   `User.tonightsDinnerNudge`. Off by default.
+// - Tasks due today (GAP-74, opt-in): the same shape for the open tasks due
+//   today or overdue — `syncTaskDueNudge` below, gated on
+//   `User.taskDueNudge`. The bell entry is household-wide; the push goes to
+//   opted-in members who have a listed task assigned to them.
 //
 // There used to be another, good-news "restocked" trigger (the inverse of
 // out-of-stock, firing when an item crossed back above its low-stock
@@ -78,6 +82,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma-errors";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { dueDateToDayNumber, getTaskDueDay } from "@/app/dashboard/tasks/task-due";
 import { after } from "next/server";
 import { sendPushToHousehold, sendPushToHouseholdMembers } from "@/lib/push";
 import { INCOMING_MAX_AGE_DAYS } from "@/lib/incoming-stock";
@@ -152,6 +158,13 @@ export type TonightsDinnerNotification = {
   names: string[];
 };
 
+export type TaskDueNotification = {
+  id: string;
+  kind: "taskDue";
+  // One line per task, assignee included ("Water the plants (Anna)").
+  lines: string[];
+};
+
 export type NotificationItem =
   | OutOfStockNotification
   | MealNotLoggedNotification
@@ -159,7 +172,8 @@ export type NotificationItem =
   | ListClearedNotification
   | PriceSpikeNotification
   | PutAwayReminderNotification
-  | TonightsDinnerNotification;
+  | TonightsDinnerNotification
+  | TaskDueNotification;
 
 // A history-list entry: the same shape as the bell's NotificationItem, plus
 // the timestamps the notification center page needs to show "when" and
@@ -239,6 +253,11 @@ function toNotificationItem(row: NotificationRow): NotificationItem[] {
         names: row.mealNames,
       },
     ];
+  }
+
+  if (row.kind === "TASK_DUE") {
+    if (row.taskLines.length === 0) return [];
+    return [{ id: row.id, kind: "taskDue", lines: row.taskLines }];
   }
 
   if (!row.mealPlanEntry) return [];
@@ -832,8 +851,82 @@ export async function syncTonightsDinnerNudge(householdId: string, now: Date = n
   );
 }
 
+// "Tasks due today" (GAP-74) — opt-in, built like syncTonightsDinnerNudge
+// above: silent unless a member turned it on AND at least one open task is
+// due today or overdue. Tasks are visible to every member, so the
+// household-wide bell entry (one line per task, assignee in brackets) leaks
+// nothing; only the push is per member: each opted-in member who has a
+// listed task assigned to them gets one naming just their own tasks. No
+// push for unassigned tasks and no per-member bell rows.
+//
+// "Open" and "due" are the Tasks page's own rules (isTaskOpen, getTaskDueDay),
+// so a completed one-off, a ticked repeating task and a skipped one are left
+// out. "Today" is the UTC date, as for the dinner nudge. The
+// `(householdId, taskDueDate)` unique is the day dedupe (P2002 = already sent,
+// a dismissed entry included).
+//
+// Exported for `/api/cron/sync-notifications` (the only caller).
+export async function syncTaskDueNudge(householdId: string, now: Date = new Date()): Promise<void> {
+  const recipients = await prisma.user.findMany({
+    where: { taskDueNudge: true, memberships: { some: { householdId } } },
+    select: { id: true },
+  });
+  if (recipients.length === 0) return;
+
+  const today = new Date(toDateKey(now));
+  const todayDay = dueDateToDayNumber(today);
+  const tasks = await prisma.householdTask.findMany({
+    where: { householdId, OR: [{ recurrenceIntervalDays: { not: null } }, { completedAt: null, dueDate: { lte: today } }] },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      title: true,
+      dueDate: true,
+      completedAt: true,
+      recurrenceIntervalDays: true,
+      createdAt: true,
+      recurrenceAnchorAt: true,
+      skippedUntil: true,
+      assignedToMember: { select: { userId: true, user: { select: { displayName: true } } } },
+    },
+  });
+  const due = tasks
+    .map((task) => ({ task, dueDay: getTaskDueDay(task) }))
+    .filter(({ task, dueDay }) => dueDay !== null && dueDay <= todayDay && isTaskOpen(task, now))
+    // Longest overdue first, like the Tasks page.
+    .sort((a, b) => a.dueDay! - b.dueDay!)
+    .map(({ task }) => task);
+  if (due.length === 0) return;
+
+  try {
+    await prisma.notification.create({
+      data: {
+        householdId,
+        kind: "TASK_DUE",
+        taskDueDate: today,
+        taskLines: due.map((task) =>
+          task.assignedToMember ? `${task.title} (${task.assignedToMember.user.displayName})` : task.title,
+        ),
+      },
+    });
+  } catch (error) {
+    // P2002: already filed today (an earlier run, or one racing this one).
+    if (isUniqueViolation(error)) return;
+    throw error;
+  }
+
+  for (const user of recipients) {
+    const own = due.filter((task) => task.assignedToMember?.userId === user.id).map((task) => task.title);
+    if (own.length === 0) continue;
+    await sendPushToHouseholdMembers(householdId, [user.id], {
+      title: "Tasks due today",
+      body: own.join(", "),
+      url: "/dashboard/tasks",
+    });
+  }
+}
+
 // PERF-13: the households `/api/cron/sync-notifications` needs to run the
-// four syncs above for, so the cron's cost follows how much work exists, not
+// five syncs above for, so the cron's cost follows how much work exists, not
 // how many households are registered. One `household.findMany` per trigger,
 // each with the same predicate as the sync's own candidate query (kept side
 // by side so they can't drift), run in parallel and unioned. A match only
@@ -846,7 +939,7 @@ export async function findHouseholdIdsWithSyncCandidates(now: Date = new Date())
   const expiryThreshold = new Date(now.getTime() + EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000);
   const putAwaySince = new Date(now.getTime() - INCOMING_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
 
-  const [mealNotLogged, expiringSoon, putAway, tonightsDinner] = await Promise.all([
+  const [mealNotLogged, expiringSoon, putAway, tonightsDinner, taskDue] = await Promise.all([
     prisma.household.findMany({
       where: {
         mealPlans: { some: { entries: { some: { date: { lt: today }, consumedAt: null, notification: null } } } },
@@ -881,9 +974,18 @@ export async function findHouseholdIdsWithSyncCandidates(now: Date = new Date())
       },
       select: { id: true },
     }),
+    // Never narrower than syncTaskDueNudge: any repeating task might be due,
+    // a one-off only when dated today or earlier and still open.
+    prisma.household.findMany({
+      where: {
+        members: { some: { user: { taskDueNudge: true } } },
+        tasks: { some: { OR: [{ recurrenceIntervalDays: { not: null } }, { completedAt: null, dueDate: { lte: today } }] } },
+      },
+      select: { id: true },
+    }),
   ]);
 
-  return [...new Set([...mealNotLogged, ...expiringSoon, ...putAway, ...tonightsDinner].map((household) => household.id))];
+  return [...new Set([...mealNotLogged, ...expiringSoon, ...putAway, ...tonightsDinner, ...taskDue].map((household) => household.id))];
 }
 
 // The bell's data source (src/app/dashboard/layout.tsx) — a pure read, no

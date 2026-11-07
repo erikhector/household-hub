@@ -25,3 +25,20 @@ export async function setTonightsDinnerNudgeAction(enabled: boolean): Promise<Ac
   revalidatePath("/dashboard/profile");
   return {};
 }
+
+// GAP-74: the "tasks due today" morning push opt-in. Same shape and reasoning
+// as the dinner nudge above (syncTaskDueNudge decides who gets the push).
+export async function setTaskDueNudgeAction(enabled: boolean): Promise<ActionState> {
+  const userId = await requireUserId();
+
+  if (typeof enabled !== "boolean") return await fail("invalidInput");
+
+  try {
+    await prisma.user.update({ where: { id: userId }, data: { taskDueNudge: enabled } });
+  } catch (error) {
+    return await toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/profile");
+  return {};
+}
