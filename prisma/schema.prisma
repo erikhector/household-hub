@@ -1726,6 +1726,9 @@ model HouseholdTask {
   id                     String    @id @default(cuid())
   householdId            String
   title                  String
+  // GAP-73: a few lines of plain-text detail ("the filter is under the sink").
+  // Max 500 chars, trimmed; null for none. Never rendered as links.
+  notes                  String?
   assignedToMemberId     String?
   completedAt            DateTime?
   completedByMemberId    String?

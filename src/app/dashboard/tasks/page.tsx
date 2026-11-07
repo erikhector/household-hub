@@ -62,6 +62,7 @@ const getTasksData = cache(async (householdId: string) => {
       return {
         id: t.id,
         title: t.title,
+        notes: t.notes,
         assignedToMemberId: t.assignedToMemberId,
         completedByMemberId: t.completedByMemberId,
         completed,

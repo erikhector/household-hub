@@ -243,10 +243,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-86. Flaky: the Add first dinner button isn't hydrated in the empty-slots spec on mobile** (low, S) —
-      `e2e/meal-planner-empty-slots.spec.ts:51` ("adding a meal to an empty day asks for the slot"), `mobile` project. In the GitHub e2e job on release PR #1190 (run 42337969112, 2026-11-07) it failed on the first attempt and on its retry, then passed when the job was re-run on the same commit (the release held only a Sentry bump). `expectHydrated` (`e2e/ui.ts:318`, called from line 58) timed out at 5000ms on "Add first dinner". Start from the failing trace: the button may be rendered before its handler attaches on a phone, or a late re-render replaces it.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-87. Flaky: the custom meal's ingredients aren't in the Add missing ingredients dialog on mobile** (low, S) —
       `e2e/planner-add-missing.spec.ts:129` ("a custom meal's ingredients appear in the bridge preview and land on the list"), `mobile` project. In a full `ci:local` run on release PR #1190's head (373f534, 2026-11-07) the `Tortillas…` text wasn't visible in the dialog (line 145); it passed on a re-run of the same spec. Start from the failing trace: the preview may render before the custom meal's ingredients load.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -255,6 +251,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/week-picks.spec.ts:128` ("pick a meal, shop for it, place it and send it back to the tray"), `mobile` project. In the same `ci:local` run on #1190's head (373f534) "Pick the meals you want this week…" wasn't visible in the "Picked for this week" region (line 131); it passed on a re-run of the same spec. Start from the failing trace: the region may be read before the pick has re-rendered.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/week-picks.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-89. Flaky: an item's name doesn't morph from the catalogue into its page on mobile** (low, S) —
+      `e2e/motion.spec.ts:303` ("an item's name morphs from the catalogue into its page"), `mobile` project. In the first full `ci:local` run on PR #1202's head (e934f6d, 2026-11-07) it failed; it passed in the next full run on the final head (48c43c6), with the diff not touching inventory or motion. Start from the failing trace: the check may read the transition before the view transition has started on a loaded runner.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-90. Flaky: the "In the cart" button isn't found after pressing x on a shopping row on desktop** (low, S) —
+      `e2e/keyboard-shortcuts.desktop.spec.ts:110` ("x ticks the highlighted shopping row into In the cart"), `desktop` project. In one full `ci:local` run on PR #1203's head (862c398, 2026-11-07) the "In the cart" button wasn't found within 5 s; it passed in the next full run on the same commit and 22/22 in isolation, with the diff touching only e2e helper timeouts. Start from the failing trace: the key press may land before the list's key handler is attached.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/keyboard-shortcuts.desktop.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -803,19 +807,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-11-05 scan
 
-- [ ] **GAP-73. Notes on a household task** (impact: med, effort: S) `[schema]` —
-      Chores Tracker, Todoist and Cozi let a task carry a few lines of
-      detail ("filter is under the sink, replace the 20x25 one"), so the
-      person whose turn it is doesn't have to ask. `HouseholdTask` has only
-      a title (REQUIREMENTS.md, "Household tasks" → Model), so that
-      detail goes in the title or nowhere. Add nullable `HouseholdTask.notes`
-      (max 500 chars, plain text, no links rendered), edited in the task
-      sheet as a textarea (16 px, `autoComplete="off"`), shown as one
-      truncated line under the title on the row that expands in the sheet.
-      Scope: no checklists, no attachments, no comments thread.
-      Acceptance: unit test that the action trims, caps at 500 and clears
-      on empty; an e2e step on `mobile` adds a note, reloads and sees it in
-      the sheet, in `en` and `sv`.
 
 - [ ] **GAP-74. Tell the household when tasks are due today** (impact: med, effort: M) `[schema]` —
       Chores Tracker (v2.2) and Home Chores AI push a reminder when a chore

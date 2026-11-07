@@ -2599,6 +2599,9 @@ export const sv = {
     addTaskPlaceholder: "t.ex. Ta ut soporna",
     addTaskAriaLabel: "Uppgiftens titel",
     titleCounter: "{count} av {max} tecken",
+    // GAP-73
+    notesLabel: "Anteckningar",
+    notesPlaceholder: "t.ex. Filtret ligger under diskbänken, byt mot det på 20x25",
     assigneeLabel: "Tilldela",
     unassignedOption: "Ingen tilldelad",
     add: "Lägg till",

@@ -132,6 +132,7 @@ describe("createTaskAction", () => {
       data: {
         householdId: "household-1",
         title: "Water the plants",
+        notes: null,
         assignedToMemberId: null,
         recurrenceIntervalDays: null,
         recurrenceAnchorAt: null,
@@ -158,6 +159,7 @@ describe("createTaskAction", () => {
       data: {
         householdId: "household-1",
         title: "Run the dishwasher",
+        notes: null,
         assignedToMemberId: "member-2",
         recurrenceIntervalDays: null,
         recurrenceAnchorAt: null,
@@ -182,6 +184,7 @@ describe("createTaskAction", () => {
       data: {
         householdId: "household-1",
         title: "Laundry",
+        notes: null,
         assignedToMemberId: null,
         recurrenceIntervalDays: 3,
         recurrenceAnchorAt: expect.any(Date),
@@ -280,6 +283,48 @@ describe("updateTaskAction", () => {
     expect(householdTaskUpdateMock).toHaveBeenCalledWith({
       where: { id: "task-1" },
       data: expect.objectContaining({ title: "Water the plants" }),
+    });
+  });
+
+  describe("notes (GAP-73)", () => {
+    const base = { assignedToMemberId: null, recurrenceIntervalDays: null, rotationMemberIds: [] };
+    const savedNotes = () => householdTaskUpdateMock.mock.calls[0][0].data.notes;
+
+    it("trims the note and normalises line breaks", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue({ id: "task-1" });
+      await updateTaskAction("task-1", { ...base, notes: "  under the sink\r\nthe 20x25 one  " });
+      expect(savedNotes()).toBe("under the sink\nthe 20x25 one");
+    });
+
+    it("caps the note at 500 characters", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue({ id: "task-1" });
+      await updateTaskAction("task-1", { ...base, notes: "a".repeat(700) });
+      expect(savedNotes()).toBe("a".repeat(500));
+    });
+
+    it("clears the note when it is empty or only spaces", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue({ id: "task-1" });
+      await updateTaskAction("task-1", { ...base, notes: "   " });
+      expect(savedNotes()).toBeNull();
+    });
+
+    it("leaves the note alone when the caller does not send one", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskFindFirstMock.mockResolvedValue({ id: "task-1" });
+      await updateTaskAction("task-1", base);
+      expect(householdTaskUpdateMock.mock.calls[0][0].data).not.toHaveProperty("notes");
+    });
+
+    it("saves a trimmed, capped note on create and null when blank", async () => {
+      requireHouseholdMock.mockResolvedValue({ household });
+      householdTaskCreateMock.mockResolvedValue({ id: "task-1" });
+      await createTaskAction({}, formData({ title: "Filter", notes: `  ${"b".repeat(600)}  ` }));
+      expect(householdTaskCreateMock.mock.calls[0][0].data.notes).toBe("b".repeat(500));
+      await createTaskAction({}, formData({ title: "Filter", notes: "  " }));
+      expect(householdTaskCreateMock.mock.calls[1][0].data.notes).toBeNull();
     });
   });
 
@@ -573,6 +618,7 @@ describe("task rotation (GAP-38)", () => {
       data: {
         householdId: "household-1",
         title: "Bins",
+        notes: null,
         assignedToMemberId: "member-2",
         recurrenceIntervalDays: 7,
         recurrenceAnchorAt: expect.any(Date),
