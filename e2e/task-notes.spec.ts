@@ -30,7 +30,7 @@ for (const locale of LOCALES) {
   test.describe(`task notes (${locale})`, () => {
     test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
 
-    test("adds a note, reloads and finds it in the sheet and on the row", async ({ page, context, baseURL }) => {
+    test("adds a note, reloads and finds it in the sheet and on the row", async ({ page, context, baseURL, isMobile }) => {
       const t = COPY[locale];
       await dismissCookieNotice(context, baseURL!);
       const title = unique("Replace the filter");
@@ -49,8 +49,9 @@ for (const locale of LOCALES) {
       const sheet = page.getByRole("dialog", { name: t.edit(title) });
       const notes = sheet.getByRole("textbox", { name: t.notesField });
       await expect(notes).toHaveValue("");
-      // 16 px so iOS doesn't zoom the page on focus.
-      await expect(notes).toHaveCSS("font-size", "16px");
+      // 16 px on touch screens so iOS does not zoom the page on focus (the
+      // Textarea steps down to 14 px for a mouse).
+      if (isMobile) await expect(notes).toHaveCSS("font-size", "16px");
       await notes.fill(`  ${note}  `);
       await sheet.getByRole("button", { name: t.save, exact: true }).click();
       await waitForDialogHistory(page);
