@@ -20,7 +20,7 @@ import { format } from "@/lib/i18n/format";
 import { CURRENT_VERSION } from "@/lib/release-notes";
 import { PageTitle } from "@/components/dashboard/page-title";
 
-const sectionHeading = "font-heading text-lg font-semibold";
+const sectionHeading = "scroll-mt-4 font-heading text-lg font-semibold";
 
 // UX-76: four sections instead of eleven loose cards (DESIGN.md M6 and
 // Hierarchy). Account, Preferences, Notifications, then Data & privacy, with
@@ -54,6 +54,23 @@ export default async function ProfilePage({
           <p className="mt-1 text-xs text-muted-foreground">{dict.profile.avatar.description}</p>
         </div>
       </div>
+      {/* UX-178: the page is ~7 700 px tall on a phone, so the four sections
+          get a row of chips that jump to them. Plain hash anchors: they work
+          before hydration, need no state, and scroll <main> to the heading
+          (scroll-mt on the h2). Wraps rather than scrolls sideways so
+          "Data och integritet" still fits at 320 px. Phones and tablets only;
+          from `lg` the two-column layout puts everything on one screen. */}
+      <nav aria-label={dict.profile.jumpBar} className="flex flex-wrap gap-2 lg:hidden">
+        {(["account", "preferences", "notifications", "data"] as const).map((key) => (
+          <a
+            key={key}
+            href={`#profile-${key}`}
+            className="touch-target justify-center rounded-full border bg-muted/50 px-4 text-sm font-medium hover:bg-muted"
+          >
+            {dict.profile.sections[key]}
+          </a>
+        ))}
+      </nav>
       <div className="grid max-w-4xl items-start gap-x-6 gap-y-8 grid-cols-1 lg:grid-cols-2">
         <section aria-labelledby="profile-account" className="flex flex-col gap-3">
           <h2 id="profile-account" className={sectionHeading}>

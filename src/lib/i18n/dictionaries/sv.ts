@@ -3744,6 +3744,8 @@ export const sv = {
     subtitle: "Dina kontouppgifter.",
     reauthRateLimited: "För många försök. Vänta 15 minuter och försök igen.",
     // UX-76: the four section headings that group the page's cards.
+    // UX-178: the chip row that jumps between the sections.
+    jumpBar: "Hoppa till en avdelning",
     sections: {
       account: "Konto",
       preferences: "Inställningar",

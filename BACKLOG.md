@@ -421,19 +421,6 @@ a hidden zero-size "Invite member" button on the household page. WebKit was
 not run (no browser installed here), and the per-action deep dive was a
 screenshot and code read, not driven through the UI.
 
-- [ ] **UX-178. Section jump bar on the profile page** (impact: med, effort: S) —
-      `mobile-sv-dashboard-profile.png` is 7 700 px tall (Pixel 7): account,
-      settings, notifications and data stack in one column, and the
-      sections already carry ids (`src/app/dashboard/profile/page.tsx:59-105`)
-      that nothing links to. Reaching "Aviseringar" or "Data och integritet"
-      means a long thumb scroll. Breaks DESIGN.md's "reduce the path to the
-      common action". Add a row of chips under the title (Account, Settings,
-      Notifications, Data) that scrolls to each section, 44 px targets,
-      shown below `lg` only, with all text from the dictionaries (en + sv).
-      Acceptance: in the `mobile` project, tapping "Notifications" brings
-      the "Push notifications" heading into view without a manual scroll,
-      and the row doesn't overflow at 320 px (`expectNoHorizontalOverflow`).
-
 ### Dependencies
 
 - [ ] **DEPS-7. Group the in-range patch/minor bumps into one PR** (impact: low, effort: S) —
