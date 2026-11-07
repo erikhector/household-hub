@@ -243,6 +243,18 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-86. Flaky: the Add first dinner button isn't hydrated in the empty-slots spec on mobile** (low, S) —
+      `e2e/meal-planner-empty-slots.spec.ts:51` ("adding a meal to an empty day asks for the slot"), `mobile` project. In the GitHub e2e job on release PR #1190 (run 42337969112, 2026-11-07) it failed on the first attempt and on its retry, then passed when the job was re-run on the same commit (the release held only a Sentry bump). `expectHydrated` (`e2e/ui.ts:318`, called from line 58) timed out at 5000ms on "Add first dinner". Start from the failing trace: the button may be rendered before its handler attaches on a phone, or a late re-render replaces it.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/meal-planner-empty-slots.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-87. Flaky: the custom meal's ingredients aren't in the Add missing ingredients dialog on mobile** (low, S) —
+      `e2e/planner-add-missing.spec.ts:129` ("a custom meal's ingredients appear in the bridge preview and land on the list"), `mobile` project. In a full `ci:local` run on release PR #1190's head (373f534, 2026-11-07) the `Tortillas…` text wasn't visible in the dialog (line 145); it passed on a re-run of the same spec. Start from the failing trace: the preview may render before the custom meal's ingredients load.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-88. Flaky: the week-picks tray text isn't visible after picking a meal on mobile** (low, S) —
+      `e2e/week-picks.spec.ts:128` ("pick a meal, shop for it, place it and send it back to the tray"), `mobile` project. In the same `ci:local` run on #1190's head (373f534) "Pick the meals you want this week…" wasn't visible in the "Picked for this week" region (line 131); it passed on a re-run of the same spec. Start from the failing trace: the region may be read before the pick has re-rendered.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/week-picks.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -398,6 +410,16 @@ phone-size hit (the sheet grabber) and the `text-200` bottom-bar ellipsis
 (Settings is cut by its fade), which is by design. WebKit was not run (no
 browser installed here), and the per-action deep dive was a screenshot and
 code read, not driven through the UI.
+
+### UX (2026-11-07 scout)
+
+Saturday area: overview, navigation shell, profile, notifications, what's
+new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
+`light`, `text-200` and both dialog sweeps; all 290 + 132 tests pass. The
+only audit hits are the known `text-200` bottom-bar ellipsis (UX-150) and
+a hidden zero-size "Invite member" button on the household page. WebKit was
+not run (no browser installed here), and the per-action deep dive was a
+screenshot and code read, not driven through the UI.
 
 ### Dependencies
 
