@@ -314,7 +314,14 @@ export async function gotoRevealed(page: Page, url: string) {
  * a `__reactProps$…` key. Call it before the first click on such a control. */
 export async function expectHydrated(target: Locator) {
   await expect
-    .poll(() => target.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps"))))
+    .poll(() => target.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps"))), {
+      // The default 5 s covers the control streaming in behind a loading.tsx
+      // skeleton and then the page's whole bundle hydrating, which on a loaded
+      // runner has outlasted it twice in a row (MAINT-86: "Add first dinner"
+      // on the phone project). Waiting longer is not a looser check: it still
+      // passes only once React owns the element.
+      timeout: 20_000,
+    })
     .toBe(true);
 }
 
@@ -333,7 +340,9 @@ export async function expectRouterPatched(page: Page) {
   // and the race it guards came back. The router's patch is the one that
   // tests the pushed state for `__NA`, which no other wrapper mentions.
   await expect
-    .poll(() => page.evaluate(() => window.history.replaceState.toString().includes("__NA")))
+    .poll(() => page.evaluate(() => window.history.replaceState.toString().includes("__NA")), {
+      timeout: 20_000, // as expectHydrated (MAINT-86): it runs right after it
+    })
     .toBe(true);
 }
 
