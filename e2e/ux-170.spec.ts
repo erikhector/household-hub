@@ -80,3 +80,22 @@ test("the active tab is scrolled into view on load", async ({ page }) => {
     )
     .toBe(true);
 });
+
+// MAINT-84: the mount effect measured the active tab with `offsetLeft`, which
+// counts from the nearest positioned ancestor (not the track), so on a track
+// narrower than its tabs even the first tab's target landed past the end and
+// the track opened scrolled to its last tab, reading "start" instead of
+// "end". Only a narrow track from the first paint shows it, because on the
+// real page the track is wide enough to clamp the scroll back to 0.
+test("the first tab's track opens at its start, not scrolled away", async ({ page }) => {
+  await page.addInitScript(() => {
+    const style = document.createElement("style");
+    style.textContent = "div.overflow-x-auto[data-activation-direction]{max-width:200px}";
+    document.documentElement.append(style);
+  });
+  await page.goto("/dashboard/budget");
+  await expectHydrated(page.getByRole("tab").first());
+  const bar = track(page);
+  await expect(bar).toHaveAttribute("data-fade", "end");
+  expect(await bar.evaluate((el) => el.scrollLeft)).toBe(0);
+});
