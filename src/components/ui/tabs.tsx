@@ -101,8 +101,15 @@ function Tabs<Value extends string = string>({
     if (!track || compact) return
     const active = track.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
     if (active) {
+      // The tab's position inside the track's scrollable content, from
+      // bounding rects: `offsetLeft` is measured from the nearest
+      // *positioned* ancestor, and the track isn't one, so it included the
+      // track's own distance from the page edge. On a narrowed track that
+      // pushed even the first tab's target past the end and scrolled the
+      // track to its last tab (MAINT-84).
+      const left = active.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft
       const room = (track.clientWidth - active.offsetWidth) / 2
-      track.scrollLeft = Math.max(0, active.offsetLeft - room)
+      track.scrollLeft = Math.max(0, left - room)
     }
   }, [compact])
 
