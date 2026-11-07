@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.144.0",
+    "date": "2026-11-07",
+    "pr": 1186,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Mark a recipe as breakfast, lunch, dinner or snack. \"Add to plan\" then starts on that meal, and you can filter your recipe list by meal.\n\nIf your connection drops while you send an invite email, remove a member, make someone the owner or leave a household, you now get a clear error message instead of an error page, and the email you typed is kept.\n\nOn the shopping, inventory and task lists you can now use the keyboard: press n to add, / to search, j and k to move between rows, x to tick one, and ? to see the list of shortcuts.",
+      "sv": "Markera ett recept som frukost, lunch, middag eller mellanmål. \"Lägg till i planen\" börjar då på den måltiden, och du kan filtrera receptlistan på måltid.\n\nOm anslutningen bryts när du skickar en inbjudan via e-post, tar bort en medlem, gör någon till ägare eller lämnar ett hushåll får du nu ett tydligt felmeddelande i stället för en felsida, och e-postadressen du skrev finns kvar.\n\nPå inköps-, lager- och uppgiftslistorna kan du nu använda tangentbordet: tryck n för att lägga till, / för att söka, j och k för att flytta mellan rader, x för att kryssa i och ? för att se alla kortkommandon."
+    }
+  },
+  {
     "version": "0.143.0",
     "date": "2026-11-05",
     "pr": 1143,
