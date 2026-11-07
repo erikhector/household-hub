@@ -243,10 +243,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-87. Flaky: the custom meal's ingredients aren't in the Add missing ingredients dialog on mobile** (low, S) —
-      `e2e/planner-add-missing.spec.ts:129` ("a custom meal's ingredients appear in the bridge preview and land on the list"), `mobile` project. In a full `ci:local` run on release PR #1190's head (373f534, 2026-11-07) the `Tortillas…` text wasn't visible in the dialog (line 145); it passed on a re-run of the same spec. Start from the failing trace: the preview may render before the custom meal's ingredients load.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-88. Flaky: the week-picks tray text isn't visible after picking a meal on mobile** (low, S) —
       `e2e/week-picks.spec.ts:128` ("pick a meal, shop for it, place it and send it back to the tray"), `mobile` project. In the same `ci:local` run on #1190's head (373f534) "Pick the meals you want this week…" wasn't visible in the "Picked for this week" region (line 131); it passed on a re-run of the same spec. Start from the failing trace: the region may be read before the pick has re-rendered.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -427,16 +423,12 @@ screenshot and code read, not driven through the UI.
 
 ### Dependencies
 
-- [ ] **DEPS-7. Group the in-range patch/minor bumps into one PR** (impact: low, effort: S) —
-      `next`/`eslint-config-next` 16.4.3→16.4.5, `@upstash/redis` 1.39→1.41,
-      `resend` 6.34→6.37, `lucide-react` 1.61→1.70, `@tailwindcss/postcss` and
-      `tailwindcss` 4.3.3→4.3.4, `@vercel/functions` 3.10→3.11, `vitest`
-      5.0.5→5.1.0, `@playwright/test` 1.64→1.65, `axe-core` 4.13→4.14,
-      `shadcn` 4.22→4.23, `cn` 0.5→0.5.2. Skip the majors (`eslint` 10,
-      `typescript` 7, `prisma` 8 rc, `@types/node` 26, `next-auth` 4 is a
-      downgrade tag): none is due. Keep Playwright's browser version in
-      step with the pre-installed one. Acceptance: `npm run ci:local`
-      green on the bumped lockfile (desktop and mobile e2e).
+- [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
+      Held back from DEPS-7: 1.65 wants Chromium build 1254 but the
+      pre-installed one is 1243, so the e2e suite can't launch until the
+      environment's browsers move. Bump once `npx playwright install
+      chromium` (or the image) provides 1254. Acceptance: `npm run
+      ci:local` green (desktop and mobile e2e).
 
 ---
 
