@@ -830,23 +830,6 @@ out to be a product-scope question rather than a scoped task should move to
       turns the toggle on, has a task due today assigned to the member,
       and sees one bell entry linking to Tasks, in `en` and `sv`.
 
-### 2026-11-08 scan
-
-- [ ] **GAP-79. Meal-plan search also matches ingredients** (impact: low, effort: S) —
-      Plan to Eat's planner search (8.3.2, April 2026) finds ingredients
-      and notes, not just meal names. Squirrel's search
-      (REQUIREMENTS.md, "Meal-plan search (GAP-59)") matches only the
-      recipe name or `freeformName`, so "when did we last have salmon?"
-      finds nothing unless salmon is in the title. Extend `searchMealPlan`
-      (`meal-plan-search.ts`) so an entry also matches when one of its
-      recipe's ingredient names contains the text; same household scope,
-      365-day window and cap of 20, no schema change. Show the matched
-      ingredient as a second line only when the name didn't match.
-      Acceptance: unit test that a recipe with an "Salmon" ingredient and
-      a different title is returned for "salmon", scoped to the
-      household; e2e on `mobile` plans that recipe, searches the
-      ingredient, and follows the result link, in `en` and `sv`.
-
 ## Needs a decision before building
 
 - [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never

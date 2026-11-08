@@ -2160,7 +2160,8 @@ export const en = {
     mealTypeSnack: "Snack",
     // GAP-59: search across the whole plan (a year either side of today).
     searchPlanLabel: "Search the meal plan",
-    searchPlanPlaceholder: "Recipe or meal name",
+    searchPlanPlaceholder: "Recipe, meal or ingredient name",
+    searchPlanIngredient: "Ingredient: {name}",
     searchPlanResults: "Planned meals matching your search",
     searchPlanNoResults: "Nothing planned matches that.",
     searchPlanError: "Couldn't search the meal plan. Try again.",

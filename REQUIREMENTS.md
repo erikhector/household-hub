@@ -6916,17 +6916,22 @@ paging back week by week. Read-only, no schema change.
   client (capped at 100 characters).
 - **Loader**: `searchMealPlan` (`meal-plan-search.ts`) is one
   household-scoped `MealPlanEntry` query: recipe name or `freeformName`
-  contains the text (case-insensitive), the entry's date within 365 days
-  either side of today (UTC), newest first (dinner before lunch within a
-  day), at most 20.
+  contains the text, or (GAP-79) one of the recipe's ingredient names does
+  (all case-insensitive), the entry's date within 365 days either side of
+  today (UTC), newest first (dinner before lunch within a day), at most 20.
+  Each result carries `matchedIngredient`, set only when the name didn't
+  match.
 - **Results**: a list of links "Tue, Oct 21 · Dinner · Lasagna" (date in the
-  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. An
+  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. When
+  only an ingredient matched, a second muted line reads "Ingredient: Salmon
+  fillet" (GAP-79). An
   empty answer says "Nothing planned matches that." and a failed call says so
   inline; a slow reply for older text never shows under newer text.
 - **Tests**: `meal-plan-search.test.ts` (household scoping, window, cap,
   freeform names, week key), `search-actions.test.ts`, and
   `e2e/meal-plan-search.spec.ts` (plans a custom meal two weeks ahead,
-  searches it, follows the link; desktop and mobile).
+  searches it, follows the link; desktop and mobile; GAP-79 adds a recipe
+  found by an ingredient, in `en` and `sv`).
 
 ### Recipe sheet: Add to plan and instructions (UX-92)
 
