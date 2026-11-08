@@ -19,7 +19,11 @@ const ricotta = `Ricotta ${tag}`;
 // GAP-62: the ingredient's note should reach the list row.
 const ricottaNote = `well drained ${tag}`;
 // GAP-58: a custom meal's typed ingredient, in weeks of its own.
-const tortillas = `Tortillas${tag}`;
+// The typed line goes through the smart-add parser, which reads a trailing
+// "x<number>" as a quantity ("rice x3"), so a random tag ending in x7 would
+// be split off the name and the row would never match (MAINT-87). Keep the
+// letter x out of this one.
+const tortillas = `Tortillas${tag.replace(/x/g, "k")}`;
 const customWeek = (project: string) => (project === "mobile" ? "2031-04-14" : "2031-04-07");
 
 async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
