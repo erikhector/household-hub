@@ -33,6 +33,16 @@ describe("startExitNow", () => {
 });
 
 describe("exitWhenIntroDone", () => {
+  it("ignores a CSS transition in the list (it has no animationName) and still starts the exit", async () => {
+    // getAnimations({ subtree: true }) also returns CSSTransitions; reading
+    // `.startsWith` on their missing animationName used to throw (MAINT-92).
+    const transition = { currentTime: 0, finished: Promise.resolve(), effect: null } satisfies SplashAnimation;
+    const exit = animation("pwa-splash-exit-iris", 200, 1400);
+    await exitWhenIntroDone([transition, exit]);
+    expect(exit.currentTime).toBe(1400);
+    expect(transition.currentTime).toBe(0);
+  });
+
   it("waits for the intro before starting the exit", async () => {
     let finishIntro!: () => void;
     const intro = animation("pwa-splash-intro-hop", 0, 0, new Promise<void>((resolve) => (finishIntro = resolve)));

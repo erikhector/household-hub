@@ -14,7 +14,9 @@ const EXIT = "pwa-splash-exit-";
 
 /** The slice of a CSSAnimation this needs, so tests can pass plain objects. */
 export type SplashAnimation = {
-  animationName: string;
+  /** Undefined on a CSSTransition, which getAnimations() lists beside the
+   * CSSAnimations when anything in the subtree is mid-transition. */
+  animationName?: string;
   currentTime: CSSNumberish | null;
   finished: Promise<unknown>;
   effect: { getTiming(): { delay?: number } } | null;
@@ -25,7 +27,7 @@ export type SplashAnimation = {
  * bring the splash back. */
 export function startExitNow(animations: SplashAnimation[]) {
   for (const animation of animations) {
-    if (!animation.animationName.startsWith(EXIT)) continue;
+    if (!animation.animationName?.startsWith(EXIT)) continue;
     const delay = animation.effect?.getTiming().delay ?? 0;
     const current = Number(animation.currentTime ?? 0);
     if (current < delay) animation.currentTime = delay;
@@ -35,7 +37,7 @@ export function startExitNow(animations: SplashAnimation[]) {
 /** Waits for the intro to finish, then starts the exit. A cancelled intro
  * animation (reduced motion turned on, the element hidden) counts as done. */
 export async function exitWhenIntroDone(animations: SplashAnimation[]) {
-  const intro = animations.filter((animation) => animation.animationName.startsWith(INTRO));
+  const intro = animations.filter((animation) => animation.animationName?.startsWith(INTRO));
   await Promise.all(intro.map((animation) => animation.finished.catch(() => undefined)));
   startExitNow(animations);
 }
