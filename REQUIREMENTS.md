@@ -6916,17 +6916,22 @@ paging back week by week. Read-only, no schema change.
   client (capped at 100 characters).
 - **Loader**: `searchMealPlan` (`meal-plan-search.ts`) is one
   household-scoped `MealPlanEntry` query: recipe name or `freeformName`
-  contains the text (case-insensitive), the entry's date within 365 days
-  either side of today (UTC), newest first (dinner before lunch within a
-  day), at most 20.
+  contains the text, or (GAP-79) one of the recipe's ingredient names does
+  (all case-insensitive), the entry's date within 365 days either side of
+  today (UTC), newest first (dinner before lunch within a day), at most 20.
+  Each result carries `matchedIngredient`, set only when the name didn't
+  match.
 - **Results**: a list of links "Tue, Oct 21 · Dinner · Lasagna" (date in the
-  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. An
+  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. When
+  only an ingredient matched, a second muted line reads "Ingredient: Salmon
+  fillet" (GAP-79). An
   empty answer says "Nothing planned matches that." and a failed call says so
   inline; a slow reply for older text never shows under newer text.
 - **Tests**: `meal-plan-search.test.ts` (household scoping, window, cap,
   freeform names, week key), `search-actions.test.ts`, and
   `e2e/meal-plan-search.spec.ts` (plans a custom meal two weeks ahead,
-  searches it, follows the link; desktop and mobile).
+  searches it, follows the link; desktop and mobile; GAP-79 adds a recipe
+  found by an ingredient, in `en` and `sv`).
 
 ### Recipe sheet: Add to plan and instructions (UX-92)
 
@@ -10037,14 +10042,16 @@ overview, tasks, and inventory (table rows and phone cards).
   to the header at once and hands over to the real heading when the page
   arrives. The skeleton that shows first is the nearest `loading.tsx` the
   router already knows, which for an item is the catalogue's
-  (`inventory/items/loading.tsx`), not the item's own: the item's skeleton
+  (`inventory/items/loading.tsx`) and for a list the overview's
+  (`shopping-list/loading.tsx`), not the detail route's own: the detail skeleton
   follows only once the server's answer reaches the router, and when the
   page was ready by then React commits the page straight over the first
   skeleton, with nothing left to pair the row's title with (MAINT-89: the
   morph was skipped on a loaded phone
-  run, often enough to fail the e2e check). So the catalogue's skeleton carries the `morph` too;
+  run, often enough to fail the e2e check; MAINT-91 was the same for a
+  list card). So both parent skeletons carry the `morph` too;
   `MorphTitleSkeleton` renders it unnamed when the URL has no id (the
-  catalogue itself opening). Recipes have no detail page (a recipe opens in a dialog), so
+  catalogue or the lists overview itself opening). Recipes have no detail page (a recipe opens in a dialog), so
   there is no recipe morph yet.
 - The document root is never captured (`:root { view-transition-name:
   none }`). React crossfades the root whenever something outside a

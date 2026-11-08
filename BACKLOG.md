@@ -227,6 +227,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-08, release PR #1222 on 25d14b4): `mobile` project, failed once in the full local `ci:local` run at line 95 (dialog not visible within 5 s) and passed on a re-run of the same commit; the GitHub e2e job was green.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the GAP-79 head (7e3afdc) and once on the UX-178 head (9137847), each passing on the re-run; 32/32 and 38/38 in isolation.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -235,15 +236,17 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
 - [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
       `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
       Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-91. Flaky: a shopping list's title doesn't morph from its card into the list page on mobile** (low, S) —
-      `e2e/motion.spec.ts:290` ("a shopping list's title morphs from its card into the list page"), `mobile` project. In the GitHub e2e job on release PR #1222 (run 42448026515, commit 25d14b4, 2026-11-08) attempt 1 failed with "the list title morphs, on any of 3 tries (skipped on the last: 0)" at line 164 and passed on the retry; desktop passed. Start from MAINT-89's root cause (PR #1218, `inventory/items/loading.tsx`): `shopping-list/loading.tsx` is the same kind of parent boundary, the nearest skeleton the router knows when a card is tapped, and may need to carry the list morph too.
+- [ ] **MAINT-92. Flaky: with reduced motion an installed launch has no intro and still leaves, on mobile** (low, S) —
+      `e2e/pwa-splash.spec.ts:67` ("with reduced motion an installed launch has no intro and still leaves"), `mobile` project. In the GitHub e2e job on release PR #1231 (run 42470976524, commit 14afc10, 2026-11-08) attempt 1 failed and passed on the retry; it did not flake in the local `ci:local` run on the same commit. Start from the failing attempt's trace; likely a check made before the splash has hydrated or left (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+      Acceptance: `npx playwright test e2e/pwa-splash.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+      Second sighting (2026-11-08, builder run): fails on a clean `origin/next` (f704d94) too, 3 of 180 with `--repeat-each=60` on mobile (0 of 92 with `--repeat-each=30`), and 3 of 90 then 1 of 90 on the UX-178 branch, whose diff doesn't touch it. A rate of roughly 2%.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -826,23 +829,6 @@ out to be a product-scope question rather than a scoped task should move to
       members who are opted out or have nothing assigned; e2e on `mobile`
       turns the toggle on, has a task due today assigned to the member,
       and sees one bell entry linking to Tasks, in `en` and `sv`.
-
-### 2026-11-08 scan
-
-- [ ] **GAP-79. Meal-plan search also matches ingredients** (impact: low, effort: S) —
-      Plan to Eat's planner search (8.3.2, April 2026) finds ingredients
-      and notes, not just meal names. Squirrel's search
-      (REQUIREMENTS.md, "Meal-plan search (GAP-59)") matches only the
-      recipe name or `freeformName`, so "when did we last have salmon?"
-      finds nothing unless salmon is in the title. Extend `searchMealPlan`
-      (`meal-plan-search.ts`) so an entry also matches when one of its
-      recipe's ingredient names contains the text; same household scope,
-      365-day window and cap of 20, no schema change. Show the matched
-      ingredient as a second line only when the name didn't match.
-      Acceptance: unit test that a recipe with an "Salmon" ingredient and
-      a different title is returned for "salmon", scoped to the
-      household; e2e on `mobile` plans that recipe, searches the
-      ingredient, and follows the result link, in `en` and `sv`.
 
 ## Needs a decision before building
 

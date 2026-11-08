@@ -25,6 +25,7 @@ describe("searchMealPlan", () => {
     expect(args.where.OR).toEqual([
       { freeformName: { contains: "Lasa", mode: "insensitive" } },
       { recipe: { name: { contains: "Lasa", mode: "insensitive" } } },
+      { recipe: { ingredients: { some: { name: { contains: "Lasa", mode: "insensitive" } } } } },
     ]);
     // 365 days before and after the UTC day, not the time of day.
     expect(args.where.date.gte).toEqual(new Date("2025-10-24T00:00:00.000Z"));
@@ -58,8 +59,39 @@ describe("searchMealPlan", () => {
       },
     ]);
     expect(await searchMealPlan("h1", "lasagna", TODAY)).toEqual([
-      { id: "e1", dateKey: "2026-11-08", mealType: "DINNER", name: "Lasagna", weekStartKey: "2026-11-02" },
-      { id: "e2", dateKey: "2026-11-03", mealType: "LUNCH", name: "Leftover lasagna", weekStartKey: "2026-11-02" },
+      { id: "e1", dateKey: "2026-11-08", mealType: "DINNER", name: "Lasagna", weekStartKey: "2026-11-02", matchedIngredient: null },
+      { id: "e2", dateKey: "2026-11-03", mealType: "LUNCH", name: "Leftover lasagna", weekStartKey: "2026-11-02", matchedIngredient: null },
+    ]);
+  });
+
+  it("returns a recipe whose title differs when an ingredient matches, scoped to the household, and names the ingredient", async () => {
+    findManyMock.mockResolvedValue([
+      {
+        id: "e3",
+        date: new Date("2026-11-04T00:00:00.000Z"),
+        mealType: "DINNER",
+        freeformName: null,
+        recipe: { name: "Friday traybake", ingredients: [{ name: "Salmon fillet" }] },
+      },
+      {
+        id: "e4",
+        date: new Date("2026-11-03T00:00:00.000Z"),
+        mealType: "DINNER",
+        freeformName: null,
+        recipe: { name: "Salmon bowl", ingredients: [{ name: "Smoked salmon" }] },
+      },
+    ]);
+    const results = await searchMealPlan("h1", "salmon", TODAY);
+    const args = findManyMock.mock.calls[0][0];
+    expect(args.where.mealPlan).toEqual({ householdId: "h1" });
+    expect(args.where.OR).toContainEqual({
+      recipe: { ingredients: { some: { name: { contains: "salmon", mode: "insensitive" } } } },
+    });
+    expect(args.take).toBe(20);
+    expect(results.map((r) => [r.name, r.matchedIngredient])).toEqual([
+      ["Friday traybake", "Salmon fillet"],
+      // The title already matched, so no second line.
+      ["Salmon bowl", null],
     ]);
   });
 });
