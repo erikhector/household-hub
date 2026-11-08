@@ -8748,7 +8748,7 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
 **Legal footer spacing (UX-178)**: on a phone the footer links get their
 44 px hit area from `px-2` padding instead of `touch-target`'s `min-width`
 (`min-w-0`), so a short word like Swedish "Villkor" no longer pads on one
-side; every text-to-text gap is 16 px. From 40 rem the gap stays 8 px.
+side; every text-to-text gap is 24 px (padding plus the 8 px gap between targets). From 40 rem the gap stays 8 px.
 Covered by `e2e/legal-footer-spacing.mobile.spec.ts`.
 
 **Household tabs (UX-174)**: `/dashboard/household` was ~3 000 CSS px of
