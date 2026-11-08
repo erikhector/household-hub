@@ -224,6 +224,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       It also failed once on the `mobile` project in the local `ci:local` run on d31e8ac (2026-11-01) and passed on re-run, so the fix covers both.
       Further sighting (2026-11-02, release PR #1061 on commit 059436759a9e): `mobile` project, line 95 again (`getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s), in the local `ci:local` run only; it passed on a re-run of the same commit. It was also seen failing once in #1059's own `ci:local` run. Third mobile sighting after d31e8ac, so MAINT-66's hardening has not closed it.
       Further sighting (2026-11-03, GAP-69 builder run on b6238113): `mobile` project, failed once in the full local `ci:local` run and passed on the rerun and 32/32 with `--repeat-each=10`.
+      Further sighting (2026-11-08, release PR #1222 on 25d14b4): `mobile` project, failed once in the full local `ci:local` run at line 95 (dialog not visible within 5 s) and passed on a re-run of the same commit; the GitHub e2e job was green.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
@@ -239,6 +240,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-91. Flaky: a shopping list's title doesn't morph from its card into the list page on mobile** (low, S) —
+      `e2e/motion.spec.ts:290` ("a shopping list's title morphs from its card into the list page"), `mobile` project. In the GitHub e2e job on release PR #1222 (run 42448026515, commit 25d14b4, 2026-11-08) attempt 1 failed with "the list title morphs, on any of 3 tries (skipped on the last: 0)" at line 164 and passed on the retry; desktop passed. Start from MAINT-89's root cause (PR #1218, `inventory/items/loading.tsx`): `shopping-list/loading.tsx` is the same kind of parent boundary, the nearest skeleton the router knows when a card is tapped, and may need to carry the list morph too.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -406,6 +411,15 @@ new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
 `light`, `text-200` and both dialog sweeps; all 290 + 132 tests pass. The
 only audit hits are the known `text-200` bottom-bar ellipsis (UX-150) and
 a hidden zero-size "Invite member" button on the household page. WebKit was
+not run (no browser installed here), and the per-action deep dive was a
+screenshot and code read, not driven through the UI.
+
+### UX (2026-11-08 scout)
+
+Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. WebKit was
 not run (no browser installed here), and the per-action deep dive was a
 screenshot and code read, not driven through the UI.
 
@@ -812,6 +826,23 @@ out to be a product-scope question rather than a scoped task should move to
       members who are opted out or have nothing assigned; e2e on `mobile`
       turns the toggle on, has a task due today assigned to the member,
       and sees one bell entry linking to Tasks, in `en` and `sv`.
+
+### 2026-11-08 scan
+
+- [ ] **GAP-79. Meal-plan search also matches ingredients** (impact: low, effort: S) —
+      Plan to Eat's planner search (8.3.2, April 2026) finds ingredients
+      and notes, not just meal names. Squirrel's search
+      (REQUIREMENTS.md, "Meal-plan search (GAP-59)") matches only the
+      recipe name or `freeformName`, so "when did we last have salmon?"
+      finds nothing unless salmon is in the title. Extend `searchMealPlan`
+      (`meal-plan-search.ts`) so an entry also matches when one of its
+      recipe's ingredient names contains the text; same household scope,
+      365-day window and cap of 20, no schema change. Show the matched
+      ingredient as a second line only when the name didn't match.
+      Acceptance: unit test that a recipe with an "Salmon" ingredient and
+      a different title is returned for "salmon", scoped to the
+      household; e2e on `mobile` plans that recipe, searches the
+      ingredient, and follows the result link, in `en` and `sv`.
 
 ## Needs a decision before building
 
