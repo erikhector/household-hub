@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.147.0",
+    "date": "2026-11-08",
+    "pr": 1236,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Opening a shopping list from its card now reliably animates the list's name into the page title on phones.\n\nSearching the meal plan now also finds meals by their ingredients, so \"salmon\" finds the dinner that uses salmon even if the recipe has a different name.",
+      "sv": "Att öppna en inköpslista från dess kort animerar nu pålitligt listans namn in i sidans rubrik på mobilen.\n\nSökningen i måltidsplanen hittar nu också måltider via ingredienserna, så \"lax\" hittar middagen med lax även om receptet heter något annat."
+    }
+  },
+  {
     "version": "0.146.2",
     "date": "2026-11-08",
     "pr": 1231,
