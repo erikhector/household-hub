@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.146.1",
+    "date": "2026-11-08",
+    "pr": 1222,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Opening an inventory item from the catalogue now animates its name into the item page every time, not only some of the time.",
+      "sv": "När du öppnar en artikel från katalogen glider namnet nu alltid över till artikelsidan, inte bara ibland."
+    }
+  },
+  {
     "version": "0.146.0",
     "date": "2026-11-07",
     "pr": 1206,
