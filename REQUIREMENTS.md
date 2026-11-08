@@ -10029,7 +10029,16 @@ overview, tasks, and inventory (table rows and phone cards).
   `PageSkeleton`'s `morph` prop gives its title bar the same name
   (`MorphTitleSkeleton` reads the id with `useParams`), so the title flies
   to the header at once and hands over to the real heading when the page
-  arrives. Recipes have no detail page (a recipe opens in a dialog), so
+  arrives. The skeleton that shows first is the nearest `loading.tsx` the
+  router already knows, which for an item is the catalogue's
+  (`inventory/items/loading.tsx`), not the item's own: the item's skeleton
+  follows only once the server's answer reaches the router, and when the
+  page was ready by then React commits the page straight over the first
+  skeleton, with nothing left to pair the row's title with (MAINT-89: the
+  morph was skipped on a loaded phone
+  run, often enough to fail the e2e check). So the catalogue's skeleton carries the `morph` too;
+  `MorphTitleSkeleton` renders it unnamed when the URL has no id (the
+  catalogue itself opening). Recipes have no detail page (a recipe opens in a dialog), so
   there is no recipe morph yet.
 - The document root is never captured (`:root { view-transition-name:
   none }`). React crossfades the root whenever something outside a

@@ -243,10 +243,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-89. Flaky: an item's name doesn't morph from the catalogue into its page on mobile** (low, S) —
-      `e2e/motion.spec.ts:303` ("an item's name morphs from the catalogue into its page"), `mobile` project. In the first full `ci:local` run on PR #1202's head (e934f6d, 2026-11-07) it failed; it passed in the next full run on the final head (48c43c6), with the diff not touching inventory or motion. Start from the failing trace: the check may read the transition before the view transition has started on a loaded runner.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
