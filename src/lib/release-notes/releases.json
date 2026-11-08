@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.147.1",
+    "date": "2026-11-08",
+    "pr": 1241,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The links at the bottom of the sign-in and sign-up pages are now evenly spaced on phones, with room between them to tap.",
+      "sv": "Länkarna längst ned på inloggnings- och registreringssidorna har nu jämna avstånd på mobilen, med plats emellan för att trycka."
+    }
+  },
+  {
     "version": "0.147.0",
     "date": "2026-11-08",
     "pr": 1236,
