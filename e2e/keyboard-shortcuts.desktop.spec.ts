@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
 import { E2E_SHOPPING_LIST, E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, gotoRevealed } from "./ui";
+import { dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
 
 // UX-41c: single-key shortcuts on the list pages and the `?` overlay. A
 // desktop-only feature (a keyboard and a fine pointer), so this spec is
@@ -132,6 +132,12 @@ test("x ticks the highlighted shopping row into \"In the cart\"", async ({ page,
     await pressUntil(page, "j", async () => {
       await expect(active).toHaveCount(1, { timeout: 1000 });
     });
+    // The key listener lives in the dashboard layout and the checkbox in the
+    // list's own client component; they hydrate separately, so the highlight
+    // appearing doesn't mean the row's onChange is attached. An x that clicks
+    // a not-yet-hydrated checkbox only flips the native input and nothing
+    // moves to "In the cart" (MAINT-90). Wait until React owns the checkbox.
+    await expectHydrated(active.getByRole("checkbox"));
     await page.keyboard.press("x");
     await expect(page.getByRole("button", { name: /^In the cart/ })).toContainText("1");
   } finally {
