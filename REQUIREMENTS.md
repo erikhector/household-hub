@@ -8582,6 +8582,13 @@ and Tasks (`isShortcutPath`), for people at a keyboard:
 Covered by `e2e/keyboard-shortcuts.desktop.spec.ts` and
 `keyboard-shortcuts-logic.test.ts`.
 
+The shortcut listener lives in the dashboard layout and a page's checkboxes
+in the page's own client component, and the two hydrate separately: the
+highlight can appear before the row's `onChange` is attached, and an `x`
+that clicks the checkbox then flips only the native input (MAINT-90, the
+shopping spec). The spec therefore waits for `expectHydrated` on the
+highlighted row's checkbox before pressing `x`.
+
 
 ## Releases & What's new
 

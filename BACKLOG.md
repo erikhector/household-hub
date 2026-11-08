@@ -243,10 +243,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-90. Flaky: the "In the cart" button isn't found after pressing x on a shopping row on desktop** (low, S) —
-      `e2e/keyboard-shortcuts.desktop.spec.ts:110` ("x ticks the highlighted shopping row into In the cart"), `desktop` project. In one full `ci:local` run on PR #1203's head (862c398, 2026-11-07) the "In the cart" button wasn't found within 5 s; it passed in the next full run on the same commit and 22/22 in isolation, with the diff touching only e2e helper timeouts. Start from the failing trace: the key press may land before the list's key handler is attached.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/keyboard-shortcuts.desktop.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
