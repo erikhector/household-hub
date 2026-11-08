@@ -23,10 +23,16 @@ async function launchInstalled(page: Page) {
 }
 
 /** The keyframes every animation on the splash and its children ran, finished
- * ones included (they all hold their end state, so they stay listed). */
+ * ones included (they all hold their end state, so they stay listed).
+ * getAnimations() also lists CSS transitions (a colour change mid-flight, say),
+ * which have no animationName and appear for a few frames at random: only
+ * CSSAnimations count, or the read throws about 1 run in 25. */
 function splashAnimations(page: Page) {
   return page.locator(".pwa-splash-screen").evaluate((splash) =>
-    splash.getAnimations({ subtree: true }).map((animation) => (animation as CSSAnimation).animationName),
+    splash
+      .getAnimations({ subtree: true })
+      .filter((animation): animation is CSSAnimation => animation instanceof CSSAnimation)
+      .map((animation) => animation.animationName),
   );
 }
 

@@ -26,19 +26,20 @@ export async function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
       {/* UX-178: on a phone the 44 px target comes from px-2 padding, not
           touch-target's min-width. A min-width made a short word ("Villkor")
           pad on one side and read as a wider gap than its neighbours; with
-          padding every text-to-text gap is the same 16 px. From 40 rem the
+          padding every text-to-text gap is the same 24 px (16 padding + the 8 px
+          gap that keeps the 44 px targets apart, M1). From 40 rem the
           links keep the compact 8 px gap. */}
-      <nav className="flex flex-wrap items-center justify-center">
-        <Link href="/terms" className="touch-target min-w-0 justify-center px-1 max-[40rem]:px-2 hover:text-foreground hover:underline">
+      <nav className="flex flex-wrap items-center justify-center gap-2">
+        <Link href="/terms" className="touch-target min-w-0 justify-center max-[40rem]:px-2 hover:text-foreground hover:underline">
           {dict.termsNavLabel}
         </Link>
-        <Link href="/privacy" className="touch-target min-w-0 justify-center px-1 max-[40rem]:px-2 hover:text-foreground hover:underline">
+        <Link href="/privacy" className="touch-target min-w-0 justify-center max-[40rem]:px-2 hover:text-foreground hover:underline">
           {dict.privacyNavLabel}
         </Link>
-        <Link href="/privacy#cookies" className="touch-target min-w-0 justify-center px-1 max-[40rem]:px-2 hover:text-foreground hover:underline">
+        <Link href="/privacy#cookies" className="touch-target min-w-0 justify-center max-[40rem]:px-2 hover:text-foreground hover:underline">
           {dict.cookiesNavLabel}
         </Link>
-        <Link href="/whats-new" className="touch-target min-w-0 justify-center px-1 max-[40rem]:px-2 hover:text-foreground hover:underline">
+        <Link href="/whats-new" className="touch-target min-w-0 justify-center max-[40rem]:px-2 hover:text-foreground hover:underline">
           {/* One string: the link is a flex box (touch-target), which would
               trim the space before a separate version <span>. */}
           {`${dict.whatsNewNavLabel} · v${CURRENT_VERSION}`}
