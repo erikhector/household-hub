@@ -8740,6 +8740,12 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   looking at and that the app is being worked on. Covered by
   `e2e/whats-new-public.spec.ts`.
 
+**Legal footer spacing (UX-178)**: on a phone the footer links get their
+44 px hit area from `px-2` padding instead of `touch-target`'s `min-width`
+(`min-w-0`), so a short word like Swedish "Villkor" no longer pads on one
+side; every text-to-text gap is 16 px. From 40 rem the gap stays 8 px.
+Covered by `e2e/legal-footer-spacing.mobile.spec.ts`.
+
 **Household tabs (UX-174)**: `/dashboard/household` was ~3 000 CSS px of
 stacked cards on a phone, so it is three tabs (`HouseholdTabs`, the shared
 pill `Tabs`): **Members** (the landing tab: member list and pending
