@@ -413,6 +413,26 @@ a hidden zero-size "Invite member" button on the household page. WebKit was
 not run (no browser installed here), and the per-action deep dive was a
 screenshot and code read, not driven through the UI.
 
+### UX (2026-11-08 scout)
+
+Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. WebKit was
+not run (no browser installed here), and the per-action deep dive was a
+screenshot and code read, not driven through the UI.
+
+- [ ] **UX-178. Even out the legal footer's link spacing on phones** (impact: low,
+      effort: S) — `src/components/legal-footer.tsx:27-41`: under 40 rem each
+      link is `touch-target` (`inline-flex`, `min-width: 2.75rem`) with its
+      text left-aligned. "Villkor" (Swedish) is narrower than 44 px, so its
+      box pads on the right and the gap to "Integritet" reads ~5x the others
+      (`mobile-sv-signup.png`, `mobile-sv-join-token.png`). Breaks DESIGN.md's
+      craft/consistency principle, not a hit target rule.
+      Acceptance: add `justify-center` to the links; a `mobile` e2e spec on
+      `/login` in `sv` asserts the horizontal gaps between the footer links'
+      text are equal.
+
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
