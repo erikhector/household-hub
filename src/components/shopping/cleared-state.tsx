@@ -51,11 +51,13 @@ export function ClearedState({
         // count. It sits over the ring as a sibling, not inside it, because a
         // progressbar's children are hidden from screen readers and the mark
         // has a name to announce. motion-safe keeps it a static image under
-        // prefers-reduced-motion.
+        // prefers-reduced-motion. The tick is text-primary-foreground because
+        // a full ring is a solid primary acorn: primary on it would vanish. It is
+        // relative so it paints above the ring's absolutely positioned svg.
         <div className="relative mb-2 grid place-items-center">
           <ProgressRing progress={progress} dict={dict.shoppingMode} className="size-20">
             {!celebrate && (
-              <Check aria-hidden className="size-8 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-500" />
+              <Check aria-hidden className="relative size-8 text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-500" />
             )}
           </ProgressRing>
           {celebrate && (

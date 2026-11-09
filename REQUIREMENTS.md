@@ -1344,7 +1344,9 @@ every lookup the old one did.
       completed or archived list keeps the always-open "Purchased" section.
       Under `prefers-reduced-motion` the row moves at once.
     - *Next up dock* (`src/components/shopping/shopping-mode.tsx`): the
-      progress ring ("12 of 18", a real `progressbar` with that
+      progress "ring" ("12 of 18"), drawn since UX-177 as an acorn outline that
+      fills from the bottom as rows are ticked (one SVG shared by the dock, the
+      shared list and the all-done moment; a real `progressbar` with that
       valuetext), the aisle the shopper is in now (the first pending group,
       `nextUp()` in `src/lib/shopping/shopping-progress.ts`, unit-tested)
       and its next three items as 48 px full-width tap rows. Ticking one is
