@@ -9749,6 +9749,21 @@ approximating them, so the email never disagrees with the app.
   the action, so nothing typed is lost. Covered by
   `e2e/budget-field-errors.spec.ts`. The other budget forms and the rest of
   the app still use bare `required` (follow-up in BACKLOG.md).
+- **Profile and password-reset form errors sit next to the field (UX-183b,
+  second slice).** The display name, email and password forms
+  (`src/components/profile/`) and the forgot and reset password forms
+  (`src/components/auth/`) are `noValidate` and use `useRequiredFields`: a
+  missing (or all-space) display name, new email, current password, new
+  password, confirmation or reset-request email is worded in the page's
+  language under its field (`FieldError`, `role="alert"`, the forms'
+  `nameRequired` / `newEmailRequired` / `currentPasswordRequired` /
+  `newPasswordRequired` / `confirmPasswordRequired` / `emailRequired` keys),
+  the field gets `aria-invalid` and `aria-describedby`, focus goes to the
+  first, and editing a field clears its message. A blocked submit never runs
+  the action, so nothing typed is lost. Format, length and match rules are
+  still the server's, which words them in the user's language. Covered by
+  `e2e/profile-auth-field-errors.spec.ts` (the reset form with a token the
+  spec inserts).
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

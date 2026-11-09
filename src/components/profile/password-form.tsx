@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, type FormEvent } from "react";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFormDirty } from "@/components/shared/use-form-dirty";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { updatePasswordAction } from "@/app/dashboard/profile/actions";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -22,6 +24,17 @@ export function PasswordForm({
 }) {
   const [state, formAction, pending] = useActionState(updatePasswordAction, initialState);
   const { dirty, formProps } = useFormDirty(pending);
+  // UX-183b: a missing password is worded under its field in the page's
+  // language (`noValidate`), not by the browser's own bubble. The length and
+  // match rules stay the server's, which words them too.
+  const req = useRequiredFields();
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    req.check(event, [
+      { name: "currentPassword", id: "currentPasswordForPassword", message: dict.currentPasswordRequired },
+      { name: "newPassword", id: "newPassword", message: dict.newPasswordRequired },
+      { name: "confirmPassword", id: "confirmPassword", message: dict.confirmPasswordRequired },
+    ]);
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -29,7 +42,17 @@ export function PasswordForm({
         <h3 className="font-heading text-base font-semibold">{dict.title}</h3>
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
-      <form action={formAction} {...formProps} className="flex flex-col gap-4">
+      <form
+        action={formAction}
+        onSubmit={onSubmit}
+        noValidate
+        {...formProps}
+        onInput={(event) => {
+          formProps.onInput();
+          req.onInput(event);
+        }}
+        className="flex flex-col gap-4"
+      >
         {/* Username so password managers file the new password under the
             right account. It must be rendered (sr-only, not `hidden`, which is
             display:none and which managers skip) but kept out of the tab order
@@ -53,9 +76,12 @@ export function PasswordForm({
               type="password"
               required
               autoComplete="current-password"
+              aria-invalid={req.messageFor("currentPassword") ? true : undefined}
+              aria-describedby={req.messageFor("currentPassword") ? fieldErrorId("currentPasswordForPassword") : undefined}
               className="pl-8"
             />
           </div>
+          <FieldError fieldId="currentPasswordForPassword">{req.messageFor("currentPassword")}</FieldError>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="newPassword">{dict.newPasswordLabel}</Label>
@@ -69,9 +95,12 @@ export function PasswordForm({
               minLength={8}
               maxLength={72}
               autoComplete="new-password"
+              aria-invalid={req.messageFor("newPassword") ? true : undefined}
+              aria-describedby={req.messageFor("newPassword") ? fieldErrorId("newPassword") : undefined}
               className="pl-8"
             />
           </div>
+          <FieldError fieldId="newPassword">{req.messageFor("newPassword")}</FieldError>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="confirmPassword">{dict.confirmPasswordLabel}</Label>
@@ -86,9 +115,12 @@ export function PasswordForm({
               minLength={8}
               maxLength={72}
               autoComplete="new-password"
+              aria-invalid={req.messageFor("confirmPassword") ? true : undefined}
+              aria-describedby={req.messageFor("confirmPassword") ? fieldErrorId("confirmPassword") : undefined}
               className="pl-8"
             />
           </div>
+          <FieldError fieldId="confirmPassword">{req.messageFor("confirmPassword")}</FieldError>
         </div>
         {state.error && <p className="text-sm text-destructive">{state.error}</p>}
         <Button type="submit" variant={dirty ? "default" : "secondary"} disabled={pending} className="self-start">
