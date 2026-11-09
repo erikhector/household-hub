@@ -466,6 +466,35 @@ the audit was run through an uncommitted copy with `executablePath` set.
       it, `aria-invalid` is set and nothing the user typed elsewhere is
       lost.
 
+- [ ] **UX-176. Define DESIGN.md's shadow and type tokens in the CSS** (impact: med, effort: M) —
+      DESIGN.md §3 names `shadow-primary`, `shadow-primary-hover`,
+      `shadow-popover` and a type scale (`page-title` … `hero`) that
+      `globals.css` never defines; popups use `shadow-md`/`shadow-lg` (21
+      sites) and stat numbers are hand-set (`text-4xl`, `text-3xl`; about 20
+      sites). Define the tokens in `@theme` and migrate the ~40 sites in one
+      PR, which also makes the three stat sizes on the overview, budget and
+      safe-to-spend agree.
+      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
+      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl` stat
+      sizes and fails on new ones; the screenshot smoke run still passes.
+      Decided 2026-11-09 by autopilot-product: define the tokens. Why: the
+      item's own recommended option; the checklist's "tokens only" can't be
+      followed otherwise. See PRODUCT.md.
+
+- [ ] **UX-177. Shopping progress ring as an acorn outline that fills** (impact: low, effort: S) —
+      First step of the character pass: same ring geometry and progressbar
+      semantics, drawn as an acorn outline that fills as items are ticked.
+      No new assets, not on any money surface, respects
+      `prefers-reduced-motion`. Ideas (a) notes board as paper notes, (c)
+      housemate voice in Today and (d) tinted empty states are parked:
+      re-propose one after this ships and its screenshots are reviewed.
+      Acceptance: on `mobile` the list header still exposes a `progressbar`
+      named "n of m" that updates when an item is ticked; the existing
+      shopping-list specs pass.
+      Decided 2026-11-09 by autopilot-product: build (b) only. Why: the
+      smallest, reversible slice that tests whether brand character
+      belongs on daily screens. See PRODUCT.md.
+
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
@@ -871,40 +900,6 @@ out to be a product-scope question rather than a scoped task should move to
       and sees one bell entry linking to Tasks, in `en` and `sv`.
 
 ## Needs a decision before building
-
-- [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
-      defines** (M) `[!]` needs a decision — `globals.css` has no
-      `--shadow-*` and no `--text-*` tokens, yet DESIGN.md §3 specifies
-      `shadow-primary`, `shadow-primary-hover`, `shadow-popover` and a type
-      scale (`page-title`, `item-title`, `card-title`, `body`, `body-lg`,
-      `button`, `badge`, `caption`, `stat`, `hero`). In code popups use
-      `shadow-md`/`shadow-lg` (21 sites) and stat numbers are hand-set
-      (`text-4xl`, `text-xl sm:text-3xl`, `text-3xl`; about 20 sites), so
-      the checklist's "tokens only" can't be followed. Decide: (1) define
-      the tokens in `@theme` and migrate the ~40 sites in one PR (fixes the
-      three stat sizes on the overview, budget and safe-to-spend at once),
-      or (2) rewrite DESIGN.md §3 to the Tailwind classes actually used.
-      Recommended: (1). Found by the 2026-10-31 design review.
-      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
-      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl`
-      stat sizes and fails on new ones.
-
-- [ ] **UX-177. Character pass: carry the brand into the working screens**
-      (M) `[!]` needs a product decision — the 2026-10-31 design review's
-      verdict: the landing page, empty states and the all-done ring carry
-      Squirrel's identity; the daily screens read as a generic dashboard
-      with a purple primary. Four ideas that stay inside DESIGN.md and off
-      money surfaces, each its own PR once chosen: (a) render the Household
-      notes board as the landing's paper notes (`note-yellow`, the
-      handwriting face, slight rotation); (b) make the shopping progress
-      ring an acorn outline that fills (same geometry, no new assets);
-      (c) the housemate voice in the Today block ("Nothing planned for
-      dinner. Last Tuesday's pasta again?" from existing data); (d) each
-      section's hue carried into its empty-state dashed box at 10 %
-      The dark theme (UX-157) has shipped. Decide which to
-      build and in what order.
-      Acceptance: per idea, a before/after on the `mobile` screenshots and
-      the e2e spec for the touched component still passing.
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
       (ticks only, shipped). Adding an item or editing a price with no
