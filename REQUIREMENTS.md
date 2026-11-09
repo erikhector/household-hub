@@ -9701,6 +9701,16 @@ approximating them, so the email never disagrees with the app.
   password is shown under the password field, which takes focus; the email
   is kept. Server messages come back in the request's language (UX-16, MAINT-7). Covered by
   `e2e/auth-field-errors.spec.ts`.
+- **Inventory item form errors sit next to the field (UX-183).** The
+  add/edit item dialog (`src/components/inventory/add-item-dialog.tsx`) is
+  `noValidate` and checks name and quantity in the browser first: an empty
+  name or quantity is worded in the page's language under its field
+  (`FieldError`, `role="alert"`), the field gets `aria-invalid` and
+  `aria-describedby`, and focus goes to the first. A blocked submit never
+  runs the action, so nothing typed elsewhere is reset; the message clears
+  as soon as the field is edited. The rest of the app's forms still use
+  bare `required` (follow-up in BACKLOG.md). Covered by
+  `e2e/inventory-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

@@ -1393,6 +1393,10 @@ export const en = {
     // (src/lib/incoming-stock.ts), next to the item's quantity.
     onTheWay: "+{amount} on the way",
     quantityLabel: "Quantity",
+    // UX-183: shown under the field when the add/edit item form is submitted
+    // empty, in place of the browser's own bubble.
+    nameRequired: "Enter a name",
+    quantityRequired: "Enter a quantity",
     unitLabel: "Unit",
     unitPlaceholder: "e.g. pcs",
     runningLowBelowLabel: "Running low below",

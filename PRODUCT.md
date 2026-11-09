@@ -23,11 +23,9 @@ add notifications without something actually being wrong.
 
 Builder picks these, in order, right after `UX-` items.
 
-1. `GAP-51` "Cook soon" shelf on the recipes tab
-2. `GAP-55` Show when a recipe is planned on its detail view
-3. `GAP-59` Search the meal plan
-4. `GAP-56` Select several planned meals to move, re-portion or remove
-5. `GAP-57` Opt-in "Tonight's dinner" morning nudge
+1. `UX-183` Add-item errors under the field, in the page's language
+2. `UX-176` Define the shadow and type tokens
+3. `UX-177` Acorn shopping progress ring
 
 ## Owner inbox
 
@@ -36,6 +34,7 @@ Decisions only the owner can make, each with a recommended answer.
 - `AUTO-13`: owner chose the inbound address (#399); waiting on the owner to
   enable Resend inbound and accept temporary storage of receipt content.
 - `PRICE-1`: wait; decide after AUTO-4 shows how much price data exists.
+- `GAP-68`: recommended no (sensitive per-member card data; a wallet app does it better).
 - `UX-66`: owner wants the "who we are" sentence; reply on #736 with the accurate wording.
 - `GAP-35`, `GAP-36`, `GAP-37`, `GAP-38`, `GAP-41`: recommended no for now
   (new data model or money-math, no evidence of demand); `GAP-20`/`GAP-26`
@@ -45,6 +44,8 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-11-09 | UX-176 | Define the shadow and type tokens in `@theme`, migrate the call sites | Item's own recommended option | Yes |
+| 2026-11-09 | UX-177 | Character pass starts with the acorn progress ring only; (a), (c), (d) parked | Smallest reversible test of brand on daily screens | Yes |
 | 2026-11-02 | UX-66 | Translate the legal pages to Swedish; "who we are" wording follows from the owner | owner (#736) | Yes |
 | 2026-11-02 | UX-125, UX-89 | Add `InventoryItem.everStocked` with partial backfill, then `createdFromList`; never-stocked items hidden from "out" | owner (#735) | Hard (migration) |
 | 2026-11-02 | PERF-11 | Dropped: Vercel and database regions already match | owner (#400) | Yes |

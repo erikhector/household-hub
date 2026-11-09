@@ -110,6 +110,24 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
+- [ ] **PERF-37. Bound the recurring-template ack reads to the lookback window**
+      (impact: med, effort: S) — `RecurringTemplateAck` gets one row per
+      template per accounted-for month, forever, yet five reads load all of
+      them: `src/lib/household-safe-to-spend.ts:53` (every Home render),
+      `src/lib/weekly-digest.ts:142`, `src/lib/budget/load-budget-tabs-data.ts:158`,
+      `src/lib/personal-budget-position.ts:484` and the personal-template twin
+      at `:194`. Their transactions are already limited to
+      `RECURRING_LOOKBACK_MONTHS` (12), so older acks can't change any result
+      and the reads grow with the household's age for nothing. Filter
+      `periodKey` to the same window (it's a `YYYY-MM` string, so
+      `{ gte: lookbackKey }` works) through one shared helper. First check each
+      calculator in `safe-to-spend-calc.ts` and the recurring-template calc for
+      a use of an ack older than the window; the budget tab may show older
+      periods and then needs its own bound. Human-only area (budget code).
+      Acceptance: unit tests per loader assert the Prisma call carries the
+      `periodKey` bound, and a safe-to-spend result with an ack 13 months old
+      is unchanged.
+
 ### Client JS and caching (2026-10-26 measurement)
 
 Measured on a production build with the seeded e2e user in Chromium
@@ -420,6 +438,58 @@ dialog sweeps; all 290 + 132 tests pass. The only audit hits are the known
 `text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. WebKit was
 not run (no browser installed here), and the per-action deep dive was a
 screenshot and code read, not driven through the UI.
+
+### UX (2026-11-09 scout)
+
+Monday area: inventory and item pages. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. The deep dive
+drove the add-item sheet at 320 px (empty submit, 90-character name).
+WebKit was not run (no browser installed here). The audit config has no
+fallback for the missing headless shell that `playwright.config.ts` has, so
+the audit was run through an uncommitted copy with `executablePath` set.
+
+- [ ] **UX-183b. Show the remaining forms' required-field errors under the field, in the page's language** (impact: med, effort: L) —
+      UX-59 (login, signup) and UX-183 (the inventory add/edit item dialog)
+      replaced the browser's native "Please fill out this field." bubble with
+      a `FieldError` under the field. About 30 other components still rely
+      on bare `required` (e.g. `shopping/rename-list-dialog.tsx:64`,
+      `shopping/list-templates.tsx:82`), so a Swedish user gets an English
+      bubble over the next field. Breaks DESIGN.md "errors next to the
+      field, keeping input". Split by feature if one PR is too big. Same
+      acceptance as UX-183, per form: `noValidate`, a `role="alert"`
+      message in the page's language under the field, focus moves to it,
+      `aria-invalid` is set and nothing typed elsewhere is lost.
+
+- [ ] **UX-176. Define DESIGN.md's shadow and type tokens in the CSS** (impact: med, effort: M) —
+      DESIGN.md §3 names `shadow-primary`, `shadow-primary-hover`,
+      `shadow-popover` and a type scale (`page-title` … `hero`) that
+      `globals.css` never defines; popups use `shadow-md`/`shadow-lg` (21
+      sites) and stat numbers are hand-set (`text-4xl`, `text-3xl`; about 20
+      sites). Define the tokens in `@theme` and migrate the ~40 sites in one
+      PR, which also makes the three stat sizes on the overview, budget and
+      safe-to-spend agree.
+      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
+      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl` stat
+      sizes and fails on new ones; the screenshot smoke run still passes.
+      Decided 2026-11-09 by autopilot-product: define the tokens. Why: the
+      item's own recommended option; the checklist's "tokens only" can't be
+      followed otherwise. See PRODUCT.md.
+
+- [ ] **UX-177. Shopping progress ring as an acorn outline that fills** (impact: low, effort: S) —
+      First step of the character pass: same ring geometry and progressbar
+      semantics, drawn as an acorn outline that fills as items are ticked.
+      No new assets, not on any money surface, respects
+      `prefers-reduced-motion`. Ideas (a) notes board as paper notes, (c)
+      housemate voice in Today and (d) tinted empty states are parked:
+      re-propose one after this ships and its screenshots are reviewed.
+      Acceptance: on `mobile` the list header still exposes a `progressbar`
+      named "n of m" that updates when an item is ticked; the existing
+      shopping-list specs pass.
+      Decided 2026-11-09 by autopilot-product: build (b) only. Why: the
+      smallest, reversible slice that tests whether brand character
+      belongs on daily screens. See PRODUCT.md.
 
 ### Dependencies
 
@@ -826,40 +896,6 @@ out to be a product-scope question rather than a scoped task should move to
       and sees one bell entry linking to Tasks, in `en` and `sv`.
 
 ## Needs a decision before building
-
-- [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
-      defines** (M) `[!]` needs a decision — `globals.css` has no
-      `--shadow-*` and no `--text-*` tokens, yet DESIGN.md §3 specifies
-      `shadow-primary`, `shadow-primary-hover`, `shadow-popover` and a type
-      scale (`page-title`, `item-title`, `card-title`, `body`, `body-lg`,
-      `button`, `badge`, `caption`, `stat`, `hero`). In code popups use
-      `shadow-md`/`shadow-lg` (21 sites) and stat numbers are hand-set
-      (`text-4xl`, `text-xl sm:text-3xl`, `text-3xl`; about 20 sites), so
-      the checklist's "tokens only" can't be followed. Decide: (1) define
-      the tokens in `@theme` and migrate the ~40 sites in one PR (fixes the
-      three stat sizes on the overview, budget and safe-to-spend at once),
-      or (2) rewrite DESIGN.md §3 to the Tailwind classes actually used.
-      Recommended: (1). Found by the 2026-10-31 design review.
-      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
-      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl`
-      stat sizes and fails on new ones.
-
-- [ ] **UX-177. Character pass: carry the brand into the working screens**
-      (M) `[!]` needs a product decision — the 2026-10-31 design review's
-      verdict: the landing page, empty states and the all-done ring carry
-      Squirrel's identity; the daily screens read as a generic dashboard
-      with a purple primary. Four ideas that stay inside DESIGN.md and off
-      money surfaces, each its own PR once chosen: (a) render the Household
-      notes board as the landing's paper notes (`note-yellow`, the
-      handwriting face, slight rotation); (b) make the shopping progress
-      ring an acorn outline that fills (same geometry, no new assets);
-      (c) the housemate voice in the Today block ("Nothing planned for
-      dinner. Last Tuesday's pasta again?" from existing data); (d) each
-      section's hue carried into its empty-state dashed box at 10 %
-      The dark theme (UX-157) has shipped. Decide which to
-      build and in what order.
-      Acceptance: per idea, a before/after on the `mobile` screenshots and
-      the e2e spec for the touched component still passing.
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
       (ticks only, shipped). Adding an item or editing a price with no

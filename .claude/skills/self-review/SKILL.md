@@ -49,6 +49,12 @@ Stop at the first real problem in a hunk, note it, move on.
       specs near the area, e.g. `form-control-sizes`) once, not only
       `test:e2e:quick`: the landscape and tablet reruns have broken the
       release PR (#269, #336) after fast CI was green, and e2e runs only there.
+- [ ] A spec that changes the worker's shared seeded rows (renames the e2e
+      user, adds rows to a week or list, flips a setting) restores them in
+      `afterEach`/`finally`, and one that reads such rows doesn't assume the
+      seeded value. Another spec in the same worker reads them next:
+      #1183 (stock-history read a name `pending-button-width` had changed,
+      and turned the release PR red) and #1213 (week-picks inherited weeks).
 - [ ] e2e text locators are scoped (`page.getByRole("main").getByText(...)`,
       or the `dialog`) because a phone/desktop layout can render the same
       text twice and a bare `getByText` then fails strict mode (blocked
