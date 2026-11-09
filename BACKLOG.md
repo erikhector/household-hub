@@ -450,21 +450,17 @@ WebKit was not run (no browser installed here). The audit config has no
 fallback for the missing headless shell that `playwright.config.ts` has, so
 the audit was run through an uncommitted copy with `executablePath` set.
 
-- [ ] **UX-183. Show add-item errors under the field, in the page's language** (impact: med, effort: M) —
-      Submitting the add-item sheet with an empty name (`add-item-dialog.tsx:253`,
-      `quantity` at `:349`) shows the browser's native "Please fill out this
-      field." bubble. It sits over the next field, follows the browser's
-      language (English in a Swedish app) and can't be styled or announced
-      like `FieldError`. Seen on `mobile` at 320 px. UX-59 fixed this for
-      login and signup only; about 30 other components still rely on bare
-      `required` (e.g. `shopping/rename-list-dialog.tsx:64`,
-      `shopping/list-templates.tsx:82`). Breaks DESIGN.md "errors next to
-      the field, keeping input". Do the inventory forms first (add item,
-      quantity, edit item), then the rest in follow-ups. Acceptance: in
-      `mobile` (en and sv), submitting an empty name shows a role="alert"
-      message in the page's language under the name field, focus moves to
-      it, `aria-invalid` is set and nothing the user typed elsewhere is
-      lost.
+- [ ] **UX-183b. Show the remaining forms' required-field errors under the field, in the page's language** (impact: med, effort: L) —
+      UX-59 (login, signup) and UX-183 (the inventory add/edit item dialog)
+      replaced the browser's native "Please fill out this field." bubble with
+      a `FieldError` under the field. About 30 other components still rely
+      on bare `required` (e.g. `shopping/rename-list-dialog.tsx:64`,
+      `shopping/list-templates.tsx:82`), so a Swedish user gets an English
+      bubble over the next field. Breaks DESIGN.md "errors next to the
+      field, keeping input". Split by feature if one PR is too big. Same
+      acceptance as UX-183, per form: `noValidate`, a `role="alert"`
+      message in the page's language under the field, focus moves to it,
+      `aria-invalid` is set and nothing typed elsewhere is lost.
 
 ### Dependencies
 
