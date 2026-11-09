@@ -25,14 +25,16 @@ for (const [locale, storageState, t] of [
       await expect(dialog.getByRole("button", { name: t.common.close, exact: true })).toBeVisible();
     });
 
-    test("a rejected name shows the server's message in the user's language", async ({ page }) => {
+    // UX-183: the add-item form checks the name itself now, so a blank one
+    // never reaches the server; the field's own message is in the language.
+    test("a blank item name shows the field's message in the user's language", async ({ page }) => {
       await page.goto("/dashboard/inventory");
       await page.getByRole("button", { name: t.inventory.addItem }).first().click();
       const dialog = page.getByRole("dialog", { name: t.inventory.addDialogTitle });
       await dialog.getByLabel(t.inventory.nameLabel, { exact: true }).fill("   ");
       await dialog.getByRole("button", { name: t.inventory.addItem, exact: true }).click();
 
-      await expect(dialog.getByText(t.errors.nameRequired)).toBeVisible();
+      await expect(dialog.getByRole("alert").filter({ hasText: t.inventory.nameRequired })).toBeVisible();
     });
     // MAINT-7: the household actions follow the language too.
     test("a rejected household name shows the server's message in the user's language", async ({ page, isMobile }) => {

@@ -1299,6 +1299,8 @@ export const sv = {
     locationPlaceholder: "t.ex. Kylskåp",
     onTheWay: "+{amount} på väg",
     quantityLabel: "Antal",
+    nameRequired: "Ange ett namn",
+    quantityRequired: "Ange ett antal",
     unitLabel: "Enhet",
     unitPlaceholder: "t.ex. st",
     runningLowBelowLabel: "Lågt lager under",
