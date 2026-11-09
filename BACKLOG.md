@@ -421,6 +421,33 @@ dialog sweeps; all 290 + 132 tests pass. The only audit hits are the known
 not run (no browser installed here), and the per-action deep dive was a
 screenshot and code read, not driven through the UI.
 
+### UX (2026-11-09 scout)
+
+Monday area: inventory and item pages. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. The deep dive
+drove the add-item sheet at 320 px (empty submit, 90-character name).
+WebKit was not run (no browser installed here). The audit config has no
+fallback for the missing headless shell that `playwright.config.ts` has, so
+the audit was run through an uncommitted copy with `executablePath` set.
+
+- [ ] **UX-183. Show add-item errors under the field, in the page's language** (impact: med, effort: M) —
+      Submitting the add-item sheet with an empty name (`add-item-dialog.tsx:253`,
+      `quantity` at `:349`) shows the browser's native "Please fill out this
+      field." bubble. It sits over the next field, follows the browser's
+      language (English in a Swedish app) and can't be styled or announced
+      like `FieldError`. Seen on `mobile` at 320 px. UX-59 fixed this for
+      login and signup only; about 30 other components still rely on bare
+      `required` (e.g. `shopping/rename-list-dialog.tsx:64`,
+      `shopping/list-templates.tsx:82`). Breaks DESIGN.md "errors next to
+      the field, keeping input". Do the inventory forms first (add item,
+      quantity, edit item), then the rest in follow-ups. Acceptance: in
+      `mobile` (en and sv), submitting an empty name shows a role="alert"
+      message in the page's language under the name field, focus moves to
+      it, `aria-invalid` is set and nothing the user typed elsewhere is
+      lost.
+
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
