@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.148.0",
+    "date": "2026-11-09",
+    "pr": 1269,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Budget pages and the Home \"safe to spend\" number load faster for households with a long history.\n\nThe shopping progress indicator is now a little acorn that fills up as you tick off items.",
+      "sv": "Budgetsidorna och \"säkert att spendera\" på startsidan laddar snabbare för hushåll med lång historik.\n\nFramstegsmätaren i inköpslistan är nu ett litet ekollon som fylls på när du bockar av varor."
+    }
+  },
+  {
     "version": "0.147.2",
     "date": "2026-11-09",
     "pr": 1260,
