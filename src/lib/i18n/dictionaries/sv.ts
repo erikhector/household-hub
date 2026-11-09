@@ -2718,6 +2718,12 @@ export const sv = {
     descriptionLabel: "Beskrivning",
     descriptionPlaceholder: "Valfri anteckning",
     dateLabel: "Datum",
+    // UX-183b: shown under the field when the add/edit budget forms are submitted
+    // with it empty, in place of the browser's own bubble.
+    nameRequired: "Ange ett namn",
+    amountRequired: "Ange ett belopp",
+    categoryRequired: "Välj en kategori",
+    dateRequired: "Ange ett datum",
     recurringLabel: "Detta återkommer",
     repeatsLabel: "Upprepas",
     repeatsHint: "Läggs även till som en månadspost under Återkommande, redan loggad för den här månaden.",
@@ -3254,6 +3260,12 @@ export const sv = {
     descriptionLabel: "Beskrivning",
     descriptionPlaceholder: "Valfri anteckning",
     dateLabel: "Datum",
+    // UX-183b: shown under the field when the add/edit budget forms are submitted
+    // with it empty, in place of the browser's own bubble.
+    nameRequired: "Ange ett namn",
+    amountRequired: "Ange ett belopp",
+    categoryRequired: "Välj en kategori",
+    dateRequired: "Ange ett datum",
     recurringLabel: "Detta upprepas",
     repeatsLabel: "Upprepas",
     repeatsHint: "Läggs även till som en månadspost under Återkommande, redan loggad för den här månaden.",
