@@ -179,7 +179,7 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
     main.getByRole("progressbar", { name: "Shopping progress" }).locator("svg g[clip-path] rect").nth(1).evaluate((el) => getComputedStyle(el).fill),
   ]);
   expect(tickColor).not.toBe(fillColor);
-  if (process.env.E2E_SCREENSHOT_DIR) await main.getByRole("progressbar", { name: "Shopping progress" }).screenshot({ path: `${process.env.E2E_SCREENSHOT_DIR}/cleared-acorn-${test.info().project.name}.png` });
+  if (process.env.E2E_SCREENSHOT_DIR) await main.getByRole("progressbar", { name: "Shopping progress" }).screenshot({ path: `${process.env.E2E_SCREENSHOT_DIR}/cleared-acorn-${test.info().project.name}.png`, animations: "disabled" });
   expect(errors).toEqual([]);
 });
 
