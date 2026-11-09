@@ -28,7 +28,7 @@ import { prisma } from "@/lib/prisma";
 import type { CategoryTotal } from "@/components/budget/category-breakdown";
 import type { SharedPostedRow } from "@/components/budget/transaction-list";
 import type { SharedDueRow } from "@/components/budget/due-recurring-widget";
-import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
+import { ackPeriodKeyWindow, computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { normalizeStartDay } from "@/lib/budget-date-utils";
 import {
   computeSafeToSpend,
@@ -191,8 +191,9 @@ export async function loadPersonalBudgetPosition({
       include: { category: true },
       orderBy: { createdAt: "asc" },
     }),
+    // PERF-37: only acks inside the lookback window, like the transactions.
     prisma.personalRecurringTemplateAck.findMany({
-      where: { personalRecurringTemplate: { userId } },
+      where: { personalRecurringTemplate: { userId }, periodKey: ackPeriodKeyWindow(lookbackStart) },
     }),
     prisma.householdMember.findMany({
       where: { userId },
@@ -482,7 +483,7 @@ export async function loadPersonalBudgetPosition({
       : Promise.resolve([]),
     sharedTemplateIds.length > 0
       ? prisma.recurringTemplateAck.findMany({
-          where: { recurringTemplateId: { in: sharedTemplateIds } },
+          where: { recurringTemplateId: { in: sharedTemplateIds }, periodKey: ackPeriodKeyWindow(lookbackStart) },
         })
       : Promise.resolve([]),
   ]);

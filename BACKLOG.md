@@ -110,24 +110,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-37. Bound the recurring-template ack reads to the lookback window**
-      (impact: med, effort: S) — `RecurringTemplateAck` gets one row per
-      template per accounted-for month, forever, yet five reads load all of
-      them: `src/lib/household-safe-to-spend.ts:53` (every Home render),
-      `src/lib/weekly-digest.ts:142`, `src/lib/budget/load-budget-tabs-data.ts:158`,
-      `src/lib/personal-budget-position.ts:484` and the personal-template twin
-      at `:194`. Their transactions are already limited to
-      `RECURRING_LOOKBACK_MONTHS` (12), so older acks can't change any result
-      and the reads grow with the household's age for nothing. Filter
-      `periodKey` to the same window (it's a `YYYY-MM` string, so
-      `{ gte: lookbackKey }` works) through one shared helper. First check each
-      calculator in `safe-to-spend-calc.ts` and the recurring-template calc for
-      a use of an ack older than the window; the budget tab may show older
-      periods and then needs its own bound. Human-only area (budget code).
-      Acceptance: unit tests per loader assert the Prisma call carries the
-      `periodKey` bound, and a safe-to-spend result with an ack 13 months old
-      is unchanged.
-
 ### Client JS and caching (2026-10-26 measurement)
 
 Measured on a production build with the seeded e2e user in Chromium

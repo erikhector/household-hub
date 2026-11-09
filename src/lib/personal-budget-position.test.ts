@@ -279,6 +279,55 @@ describe("loadPersonalBudgetPosition", () => {
     ]);
   });
 
+  it("bounds both ack reads to the 12-month lookback (PERF-37)", async () => {
+    setPersonalTransactions([]);
+    personalTemplateFindManyMock.mockResolvedValue([]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([{ id: "m-me", household: { id: "h1", name: "Home" } }]);
+    setBills([
+      {
+        id: "sep-rent",
+        amount: 12000,
+        type: "EXPENSE",
+        date: new Date(2026, 8, 5),
+        recurringTemplateId: "tpl-rent",
+        category: { name: "Rent" },
+        splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
+      },
+    ]);
+    setSettlements([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+    templateAckFindManyMock.mockResolvedValue([]);
+    templateFindManyMock.mockResolvedValue([
+      {
+        id: "tpl-rent",
+        householdId: "h1",
+        categoryId: "cat-rent",
+        category: { name: "Rent" },
+        name: "Rent",
+        amount: 12000,
+        type: "EXPENSE",
+        frequency: "MONTHLY",
+        active: true,
+        createdAt: new Date(2026, 0, 1),
+        transactions: [{ id: "sep-rent" }],
+      },
+    ]);
+
+    await loadPersonalBudgetPosition({ userId: "user-1", monthStart, monthEnd, sharedLabel: "Shared" });
+
+    // Viewing September 2026: the window opens 12 months earlier.
+    expect(personalAckFindManyMock.mock.calls[0][0].where).toEqual({
+      personalRecurringTemplate: { userId: "user-1" },
+      periodKey: { gte: "2025-09" },
+    });
+    expect(templateAckFindManyMock).toHaveBeenCalledTimes(1);
+    expect(templateAckFindManyMock.mock.calls[0][0].where).toEqual({
+      recurringTemplateId: { in: ["tpl-rent"] },
+      periodKey: { gte: "2025-09" },
+    });
+  });
+
   it("keeps a bill split by hand each month due in the months it isn't logged yet", async () => {
     // Viewing October: the household's rent and electricity templates have
     // no template split — September's bills were split by hand when logged.
