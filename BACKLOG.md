@@ -110,24 +110,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-37. Bound the recurring-template ack reads to the lookback window**
-      (impact: med, effort: S) — `RecurringTemplateAck` gets one row per
-      template per accounted-for month, forever, yet five reads load all of
-      them: `src/lib/household-safe-to-spend.ts:53` (every Home render),
-      `src/lib/weekly-digest.ts:142`, `src/lib/budget/load-budget-tabs-data.ts:158`,
-      `src/lib/personal-budget-position.ts:484` and the personal-template twin
-      at `:194`. Their transactions are already limited to
-      `RECURRING_LOOKBACK_MONTHS` (12), so older acks can't change any result
-      and the reads grow with the household's age for nothing. Filter
-      `periodKey` to the same window (it's a `YYYY-MM` string, so
-      `{ gte: lookbackKey }` works) through one shared helper. First check each
-      calculator in `safe-to-spend-calc.ts` and the recurring-template calc for
-      a use of an ack older than the window; the budget tab may show older
-      periods and then needs its own bound. Human-only area (budget code).
-      Acceptance: unit tests per loader assert the Prisma call carries the
-      `periodKey` bound, and a safe-to-spend result with an ack 13 months old
-      is unchanged.
-
 ### Client JS and caching (2026-10-26 measurement)
 
 Measured on a production build with the seeded e2e user in Chromium
@@ -462,34 +444,6 @@ the audit was run through an uncommitted copy with `executablePath` set.
       message in the page's language under the field, focus moves to it,
       `aria-invalid` is set and nothing typed elsewhere is lost.
 
-- [ ] **UX-176. Define DESIGN.md's shadow and type tokens in the CSS** (impact: med, effort: M) —
-      DESIGN.md §3 names `shadow-primary`, `shadow-primary-hover`,
-      `shadow-popover` and a type scale (`page-title` … `hero`) that
-      `globals.css` never defines; popups use `shadow-md`/`shadow-lg` (21
-      sites) and stat numbers are hand-set (`text-4xl`, `text-3xl`; about 20
-      sites). Define the tokens in `@theme` and migrate the ~40 sites in one
-      PR, which also makes the three stat sizes on the overview, budget and
-      safe-to-spend agree.
-      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
-      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl` stat
-      sizes and fails on new ones; the screenshot smoke run still passes.
-      Decided 2026-11-09 by autopilot-product: define the tokens. Why: the
-      item's own recommended option; the checklist's "tokens only" can't be
-      followed otherwise. See PRODUCT.md.
-
-- [ ] **UX-177. Shopping progress ring as an acorn outline that fills** (impact: low, effort: S) —
-      First step of the character pass: same ring geometry and progressbar
-      semantics, drawn as an acorn outline that fills as items are ticked.
-      No new assets, not on any money surface, respects
-      `prefers-reduced-motion`. Ideas (a) notes board as paper notes, (c)
-      housemate voice in Today and (d) tinted empty states are parked:
-      re-propose one after this ships and its screenshots are reviewed.
-      Acceptance: on `mobile` the list header still exposes a `progressbar`
-      named "n of m" that updates when an item is ticked; the existing
-      shopping-list specs pass.
-      Decided 2026-11-09 by autopilot-product: build (b) only. Why: the
-      smallest, reversible slice that tests whether brand character
-      belongs on daily screens. See PRODUCT.md.
 
 ### Dependencies
 

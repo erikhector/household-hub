@@ -4,12 +4,28 @@ import {
   computeFixedMonthlySummary,
   computeRecurringBreakdown,
   computeRecurringMonthlyTotals,
+  ackPeriodKeyWindow,
   computeTemplateStatuses,
   expandMonthlyDueDates,
   getPeriodBounds,
   getPeriodKey,
   monthlyEquivalentAmount,
 } from "@/lib/recurring-template-calc";
+
+describe("ackPeriodKeyWindow (PERF-37)", () => {
+  it("bounds periodKey by the month the lookback starts in", () => {
+    expect(ackPeriodKeyWindow(new Date(2025, 8, 1))).toEqual({ gte: "2025-09" });
+  });
+
+  it("keeps the viewed period's key of every frequency at or above the bound", () => {
+    // Viewing January 2027 (ISO week 53 of 2026 on 1 Jan), window 12 months back.
+    const viewed = new Date(2027, 0, 1);
+    const bound = ackPeriodKeyWindow(new Date(2026, 0, 1)).gte;
+    for (const frequency of ["WEEKLY", "MONTHLY", "YEARLY"] as const) {
+      expect(getPeriodKey(viewed, frequency) >= bound).toBe(true);
+    }
+  });
+});
 
 describe("getPeriodKey", () => {
   it("formats a MONTHLY period as YYYY-MM", () => {

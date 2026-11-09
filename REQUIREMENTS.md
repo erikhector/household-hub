@@ -1344,7 +1344,9 @@ every lookup the old one did.
       completed or archived list keeps the always-open "Purchased" section.
       Under `prefers-reduced-motion` the row moves at once.
     - *Next up dock* (`src/components/shopping/shopping-mode.tsx`): the
-      progress ring ("12 of 18", a real `progressbar` with that
+      progress "ring" ("12 of 18"), drawn since UX-177 as an acorn outline that
+      fills from the bottom as rows are ticked (one SVG shared by the dock, the
+      shared list and the all-done moment; a real `progressbar` with that
       valuetext), the aisle the shopper is in now (the first pending group,
       `nextUp()` in `src/lib/shopping/shopping-progress.ts`, unit-tested)
       and its next three items as 48 px full-width tap rows. Ticking one is
@@ -3077,6 +3079,18 @@ Component page function can't itself be unit-tested.
     same as before (equivalence is covered in
     `personal-budget-position.test.ts` and was checked against the old
     loader on randomised multi-year data).
+  - **Ack window (PERF-37)**: recurring-template acks
+    (`RecurringTemplateAck`, `PersonalRecurringTemplateAck`) are one row
+    per template per accounted-for period, forever, but
+    `computeTemplateStatuses` only looks one up by the viewed period's key,
+    and the viewed period is never older than the 12-month lookback. Every
+    ack read (household Safe to spend, the weekly digest, the Budget tabs'
+    Recurring tab, and both reads here) therefore filters `periodKey` with
+    `ackPeriodKeyWindow(lookbackStart)` (`recurring-template-calc.ts`):
+    `{ gte: "YYYY-MM" }` of the lookback's start month. String comparison
+    keeps `YYYY` and `YYYY-Www` keys of the viewed period too, and a
+    payday start day only makes the bound up to a month looser. A result
+    never depends on an older ack, so none changed.
   - Due payments and due savings include the user's share of shared
     recurring items that are still due (the "Rent pops up" rows). A
     household `RecurringTemplate` is shared with the user when it has a
@@ -7709,6 +7723,16 @@ flat grayscale:
   control. Disabled solid buttons (`default`, `secondary`) keep full opacity
   on a `muted` fill with `muted-foreground` text instead of fading: white at
   50% opacity over the faded primary was ~1.5:1 in the light theme.
+- **Shadow and type tokens** (UX-176): `globals.css`'s `@theme` defines
+  `shadow-primary`, `shadow-primary-hover`, `shadow-popover`, `shadow-raised`
+  and the type scale (`text-page-title`, `text-large-title`, `text-item-title`,
+  `text-card-title`, `text-body`, `text-body-lg`, `text-button`, `text-badge`,
+  `text-caption`, `text-stat`, `text-hero`), matching DESIGN.md. Popups,
+  floating bars and the button use them; the safe-to-spend number and the
+  overview's shopping count share `text-stat` (36px).
+  `src/components/design-tokens.test.ts` fails on Tailwind's `shadow-sm/md/lg`
+  or a bare `text-3xl`/`text-4xl` in `src/components` (the landing letters and
+  print list title are allowlisted).
 - **Contrast**: every text colour holds 4.5:1 on the surfaces it's painted
   on, and field outlines (`--input`) and the focus ring hold 3:1, in both
   themes. `src/app/globals-contrast.test.ts` reads `globals.css` and fails
@@ -8725,8 +8749,8 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   `scrollable-region-focusable` (UX-175; `e2e/whats-new-a11y.mobile.spec.ts`).
   Also UX-175: `Button` and `Badge` transition explicit properties
   (`color, background-color, border-color, box-shadow, transform`) rather
-  than `transition-all`, and the phone inventory bulk bar uses the
-  `shadow-md` scale shadow instead of a raw-rgb one.
+  than `transition-all`, and the phone inventory bulk bar uses a
+  scale shadow (now `shadow-popover`) instead of a raw-rgb one.
 - The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`

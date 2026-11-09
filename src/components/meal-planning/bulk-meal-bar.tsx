@@ -143,7 +143,7 @@ export function BulkMealBar({
       role="region"
       aria-label={dict.bulkBarLabel}
       data-bulk-bar="meals"
-      className="z-30 flex flex-col gap-2 border bg-background/95 p-3 shadow-lg backdrop-blur-sm max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] sm:sticky sm:bottom-4 sm:rounded-xl print:hidden"
+      className="z-30 flex flex-col gap-2 border bg-background/95 p-3 shadow-popover backdrop-blur-sm max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] sm:sticky sm:bottom-4 sm:rounded-xl print:hidden"
     >
       <div className="flex items-center justify-between gap-2">
         <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium">

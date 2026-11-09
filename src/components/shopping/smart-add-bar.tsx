@@ -291,7 +291,7 @@ export function SmartAddBar({
               id={listboxId}
               role="listbox"
               aria-label={dict.suggestionsLabel}
-              className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
+              className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-popover ring-1 ring-foreground/10"
             >
               {suggestions.map((suggestion, index) => (
                 <li

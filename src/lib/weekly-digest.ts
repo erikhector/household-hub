@@ -8,7 +8,7 @@ import { getDictionaryForLocale } from "@/lib/i18n/dictionaries";
 import { defaultLocale, isLocale } from "@/lib/i18n/locales";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
-import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
+import { ackPeriodKeyWindow, computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
 import { categoryEnvelopes } from "@/lib/budget-category-limit";
 import { addMonths, normalizeStartDay, periodBounds, periodKeyOf } from "@/lib/budget-date-utils";
@@ -139,8 +139,9 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
         createdAt: true,
       },
     }),
+    // PERF-37: only acks inside the lookback window, like the transactions.
     prisma.recurringTemplateAck.findMany({
-      where: { recurringTemplate: { householdId } },
+      where: { recurringTemplate: { householdId }, periodKey: ackPeriodKeyWindow(lookbackStart) },
       select: { recurringTemplateId: true, periodKey: true },
     }),
     // BUDGET-8: planned bills, same filter as the Budget page — unpaid ones

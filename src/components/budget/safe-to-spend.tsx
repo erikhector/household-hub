@@ -255,7 +255,7 @@ export function SafeToSpend({
   const numberContent = (
     <>
       <p className="text-sm text-foreground">{summary}</p>
-      <p className={`font-display text-4xl font-bold ${STATUS_COLOR[status]}`}>
+      <p className={`font-display text-stat font-bold ${STATUS_COLOR[status]}`}>
         <AnimatedNumber value={amount} locale={locale} currencyCode={currencyCode} showPlus />
       </p>
       {dailyAllowance && (

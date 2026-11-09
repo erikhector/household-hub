@@ -31,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+import { toMonthKey } from "@/lib/budget-date-utils";
 import { loadBudgetTabsData, loadUnsettledSplitBills } from "./load-budget-tabs-data";
 
 const monthStart = new Date("2026-10-01T00:00:00Z");
@@ -72,7 +73,11 @@ describe("loadBudgetTabsData", () => {
     expect(m.transactionGroupBy.mock.calls[0][0].where).toEqual({ householdId: "h1", type: "SAVINGS" });
     expect(m.memberFindMany.mock.calls[0][0].where).toEqual({ householdId: "h1" });
     expect(m.templateFindMany.mock.calls[0][0].where).toEqual({ householdId: "h1" });
-    expect(m.ackFindMany.mock.calls[0][0].where).toEqual({ recurringTemplate: { householdId: "h1" } });
+    expect(m.ackFindMany.mock.calls[0][0].where).toEqual({
+      recurringTemplate: { householdId: "h1" },
+      // PERF-37: bounded to the lookback window (the month of recurringLookbackStart).
+      periodKey: { gte: toMonthKey(recurringLookbackStart) },
+    });
     expect(m.settlementFindMany.mock.calls[0][0].where).toEqual({ householdId: "h1" });
     expect(m.settlementGroupBy.mock.calls[0][0].where).toEqual({ householdId: "h1" });
     expect(m.plannedFindMany.mock.calls[0][0].where.householdId).toBe("h1");
