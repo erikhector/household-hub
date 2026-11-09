@@ -432,17 +432,29 @@ WebKit was not run (no browser installed here). The audit config has no
 fallback for the missing headless shell that `playwright.config.ts` has, so
 the audit was run through an uncommitted copy with `executablePath` set.
 
-- [ ] **UX-183b. Show the remaining forms' required-field errors under the field, in the page's language** (impact: med, effort: L) —
-      UX-59 (login, signup) and UX-183 (the inventory add/edit item dialog)
-      replaced the browser's native "Please fill out this field." bubble with
-      a `FieldError` under the field. About 30 other components still rely
-      on bare `required` (e.g. `shopping/rename-list-dialog.tsx:64`,
-      `shopping/list-templates.tsx:82`), so a Swedish user gets an English
-      bubble over the next field. Breaks DESIGN.md "errors next to the
-      field, keeping input". Split by feature if one PR is too big. Same
-      acceptance as UX-183, per form: `noValidate`, a `role="alert"`
-      message in the page's language under the field, focus moves to it,
-      `aria-invalid` is set and nothing typed elsewhere is lost.
+- [ ] **UX-183b. Show the remaining forms' required-field errors under the field, in the page's language** (impact: med, effort: M) —
+      UX-59 (login, signup), UX-183 (the inventory add/edit item dialog) and
+      the first UX-183b slice (the budget transaction, recurring item and
+      planned bill dialogs) replaced the browser's native "Please fill out
+      this field." bubble with a `FieldError` under the field, via
+      `useRequiredFields` (`src/components/shared/use-required-fields.ts`).
+      About 20 other components still rely on bare `required`, so a Swedish
+      user gets an English bubble: budget `category-manager.tsx`,
+      `household-balances.tsx`, `transaction-list.tsx`,
+      `personal-budget/log-shared-expense-dialog.tsx`;
+      `tasks/task-form-dialog.tsx`; meal planning (`add-to-plan-dialog`,
+      `bulk-meal-bar`, `missing-diet-badges`, `move-meal-dialog`,
+      `plan-template-dialogs`, `recipe-form-dialog`); household
+      (`create-first-household-form`, `household-switcher-menu`,
+      `join-signup-form`, `rename-household`); profile (`display-name-form`,
+      `email-form`, `password-form`); auth (`forgot-password-form`,
+      `reset-password-form`); inventory (`change-unit-dialog`,
+      `item-units-and-usage`); shopping (`rename-list-dialog`,
+      `list-templates`, once #1263 has landed). Breaks DESIGN.md "errors next
+      to the field, keeping input". Split by feature. Same acceptance as
+      UX-183, per form: `noValidate`, a `role="alert"` message in the page's
+      language under the field, focus moves to it, `aria-invalid` is set and
+      nothing typed elsewhere is lost.
 
 
 - [ ] **UX-177. Shopping progress ring as an acorn outline that fills** (impact: low, effort: S) —

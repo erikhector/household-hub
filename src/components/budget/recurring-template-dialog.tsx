@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState, type RefObject } from "react";
+import { useActionState, useMemo, useState, type FormEvent, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,8 @@ import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { MemberOption } from "@/components/budget/transaction-dialog";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 // Shared by both createRecurringTemplateAction/updateRecurringTemplateAction
 // (household) and createPersonalRecurringTemplateAction/
@@ -131,6 +133,15 @@ export function RecurringTemplateDialog({
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
     buildInitialSplitAmounts(template, memberOptions),
   );
+  // UX-183b: a missing name or amount is worded under its field in the
+  // page's language (`noValidate` on the form), not by the browser.
+  const req = useRequiredFields();
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    req.check(event, [
+      { name: "name", id: "rt-name", message: dict.nameRequired },
+      { name: "amount", id: "rt-amount", message: dict.amountRequired, numeric: true },
+    ]);
+  }
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -155,6 +166,7 @@ export function RecurringTemplateDialog({
     setAmount(template ? String(template.amount) : "");
     setSplitEnabled(canSplit && !!template && template.splits.length > 0);
     setSplitAmounts(buildInitialSplitAmounts(template, memberOptions));
+    req.clear();
   }
 
   const splitRemainder = shareRemainder(amount, splitAmounts);
@@ -175,20 +187,22 @@ export function RecurringTemplateDialog({
             {isEdit ? dict.recurring.editDialogTitle : dict.recurring.addDialogTitle}
           </DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={onSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={template.id} />}
           <div className="flex flex-col gap-2">
             <Label htmlFor="rt-name">{dict.recurring.nameLabel}</Label>
             <Input
               id="rt-name"
               name="name"
-              required
               maxLength={120}
+              aria-invalid={req.messageFor("name") ? true : undefined}
+              aria-describedby={req.messageFor("name") ? fieldErrorId("rt-name") : undefined}
               autoComplete="off"
               enterKeyHint="next"
               placeholder={dict.recurring.namePlaceholder}
               defaultValue={template?.name}
             />
+            <FieldError fieldId="rt-name">{req.messageFor("name")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="rt-category">{dict.categoryLabel}</Label>
@@ -220,8 +234,10 @@ export function RecurringTemplateDialog({
                 step="any"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                required
+                aria-invalid={req.messageFor("amount") ? true : undefined}
+                aria-describedby={req.messageFor("amount") ? fieldErrorId("rt-amount") : undefined}
               />
+              <FieldError fieldId="rt-amount">{req.messageFor("amount")}</FieldError>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="rt-day">{dict.recurring.dayOfMonthLabel}</Label>

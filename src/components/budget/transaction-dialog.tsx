@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,8 @@ import { plannedTexts, type BudgetDict } from "@/components/budget/budget-dict";
 import type { PlannedItemType } from "@/lib/planned-expense-calc";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 export type RecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
 
@@ -318,6 +320,17 @@ export function TransactionDialog({
   // UX-13: the description is the dialog's only uncontrolled text field,
   // so it's the one a failed save would otherwise wipe.
   const kept = useKeptFormValues(["description"]);
+  // UX-183b: a missing amount, category or date is worded under its field
+  // in the page's language (`noValidate` on the form), not by the browser.
+  const req = useRequiredFields();
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    const blocked = req.check(event, [
+      { name: "amount", id: "tx-amount", message: dict.amountRequired, numeric: true },
+      { name: "categoryId", id: "tx-category-first", message: dict.categoryRequired },
+      { name: "date", id: "tx-date", message: dict.dateRequired },
+    ]);
+    if (!blocked) kept.onSubmit(event);
+  }
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -387,6 +400,7 @@ export function TransactionDialog({
     setPaidTouched(false);
     setSharesTouched(hasSplit(transaction, prefillFromTemplate));
     kept.reset();
+    req.clear();
     shared.reset();
     setDate(toLocalDateKey(transaction?.date ?? newTransactionDate(monthKey, startDay, prefillFromTemplate)));
   }
@@ -404,6 +418,7 @@ export function TransactionDialog({
   const chipGroups = sharedOn ? sharedGroups : categoryGroups;
   const chipValue = sharedOn ? shared.categoryId : categoryId;
   const chipSelect = sharedOn ? shared.setCategoryId : setCategoryId;
+  const firstChipId = chipGroups[0]?.categories[0]?.id;
 
   const splitCheck = checkSplitForm(amount, splitAmounts, paidAmounts);
   const splitInvalid = sharedOn
@@ -439,7 +454,7 @@ export function TransactionDialog({
             {isEdit ? dict.editTransactionDialogTitle : dict.addTransactionDialogTitle}
           </DialogTitle>
         </DialogHeader>
-        <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={onSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={transaction.id} />}
           {!isEdit && prefillFromTemplate?.templateId && (
             <input type="hidden" name="recurringTemplateId" value={prefillFromTemplate.templateId} />
@@ -461,8 +476,10 @@ export function TransactionDialog({
               step="any"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
-              required
+              aria-invalid={req.messageFor("amount") ? true : undefined}
+              aria-describedby={req.messageFor("amount") ? fieldErrorId("tx-amount") : undefined}
             />
+            <FieldError fieldId="tx-amount">{req.messageFor("amount")}</FieldError>
           </div>
           {canShare && sharedSplit && (
             <SharedSplitFields
@@ -477,9 +494,9 @@ export function TransactionDialog({
               (DESIGN.md M4). Expenses lead, recent categories lead their
               group, and each chip is a 44 px target (M3). The radios are
               visually hidden but real, so the group is a native radiogroup
-              with arrow keys, and `required` blocks an empty save. */}
+              with arrow keys; an empty save is stopped by `onSubmit` (UX-183b). */}
           {/* Keyed so a household switch starts the group unchecked. */}
-          <fieldset key={sharedOn ? shared.household?.id : "personal"} className="flex min-w-0 flex-col gap-3">
+          <fieldset key={sharedOn ? shared.household?.id : "personal"} aria-invalid={req.messageFor("categoryId") ? true : undefined} className="flex min-w-0 flex-col gap-3">
             <legend className="mb-2 text-sm font-medium">{dict.categoryLabel}</legend>
             {chipGroups.map((group) => (
               <div key={group.type} className="flex flex-col gap-1.5">
@@ -495,7 +512,8 @@ export function TransactionDialog({
                         value={c.id}
                         checked={chipValue === c.id}
                         onChange={() => chipSelect(c.id)}
-                        required
+                        id={c.id === firstChipId ? "tx-category-first" : undefined}
+                        aria-describedby={req.messageFor("categoryId") ? fieldErrorId("tx-category") : undefined}
                         className="peer sr-only"
                       />
                       <span className="flex min-h-11 items-center rounded-full border border-input px-3.5 text-sm transition-colors select-none hover:border-ring/40 active:bg-muted peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50">
@@ -506,6 +524,7 @@ export function TransactionDialog({
                 </div>
               </div>
             ))}
+            <FieldError fieldId="tx-category">{req.messageFor("categoryId")}</FieldError>
           </fieldset>
           <div className="flex flex-col gap-2">
             <Label htmlFor="tx-date">{dict.dateLabel}</Label>
@@ -516,8 +535,10 @@ export function TransactionDialog({
               autoComplete="off"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              required
+              aria-invalid={req.messageFor("date") ? true : undefined}
+              aria-describedby={req.messageFor("date") ? fieldErrorId("tx-date") : undefined}
             />
+            <FieldError fieldId="tx-date">{req.messageFor("date")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="tx-description">{dict.descriptionLabel}</Label>
