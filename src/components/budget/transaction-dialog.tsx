@@ -418,7 +418,7 @@ export function TransactionDialog({
   const chipGroups = sharedOn ? sharedGroups : categoryGroups;
   const chipValue = sharedOn ? shared.categoryId : categoryId;
   const chipSelect = sharedOn ? shared.setCategoryId : setCategoryId;
-  const firstChipId = chipGroups[0]?.categories[0]?.id;
+  const firstChipId = chipGroups.flatMap((g) => g.categories)[0]?.id;
 
   const splitCheck = checkSplitForm(amount, splitAmounts, paidAmounts);
   const splitInvalid = sharedOn
@@ -496,7 +496,7 @@ export function TransactionDialog({
               visually hidden but real, so the group is a native radiogroup
               with arrow keys; an empty save is stopped by `onSubmit` (UX-183b). */}
           {/* Keyed so a household switch starts the group unchecked. */}
-          <fieldset key={sharedOn ? shared.household?.id : "personal"} aria-invalid={req.messageFor("categoryId") ? true : undefined} className="flex min-w-0 flex-col gap-3">
+          <fieldset key={sharedOn ? shared.household?.id : "personal"} className="flex min-w-0 flex-col gap-3">
             <legend className="mb-2 text-sm font-medium">{dict.categoryLabel}</legend>
             {chipGroups.map((group) => (
               <div key={group.type} className="flex flex-col gap-1.5">
@@ -513,6 +513,7 @@ export function TransactionDialog({
                         checked={chipValue === c.id}
                         onChange={() => chipSelect(c.id)}
                         id={c.id === firstChipId ? "tx-category-first" : undefined}
+                        aria-invalid={req.messageFor("categoryId") ? true : undefined}
                         aria-describedby={req.messageFor("categoryId") ? fieldErrorId("tx-category") : undefined}
                         className="peer sr-only"
                       />
