@@ -170,6 +170,16 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
   // Every tick saved.
   await page.reload();
   await expect(main.getByRole("button", { name: "Put everything away" })).toBeVisible();
+  // UX-177: the full acorn is solid primary, so the all-done tick drawn over
+  // it must be a contrasting colour or the mark vanishes.
+  const doneTick = main.getByRole("progressbar", { name: "Shopping progress" }).locator("svg.lucide-check");
+  await expect(doneTick).toBeVisible();
+  const [tickColor, fillColor] = await Promise.all([
+    doneTick.evaluate((el) => getComputedStyle(el).color),
+    main.getByRole("progressbar", { name: "Shopping progress" }).locator("svg g[clip-path] rect").nth(1).evaluate((el) => getComputedStyle(el).fill),
+  ]);
+  expect(tickColor).not.toBe(fillColor);
+  await saveScreenshot(page, "shopping-cleared-acorn");
   expect(errors).toEqual([]);
 });
 
