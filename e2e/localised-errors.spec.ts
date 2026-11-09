@@ -36,8 +36,8 @@ for (const [locale, storageState, t] of [
 
       await expect(dialog.getByRole("alert").filter({ hasText: t.inventory.nameRequired })).toBeVisible();
     });
-    // MAINT-7: the household actions follow the language too.
-    test("a rejected household name shows the server's message in the user's language", async ({ page, isMobile }) => {
+    // MAINT-7, UX-183b: the household actions follow the language too (an all-space name is caught by the form itself).
+    test("a blank household name shows the field message in the user's language", async ({ page, isMobile }) => {
       await page.goto("/dashboard");
       const switcher = createHouseholdMenuTrigger(page, isMobile, t.nav.more);
       await expectHydrated(switcher);
@@ -48,7 +48,7 @@ for (const [locale, storageState, t] of [
       await dialog.getByLabel(t.household.switcher.nameLabel).fill("   ");
       await dialog.getByRole("button", { name: t.household.switcher.create, exact: true }).click();
 
-      await expect(dialog.getByText(t.errors.householdNameRequired)).toBeVisible();
+      await expect(dialog.getByRole("alert").filter({ hasText: t.household.switcher.nameRequired })).toBeVisible();
     });
     // MAINT-7, UX-183b: so does the profile name (an all-space name is caught by the form itself).
     test("a blank profile name shows the field message in the user's language", async ({ page }) => {

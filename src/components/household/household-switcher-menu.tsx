@@ -5,6 +5,8 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +48,9 @@ export function CreateHouseholdDialog({
   open: boolean;
   setOpen: (open: boolean) => void;
 }) {
+  // UX-183b: an empty name is worded under the field in the page's language
+  // (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -61,10 +66,28 @@ export function CreateHouseholdDialog({
         <DialogHeader>
           <DialogTitle>{dict.createNew}</DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) =>
+            req.check(event, [{ name: "name", id: "new-household-name", message: dict.nameRequired }])
+          }
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <div className="flex flex-col gap-2">
             <Label htmlFor="new-household-name">{dict.nameLabel}</Label>
-            <Input autoComplete="off" enterKeyHint="done" id="new-household-name" name="name" required maxLength={60} />
+            <Input
+              autoComplete="off"
+              enterKeyHint="done"
+              id="new-household-name"
+              name="name"
+              required
+              maxLength={60}
+              aria-invalid={req.messageFor("name") ? true : undefined}
+              aria-describedby={req.messageFor("name") ? fieldErrorId("new-household-name") : undefined}
+            />
+            <FieldError fieldId="new-household-name">{req.messageFor("name")}</FieldError>
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
