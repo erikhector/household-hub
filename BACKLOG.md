@@ -477,20 +477,6 @@ the audit was run through an uncommitted copy with `executablePath` set.
       item's own recommended option; the checklist's "tokens only" can't be
       followed otherwise. See PRODUCT.md.
 
-- [ ] **UX-177. Shopping progress ring as an acorn outline that fills** (impact: low, effort: S) —
-      First step of the character pass: same ring geometry and progressbar
-      semantics, drawn as an acorn outline that fills as items are ticked.
-      No new assets, not on any money surface, respects
-      `prefers-reduced-motion`. Ideas (a) notes board as paper notes, (c)
-      housemate voice in Today and (d) tinted empty states are parked:
-      re-propose one after this ships and its screenshots are reviewed.
-      Acceptance: on `mobile` the list header still exposes a `progressbar`
-      named "n of m" that updates when an item is ticked; the existing
-      shopping-list specs pass.
-      Decided 2026-11-09 by autopilot-product: build (b) only. Why: the
-      smallest, reversible slice that tests whether brand character
-      belongs on daily screens. See PRODUCT.md.
-
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —

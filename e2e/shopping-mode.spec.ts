@@ -133,11 +133,20 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
   await expect(dock).toContainText("0 of 4");
   await expectNoHorizontalOverflow(page);
 
+  // UX-177: the progressbar is an acorn that fills from the bottom. Empty,
+  // its fill sits a full acorn-height below the outline; each tick lifts it.
+  const acornFill = progress.locator("svg g[clip-path] rect").nth(1);
+  const fillOffset = async () => Number.parseFloat(((await acornFill.getAttribute("style")) ?? "").match(/translateY\(([\d.]+)px\)/)?.[1] ?? "NaN");
+  expect(await fillOffset()).toBeCloseTo(44, 1);
+
   for (let done = 1; done <= names.length; done++) {
     const next = dock.getByRole("button", { name: /, into the cart$/ }).first();
     await expectInBottomHalf(page, next);
     await next.click();
-    if (done < names.length) await expect(progress).toHaveAttribute("aria-valuetext", `${done} of 4`);
+    if (done < names.length) {
+      await expect(progress).toHaveAttribute("aria-valuetext", `${done} of 4`);
+      await expect.poll(fillOffset).toBeCloseTo(44 * (1 - done / 4), 1);
+    }
   }
 
   // The "All done" moment, with the ring full and the next step offered:
