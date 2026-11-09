@@ -5,7 +5,7 @@
 // optimistically) and hands these the numbers; the pure parts are in
 // src/lib/shopping/shopping-progress.ts.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Circle, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, plural } from "@/lib/i18n/format";
@@ -18,18 +18,25 @@ import { startTickFeedback, TICK_MS } from "@/lib/tick-feedback";
 
 type ShoppingModeDict = Dictionary["shoppingList"]["shoppingMode"];
 
-// The ring's geometry in its own 48-unit viewBox; the rendered size comes
-// from the className, so the same ring works in the dock and, larger, in
-// the all-done moment.
-const RADIUS = 20;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+// The acorn's geometry in its own 48-unit viewBox; the rendered size comes
+// from the className, so the same acorn works in the dock and, larger, in
+// the all-done moment. Two closed shapes (the cap, then the nut under it)
+// plus a stem; the fill is clipped to the first two so it rises inside the
+// outline and never spills past it.
+const ACORN_CAP = "M9 21 C9 12 15 7 24 7 C33 7 39 12 39 21 Z";
+const ACORN_NUT = "M12 23 C12 34 18 42 24 46 C30 42 36 34 36 23 Z";
+const ACORN_STEM = "M24 7 V2";
+// The acorn spans y 2..46; the fill rect is that tall and slides down by
+// this much (in viewBox units) to sit empty below the nut.
+const ACORN_TOP = 2;
+const ACORN_HEIGHT = 44;
 
 /**
- * "12 of 18" as a ring that fills clockwise from twelve o'clock. A real
- * progressbar for screen readers (valuetext is the same "12 of 18" the
- * sighted user reads beside it), so it never relies on the arc alone.
- * The arc's growth is a transition, which globals.css flattens to instant
- * under prefers-reduced-motion.
+ * "12 of 18" as an acorn outline that fills from the bottom as items are
+ * ticked (UX-177). A real progressbar for screen readers (valuetext is the
+ * same "12 of 18" the sighted user reads beside it), so it never relies on
+ * the fill alone. The fill's rise is a transition, which globals.css
+ * flattens to instant under prefers-reduced-motion.
  */
 export function ProgressRing({
   progress,
@@ -43,6 +50,8 @@ export function ProgressRing({
   /** Drawn in the ring's centre, e.g. the all-done tick. */
   children?: ReactNode;
 }) {
+  // useId can contain ":" or "«»"; keep only characters safe inside url(#…).
+  const clipId = `acorn-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
     <div
       role="progressbar"
@@ -53,20 +62,29 @@ export function ProgressRing({
       aria-valuetext={format(dict.progress, { done: progress.done, total: progress.total })}
       className={cn("relative grid size-12 shrink-0 place-items-center", className)}
     >
-      <svg viewBox="0 0 48 48" aria-hidden className="absolute inset-0 size-full -rotate-90">
-        <circle cx="24" cy="24" r={RADIUS} fill="none" strokeWidth="5" className="stroke-foreground/10" />
-        <circle
-          cx="24"
-          cy="24"
-          r={RADIUS}
-          fill="none"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={CIRCUMFERENCE}
-          // A zero-length round-capped arc still paints a dot; hide it at 0.
-          strokeDashoffset={CIRCUMFERENCE * (1 - progress.fraction)}
-          className={cn("stroke-primary transition-[stroke-dashoffset] duration-500", progress.done === 0 && "opacity-0")}
-        />
+      <svg viewBox="0 0 48 48" aria-hidden className="absolute inset-0 size-full">
+        <defs>
+          <clipPath id={clipId}>
+            <path d={ACORN_CAP} />
+            <path d={ACORN_NUT} />
+          </clipPath>
+        </defs>
+        <g clipPath={`url(#${clipId})`}>
+          <rect x="0" y="0" width="48" height="48" className="fill-foreground/5" />
+          <rect
+            x="0"
+            y={ACORN_TOP}
+            width="48"
+            height={ACORN_HEIGHT}
+            className="fill-primary transition-transform duration-500"
+            style={{ transform: `translateY(${ACORN_HEIGHT * (1 - progress.fraction)}px)` }}
+          />
+        </g>
+        <g fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stroke-primary">
+          <path d={ACORN_CAP} />
+          <path d={ACORN_NUT} />
+          <path d={ACORN_STEM} />
+        </g>
       </svg>
       {children}
     </div>
