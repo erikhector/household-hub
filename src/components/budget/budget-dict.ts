@@ -54,6 +54,11 @@ export type BudgetDict = {
   columnDate: string;
   columnDescription: string;
   dateLabel: string;
+  // UX-183b: the budget dialogs' required-field messages, under the field.
+  nameRequired: string;
+  amountRequired: string;
+  categoryRequired: string;
+  dateRequired: string;
   deleteAriaLabel: string;
   descriptionLabel: string;
   descriptionPlaceholder: string;

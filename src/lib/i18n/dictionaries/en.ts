@@ -2858,6 +2858,12 @@ export const en = {
     descriptionLabel: "Description",
     descriptionPlaceholder: "Optional note",
     dateLabel: "Date",
+    // UX-183b: shown under the field when the add/edit budget forms are submitted
+    // with it empty, in place of the browser's own bubble.
+    nameRequired: "Enter a name",
+    amountRequired: "Enter an amount",
+    categoryRequired: "Pick a category",
+    dateRequired: "Enter a date",
     recurringLabel: "This repeats",
     repeatsLabel: "Repeats",
     repeatsHint: "Also adds it as a monthly item under Repeating, already logged for this month.",
@@ -3425,6 +3431,12 @@ export const en = {
     descriptionLabel: "Description",
     descriptionPlaceholder: "Optional note",
     dateLabel: "Date",
+    // UX-183b: shown under the field when the add/edit budget forms are submitted
+    // with it empty, in place of the browser's own bubble.
+    nameRequired: "Enter a name",
+    amountRequired: "Enter an amount",
+    categoryRequired: "Pick a category",
+    dateRequired: "Enter a date",
     recurringLabel: "This repeats",
     repeatsLabel: "Repeats",
     repeatsHint: "Also adds it as a monthly item under Repeating, already logged for this month.",

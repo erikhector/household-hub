@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState, type RefObject } from "react";
+import { useActionState, useMemo, useState, type FormEvent, type RefObject } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,6 +35,8 @@ import type { MemberOption } from "@/components/budget/transaction-dialog";
 import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import type { PlannedItemType } from "@/lib/planned-expense-calc";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 // createPlannedExpenseAction / updatePlannedExpenseAction
 // (src/app/dashboard/budget/planned-expense-actions.ts), or the personal
@@ -133,6 +135,17 @@ export function PlannedExpenseDialog({
   // ones a save the server turns down would otherwise wipe (the rest are
   // controlled and survive the form reset on their own).
   const kept = useKeptFormValues(["name", "categoryId"]);
+  // UX-183b: a missing name, amount or due date is worded under its field
+  // in the page's language (`noValidate` on the form), not by the browser.
+  const req = useRequiredFields();
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    const blocked = req.check(event, [
+      { name: "name", id: "pe-name", message: dict.nameRequired },
+      { name: "amount", id: "pe-amount", message: dict.amountRequired, numeric: true },
+      { name: "dueDate", id: "pe-due-date", message: dict.dateRequired },
+    ]);
+    if (!blocked) kept.onSubmit(event);
+  }
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -161,6 +174,7 @@ export function PlannedExpenseDialog({
     setSplitAmounts(buildInitialSplitAmounts(bill, members));
     setSharesTouched(!!bill && bill.splits.length > 0);
     kept.reset();
+    req.clear();
   }
 
   function handleAmountChange(next: string) {
@@ -184,7 +198,7 @@ export function PlannedExpenseDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? t.editDialogTitle : t.addDialogTitle}</DialogTitle>
         </DialogHeader>
-        <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={onSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={bill.id} />}
           <div className="flex flex-col gap-2">
             <Label htmlFor="pe-name">{t.nameLabel}</Label>
@@ -192,12 +206,14 @@ export function PlannedExpenseDialog({
               enterKeyHint="done"
               id="pe-name"
               name="name"
-              required
               maxLength={100}
+              aria-invalid={req.messageFor("name") ? true : undefined}
+              aria-describedby={req.messageFor("name") ? fieldErrorId("pe-name") : undefined}
               autoComplete="off"
               placeholder={t.namePlaceholder}
               defaultValue={kept.values.name ?? bill?.name}
             />
+            <FieldError fieldId="pe-name">{req.messageFor("name")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="pe-category">{t.categoryLabel}</Label>
@@ -231,8 +247,10 @@ export function PlannedExpenseDialog({
                 step="any"
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
-                required
+                aria-invalid={req.messageFor("amount") ? true : undefined}
+                aria-describedby={req.messageFor("amount") ? fieldErrorId("pe-amount") : undefined}
               />
+              <FieldError fieldId="pe-amount">{req.messageFor("amount")}</FieldError>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="pe-due-date">{t.dueDateLabel}</Label>
@@ -242,8 +260,10 @@ export function PlannedExpenseDialog({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                required
+                aria-invalid={req.messageFor("dueDate") ? true : undefined}
+                aria-describedby={req.messageFor("dueDate") ? fieldErrorId("pe-due-date") : undefined}
               />
+              <FieldError fieldId="pe-due-date">{req.messageFor("dueDate")}</FieldError>
             </div>
           </div>
           {canSplit && (

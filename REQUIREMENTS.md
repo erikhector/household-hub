@@ -9735,6 +9735,20 @@ approximating them, so the email never disagrees with the app.
   as soon as the field is edited. The rest of the app's forms still use
   bare `required` (follow-up in BACKLOG.md). Covered by
   `e2e/inventory-field-errors.spec.ts`.
+- **Budget dialog errors sit next to the field (UX-183b, first slice).**
+  Add/edit transaction, recurring item and planned bill/income
+  (`transaction-dialog.tsx`, `recurring-template-dialog.tsx`,
+  `planned-expense-dialog.tsx`, on both budgets) are `noValidate` and use
+  `useRequiredFields` (`src/components/shared/use-required-fields.ts`, the
+  UX-183 pattern as a hook): a missing name, amount, category (the chips) or
+  date is worded in the page's language under its field (`FieldError`,
+  `role="alert"`, `budget`/`personalBudget` `nameRequired`, `amountRequired`,
+  `categoryRequired`, `dateRequired`), the field gets `aria-invalid` and
+  `aria-describedby` (on the chip group for the category), focus goes to the
+  first, and editing a field clears its message. A blocked submit never runs
+  the action, so nothing typed is lost. Covered by
+  `e2e/budget-field-errors.spec.ts`. The other budget forms and the rest of
+  the app still use bare `required` (follow-up in BACKLOG.md).
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
