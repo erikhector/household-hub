@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.149.0",
+    "date": "2026-11-09",
+    "pr": 1272,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Adding a transaction, recurring item or planned bill in the budget now tells you what is missing right under the field, in your language, and keeps what you already typed.",
+      "sv": "När du lägger till en transaktion, en återkommande post eller en planerad räkning i budgeten får du nu veta vad som saknas precis under fältet, på ditt språk, och det du redan skrivit finns kvar."
+    }
+  },
+  {
     "version": "0.148.0",
     "date": "2026-11-09",
     "pr": 1269,
