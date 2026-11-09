@@ -3077,6 +3077,18 @@ Component page function can't itself be unit-tested.
     same as before (equivalence is covered in
     `personal-budget-position.test.ts` and was checked against the old
     loader on randomised multi-year data).
+  - **Ack window (PERF-37)**: recurring-template acks
+    (`RecurringTemplateAck`, `PersonalRecurringTemplateAck`) are one row
+    per template per accounted-for period, forever, but
+    `computeTemplateStatuses` only looks one up by the viewed period's key,
+    and the viewed period is never older than the 12-month lookback. Every
+    ack read (household Safe to spend, the weekly digest, the Budget tabs'
+    Recurring tab, and both reads here) therefore filters `periodKey` with
+    `ackPeriodKeyWindow(lookbackStart)` (`recurring-template-calc.ts`):
+    `{ gte: "YYYY-MM" }` of the lookback's start month. String comparison
+    keeps `YYYY` and `YYYY-Www` keys of the viewed period too, and a
+    payday start day only makes the bound up to a month looser. A result
+    never depends on an older ack, so none changed.
   - Due payments and due savings include the user's share of shared
     recurring items that are still due (the "Rent pops up" rows). A
     household `RecurringTemplate` is shared with the user when it has a

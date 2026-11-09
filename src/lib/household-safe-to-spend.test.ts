@@ -69,9 +69,46 @@ describe("loadHouseholdSafeToSpend", () => {
     await loadHouseholdSafeToSpend("h1", NOW);
     expect(mocks.transactions.mock.calls[0][0].where.householdId).toBe("h1");
     expect(mocks.templates.mock.calls[0][0].where).toEqual({ householdId: "h1", active: true });
-    expect(mocks.acks.mock.calls[0][0].where).toEqual({ recurringTemplate: { householdId: "h1" } });
+    expect(mocks.acks.mock.calls[0][0].where).toEqual({
+      recurringTemplate: { householdId: "h1" },
+      periodKey: { gte: "2025-10" },
+    });
     expect(mocks.planned.mock.calls[0][0].where.householdId).toBe("h1");
     expect(mocks.categories.mock.calls[0][0].where.householdId).toBe("h1");
+  });
+
+  it("bounds the ack read to the 12-month lookback (PERF-37)", async () => {
+    await loadHouseholdSafeToSpend("h1", NOW);
+    // NOW is in October 2026: the transactions start 12 months earlier, and so do the acks.
+    expect(mocks.transactions.mock.calls[0][0].where.date.gte).toEqual(new Date(2025, 9, 1));
+    expect(mocks.acks.mock.calls[0][0].where.periodKey).toEqual({ gte: "2025-10" });
+  });
+
+  it("is unchanged by an ack 13 months old, which the bound leaves out (PERF-37)", async () => {
+    const template = {
+      id: "t1",
+      name: "Rent",
+      amount: 800,
+      type: "EXPENSE",
+      frequency: "MONTHLY",
+      active: true,
+      createdAt: new Date(2025, 0, 1),
+      categoryId: "rent",
+      category: { name: "rent" },
+    };
+    mocks.transactions.mockResolvedValue([tx("INCOME", 1000, new Date(2026, 9, 2), "salary")]);
+    mocks.templates.mockResolvedValue([template]);
+    const without = await loadHouseholdSafeToSpend("h1", NOW);
+
+    // Honour the where like the database would, with the 13-month-old ack present.
+    const old = { recurringTemplateId: "t1", periodKey: "2025-09" };
+    mocks.acks.mockImplementation(async ({ where }: { where: { periodKey: { gte: string } } }) =>
+      [old].filter((a) => a.periodKey >= where.periodKey.gte),
+    );
+    const withOld = await loadHouseholdSafeToSpend("h1", NOW);
+
+    expect(withOld).toEqual(without);
+    expect(await mocks.acks.mock.results[1].value).toEqual([]);
   });
 
   it("holds back what is still unspent of a category limit (UX-138)", async () => {
