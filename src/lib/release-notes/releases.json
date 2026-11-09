@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.147.2",
+    "date": "2026-11-09",
+    "pr": 1260,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Leaving the name or quantity empty when adding or editing an item now shows a clear message under the field, in your language, instead of the browser's pop-up.",
+      "sv": "Om du lämnar namn eller antal tomt när du lägger till eller ändrar en vara visas nu ett tydligt meddelande under fältet på ditt språk, i stället för webbläsarens ruta."
+    }
+  },
+  {
     "version": "0.147.1",
     "date": "2026-11-08",
     "pr": 1241,
