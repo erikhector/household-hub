@@ -7709,6 +7709,16 @@ flat grayscale:
   control. Disabled solid buttons (`default`, `secondary`) keep full opacity
   on a `muted` fill with `muted-foreground` text instead of fading: white at
   50% opacity over the faded primary was ~1.5:1 in the light theme.
+- **Shadow and type tokens** (UX-176): `globals.css`'s `@theme` defines
+  `shadow-primary`, `shadow-primary-hover`, `shadow-popover`, `shadow-raised`
+  and the type scale (`text-page-title`, `text-large-title`, `text-item-title`,
+  `text-card-title`, `text-body`, `text-body-lg`, `text-button`, `text-badge`,
+  `text-caption`, `text-stat`, `text-hero`), matching DESIGN.md. Popups,
+  floating bars and the button use them; the safe-to-spend number and the
+  overview's shopping count share `text-stat` (36px).
+  `src/components/design-tokens.test.ts` fails on Tailwind's `shadow-sm/md/lg`
+  or a bare `text-3xl`/`text-4xl` in `src/components` (the landing letters and
+  print list title are allowlisted).
 - **Contrast**: every text colour holds 4.5:1 on the surfaces it's painted
   on, and field outlines (`--input`) and the focus ring hold 3:1, in both
   themes. `src/app/globals-contrast.test.ts` reads `globals.css` and fails
@@ -8725,8 +8735,8 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   `scrollable-region-focusable` (UX-175; `e2e/whats-new-a11y.mobile.spec.ts`).
   Also UX-175: `Button` and `Badge` transition explicit properties
   (`color, background-color, border-color, box-shadow, transform`) rather
-  than `transition-all`, and the phone inventory bulk bar uses the
-  `shadow-md` scale shadow instead of a raw-rgb one.
+  than `transition-all`, and the phone inventory bulk bar uses a
+  scale shadow (now `shadow-popover`) instead of a raw-rgb one.
 - The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
