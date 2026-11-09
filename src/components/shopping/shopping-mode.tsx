@@ -198,7 +198,7 @@ export function NextUpDock<T extends DockItem>({
         aria-label={dict.nextUp}
         data-collapsed={collapsed && !finish ? "" : undefined}
         className={cn(
-          "z-30 flex flex-col gap-2 rounded-xl bg-card p-3 shadow-lg ring-1 ring-foreground/10 print:hidden",
+          "z-30 flex flex-col gap-2 rounded-xl bg-card p-3 shadow-popover ring-1 ring-foreground/10 print:hidden",
           // Phones: fixed just above the BottomNav (z-40; its 3.75rem + safe
           // area, the dashboard layout's matching pb-[…]), inside main's
           // side gutters — always in the thumb zone however short the list

@@ -462,20 +462,6 @@ the audit was run through an uncommitted copy with `executablePath` set.
       message in the page's language under the field, focus moves to it,
       `aria-invalid` is set and nothing typed elsewhere is lost.
 
-- [ ] **UX-176. Define DESIGN.md's shadow and type tokens in the CSS** (impact: med, effort: M) —
-      DESIGN.md §3 names `shadow-primary`, `shadow-primary-hover`,
-      `shadow-popover` and a type scale (`page-title` … `hero`) that
-      `globals.css` never defines; popups use `shadow-md`/`shadow-lg` (21
-      sites) and stat numbers are hand-set (`text-4xl`, `text-3xl`; about 20
-      sites). Define the tokens in `@theme` and migrate the ~40 sites in one
-      PR, which also makes the three stat sizes on the overview, budget and
-      safe-to-spend agree.
-      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
-      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl` stat
-      sizes and fails on new ones; the screenshot smoke run still passes.
-      Decided 2026-11-09 by autopilot-product: define the tokens. Why: the
-      item's own recommended option; the checklist's "tokens only" can't be
-      followed otherwise. See PRODUCT.md.
 
 - [ ] **UX-177. Shopping progress ring as an acorn outline that fills** (impact: low, effort: S) —
       First step of the character pass: same ring geometry and progressbar

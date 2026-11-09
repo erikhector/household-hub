@@ -14,7 +14,7 @@ const buttonVariants = cva(
         // their shape at full opacity on a muted fill instead
         // (muted-foreground on muted is guarded in globals-contrast.test.ts).
         default:
-          "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:bg-primary/85 hover:shadow-md hover:shadow-primary/40 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100",
+          "bg-primary text-primary-foreground shadow-primary hover:bg-primary/85 hover:shadow-primary-hover disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/13 dark:hover:bg-input/20",
         secondary:
