@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.150.1",
+    "date": "2026-11-10",
+    "pr": 1293,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Change unit and Add conversion now tell you what's missing right under the field, in your language, instead of leaving the button greyed out.",
+      "sv": "Byt enhet och Lägg till omvandling visar nu vad som saknas precis under fältet, på ditt språk, i stället för en nedtonad knapp."
+    }
+  },
+  {
     "version": "0.150.0",
     "date": "2026-11-10",
     "pr": 1286,
