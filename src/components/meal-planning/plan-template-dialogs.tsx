@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { undoCopyWeekAction } from "@/app/dashboard/meal-planning/planner-actions";
 import {
@@ -55,6 +57,9 @@ export function SaveWeekTemplateDialog({
     }
     return result;
   }, initialState);
+  // UX-183b: a missing name is worded under the field in the page's language
+  // (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
 
   return (
     <Dialog
@@ -68,7 +73,15 @@ export function SaveWeekTemplateDialog({
           <DialogTitle>{dict.saveTitle}</DialogTitle>
           <DialogDescription>{dict.saveDescription}</DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) => {
+            req.check(event, [{ name: "name", id: "plan-template-name", message: dict.nameRequired }]);
+          }}
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <input type="hidden" name="weekStartDate" value={weekStartKey} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="plan-template-name">{dict.nameLabel}</Label>
@@ -80,7 +93,10 @@ export function SaveWeekTemplateDialog({
               maxLength={PLAN_TEMPLATE_NAME_MAX_LENGTH}
               required
               autoFocus
+              aria-invalid={req.messageFor("name") ? true : undefined}
+              aria-describedby={req.messageFor("name") ? fieldErrorId("plan-template-name") : undefined}
             />
+            <FieldError fieldId="plan-template-name">{req.messageFor("name")}</FieldError>
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>

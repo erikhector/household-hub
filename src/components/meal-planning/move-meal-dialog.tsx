@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import {
   Dialog,
   DialogContent,
@@ -104,6 +106,9 @@ export function MoveMealDialog({
   }, initialState);
 
   const dateInputId = `move-meal-date-${entry.id}`;
+  // UX-183b: a missing date is worded under the field in the page's language
+  // (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
   const mealTypeInputId = `move-meal-type-${entry.id}`;
 
   return (
@@ -112,7 +117,15 @@ export function MoveMealDialog({
         <DialogHeader>
           <DialogTitle>{format(dict.moveMealDialogTitle, { meal: label })}</DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) => {
+            req.check(event, [{ name: "date", id: dateInputId, message: dict.dateRequired }]);
+          }}
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <input type="hidden" name="entryId" value={entry.id} />
           <input type="hidden" name="mealType" value={mealType} />
 
@@ -127,7 +140,10 @@ export function MoveMealDialog({
                 if (e.target.value) setDate(e.target.value);
               }}
               required
+              aria-invalid={req.messageFor("date") ? true : undefined}
+              aria-describedby={req.messageFor("date") ? fieldErrorId(dateInputId) : undefined}
             />
+            <FieldError fieldId={dateInputId}>{req.messageFor("date")}</FieldError>
           </div>
 
           <div className="flex flex-col gap-2">

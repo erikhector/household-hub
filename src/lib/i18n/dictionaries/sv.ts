@@ -2009,6 +2009,7 @@ export const sv = {
       saveDescription:
         "Spara veckans måltider under ett namn, till exempel \"Skolveckan\", och planera en annan vecka från den när du vill.",
       nameLabel: "Mallens namn",
+      nameRequired: "Ange ett namn på mallen",
       cancel: "Avbryt",
       save: "Spara mall",
       saving: "Sparar…",
@@ -2189,6 +2190,9 @@ export const sv = {
     importFileErrorNoneSelected: "Välj minst ett recept att importera.",
     importFileErrorRateLimited: "För många filimporter på kort tid — vänta en stund och försök igen.",
     recipeNameLabel: "Namn",
+    recipeNameRequired: "Ange ett namn på receptet",
+    servingsRequired: "Ange antal portioner",
+    dateRequired: "Välj ett datum",
     servingsLabel: "Portioner",
     servingsHint: "Hur många portioner mängderna nedan räcker till.",
     instructionsLabel: "Instruktioner",
