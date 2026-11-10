@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.150.3",
+    "date": "2026-11-10",
+    "pr": 1303,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you rename a shopping list or save it as a template and leave the name empty, the message now appears under the field in your language.",
+      "sv": "Om du byter namn på en inköpslista eller sparar den som mall och lämnar namnet tomt visas meddelandet nu under fältet, på ditt språk."
+    }
+  },
+  {
     "version": "0.150.2",
     "date": "2026-11-10",
     "pr": 1297,
