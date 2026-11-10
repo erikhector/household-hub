@@ -40,7 +40,6 @@ const T = {
     clearAmount: "Amount",
     clearDate: "Date",
     logPayment: "Log payment",
-    logAmount: "Full bill amount",
     logSubmit: "Log expense",
     logDescription: "Description",
   },
@@ -74,7 +73,6 @@ const T = {
     clearAmount: "Belopp",
     clearDate: "Datum",
     logPayment: "Logga betalning",
-    logAmount: "Hela räkningens belopp",
     logSubmit: "Registrera utgift",
     logDescription: "Beskrivning",
   },
@@ -254,7 +252,7 @@ for (const locale of LOCALES) {
       await expect(dialog.getByRole("alert").filter({ hasText: t.noDate })).toBeVisible();
     });
 
-    test("an empty amount in the personal budget's Log payment is flagged under the field", async ({ page }) => {
+    test("an empty date in the personal budget's Log payment is flagged under the field", async ({ page }) => {
       const name = await seedSharedBill(locale);
       const next = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
       const nextKey = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
@@ -270,12 +268,14 @@ for (const locale of LOCALES) {
       await opener.click();
       const dialog = page.getByRole("dialog", { name: new RegExp(name) });
       await dialog.getByLabel(t.logDescription, { exact: true }).fill("Kept note");
-      const amount = dialog.getByLabel(t.logAmount, { exact: true });
-      await amount.fill("");
+      // An empty amount can't be submitted at all (the split no longer adds
+      // up, so Log expense is disabled), which leaves the date to flag.
+      const date = dialog.getByLabel(t.date, { exact: true });
+      await date.fill("");
       await dialog.getByRole("button", { name: t.logSubmit }).click();
-      await expect(dialog.getByRole("alert").filter({ hasText: t.noAmount })).toBeVisible();
-      await expect(amount).toHaveAttribute("aria-invalid", "true");
-      await expect(amount).toBeFocused();
+      await expect(dialog.getByRole("alert").filter({ hasText: t.noDate })).toBeVisible();
+      await expect(date).toHaveAttribute("aria-invalid", "true");
+      await expect(date).toBeFocused();
       await expect(dialog.getByLabel(t.logDescription, { exact: true })).toHaveValue("Kept note");
     });
   });

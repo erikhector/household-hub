@@ -9821,7 +9821,9 @@ approximating them, so the email never disagrees with the app.
   `amountRequired`/`dateRequired`), gets `aria-invalid` and `aria-describedby`,
   focus goes to the first, and editing a field clears its message; closing a
   dialog clears them. A blocked submit never runs the action, so nothing typed
-  is lost. `transaction-list.tsx` has no required field (only a comment
+  is lost. (In Log payment an empty amount already disables Log expense,
+  since the split no longer adds up, so in practice the date is what gets
+  flagged there.) `transaction-list.tsx` has no required field (only a comment
   mentions the word). Covered by `e2e/budget-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
