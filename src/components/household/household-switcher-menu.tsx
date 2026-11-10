@@ -61,7 +61,15 @@ export function CreateHouseholdDialog({
   }, initialState);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // The dialog stays mounted while closed, so a message left by an
+        // empty submit must not greet the next opening.
+        req.clear();
+        setOpen(next);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.createNew}</DialogTitle>
