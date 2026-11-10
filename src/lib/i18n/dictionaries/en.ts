@@ -330,6 +330,8 @@ export const en = {
       createNew: "Create a new household",
       createMenuItem: "Create household",
       nameLabel: "Household name",
+      // UX-183b: shown under the field when it is submitted empty.
+      nameRequired: "Enter a name for the household",
       creating: "Creating…",
       create: "Create household",
     },
@@ -427,6 +429,7 @@ export const en = {
     rename: {
       title: "Household name",
       label: "Name",
+      nameRequired: "Enter a name for the household",
       description: "Shown to everyone in the household, in invite emails and on the join page.",
       save: "Save name",
       saving: "Saving…",
@@ -2736,6 +2739,8 @@ export const en = {
     addTaskDialogTitle: "Add a task",
     addTaskPlaceholder: "e.g. Take out the bins",
     addTaskAriaLabel: "Task title",
+    // UX-183b: shown under the title when it is submitted empty.
+    titleRequired: "Enter a title for the task",
     titleCounter: "{count} of {max} characters",
     // GAP-73
     notesLabel: "Notes",
@@ -4219,6 +4224,11 @@ export const en = {
       accepting: "Joining…",
       accept: "Join household",
       yourName: "Your name",
+      // UX-183b: shown under a field submitted empty.
+      nameRequired: "Enter your name.",
+      emailRequired: "Enter your email address.",
+      passwordRequired: "Enter a password.",
+      confirmPasswordRequired: "Type the password again to confirm it.",
       email: "Email",
       password: "Password",
       confirmPassword: "Confirm password",
@@ -4242,6 +4252,7 @@ export const en = {
         "Your account isn't a member of any household right now, for example because you were removed from one. Your account and personal budget are still here.",
       createHeading: "Create a new household",
       householdName: "Household name",
+      householdNameRequired: "Enter a name for your household.",
       householdNamePlaceholder: "e.g. The Andersson family",
       creating: "Creating…",
       create: "Create household",
