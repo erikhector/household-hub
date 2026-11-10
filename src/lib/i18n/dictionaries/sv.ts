@@ -726,6 +726,7 @@ export const sv = {
       menuItem: "Byt namn",
       dialogTitle: "Byt namn på listan",
       nameLabel: "Listnamn",
+      nameRequired: "Ange ett namn på listan",
       titleHint: "Tryck på titeln för att byta namn",
       cancel: "Avbryt",
       save: "Spara",
@@ -981,6 +982,7 @@ export const sv = {
       dialogDescription:
         "Spara listans varor under ett namn, som \"Grillkväll\" eller \"Storhandling\", och starta en ny lista från den när du behöver.",
       nameLabel: "Mallens namn",
+      nameRequired: "Ange ett namn på mallen",
       cancel: "Avbryt",
       save: "Spara mall",
       saving: "Sparar…",

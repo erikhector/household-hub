@@ -9825,6 +9825,19 @@ approximating them, so the email never disagrees with the app.
   since the split no longer adds up, so in practice the date is what gets
   flagged there.) `transaction-list.tsx` has no required field (only a comment
   mentions the word). Covered by `e2e/budget-field-errors.spec.ts`.
+- **Shopping form errors sit next to the field (UX-183b, last slice).** The
+  list's Rename dialog (`rename-list-dialog.tsx`) and Save as template dialog
+  (`list-templates.tsx`) are `noValidate` and use `useRequiredFields`: a
+  cleared name is worded in the page's language under it (`FieldError`,
+  `role="alert"`; `shoppingList.renameList.nameRequired` and
+  `shoppingList.templates.nameRequired`), gets `aria-invalid` and
+  `aria-describedby`, takes focus, and editing it clears the message;
+  opening or closing the dialog clears it too, since both stay mounted while
+  closed. With this, no form in the app relies on the browser's own
+  "Please fill out this field." bubble any more: every field marked
+  `required` sits in a `noValidate` form that words its own message (UX-59's
+  login and signup forms keep their own validation). Covered by
+  `e2e/shopping-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
