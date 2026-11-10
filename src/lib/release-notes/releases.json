@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.150.2",
+    "date": "2026-11-10",
+    "pr": 1297,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Adding or editing a budget category, clearing a debt and logging a shared bill payment now show a missing-field message under the field, in your language, instead of a browser pop-up.",
+      "sv": "När du lägger till eller redigerar en budgetkategori, reglerar en skuld eller loggar en delad räkning visas nu ett meddelande under fältet på ditt språk om något saknas, i stället för en ruta från webbläsaren."
+    }
+  },
+  {
     "version": "0.150.1",
     "date": "2026-11-10",
     "pr": 1293,
