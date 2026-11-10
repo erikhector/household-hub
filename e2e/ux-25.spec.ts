@@ -238,11 +238,12 @@ test("Home's big numbers meet text contrast in the light theme", async ({ page }
 
 test("a disabled primary button stays readable", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/dashboard/tasks");
-  // The create dialog's submit is disabled until the title has text — a
-  // primary button in its disabled state whatever the seed holds.
-  await page.getByRole("button", { name: "Add task" }).click();
-  const submit = page.getByRole("button", { name: "Add", exact: true });
+  await page.goto("/dashboard/household?tab=settings");
+  // The rename card's "Save name" is disabled until the name changes — a
+  // primary button in its disabled state whatever the seed holds. (The task
+  // dialog's Add used to be it, until UX-183b let an empty title be submitted
+  // to say what is missing.)
+  const submit = page.getByRole("button", { name: "Save name" });
   await expect(submit).toBeDisabled();
   // White at 50% opacity over a 50% primary wash was ~1.5:1; the fix keeps
   // full opacity on a muted fill, so both the opacity and the pair matter.
