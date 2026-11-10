@@ -776,6 +776,7 @@ export const en = {
       menuItem: "Rename",
       dialogTitle: "Rename list",
       nameLabel: "List name",
+      nameRequired: "Enter a name for the list",
       titleHint: "Tap the title to rename",
       cancel: "Cancel",
       save: "Save",
@@ -1050,6 +1051,7 @@ export const en = {
       dialogDescription:
         "Save this list's items under a name, like \"BBQ\" or \"Big weekly shop\", and start a new list from it whenever you need one.",
       nameLabel: "Template name",
+      nameRequired: "Enter a name for the template",
       cancel: "Cancel",
       save: "Save template",
       saving: "Saving…",

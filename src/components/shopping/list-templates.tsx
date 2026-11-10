@@ -26,6 +26,8 @@ import { format, plural } from "@/lib/i18n/format";
 import { TEMPLATE_NAME_MAX_LENGTH } from "@/lib/shopping/list-templates";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 // GAP-4: the UI half of shopping-list templates. Both pieces live here
 // rather than in shopping-list-client.tsx / shopping-lists-overview.tsx so
@@ -60,15 +62,35 @@ export function SaveTemplateDialog({
     }
     return result;
   }, initialState);
+  // UX-183b: a cleared name is worded under the field in the page's language
+  // (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
 
   return (
-    <Dialog open={open} onOpenChange={setOpen} handle={handle}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // The dialog stays mounted while closed, so a message left by an
+        // empty submit must not greet the next opening.
+        req.clear();
+        setOpen(next);
+      }}
+      handle={handle}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.dialogTitle}</DialogTitle>
           <DialogDescription>{dict.dialogDescription}</DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) => {
+            req.check(event, [{ name: "name", id: "template-name", message: dict.nameRequired }]);
+          }}
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <input type="hidden" name="listId" value={listId} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="template-name">{dict.nameLabel}</Label>
@@ -81,7 +103,10 @@ export function SaveTemplateDialog({
               maxLength={TEMPLATE_NAME_MAX_LENGTH}
               required
               autoFocus
+              aria-invalid={req.messageFor("name") ? true : undefined}
+              aria-describedby={req.messageFor("name") ? fieldErrorId("template-name") : undefined}
             />
+            <FieldError fieldId="template-name">{req.messageFor("name")}</FieldError>
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
