@@ -9795,6 +9795,21 @@ approximating them, so the email never disagrees with the app.
   Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
   template dialog; the date fields can't be emptied through a controlled date
   input, so they share the hook untested).
+- **Inventory unit dialog errors sit next to the field (UX-183b, fifth
+  slice).** The item page's Change unit dialog (`change-unit-dialog.tsx`:
+  new unit and factor) and Add/Edit conversion dialog
+  (`item-units-and-usage.tsx`: unit and amount) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `itemPage.errors.emptyUnit`/`factor` and
+  `itemPage.conversionDialog.unitRequired`/`amountRequired`), gets
+  `aria-invalid` and `aria-describedby`, focus goes to the first, and editing
+  a field clears its message. Their Save buttons used to be disabled until the
+  numbers made a plan, which left no click to explain what was missing; they
+  are now disabled only while saving, and an amount that is filled in but
+  unusable shows `conversionDialog.amountInvalid` (Change unit keeps its
+  existing preview alert). `ComboField` takes `invalid`/`describedBy` for
+  this, and the hook gained `clearField` for a combobox pick. Covered by
+  `e2e/inventory-unit-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
