@@ -433,12 +433,14 @@ fallback for the missing headless shell that `playwright.config.ts` has, so
 the audit was run through an uncommitted copy with `executablePath` set.
 
 - [ ] **UX-183b. Show the remaining forms' required-field errors under the field, in the page's language** (impact: med, effort: M) —
-      UX-59 (login, signup), UX-183 (the inventory add/edit item dialog) and
-      the first UX-183b slice (the budget transaction, recurring item and
-      planned bill dialogs) replaced the browser's native "Please fill out
-      this field." bubble with a `FieldError` under the field, via
-      `useRequiredFields` (`src/components/shared/use-required-fields.ts`).
-      About 20 other components still rely on bare `required`, so a Swedish
+      UX-59 (login, signup), UX-183 (the inventory add/edit item dialog), the
+      first UX-183b slice (the budget transaction, recurring item and planned
+      bill dialogs) and the profile and auth slice (display name, email and
+      password forms, forgot and reset password) replaced the browser's native
+      "Please fill out this field." bubble with a `FieldError` under the
+      field, via `useRequiredFields`
+      (`src/components/shared/use-required-fields.ts`).
+      About 15 other components still rely on bare `required`, so a Swedish
       user gets an English bubble: budget `category-manager.tsx`,
       `household-balances.tsx`, `transaction-list.tsx`,
       `personal-budget/log-shared-expense-dialog.tsx`;
@@ -446,9 +448,7 @@ the audit was run through an uncommitted copy with `executablePath` set.
       `bulk-meal-bar`, `missing-diet-badges`, `move-meal-dialog`,
       `plan-template-dialogs`, `recipe-form-dialog`); household
       (`create-first-household-form`, `household-switcher-menu`,
-      `join-signup-form`, `rename-household`); profile (`display-name-form`,
-      `email-form`, `password-form`); auth (`forgot-password-form`,
-      `reset-password-form`); inventory (`change-unit-dialog`,
+      `join-signup-form`, `rename-household`); inventory (`change-unit-dialog`,
       `item-units-and-usage`); shopping (`rename-list-dialog`,
       `list-templates`, once #1263 has landed). Breaks DESIGN.md "errors next
       to the field, keeping input". Split by feature. Same acceptance as
