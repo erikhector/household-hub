@@ -9810,6 +9810,21 @@ approximating them, so the email never disagrees with the app.
   existing preview alert). `ComboField` takes `invalid`/`describedBy` for
   this, and the hook gained `clearField` for a combobox pick. Covered by
   `e2e/inventory-unit-field-errors.spec.ts`.
+- **Remaining budget form errors sit next to the field (UX-183b, sixth
+  slice).** The Add and Edit category dialogs (`category-manager.tsx`, on both
+  budgets: name), Clear debt (`household-balances.tsx`: amount and date) and
+  the personal budget's Log payment / shared-expense dialog
+  (`log-shared-expense-dialog.tsx`: amount and date) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `categories.nameRequired`,
+  `balances.amountRequired`/`dateRequired`, and the personal budget's existing
+  `amountRequired`/`dateRequired`), gets `aria-invalid` and `aria-describedby`,
+  focus goes to the first, and editing a field clears its message; closing a
+  dialog clears them. A blocked submit never runs the action, so nothing typed
+  is lost. (In Log payment an empty amount already disables Log expense,
+  since the split no longer adds up, so in practice the date is what gets
+  flagged there.) `transaction-list.tsx` has no required field (only a comment
+  mentions the word). Covered by `e2e/budget-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

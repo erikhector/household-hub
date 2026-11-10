@@ -25,6 +25,8 @@
 import { useActionState, useState } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -84,6 +86,9 @@ function ClearDebtDialog({
   onRecord: (prevState: ActionState, formData: FormData) => Promise<ActionState>;
 }) {
   const [open, setOpen] = useState(false);
+  // UX-183b: a missing amount or date is worded under its field in the
+  // page's language (`noValidate` on the form), not by the browser.
+  const req = useRequiredFields();
   const [state, formAction, pending] = useActionState(
     async (prevState: ActionState, formData: FormData) => {
       const result = await onRecord(prevState, formData);
@@ -97,7 +102,13 @@ function ClearDebtDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        req.clear();
+      }}
+    >
       <DialogTrigger render={<Button size="xs" variant="outline">{dict.clearButton}</Button>} />
       <DialogContent>
         <DialogHeader>
@@ -109,7 +120,18 @@ function ClearDebtDialog({
             })}
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) =>
+            void req.check(event, [
+              { name: "amount", id: "settle-amount", message: dict.amountRequired, numeric: true },
+              { name: "date", id: "settle-date", message: dict.dateRequired },
+            ])
+          }
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <input type="hidden" name="fromMemberId" value={settlement.fromMemberId} />
           <input type="hidden" name="toMemberId" value={settlement.toMemberId} />
           <div className="grid grid-cols-2 gap-3">
@@ -125,12 +147,22 @@ function ClearDebtDialog({
                 min={0.01}
                 step="any"
                 defaultValue={settlement.amount.toFixed(2)}
-                required
+                aria-invalid={req.messageFor("amount") ? true : undefined}
+                aria-describedby={req.messageFor("amount") ? fieldErrorId("settle-amount") : undefined}
               />
+              <FieldError fieldId="settle-amount">{req.messageFor("amount")}</FieldError>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="settle-date">{dict.dateLabel}</Label>
-              <Input id="settle-date" name="date" type="date" defaultValue={todayLocalDateKey()} required />
+              <Input
+                id="settle-date"
+                name="date"
+                type="date"
+                defaultValue={todayLocalDateKey()}
+                aria-invalid={req.messageFor("date") ? true : undefined}
+                aria-describedby={req.messageFor("date") ? fieldErrorId("settle-date") : undefined}
+              />
+              <FieldError fieldId="settle-date">{req.messageFor("date")}</FieldError>
             </div>
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}

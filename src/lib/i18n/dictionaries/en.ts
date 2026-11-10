@@ -2932,6 +2932,8 @@ export const en = {
       addDialogTitle: "Add category",
       nameLabel: "Name",
       namePlaceholder: "e.g. Groceries",
+      // UX-183b: shown under the field when the category form is submitted empty.
+      nameRequired: "Enter a name",
       typeLabel: "Type",
       adding: "Adding…",
       add: "Add category",
@@ -3224,6 +3226,9 @@ export const en = {
       clearDialogDescription: "Record that {from} paid {to} back. Lower the amount for a partial repayment.",
       amountLabel: "Amount",
       dateLabel: "Date",
+      // UX-183b: shown under the field when Clear debt is submitted empty.
+      amountRequired: "Enter an amount",
+      dateRequired: "Enter a date",
       confirm: "Record repayment",
       saving: "Saving…",
       clearedToast: "Repayment recorded.",
@@ -3504,6 +3509,7 @@ export const en = {
       addDialogTitle: "Add category",
       nameLabel: "Name",
       namePlaceholder: "e.g. Hobbies",
+      nameRequired: "Enter a name",
       typeLabel: "Type",
       adding: "Adding…",
       add: "Add category",
