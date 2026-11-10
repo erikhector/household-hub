@@ -35,6 +35,11 @@ export function findMissingFields(data: FormData, rules: readonly RequiredRule[]
 
 export function useRequiredFields() {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const clearField = (name: string) =>
+    setErrors((current) => {
+      if (!name || !(name in current)) return current;
+      return Object.fromEntries(Object.entries(current).filter(([key]) => key !== name));
+    });
   return {
     errors,
     /** Error text for a field (by `name`), or undefined. */
@@ -50,12 +55,11 @@ export function useRequiredFields() {
     },
     /** Put on the `<form>`: editing a field clears its message. */
     onInput(event: FormEvent<HTMLFormElement>) {
-      const name = (event.target as HTMLInputElement).name;
-      setErrors((current) => {
-        if (!name || !(name in current)) return current;
-        return Object.fromEntries(Object.entries(current).filter(([key]) => key !== name));
-      });
+      clearField((event.target as HTMLInputElement).name);
     },
+    /** For a field whose `input` event doesn't carry its own `name` (a
+     * combobox picking a suggestion): clear its message by hand. */
+    clearField,
     clear: () => setErrors({}),
   };
 }

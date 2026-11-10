@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { ChevronDown, CircleCheck, Pencil, Plus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 type ItemPageDict = Dictionary["inventory"]["itemPage"];
 type ComboDict = ComboFieldDict;
@@ -289,6 +291,11 @@ function ConversionDialog({
     return next;
   }, {});
 
+  // UX-183b: an empty unit or amount is worded under its field in the page's
+  // language (`noValidate`). Save is only disabled while saving, so there is
+  // always a click that explains what is missing.
+  const req = useRequiredFields();
+
   const unitTyped = fromUnit.trim() !== "";
   const sentence = unitTyped ? conversionSentence(fromUnit, 1, item.unit) : null;
   const factor = unitTyped ? factorFromSentence(fromUnit, item.unit, amount) : null;
@@ -304,6 +311,24 @@ function ConversionDialog({
     }
   };
 
+  const amountInvalid = amount.trim() !== "" && unitTyped && factor === null;
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (
+      req.check(event, [
+        { name: "fromUnit", id: "conversion-unit", message: copy.unitRequired },
+        { name: "amount", id: "conversion-amount", message: copy.amountRequired },
+      ])
+    ) {
+      return;
+    }
+    // Filled in but not a usable number (the message under the field says so).
+    if (factor === null) {
+      event.preventDefault();
+      document.getElementById("conversion-amount")?.focus();
+    }
+  };
+  const amountMessage = req.messageFor("amount") ?? (amountInvalid ? copy.amountInvalid : undefined);
+
   return (
     <Dialog open={state !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -311,7 +336,7 @@ function ConversionDialog({
           <DialogTitle>{state?.conversionId ? copy.editTitle : copy.addTitle}</DialogTitle>
           <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={handleSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           <input type="hidden" name="itemId" value={item.id} />
           {state?.conversionId && <input type="hidden" name="conversionId" value={state.conversionId} />}
           <input type="hidden" name="factor" value={factor ?? ""} />
@@ -322,12 +347,18 @@ function ConversionDialog({
               name="fromUnit"
               items={units.filter((unit) => canonicalUnit(unit) !== canonicalUnit(item.unit))}
               value={fromUnit}
-              onValueChange={handleUnitChange}
+              onValueChange={(next) => {
+                req.clearField("fromUnit");
+                handleUnitChange(next);
+              }}
               placeholder={copy.unitPlaceholder}
               maxLength={20}
               label={copy.unitLabel}
               dict={comboDict}
+              invalid={Boolean(req.messageFor("fromUnit"))}
+              describedBy={req.messageFor("fromUnit") ? fieldErrorId("conversion-unit") : undefined}
             />
+            <FieldError fieldId="conversion-unit">{req.messageFor("fromUnit")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="conversion-amount">{copy.amountLabel}</Label>
@@ -336,6 +367,7 @@ function ConversionDialog({
               <Input
                 autoComplete="off"
                 id="conversion-amount"
+                name="amount"
                 type="text"
                 inputMode="decimal"
                 className="w-28"
@@ -344,11 +376,13 @@ function ConversionDialog({
                   setAmount(event.target.value);
                   setFromHint(false);
                 }}
-                aria-invalid={amount.trim() !== "" && unitTyped && factor === null}
+                aria-invalid={amountInvalid || Boolean(req.messageFor("amount")) ? true : undefined}
+                aria-describedby={amountMessage ? fieldErrorId("conversion-amount") : undefined}
                 required
               />
               <span>{sentence ? unitLabel(sentence.otherUnit) : "…"}</span>
             </div>
+            <FieldError fieldId="conversion-amount">{amountMessage}</FieldError>
             {fromHint && <p className="text-xs text-muted-foreground">{copy.typical}</p>}
           </div>
           {result.error && (
@@ -360,7 +394,7 @@ function ConversionDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               {copy.cancel}
             </Button>
-            <Button type="submit" disabled={pending || factor === null}>
+            <Button type="submit" disabled={pending}>
               <PendingLabel pending={pending} busy={copy.saving} idle={copy.save} />
             </Button>
           </DialogFooter>
