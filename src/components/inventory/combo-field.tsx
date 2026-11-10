@@ -50,6 +50,8 @@ export function ComboField({
   dict,
   onEnter,
   browseOnTap,
+  invalid,
+  describedBy,
 }: {
   id: string;
   /** Omit when the value is read from state rather than posted with a
@@ -76,6 +78,10 @@ export function ComboField({
    * list, so the other units are one tap away even while it holds "pcs".
    * Off for category/location, whose long lists would cover the next field. */
   browseOnTap?: boolean;
+  /** UX-183b: the field's required-field error is showing under it. */
+  invalid?: boolean;
+  /** The id of that error (`fieldErrorId(id)`), so it is read with the field. */
+  describedBy?: string;
 }) {
   const trimmed = value.trim();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +118,8 @@ export function ComboField({
           placeholder={placeholder}
           maxLength={maxLength}
           aria-label={ariaLabel}
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={describedBy}
           onClick={browseOnTap ? browse : undefined}
           onKeyDown={
             onEnter
