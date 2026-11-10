@@ -176,15 +176,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       a feature namespace, as `template-actions.ts` does), and delete the
       file from `PENDING`: the test fails if a clean file stays listed.
       Leave budget until BUDGET-6 is decided.
-- [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
-      the migration drift check, Node pinning and Dependabot are done
-      (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
-      `knip` in CI. ESLint 10 waits on `eslint-config-next`'s plugins:
-      `eslint-plugin-react` 7.37, `eslint-plugin-import` 2.32 and
-      `eslint-plugin-jsx-a11y` 6.10 (the latest, 2026-10-27) declare
-      `eslint` peers up to `^9`, so 10 only installs by overriding them.
-      When they support 10, bump `eslint` + `eslint-config-next` in a
-      separate PR and drop the `eslint` ignore in `.github/dependabot.yml`.
+- [ ] **MAINT-12. ESLint 10** (low, S, own PR — touches `package.json`/lockfile) `[!]` —
+      the rest of MAINT-12 is done (REQUIREMENTS.md, "Migration drift and
+      tooling pins"). Waiting on `eslint-config-next`'s plugins:
+      `eslint-plugin-react` 7.37.5, `eslint-plugin-import` 2.32.0 and
+      `eslint-plugin-jsx-a11y` 6.10.2 (still the latest on 2026-11-10)
+      declare `eslint` peers up to `^9`, so 10 only installs by overriding
+      them. When all three accept 10, bump `eslint` + `eslint-config-next`
+      and drop the `eslint` ignore in `.github/dependabot.yml`.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
