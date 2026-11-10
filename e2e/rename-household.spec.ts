@@ -44,9 +44,9 @@ test("a blank name is refused and the old name stays", async ({ page }) => {
   const field = page.getByRole("textbox", { name: "Name", exact: true });
   await field.fill("   ");
   await page.getByRole("button", { name: "Save name" }).click();
-  // The field is required, so the browser stops a truly empty value; a
-  // whitespace-only one reaches the server, which rejects it.
-  await expect(page.getByText("Household name is required")).toBeVisible();
+  // UX-183b: the form itself words it under the field (no browser bubble,
+  // nothing sent to the server).
+  await expect(page.getByRole("alert").filter({ hasText: "Enter a name for the household" })).toBeVisible();
 
   await page.reload();
   await expect(page.getByRole("main").getByText(E2E_HOUSEHOLD.name, { exact: true })).toBeVisible();

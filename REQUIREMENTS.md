@@ -9764,6 +9764,23 @@ approximating them, so the email never disagrees with the app.
   still the server's, which words them in the user's language. Covered by
   `e2e/profile-auth-field-errors.spec.ts` (the reset form with a token the
   spec inserts).
+- **Task and household form errors sit next to the field (UX-183b, third
+  slice).** The task add/edit dialog (`tasks/task-form-dialog.tsx`), the
+  create-household dialog (`household-switcher-menu.tsx`), the no-household
+  page's create form (`create-first-household-form.tsx`), the owner's rename
+  card (`rename-household.tsx`) and the invite sign-up form
+  (`join-signup-form.tsx`) are `noValidate` and use `useRequiredFields`: a
+  missing task title, household name, display name, email, password or
+  confirmation is worded in the page's language under its field (`FieldError`,
+  `role="alert"`; the `tasks.titleRequired`, `household.switcher.nameRequired`,
+  `household.rename.nameRequired`, `auth.noHousehold.householdNameRequired`
+  and `auth.join.*Required` keys), the field gets `aria-invalid` and
+  `aria-describedby`, focus goes to the first, and editing a field clears its
+  message. The task dialog's Add / Save button is no longer disabled while the
+  title is empty (it still is for a one-person rotation), so the message can
+  appear. A blocked submit never runs the action, so nothing typed is lost.
+  Covered by `e2e/household-tasks-field-errors.spec.ts` (all but the
+  no-household form, which needs a user with zero households).
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
