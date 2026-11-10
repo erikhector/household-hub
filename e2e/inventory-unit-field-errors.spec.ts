@@ -13,7 +13,7 @@ const MESSAGES = {
     changeUnit: "Change unit…",
     changeTitle: "Change unit",
     newUnit: "New unit",
-    factor: "How many g is 1 pcs?",
+    factor: /^How many g is 1 /,
     noUnit: "Enter the new unit.",
     noFactor: "Enter how many of the new unit one of the old unit is.",
     units: "Units",
@@ -28,7 +28,7 @@ const MESSAGES = {
     changeUnit: "Byt enhet…",
     changeTitle: "Byt enhet",
     newUnit: "Ny enhet",
-    factor: "Hur många g är 1 pcs?",
+    factor: /^Hur många g är 1 /,
     noUnit: "Ange den nya enheten.",
     noFactor: "Ange hur många av den nya enheten en av den gamla är.",
     units: "Enheter",
@@ -83,6 +83,8 @@ for (const locale of LOCALES) {
 
       // g is not pcs's generic conversion, so no factor is suggested.
       await unit.fill("g");
+      // Closes the suggestion popup, which keeps the rest of the dialog inert.
+      await unit.press("Tab");
       await expect(dialog.getByRole("alert").filter({ hasText: t.noUnit })).toHaveCount(0);
       await submit.click();
       const factor = dialog.getByRole("textbox", { name: t.factor });
@@ -111,6 +113,7 @@ for (const locale of LOCALES) {
       await expect(unit).toBeFocused();
 
       await unit.fill("cup");
+      await unit.press("Tab");
       await expect(dialog.getByRole("alert").filter({ hasText: t.noConvUnit })).toHaveCount(0);
       await submit.click();
       const amount = dialog.getByRole("textbox", { name: t.amount });
