@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.150.0",
+    "date": "2026-11-10",
+    "pr": 1286,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Missing required fields in recipes, meal templates and meal dialogs are now explained under the field in your language.",
+      "sv": "Saknade obligatoriska fält i recept, måltidsmallar och måltidsdialoger förklaras nu under fältet på ditt språk."
+    }
+  },
+  {
     "version": "0.149.2",
     "date": "2026-11-10",
     "pr": 1282,
