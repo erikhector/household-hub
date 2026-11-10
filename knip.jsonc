@@ -21,7 +21,8 @@
     "server-only"
   ],
   // Unused exports and types are left out for now: the first run found
-  // about 120 exports and types no other file imports, which is a
-  // cleanup of its own rather than part of wiring up the check. Files, dependencies and unlisted imports are what this guards.
+  // about 120 exports and types no other file imports, a cleanup of its
+  // own (MAINT-92, which deletes this line when it's done). Until then
+  // this guards files, dependencies and unlisted imports.
   "exclude": ["exports", "types", "duplicates"]
 }
