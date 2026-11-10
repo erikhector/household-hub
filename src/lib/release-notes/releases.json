@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.149.1",
+    "date": "2026-11-10",
+    "pr": 1276,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "If you leave a field empty on the profile page, forgot-password or reset-password forms, the message now appears under the field in your language.",
+      "sv": "Om du lämnar ett fält tomt i profilen eller i formulären för glömt och återställt lösenord visas nu meddelandet under fältet på ditt språk."
+    }
+  },
+  {
     "version": "0.149.0",
     "date": "2026-11-09",
     "pr": 1272,
