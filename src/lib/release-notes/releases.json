@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.149.2",
+    "date": "2026-11-10",
+    "pr": 1282,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "A missing task title, household name or sign-up detail is now flagged right under that field, in your language, instead of by a browser pop-up. What you already typed stays put.",
+      "sv": "Saknas en uppgiftstitel, ett hushållsnamn eller någon uppgift när du går med i ett hushåll visas det nu direkt under fältet, på ditt språk, i stället för i en popup från webbläsaren. Det du redan skrivit finns kvar."
+    }
+  },
+  {
     "version": "0.149.1",
     "date": "2026-11-10",
     "pr": 1276,
