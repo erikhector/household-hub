@@ -9781,6 +9781,20 @@ approximating them, so the email never disagrees with the app.
   appear. A blocked submit never runs the action, so nothing typed is lost.
   Covered by `e2e/household-tasks-field-errors.spec.ts` (all but the
   no-household form, which needs a user with zero households).
+- **Meal planning form errors sit next to the field (UX-183b, fourth
+  slice).** The recipe form (`recipe-form-dialog.tsx`: name and portions),
+  the save-week-as-template dialog (`plan-template-dialogs.tsx`: name), Add
+  to plan, Move meal and the bulk Move dialog (date) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `mealPlanning.recipeNameRequired`,
+  `servingsRequired`, `dateRequired` and `mealPlanning.templates.nameRequired`),
+  gets `aria-invalid` and `aria-describedby`, focus goes to the first, and
+  editing a field clears its message. The recipe form only checks on its
+  first step; the ingredient-review step submits what step one validated.
+  `missing-diet-badges.tsx` has no form field (it only renders badges).
+  Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
+  template dialog; the date fields can't be emptied through a controlled date
+  input, so they share the hook untested).
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

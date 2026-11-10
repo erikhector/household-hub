@@ -2123,6 +2123,7 @@ export const en = {
       saveDescription:
         "Save this week's meals under a name, like \"School-week basics\", and plan another week from it whenever you need.",
       nameLabel: "Template name",
+      nameRequired: "Enter a name for the template",
       cancel: "Cancel",
       save: "Save template",
       saving: "Saving…",
@@ -2307,6 +2308,9 @@ export const en = {
     importFileErrorNoneSelected: "Select at least one recipe to import.",
     importFileErrorRateLimited: "Too many file imports in a short time — wait a bit and try again.",
     recipeNameLabel: "Name",
+    recipeNameRequired: "Enter a name for the recipe",
+    servingsRequired: "Enter the number of portions",
+    dateRequired: "Pick a date",
     servingsLabel: "Portions",
     servingsHint: "How many portions the ingredient amounts below make.",
     instructionsLabel: "Instructions",

@@ -436,19 +436,18 @@ the audit was run through an uncommitted copy with `executablePath` set.
       UX-59 (login, signup), UX-183 (the inventory add/edit item dialog), the
       first UX-183b slice (the budget transaction, recurring item and planned
       bill dialogs), the profile and auth slice (display name, email and
-      password forms, forgot and reset password) and the tasks and household
+      password forms, forgot and reset password), the tasks and household
       slice (the task dialog, create-household dialog and form, rename
-      household, invite sign-up form) replaced the browser's native
+      household, invite sign-up form) and the meal planning slice (the recipe
+      form, save-week-as-template, add to plan, move meal and bulk move
+      dialogs) replaced the browser's native
       "Please fill out this field." bubble with a `FieldError` under the
       field, via `useRequiredFields`
       (`src/components/shared/use-required-fields.ts`).
-      About 10 other components still rely on bare `required`, so a Swedish
+      About 6 other components still rely on bare `required`, so a Swedish
       user gets an English bubble: budget `category-manager.tsx`,
       `household-balances.tsx`, `transaction-list.tsx`,
-      `personal-budget/log-shared-expense-dialog.tsx`; meal planning
-      (`add-to-plan-dialog`, `bulk-meal-bar`, `missing-diet-badges`,
-      `move-meal-dialog`, `plan-template-dialogs`, `recipe-form-dialog`);
-      inventory (`change-unit-dialog`, `item-units-and-usage`); shopping
+      `personal-budget/log-shared-expense-dialog.tsx`; inventory (`change-unit-dialog`, `item-units-and-usage`); shopping
       (`rename-list-dialog`, `list-templates`, once #1263 has landed). Breaks
       DESIGN.md "errors next to the field, keeping input". Split by feature.
       Same acceptance as UX-183, per form: `noValidate`, a `role="alert"`

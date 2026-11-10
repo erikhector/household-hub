@@ -7,6 +7,8 @@ import { ArrowRightLeft, Trash2, UsersRound, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import {
   Dialog,
   DialogContent,
@@ -220,9 +222,13 @@ function BulkMoveDialog({
   const [date, setDate] = useState(earliest);
   const [slot, setSlot] = useState<string>(KEEP_SLOT);
   const [pending, startTransition] = useTransition();
+  // UX-183b: a missing date is worded under the field in the page's language
+  // (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
 
-  function submit(event: React.FormEvent) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (req.check(event, [{ name: "date", id: "bulk-move-date", message: dict.dateRequired }])) return;
     startTransition(async () => {
       const ok = await onSubmit(date, slot === KEEP_SLOT ? null : (slot as MealType));
       if (ok) onClose();
@@ -235,19 +241,23 @@ function BulkMoveDialog({
         <DialogHeader>
           <DialogTitle>{dict.bulkMoveTitle}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form onSubmit={submit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{dict.bulkMoveHint}</p>
           <div className="flex flex-col gap-2">
             <Label htmlFor="bulk-move-date">{dict.dateLabel}</Label>
             <Input
               id="bulk-move-date"
+              name="date"
               type="date"
               value={date}
               onChange={(e) => {
                 if (e.target.value) setDate(e.target.value);
               }}
               required
+              aria-invalid={req.messageFor("date") ? true : undefined}
+              aria-describedby={req.messageFor("date") ? fieldErrorId("bulk-move-date") : undefined}
             />
+            <FieldError fieldId="bulk-move-date">{req.messageFor("date")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="bulk-move-slot">{dict.mealTypeLabel}</Label>
