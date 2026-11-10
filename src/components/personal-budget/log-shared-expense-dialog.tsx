@@ -48,6 +48,8 @@ import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 export type ShareableHouseholdMember = { id: string; displayName: string };
 export type ShareableHouseholdCategory = { id: string; name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" };
@@ -168,6 +170,9 @@ export function LogSharedExpenseDialog({
   const myShare =
     prefill && household ? (prefill.splits[household.currentMemberId] ?? undefined) : undefined;
 
+  // UX-183b: a missing amount or date is worded under its field in the
+  // page's language (`noValidate` on the form), not by the browser.
+  const req = useRequiredFields();
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -215,6 +220,7 @@ export function LogSharedExpenseDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
+        req.clear();
         if (next) {
           const initial = households.find((h) => h.id === prefill?.householdId) ?? households[0];
           setHouseholdId(initial.id);
@@ -231,7 +237,18 @@ export function LogSharedExpenseDialog({
           </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">{dict.logShared.subtitle}</p>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) =>
+            void req.check(event, [
+              { name: "amount", id: "shared-expense-amount", message: dict.amountRequired, numeric: true },
+              { name: "date", id: "shared-expense-date", message: dict.dateRequired },
+            ])
+          }
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <input type="hidden" name="householdId" value={household.id} />
           <input type="hidden" name="splitEnabled" value="on" />
           {prefill && (
@@ -305,8 +322,10 @@ export function LogSharedExpenseDialog({
                 step="any"
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
-                required
+                aria-invalid={req.messageFor("amount") ? true : undefined}
+                aria-describedby={req.messageFor("amount") ? fieldErrorId("shared-expense-amount") : undefined}
               />
+              <FieldError fieldId="shared-expense-amount">{req.messageFor("amount")}</FieldError>
               {myShare !== undefined && (
                 <p className="text-xs text-muted-foreground">
                   {dict.shared.yourShare}: {numberFormat.format(myShare)}
@@ -321,8 +340,10 @@ export function LogSharedExpenseDialog({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                required
+                aria-invalid={req.messageFor("date") ? true : undefined}
+                aria-describedby={req.messageFor("date") ? fieldErrorId("shared-expense-date") : undefined}
               />
+              <FieldError fieldId="shared-expense-date">{req.messageFor("date")}</FieldError>
             </div>
           </div>
 
