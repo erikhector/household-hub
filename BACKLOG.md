@@ -438,19 +438,18 @@ the audit was run through an uncommitted copy with `executablePath` set.
       bill dialogs), the profile and auth slice (display name, email and
       password forms, forgot and reset password), the tasks and household
       slice (the task dialog, create-household dialog and form, rename
-      household, invite sign-up form) and the meal planning slice (the recipe
+      household, invite sign-up form), the meal planning slice (the recipe
       form, save-week-as-template, add to plan, move meal and bulk move
-      dialogs) and the inventory slice (the item page's Change unit and
-      Add conversion dialogs) replaced the browser's native
+      dialogs), the inventory slice (the item page's Change unit and
+      Add conversion dialogs) and the remaining budget slice (the category
+      add/edit dialogs, Clear debt and the personal budget's Log payment
+      dialog) replaced the browser's native
       "Please fill out this field." bubble with a `FieldError` under the
       field, via `useRequiredFields`
       (`src/components/shared/use-required-fields.ts`).
-      About 4 other components still rely on bare `required`, so a Swedish
-      user gets an English bubble: budget `category-manager.tsx`,
-      `household-balances.tsx`, `transaction-list.tsx`,
-      `personal-budget/log-shared-expense-dialog.tsx`; shopping
-      (`rename-list-dialog`, `list-templates`, once #1263 has landed). Breaks
-      DESIGN.md "errors next to the field, keeping input". Split by feature.
+      Still relying on bare `required`, so a Swedish user gets an English
+      bubble: shopping (`rename-list-dialog`, `list-templates`, once #1263 has
+      landed). Breaks DESIGN.md "errors next to the field, keeping input".
       Same acceptance as UX-183, per form: `noValidate`, a `role="alert"`
       message in the page's language under the field, focus moves to it,
       `aria-invalid` is set and nothing typed elsewhere is lost.
