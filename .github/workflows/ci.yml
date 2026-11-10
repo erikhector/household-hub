@@ -9,9 +9,9 @@ name: CI
 # Two tiers, for the release train (REQUIREMENTS.md, "Releases & What's
 # new"):
 # - PRs into `next` (all feature work) run the fast job only: lint,
-#   typecheck, unit tests and build (plus `npm audit` and knip). They merge without a browser run, so a
-#   day of PRs doesn't spend one e2e run each, plus another every time a
-#   branch is brought up to date.
+#   typecheck, `npm audit`, knip, unit tests and build. They merge
+#   without a browser run, so a day of PRs doesn't spend one e2e run
+#   each, plus another every time a branch is brought up to date.
 # - PRs into `master` (the release PR from a `release/*` branch cut from
 #   `next`, or a rare hotfix) also run the full Playwright suite, once, on
 #   everything about to ship. The release branch is a snapshot, so merges

@@ -21,8 +21,7 @@
     "server-only"
   ],
   // Unused exports and types are left out for now: the first run found
-  // ~120, mostly helpers and types exported for tests or for symmetry,
-  // which is a cleanup of its own rather than part of wiring up the
-  // check. Files, dependencies and unlisted imports are what this guards.
+  // about 120 exports and types no other file imports, which is a
+  // cleanup of its own rather than part of wiring up the check. Files, dependencies and unlisted imports are what this guards.
   "exclude": ["exports", "types", "duplicates"]
 }
