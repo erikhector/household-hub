@@ -10489,11 +10489,12 @@ UX-14's rapid ticks and the rollback toast.
   42-43 px. A test that holds a Server Action with `page.route` counts it
   as answered on its `response`, not when `route.continue()` resolves
   (that's when the request is sent, so a reload could beat the save).
-  `optimistic-ticking.spec.ts` and `shopping-mode.spec.ts`, which hold
-  and abort saves with `page.route`, set
+  `optimistic-ticking.spec.ts`, `shopping-mode.spec.ts` and `ux-51.spec.ts`,
+  which hold or abort saves with `page.route`, set
   `test.use({ serviceWorkers: "block" })`: once the app's service worker
   claims the page, its fetches skip the route, so a save meant to fail
-  went through.
+  went through, and a held language change never reached the route and
+  waited out the 30 s test timeout (MAINT-93).
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec

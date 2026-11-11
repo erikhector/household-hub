@@ -8,6 +8,16 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, setLoc
 // theme control, the shortcuts name the setting in use, and the Profile has
 // Language and Appearance controls with every choice visible.
 
+// No service worker. The root layout registers one (src/lib/service-worker.js)
+// that claims each fresh test page a moment after load, and requests in
+// flight through page.route() when the claim lands come back ERR_ABORTED.
+// The two language tests below hold the change's Server Action in a route:
+// under a loaded run the claim slid into the window between hydration and
+// the tap, the action never reached the route, and `await inFlight` waited
+// out the 30 s test timeout (MAINT-93, as optimistic-ticking.spec.ts).
+// Nothing here tests the worker.
+test.use({ serviceWorkers: "block" });
+
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
