@@ -442,33 +442,6 @@ WebKit was not run (no browser installed here). The audit config has no
 fallback for the missing headless shell that `playwright.config.ts` has, so
 the audit was run through an uncommitted copy with `executablePath` set.
 
-- [ ] **UX-183b. Show the remaining forms' required-field errors under the field, in the page's language** (impact: med, effort: L) —
-      UX-59 (login, signup) and UX-183 (the inventory add/edit item dialog)
-      replaced the browser's native "Please fill out this field." bubble with
-      a `FieldError` under the field. About 30 other components still rely
-      on bare `required` (e.g. `shopping/rename-list-dialog.tsx:64`,
-      `shopping/list-templates.tsx:82`), so a Swedish user gets an English
-      bubble over the next field. Breaks DESIGN.md "errors next to the
-      field, keeping input". Split by feature if one PR is too big. Same
-      acceptance as UX-183, per form: `noValidate`, a `role="alert"`
-      message in the page's language under the field, focus moves to it,
-      `aria-invalid` is set and nothing typed elsewhere is lost.
-
-
-- [ ] **UX-177. Shopping progress ring as an acorn outline that fills** (impact: low, effort: S) —
-      First step of the character pass: same ring geometry and progressbar
-      semantics, drawn as an acorn outline that fills as items are ticked.
-      No new assets, not on any money surface, respects
-      `prefers-reduced-motion`. Ideas (a) notes board as paper notes, (c)
-      housemate voice in Today and (d) tinted empty states are parked:
-      re-propose one after this ships and its screenshots are reviewed.
-      Acceptance: on `mobile` the list header still exposes a `progressbar`
-      named "n of m" that updates when an item is ticked; the existing
-      shopping-list specs pass.
-      Decided 2026-11-09 by autopilot-product: build (b) only. Why: the
-      smallest, reversible slice that tests whether brand character
-      belongs on daily screens. See PRODUCT.md.
-
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —

@@ -1344,7 +1344,9 @@ every lookup the old one did.
       completed or archived list keeps the always-open "Purchased" section.
       Under `prefers-reduced-motion` the row moves at once.
     - *Next up dock* (`src/components/shopping/shopping-mode.tsx`): the
-      progress ring ("12 of 18", a real `progressbar` with that
+      progress "ring" ("12 of 18"), drawn since UX-177 as an acorn outline that
+      fills from the bottom as rows are ticked (one SVG shared by the dock, the
+      shared list and the all-done moment; a real `progressbar` with that
       valuetext), the aisle the shopper is in now (the first pending group,
       `nextUp()` in `src/lib/shopping/shopping-progress.ts`, unit-tested)
       and its next three items as 48 px full-width tap rows. Ticking one is
@@ -9733,6 +9735,109 @@ approximating them, so the email never disagrees with the app.
   as soon as the field is edited. The rest of the app's forms still use
   bare `required` (follow-up in BACKLOG.md). Covered by
   `e2e/inventory-field-errors.spec.ts`.
+- **Budget dialog errors sit next to the field (UX-183b, first slice).**
+  Add/edit transaction, recurring item and planned bill/income
+  (`transaction-dialog.tsx`, `recurring-template-dialog.tsx`,
+  `planned-expense-dialog.tsx`, on both budgets) are `noValidate` and use
+  `useRequiredFields` (`src/components/shared/use-required-fields.ts`, the
+  UX-183 pattern as a hook): a missing name, amount, category (the chips) or
+  date is worded in the page's language under its field (`FieldError`,
+  `role="alert"`, `budget`/`personalBudget` `nameRequired`, `amountRequired`,
+  `categoryRequired`, `dateRequired`), the field gets `aria-invalid` and
+  `aria-describedby` (on the chip group for the category), focus goes to the
+  first, and editing a field clears its message. A blocked submit never runs
+  the action, so nothing typed is lost. Covered by
+  `e2e/budget-field-errors.spec.ts`. The other budget forms and the rest of
+  the app still use bare `required` (follow-up in BACKLOG.md).
+- **Profile and password-reset form errors sit next to the field (UX-183b,
+  second slice).** The display name, email and password forms
+  (`src/components/profile/`) and the forgot and reset password forms
+  (`src/components/auth/`) are `noValidate` and use `useRequiredFields`: a
+  missing (or all-space) display name, new email, current password, new
+  password, confirmation or reset-request email is worded in the page's
+  language under its field (`FieldError`, `role="alert"`, the forms'
+  `nameRequired` / `newEmailRequired` / `currentPasswordRequired` /
+  `newPasswordRequired` / `confirmPasswordRequired` / `emailRequired` keys),
+  the field gets `aria-invalid` and `aria-describedby`, focus goes to the
+  first, and editing a field clears its message. A blocked submit never runs
+  the action, so nothing typed is lost. Format, length and match rules are
+  still the server's, which words them in the user's language. Covered by
+  `e2e/profile-auth-field-errors.spec.ts` (the reset form with a token the
+  spec inserts).
+- **Task and household form errors sit next to the field (UX-183b, third
+  slice).** The task add/edit dialog (`tasks/task-form-dialog.tsx`), the
+  create-household dialog (`household-switcher-menu.tsx`), the no-household
+  page's create form (`create-first-household-form.tsx`), the owner's rename
+  card (`rename-household.tsx`) and the invite sign-up form
+  (`join-signup-form.tsx`) are `noValidate` and use `useRequiredFields`: a
+  missing task title, household name, display name, email, password or
+  confirmation is worded in the page's language under its field (`FieldError`,
+  `role="alert"`; the `tasks.titleRequired`, `household.switcher.nameRequired`,
+  `household.rename.nameRequired`, `auth.noHousehold.householdNameRequired`
+  and `auth.join.*Required` keys), the field gets `aria-invalid` and
+  `aria-describedby`, focus goes to the first, and editing a field clears its
+  message. The task dialog's Add / Save button is no longer disabled while the
+  title is empty (it still is for a one-person rotation), so the message can
+  appear. A blocked submit never runs the action, so nothing typed is lost.
+  Covered by `e2e/household-tasks-field-errors.spec.ts` (all but the
+  no-household form, which needs a user with zero households).
+- **Meal planning form errors sit next to the field (UX-183b, fourth
+  slice).** The recipe form (`recipe-form-dialog.tsx`: name and portions),
+  the save-week-as-template dialog (`plan-template-dialogs.tsx`: name), Add
+  to plan, Move meal and the bulk Move dialog (date) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `mealPlanning.recipeNameRequired`,
+  `servingsRequired`, `dateRequired` and `mealPlanning.templates.nameRequired`),
+  gets `aria-invalid` and `aria-describedby`, focus goes to the first, and
+  editing a field clears its message. The recipe form only checks on its
+  first step; the ingredient-review step submits what step one validated.
+  `missing-diet-badges.tsx` has no form field (it only renders badges).
+  Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
+  template dialog; the date fields can't be emptied through a controlled date
+  input, so they share the hook untested).
+- **Inventory unit dialog errors sit next to the field (UX-183b, fifth
+  slice).** The item page's Change unit dialog (`change-unit-dialog.tsx`:
+  new unit and factor) and Add/Edit conversion dialog
+  (`item-units-and-usage.tsx`: unit and amount) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `itemPage.errors.emptyUnit`/`factor` and
+  `itemPage.conversionDialog.unitRequired`/`amountRequired`), gets
+  `aria-invalid` and `aria-describedby`, focus goes to the first, and editing
+  a field clears its message. Their Save buttons used to be disabled until the
+  numbers made a plan, which left no click to explain what was missing; they
+  are now disabled only while saving, and an amount that is filled in but
+  unusable shows `conversionDialog.amountInvalid` (Change unit keeps its
+  existing preview alert). `ComboField` takes `invalid`/`describedBy` for
+  this, and the hook gained `clearField` for a combobox pick. Covered by
+  `e2e/inventory-unit-field-errors.spec.ts`.
+- **Remaining budget form errors sit next to the field (UX-183b, sixth
+  slice).** The Add and Edit category dialogs (`category-manager.tsx`, on both
+  budgets: name), Clear debt (`household-balances.tsx`: amount and date) and
+  the personal budget's Log payment / shared-expense dialog
+  (`log-shared-expense-dialog.tsx`: amount and date) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `categories.nameRequired`,
+  `balances.amountRequired`/`dateRequired`, and the personal budget's existing
+  `amountRequired`/`dateRequired`), gets `aria-invalid` and `aria-describedby`,
+  focus goes to the first, and editing a field clears its message; closing a
+  dialog clears them. A blocked submit never runs the action, so nothing typed
+  is lost. (In Log payment an empty amount already disables Log expense,
+  since the split no longer adds up, so in practice the date is what gets
+  flagged there.) `transaction-list.tsx` has no required field (only a comment
+  mentions the word). Covered by `e2e/budget-field-errors.spec.ts`.
+- **Shopping form errors sit next to the field (UX-183b, last slice).** The
+  list's Rename dialog (`rename-list-dialog.tsx`) and Save as template dialog
+  (`list-templates.tsx`) are `noValidate` and use `useRequiredFields`: a
+  cleared name is worded in the page's language under it (`FieldError`,
+  `role="alert"`; `shoppingList.renameList.nameRequired` and
+  `shoppingList.templates.nameRequired`), gets `aria-invalid` and
+  `aria-describedby`, takes focus, and editing it clears the message;
+  opening or closing the dialog clears it too, since both stay mounted while
+  closed. With this, no form in the app relies on the browser's own
+  "Please fill out this field." bubble any more: every field marked
+  `required` sits in a `noValidate` form that words its own message (UX-59's
+  login and signup forms keep their own validation). Covered by
+  `e2e/shopping-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,8 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 type ItemPageDict = Dictionary["inventory"]["itemPage"];
 
@@ -57,9 +59,16 @@ export function ChangeUnitDialog({
     return next;
   }, {});
 
+  // UX-183b: an empty unit or factor is worded under its field in the page's
+  // language (`noValidate`) rather than by the browser's own bubble. The
+  // submit button used to be disabled until both were filled in, which left
+  // nothing to say why; it is only disabled while saving now.
+  const req = useRequiredFields();
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
+      req.clear();
       setUnit("");
       setFactor("");
       setFactorSuggested(true);
@@ -79,6 +88,23 @@ export function ChangeUnitDialog({
   const plan = outcome && "plan" in outcome ? outcome.plan : null;
   const problem = outcome && "problem" in outcome ? dict.errors[outcome.problem] : null;
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (
+      req.check(event, [
+        { name: "unit", id: "change-unit-unit", message: dict.errors.emptyUnit },
+        { name: "factor", id: "change-unit-factor", message: dict.errors.factor },
+      ])
+    ) {
+      return;
+    }
+    // Both are filled in but the numbers don't make a plan (the alert below
+    // says why): keep the input and put focus on the factor.
+    if (plan === null) {
+      event.preventDefault();
+      document.getElementById("change-unit-factor")?.focus();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent>
@@ -86,7 +112,7 @@ export function ChangeUnitDialog({
           <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription>{format(copy.description, { unit: unitLabel(item.unit) })}</DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={handleSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           <input type="hidden" name="itemId" value={item.id} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="change-unit-unit">{copy.newUnitLabel}</Label>
@@ -95,11 +121,17 @@ export function ChangeUnitDialog({
               name="unit"
               items={units.filter((candidate) => candidate !== item.unit)}
               value={unit}
-              onValueChange={handleUnitChange}
+              onValueChange={(next) => {
+                req.clearField("unit");
+                handleUnitChange(next);
+              }}
               maxLength={20}
               label={copy.newUnitLabel}
               dict={comboDict}
+              invalid={Boolean(req.messageFor("unit"))}
+              describedBy={req.messageFor("unit") ? fieldErrorId("change-unit-unit") : undefined}
             />
+            <FieldError fieldId="change-unit-unit">{req.messageFor("unit")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="change-unit-factor">
@@ -118,9 +150,11 @@ export function ChangeUnitDialog({
                 setFactor(event.target.value);
                 setFactorSuggested(event.target.value.trim() === "");
               }}
-              aria-invalid={problem !== null}
+              aria-invalid={problem !== null || Boolean(req.messageFor("factor")) ? true : undefined}
+              aria-describedby={req.messageFor("factor") ? fieldErrorId("change-unit-factor") : undefined}
               required
             />
+            <FieldError fieldId="change-unit-factor">{req.messageFor("factor")}</FieldError>
           </div>
           {plan && (
             <ul className="flex flex-col gap-1 rounded-md bg-muted/50 p-3 text-sm" aria-live="polite">
@@ -147,7 +181,7 @@ export function ChangeUnitDialog({
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               {copy.cancel}
             </Button>
-            <Button type="submit" disabled={pending || plan === null}>
+            <Button type="submit" disabled={pending}>
               <PendingLabel pending={pending} busy={copy.saving} idle={copy.save} />
             </Button>
           </DialogFooter>

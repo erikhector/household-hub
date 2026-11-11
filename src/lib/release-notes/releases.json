@@ -1,5 +1,93 @@
 [
   {
+    "version": "0.150.3",
+    "date": "2026-11-10",
+    "pr": 1303,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you rename a shopping list or save it as a template and leave the name empty, the message now appears under the field in your language.",
+      "sv": "Om du byter namn på en inköpslista eller sparar den som mall och lämnar namnet tomt visas meddelandet nu under fältet, på ditt språk."
+    }
+  },
+  {
+    "version": "0.150.2",
+    "date": "2026-11-10",
+    "pr": 1297,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Adding or editing a budget category, clearing a debt and logging a shared bill payment now show a missing-field message under the field, in your language, instead of a browser pop-up.",
+      "sv": "När du lägger till eller redigerar en budgetkategori, reglerar en skuld eller loggar en delad räkning visas nu ett meddelande under fältet på ditt språk om något saknas, i stället för en ruta från webbläsaren."
+    }
+  },
+  {
+    "version": "0.150.1",
+    "date": "2026-11-10",
+    "pr": 1293,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Change unit and Add conversion now tell you what's missing right under the field, in your language, instead of leaving the button greyed out.",
+      "sv": "Byt enhet och Lägg till omvandling visar nu vad som saknas precis under fältet, på ditt språk, i stället för en nedtonad knapp."
+    }
+  },
+  {
+    "version": "0.150.0",
+    "date": "2026-11-10",
+    "pr": 1286,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Missing required fields in recipes, meal templates and meal dialogs are now explained under the field in your language.",
+      "sv": "Saknade obligatoriska fält i recept, måltidsmallar och måltidsdialoger förklaras nu under fältet på ditt språk."
+    }
+  },
+  {
+    "version": "0.149.2",
+    "date": "2026-11-10",
+    "pr": 1282,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "A missing task title, household name or sign-up detail is now flagged right under that field, in your language, instead of by a browser pop-up. What you already typed stays put.",
+      "sv": "Saknas en uppgiftstitel, ett hushållsnamn eller någon uppgift när du går med i ett hushåll visas det nu direkt under fältet, på ditt språk, i stället för i en popup från webbläsaren. Det du redan skrivit finns kvar."
+    }
+  },
+  {
+    "version": "0.149.1",
+    "date": "2026-11-10",
+    "pr": 1276,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "If you leave a field empty on the profile page, forgot-password or reset-password forms, the message now appears under the field in your language.",
+      "sv": "Om du lämnar ett fält tomt i profilen eller i formulären för glömt och återställt lösenord visas nu meddelandet under fältet på ditt språk."
+    }
+  },
+  {
+    "version": "0.149.0",
+    "date": "2026-11-09",
+    "pr": 1272,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Adding a transaction, recurring item or planned bill in the budget now tells you what is missing right under the field, in your language, and keeps what you already typed.",
+      "sv": "När du lägger till en transaktion, en återkommande post eller en planerad räkning i budgeten får du nu veta vad som saknas precis under fältet, på ditt språk, och det du redan skrivit finns kvar."
+    }
+  },
+  {
+    "version": "0.148.0",
+    "date": "2026-11-09",
+    "pr": 1269,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Budget pages and the Home \"safe to spend\" number load faster for households with a long history.\n\nThe shopping progress indicator is now a little acorn that fills up as you tick off items.",
+      "sv": "Budgetsidorna och \"säkert att spendera\" på startsidan laddar snabbare för hushåll med lång historik.\n\nFramstegsmätaren i inköpslistan är nu ett litet ekollon som fylls på när du bockar av varor."
+    }
+  },
+  {
     "version": "0.147.2",
     "date": "2026-11-09",
     "pr": 1260,
