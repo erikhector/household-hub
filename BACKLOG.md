@@ -836,6 +836,50 @@ out to be a product-scope question rather than a scoped task should move to
       turns the toggle on, has a task due today assigned to the member,
       and sees one bell entry linking to Tasks, in `en` and `sv`.
 
+### 2026-11-11 scan
+
+- [ ] **GAP-80. Sort recipes by last cooked, most cooked or newest** (impact: med, effort: S) —
+      AnyList's 2026 recipe beta adds sorting a collection by date
+      prepared and by how many times a recipe was made, the quickest way
+      to find what has dropped out of rotation or what the household
+      actually eats. Squirrel already computes both per recipe
+      (`getRecipeCookedStats`, `src/app/dashboard/meal-planning/recipe-cooked-stats.ts`;
+      REQUIREMENTS.md, "Recipe last cooked") and shows them on each row,
+      but the Recipes tab is always alphabetical (the recipes query in
+      `src/app/dashboard/meal-planning/page.tsx` orders by `name`), and
+      GAP-46 left sorting out of scope. Add a sort `Select` next to the
+      tag and course filters in `src/components/meal-planning/recipe-manager.tsx`
+      (it folds into the mobile "Filters" dialog like them): A–Z
+      (default), last cooked (oldest first, never-cooked first), most
+      cooked, newest. Sort client-side in the existing `filteredRecipes`
+      memo from the stats already passed down; the Cook soon shelf stays
+      on top. No schema change, labels in `en.ts` and `sv.ts`.
+      Acceptance: unit test of the comparator (ties fall back to name,
+      never-cooked placement); e2e on `desktop` and `mobile` marks one
+      seeded recipe cooked, picks "Most cooked" and sees it first, then
+      "Last cooked" and sees it last, in `en` and `sv`.
+
+- [ ] **GAP-81. A short note on a planned meal** (impact: med, effort: M) `[schema]` —
+      AnyList's January 2026 meal-plan update adds notes on meal-plan
+      entries, and Grocy's planner has notes per day: "thaw the chicken
+      the night before", "Anna cooks", "double it for lunch boxes".
+      Squirrel's `MealPlanEntry` (`prisma/schema.prisma`) has only a
+      recipe or a free-form name plus `freeformIngredients`, so a
+      recipe meal has nowhere to carry a reminder and households put it
+      in the name or on the notes board. Add a nullable
+      `MealPlanEntry.note` (≤ 200 chars, Zod-trimmed, empty → null),
+      edited in `src/components/meal-planning/meal-entry-dialog.tsx`
+      under the recipe/name field, shown as one muted truncated line on
+      the planner cell in `week-planner.tsx` (full text in the entry
+      dialog, not only in `title`) and in cook mode's header. Copy last
+      week, templates (GAP-52) and "Back to picks" carry it only where
+      the row is copied whole; the calendar feed puts it in the event
+      `DESCRIPTION`. No reminders or push. One migration.
+      Acceptance: action test that the note is saved, trimmed, capped and
+      household-scoped; e2e on `mobile` adds a note to a planned dinner,
+      reloads and sees it on the day and in the entry dialog, then clears
+      it, in `en` and `sv`.
+
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
