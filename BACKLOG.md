@@ -432,6 +432,49 @@ WebKit was not run (no browser installed here). The audit config has no
 fallback for the missing headless shell that `playwright.config.ts` has, so
 the audit was run through an uncommitted copy with `executablePath` set.
 
+### UX (2026-11-11 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150), the hidden "Invite member" button
+and the sheet grabber. The deep dive drove the four tabs, the new-recipe
+sheet (empty submit, 80-character Swedish-flavoured name, a keyboard-height
+viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
+at 320 px; Save stays pinned above the keyboard and errors sit by the
+field. WebKit was not run (no browser installed here).
+
+- [ ] **UX-184. Wrap long names in combobox options instead of clipping
+      them** (impact: med, effort: S) — `ComboboxItem` wraps its label in
+      `whitespace-nowrap shrink-0` (`src/components/ui/combobox.tsx:174`),
+      so a long recipe name in the add-meal sheet's recipe picker
+      (`meal-entry-dialog.tsx:281`) runs past the list's border, is cut
+      mid-word with no ellipsis, and slides under the check indicator.
+      Two recipes that differ only at the end ("Grandmother's
+      slow-braised Västerbotten & …") look identical, so people pick the
+      wrong one. Seen at 320 px and on Pixel 7 in the add-dinner sheet.
+      The same primitive is used by the inventory item combobox and three
+      budget dialogs. Breaks M1 (nothing clipped at phone width) and the
+      "show the full name" rule. Fix: `min-w-0 break-words` (wrap, up to
+      two lines with `line-clamp-2`) in place of `whitespace-nowrap
+      shrink-0`, keeping `pr-8` clear for the check.
+      Acceptance: an e2e test in the `mobile` project creates a recipe
+      with an 80-character name, opens "Add first dinner", and asserts the
+      option's text is fully inside the list (its `scrollWidth` ≤
+      `clientWidth` and its right edge ≤ the list's right edge).
+- [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
+      sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
+      shows the dishes already in a slot as one `truncate` line with the
+      full list only in `title`, which a phone can't hover. With two or
+      three planned dishes the joined names outgrow one line on a phone,
+      and the rest is unreachable (confirmed in code, not driven). Breaks
+      DESIGN.md's rule that truncated text needs a visible way to the full
+      text, not a `title`. Fix: `line-clamp-2 break-words`, as
+      `cooked-ingredients-checklist.tsx:42` already does.
+      Acceptance: an e2e test in the `mobile` project plans three dishes
+      with long names into one slot, opens the plan-portions sheet, and
+      asserts the slot's dish line shows the last dish's name.
+
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
