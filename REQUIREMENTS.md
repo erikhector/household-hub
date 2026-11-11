@@ -10483,17 +10483,23 @@ UX-14's rapid ticks and the rollback toast.
   A page measured or asserted straight after `goto` uses `gotoRevealed`,
   which waits for React 19.2's batched Suspense reveals (a cold WebKit
   could still show the tasks page's Add task skeleton after 5 s).
+  A control that sits behind a `loading.tsx` skeleton is first awaited
+  with `expectHydrated`, whose 20 s covers the stream plus hydration, even
+  when the test only asserts it's there: the planner's "Add first dinner"
+  outlasted `toBeVisible`'s default 5 s on a loaded run (MAINT-86, and
+  MAINT-94 for the empty-week check in `planner-add-missing.spec.ts`).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
   42-43 px. A test that holds a Server Action with `page.route` counts it
   as answered on its `response`, not when `route.continue()` resolves
   (that's when the request is sent, so a reload could beat the save).
-  `optimistic-ticking.spec.ts` and `shopping-mode.spec.ts`, which hold
-  and abort saves with `page.route`, set
+  `optimistic-ticking.spec.ts`, `shopping-mode.spec.ts` and `ux-51.spec.ts`,
+  which hold or abort saves with `page.route`, set
   `test.use({ serviceWorkers: "block" })`: once the app's service worker
   claims the page, its fetches skip the route, so a save meant to fail
-  went through.
+  went through, and a held language change never reached the route and
+  waited out the 30 s test timeout (MAINT-93).
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
