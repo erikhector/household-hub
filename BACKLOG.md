@@ -247,6 +247,16 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
+- [ ] **MAINT-93. Flaky: the logged-out footer language button times out on desktop** (low, S) —
+      `e2e/ux-51.spec.ts:104` (logged-out footer language button), `desktop` project, 30 s timeout. In the builder's `ci:local` run for UX-177 (PR #1263, head 2df1e7c, 2026-11-09) it failed once, then passed 10/10 solo and on a later full run of the same commit; the diff touches only the shopping progress ring. Start from the failing trace: the button may be clicked before hydration (`expectHydrated`) under a loaded runner.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-51.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+
+- [ ] **MAINT-94. Flaky: "Add first dinner" isn't there within 5 s in the planner add-missing spec** (low, S) —
+      `e2e/planner-add-missing.spec.ts:96` ("an empty week has no Add missing button"), project not recorded (the run was a full desktop + mobile gate and its trace wasn't kept). In the builder's `ci:local` run for UX-177 (PR #1263, head 2df1e7c, 2026-11-09) it failed once and passed on the next full run of the same commit; the diff touches only the shopping progress ring. Likely cause: this is the same "Add first dinner" lookup the earlier MAINT-86 fix covered with the 20 s `expectHydrated` timeout in `e2e/ui.ts`, but this test does a plain `toBeVisible()` right after `goto()`, with the default 5 s and no `expectHydrated`, so a loaded runner can outlast it.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/planner-add-missing.spec.ts --repeat-each=30` passes 30/30 on `desktop` and `mobile`.
+
 ### UX (2026-09-26 scout)
 
 Found by loading every dashboard route at 390×844 and 1280×800, in English
