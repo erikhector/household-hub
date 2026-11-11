@@ -10483,6 +10483,11 @@ UX-14's rapid ticks and the rollback toast.
   A page measured or asserted straight after `goto` uses `gotoRevealed`,
   which waits for React 19.2's batched Suspense reveals (a cold WebKit
   could still show the tasks page's Add task skeleton after 5 s).
+  A control that sits behind a `loading.tsx` skeleton is first awaited
+  with `expectHydrated`, whose 20 s covers the stream plus hydration, even
+  when the test only asserts it's there: the planner's "Add first dinner"
+  outlasted `toBeVisible`'s default 5 s on a loaded run (MAINT-86, and
+  MAINT-94 for the empty-week check in `planner-add-missing.spec.ts`).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
