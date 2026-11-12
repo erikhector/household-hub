@@ -9,7 +9,7 @@ import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictio
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InventoryClient } from "@/components/inventory/inventory-client";
-import InventoryHeaderActionsClient from "@/components/inventory/inventory-header-actions";
+import { InventoryHeaderActionsClient } from "@/components/inventory/inventory-header-actions";
 import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
 import { ExportButton } from "@/components/export/export-button";
 import { getStockStatus, isNeverStockedAtZero } from "@/lib/stock-status";
