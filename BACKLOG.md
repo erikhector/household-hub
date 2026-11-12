@@ -454,26 +454,34 @@ field. WebKit was not run (no browser installed here).
       slow-braised Västerbotten & …") look identical, so people pick the
       wrong one. Seen at 320 px and on Pixel 7 in the add-dinner sheet.
       The same primitive is used by the inventory item combobox and three
-      budget dialogs. Breaks M1 (nothing clipped at phone width) and the
-      "show the full name" rule. Fix: `min-w-0 break-words` (wrap, up to
-      two lines with `line-clamp-2`) in place of `whitespace-nowrap
-      shrink-0`, keeping `pr-8` clear for the check.
-      Acceptance: an e2e test in the `mobile` project creates a recipe
-      with an 80-character name, opens "Add first dinner", and asserts the
-      option's text is fully inside the list (its `scrollWidth` ≤
-      `clientWidth` and its right edge ≤ the list's right edge).
+      budget dialogs. Breaks M9 (long names wrap or truncate with the full
+      value reachable, never overflow) and section 4's "long names without
+      clipping". Fix: `min-w-0 break-words` in place of `whitespace-nowrap
+      shrink-0`, with no line clamp (the option list already scrolls, and a
+      clamp would hide the ending that tells two such recipes apart),
+      keeping `pr-8` clear for the check.
+      Acceptance: an e2e test in the `mobile` project, also run at a
+      320 px viewport, creates a recipe with an 80-character name, opens
+      "Add first dinner", and asserts the option's text is fully inside
+      the list: its `scrollWidth` ≤ `clientWidth`, its `scrollHeight` ≤
+      `clientHeight`, and its right edge ≤ the list's right edge.
 - [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
       sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
       shows the dishes already in a slot as one `truncate` line with the
       full list only in `title`, which a phone can't hover. With two or
       three planned dishes the joined names outgrow one line on a phone,
       and the rest is unreachable (confirmed in code, not driven). Breaks
-      DESIGN.md's rule that truncated text needs a visible way to the full
-      text, not a `title`. Fix: `line-clamp-2 break-words`, as
-      `cooked-ingredients-checklist.tsx:42` already does.
+      M9 (long names wrap or truncate with the full value reachable) and
+      the no-hover-only rule. Fix: drop `truncate` and the `title` and let
+      the dish line wrap (`break-words`, no clamp); it is a short secondary
+      line inside a sheet, so it can grow. Don't copy
+      `cooked-ingredients-checklist.tsx:42`, whose `line-clamp-2` keeps the
+      full text only in `title` too.
       Acceptance: an e2e test in the `mobile` project plans three dishes
       with long names into one slot, opens the plan-portions sheet, and
-      asserts the slot's dish line shows the last dish's name.
+      asserts the slot's dish line is not clipped: its `scrollHeight` ≤
+      `clientHeight` and `scrollWidth` ≤ `clientWidth`, and the last
+      dish's name is inside the line's bounding box.
 
 ### Dependencies
 
