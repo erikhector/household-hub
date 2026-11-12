@@ -238,11 +238,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
-- [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
-      `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
-      Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -432,6 +427,57 @@ drove the add-item sheet at 320 px (empty submit, 90-character name).
 WebKit was not run (no browser installed here). The audit config has no
 fallback for the missing headless shell that `playwright.config.ts` has, so
 the audit was run through an uncommitted copy with `executablePath` set.
+
+### UX (2026-11-11 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150), the hidden "Invite member" button
+and the sheet grabber. The deep dive drove the four tabs, the new-recipe
+sheet (empty submit, 80-character Swedish-flavoured name, a keyboard-height
+viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
+at 320 px; Save stays pinned above the keyboard and errors sit by the
+field. WebKit was not run (no browser installed here).
+
+- [ ] **UX-184. Wrap long names in combobox options instead of clipping
+      them** (impact: med, effort: S) — `ComboboxItem` wraps its label in
+      `whitespace-nowrap shrink-0` (`src/components/ui/combobox.tsx:174`),
+      so a long recipe name in the add-meal sheet's recipe picker
+      (`meal-entry-dialog.tsx:281`) runs past the list's border, is cut
+      mid-word with no ellipsis, and slides under the check indicator.
+      Two recipes that differ only at the end ("Grandmother's
+      slow-braised Västerbotten & …") look identical, so people pick the
+      wrong one. Seen at 320 px and on Pixel 7 in the add-dinner sheet.
+      The same primitive is used by the inventory item combobox and three
+      budget dialogs. Breaks M9 (long names wrap or truncate with the full
+      value reachable, never overflow) and section 4's "long names without
+      clipping". Fix: `min-w-0 break-words` in place of `whitespace-nowrap
+      shrink-0`, with no line clamp (the option list already scrolls, and a
+      clamp would hide the ending that tells two such recipes apart),
+      keeping `pr-8` clear for the check.
+      Acceptance: an e2e test in the `mobile` project, also run at a
+      320 px viewport, creates a recipe with an 80-character name, opens
+      "Add first dinner", and asserts the option's text is fully inside
+      the list: its `scrollWidth` ≤ `clientWidth`, its `scrollHeight` ≤
+      `clientHeight`, and its right edge ≤ the list's right edge.
+- [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
+      sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
+      shows the dishes already in a slot as one `truncate` line with the
+      full list only in `title`, which a phone can't hover. With two or
+      three planned dishes the joined names outgrow one line on a phone,
+      and the rest is unreachable (confirmed in code, not driven). Breaks
+      M9 (long names wrap or truncate with the full value reachable) and
+      the no-hover-only rule. Fix: drop `truncate` and the `title` and let
+      the dish line wrap (`break-words`, no clamp); it is a short secondary
+      line inside a sheet, so it can grow. Don't copy
+      `cooked-ingredients-checklist.tsx:42`, whose `line-clamp-2` keeps the
+      full text only in `title` too.
+      Acceptance: an e2e test in the `mobile` project plans three dishes
+      with long names into one slot, opens the plan-portions sheet, and
+      asserts the slot's dish line is not clipped: its `scrollHeight` ≤
+      `clientHeight` and `scrollWidth` ≤ `clientWidth`, and the last
+      dish's name is inside the line's bounding box.
 
 ### Dependencies
 
@@ -808,6 +854,59 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
+
+### 2026-11-11 scan
+
+- [ ] **GAP-80. Sort recipes by last cooked, most cooked or newest** (impact: med, effort: S) —
+      AnyList's 2026 recipe beta adds sorting a collection by date
+      prepared and by how many times a recipe was made, the quickest way
+      to find what has dropped out of rotation or what the household
+      actually eats. Squirrel already computes both per recipe
+      (`getRecipeCookedStats`, `src/app/dashboard/meal-planning/recipe-cooked-stats.ts`;
+      REQUIREMENTS.md, "Recipe last cooked") and shows them on each row,
+      but the Recipes tab is always alphabetical (the recipes query in
+      `src/app/dashboard/meal-planning/page.tsx` orders by `name`), and
+      GAP-46 left sorting out of scope. Add a sort `Select` to the
+      wrapping row that holds the tag and course filters in
+      `src/components/meal-planning/recipe-manager.tsx`. The tab has no
+      folded mobile "Filters" dialog, so on phones the sort shares the
+      second row with the two filters (search keeps the full first row),
+      with no horizontal overflow at 412 px. Options: A–Z (default), last
+      cooked (oldest first, never-cooked first), most cooked, newest.
+      Sort client-side in the existing `filteredRecipes` memo, from the
+      `recipeCooked` stats prop plus `createdAt`, which `recipeRows` in
+      `page.tsx` doesn't pass yet and needs adding (ISO string) to it and
+      the client recipe type. The Cook soon shelf stays on top. The sort
+      is per-visit component state: nothing in cookies or storage, and
+      it isn't a filter, so it doesn't change the "no matches" copy. No
+      schema change; labels in `en.ts` and `sv.ts`.
+      Acceptance: unit test of the comparator (ties fall back to name,
+      never-cooked placement); e2e on `desktop` and `mobile` creates two
+      `unique()` recipes, cooks A twice and B once, and sees A above B
+      under "Most cooked" and B above A under "Last cooked" (relative
+      order only, since other specs cook recipes in the same household).
+
+- [ ] **GAP-81. A short note on a planned meal** (impact: med, effort: M) `[schema]` —
+      AnyList's January 2026 meal-plan update adds notes on meal-plan
+      entries, and Grocy's planner has notes per day: "thaw the chicken
+      the night before", "Anna cooks", "double it for lunch boxes".
+      Squirrel's `MealPlanEntry` (`prisma/schema.prisma`) has only a
+      recipe or a free-form name plus `freeformIngredients`, so a
+      recipe meal has nowhere to carry a reminder and households put it
+      in the name or on the notes board. Add a nullable
+      `MealPlanEntry.note` (≤ 200 chars, Zod-trimmed, empty → null),
+      edited in `src/components/meal-planning/meal-entry-dialog.tsx`
+      under the recipe/name field, shown as one muted truncated line on
+      the planner cell in `week-planner.tsx` (full text in the entry
+      dialog, not only in `title`) and in cook mode's header. Copy last
+      week (`copyWeekAction`) carries the note. Saving as a template
+      (GAP-52) and "Back to picks" drop it: no note column on
+      `MealPlanTemplateEntry` or `MealPlanPick`. The calendar feed puts
+      it in the event `DESCRIPTION`. No reminders or push. One migration.
+      Acceptance: action test that the note is saved, trimmed, capped and
+      household-scoped; e2e on `mobile` adds a note to a planned dinner,
+      reloads and sees it on the day and in the entry dialog, then clears
+      it, in `en` and `sv`.
 
 ## Needs a decision before building
 

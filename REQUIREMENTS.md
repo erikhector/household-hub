@@ -4071,7 +4071,9 @@ instead of truncating. Covered by `e2e/ux-23.spec.ts`.
 **Scroll affordance on the tabs track (UX-170).** When the shared `Tabs`
 track can scroll sideways (320 px, 200 % text), it fades out at the edge
 with more tabs behind it (a 24 px mask, so any background works) and opens
-scrolled to the active tab, so a clipped "Insi" reads as "more this way".
+scrolled to the active tab (measured from the track's own rect, since
+`offsetLeft` counts from a positioned ancestor and used to scroll a narrowed
+track to its last tab), so a clipped "Insi" reads as "more this way".
 The fade follows the scroll position and the track's size, and is mirrored
 in `data-fade` (`start`/`end`/`both`, absent when everything fits). The
 compact in-card switch doesn't scroll and is unchanged. Covered by

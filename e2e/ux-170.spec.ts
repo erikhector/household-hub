@@ -11,6 +11,24 @@ test.beforeEach(async ({ context, baseURL }) => {
 // The tablist is `display: contents`, so the scrolling track is its parent.
 const track = (page: Page) => page.getByRole("tab").first().locator("xpath=../..");
 
+// Caps the track at 200 px from the first paint, so the mount effect that
+// scrolls to the active tab runs on a track narrower than its tabs. The
+// style goes in <head>: one appended straight to <html> (as these tests first
+// did) is dropped when React hydrates the document, which left the track at
+// full width, so the scroll-on-load test passed without testing anything.
+// <head> doesn't exist yet when an init script runs, so wait for the parser.
+async function narrowTrackFromFirstPaint(page: Page) {
+  await page.addInitScript(() => {
+    const style = document.createElement("style");
+    style.textContent = "div.overflow-x-auto[data-activation-direction]{max-width:200px}";
+    const add = () => (document.head ? (document.head.append(style), true) : false);
+    if (!add()) {
+      const observer = new MutationObserver(() => add() && observer.disconnect());
+      observer.observe(document, { childList: true, subtree: true });
+    }
+  });
+}
+
 // Audit shots of the narrowed track, with the fade and without it (the old
 // look), for the UX scout. Off unless E2E_SCREENSHOT_DIR is set.
 async function shootTrack(bar: ReturnType<typeof track>, testInfo: TestInfo, name: string) {
@@ -60,17 +78,15 @@ for (const path of ["/dashboard/budget", "/dashboard/meal-planning"]) {
 test("the active tab is scrolled into view on load", async ({ page }) => {
   // A 200 px track from the first paint, so the mount effect has something
   // to scroll (a phone page never goes below ~412 px).
-  await page.addInitScript(() => {
-    const style = document.createElement("style");
-    style.textContent = "div.overflow-x-auto[data-activation-direction]{max-width:200px}";
-    document.documentElement.append(style);
-  });
+  await narrowTrackFromFirstPaint(page);
   await page.goto("/dashboard/budget?tab=insights");
   await expectHydrated(page.getByRole("tab").first());
   // Insights also holds its own compact switch, so scope to the page tabs.
   const bar = track(page);
   const insights = bar.getByRole("tab", { selected: true });
   await expect(insights).toHaveText("Insights");
+  // The track really is narrower than its tabs, or there is nothing to test.
+  await expect(bar).toHaveAttribute("data-fade", /.+/);
   await expect
     .poll(() =>
       insights.evaluate((el) => {
@@ -79,4 +95,19 @@ test("the active tab is scrolled into view on load", async ({ page }) => {
       }),
     )
     .toBe(true);
+});
+
+// MAINT-84: the mount effect measured the active tab with `offsetLeft`, which
+// counts from the nearest positioned ancestor (not the track), so on a track
+// narrower than its tabs even the first tab's target landed past the end and
+// the track opened scrolled to its last tab, reading "start" instead of
+// "end". Only a narrow track from the first paint shows it, because on the
+// real page the track is wide enough to clamp the scroll back to 0.
+test("the first tab's track opens at its start, not scrolled away", async ({ page }) => {
+  await narrowTrackFromFirstPaint(page);
+  await page.goto("/dashboard/budget");
+  await expectHydrated(page.getByRole("tab").first());
+  const bar = track(page);
+  await expect(bar).toHaveAttribute("data-fade", "end");
+  expect(await bar.evaluate((el) => el.scrollLeft)).toBe(0);
 });
