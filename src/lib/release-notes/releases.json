@@ -1,5 +1,181 @@
 [
   {
+    "version": "0.150.3",
+    "date": "2026-11-10",
+    "pr": 1303,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you rename a shopping list or save it as a template and leave the name empty, the message now appears under the field in your language.",
+      "sv": "Om du byter namn på en inköpslista eller sparar den som mall och lämnar namnet tomt visas meddelandet nu under fältet, på ditt språk."
+    }
+  },
+  {
+    "version": "0.150.2",
+    "date": "2026-11-10",
+    "pr": 1297,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Adding or editing a budget category, clearing a debt and logging a shared bill payment now show a missing-field message under the field, in your language, instead of a browser pop-up.",
+      "sv": "När du lägger till eller redigerar en budgetkategori, reglerar en skuld eller loggar en delad räkning visas nu ett meddelande under fältet på ditt språk om något saknas, i stället för en ruta från webbläsaren."
+    }
+  },
+  {
+    "version": "0.150.1",
+    "date": "2026-11-10",
+    "pr": 1293,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Change unit and Add conversion now tell you what's missing right under the field, in your language, instead of leaving the button greyed out.",
+      "sv": "Byt enhet och Lägg till omvandling visar nu vad som saknas precis under fältet, på ditt språk, i stället för en nedtonad knapp."
+    }
+  },
+  {
+    "version": "0.150.0",
+    "date": "2026-11-10",
+    "pr": 1286,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Missing required fields in recipes, meal templates and meal dialogs are now explained under the field in your language.",
+      "sv": "Saknade obligatoriska fält i recept, måltidsmallar och måltidsdialoger förklaras nu under fältet på ditt språk."
+    }
+  },
+  {
+    "version": "0.149.2",
+    "date": "2026-11-10",
+    "pr": 1282,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "A missing task title, household name or sign-up detail is now flagged right under that field, in your language, instead of by a browser pop-up. What you already typed stays put.",
+      "sv": "Saknas en uppgiftstitel, ett hushållsnamn eller någon uppgift när du går med i ett hushåll visas det nu direkt under fältet, på ditt språk, i stället för i en popup från webbläsaren. Det du redan skrivit finns kvar."
+    }
+  },
+  {
+    "version": "0.149.1",
+    "date": "2026-11-10",
+    "pr": 1276,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "If you leave a field empty on the profile page, forgot-password or reset-password forms, the message now appears under the field in your language.",
+      "sv": "Om du lämnar ett fält tomt i profilen eller i formulären för glömt och återställt lösenord visas nu meddelandet under fältet på ditt språk."
+    }
+  },
+  {
+    "version": "0.149.0",
+    "date": "2026-11-09",
+    "pr": 1272,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Adding a transaction, recurring item or planned bill in the budget now tells you what is missing right under the field, in your language, and keeps what you already typed.",
+      "sv": "När du lägger till en transaktion, en återkommande post eller en planerad räkning i budgeten får du nu veta vad som saknas precis under fältet, på ditt språk, och det du redan skrivit finns kvar."
+    }
+  },
+  {
+    "version": "0.148.0",
+    "date": "2026-11-09",
+    "pr": 1269,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Budget pages and the Home \"safe to spend\" number load faster for households with a long history.\n\nThe shopping progress indicator is now a little acorn that fills up as you tick off items.",
+      "sv": "Budgetsidorna och \"säkert att spendera\" på startsidan laddar snabbare för hushåll med lång historik.\n\nFramstegsmätaren i inköpslistan är nu ett litet ekollon som fylls på när du bockar av varor."
+    }
+  },
+  {
+    "version": "0.147.2",
+    "date": "2026-11-09",
+    "pr": 1260,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Leaving the name or quantity empty when adding or editing an item now shows a clear message under the field, in your language, instead of the browser's pop-up.",
+      "sv": "Om du lämnar namn eller antal tomt när du lägger till eller ändrar en vara visas nu ett tydligt meddelande under fältet på ditt språk, i stället för webbläsarens ruta."
+    }
+  },
+  {
+    "version": "0.147.1",
+    "date": "2026-11-08",
+    "pr": 1241,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The links at the bottom of the sign-in and sign-up pages are now evenly spaced on phones, with room between them to tap.",
+      "sv": "Länkarna längst ned på inloggnings- och registreringssidorna har nu jämna avstånd på mobilen, med plats emellan för att trycka."
+    }
+  },
+  {
+    "version": "0.147.0",
+    "date": "2026-11-08",
+    "pr": 1236,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Opening a shopping list from its card now reliably animates the list's name into the page title on phones.\n\nSearching the meal plan now also finds meals by their ingredients, so \"salmon\" finds the dinner that uses salmon even if the recipe has a different name.",
+      "sv": "Att öppna en inköpslista från dess kort animerar nu pålitligt listans namn in i sidans rubrik på mobilen.\n\nSökningen i måltidsplanen hittar nu också måltider via ingredienserna, så \"lax\" hittar middagen med lax även om receptet heter något annat."
+    }
+  },
+  {
+    "version": "0.146.2",
+    "date": "2026-11-08",
+    "pr": 1231,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The links at the bottom of the sign-in and sign-up pages are now evenly spaced on phones.",
+      "sv": "Länkarna längst ned på inloggnings- och registreringssidorna har nu jämna avstånd på mobilen."
+    }
+  },
+  {
+    "version": "0.146.1",
+    "date": "2026-11-08",
+    "pr": 1222,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Opening an inventory item from the catalogue now animates its name into the item page every time, not only some of the time.",
+      "sv": "När du öppnar en artikel från katalogen glider namnet nu alltid över till artikelsidan, inte bara ibland."
+    }
+  },
+  {
+    "version": "0.146.0",
+    "date": "2026-11-07",
+    "pr": 1206,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "A household task can now carry a few lines of notes, such as where the filter is and which size to buy. They show under the task's title, and you edit them by tapping the task.",
+      "sv": "En uppgift kan nu ha några rader anteckningar, till exempel var filtret finns och vilken storlek man ska köpa. De visas under uppgiftens titel, och du ändrar dem genom att trycka på uppgiften."
+    }
+  },
+  {
+    "version": "0.145.0",
+    "date": "2026-11-07",
+    "pr": 1201,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On phones, the Profile page now has a row of shortcuts under the title that jump straight to Account, Preferences, Notifications or Data & privacy.",
+      "sv": "På mobilen har Profil nu en rad genvägar under rubriken som tar dig direkt till Konto, Inställningar, Aviseringar eller Data och integritet."
+    }
+  },
+  {
+    "version": "0.144.1",
+    "date": "2026-11-07",
+    "pr": 1190,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Behind-the-scenes update to our error-reporting tooling. Nothing changes in how Squirrel looks or works.",
+      "sv": "Uppdatering i kulisserna av verktyget för felrapportering. Inget ändras i hur Squirrel ser ut eller fungerar."
+    }
+  },
+  {
     "version": "0.144.0",
     "date": "2026-11-07",
     "pr": 1186,

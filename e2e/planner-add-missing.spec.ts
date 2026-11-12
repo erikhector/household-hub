@@ -19,7 +19,11 @@ const ricotta = `Ricotta ${tag}`;
 // GAP-62: the ingredient's note should reach the list row.
 const ricottaNote = `well drained ${tag}`;
 // GAP-58: a custom meal's typed ingredient, in weeks of its own.
-const tortillas = `Tortillas${tag}`;
+// The typed line goes through the smart-add parser, which reads a trailing
+// "x<number>" as a quantity ("rice x3"), so a random tag ending in x7 would
+// be split off the name and the row would never match (MAINT-87). Keep the
+// letter x out of this one.
+const tortillas = `Tortillas${tag.replace(/x/g, "k")}`;
 const customWeek = (project: string) => (project === "mobile" ? "2031-04-14" : "2031-04-07");
 
 async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
@@ -89,7 +93,14 @@ test.afterEach(async () => {
 
 test("an empty week has no Add missing button", async ({ page }) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
-  await expect(page.getByRole("button", { name: "Add first dinner" })).toBeVisible();
+  // The week streams in behind the planner's loading.tsx skeleton, and on a
+  // loaded runner that outlasted toBeVisible's default 5 s (MAINT-94), as it
+  // did for the custom-meal test below before MAINT-86. expectHydrated gives
+  // it the same 20 s and only passes once React owns the button, so the
+  // count check that follows also sees the planner after hydration.
+  const first = page.getByRole("button", { name: "Add first dinner" });
+  await expectHydrated(first);
+  await expect(first).toBeVisible();
   await expect(page.getByRole("button", { name: /^Add \d+ missing to shopping list$/ })).toHaveCount(0);
 });
 

@@ -169,7 +169,7 @@ function Tabs<Value extends string = string>({
                   compact &&
                     "h-7 px-2.5",
                   tab.value === value &&
-                    "border-foreground/10 bg-card text-foreground shadow-sm hover:bg-card hover:text-foreground"
+                    "border-foreground/10 bg-card text-foreground shadow-raised hover:bg-card hover:text-foreground"
                 )}
               />
             }

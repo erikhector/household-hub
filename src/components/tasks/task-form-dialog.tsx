@@ -22,11 +22,12 @@
 // rotation is set, "Assign to" becomes "whose turn it is now" and only
 // offers the people taking turns, matching what the server enforces.
 
-import { useActionState, useEffect, useState, type ReactElement } from "react";
+import { useActionState, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -37,6 +38,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 import { createTaskAction, updateTaskAction } from "@/app/dashboard/tasks/actions";
 import type { ActionState } from "@/lib/actions/auth";
@@ -49,6 +52,8 @@ type MemberOption = { id: string; displayName: string };
 type EditableTask = {
   id: string;
   title: string;
+  /** GAP-73: plain-text detail, or null. */
+  notes: string | null;
   assignedToMemberId: string | null;
   recurrenceIntervalDays: number | null;
   /** UX-133: a one-off's due date as YYYY-MM-DD. */
@@ -65,6 +70,9 @@ const initialState: ActionState = {};
 // characters before it so the limit is never a surprise (UX-107).
 const TITLE_MAX_LENGTH = 120;
 const TITLE_COUNTER_FROM = 100;
+// GAP-73: same cap as the server schema; the counter shows from 450.
+const NOTES_MAX_LENGTH = 500;
+const NOTES_COUNTER_FROM = 450;
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_REPEAT_VALUE = "__no_repeat__";
 const RECURRENCE_OPTION_DAYS = [1, 2, 3, 7] as const;
@@ -103,6 +111,8 @@ export function TaskFormDialog({
   );
   const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
   const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");
+  const [notes, setNotes] = useState(mode === "edit" ? (task?.notes ?? "") : "");
+  const showNotesCounter = notes.length >= NOTES_COUNTER_FROM;
 
   // UX-41a: the command palette's "Add task" lands here with `?add=1`. Only
   // the create form listens (the edit dialogs share this component). The
@@ -121,8 +131,17 @@ export function TaskFormDialog({
     if (addParam === "1" && mode === "create") router.replace(pathname, { scroll: false });
   }, [addParam, mode, pathname, router]);
 
+  // UX-183b: an empty title is worded under the field in the page's language
+  // (`noValidate`), not by the browser. The Add / Save button used to be
+  // disabled until a title was typed, which left a user no word on why.
+  const req = useRequiredFields();
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    req.check(event, [{ name: "title", id: "task-title", message: dict.titleRequired }]);
+  }
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
+    req.clear();
     if (next) {
       setTitle(mode === "edit" ? (task?.title ?? "") : "");
       setAssignedToMemberId(mode === "edit" ? (task?.assignedToMemberId ?? UNASSIGNED_VALUE) : UNASSIGNED_VALUE);
@@ -131,6 +150,7 @@ export function TaskFormDialog({
       );
       setRotation(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
       setDueDate(mode === "edit" ? (task?.dueDate ?? "") : "");
+      setNotes(mode === "edit" ? (task?.notes ?? "") : "");
     }
   };
 
@@ -182,6 +202,7 @@ export function TaskFormDialog({
           if (!task) return { error: dict.editTask.notFound };
           return updateTaskAction(task.id, {
             title: String(formData.get("title") ?? ""),
+            notes: String(formData.get("notes") ?? ""),
             assignedToMemberId: (formData.get("assignedToMemberId") as string | null) ?? null,
             recurrenceIntervalDays: formData.has("recurrenceIntervalDays")
               ? Number(formData.get("recurrenceIntervalDays"))
@@ -210,7 +231,7 @@ export function TaskFormDialog({
             {mode === "create" ? dict.addTaskDialogTitle : format(dict.editTask.title, { name: task?.title ?? "" })}
           </DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={onSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           {mode === "edit" && task && <input type="hidden" name="taskId" value={task.id} />}
           <div className="flex flex-col gap-2">
             <Label htmlFor="task-title">{dict.addTaskAriaLabel}</Label>
@@ -223,8 +244,14 @@ export function TaskFormDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={dict.addTaskPlaceholder}
               maxLength={TITLE_MAX_LENGTH}
-              aria-describedby={showTitleCounter ? "task-title-counter" : undefined}
+              aria-invalid={req.messageFor("title") ? true : undefined}
+              aria-describedby={
+                [req.messageFor("title") && fieldErrorId("task-title"), showTitleCounter && "task-title-counter"]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
             />
+            <FieldError fieldId="task-title">{req.messageFor("title")}</FieldError>
             {/* UX-107: maxLength stops input without a word, so say how close
                 the title is to the limit from TITLE_COUNTER_FROM on. role=status
                 announces it politely; at the limit it turns destructive. */}
@@ -235,6 +262,31 @@ export function TaskFormDialog({
                 className={`text-xs ${title.length >= TITLE_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"}`}
               >
                 {format(dict.titleCounter, { count: title.length, max: TITLE_MAX_LENGTH })}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="task-notes">{dict.notesLabel}</Label>
+            {/* GAP-73: plain text only; 16 px (the Textarea's base size) so iOS
+                doesn't zoom on focus. */}
+            <Textarea
+              id="task-notes"
+              name="notes"
+              autoComplete="off"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={dict.notesPlaceholder}
+              maxLength={NOTES_MAX_LENGTH}
+              aria-describedby={showNotesCounter ? "task-notes-counter" : undefined}
+            />
+            {showNotesCounter && (
+              <p
+                id="task-notes-counter"
+                role="status"
+                className={`text-xs ${notes.length >= NOTES_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"}`}
+              >
+                {format(dict.titleCounter, { count: notes.length, max: NOTES_MAX_LENGTH })}
               </p>
             )}
           </div>
@@ -444,7 +496,7 @@ export function TaskFormDialog({
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={pending}>
               {dict.editTask.cancel}
             </Button>
-            <Button type="submit" disabled={pending || title.trim().length === 0 || lonelyRotation}>
+            <Button type="submit" disabled={pending || lonelyRotation}>
               {pending
                 ? mode === "create"
                   ? dict.adding

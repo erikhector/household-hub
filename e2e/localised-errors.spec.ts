@@ -25,17 +25,19 @@ for (const [locale, storageState, t] of [
       await expect(dialog.getByRole("button", { name: t.common.close, exact: true })).toBeVisible();
     });
 
-    test("a rejected name shows the server's message in the user's language", async ({ page }) => {
+    // UX-183: the add-item form checks the name itself now, so a blank one
+    // never reaches the server; the field's own message is in the language.
+    test("a blank item name shows the field's message in the user's language", async ({ page }) => {
       await page.goto("/dashboard/inventory");
       await page.getByRole("button", { name: t.inventory.addItem }).first().click();
       const dialog = page.getByRole("dialog", { name: t.inventory.addDialogTitle });
       await dialog.getByLabel(t.inventory.nameLabel, { exact: true }).fill("   ");
       await dialog.getByRole("button", { name: t.inventory.addItem, exact: true }).click();
 
-      await expect(dialog.getByText(t.errors.nameRequired)).toBeVisible();
+      await expect(dialog.getByRole("alert").filter({ hasText: t.inventory.nameRequired })).toBeVisible();
     });
-    // MAINT-7: the household actions follow the language too.
-    test("a rejected household name shows the server's message in the user's language", async ({ page, isMobile }) => {
+    // MAINT-7, UX-183b: the household actions follow the language too (an all-space name is caught by the form itself).
+    test("a blank household name shows the field message in the user's language", async ({ page, isMobile }) => {
       await page.goto("/dashboard");
       const switcher = createHouseholdMenuTrigger(page, isMobile, t.nav.more);
       await expectHydrated(switcher);
@@ -46,17 +48,17 @@ for (const [locale, storageState, t] of [
       await dialog.getByLabel(t.household.switcher.nameLabel).fill("   ");
       await dialog.getByRole("button", { name: t.household.switcher.create, exact: true }).click();
 
-      await expect(dialog.getByText(t.errors.householdNameRequired)).toBeVisible();
+      await expect(dialog.getByRole("alert").filter({ hasText: t.household.switcher.nameRequired })).toBeVisible();
     });
-    // MAINT-7: so do the profile actions (an all-space name passes `required`).
-    test("a rejected profile name shows the server's message in the user's language", async ({ page }) => {
+    // MAINT-7, UX-183b: so does the profile name (an all-space name is caught by the form itself).
+    test("a blank profile name shows the field message in the user's language", async ({ page }) => {
       await page.goto("/dashboard/profile");
       const name = page.getByLabel(t.profile.displayNameForm.label);
       await expectHydrated(name);
       await name.fill("   ");
       await page.getByRole("button", { name: t.profile.displayNameForm.save, exact: true }).click();
 
-      await expect(page.getByText(t.errors.nameRequired)).toBeVisible();
+      await expect(page.getByText(t.profile.displayNameForm.nameRequired)).toBeVisible();
     });
     // MAINT-7: the invite email's delivery failure is the action's own text,
     // not the English one email.ts logs. The e2e server has no Resend key.

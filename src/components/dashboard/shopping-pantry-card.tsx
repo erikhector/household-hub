@@ -116,7 +116,7 @@ export function ShoppingPantryCard({
             href={onlyList ? `/dashboard/shopping-list/${onlyList.id}` : "/dashboard/shopping-list"}
             className="flex min-h-16 items-center gap-3 rounded-lg bg-muted/60 p-3 hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
-            <span className="font-heading text-3xl leading-none font-bold text-foreground tabular-nums">
+            <span className="font-heading text-stat font-bold text-foreground tabular-nums">
               {pendingCount}
             </span>
             <span className="flex min-w-0 flex-1 flex-col">

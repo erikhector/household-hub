@@ -104,6 +104,39 @@
 @theme inline {
   --animate-tick-pop: tick-pop 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-magnet-bob: magnet-bob 4s ease-in-out infinite;
+  /* UX-176: DESIGN.md's shadow and type tokens. Components use these names
+     (shadow-primary, text-stat, ...) and never Tailwind's shadow-sm/md/lg or a
+     bare text-3xl/4xl for a stat; src/components/design-tokens.test.ts fails on
+     the latter. Surfaces stay flat (ring-1 ring-foreground/10); these are the
+     only designed shadows. */
+  --shadow-primary: 0 1px 2px 0 color-mix(in oklab, var(--primary) 30%, transparent);
+  --shadow-primary-hover:
+    0 4px 6px -1px color-mix(in oklab, var(--primary) 40%, transparent),
+    0 2px 4px -2px color-mix(in oklab, var(--primary) 40%, transparent);
+  --shadow-popover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-raised: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --text-hero: 5.5rem;
+  --text-hero--line-height: 0.95;
+  --text-stat: 2.25rem;
+  --text-stat--line-height: 1;
+  --text-large-title: 1.875rem;
+  --text-large-title--line-height: 2.25rem;
+  --text-page-title: 1.5rem;
+  --text-page-title--line-height: 2rem;
+  --text-item-title: 1rem;
+  --text-item-title--line-height: 1.5rem;
+  --text-card-title: 1rem;
+  --text-card-title--line-height: 1.5rem;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.5rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-button: 0.875rem;
+  --text-button--line-height: 1.25rem;
+  --text-badge: 0.75rem;
+  --text-badge--line-height: 1rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
   --color-note-paper: var(--note-paper);
   --color-note-line: var(--note-line);
   --color-note-yellow: var(--note-yellow);

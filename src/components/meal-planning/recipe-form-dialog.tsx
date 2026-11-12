@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { Textarea } from "@/components/ui/textarea";
 import { ComboField } from "@/components/inventory/combo-field";
 import {
@@ -346,6 +348,9 @@ export function RecipeFormDialog({
   // (below): it only renders once the action has returned, so a request
   // made inside the action ran before the error existed.
   const formRef = useRef<HTMLFormElement>(null);
+  // UX-183b: a missing name or portions count is worded under the field in
+  // the page's language (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [focusRequest, setFocusRequest] = useState<{ target: "title" | "invalid"; id: number } | null>(null);
@@ -749,7 +754,21 @@ export function RecipeFormDialog({
             pushing it past the sheet's height) left iOS Safari stuck — a
             swipe on the form never hands over to the sheet, so the bottom
             of the form and the save button couldn't be reached. */}
-        <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+        <form
+          ref={formRef}
+          action={formAction}
+          onSubmit={(event) => {
+            // Step 2 (ingredient review) only submits after step 1 passed.
+            if (step !== "recipe") return;
+            req.check(event, [
+              { name: "name", id: "recipe-name", message: dict.recipeNameRequired },
+              { name: "servings", id: "recipe-servings", message: dict.servingsRequired, numeric: true },
+            ]);
+          }}
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           {mode === "edit" && recipe && (
             <input type="hidden" name="recipeId" value={recipe.id} />
           )}
@@ -785,7 +804,10 @@ export function RecipeFormDialog({
                 onChange={(e) => setName(e.target.value)}
                 required
                 maxLength={120}
+                aria-invalid={req.messageFor("name") ? true : undefined}
+                aria-describedby={req.messageFor("name") ? fieldErrorId("recipe-name") : undefined}
               />
+              <FieldError fieldId="recipe-name">{req.messageFor("name")}</FieldError>
             </div>
             <div className="flex w-24 shrink-0 flex-col gap-2">
               <Label htmlFor="recipe-servings">{dict.servingsLabel}</Label>
@@ -800,7 +822,10 @@ export function RecipeFormDialog({
                 value={servings}
                 onChange={(e) => setServings(e.target.value)}
                 required
+                aria-invalid={req.messageFor("servings") ? true : undefined}
+                aria-describedby={req.messageFor("servings") ? fieldErrorId("recipe-servings") : undefined}
               />
+              <FieldError fieldId="recipe-servings">{req.messageFor("servings")}</FieldError>
             </div>
           </div>
           <p className="-mt-2 text-xs text-muted-foreground">{dict.servingsHint}</p>

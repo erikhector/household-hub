@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { renameHouseholdAction } from "@/lib/actions/household";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -27,9 +29,13 @@ export function RenameHousehold({
   const [value, setValue] = useState(name);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // UX-183b: a cleared name is worded under the field in the page's language
+  // (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (req.check(event, [{ name: "name", id: "household-name", message: dict.nameRequired }])) return;
     setError(null);
     startTransition(async () => {
       const result = await renameHouseholdAction(value);
@@ -39,7 +45,7 @@ export function RenameHousehold({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-md border p-4">
+    <form onSubmit={handleSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-3 rounded-md border p-4">
       <div className="flex flex-col gap-1">
         <h2 className="flex items-center gap-2 font-heading text-base font-semibold">
           <Pencil className="size-4 shrink-0" />
@@ -58,8 +64,11 @@ export function RenameHousehold({
           maxLength={60}
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          aria-invalid={req.messageFor("name") ? true : undefined}
+          aria-describedby={req.messageFor("name") ? fieldErrorId("household-name") : undefined}
           className="sm:w-72"
         />
+        <FieldError fieldId="household-name">{req.messageFor("name")}</FieldError>
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
       <div>

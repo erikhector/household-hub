@@ -21,11 +21,16 @@ export type MealSearchResult = {
   name: string;
   /** yyyy-mm-dd of the Monday of that day's week: the planner's `?week=`. */
   weekStartKey: string;
+  /**
+   * GAP-79: the recipe ingredient that matched, set only when the shown name
+   * didn't, so "salmon" finding "Friday traybake" can say why.
+   */
+  matchedIngredient: string | null;
 };
 
 /**
- * Planned meals whose recipe title or freeform name contains `query`
- * (case-insensitive), within a year either side of `today`, newest first and
+ * Planned meals whose recipe title, freeform name or one of the recipe's
+ * ingredient names contains `query` (case-insensitive), within a year either side of `today`, newest first and
  * capped at 20. One household-scoped query; nothing is written.
  */
 export async function searchMealPlan(
@@ -45,6 +50,8 @@ export async function searchMealPlan(
       OR: [
         { freeformName: { contains: term, mode: "insensitive" } },
         { recipe: { name: { contains: term, mode: "insensitive" } } },
+        // GAP-79: "when did we last have salmon?" when salmon isn't in the title.
+        { recipe: { ingredients: { some: { name: { contains: term, mode: "insensitive" } } } } },
       ],
     },
     select: {
@@ -52,7 +59,18 @@ export async function searchMealPlan(
       date: true,
       mealType: true,
       freeformName: true,
-      recipe: { select: { name: true } },
+      recipe: {
+        select: {
+          name: true,
+          // Only the first matching ingredient is shown, so fetch just that.
+          ingredients: {
+            where: { name: { contains: term, mode: "insensitive" } },
+            select: { name: true },
+            orderBy: { name: "asc" },
+            take: 1,
+          },
+        },
+      },
     },
     // Dinner before lunch within a day: the enum is declared in day order,
     // so descending is the same "newest first" the days use.
@@ -60,11 +78,18 @@ export async function searchMealPlan(
     take: MEAL_SEARCH_LIMIT,
   });
 
-  return entries.map((entry) => ({
-    id: entry.id,
-    dateKey: toDateKey(entry.date),
-    mealType: entry.mealType,
-    name: entry.recipe?.name ?? entry.freeformName ?? "",
-    weekStartKey: toDateKey(getWeekStart(entry.date)),
-  }));
+  const lowered = term.toLowerCase();
+  return entries.map((entry) => {
+    const name = entry.recipe?.name ?? entry.freeformName ?? "";
+    // The second line only appears when the name alone doesn't explain the hit.
+    const nameMatched = [entry.recipe?.name, entry.freeformName].some((n) => n?.toLowerCase().includes(lowered));
+    return {
+      id: entry.id,
+      dateKey: toDateKey(entry.date),
+      mealType: entry.mealType,
+      name,
+      weekStartKey: toDateKey(getWeekStart(entry.date)),
+      matchedIngredient: nameMatched ? null : (entry.recipe?.ingredients?.[0]?.name ?? null),
+    };
+  });
 }

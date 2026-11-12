@@ -9,7 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { addMonths, normalizeStartDay, parseMonthKey, periodBounds, periodKeyOf, toMonthKey } from "@/lib/budget-date-utils";
-import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
+import { ackPeriodKeyWindow, computeTemplateStatuses } from "@/lib/recurring-template-calc";
 import { getPlannedExpenseStatus, plannedItemType } from "@/lib/planned-expense-calc";
 import { categoryEnvelopes } from "@/lib/budget-category-limit";
 import { computeSafeToSpend, type SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
@@ -50,7 +50,10 @@ export async function loadHouseholdSafeToSpend(
       },
     }),
     prisma.recurringTemplate.findMany({ where: { householdId, active: true } }),
-    prisma.recurringTemplateAck.findMany({ where: { recurringTemplate: { householdId } } }),
+    // PERF-37: only acks inside the lookback window, like the transactions.
+    prisma.recurringTemplateAck.findMany({
+      where: { recurringTemplate: { householdId }, periodKey: ackPeriodKeyWindow(lookbackStart) },
+    }),
     prisma.plannedExpense.findMany({
       where: {
         householdId,

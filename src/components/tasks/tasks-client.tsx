@@ -40,6 +40,8 @@ type MemberOption = { id: string; displayName: string };
 type TaskRow = {
   id: string;
   title: string;
+  /** GAP-73: plain-text detail, or null. */
+  notes: string | null;
   assignedToMemberId: string | null;
   completedByMemberId: string | null;
   completed: boolean;
@@ -428,6 +430,13 @@ function TaskItemRow({
           >
             {task.title}
           </button>
+          {/* GAP-73: one truncated line of detail; the full text is in the
+              sheet the title opens. Plain text, so a pasted link stays text. */}
+          {task.notes && (
+            <p className="truncate pb-1 text-xs text-muted-foreground sm:pb-0" title={task.notes}>
+              {task.notes}
+            </p>
+          )}
           {hasDetails && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pb-1 text-xs text-muted-foreground sm:pb-0">
               {overdueDays > 0 && <TaskOverdueBadge days={overdueDays} label={dict.overdueLabel} />}

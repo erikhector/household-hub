@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectRouterPatched } from "./ui";
 
 // GAP-59: search the whole meal plan from the planner, not week by week.
@@ -76,3 +77,66 @@ test("search finds a custom meal planned two weeks ahead and links to its week",
     }
   }
 });
+
+// GAP-79: the search also finds a planned recipe by one of its ingredients,
+// and says which one when the recipe's name didn't match.
+for (const locale of ["en", "sv"] as const) {
+  test.describe(`ingredient search (${locale})`, () => {
+    if (locale === "sv") test.use({ storageState: STORAGE_STATE_SV });
+    const w = locale === "en" ? { field: "Search the meal plan", ingredient: "Ingredient" } : { field: "Sök i måltidsplanen", ingredient: "Ingrediens" };
+
+    test("a recipe planned under another title is found by its ingredient and the link opens its week", async ({ page }) => {
+      const tag = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+      const suffix = `${E2E_WORKER}-${tag}`;
+      const title = `Traybake ${tag}`;
+      const ingredient = `Laxfile${tag}`;
+      const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+      const day = new Date(today.getTime() + (30 + Math.floor(Math.random() * 200)) * DAY_MS);
+      const monday = new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      await client.connect();
+      try {
+        await client.query(`INSERT INTO "Recipe" (id, "householdId", name) VALUES ($1, $2, $3)`, [`e2e-recipe-${suffix}`, E2E_HOUSEHOLD.id, title]);
+        await client.query(
+          `INSERT INTO "RecipeIngredient" (id, "recipeId", name, quantity, unit) VALUES ($1, $2, $3, 400, 'g')`,
+          [`e2e-ing-${suffix}`, `e2e-recipe-${suffix}`, ingredient],
+        );
+        await client.query(
+          `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
+           ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
+          [`e2e-plan-${suffix}`, E2E_HOUSEHOLD.id, monday],
+        );
+        await client.query(
+          `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId")
+           SELECT $1, plan.id, $2, 'DINNER', $3 FROM "MealPlan" plan WHERE plan."householdId" = $4 AND plan."weekStartDate" = $5`,
+          [`e2e-entry-${suffix}`, day, `e2e-recipe-${suffix}`, E2E_HOUSEHOLD.id, monday],
+        );
+
+        await page.goto("/dashboard/meal-planning");
+        const field = page.getByRole("searchbox", { name: w.field });
+        await expectHydrated(field);
+        await field.fill(ingredient.toUpperCase());
+        const hit = page.getByRole("link", { name: new RegExp(`${title}.*${w.ingredient}: ${ingredient}$`) });
+        await expect(hit).toBeVisible();
+        expect((await hit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        await expectNoHorizontalOverflow(page);
+
+        // The title matches too: no second line.
+        await field.fill(title);
+        await expect(page.getByRole("link", { name: new RegExp(`${title}$`) })).toBeVisible();
+
+        await field.fill(ingredient);
+        await hit.click();
+        await expect(page).toHaveURL(new RegExp(`week=${monday.toISOString().slice(0, 10)}`));
+        await expect(page.getByRole("main").getByText(title).first()).toBeVisible();
+      } finally {
+        try {
+          await client.query(`DELETE FROM "MealPlanEntry" WHERE id = $1`, [`e2e-entry-${suffix}`]);
+          await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [`e2e-recipe-${suffix}`, E2E_HOUSEHOLD.id]);
+        } finally {
+          await client.end();
+        }
+      }
+    });
+  });
+}

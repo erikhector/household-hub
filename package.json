@@ -1,6 +1,6 @@
 {
   "name": "squirrel",
-  "version": "0.144.0",
+  "version": "0.150.3",
   "private": true,
   "engines": {
     "node": ">=22"
@@ -27,15 +27,15 @@
     "@base-ui/react": "^1.9.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
-    "@sentry/nextjs": "^11.10.0",
-    "@upstash/redis": "^1.40.0",
-    "@vercel/functions": "^3.10.5",
+    "@sentry/nextjs": "^11.11.0",
+    "@upstash/redis": "^1.41.0",
+    "@vercel/functions": "^3.11.0",
     "barcode-detector": "^3.2.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
-    "cn": "^0.5.1",
-    "lucide-react": "^1.66.0",
-    "next": "16.4.3",
+    "cn": "^0.5.2",
+    "lucide-react": "^1.70.0",
+    "next": "16.4.5",
     "next-auth": "^5.0.0-beta.32",
     "next-themes": "^0.4.6",
     "pg": "^8.23.0",
@@ -59,13 +59,13 @@
     "axe-core": "4.14.0",
     "dotenv": "^18.0.9",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.5",
     "prisma": "^7.10.1",
     "shadcn": "^4.23.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^5.0.0"
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "@vercel/cli-config": {

@@ -40,7 +40,7 @@ function Segmented<T extends string>({
         {options.map((option) => (
           <label
             key={option.value}
-            className="flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-sm has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 group-disabled:cursor-wait group-disabled:opacity-60"
+            className="flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-raised has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 group-disabled:cursor-wait group-disabled:opacity-60"
           >
             <input
               type="radio"

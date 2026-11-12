@@ -81,7 +81,7 @@ export function PlacePickDialog({
               onClick={() => setMealType(type)}
               className={cn(
                 "min-h-10 truncate rounded-md px-1 text-xs font-semibold text-muted-foreground outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:min-h-11 pointer-coarse:min-h-11",
-                type === mealType && "bg-card text-foreground shadow-sm ring-1 ring-foreground/10",
+                type === mealType && "bg-card text-foreground shadow-raised ring-1 ring-foreground/10",
               )}
             >
               {dict[mealTypeDictKey[type]]}
