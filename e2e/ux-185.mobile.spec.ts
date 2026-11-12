@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 
 // UX-185: in the Plan portions sheet, a slot that already has dishes lists
 // them in full. They used to sit on one truncated line with the rest only in
@@ -86,6 +86,7 @@ test("a slot's planned dishes wrap in full in the plan-portions sheet", async ({
       })
       .getByRole("button", { name: "Plan portions" });
     await expectHydrated(open);
+    await expectRouterPatched(page);
     await open.click();
     const dialog = page.getByRole("dialog", {
       name: `Plan portions of ${recipeName}`,
