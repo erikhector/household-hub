@@ -211,5 +211,3 @@ export function InventoryHeaderActionsClient({
     </div>
   );
 }
-
-export default InventoryHeaderActionsClient;
