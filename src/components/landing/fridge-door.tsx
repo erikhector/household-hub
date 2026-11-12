@@ -18,14 +18,14 @@ type FridgeDict = Dictionary["landing"]["fridge"];
 // (from `sm`), then the rest of the notes, so the list is in the first
 // screen at any size (e2e/landing.spec.ts checks it).
 
-const note = "relative shadow-md transition-transform duration-200 motion-safe:hover:rotate-0";
+const note = "relative shadow-popover transition-transform duration-200 motion-safe:hover:rotate-0";
 
 /** A coloured magnet holding a note up. */
 function Pin({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "absolute -top-3 left-1/2 size-6 -translate-x-1/2 rounded-full shadow-md ring-2 ring-note-ink/15 ring-inset",
+        "absolute -top-3 left-1/2 size-6 -translate-x-1/2 rounded-full shadow-popover ring-2 ring-note-ink/15 ring-inset",
         className,
       )}
     />
@@ -157,7 +157,7 @@ function Magnets({ word }: { word: string }) {
           </span>
         ))}
       </span>
-      <BrandBadge className="size-12 rotate-12 rounded-2xl shadow-md sm:size-16" />
+      <BrandBadge className="size-12 rotate-12 rounded-2xl shadow-popover sm:size-16" />
     </div>
   );
 }

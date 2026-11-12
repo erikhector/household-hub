@@ -7,6 +7,8 @@ import { ArrowRightLeft, Trash2, UsersRound, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import {
   Dialog,
   DialogContent,
@@ -143,7 +145,7 @@ export function BulkMealBar({
       role="region"
       aria-label={dict.bulkBarLabel}
       data-bulk-bar="meals"
-      className="z-30 flex flex-col gap-2 border bg-background/95 p-3 shadow-lg backdrop-blur-sm max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] sm:sticky sm:bottom-4 sm:rounded-xl print:hidden"
+      className="z-30 flex flex-col gap-2 border bg-background/95 p-3 shadow-popover backdrop-blur-sm max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] sm:sticky sm:bottom-4 sm:rounded-xl print:hidden"
     >
       <div className="flex items-center justify-between gap-2">
         <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium">
@@ -220,9 +222,13 @@ function BulkMoveDialog({
   const [date, setDate] = useState(earliest);
   const [slot, setSlot] = useState<string>(KEEP_SLOT);
   const [pending, startTransition] = useTransition();
+  // UX-183b: a missing date is worded under the field in the page's language
+  // (`noValidate`), not by the browser's own bubble.
+  const req = useRequiredFields();
 
-  function submit(event: React.FormEvent) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (req.check(event, [{ name: "date", id: "bulk-move-date", message: dict.dateRequired }])) return;
     startTransition(async () => {
       const ok = await onSubmit(date, slot === KEEP_SLOT ? null : (slot as MealType));
       if (ok) onClose();
@@ -235,19 +241,23 @@ function BulkMoveDialog({
         <DialogHeader>
           <DialogTitle>{dict.bulkMoveTitle}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form onSubmit={submit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{dict.bulkMoveHint}</p>
           <div className="flex flex-col gap-2">
             <Label htmlFor="bulk-move-date">{dict.dateLabel}</Label>
             <Input
               id="bulk-move-date"
+              name="date"
               type="date"
               value={date}
               onChange={(e) => {
                 if (e.target.value) setDate(e.target.value);
               }}
               required
+              aria-invalid={req.messageFor("date") ? true : undefined}
+              aria-describedby={req.messageFor("date") ? fieldErrorId("bulk-move-date") : undefined}
             />
+            <FieldError fieldId="bulk-move-date">{req.messageFor("date")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="bulk-move-slot">{dict.mealTypeLabel}</Label>

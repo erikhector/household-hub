@@ -328,6 +328,17 @@ describe("empty digests", () => {
     );
   });
 
+  it("bounds the ack read to the 12-month lookback, like the transactions (PERF-37)", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], { budgetCategoryCount: 1 });
+
+    await run();
+
+    const ackWhere = vi.mocked(prisma.recurringTemplateAck.findMany).mock.calls[0][0]!.where;
+    // NOW is in September 2026 (budget month start day 1).
+    expect(ackWhere).toEqual({ recurringTemplate: { householdId: "h1" }, periodKey: { gte: "2025-09" } });
+  });
+
   // UX-138: the digest holds back what's left of a limit, like the Budget page.
   it("holds back the unspent remainder of a category limit", async () => {
     addUser("u1");

@@ -93,7 +93,14 @@ test.afterEach(async () => {
 
 test("an empty week has no Add missing button", async ({ page }) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
-  await expect(page.getByRole("button", { name: "Add first dinner" })).toBeVisible();
+  // The week streams in behind the planner's loading.tsx skeleton, and on a
+  // loaded runner that outlasted toBeVisible's default 5 s (MAINT-94), as it
+  // did for the custom-meal test below before MAINT-86. expectHydrated gives
+  // it the same 20 s and only passes once React owns the button, so the
+  // count check that follows also sees the planner after hydration.
+  const first = page.getByRole("button", { name: "Add first dinner" });
+  await expectHydrated(first);
+  await expect(first).toBeVisible();
   await expect(page.getByRole("button", { name: /^Add \d+ missing to shopping list$/ })).toHaveCount(0);
 });
 

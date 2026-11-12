@@ -395,11 +395,12 @@ test("a single recipe can use its own amount in the pantry's unit instead", asyn
 });
 
 test("a server error takes focus once it renders", async ({ page }) => {
-  // Whitespace passes the browser's `required` check, and the server
-  // rejects it after trimming.
-  const dialog = await openNewRecipe(page, "   ");
+  // The form is `noValidate` (UX-183b) and only flags empty fields itself, so
+  // zero portions reaches the server, which rejects it.
+  const dialog = await openNewRecipe(page, unique("Soup"));
+  await dialog.getByRole("spinbutton", { name: "Portions" }).fill("0");
   await dialog.getByRole("button", { name: "Create recipe" }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Name is required");
+  await expect(dialog.getByRole("alert")).toHaveText("Portions must be at least 1");
   await expect(dialog.getByRole("alert")).toBeFocused();
 });
 

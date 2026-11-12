@@ -363,7 +363,13 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
 - Button labels are `button` (14px semibold); badges `badge` (12px
   medium); meta text `caption` in `muted-foreground`.
 - Numbers in tables and totals use `tabular-nums`.
-- `hero` is for the landing page only.
+- Stat numbers (safe to spend, the shopping count on the overview) are
+  `stat` (36px, Baloo 2 bold), the same on every page. `hero` (88px) is for
+  the landing page only.
+- These sizes are tokens in `globals.css`'s `@theme` (`text-page-title`,
+  `text-large-title`, `text-item-title`, `text-card-title`, `text-body`,
+  `text-body-lg`, `text-button`, `text-badge`, `text-caption`, `text-stat`,
+  `text-hero`). Use the name, not a bare `text-3xl`/`text-4xl`.
 
 ### Spacing, radius and layout
 
@@ -400,7 +406,10 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
 
 - Surfaces are flat: `ring-1 ring-foreground/10`, no drop shadows.
   Designed shadows: `shadow-primary` on the default Button, deepening to
-  `shadow-primary-hover`, and `shadow-popover` under floating popups.
+  `shadow-primary-hover`, and `shadow-popover` under floating popups and
+  bars. `shadow-raised` lifts the selected segment of a segmented control.
+  All four are `@theme` tokens; Tailwind's `shadow-sm/md/lg` stay unused in
+  `src/components` (`design-tokens.test.ts`).
 - Buttons lift 2px on hover (`-translate-y-0.5`) and press down with
   `scale(0.98)`. Transitions are Tailwind's default 150ms.
 - Focus is always visible: the control's border turns `ring` and a 3px

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ackPeriodKeyWindow } from "@/lib/recurring-template-calc";
 import { RECENT_CATEGORY_SAMPLE } from "@/lib/recent-categories";
 
 // MAINT-10: the query batch behind the household Budget page's tabs, moved out
@@ -155,8 +156,10 @@ export async function loadBudgetTabsData({
         include: { category: true, splits: true },
         orderBy: { createdAt: "asc" },
       }),
+      // PERF-37: only acks inside the lookback window (the Recurring tab
+      // looks up the viewed period's key only), like the transactions.
       prisma.recurringTemplateAck.findMany({
-        where: { recurringTemplate: { householdId } },
+        where: { recurringTemplate: { householdId }, periodKey: ackPeriodKeyWindow(recurringLookbackStart) },
       }),
       // Every split bill that can still matter, for the Balances card and
       // the "left due" list: debts carry over between months until a

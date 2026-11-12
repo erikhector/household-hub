@@ -91,9 +91,16 @@ export function MealPlanSearch({ dict, locale }: { dict: MealPlanningDict; local
             <li key={result.id} className="border-b last:border-b-0">
               <Link
                 href={`/dashboard/meal-planning?week=${result.weekStartKey}`}
-                className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex min-h-11 flex-col justify-center rounded-lg px-3 py-2 text-sm outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
               >
-                {dateFormat.format(parseDateKey(result.dateKey))} · {dict[mealTypeKeys[result.mealType]]} · {result.name}
+                <span>
+                  {dateFormat.format(parseDateKey(result.dateKey))} · {dict[mealTypeKeys[result.mealType]]} · {result.name}
+                </span>
+                {result.matchedIngredient && (
+                  <span className="text-muted-foreground">
+                    {dict.searchPlanIngredient.replace("{name}", result.matchedIngredient)}
+                  </span>
+                )}
               </Link>
             </li>
           ))}

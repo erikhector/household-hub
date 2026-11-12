@@ -274,7 +274,7 @@ function CookModeContent({
               <div
                 key={index}
                 role="alert"
-                className="flex items-center gap-3 rounded-xl border border-primary bg-popover p-3 text-base font-medium shadow-md"
+                className="flex items-center gap-3 rounded-xl border border-primary bg-popover p-3 text-base font-medium shadow-popover"
               >
                 <Timer aria-hidden className="size-5 shrink-0" />
                 <span className="min-w-0 flex-1 break-words">{format(dict.cookTimerDone, { step: index + 1 })}</span>

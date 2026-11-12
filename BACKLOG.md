@@ -224,8 +224,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       It also failed once on the `mobile` project in the local `ci:local` run on d31e8ac (2026-11-01) and passed on re-run, so the fix covers both.
       Further sighting (2026-11-02, release PR #1061 on commit 059436759a9e): `mobile` project, line 95 again (`getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s), in the local `ci:local` run only; it passed on a re-run of the same commit. It was also seen failing once in #1059's own `ci:local` run. Third mobile sighting after d31e8ac, so MAINT-66's hardening has not closed it.
       Further sighting (2026-11-03, GAP-69 builder run on b6238113): `mobile` project, failed once in the full local `ci:local` run and passed on the rerun and 32/32 with `--repeat-each=10`.
+      Further sighting (2026-11-08, release PR #1222 on 25d14b4): `mobile` project, failed once in the full local `ci:local` run at line 95 (dialog not visible within 5 s) and passed on a re-run of the same commit; the GitHub e2e job was green.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the GAP-79 head (7e3afdc) and once on the UX-178 head (9137847), each passing on the re-run; 32/32 and 38/38 in isolation.
+      Further sighting (2026-11-11, release PR #1315 on 86ae1b0): `mobile` project, failed once in the full local `ci:local` run (dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job didn't run (docs-only release).
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -234,6 +237,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
 - [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
       `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
       Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
@@ -243,18 +247,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-88. Flaky: the week-picks tray text isn't visible after picking a meal on mobile** (low, S) —
-      `e2e/week-picks.spec.ts:128` ("pick a meal, shop for it, place it and send it back to the tray"), `mobile` project. In the same `ci:local` run on #1190's head (373f534) "Pick the meals you want this week…" wasn't visible in the "Picked for this week" region (line 131); it passed on a re-run of the same spec. Start from the failing trace: the region may be read before the pick has re-rendered.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/week-picks.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-89. Flaky: an item's name doesn't morph from the catalogue into its page on mobile** (low, S) —
-      `e2e/motion.spec.ts:303` ("an item's name morphs from the catalogue into its page"), `mobile` project. In the first full `ci:local` run on PR #1202's head (e934f6d, 2026-11-07) it failed; it passed in the next full run on the final head (48c43c6), with the diff not touching inventory or motion. Start from the failing trace: the check may read the transition before the view transition has started on a loaded runner.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-90. Flaky: the "In the cart" button isn't found after pressing x on a shopping row on desktop** (low, S) —
-      `e2e/keyboard-shortcuts.desktop.spec.ts:110` ("x ticks the highlighted shopping row into In the cart"), `desktop` project. In one full `ci:local` run on PR #1203's head (862c398, 2026-11-07) the "In the cart" button wasn't found within 5 s; it passed in the next full run on the same commit and 22/22 in isolation, with the diff touching only e2e helper timeouts. Start from the failing trace: the key press may land before the list's key handler is attached.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/keyboard-shortcuts.desktop.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -420,6 +412,26 @@ only audit hits are the known `text-200` bottom-bar ellipsis (UX-150) and
 a hidden zero-size "Invite member" button on the household page. WebKit was
 not run (no browser installed here), and the per-action deep dive was a
 screenshot and code read, not driven through the UI.
+
+### UX (2026-11-08 scout)
+
+Sunday area: public, auth and legal pages, first-run flow. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and both
+dialog sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. WebKit was
+not run (no browser installed here), and the per-action deep dive was a
+screenshot and code read, not driven through the UI.
+
+### UX (2026-11-09 scout)
+
+Monday area: inventory and item pages. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` bottom-bar ellipsis (UX-150) and the sheet grabber. The deep dive
+drove the add-item sheet at 320 px (empty submit, 90-character name).
+WebKit was not run (no browser installed here). The audit config has no
+fallback for the missing headless shell that `playwright.config.ts` has, so
+the audit was run through an uncommitted copy with `executablePath` set.
 
 ### Dependencies
 
@@ -798,40 +810,6 @@ out to be a product-scope question rather than a scoped task should move to
       visible to other members and never in logs.
 
 ## Needs a decision before building
-
-- [ ] **UX-176. DESIGN.md names shadow and type tokens the CSS never
-      defines** (M) `[!]` needs a decision — `globals.css` has no
-      `--shadow-*` and no `--text-*` tokens, yet DESIGN.md §3 specifies
-      `shadow-primary`, `shadow-primary-hover`, `shadow-popover` and a type
-      scale (`page-title`, `item-title`, `card-title`, `body`, `body-lg`,
-      `button`, `badge`, `caption`, `stat`, `hero`). In code popups use
-      `shadow-md`/`shadow-lg` (21 sites) and stat numbers are hand-set
-      (`text-4xl`, `text-xl sm:text-3xl`, `text-3xl`; about 20 sites), so
-      the checklist's "tokens only" can't be followed. Decide: (1) define
-      the tokens in `@theme` and migrate the ~40 sites in one PR (fixes the
-      three stat sizes on the overview, budget and safe-to-spend at once),
-      or (2) rewrite DESIGN.md §3 to the Tailwind classes actually used.
-      Recommended: (1). Found by the 2026-10-31 design review.
-      Acceptance: DESIGN.md §3 and `globals.css` agree; a unit test greps
-      `src/components` for `shadow-(sm|md|lg)` and bare `text-(3|4)xl`
-      stat sizes and fails on new ones.
-
-- [ ] **UX-177. Character pass: carry the brand into the working screens**
-      (M) `[!]` needs a product decision — the 2026-10-31 design review's
-      verdict: the landing page, empty states and the all-done ring carry
-      Squirrel's identity; the daily screens read as a generic dashboard
-      with a purple primary. Four ideas that stay inside DESIGN.md and off
-      money surfaces, each its own PR once chosen: (a) render the Household
-      notes board as the landing's paper notes (`note-yellow`, the
-      handwriting face, slight rotation); (b) make the shopping progress
-      ring an acorn outline that fills (same geometry, no new assets);
-      (c) the housemate voice in the Today block ("Nothing planned for
-      dinner. Last Tuesday's pasta again?" from existing data); (d) each
-      section's hue carried into its empty-state dashed box at 10 %
-      The dark theme (UX-157) has shipped. Decide which to
-      build and in what order.
-      Acceptance: per idea, a before/after on the `mobile` screenshots and
-      the e2e spec for the touched component still passing.
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
       (ticks only, shipped). Adding an item or editing a price with no

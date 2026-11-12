@@ -8,7 +8,7 @@
 // (PersonalRecurringTemplate) — callers just map their Prisma rows into the
 // shapes below first.
 
-import { periodBounds, periodKeyOf, periodLabelDate } from "@/lib/budget-date-utils";
+import { periodBounds, periodKeyOf, periodLabelDate, toMonthKey } from "@/lib/budget-date-utils";
 
 export type TemplateFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
 
@@ -51,6 +51,25 @@ export function getPeriodKey(date: Date, frequency: TemplateFrequency, startDay:
   if (frequency === "MONTHLY") return periodKeyOf(date, startDay);
   const { isoYear, week } = getIsoWeek(date);
   return `${isoYear}-W${pad2(week)}`;
+}
+
+/**
+ * PERF-37: the Prisma `periodKey` filter for reading recurring-template acks.
+ * An ack row exists for every template and every accounted-for period,
+ * forever, but computeTemplateStatuses only ever looks one up by the key of
+ * the viewed period (getPeriodKey of its reference date), and the viewed
+ * period is never older than the loaders' RECURRING_LOOKBACK_MONTHS window
+ * (`lookbackStart` is that window's first day). So acks older than the window
+ * can't change any result and aren't read.
+ *
+ * Keys compare as strings: "YYYY-MM" (MONTHLY) is bounded by the month of
+ * `lookbackStart` (with a payday start day that is at most one month looser
+ * than the period key, never tighter); "YYYY" and "YYYY-Www" keys of the
+ * viewed period always start with a later year than the bound's year (the
+ * window is a full 12 months back), so `gte` keeps them.
+ */
+export function ackPeriodKeyWindow(lookbackStart: Date): { gte: string } {
+  return { gte: toMonthKey(lookbackStart) };
 }
 
 /**

@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState, useTransition } from "react";
+import { useActionState, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import {
   Dialog,
   DialogContent,
@@ -102,6 +103,26 @@ export function ItemFormDialog({
   // below promises — the form reset after a success used to put them back.
   const kept = useKeptFormValues(["quantity", "lowStockThreshold", "expiresAt", "useWithinDaysOpened"]);
 
+  // UX-183: a missing name or quantity is worded here, in the page's
+  // language and under the field, instead of by the browser's own bubble
+  // (`noValidate` on the form). Cleared as soon as the field is edited.
+  const [clientErrors, setClientErrors] = useState<{ name?: string; quantity?: string }>({});
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    const data = new FormData(event.currentTarget);
+    const found: { name?: string; quantity?: string } = {};
+    if (!String(data.get("name") ?? "").trim()) found.name = dict.nameRequired;
+    const typedQuantity = String(data.get("quantity") ?? "").trim();
+    if (typedQuantity === "" || !Number.isFinite(Number(typedQuantity))) found.quantity = dict.quantityRequired;
+    setClientErrors(found);
+    if (found.name || found.quantity) {
+      // Stops React running the form action, so nothing typed is reset.
+      event.preventDefault();
+      document.getElementById(found.name ? "name" : "quantity")?.focus();
+      return;
+    }
+    kept.onSubmit(event);
+  }
+
   const lowStockDefault =
     kept.values.lowStockThreshold ??
     (item ? String(item.lowStockThreshold) : defaultLowStockThreshold(unit));
@@ -121,6 +142,7 @@ export function ItemFormDialog({
       setScannedBarcode(null);
       setSessionAddedCount(0);
       setExistingError(null);
+      setClientErrors({});
       kept.reset();
     }
   };
@@ -233,7 +255,7 @@ export function ItemFormDialog({
             })()}
           </p>
         )}
-        <form ref={formRef} action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+        <form ref={formRef} action={formAction} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           {mode === "edit" && item && <input type="hidden" name="itemId" value={item.id} />}
           {/* Remembered on the new item (AUTO-6) so the next scan of this
               product resolves straight to it — see createInventoryItemAction. */}
@@ -250,11 +272,16 @@ export function ItemFormDialog({
               ref={nameInputRef}
               id="name"
               name="name"
-              required
               maxLength={120}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setClientErrors((c) => (c.name ? { ...c, name: undefined } : c));
+              }}
+              aria-invalid={clientErrors.name ? true : undefined}
+              aria-describedby={clientErrors.name ? fieldErrorId("name") : undefined}
             />
+            <FieldError fieldId="name">{clientErrors.name}</FieldError>
             {duplicate && (
               <div role="status" className="flex flex-col gap-2 rounded-md border border-warning/50 bg-warning/10 p-3 text-sm">
                 <p>
@@ -346,8 +373,11 @@ export function ItemFormDialog({
                 min={0}
                 step="any"
                 defaultValue={kept.values.quantity ?? item?.quantity ?? 1}
-                required
+                onChange={() => setClientErrors((c) => (c.quantity ? { ...c, quantity: undefined } : c))}
+                aria-invalid={clientErrors.quantity ? true : undefined}
+                aria-describedby={clientErrors.quantity ? fieldErrorId("quantity") : undefined}
               />
+              <FieldError fieldId="quantity">{clientErrors.quantity}</FieldError>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="unit">{dict.unitLabel}</Label>

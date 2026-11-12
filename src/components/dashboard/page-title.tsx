@@ -136,7 +136,7 @@ export function PageTitle({
       // hyphens-auto (UX-160) turns that break into a proper hyphenation
       // ("Hushålls-budget", not "Hushållsbudg / et") using the page's lang
       // (<html lang>, set from the locale cookie).
-      className={cn("font-heading text-2xl font-semibold tracking-tight break-words hyphens-auto outline-none max-sm:text-3xl", onTap && "cursor-pointer")}
+      className={cn("font-heading text-page-title font-semibold tracking-tight break-words hyphens-auto outline-none max-sm:text-large-title", onTap && "cursor-pointer")}
     >
       {children}
     </h1>

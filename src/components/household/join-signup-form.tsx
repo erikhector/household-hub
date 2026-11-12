@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, type FormEvent } from "react";
 import Link from "next/link";
 import { MailCheck, AlertTriangle, Lock, Mail, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { PasswordInput } from "@/components/auth/password-input";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { joinViaInviteSignupAction } from "@/lib/actions/household";
 import { resendVerificationEmailForLoginAction, type ResendVerificationForLoginState } from "@/lib/actions/auth";
 import type { SignupState } from "@/lib/actions/auth";
@@ -37,6 +39,23 @@ export function JoinSignupForm({
   );
   // UX-13, as in SignupForm: an error keeps the name and email.
   const kept = useKeptFormValues(["displayName", "email"]);
+  // UX-183b: a missing name, email or password is worded under its field in
+  // the page's language (`noValidate`), not by the browser's own bubble. The
+  // server still owns the format rules (email shape, length, match).
+  const req = useRequiredFields();
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    const blocked = req.check(event, [
+      { name: "displayName", id: "displayName", message: dict.nameRequired },
+      { name: "email", id: "email", message: dict.emailRequired },
+      { name: "password", id: "password", message: dict.passwordRequired },
+      { name: "confirmPassword", id: "confirmPassword", message: dict.confirmPasswordRequired },
+    ]);
+    if (!blocked) kept.onSubmit(event);
+  }
+  const invalid = (name: string, id: string) => ({
+    "aria-invalid": req.messageFor(name) ? (true as const) : undefined,
+    "aria-describedby": req.messageFor(name) ? fieldErrorId(id) : undefined,
+  });
 
   // Carries the invite forward through login (A5's redirect-back param) so
   // "log in, then reopen this invite link" is a real, working path instead
@@ -83,7 +102,7 @@ export function JoinSignupForm({
   }
 
   return (
-    <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={onSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
       <input type="hidden" name="token" value={token} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>
@@ -98,8 +117,10 @@ export function JoinSignupForm({
             autoComplete="name"
             defaultValue={kept.values.displayName}
             className="pl-8"
+            {...invalid("displayName", "displayName")}
           />
         </div>
+        <FieldError fieldId="displayName">{req.messageFor("displayName")}</FieldError>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{dict.email}</Label>
@@ -114,8 +135,10 @@ export function JoinSignupForm({
             autoComplete="email"
             defaultValue={kept.values.email}
             className="pl-8"
+            {...invalid("email", "email")}
           />
         </div>
+        <FieldError fieldId="email">{req.messageFor("email")}</FieldError>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">{dict.password}</Label>
@@ -129,7 +152,9 @@ export function JoinSignupForm({
           autoComplete="new-password"
           showLabel={dict.showPassword}
           hideLabel={dict.hidePassword}
+          {...invalid("password", "password")}
         />
+        <FieldError fieldId="password">{req.messageFor("password")}</FieldError>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmPassword">{dict.confirmPassword}</Label>
@@ -144,7 +169,9 @@ export function JoinSignupForm({
           autoComplete="new-password"
           showLabel={dict.showPassword}
           hideLabel={dict.hidePassword}
+          {...invalid("confirmPassword", "confirmPassword")}
         />
+        <FieldError fieldId="confirmPassword">{req.messageFor("confirmPassword")}</FieldError>
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <p className="text-center text-sm text-muted-foreground">

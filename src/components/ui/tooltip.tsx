@@ -31,7 +31,7 @@ function Tooltip({
       <TooltipPrimitive.Trigger render={render}>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Positioner side={side} sideOffset={8} className="z-50">
-          <TooltipPrimitive.Popup className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md">
+          <TooltipPrimitive.Popup className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-popover">
             {label}
           </TooltipPrimitive.Popup>
         </TooltipPrimitive.Positioner>

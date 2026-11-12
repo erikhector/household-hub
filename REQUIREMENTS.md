@@ -1344,7 +1344,9 @@ every lookup the old one did.
       completed or archived list keeps the always-open "Purchased" section.
       Under `prefers-reduced-motion` the row moves at once.
     - *Next up dock* (`src/components/shopping/shopping-mode.tsx`): the
-      progress ring ("12 of 18", a real `progressbar` with that
+      progress "ring" ("12 of 18"), drawn since UX-177 as an acorn outline that
+      fills from the bottom as rows are ticked (one SVG shared by the dock, the
+      shared list and the all-done moment; a real `progressbar` with that
       valuetext), the aisle the shopper is in now (the first pending group,
       `nextUp()` in `src/lib/shopping/shopping-progress.ts`, unit-tested)
       and its next three items as 48 px full-width tap rows. Ticking one is
@@ -3077,6 +3079,18 @@ Component page function can't itself be unit-tested.
     same as before (equivalence is covered in
     `personal-budget-position.test.ts` and was checked against the old
     loader on randomised multi-year data).
+  - **Ack window (PERF-37)**: recurring-template acks
+    (`RecurringTemplateAck`, `PersonalRecurringTemplateAck`) are one row
+    per template per accounted-for period, forever, but
+    `computeTemplateStatuses` only looks one up by the viewed period's key,
+    and the viewed period is never older than the 12-month lookback. Every
+    ack read (household Safe to spend, the weekly digest, the Budget tabs'
+    Recurring tab, and both reads here) therefore filters `periodKey` with
+    `ackPeriodKeyWindow(lookbackStart)` (`recurring-template-calc.ts`):
+    `{ gte: "YYYY-MM" }` of the lookback's start month. String comparison
+    keeps `YYYY` and `YYYY-Www` keys of the viewed period too, and a
+    payday start day only makes the bound up to a month looser. A result
+    never depends on an older ack, so none changed.
   - Due payments and due savings include the user's share of shared
     recurring items that are still due (the "Rent pops up" rows). A
     household `RecurringTemplate` is shared with the user when it has a
@@ -6916,17 +6930,22 @@ paging back week by week. Read-only, no schema change.
   client (capped at 100 characters).
 - **Loader**: `searchMealPlan` (`meal-plan-search.ts`) is one
   household-scoped `MealPlanEntry` query: recipe name or `freeformName`
-  contains the text (case-insensitive), the entry's date within 365 days
-  either side of today (UTC), newest first (dinner before lunch within a
-  day), at most 20.
+  contains the text, or (GAP-79) one of the recipe's ingredient names does
+  (all case-insensitive), the entry's date within 365 days either side of
+  today (UTC), newest first (dinner before lunch within a day), at most 20.
+  Each result carries `matchedIngredient`, set only when the name didn't
+  match.
 - **Results**: a list of links "Tue, Oct 21 · Dinner · Lasagna" (date in the
-  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. An
+  viewer's language), each to `/dashboard/meal-planning?week=<Monday>`. When
+  only an ingredient matched, a second muted line reads "Ingredient: Salmon
+  fillet" (GAP-79). An
   empty answer says "Nothing planned matches that." and a failed call says so
   inline; a slow reply for older text never shows under newer text.
 - **Tests**: `meal-plan-search.test.ts` (household scoping, window, cap,
   freeform names, week key), `search-actions.test.ts`, and
   `e2e/meal-plan-search.spec.ts` (plans a custom meal two weeks ahead,
-  searches it, follows the link; desktop and mobile).
+  searches it, follows the link; desktop and mobile; GAP-79 adds a recipe
+  found by an ingredient, in `en` and `sv`).
 
 ### Recipe sheet: Add to plan and instructions (UX-92)
 
@@ -7704,6 +7723,16 @@ flat grayscale:
   control. Disabled solid buttons (`default`, `secondary`) keep full opacity
   on a `muted` fill with `muted-foreground` text instead of fading: white at
   50% opacity over the faded primary was ~1.5:1 in the light theme.
+- **Shadow and type tokens** (UX-176): `globals.css`'s `@theme` defines
+  `shadow-primary`, `shadow-primary-hover`, `shadow-popover`, `shadow-raised`
+  and the type scale (`text-page-title`, `text-large-title`, `text-item-title`,
+  `text-card-title`, `text-body`, `text-body-lg`, `text-button`, `text-badge`,
+  `text-caption`, `text-stat`, `text-hero`), matching DESIGN.md. Popups,
+  floating bars and the button use them; the safe-to-spend number and the
+  overview's shopping count share `text-stat` (36px).
+  `src/components/design-tokens.test.ts` fails on Tailwind's `shadow-sm/md/lg`
+  or a bare `text-3xl`/`text-4xl` in `src/components` (the landing letters and
+  print list title are allowlisted).
 - **Contrast**: every text colour holds 4.5:1 on the surfaces it's painted
   on, and field outlines (`--input`) and the focus ring hold 3:1, in both
   themes. `src/app/globals-contrast.test.ts` reads `globals.css` and fails
@@ -8582,6 +8611,13 @@ and Tasks (`isShortcutPath`), for people at a keyboard:
 Covered by `e2e/keyboard-shortcuts.desktop.spec.ts` and
 `keyboard-shortcuts-logic.test.ts`.
 
+The shortcut listener lives in the dashboard layout and a page's checkboxes
+in the page's own client component, and the two hydrate separately: the
+highlight can appear before the row's `onChange` is attached, and an `x`
+that clicks the checkbox then flips only the native input (MAINT-90, the
+shopping spec). The spec therefore waits for `expectHydrated` on the
+highlighted row's checkbox before pressing `x`.
+
 
 ## Releases & What's new
 
@@ -8713,8 +8749,8 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   `scrollable-region-focusable` (UX-175; `e2e/whats-new-a11y.mobile.spec.ts`).
   Also UX-175: `Button` and `Badge` transition explicit properties
   (`color, background-color, border-color, box-shadow, transform`) rather
-  than `transition-all`, and the phone inventory bulk bar uses the
-  `shadow-md` scale shadow instead of a raw-rgb one.
+  than `transition-all`, and the phone inventory bulk bar uses a
+  scale shadow (now `shadow-popover`) instead of a raw-rgb one.
 - The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
@@ -8732,6 +8768,12 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   to it as "What's new · vX.Y.Z", so a visitor sees which version they're
   looking at and that the app is being worked on. Covered by
   `e2e/whats-new-public.spec.ts`.
+
+**Legal footer spacing (UX-178)**: on a phone the footer links get their
+44 px hit area from `px-2` padding instead of `touch-target`'s `min-width`
+(`min-w-0`), so a short word like Swedish "Villkor" no longer pads on one
+side; every text-to-text gap is 24 px (padding plus the 8 px gap between targets). From 40 rem the gap stays 8 px.
+Covered by `e2e/legal-footer-spacing.mobile.spec.ts`.
 
 **Household tabs (UX-174)**: `/dashboard/household` was ~3 000 CSS px of
 stacked cards on a phone, so it is three tabs (`HouseholdTabs`, the shared
@@ -9703,6 +9745,119 @@ approximating them, so the email never disagrees with the app.
   password is shown under the password field, which takes focus; the email
   is kept. Server messages come back in the request's language (UX-16, MAINT-7). Covered by
   `e2e/auth-field-errors.spec.ts`.
+- **Inventory item form errors sit next to the field (UX-183).** The
+  add/edit item dialog (`src/components/inventory/add-item-dialog.tsx`) is
+  `noValidate` and checks name and quantity in the browser first: an empty
+  name or quantity is worded in the page's language under its field
+  (`FieldError`, `role="alert"`), the field gets `aria-invalid` and
+  `aria-describedby`, and focus goes to the first. A blocked submit never
+  runs the action, so nothing typed elsewhere is reset; the message clears
+  as soon as the field is edited. The rest of the app's forms still use
+  bare `required` (follow-up in BACKLOG.md). Covered by
+  `e2e/inventory-field-errors.spec.ts`.
+- **Budget dialog errors sit next to the field (UX-183b, first slice).**
+  Add/edit transaction, recurring item and planned bill/income
+  (`transaction-dialog.tsx`, `recurring-template-dialog.tsx`,
+  `planned-expense-dialog.tsx`, on both budgets) are `noValidate` and use
+  `useRequiredFields` (`src/components/shared/use-required-fields.ts`, the
+  UX-183 pattern as a hook): a missing name, amount, category (the chips) or
+  date is worded in the page's language under its field (`FieldError`,
+  `role="alert"`, `budget`/`personalBudget` `nameRequired`, `amountRequired`,
+  `categoryRequired`, `dateRequired`), the field gets `aria-invalid` and
+  `aria-describedby` (on the chip group for the category), focus goes to the
+  first, and editing a field clears its message. A blocked submit never runs
+  the action, so nothing typed is lost. Covered by
+  `e2e/budget-field-errors.spec.ts`. The other budget forms and the rest of
+  the app still use bare `required` (follow-up in BACKLOG.md).
+- **Profile and password-reset form errors sit next to the field (UX-183b,
+  second slice).** The display name, email and password forms
+  (`src/components/profile/`) and the forgot and reset password forms
+  (`src/components/auth/`) are `noValidate` and use `useRequiredFields`: a
+  missing (or all-space) display name, new email, current password, new
+  password, confirmation or reset-request email is worded in the page's
+  language under its field (`FieldError`, `role="alert"`, the forms'
+  `nameRequired` / `newEmailRequired` / `currentPasswordRequired` /
+  `newPasswordRequired` / `confirmPasswordRequired` / `emailRequired` keys),
+  the field gets `aria-invalid` and `aria-describedby`, focus goes to the
+  first, and editing a field clears its message. A blocked submit never runs
+  the action, so nothing typed is lost. Format, length and match rules are
+  still the server's, which words them in the user's language. Covered by
+  `e2e/profile-auth-field-errors.spec.ts` (the reset form with a token the
+  spec inserts).
+- **Task and household form errors sit next to the field (UX-183b, third
+  slice).** The task add/edit dialog (`tasks/task-form-dialog.tsx`), the
+  create-household dialog (`household-switcher-menu.tsx`), the no-household
+  page's create form (`create-first-household-form.tsx`), the owner's rename
+  card (`rename-household.tsx`) and the invite sign-up form
+  (`join-signup-form.tsx`) are `noValidate` and use `useRequiredFields`: a
+  missing task title, household name, display name, email, password or
+  confirmation is worded in the page's language under its field (`FieldError`,
+  `role="alert"`; the `tasks.titleRequired`, `household.switcher.nameRequired`,
+  `household.rename.nameRequired`, `auth.noHousehold.householdNameRequired`
+  and `auth.join.*Required` keys), the field gets `aria-invalid` and
+  `aria-describedby`, focus goes to the first, and editing a field clears its
+  message. The task dialog's Add / Save button is no longer disabled while the
+  title is empty (it still is for a one-person rotation), so the message can
+  appear. A blocked submit never runs the action, so nothing typed is lost.
+  Covered by `e2e/household-tasks-field-errors.spec.ts` (all but the
+  no-household form, which needs a user with zero households).
+- **Meal planning form errors sit next to the field (UX-183b, fourth
+  slice).** The recipe form (`recipe-form-dialog.tsx`: name and portions),
+  the save-week-as-template dialog (`plan-template-dialogs.tsx`: name), Add
+  to plan, Move meal and the bulk Move dialog (date) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `mealPlanning.recipeNameRequired`,
+  `servingsRequired`, `dateRequired` and `mealPlanning.templates.nameRequired`),
+  gets `aria-invalid` and `aria-describedby`, focus goes to the first, and
+  editing a field clears its message. The recipe form only checks on its
+  first step; the ingredient-review step submits what step one validated.
+  `missing-diet-badges.tsx` has no form field (it only renders badges).
+  Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
+  template dialog; the date fields can't be emptied through a controlled date
+  input, so they share the hook untested).
+- **Inventory unit dialog errors sit next to the field (UX-183b, fifth
+  slice).** The item page's Change unit dialog (`change-unit-dialog.tsx`:
+  new unit and factor) and Add/Edit conversion dialog
+  (`item-units-and-usage.tsx`: unit and amount) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `itemPage.errors.emptyUnit`/`factor` and
+  `itemPage.conversionDialog.unitRequired`/`amountRequired`), gets
+  `aria-invalid` and `aria-describedby`, focus goes to the first, and editing
+  a field clears its message. Their Save buttons used to be disabled until the
+  numbers made a plan, which left no click to explain what was missing; they
+  are now disabled only while saving, and an amount that is filled in but
+  unusable shows `conversionDialog.amountInvalid` (Change unit keeps its
+  existing preview alert). `ComboField` takes `invalid`/`describedBy` for
+  this, and the hook gained `clearField` for a combobox pick. Covered by
+  `e2e/inventory-unit-field-errors.spec.ts`.
+- **Remaining budget form errors sit next to the field (UX-183b, sixth
+  slice).** The Add and Edit category dialogs (`category-manager.tsx`, on both
+  budgets: name), Clear debt (`household-balances.tsx`: amount and date) and
+  the personal budget's Log payment / shared-expense dialog
+  (`log-shared-expense-dialog.tsx`: amount and date) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `categories.nameRequired`,
+  `balances.amountRequired`/`dateRequired`, and the personal budget's existing
+  `amountRequired`/`dateRequired`), gets `aria-invalid` and `aria-describedby`,
+  focus goes to the first, and editing a field clears its message; closing a
+  dialog clears them. A blocked submit never runs the action, so nothing typed
+  is lost. (In Log payment an empty amount already disables Log expense,
+  since the split no longer adds up, so in practice the date is what gets
+  flagged there.) `transaction-list.tsx` has no required field (only a comment
+  mentions the word). Covered by `e2e/budget-field-errors.spec.ts`.
+- **Shopping form errors sit next to the field (UX-183b, last slice).** The
+  list's Rename dialog (`rename-list-dialog.tsx`) and Save as template dialog
+  (`list-templates.tsx`) are `noValidate` and use `useRequiredFields`: a
+  cleared name is worded in the page's language under it (`FieldError`,
+  `role="alert"`; `shoppingList.renameList.nameRequired` and
+  `shoppingList.templates.nameRequired`), gets `aria-invalid` and
+  `aria-describedby`, takes focus, and editing it clears the message;
+  opening or closing the dialog clears it too, since both stay mounted while
+  closed. With this, no form in the app relies on the browser's own
+  "Please fill out this field." bubble any more: every field marked
+  `required` sits in a `noValidate` form that words its own message (UX-59's
+  login and signup forms keep their own validation). Covered by
+  `e2e/shopping-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
@@ -10042,7 +10197,18 @@ overview, tasks, and inventory (table rows and phone cards).
   `PageSkeleton`'s `morph` prop gives its title bar the same name
   (`MorphTitleSkeleton` reads the id with `useParams`), so the title flies
   to the header at once and hands over to the real heading when the page
-  arrives. Recipes have no detail page (a recipe opens in a dialog), so
+  arrives. The skeleton that shows first is the nearest `loading.tsx` the
+  router already knows, which for an item is the catalogue's
+  (`inventory/items/loading.tsx`) and for a list the overview's
+  (`shopping-list/loading.tsx`), not the detail route's own: the detail skeleton
+  follows only once the server's answer reaches the router, and when the
+  page was ready by then React commits the page straight over the first
+  skeleton, with nothing left to pair the row's title with (MAINT-89: the
+  morph was skipped on a loaded phone
+  run, often enough to fail the e2e check; MAINT-91 was the same for a
+  list card). So both parent skeletons carry the `morph` too;
+  `MorphTitleSkeleton` renders it unnamed when the URL has no id (the
+  catalogue or the lists overview itself opening). Recipes have no detail page (a recipe opens in a dialog), so
   there is no recipe morph yet.
 - The document root is never captured (`:root { view-transition-name:
   none }`). React crossfades the root whenever something outside a
@@ -10337,17 +10503,23 @@ UX-14's rapid ticks and the rollback toast.
   A page measured or asserted straight after `goto` uses `gotoRevealed`,
   which waits for React 19.2's batched Suspense reveals (a cold WebKit
   could still show the tasks page's Add task skeleton after 5 s).
+  A control that sits behind a `loading.tsx` skeleton is first awaited
+  with `expectHydrated`, whose 20 s covers the stream plus hydration, even
+  when the test only asserts it's there: the planner's "Add first dinner"
+  outlasted `toBeVisible`'s default 5 s on a loaded run (MAINT-86, and
+  MAINT-94 for the empty-week check in `planner-add-missing.spec.ts`).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
   42-43 px. A test that holds a Server Action with `page.route` counts it
   as answered on its `response`, not when `route.continue()` resolves
   (that's when the request is sent, so a reload could beat the save).
-  `optimistic-ticking.spec.ts` and `shopping-mode.spec.ts`, which hold
-  and abort saves with `page.route`, set
+  `optimistic-ticking.spec.ts`, `shopping-mode.spec.ts` and `ux-51.spec.ts`,
+  which hold or abort saves with `page.route`, set
   `test.use({ serviceWorkers: "block" })`: once the app's service worker
   claims the page, its fetches skip the route, so a save meant to fail
-  went through.
+  went through, and a held language change never reached the route and
+  waited out the 30 s test timeout (MAINT-93).
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
