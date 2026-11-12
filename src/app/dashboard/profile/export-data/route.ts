@@ -146,6 +146,7 @@ export async function GET() {
       theme: user.theme,
       weeklyDigestEnabled: user.weeklyDigestEnabled,
       tonightsDinnerNudge: user.tonightsDinnerNudge,
+      taskDueNudge: user.taskDueNudge,
       inventoryViewPrefs: user.inventoryViewPrefs,
       personalBudgetMonthStartDay: user.personalBudgetMonthStartDay,
     },

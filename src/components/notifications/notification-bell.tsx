@@ -19,7 +19,7 @@
 import { createElement, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package, ShoppingBag, TrendingUp, X } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CheckCircle2, ListChecks, Package, ShoppingBag, TrendingUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -52,6 +52,7 @@ export function notificationHref(item: NotificationItem): string {
   // Opens the list with its put-away dialog already showing — the reminder
   // is only useful if acting on it is one tap.
   if (item.kind === "putAwayReminder") return `/dashboard/shopping-list/${item.shoppingListId}?putAway=1`;
+  if (item.kind === "taskDue") return `/dashboard/tasks`;
   return `/dashboard/meal-planning?week=${item.weekStartKey}`;
 }
 
@@ -70,6 +71,7 @@ export function notificationLabel(item: NotificationItem, dict: Dictionary["noti
   }
   if (item.kind === "putAwayReminder") return format(dict.putAwayReminder, { name: item.name });
   if (item.kind === "tonightsDinner") return format(dict.tonightsDinner, { names: item.names.join(", ") });
+  if (item.kind === "taskDue") return format(dict.taskDue, { tasks: item.lines.join(", ") });
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
 
@@ -79,6 +81,7 @@ export function notificationIcon(kind: NotificationItem["kind"]) {
   if (kind === "listCleared") return CheckCircle2;
   if (kind === "priceSpike") return TrendingUp;
   if (kind === "putAwayReminder") return ShoppingBag;
+  if (kind === "taskDue") return ListChecks;
   return CalendarDays;
 }
 

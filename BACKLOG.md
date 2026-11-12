@@ -855,34 +855,6 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-05 scan
-
-
-- [ ] **GAP-74. Tell the household when tasks are due today** (impact: med, effort: M) `[schema]` —
-      Chores Tracker (v2.2) and Home Chores AI push a reminder when a chore
-      is yours or due. Squirrel has assignment, rotation and due dates for
-      tasks but `NotificationKind` has no task kind, so a rotation that
-      lands on you, or a task due today, is only seen if you open Tasks
-      (the Home "Today" card shows it only after opening the app). Add
-      `TASK_DUE`, built the same way as `TONIGHTS_DINNER` (GAP-57;
-      REQUIREMENTS.md, "Tonight's dinner"): one household-wide bell entry
-      per day listing the open tasks that are due today or overdue, each
-      with its assignee. Tasks are already visible to every member, so a
-      household-wide row leaks nothing. Only the push is per member: it
-      goes to members who turned on a new per-user toggle (default off)
-      and have at least one listed task assigned to them, and names only
-      their own tasks. No streaks or nagging. Schema: a `TASK_DUE` value
-      on `NotificationKind`, a nullable `Notification.taskDueDate` with a
-      unique on `(householdId, taskDueDate)` as the day dedupe, and the
-      `User` toggle column, in one migration. Scope: no "assigned to you"
-      instant ping, no push for unassigned tasks, no per-member bell rows.
-      Acceptance: unit test that a second run the same day creates no
-      second entry (the `(householdId, taskDueDate)` unique), that
-      completed and skipped tasks are left out, and that the push skips
-      members who are opted out or have nothing assigned; e2e on `mobile`
-      turns the toggle on, has a task due today assigned to the member,
-      and sees one bell entry linking to Tasks, in `en` and `sv`.
-
 ### 2026-11-11 scan
 
 - [ ] **GAP-80. Sort recipes by last cooked, most cooked or newest** (impact: med, effort: S) —
