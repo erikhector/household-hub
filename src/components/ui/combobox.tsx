@@ -171,7 +171,10 @@ function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.
       )}
       {...props}
     >
-      <span className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">{children}</span>
+      {/* M9 + UX-184: a long name wraps rather than running past the list
+          and under the check (`pr-8` keeps it clear). No line clamp: the
+          list scrolls, and the ending is often what tells two recipes apart. */}
+      <span className="flex min-w-0 flex-1 gap-2 break-words">{children}</span>
       <ComboboxPrimitive.ItemIndicator
         render={
           <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />

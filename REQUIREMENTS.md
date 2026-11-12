@@ -9993,6 +9993,13 @@ approximating them, so the email never disagrees with the app.
   renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
   `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
   Match item toggle.
+- Combobox options wrap a long name instead of clipping it (UX-184, M9):
+  `ComboboxItem`'s label is `min-w-0 break-words`, so a long recipe, item or
+  category name breaks onto more lines inside the list and stays clear of
+  the check (`pr-8`). There is no line clamp: the list already scrolls, and
+  the ending is often what tells two long recipe names apart. Covered by
+  `e2e/ux-184.mobile.spec.ts`: an 80-character recipe name in the add-meal
+  sheet's picker stays inside the list on Pixel 7 and at 320 px.
 - Comboboxes keep their value readable on phones. An autocomplete field
   shows one 44 px button at a time below `sm`: the chevron while it's
   empty, the clear (×) once it has a value (clearing brings the chevron
