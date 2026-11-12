@@ -14,7 +14,7 @@ vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
-const { setTonightsDinnerNudgeAction, setTaskDueNudgeAction } =await import("@/lib/actions/notification-preferences");
+const { setTonightsDinnerNudgeAction, setTaskDueNudgeAction } = await import("@/lib/actions/notification-preferences");
 
 beforeEach(() => {
   requireUserIdMock.mockResolvedValue("user-1");

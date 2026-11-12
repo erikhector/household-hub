@@ -8820,7 +8820,7 @@ now" from "this item just ran out," and had no way to dismiss anything.
 The current model fires an alert once, at the moment a specific trigger
 happens, and it stays until a user dismisses it.
 
-Exactly seven triggers exist — nothing else creates a notification:
+Exactly eight triggers exist — nothing else creates a notification:
 
 - **Out of stock**: an existing `InventoryItem`'s quantity crossing from
   `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
