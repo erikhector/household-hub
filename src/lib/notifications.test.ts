@@ -1371,6 +1371,68 @@ describe("syncTaskDueNudge on the household's local day", () => {
     expect(filed()).toEqual([expect.objectContaining({ taskDueDate: new Date("2026-09-06") })]);
   });
 
+  it("lists the coming local day, never a nearly-over one, west of UTC (UTC-8 at the 06:00 UTC run)", async () => {
+    pushSubscriptionFindManyMock.mockResolvedValue([{ timeZone: "America/Los_Angeles" }]);
+    householdTaskFindManyMock.mockResolvedValue([
+      { ...base, title: "Pay the rent", dueDate: new Date("2026-11-30") },
+      { ...base, title: "Bins", dueDate: new Date("2026-12-01") },
+      // 10:00 PST on 30 Nov: closed now (22:00 PST), open again from local midnight.
+      { ...base, title: "Feed the cat", recurrenceIntervalDays: 1, completedAt: new Date("2026-11-30T18:00:00Z") },
+      { ...base, title: "Next week", dueDate: new Date("2026-12-02") },
+    ]);
+
+    // 06:00 UTC on 1 Dec is 22:00 PST on 30 Nov.
+    await syncTaskDueNudge("household-1", new Date("2026-12-01T06:00:00Z"));
+
+    expect(filed()).toEqual([
+      expect.objectContaining({ taskDueDate: new Date("2026-12-01"), taskLines: ["Pay the rent", "Bins", "Feed the cat"] }),
+    ]);
+  });
+
+  it("judges a repeating task open by its local midnight, not UTC's", async () => {
+    pushSubscriptionFindManyMock.mockResolvedValue(stockholm);
+    householdTaskFindManyMock.mockResolvedValue([
+      // Ticked on 5 Sep; open again from 00:00 CEST on 6 Sep (22:00Z), which in
+      // UTC terms is not until 00:00Z. Pins the zone passed to isTaskOpen.
+      { ...base, title: "Feed the cat", recurrenceIntervalDays: 1, completedAt: new Date("2026-09-05T10:00:00Z") },
+    ]);
+
+    await syncTaskDueNudge("household-1", new Date("2026-09-05T23:30:00Z"));
+
+    expect(filed()).toEqual([
+      expect.objectContaining({ taskDueDate: new Date("2026-09-06"), taskLines: ["Feed the cat"] }),
+    ]);
+  });
+
+  it("orders by the local due day (longest overdue first)", async () => {
+    pushSubscriptionFindManyMock.mockResolvedValue(stockholm);
+    householdTaskFindManyMock.mockResolvedValue([
+      // Never ticked, anchored at 00:30 CEST on 5 Sep: due 5 Sep locally,
+      // 4 Sep in UTC. Pins the zone passed to getTaskDueDay.
+      { ...base, title: "Water plants", recurrenceIntervalDays: 3, createdAt: new Date("2026-09-04T22:30:00Z") },
+      { ...base, title: "Pay the rent", dueDate: new Date("2026-09-04") },
+    ]);
+
+    await syncTaskDueNudge("household-1", new Date("2026-09-05T23:30:00Z"));
+
+    expect(filed()).toEqual([expect.objectContaining({ taskLines: ["Pay the rent", "Water plants"] })]);
+  });
+
+  it("lets the newest device break a tie between zones", async () => {
+    // Rows come newest first. 23:30 UTC on 5 Sep is 6 Sep in Stockholm but
+    // still 5 Sep in New York, so a task dated 6 Sep is listed only on Stockholm's day.
+    householdTaskFindManyMock.mockResolvedValue([{ ...base, title: "Bins", dueDate: new Date("2026-09-06") }]);
+    const now = new Date("2026-09-05T23:30:00Z");
+
+    pushSubscriptionFindManyMock.mockResolvedValue([{ timeZone: "America/New_York" }, { timeZone: "Europe/Stockholm" }]);
+    await syncTaskDueNudge("household-1", now);
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+
+    pushSubscriptionFindManyMock.mockResolvedValue([{ timeZone: "Europe/Stockholm" }, { timeZone: "America/New_York" }]);
+    await syncTaskDueNudge("household-1", now);
+    expect(filed()).toEqual([expect.objectContaining({ taskDueDate: new Date("2026-09-06") })]);
+  });
+
   it("falls back to the UTC date when no device has reported a zone", async () => {
     householdTaskFindManyMock.mockResolvedValue([{ ...base, title: "Bins", dueDate: new Date("2026-09-06") }]);
 

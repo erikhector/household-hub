@@ -82,7 +82,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma-errors";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { isTaskOpen, startOfLocalDay } from "@/app/dashboard/tasks/recurrence";
 import { getTaskDueDay, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { isTimeZone } from "@/lib/time-zone";
 import { after } from "next/server";
@@ -866,7 +866,12 @@ export async function syncTonightsDinnerNudge(householdId: string, now: Date = n
 // (getTaskDueTimeZone below), the same day the Tasks page shows them: on the
 // UTC day a daily chore ticked just after midnight in Sweden (still the
 // evening before in UTC) would reopen at 00:00 UTC and be in that morning's
-// push. `taskDueDate` is that local date. The
+// push. `taskDueDate` is that local date, but never earlier than the UTC
+// date: the cron runs once, at 06:00 UTC, which is still the evening before
+// at UTC-7 and further west, and a push then about a nearly-over day is no
+// use. There it lists the coming local day instead, judged as of that day's
+// local midnight (`openAt`), so a daily chore ticked earlier in the evening
+// counts, being open again by morning. The
 // `(householdId, taskDueDate)` unique is the day dedupe (P2002 = already sent,
 // a dismissed entry included).
 //
@@ -879,7 +884,9 @@ export async function syncTaskDueNudge(householdId: string, now: Date = new Date
   if (recipients.length === 0) return;
 
   const timeZone = await getTaskDueTimeZone(recipients.map((user) => user.id));
-  const todayDay = todayDayNumber(now, timeZone);
+  const todayDay = Math.max(todayDayNumber(now, timeZone), todayDayNumber(now));
+  const dayStart = startOfLocalDay(todayDay, timeZone);
+  const openAt = dayStart > now ? dayStart : now;
   // UTC midnight of the local date, the form a `@db.Date` column takes.
   const today = new Date(todayDay * 24 * 60 * 60 * 1000);
   const tasks = await prisma.householdTask.findMany({
@@ -898,7 +905,7 @@ export async function syncTaskDueNudge(householdId: string, now: Date = new Date
   });
   const due = tasks
     .map((task) => ({ task, dueDay: getTaskDueDay(task, timeZone) }))
-    .filter(({ task, dueDay }) => dueDay !== null && dueDay <= todayDay && isTaskOpen(task, now, timeZone))
+    .filter(({ task, dueDay }) => dueDay !== null && dueDay <= todayDay && isTaskOpen(task, openAt, timeZone))
     // Longest overdue first, like the Tasks page.
     .sort((a, b) => a.dueDay! - b.dueDay!)
     .map(({ task }) => task);
