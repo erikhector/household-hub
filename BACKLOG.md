@@ -451,27 +451,6 @@ viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
 at 320 px; Save stays pinned above the keyboard and errors sit by the
 field. WebKit was not run (no browser installed here).
 
-- [ ] **UX-184. Wrap long names in combobox options instead of clipping
-      them** (impact: med, effort: S) — `ComboboxItem` wraps its label in
-      `whitespace-nowrap shrink-0` (`src/components/ui/combobox.tsx:174`),
-      so a long recipe name in the add-meal sheet's recipe picker
-      (`meal-entry-dialog.tsx:281`) runs past the list's border, is cut
-      mid-word with no ellipsis, and slides under the check indicator.
-      Two recipes that differ only at the end ("Grandmother's
-      slow-braised Västerbotten & …") look identical, so people pick the
-      wrong one. Seen at 320 px and on Pixel 7 in the add-dinner sheet.
-      The same primitive is used by the inventory item combobox and three
-      budget dialogs. Breaks M9 (long names wrap or truncate with the full
-      value reachable, never overflow) and section 4's "long names without
-      clipping". Fix: `min-w-0 break-words` in place of `whitespace-nowrap
-      shrink-0`, with no line clamp (the option list already scrolls, and a
-      clamp would hide the ending that tells two such recipes apart),
-      keeping `pr-8` clear for the check.
-      Acceptance: an e2e test in the `mobile` project, also run at a
-      320 px viewport, creates a recipe with an 80-character name, opens
-      "Add first dinner", and asserts the option's text is fully inside
-      the list: its `scrollWidth` ≤ `clientWidth`, its `scrollHeight` ≤
-      `clientHeight`, and its right edge ≤ the list's right edge.
 - [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
       sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
       shows the dishes already in a slot as one `truncate` line with the
