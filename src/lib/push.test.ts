@@ -20,8 +20,12 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// Named exports only, matching web-push 4's ESM shape (no default export):
+// a `default` key here would let a regressed default import in push.ts
+// pass these tests while failing in production.
 vi.mock("web-push", () => ({
-  default: { setVapidDetails: setVapidDetailsMock, sendNotification: sendNotificationMock },
+  setVapidDetails: setVapidDetailsMock,
+  sendNotification: sendNotificationMock,
 }));
 
 const ORIGINAL_ENV = { ...process.env };

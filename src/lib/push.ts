@@ -4,7 +4,10 @@
 // service worker at src/lib/service-worker.js is what actually shows the
 // notification and handles a click.
 
-import webpush from "web-push";
+// web-push 4 is ESM-only with named exports and no default export, so a
+// default import resolves to undefined at runtime (the unit tests mock the
+// module and wouldn't notice). A namespace import works with both.
+import * as webpush from "web-push";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/report-error";
 import type { Prisma } from "@/generated/prisma/client";
