@@ -31,6 +31,7 @@ const {
   userFindManyMock,
   householdFindManyMock,
   householdTaskFindManyMock,
+  pushSubscriptionFindManyMock,
   sendPushToHouseholdMock,
   sendPushToHouseholdMembersMock,
 } = vi.hoisted(() => ({
@@ -49,6 +50,7 @@ const {
   userFindManyMock: vi.fn(),
   householdFindManyMock: vi.fn(),
   householdTaskFindManyMock: vi.fn(),
+  pushSubscriptionFindManyMock: vi.fn(),
   sendPushToHouseholdMock: vi.fn(),
   sendPushToHouseholdMembersMock: vi.fn(),
 }));
@@ -73,6 +75,7 @@ vi.mock("@/lib/prisma", () => ({
     user: { findMany: userFindManyMock },
     household: { findMany: householdFindManyMock },
     householdTask: { findMany: householdTaskFindManyMock },
+    pushSubscription: { findMany: pushSubscriptionFindManyMock },
   },
 }));
 
@@ -142,6 +145,7 @@ beforeEach(() => {
   notificationCreateManyMock.mockResolvedValue({ count: 0 });
   mealPlanEntryFindManyMock.mockResolvedValue([]);
   householdTaskFindManyMock.mockResolvedValue([]);
+  pushSubscriptionFindManyMock.mockResolvedValue([]);
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Eggs" });
   inventoryItemFindManyMock.mockResolvedValue([]);
   shoppingListFindUniqueMock.mockResolvedValue({ name: "Weekly shop" });
@@ -1278,6 +1282,104 @@ describe("syncTaskDueNudge", () => {
   });
 });
 
+describe("syncTaskDueNudge on the household's local day", () => {
+  // "Today" and "open" follow the zone the Tasks page would show the
+  // opted-in members (their push subscriptions' zone), not the UTC date.
+  // Every task here is unassigned, so the lines are just the titles.
+  const optedIn = [{ id: "user-1" }, { id: "user-2" }];
+  const base = {
+    dueDate: null,
+    completedAt: null,
+    recurrenceIntervalDays: null,
+    createdAt: new Date("2026-08-01T10:00:00Z"),
+    recurrenceAnchorAt: null,
+    skippedUntil: null,
+    assignedToMember: null,
+  };
+  const stockholm = [{ timeZone: "Europe/Stockholm" }];
+  const filed = () => notificationCreateMock.mock.calls.map((call) => call[0].data);
+
+  beforeEach(() => {
+    userFindManyMock.mockResolvedValue(optedIn);
+  });
+
+  it("leaves out a daily chore ticked just after local midnight (still late evening in UTC)", async () => {
+    pushSubscriptionFindManyMock.mockResolvedValue(stockholm);
+    householdTaskFindManyMock.mockResolvedValue([
+      { ...base, title: "Bins", dueDate: new Date("2026-09-05") },
+      // 00:10 on 5 Sep in Stockholm (CEST, UTC+2), 22:10 on 4 Sep in UTC.
+      { ...base, title: "Feed the cat", recurrenceIntervalDays: 1, completedAt: new Date("2026-09-04T22:10:00Z") },
+    ]);
+
+    // The 06:00 local morning run.
+    await syncTaskDueNudge("household-1", new Date("2026-09-05T04:00:00Z"));
+
+    expect(filed()).toEqual([
+      expect.objectContaining({ taskDueDate: new Date("2026-09-05"), taskLines: ["Bins"] }),
+    ]);
+  });
+
+  it("uses the local date when it is already tomorrow there (UTC+2 at 23:30 UTC)", async () => {
+    pushSubscriptionFindManyMock.mockResolvedValue(stockholm);
+    householdTaskFindManyMock.mockResolvedValue([{ ...base, title: "Bins", dueDate: new Date("2026-09-06") }]);
+
+    await syncTaskDueNudge("household-1", new Date("2026-09-05T23:30:00Z"));
+
+    expect(householdTaskFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          householdId: "household-1",
+          OR: [{ recurrenceIntervalDays: { not: null } }, { completedAt: null, dueDate: { lte: new Date("2026-09-06") } }],
+        },
+      }),
+    );
+    expect(filed()).toEqual([expect.objectContaining({ taskDueDate: new Date("2026-09-06"), taskLines: ["Bins"] })]);
+  });
+
+  it("keeps a daily chore closed until local midnight on the night DST ends", async () => {
+    pushSubscriptionFindManyMock.mockResolvedValue(stockholm);
+    householdTaskFindManyMock.mockResolvedValue([
+      // 00:30 CEST on 25 Oct, the day the clocks go back; next due 00:00 CET on 26 Oct (23:00Z).
+      { ...base, title: "Feed the cat", recurrenceIntervalDays: 1, completedAt: new Date("2026-10-24T22:30:00Z") },
+    ]);
+
+    // 23:30 CET on 25 Oct: not due again yet.
+    await syncTaskDueNudge("household-1", new Date("2026-10-25T22:30:00Z"));
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+
+    // 00:30 CET on 26 Oct: open again, and filed under the local date.
+    await syncTaskDueNudge("household-1", new Date("2026-10-25T23:30:00Z"));
+    expect(filed()).toEqual([
+      expect.objectContaining({ taskDueDate: new Date("2026-10-26"), taskLines: ["Feed the cat"] }),
+    ]);
+  });
+
+  it("follows the zone most of the opted-in members' devices report, ignoring unknown zones", async () => {
+    pushSubscriptionFindManyMock.mockResolvedValue([
+      { timeZone: "Not/AZone" },
+      { timeZone: "America/New_York" },
+      { timeZone: "Europe/Stockholm" },
+      { timeZone: "Europe/Stockholm" },
+    ]);
+    householdTaskFindManyMock.mockResolvedValue([{ ...base, title: "Bins", dueDate: new Date("2026-09-06") }]);
+
+    await syncTaskDueNudge("household-1", new Date("2026-09-05T23:30:00Z"));
+
+    expect(pushSubscriptionFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: { in: ["user-1", "user-2"] }, timeZone: { not: null } } }),
+    );
+    expect(filed()).toEqual([expect.objectContaining({ taskDueDate: new Date("2026-09-06") })]);
+  });
+
+  it("falls back to the UTC date when no device has reported a zone", async () => {
+    householdTaskFindManyMock.mockResolvedValue([{ ...base, title: "Bins", dueDate: new Date("2026-09-06") }]);
+
+    await syncTaskDueNudge("household-1", new Date("2026-09-05T23:30:00Z"));
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("getActiveNotifications (tasks due today)", () => {
   it("maps a TASK_DUE row to its task lines", async () => {
     notificationFindManyMock.mockResolvedValue([
@@ -1359,7 +1461,8 @@ describe("findHouseholdIdsWithSyncCandidates", () => {
     expect(wheres[4].members.some.user).toEqual({ taskDueNudge: true });
     expect(wheres[4].tasks.some.OR).toEqual([
       { recurrenceIntervalDays: { not: null } },
-      { completedAt: null, dueDate: { lte: new Date("2026-03-10") } },
+      // A day ahead of the UTC date: a zone east of UTC is already on it.
+      { completedAt: null, dueDate: { lte: new Date("2026-03-11") } },
     ]);
   });
 });

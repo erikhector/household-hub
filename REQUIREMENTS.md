@@ -8980,8 +8980,18 @@ Exactly eight triggers exist — nothing else creates a notification:
   `setTaskDueNudgeAction`, included in the data export), and does nothing
   unless a member has it on and at least one task qualifies. "Open" and
   "due" are the Tasks page's own rules (`isTaskOpen`, `getTaskDueDay`), so
-  completed, ticked-repeating and skipped tasks are left out; "today" is
-  the UTC date. Once a day is the `Notification` unique on
+  completed, ticked-repeating and skipped tasks are left out. "Today",
+  "due" and "open" are all worked out on the household's local day, the
+  one the Tasks page shows, not the UTC date, so a daily chore ticked just
+  after local midnight stays out of that morning's push and a
+  UTC+2 household's 23:30 UTC run already counts as the next day. The
+  Tasks page's zone is a browser cookie the cron can't read, so the sync
+  uses the zone the opted-in members' browsers reported when subscribing
+  to push (`PushSubscription.timeZone`): the one most of their devices
+  share (the newest device breaks a tie), unknown names skipped, UTC when
+  none has reported one. `taskDueDate` is that local date. The cron's
+  candidate filter looks one day past the UTC date for dated tasks, since
+  a zone east of UTC is already on it. Once a day is the `Notification` unique on
   `(householdId, taskDueDate)` (the create is the claim; a repeat run or a
   dismissed entry sends nothing more). The task lines are snapshotted on
   the row (`taskLines`). Tasks are visible to every member, so the bell
