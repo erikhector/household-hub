@@ -82,8 +82,9 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { isUniqueViolation } from "@/lib/prisma-errors";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
-import { dueDateToDayNumber, getTaskDueDay } from "@/app/dashboard/tasks/task-due";
+import { isTaskOpen, startOfLocalDay } from "@/app/dashboard/tasks/recurrence";
+import { getTaskDueDay, todayDayNumber } from "@/app/dashboard/tasks/task-due";
+import { isTimeZone } from "@/lib/time-zone";
 import { after } from "next/server";
 import { sendPushToHousehold, sendPushToHouseholdMembers } from "@/lib/push";
 import { INCOMING_MAX_AGE_DAYS } from "@/lib/incoming-stock";
@@ -861,7 +862,16 @@ export async function syncTonightsDinnerNudge(householdId: string, now: Date = n
 //
 // "Open" and "due" are the Tasks page's own rules (isTaskOpen, getTaskDueDay),
 // so a completed one-off, a ticked repeating task and a skipped one are left
-// out. "Today" is the UTC date, as for the dinner nudge. The
+// out. Both, and "today", are worked out on the household's local day
+// (getTaskDueTimeZone below), the same day the Tasks page shows them: on the
+// UTC day a daily chore ticked just after midnight in Sweden (still the
+// evening before in UTC) would reopen at 00:00 UTC and be in that morning's
+// push. `taskDueDate` is that local date, but never earlier than the UTC
+// date: the cron runs once, at 06:00 UTC, which is still the evening before
+// at UTC-7 and further west, and a push then about a nearly-over day is no
+// use. There it lists the coming local day instead, judged as of that day's
+// local midnight (`openAt`), so a daily chore ticked earlier in the evening
+// counts, being open again by morning. The
 // `(householdId, taskDueDate)` unique is the day dedupe (P2002 = already sent,
 // a dismissed entry included).
 //
@@ -873,8 +883,12 @@ export async function syncTaskDueNudge(householdId: string, now: Date = new Date
   });
   if (recipients.length === 0) return;
 
-  const today = new Date(toDateKey(now));
-  const todayDay = dueDateToDayNumber(today);
+  const timeZone = await getTaskDueTimeZone(recipients.map((user) => user.id));
+  const todayDay = Math.max(todayDayNumber(now, timeZone), todayDayNumber(now));
+  const dayStart = startOfLocalDay(todayDay, timeZone);
+  const openAt = dayStart > now ? dayStart : now;
+  // UTC midnight of the local date, the form a `@db.Date` column takes.
+  const today = new Date(todayDay * 24 * 60 * 60 * 1000);
   const tasks = await prisma.householdTask.findMany({
     where: { householdId, OR: [{ recurrenceIntervalDays: { not: null } }, { completedAt: null, dueDate: { lte: today } }] },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -890,8 +904,8 @@ export async function syncTaskDueNudge(householdId: string, now: Date = new Date
     },
   });
   const due = tasks
-    .map((task) => ({ task, dueDay: getTaskDueDay(task) }))
-    .filter(({ task, dueDay }) => dueDay !== null && dueDay <= todayDay && isTaskOpen(task, now))
+    .map((task) => ({ task, dueDay: getTaskDueDay(task, timeZone) }))
+    .filter(({ task, dueDay }) => dueDay !== null && dueDay <= todayDay && isTaskOpen(task, openAt, timeZone))
     // Longest overdue first, like the Tasks page.
     .sort((a, b) => a.dueDay! - b.dueDay!)
     .map(({ task }) => task);
@@ -923,6 +937,32 @@ export async function syncTaskDueNudge(householdId: string, now: Date = new Date
       url: "/dashboard/tasks",
     });
   }
+}
+
+// The zone "today" means for a household's task nudge. The Tasks page uses
+// the viewer's browser zone (the `time_zone` cookie, src/lib/get-time-zone.ts),
+// which the cron can't read; the nearest stored copy of it is the zone each
+// browser reports when it subscribes to push (PushSubscription.timeZone,
+// GAP-14), and the push is what this nudge is for. One household entry needs
+// one day, so it takes the zone most of the opted-in members' devices report
+// (the newest device breaks a tie, since the rows come newest first), skips
+// unknown names, and falls back to UTC when no device has reported one.
+async function getTaskDueTimeZone(userIds: string[]): Promise<string> {
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId: { in: userIds }, timeZone: { not: null } },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    select: { timeZone: true },
+  });
+  const counts = new Map<string, number>();
+  for (const { timeZone } of subscriptions) {
+    if (isTimeZone(timeZone)) counts.set(timeZone, (counts.get(timeZone) ?? 0) + 1);
+  }
+  let best = "UTC";
+  let bestCount = 0;
+  for (const [zone, count] of counts) {
+    if (count > bestCount) [best, bestCount] = [zone, count];
+  }
+  return best;
 }
 
 // PERF-13: the households `/api/cron/sync-notifications` needs to run the
@@ -975,11 +1015,20 @@ export async function findHouseholdIdsWithSyncCandidates(now: Date = new Date())
       select: { id: true },
     }),
     // Never narrower than syncTaskDueNudge: any repeating task might be due,
-    // a one-off only when dated today or earlier and still open.
+    // a one-off only when dated today or earlier and still open. "Today" is
+    // the household's local date there, which is at most a day past the UTC
+    // date (no zone is more than +14 h), hence the extra day.
     prisma.household.findMany({
       where: {
         members: { some: { user: { taskDueNudge: true } } },
-        tasks: { some: { OR: [{ recurrenceIntervalDays: { not: null } }, { completedAt: null, dueDate: { lte: today } }] } },
+        tasks: {
+          some: {
+            OR: [
+              { recurrenceIntervalDays: { not: null } },
+              { completedAt: null, dueDate: { lte: new Date(today.getTime() + 24 * 60 * 60 * 1000) } },
+            ],
+          },
+        },
       },
       select: { id: true },
     }),

@@ -86,7 +86,7 @@ function offsetMs(instant: number, timeZone: string): number {
 }
 
 /** The instant a local calendar day (days since 1970-01-01) starts in `timeZone`. */
-function startOfLocalDay(dayNumber: number, timeZone: string): Date {
+export function startOfLocalDay(dayNumber: number, timeZone: string): Date {
   const wall = dayNumber * MS_PER_DAY;
   // Two passes: the offset at the first guess may differ from the offset at
   // the answer when a DST change falls between them.
