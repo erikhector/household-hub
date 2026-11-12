@@ -9795,6 +9795,49 @@ approximating them, so the email never disagrees with the app.
   Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
   template dialog; the date fields can't be emptied through a controlled date
   input, so they share the hook untested).
+- **Inventory unit dialog errors sit next to the field (UX-183b, fifth
+  slice).** The item page's Change unit dialog (`change-unit-dialog.tsx`:
+  new unit and factor) and Add/Edit conversion dialog
+  (`item-units-and-usage.tsx`: unit and amount) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `itemPage.errors.emptyUnit`/`factor` and
+  `itemPage.conversionDialog.unitRequired`/`amountRequired`), gets
+  `aria-invalid` and `aria-describedby`, focus goes to the first, and editing
+  a field clears its message. Their Save buttons used to be disabled until the
+  numbers made a plan, which left no click to explain what was missing; they
+  are now disabled only while saving, and an amount that is filled in but
+  unusable shows `conversionDialog.amountInvalid` (Change unit keeps its
+  existing preview alert). `ComboField` takes `invalid`/`describedBy` for
+  this, and the hook gained `clearField` for a combobox pick. Covered by
+  `e2e/inventory-unit-field-errors.spec.ts`.
+- **Remaining budget form errors sit next to the field (UX-183b, sixth
+  slice).** The Add and Edit category dialogs (`category-manager.tsx`, on both
+  budgets: name), Clear debt (`household-balances.tsx`: amount and date) and
+  the personal budget's Log payment / shared-expense dialog
+  (`log-shared-expense-dialog.tsx`: amount and date) are `noValidate` and use
+  `useRequiredFields`: a missing field is worded in the page's language under
+  it (`FieldError`, `role="alert"`; `categories.nameRequired`,
+  `balances.amountRequired`/`dateRequired`, and the personal budget's existing
+  `amountRequired`/`dateRequired`), gets `aria-invalid` and `aria-describedby`,
+  focus goes to the first, and editing a field clears its message; closing a
+  dialog clears them. A blocked submit never runs the action, so nothing typed
+  is lost. (In Log payment an empty amount already disables Log expense,
+  since the split no longer adds up, so in practice the date is what gets
+  flagged there.) `transaction-list.tsx` has no required field (only a comment
+  mentions the word). Covered by `e2e/budget-field-errors.spec.ts`.
+- **Shopping form errors sit next to the field (UX-183b, last slice).** The
+  list's Rename dialog (`rename-list-dialog.tsx`) and Save as template dialog
+  (`list-templates.tsx`) are `noValidate` and use `useRequiredFields`: a
+  cleared name is worded in the page's language under it (`FieldError`,
+  `role="alert"`; `shoppingList.renameList.nameRequired` and
+  `shoppingList.templates.nameRequired`), gets `aria-invalid` and
+  `aria-describedby`, takes focus, and editing it clears the message;
+  opening or closing the dialog clears it too, since both stay mounted while
+  closed. With this, no form in the app relies on the browser's own
+  "Please fill out this field." bubble any more: every field marked
+  `required` sits in a `noValidate` form that words its own message (UX-59's
+  login and signup forms keep their own validation). Covered by
+  `e2e/shopping-field-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
@@ -10440,17 +10483,23 @@ UX-14's rapid ticks and the rollback toast.
   A page measured or asserted straight after `goto` uses `gotoRevealed`,
   which waits for React 19.2's batched Suspense reveals (a cold WebKit
   could still show the tasks page's Add task skeleton after 5 s).
+  A control that sits behind a `loading.tsx` skeleton is first awaited
+  with `expectHydrated`, whose 20 s covers the stream plus hydration, even
+  when the test only asserts it's there: the planner's "Add first dinner"
+  outlasted `toBeVisible`'s default 5 s on a loaded run (MAINT-86, and
+  MAINT-94 for the empty-week check in `planner-add-missing.spec.ts`).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
   42-43 px. A test that holds a Server Action with `page.route` counts it
   as answered on its `response`, not when `route.continue()` resolves
   (that's when the request is sent, so a reload could beat the save).
-  `optimistic-ticking.spec.ts` and `shopping-mode.spec.ts`, which hold
-  and abort saves with `page.route`, set
+  `optimistic-ticking.spec.ts`, `shopping-mode.spec.ts` and `ux-51.spec.ts`,
+  which hold or abort saves with `page.route`, set
   `test.use({ serviceWorkers: "block" })`: once the app's service worker
   claims the page, its fetches skip the route, so a save meant to fail
-  went through.
+  went through, and a held language change never reached the route and
+  waited out the 30 s test timeout (MAINT-93).
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec

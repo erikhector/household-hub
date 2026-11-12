@@ -228,6 +228,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the GAP-79 head (7e3afdc) and once on the UX-178 head (9137847), each passing on the re-run; 32/32 and 38/38 in isolation.
+      Further sighting (2026-11-11, release PR #1315 on 86ae1b0): `mobile` project, failed once in the full local `ci:local` run (dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job didn't run (docs-only release).
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -431,29 +432,6 @@ drove the add-item sheet at 320 px (empty submit, 90-character name).
 WebKit was not run (no browser installed here). The audit config has no
 fallback for the missing headless shell that `playwright.config.ts` has, so
 the audit was run through an uncommitted copy with `executablePath` set.
-
-- [ ] **UX-183b. Show the remaining forms' required-field errors under the field, in the page's language** (impact: med, effort: M) —
-      UX-59 (login, signup), UX-183 (the inventory add/edit item dialog), the
-      first UX-183b slice (the budget transaction, recurring item and planned
-      bill dialogs), the profile and auth slice (display name, email and
-      password forms, forgot and reset password), the tasks and household
-      slice (the task dialog, create-household dialog and form, rename
-      household, invite sign-up form) and the meal planning slice (the recipe
-      form, save-week-as-template, add to plan, move meal and bulk move
-      dialogs) replaced the browser's native
-      "Please fill out this field." bubble with a `FieldError` under the
-      field, via `useRequiredFields`
-      (`src/components/shared/use-required-fields.ts`).
-      About 6 other components still rely on bare `required`, so a Swedish
-      user gets an English bubble: budget `category-manager.tsx`,
-      `household-balances.tsx`, `transaction-list.tsx`,
-      `personal-budget/log-shared-expense-dialog.tsx`; inventory (`change-unit-dialog`, `item-units-and-usage`); shopping
-      (`rename-list-dialog`, `list-templates`, once #1263 has landed). Breaks
-      DESIGN.md "errors next to the field, keeping input". Split by feature.
-      Same acceptance as UX-183, per form: `noValidate`, a `role="alert"`
-      message in the page's language under the field, focus moves to it,
-      `aria-invalid` is set and nothing typed elsewhere is lost.
-
 
 ### Dependencies
 

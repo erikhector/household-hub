@@ -1,6 +1,6 @@
 {
   "name": "squirrel",
-  "version": "0.149.2",
+  "version": "0.150.3",
   "private": true,
   "engines": {
     "node": ">=22"

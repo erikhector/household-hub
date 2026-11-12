@@ -27,6 +27,8 @@ import {
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 type CategoryType = "INCOME" | "EXPENSE" | "SAVINGS";
 
@@ -81,6 +83,7 @@ export type CategoryManagerDict = {
     addDialogTitle: string;
     nameLabel: string;
     namePlaceholder: string;
+    nameRequired: string;
     typeLabel: string;
     adding: string;
     add: string;
@@ -264,6 +267,10 @@ function EditCategoryDialog({
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // UX-183b: a missing name is worded under the field in the page's
+  // language (`noValidate` on the form), not by the browser.
+  const req = useRequiredFields();
+  const nameId = `category-name-${category.id}`;
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -274,26 +281,42 @@ function EditCategoryDialog({
   }, initialState);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        req.clear();
+      }}
+    >
       <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.categories.editDialogTitle}</DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) =>
+            void req.check(event, [{ name: "name", id: nameId, message: dict.categories.nameRequired }])
+          }
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <input type="hidden" name="id" value={category.id} />
           <div className="flex flex-col gap-2">
-            <Label htmlFor={`category-name-${category.id}`}>{dict.categories.nameLabel}</Label>
+            <Label htmlFor={nameId}>{dict.categories.nameLabel}</Label>
             <Input
-              id={`category-name-${category.id}`}
+              id={nameId}
               name="name"
-              required
               maxLength={60}
               autoComplete="off"
               enterKeyHint={category.type === "EXPENSE" || category.type === "SAVINGS" ? "next" : "done"}
               defaultValue={category.name}
               placeholder={dict.categories.namePlaceholder}
+              aria-invalid={req.messageFor("name") ? true : undefined}
+              aria-describedby={req.messageFor("name") ? fieldErrorId(nameId) : undefined}
             />
+            <FieldError fieldId={nameId}>{req.messageFor("name")}</FieldError>
           </div>
           {/* A category's type can't be changed, so the limit field is
               simply absent for income/savings categories (the action also
@@ -362,6 +385,8 @@ export function AddCategoryDialog({
   // monthly limit field below can appear for expense categories alone (and
   // GAP-22's savings goal for savings categories alone).
   const [type, setType] = useState<CategoryType>("EXPENSE");
+  // UX-183b: see EditCategoryDialog.
+  const req = useRequiredFields();
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -372,7 +397,13 @@ export function AddCategoryDialog({
   }, initialState);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        req.clear();
+      }}
+    >
       <DialogTrigger
         render={
           <Button variant="outline" size="sm">
@@ -384,18 +415,28 @@ export function AddCategoryDialog({
         <DialogHeader>
           <DialogTitle>{dict.categories.addDialogTitle}</DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={(event) =>
+            void req.check(event, [{ name: "name", id: "category-name", message: dict.categories.nameRequired }])
+          }
+          onInput={req.onInput}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <div className="flex flex-col gap-2">
             <Label htmlFor="category-name">{dict.categories.nameLabel}</Label>
             <Input
               id="category-name"
               name="name"
-              required
               maxLength={60}
               autoComplete="off"
               enterKeyHint={type === "INCOME" ? "done" : "next"}
               placeholder={dict.categories.namePlaceholder}
+              aria-invalid={req.messageFor("name") ? true : undefined}
+              aria-describedby={req.messageFor("name") ? fieldErrorId("category-name") : undefined}
             />
+            <FieldError fieldId="category-name">{req.messageFor("name")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="category-type">{dict.categories.typeLabel}</Label>
