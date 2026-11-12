@@ -30,7 +30,7 @@ import { excerptForLog, logger } from "@/lib/logger";
  * provider that can't serve anything right now for account reasons (no
  * credit left), which is always worth falling through on — unlike a real
  * analysis failure, it says nothing about the request itself. */
-export class ProviderError extends Error {
+class ProviderError extends Error {
   constructor(
     message: "provider_busy" | "analysis_failed",
     readonly exhausted = false,
@@ -47,7 +47,7 @@ export class ProviderError extends Error {
 // hammering the same overloaded one twice, which both wastes shared deadline
 // budget and, per Google's own guidance for the 503 case, is less effective
 // than trying something different.
-export const RETRYABLE_STATUS = new Set([429, 503, 529]);
+const RETRYABLE_STATUS = new Set([429, 503, 529]);
 
 // An attempt is only worth starting if there's realistically enough of the
 // shared deadline left for it to complete — a slow attempt (rather than a
@@ -63,8 +63,8 @@ const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models
 // smaller model — its own capacity pool, not just a renamed Flash — which
 // is what makes it worth trying when Flash itself reports overloaded,
 // rather than just being another name for the same busy backend.
-export const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
-export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-flash-lite-latest";
+const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-flash-lite-latest";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -73,7 +73,7 @@ export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 /** Which provider the chain tries first when both keys are set. Anything
  * other than "anthropic" (unset, a typo) keeps the free-tier-first
  * default, so a misconfigured value never starts spending money. */
-export function primaryProvider(): "gemini" | "anthropic" {
+function primaryProvider(): "gemini" | "anthropic" {
   return process.env.AI_PRIMARY_PROVIDER?.trim().toLowerCase() === "anthropic" ? "anthropic" : "gemini";
 }
 
@@ -86,7 +86,7 @@ export function primaryProvider(): "gemini" | "anthropic" {
 // surface as analysis_failed.
 const ANTHROPIC_EXHAUSTED_MESSAGE = /credit balance|usage limits?/i;
 
-export function isAnthropicCreditExhausted(
+function isAnthropicCreditExhausted(
   status: number,
   error: { type?: string; message?: string } | undefined,
 ): boolean {
