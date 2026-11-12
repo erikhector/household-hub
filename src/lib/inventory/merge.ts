@@ -37,7 +37,7 @@ export function mergeUnitFactor(keeper: MergeItem, merged: MergeItem): number | 
   return backwards !== null && backwards > 0 ? roundAmount(1 / backwards) : null;
 }
 
-export type MergedItemPlan = {
+type MergedItemPlan = {
   id: string;
   /** Keeper units per one of this item's unit. */
   factor: number;

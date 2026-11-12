@@ -214,6 +214,7 @@ describe("GET /dashboard/profile/export-data", () => {
         theme: "light",
         weeklyDigestEnabled: true,
         tonightsDinnerNudge: true,
+        taskDueNudge: true,
         inventoryViewPrefs: { groupBy: "location" },
         personalBudgetMonthStartDay: 25,
       });
@@ -398,6 +399,7 @@ describe("GET /dashboard/profile/export-data", () => {
           "preferences.theme",
           "preferences.weeklyDigestEnabled",
           "preferences.tonightsDinnerNudge",
+          "preferences.taskDueNudge",
           "preferences.inventoryViewPrefs",
           "preferences.personalBudgetMonthStartDay",
           "householdMemberships",
@@ -526,6 +528,7 @@ describe("GET /dashboard/profile/export-data", () => {
         theme: "light",
         weeklyDigestEnabled: true,
         tonightsDinnerNudge: true,
+        taskDueNudge: true,
         inventoryViewPrefs: { groupBy: "location" },
         personalBudgetMonthStartDay: 25,
       });

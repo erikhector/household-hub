@@ -176,15 +176,29 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       a feature namespace, as `template-actions.ts` does), and delete the
       file from `PENDING`: the test fails if a clean file stays listed.
       Leave budget until BUDGET-6 is decided.
-- [ ] **MAINT-12. CI and tooling gaps** (low, S, own PR — touches `package.json`/lockfile) —
-      the migration drift check, Node pinning and Dependabot are done
-      (REQUIREMENTS.md, "CI tiers"). Left: optionally `npm audit` and
-      `knip` in CI. ESLint 10 waits on `eslint-config-next`'s plugins:
-      `eslint-plugin-react` 7.37, `eslint-plugin-import` 2.32 and
-      `eslint-plugin-jsx-a11y` 6.10 (the latest, 2026-10-27) declare
-      `eslint` peers up to `^9`, so 10 only installs by overriding them.
-      When they support 10, bump `eslint` + `eslint-config-next` in a
-      separate PR and drop the `eslint` ignore in `.github/dependabot.yml`.
+- [ ] **MAINT-12. ESLint 10** (low, S, own PR — touches `package.json`/lockfile) `[!]` —
+      the rest of MAINT-12 is done (REQUIREMENTS.md, "Migration drift and
+      tooling pins"). Waiting on `eslint-config-next`'s plugins:
+      `eslint-plugin-react` 7.37.5, `eslint-plugin-import` 2.32.0 and
+      `eslint-plugin-jsx-a11y` 6.10.2 (still the latest on 2026-11-10)
+      declare `eslint` peers up to `^9`, so 10 only installs by overriding
+      them. When all three accept 10, bump `eslint` + `eslint-config-next`
+      and drop the `eslint` ignore in `.github/dependabot.yml`.
+- [ ] **MAINT-92. Unused exports and types (knip)** (low, M, several small PRs) —
+      `knip.jsonc` excludes `exports`, `types` and `duplicates` because
+      the first run (MAINT-12) found about 120 exports and types no other
+      file imports, plus `InventoryHeaderActionsClient` exported both
+      named and as `default` in
+      `src/components/inventory/inventory-header-actions.tsx`. List them
+      with `npx knip --include exports,types,duplicates`. Clean up one
+      feature at a time, one small PR each: drop `export` from what's only
+      used in its own file and delete what's used nowhere, without
+      changing behaviour. The last PR deletes the `exclude` line from
+      `knip.jsonc`.
+      Done: inventory (`src/components/inventory/`,
+      `src/app/dashboard/inventory/`, `src/lib/inventory/`, including the
+      named + `default` duplicate).
+      Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -238,11 +252,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
-- [ ] **MAINT-84. Flaky: the budget tab-track fade check fails on desktop** (low, S) —
-      `e2e/ux-170.spec.ts:29` ("/dashboard/budget" tab-track fade), `desktop` project. It failed in one of two full `ci:local` runs on PR #1151's head (35531cd, 2026-11-05) and passed in the other, with the diff not touching it. Start from the failing run's trace; likely a layout measurement before hydration (`gotoRevealed`/`expectHydrated`).
-      Second sighting: run 41947757548 (release PR #1143, 2026-11-05), attempt 1 expected `data-fade="end"` and got `"start"`, and passed on the re-run. The MAINT-81 fix (#1046) already pins `scrollLeft = 0` before the assertion and it still flaked, so look at what scrolls the track back after that (a late mount effect or scroll-into-view of the active tab) rather than at the spec's own waiting.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-170.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -445,27 +454,6 @@ viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
 at 320 px; Save stays pinned above the keyboard and errors sit by the
 field. WebKit was not run (no browser installed here).
 
-- [ ] **UX-184. Wrap long names in combobox options instead of clipping
-      them** (impact: med, effort: S) — `ComboboxItem` wraps its label in
-      `whitespace-nowrap shrink-0` (`src/components/ui/combobox.tsx:174`),
-      so a long recipe name in the add-meal sheet's recipe picker
-      (`meal-entry-dialog.tsx:281`) runs past the list's border, is cut
-      mid-word with no ellipsis, and slides under the check indicator.
-      Two recipes that differ only at the end ("Grandmother's
-      slow-braised Västerbotten & …") look identical, so people pick the
-      wrong one. Seen at 320 px and on Pixel 7 in the add-dinner sheet.
-      The same primitive is used by the inventory item combobox and three
-      budget dialogs. Breaks M9 (long names wrap or truncate with the full
-      value reachable, never overflow) and section 4's "long names without
-      clipping". Fix: `min-w-0 break-words` in place of `whitespace-nowrap
-      shrink-0`, with no line clamp (the option list already scrolls, and a
-      clamp would hide the ending that tells two such recipes apart),
-      keeping `pr-8` clear for the check.
-      Acceptance: an e2e test in the `mobile` project, also run at a
-      320 px viewport, creates a recipe with an 80-character name, opens
-      "Add first dinner", and asserts the option's text is fully inside
-      the list: its `scrollWidth` ≤ `clientWidth`, its `scrollHeight` ≤
-      `clientHeight`, and its right edge ≤ the list's right edge.
 - [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
       sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
       shows the dishes already in a slot as one `truncate` line with the
@@ -859,34 +847,6 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
-
-### 2026-11-05 scan
-
-
-- [ ] **GAP-74. Tell the household when tasks are due today** (impact: med, effort: M) `[schema]` —
-      Chores Tracker (v2.2) and Home Chores AI push a reminder when a chore
-      is yours or due. Squirrel has assignment, rotation and due dates for
-      tasks but `NotificationKind` has no task kind, so a rotation that
-      lands on you, or a task due today, is only seen if you open Tasks
-      (the Home "Today" card shows it only after opening the app). Add
-      `TASK_DUE`, built the same way as `TONIGHTS_DINNER` (GAP-57;
-      REQUIREMENTS.md, "Tonight's dinner"): one household-wide bell entry
-      per day listing the open tasks that are due today or overdue, each
-      with its assignee. Tasks are already visible to every member, so a
-      household-wide row leaks nothing. Only the push is per member: it
-      goes to members who turned on a new per-user toggle (default off)
-      and have at least one listed task assigned to them, and names only
-      their own tasks. No streaks or nagging. Schema: a `TASK_DUE` value
-      on `NotificationKind`, a nullable `Notification.taskDueDate` with a
-      unique on `(householdId, taskDueDate)` as the day dedupe, and the
-      `User` toggle column, in one migration. Scope: no "assigned to you"
-      instant ping, no push for unassigned tasks, no per-member bell rows.
-      Acceptance: unit test that a second run the same day creates no
-      second entry (the `(householdId, taskDueDate)` unique), that
-      completed and skipped tasks are left out, and that the push skips
-      members who are opted out or have nothing assigned; e2e on `mobile`
-      turns the toggle on, has a task due today assigned to the member,
-      and sees one bell entry linking to Tasks, in `en` and `sv`.
 
 ### 2026-11-11 scan
 

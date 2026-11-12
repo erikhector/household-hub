@@ -66,6 +66,13 @@ model User {
   // household-wide like every Notification.
   tonightsDinnerNudge Boolean @default(false)
 
+  // GAP-74: opt-in "tasks due today" morning push (syncTaskDueNudge in
+  // src/lib/notifications.ts), toggled from the Notifications section of the
+  // Profile page. Off by default, like tonightsDinnerNudge. Per user because
+  // it decides who gets the push (only members with a listed task of their
+  // own); the bell entry itself is household-wide.
+  taskDueNudge Boolean @default(false)
+
   // GAP-7: the user's own Swish number, so household members who owe them
   // money get a "Pay with Swish" link on the Budget page's "Who owes whom"
   // card. Stored normalized as Swish's alias format (46 + number without
@@ -500,6 +507,9 @@ enum NotificationKind {
   // GAP-57: one entry per household per day listing that day's planned,
   // uncooked meals — see syncTonightsDinnerNudge in src/lib/notifications.ts.
   TONIGHTS_DINNER
+  // GAP-74: one entry per household per day listing the open tasks due today
+  // or overdue — see syncTaskDueNudge in src/lib/notifications.ts.
+  TASK_DUE
 }
 
 // Persisted household alerts (see src/lib/notifications.ts) — replaces an
@@ -569,6 +579,11 @@ model Notification {
   // treats NULLs as distinct, so every other kind (null date) is unaffected.
   tonightsDinnerDate DateTime? @db.Date
   mealNames       String[]         @default([])
+  // TASK_DUE only (GAP-74): the day the entry is for and one line per listed
+  // task ("Water the plants (Anna)"), snapshotted when it fired. Same
+  // once-per-household-per-day unique as tonightsDinnerDate.
+  taskDueDate     DateTime?        @db.Date
+  taskLines       String[]         @default([])
   createdAt       DateTime         @default(now())
   dismissedAt     DateTime?
 
@@ -579,6 +594,7 @@ model Notification {
 
   @@unique([mealPlanEntryId])
   @@unique([householdId, tonightsDinnerDate])
+  @@unique([householdId, taskDueDate])
   @@index([householdId, dismissedAt])
   @@index([inventoryItemId])
   @@index([shoppingListId])

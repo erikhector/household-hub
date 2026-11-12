@@ -1,0 +1,28 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Knip finds files nothing imports and packages nothing uses (MAINT-12).
+  // It runs in CI's fast job (`npm run knip`). Its plugins already know
+  // Next.js, Vitest, Playwright, ESLint and Prisma entry points; the
+  // entries below are the ones they can't infer.
+  "entry": [
+    // Playwright's `setup` project picks this up by a `testMatch` regex
+    // (playwright.config.ts), which knip's plugin doesn't follow.
+    "e2e/auth.setup.ts",
+    // The Prisma CLI config (AGENTS.md, "Stack"). Its non-default name
+    // hides it from knip's Prisma plugin; it's also what uses `dotenv`.
+    "prisma7.config.ts"
+  ],
+  "ignoreDependencies": [
+    // Imported only by the generated client in src/generated/prisma
+    // (gitignored, rebuilt by `postinstall`), which knip doesn't scan.
+    "@prisma/client",
+    // Next.js resolves `import "server-only"` itself (it's bundled, not an
+    // npm install), so there's no package.json entry to find.
+    "server-only"
+  ],
+  // Unused exports and types are left out for now: the first run found
+  // about 120 exports and types no other file imports, a cleanup of its
+  // own (MAINT-92, which deletes this line when it's done). Until then
+  // this guards files, dependencies and unlisted imports.
+  "exclude": ["exports", "types", "duplicates"]
+}

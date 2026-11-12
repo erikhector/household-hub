@@ -1,12 +1,12 @@
 // Runs npm scripts at the same time and prints each one's output in one
 // piece as it finishes, so `npm run check` takes as long as its slowest
-// step rather than the sum of all three. Output is buffered per script
+// step rather than the sum of them all. Output is buffered per script
 // instead of streamed because interleaved lines from lint, tsc and vitest
 // are unreadable, and agents read this output. Every script runs to the
 // end even when another fails, so one run reports every failure. No
 // dependency (concurrently, npm-run-all) for what fits in a page.
 //
-//   node scripts/run-parallel.mjs lint typecheck test
+//   node scripts/run-parallel.mjs lint typecheck test knip
 import { spawn } from "node:child_process";
 
 const names = process.argv.slice(2);

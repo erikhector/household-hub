@@ -287,6 +287,8 @@ export const en = {
     putAwayReminder: "Put away your shopping from {name}?",
     // TONIGHTS_DINNER (GAP-57) — see syncTonightsDinnerNudge.
     tonightsDinner: "On the menu today: {names}",
+    // TASK_DUE (GAP-74) — see syncTaskDueNudge. Each line is "Task (Assignee)".
+    taskDue: "Tasks due today: {tasks}",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",
@@ -4109,6 +4111,14 @@ export const en = {
         "One notification a day listing the meals planned for that day. Nothing is sent when nothing is planned or it's all been cooked.",
       enabledToast: "You'll get a morning menu reminder",
       disabledToast: "Menu reminder turned off",
+    },
+    taskDue: {
+      title: "Tasks due today",
+      label: "Remind me each morning about my tasks due today",
+      description:
+        "A push once a day naming your own tasks that are due today or overdue. Nothing is sent when none of them are yours.",
+      enabledToast: "You'll get a morning task reminder",
+      disabledToast: "Task reminder turned off",
     },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:

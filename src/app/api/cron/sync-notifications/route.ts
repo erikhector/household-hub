@@ -5,6 +5,7 @@ import {
   syncExpiringSoonNotifications,
   syncMealNotLoggedNotifications,
   syncPutAwayReminders,
+  syncTaskDueNudge,
   syncTonightsDinnerNudge,
 } from "@/lib/notifications";
 import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
@@ -111,6 +112,7 @@ export async function GET(request: Request) {
             syncExpiringSoonNotifications(household.id),
             syncPutAwayReminders(household.id),
             syncTonightsDinnerNudge(household.id),
+            syncTaskDueNudge(household.id),
           ]),
         ),
       );

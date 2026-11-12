@@ -4071,7 +4071,9 @@ instead of truncating. Covered by `e2e/ux-23.spec.ts`.
 **Scroll affordance on the tabs track (UX-170).** When the shared `Tabs`
 track can scroll sideways (320 px, 200 % text), it fades out at the edge
 with more tabs behind it (a 24 px mask, so any background works) and opens
-scrolled to the active tab, so a clipped "Insi" reads as "more this way".
+scrolled to the active tab (measured from the track's own rect, since
+`offsetLeft` counts from a positioned ancestor and used to scroll a narrowed
+track to its last tab), so a clipped "Insi" reads as "more this way".
 The fade follows the scroll position and the track's size, and is mirrored
 in `data-fade` (`start`/`end`/`both`, absent when everything fits). The
 compact in-card switch doesn't scroll and is unchanged. Covered by
@@ -8670,6 +8672,19 @@ version or the notes by hand.
   plugins support ESLint 10 (MAINT-12), and TypeScript majors until
   `typescript-eslint` supports 7 (it accepts `<6.1.0`). `@types/bcryptjs` is gone:
   `bcryptjs` 3 ships its own types.
+  The fast CI job also runs `npm audit --omit=dev --audit-level=high`:
+  only what ships, and only high or critical advisories, so the moderate
+  dev-tool advisories that wait on upstream (typescript-eslint's
+  minimatch, shadcn's deepmerge) don't turn every PR red. Then
+  `npm run knip`, configured in `knip.jsonc`, fails on files nothing
+  imports and on unused or unlisted dependencies. Its framework plugins
+  find the entry points; the config adds the two they miss
+  (`e2e/auth.setup.ts`, matched by a Playwright regex, and
+  `prisma7.config.ts`) and ignores `@prisma/client` (imported only by the
+  gitignored generated client) and `server-only` (resolved by Next.js).
+  Unused exports and types are not checked yet: the first run found
+  about 120, a cleanup of its own (MAINT-92). `npm run check` runs knip alongside
+  lint, typecheck and tests.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →
@@ -8820,7 +8835,7 @@ now" from "this item just ran out," and had no way to dismiss anything.
 The current model fires an alert once, at the moment a specific trigger
 happens, and it stays until a user dismisses it.
 
-Exactly seven triggers exist — nothing else creates a notification:
+Exactly eight triggers exist — nothing else creates a notification:
 
 - **Out of stock**: an existing `InventoryItem`'s quantity crossing from
   `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
@@ -8956,6 +8971,42 @@ Exactly seven triggers exist — nothing else creates a notification:
   household-wide like every other kind, but the push goes only to the
   opted-in members (`sendPushToHouseholdMembers`, quiet hours apply).
   Covered by `e2e/tonights-dinner-nudge.spec.ts`.
+- **Tasks due today** (GAP-74, opt-in, off by default): one `TASK_DUE`
+  entry per household per day listing the open tasks that are due today or
+  overdue, each with its assignee ("Take out bins (Anna)"), linking to
+  Tasks. Built like Tonight's dinner: `syncTaskDueNudge` runs from the same
+  `/api/cron/sync-notifications` job, gated on `User.taskDueNudge` (default
+  `false`; Profile, Notifications section, "Tasks due today",
+  `setTaskDueNudgeAction`, included in the data export), and does nothing
+  unless a member has it on and at least one task qualifies. "Open" and
+  "due" are the Tasks page's own rules (`isTaskOpen`, `getTaskDueDay`), so
+  completed, ticked-repeating and skipped tasks are left out. "Today",
+  "due" and "open" are worked out on the household's local day, the one
+  the Tasks page shows, not the UTC date. The cron runs once, at 06:00
+  UTC, which is 07:00 or 08:00 in Sweden: a daily chore ticked at 00:10
+  local time (22:10 UTC the evening before) is not due again until the
+  next local midnight, so it stays out of that morning's push. West of UTC
+  the 06:00 UTC run is still the evening before (22:00 at UTC-8), and a
+  push about a nearly-over day is no use, so the dated day is never
+  earlier than the UTC date at run time: there the nudge lists the coming
+  local day, with "open" judged as of its local midnight, so a daily chore
+  ticked earlier that evening is included, as it will be open by morning.
+  The Tasks page's zone is a browser cookie the cron can't read, so the
+  sync uses the zone the opted-in members' browsers reported when
+  subscribing to push (`PushSubscription.timeZone`): the one most of their
+  devices share (the newest device breaks a tie), unknown names skipped,
+  UTC when none has reported one. `taskDueDate` is that day. The cron's
+  candidate filter looks one day past the UTC date for dated tasks, since
+  a zone east of UTC can already be on the next day. Once a day is the `Notification` unique on
+  `(householdId, taskDueDate)` (the create is the claim; a repeat run or a
+  dismissed entry sends nothing more). The task lines are snapshotted on
+  the row (`taskLines`). Tasks are visible to every member, so the bell
+  entry is household-wide; only the push is per member: each opted-in
+  member with at least one listed task assigned to them gets one naming
+  only their own tasks (`sendPushToHouseholdMembers`, quiet hours apply).
+  No push for unassigned tasks, no "assigned to you" instant ping and no
+  per-member bell rows. Covered by `e2e/task-due-nudge.spec.ts` (`en` and
+  `sv`).
 - **List cleared** (good news): a `ShoppingList`'s unpurchased item count
   crossing from >0 to 0 — `recordListClearedTransition`, called from
   `togglePurchasedAction`/`deleteShoppingListItemAction` and their
@@ -9032,7 +9083,7 @@ Exactly seven triggers exist — nothing else creates a notification:
     apply as for every push (`sendPushToHousehold`). A share-link visitor
     has no account, so a jump they record pushes every member. There are
     no per-kind notification settings to respect — none exist for any
-    kind except the opt-in Tonight's dinner nudge above.
+    kind except the opt-in Tonight's dinner and Tasks due today nudges above.
 - All of these triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a
@@ -9942,6 +9993,13 @@ approximating them, so the email never disagrees with the app.
   renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
   `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
   Match item toggle.
+- Combobox options wrap a long name instead of clipping it (UX-184, M9):
+  `ComboboxItem`'s label is `min-w-0 break-words`, so a long recipe, item or
+  category name breaks onto more lines inside the list and stays clear of
+  the check (`pr-8`). There is no line clamp: the list already scrolls, and
+  the ending is often what tells two long recipe names apart. Covered by
+  `e2e/ux-184.mobile.spec.ts`: an 80-character recipe name in the add-meal
+  sheet's picker stays inside the list on Pixel 7 and at 320 px.
 - Comboboxes keep their value readable on phones. An autocomplete field
   shows one 44 px button at a time below `sm`: the chevron while it's
   empty, the clear (×) once it has a value (clearing brings the chevron
@@ -10404,10 +10462,10 @@ UX-14's rapid ticks and the rollback toast.
   `npm run test:e2e:quick` runs `desktop` and `mobile` only, skipping the
   `landscape` and `tablet` reruns (78 of the ~400 tests) while
   iterating. `ci:local` and CI always run every project.
-- **Local check speed**: `npm run check` runs lint, typecheck and unit
-  tests at the same time through `scripts/run-parallel.mjs`, which
+- **Local check speed**: `npm run check` runs lint, typecheck, unit
+  tests and knip at the same time through `scripts/run-parallel.mjs`, which
   buffers each one's output and prints it whole as it finishes (so the
-  three don't interleave), lets all of them finish so one run reports
+  scripts don't interleave), lets all of them finish so one run reports
   every failure, and exits non-zero if any failed. `npm run lint` keeps an
   ESLint cache in `node_modules/.cache/eslint/` (content-based, so a
   branch switch that only touches mtimes doesn't invalidate it), which

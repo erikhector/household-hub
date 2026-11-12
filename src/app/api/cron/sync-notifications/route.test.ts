@@ -10,12 +10,14 @@ const {
   syncExpiringSoonNotificationsMock,
   syncPutAwayRemindersMock,
   syncTonightsDinnerNudgeMock,
+  syncTaskDueNudgeMock,
 } = vi.hoisted(() => ({
   findCandidatesMock: vi.fn(),
   syncMealNotLoggedNotificationsMock: vi.fn(),
   syncExpiringSoonNotificationsMock: vi.fn(),
   syncPutAwayRemindersMock: vi.fn(),
   syncTonightsDinnerNudgeMock: vi.fn(),
+  syncTaskDueNudgeMock: vi.fn(),
 }));
 
 const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
@@ -27,6 +29,7 @@ vi.mock("@/lib/notifications", () => ({
   syncExpiringSoonNotifications: syncExpiringSoonNotificationsMock,
   syncPutAwayReminders: syncPutAwayRemindersMock,
   syncTonightsDinnerNudge: syncTonightsDinnerNudgeMock,
+  syncTaskDueNudge: syncTaskDueNudgeMock,
 }));
 
 const { GET, maxDuration } = await import("@/app/api/cron/sync-notifications/route");
@@ -50,6 +53,7 @@ beforeEach(() => {
   syncExpiringSoonNotificationsMock.mockResolvedValue(undefined);
   syncPutAwayRemindersMock.mockResolvedValue(undefined);
   syncTonightsDinnerNudgeMock.mockResolvedValue(undefined);
+  syncTaskDueNudgeMock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -107,6 +111,8 @@ describe("GET /api/cron/sync-notifications", () => {
     expect(syncPutAwayRemindersMock).toHaveBeenCalledWith("household-2");
     expect(syncTonightsDinnerNudgeMock).toHaveBeenCalledWith("household-1");
     expect(syncTonightsDinnerNudgeMock).toHaveBeenCalledWith("household-2");
+    expect(syncTaskDueNudgeMock).toHaveBeenCalledWith("household-1");
+    expect(syncTaskDueNudgeMock).toHaveBeenCalledWith("household-2");
   });
 
   it("does nothing, and still reports ok, when no household has candidates", async () => {
