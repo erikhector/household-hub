@@ -71,7 +71,12 @@ export function notificationLabel(item: NotificationItem, dict: Dictionary["noti
   }
   if (item.kind === "putAwayReminder") return format(dict.putAwayReminder, { name: item.name });
   if (item.kind === "tonightsDinner") return format(dict.tonightsDinner, { names: item.names.join(", ") });
-  if (item.kind === "taskDue") return format(dict.taskDue, { tasks: item.lines.join(", ") });
+  if (item.kind === "taskDue") {
+    const tasks = item.lines.map(({ title, assignee }) =>
+      assignee ? format(dict.taskDueAssigned, { title, name: assignee.name ?? dict.taskDueFormerMember }) : title,
+    );
+    return format(dict.taskDue, { tasks: tasks.join(", ") });
+  }
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
 

@@ -8983,8 +8983,19 @@ Exactly eight triggers exist — nothing else creates a notification:
   completed, ticked-repeating and skipped tasks are left out; "today" is
   the UTC date. Once a day is the `Notification` unique on
   `(householdId, taskDueDate)` (the create is the claim; a repeat run or a
-  dismissed entry sends nothing more). The task lines are snapshotted on
-  the row (`taskLines`). Tasks are visible to every member, so the bell
+  dismissed entry sends nothing more). The task titles are snapshotted on
+  the row (`taskLines`), but the assignee is stored only as a user id
+  (`taskAssigneeIds`, parallel to `taskLines`, `""` for unassigned), never
+  as a name: notification rows are never deleted, so a stored name would
+  stay in everyone's history after the member left the household or
+  deleted their account. `resolveTaskDueAssignees` looks the names up when
+  the bell or the history page reads the rows, among the household's
+  current members only (one `householdMember.findMany` scoped by
+  `householdId`), so a renamed member shows their new name and someone
+  who has left or deleted their account shows as "former member"
+  (`notifications.taskDueFormerMember`). Entries filed before the ids were
+  stored had the bracketed name stripped by the migration's backfill and
+  show those tasks as unassigned. Tasks are visible to every member, so the bell
   entry is household-wide; only the push is per member: each opted-in
   member with at least one listed task assigned to them gets one naming
   only their own tasks (`sendPushToHouseholdMembers`, quiet hours apply).

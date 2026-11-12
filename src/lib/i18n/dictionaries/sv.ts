@@ -267,6 +267,8 @@ export const sv = {
     putAwayReminder: "Dags att ställa in varorna från {name}?",
     tonightsDinner: "På menyn idag: {names}",
     taskDue: "Sysslor att göra idag: {tasks}",
+    taskDueAssigned: "{title} ({name})",
+    taskDueFormerMember: "tidigare medlem",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
