@@ -9,9 +9,9 @@ name: CI
 # Two tiers, for the release train (REQUIREMENTS.md, "Releases & What's
 # new"):
 # - PRs into `next` (all feature work) run the fast job only: lint,
-#   typecheck, unit tests and build. They merge without a browser run, so a
-#   day of PRs doesn't spend one e2e run each, plus another every time a
-#   branch is brought up to date.
+#   typecheck, `npm audit`, knip, unit tests and build. They merge
+#   without a browser run, so a day of PRs doesn't spend one e2e run
+#   each, plus another every time a branch is brought up to date.
 # - PRs into `master` (the release PR from a `release/*` branch cut from
 #   `next`, or a rare hotfix) also run the full Playwright suite, once, on
 #   everything about to ship. The release branch is a snapshot, so merges
@@ -102,6 +102,22 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # Known advisories in what ships (MAINT-12). `--omit=dev` because dev
+      # tools (ESLint, Prisma CLI, shadcn, …) never run in production, and
+      # their advisories (in November 2026: a minimatch denial of service
+      # and a deepmerge prototype poisoning, deep under typescript-eslint
+      # and shadcn) wait on upstream releases; Dependabot raises those.
+      # `--audit-level=high` so a low or moderate advisory doesn't turn
+      # every PR red until upstream ships a fix. When this fails, the fix
+      # is usually `npm audit fix` or an `overrides` entry, in its own PR.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # Unused files, unused or unlisted dependencies (knip.jsonc says what
+      # it checks and why). Its own step so a failure names itself.
+      - name: Unused files and dependencies (knip)
+        run: npm run knip
 
       # Next.js 16 generates global route-aware helper types (PageProps,
       # LayoutProps, RouteContext) into .next/types at build/dev time, and

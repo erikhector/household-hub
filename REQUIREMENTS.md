@@ -8672,6 +8672,19 @@ version or the notes by hand.
   plugins support ESLint 10 (MAINT-12), and TypeScript majors until
   `typescript-eslint` supports 7 (it accepts `<6.1.0`). `@types/bcryptjs` is gone:
   `bcryptjs` 3 ships its own types.
+  The fast CI job also runs `npm audit --omit=dev --audit-level=high`:
+  only what ships, and only high or critical advisories, so the moderate
+  dev-tool advisories that wait on upstream (typescript-eslint's
+  minimatch, shadcn's deepmerge) don't turn every PR red. Then
+  `npm run knip`, configured in `knip.jsonc`, fails on files nothing
+  imports and on unused or unlisted dependencies. Its framework plugins
+  find the entry points; the config adds the two they miss
+  (`e2e/auth.setup.ts`, matched by a Playwright regex, and
+  `prisma7.config.ts`) and ignores `@prisma/client` (imported only by the
+  gitignored generated client) and `server-only` (resolved by Next.js).
+  Unused exports and types are not checked yet: the first run found
+  about 120, a cleanup of its own (MAINT-92). `npm run check` runs knip alongside
+  lint, typecheck and tests.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →
@@ -10426,10 +10439,10 @@ UX-14's rapid ticks and the rollback toast.
   `npm run test:e2e:quick` runs `desktop` and `mobile` only, skipping the
   `landscape` and `tablet` reruns (78 of the ~400 tests) while
   iterating. `ci:local` and CI always run every project.
-- **Local check speed**: `npm run check` runs lint, typecheck and unit
-  tests at the same time through `scripts/run-parallel.mjs`, which
+- **Local check speed**: `npm run check` runs lint, typecheck, unit
+  tests and knip at the same time through `scripts/run-parallel.mjs`, which
   buffers each one's output and prints it whole as it finishes (so the
-  three don't interleave), lets all of them finish so one run reports
+  scripts don't interleave), lets all of them finish so one run reports
   every failure, and exits non-zero if any failed. `npm run lint` keeps an
   ESLint cache in `node_modules/.cache/eslint/` (content-based, so a
   branch switch that only touches mtimes doesn't invalidate it), which

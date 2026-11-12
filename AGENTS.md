@@ -97,7 +97,7 @@ npm run dev                 # dev server on :3000
 npm run lint
 npm run typecheck           # next typegen && tsc --noEmit (typegen emits .next/types)
 npm test                    # vitest run (non-watch)
-npm run check               # lint + typecheck + test, run in parallel
+npm run check               # lint + typecheck + test + knip, run in parallel
 npm run build
 npm run test:e2e            # Playwright vs `next start` + real Postgres (build first), desktop + mobile
 npm run test:e2e:mobile     # just the phone viewport (or :desktop) while iterating
