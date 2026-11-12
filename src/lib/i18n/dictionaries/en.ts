@@ -287,8 +287,13 @@ export const en = {
     putAwayReminder: "Put away your shopping from {name}?",
     // TONIGHTS_DINNER (GAP-57) — see syncTonightsDinnerNudge.
     tonightsDinner: "On the menu today: {names}",
-    // TASK_DUE (GAP-74) — see syncTaskDueNudge. Each line is "Task (Assignee)".
+    // TASK_DUE (GAP-74) — see syncTaskDueNudge. {tasks} joins one line per
+    // task: the bare title when unassigned, else taskDueAssigned with the
+    // assignee's current name, or taskDueFormerMember once they've left the
+    // household or deleted their account (names aren't stored on the row).
     taskDue: "Tasks due today: {tasks}",
+    taskDueAssigned: "{title} ({name})",
+    taskDueFormerMember: "former member",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",

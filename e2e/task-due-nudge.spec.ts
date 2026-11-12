@@ -19,6 +19,7 @@ const words = {
     toggle: "Remind me each morning about my tasks due today",
     toast: "You'll get a morning task reminder",
     entry: (title: string) => new RegExp(`Tasks due today:.*${title}`),
+    formerMember: "former member",
     store: STORAGE_STATE,
   },
   sv: {
@@ -27,6 +28,7 @@ const words = {
     toggle: "Påminn mig varje morgon om mina sysslor som ska göras idag",
     toast: "Du får en syssloppåminnelse på morgonen",
     entry: (title: string) => new RegExp(`Sysslor att göra idag:.*${title}`),
+    formerMember: "tidigare medlem",
     store: STORAGE_STATE_SV,
   },
 } as const;
@@ -100,7 +102,22 @@ for (const locale of ["en", "sv"] as const) {
         const entry = page.getByRole("main").getByRole("link", { name: w.entry(title) });
         await expect(entry).toHaveCount(1);
         await expect(entry).toHaveAttribute("href", "/dashboard/tasks");
+        // The assignee's name is looked up when the entry is shown, not
+        // stored on it.
+        await expect(entry).toHaveAccessibleName(new RegExp(`${title} \\(${w.user.displayName}\\)`));
         await expectNoHorizontalOverflow(page);
+
+        // Once the assignee is no longer a member (simulated by pointing the
+        // stored ids at a user who isn't in the household), the entry names
+        // nobody.
+        await client.query(
+          `UPDATE "Notification" SET "taskAssigneeIds" = array_fill('e2e-gone-user'::text, ARRAY[cardinality("taskAssigneeIds")])
+           WHERE "householdId" = $1 AND kind = 'TASK_DUE'`,
+          [E2E_HOUSEHOLD.id],
+        );
+        await page.reload();
+        await expect(entry).toHaveAccessibleName(new RegExp(`${title} \\(${w.formerMember}\\)`));
+        await expect(entry).not.toHaveAccessibleName(new RegExp(w.user.displayName));
       } finally {
         await reset();
         await client.end();

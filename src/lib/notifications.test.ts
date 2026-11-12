@@ -31,6 +31,7 @@ const {
   userFindManyMock,
   householdFindManyMock,
   householdTaskFindManyMock,
+  householdMemberFindManyMock,
   sendPushToHouseholdMock,
   sendPushToHouseholdMembersMock,
 } = vi.hoisted(() => ({
@@ -49,6 +50,7 @@ const {
   userFindManyMock: vi.fn(),
   householdFindManyMock: vi.fn(),
   householdTaskFindManyMock: vi.fn(),
+  householdMemberFindManyMock: vi.fn(),
   sendPushToHouseholdMock: vi.fn(),
   sendPushToHouseholdMembersMock: vi.fn(),
 }));
@@ -73,6 +75,7 @@ vi.mock("@/lib/prisma", () => ({
     user: { findMany: userFindManyMock },
     household: { findMany: householdFindManyMock },
     householdTask: { findMany: householdTaskFindManyMock },
+    householdMember: { findMany: householdMemberFindManyMock },
   },
 }));
 
@@ -128,6 +131,7 @@ const {
   syncTaskDueNudge,
   findHouseholdIdsWithSyncCandidates,
   getActiveNotifications,
+  getNotificationHistory,
 } = await import("@/lib/notifications");
 const { prisma } = await import("@/lib/prisma");
 const { Prisma } = await import("@/generated/prisma/client");
@@ -142,6 +146,7 @@ beforeEach(() => {
   notificationCreateManyMock.mockResolvedValue({ count: 0 });
   mealPlanEntryFindManyMock.mockResolvedValue([]);
   householdTaskFindManyMock.mockResolvedValue([]);
+  householdMemberFindManyMock.mockResolvedValue([]);
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Eggs" });
   inventoryItemFindManyMock.mockResolvedValue([]);
   shoppingListFindUniqueMock.mockResolvedValue({ name: "Weekly shop" });
@@ -1149,8 +1154,8 @@ describe("syncTaskDueNudge", () => {
     skippedUntil: null,
     assignedToMember: null,
   };
-  const anna = { userId: "user-1", user: { displayName: "Anna" } };
-  const ben = { userId: "user-3", user: { displayName: "Ben" } };
+  const anna = { userId: "user-1" };
+  const ben = { userId: "user-3" };
 
   it("does nothing, and never reads the tasks, while nobody has opted in (the default)", async () => {
     await syncTaskDueNudge("household-1");
@@ -1214,10 +1219,25 @@ describe("syncTaskDueNudge", () => {
         householdId: "household-1",
         kind: "TASK_DUE",
         taskDueDate: today,
-        // Longest overdue first; the assignee is part of each line.
-        taskLines: ["Pay the rent", "Water plants (Ben)", "Take out bins (Anna)"],
+        // Longest overdue first. The assignee is stored as a user id ("" =
+        // unassigned), never a display name, so the name can't outlive the
+        // member in this never-deleted row.
+        taskLines: ["Pay the rent", "Water plants", "Take out bins"],
+        taskAssigneeIds: ["", "user-3", "user-1"],
       },
     });
+  });
+
+  it("never reads or stores an assignee's display name", async () => {
+    userFindManyMock.mockResolvedValue(optedIn);
+    householdTaskFindManyMock.mockResolvedValue([
+      { ...base, title: "Take out bins", dueDate: new Date("2026-09-05"), assignedToMember: anna },
+    ]);
+
+    await syncTaskDueNudge("household-1");
+
+    const query = householdTaskFindManyMock.mock.calls[0][0];
+    expect(query.select.assignedToMember).toEqual({ select: { userId: true } });
   });
 
   it("pushes only opted-in members who have a listed task, naming only their own", async () => {
@@ -1279,21 +1299,83 @@ describe("syncTaskDueNudge", () => {
 });
 
 describe("getActiveNotifications (tasks due today)", () => {
-  it("maps a TASK_DUE row to its task lines", async () => {
-    notificationFindManyMock.mockResolvedValue([
+  const taskDueRow = (overrides: Record<string, unknown> = {}) => ({
+    id: "n1",
+    kind: "TASK_DUE",
+    taskLines: ["Bins", "Vacuum", "Fix shelf"],
+    taskAssigneeIds: ["user-1", "", "user-gone"],
+    createdAt: new Date("2026-09-05T06:00:00Z"),
+    dismissedAt: null,
+    inventoryItem: null,
+    mealPlanEntry: null,
+    shoppingList: null,
+    ...overrides,
+  });
+
+  it("resolves each assignee's current name among the household's members, scoped to that household", async () => {
+    notificationFindManyMock.mockResolvedValue([taskDueRow()]);
+    householdMemberFindManyMock.mockResolvedValue([{ userId: "user-1", user: { displayName: "Anna" } }]);
+
+    expect(await getActiveNotifications("household-42")).toEqual([
       {
         id: "n1",
-        kind: "TASK_DUE",
-        taskLines: ["Bins (Anna)", "Vacuum"],
-        inventoryItem: null,
-        mealPlanEntry: null,
-        shoppingList: null,
+        kind: "taskDue",
+        lines: [
+          { title: "Bins", assignee: { name: "Anna" } },
+          { title: "Vacuum", assignee: null },
+          // Left the household or deleted their account: no name to show.
+          { title: "Fix shelf", assignee: { name: null } },
+        ],
       },
     ]);
+    // Only members of *this* household count, so someone who left (their
+    // membership row is gone) never resolves, even if they're still a
+    // member somewhere else.
+    expect(householdMemberFindManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-42", userId: { in: ["user-1", "user-gone"] } },
+      select: { userId: true, user: { select: { displayName: true } } },
+    });
+  });
 
-    expect(await getActiveNotifications("household-1")).toEqual([
-      { id: "n1", kind: "taskDue", lines: ["Bins (Anna)", "Vacuum"] },
-    ]);
+  it("shows the name as it is now, not as it was when the entry was filed", async () => {
+    notificationFindManyMock.mockResolvedValue([taskDueRow({ taskLines: ["Bins"], taskAssigneeIds: ["user-1"] })]);
+    householdMemberFindManyMock.mockResolvedValue([{ userId: "user-1", user: { displayName: "Anna-Karin" } }]);
+
+    const [item] = await getActiveNotifications("household-1");
+    expect(item).toMatchObject({ lines: [{ title: "Bins", assignee: { name: "Anna-Karin" } }] });
+  });
+
+  it("skips the member lookup when no listed task had an assignee", async () => {
+    notificationFindManyMock.mockResolvedValue([taskDueRow({ taskAssigneeIds: ["", "", ""] })]);
+
+    const [item] = await getActiveNotifications("household-1");
+    expect(item).toMatchObject({ lines: [{ assignee: null }, { assignee: null }, { assignee: null }] });
+    expect(householdMemberFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("treats a line with no matching id as unassigned", async () => {
+    notificationFindManyMock.mockResolvedValue([taskDueRow({ taskLines: ["Bins", "Vacuum"], taskAssigneeIds: [] })]);
+
+    const [item] = await getActiveNotifications("household-1");
+    expect(item).toMatchObject({ lines: [{ title: "Bins", assignee: null }, { title: "Vacuum", assignee: null }] });
+  });
+
+  it("resolves names the same way in the notification history", async () => {
+    notificationFindManyMock.mockResolvedValue([taskDueRow()]);
+    householdMemberFindManyMock.mockResolvedValue([{ userId: "user-1", user: { displayName: "Anna" } }]);
+
+    const [item] = await getNotificationHistory("household-42");
+    expect(item).toMatchObject({
+      kind: "taskDue",
+      lines: [
+        { title: "Bins", assignee: { name: "Anna" } },
+        { title: "Vacuum", assignee: null },
+        { title: "Fix shelf", assignee: { name: null } },
+      ],
+    });
+    expect(householdMemberFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { householdId: "household-42", userId: { in: ["user-1", "user-gone"] } } }),
+    );
   });
 });
 

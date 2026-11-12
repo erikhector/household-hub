@@ -158,11 +158,15 @@ export type TonightsDinnerNotification = {
   names: string[];
 };
 
+// One listed task. `assignee` is null for an unassigned task; `name` is the
+// assignee's display name as it is now, or null once they've left the
+// household or deleted their account (the bell then says "former member").
+export type TaskDueLine = { title: string; assignee: { name: string | null } | null };
+
 export type TaskDueNotification = {
   id: string;
   kind: "taskDue";
-  // One line per task, assignee included ("Water the plants (Anna)").
-  lines: string[];
+  lines: TaskDueLine[];
 };
 
 export type NotificationItem =
@@ -194,12 +198,33 @@ type NotificationRow = Prisma.NotificationGetPayload<{
   };
 }>;
 
+// TASK_DUE rows store assignee user ids, never names (see the Notification
+// model's comment in prisma/schema.prisma): this looks the names up, for
+// every TASK_DUE row being read, in one query. Only *current* members of
+// this household are matched, so a member who left (their HouseholdMember
+// row is deleted) or deleted their account (cascades the same row) simply
+// isn't in the map, and their lines read "former member". Scoping by
+// householdId also keeps a user id from resolving through some other
+// household they belong to.
+async function resolveTaskDueAssignees(householdId: string, rows: NotificationRow[]): Promise<Map<string, string>> {
+  const userIds = [
+    ...new Set(rows.flatMap((row) => (row.kind === "TASK_DUE" ? row.taskAssigneeIds.filter(Boolean) : []))),
+  ];
+  if (userIds.length === 0) return new Map();
+  const members = await prisma.householdMember.findMany({
+    where: { householdId, userId: { in: userIds } },
+    select: { userId: true, user: { select: { displayName: true } } },
+  });
+  return new Map(members.map((member) => [member.userId, member.user.displayName]));
+}
+
 // Shared by getActiveNotifications and getNotificationHistory below — maps
 // one Notification row (with its related-record names already joined in) to
 // the discriminated-union shape the bell and the history page both render.
 // Returns [] for a row whose related record is gone (see the inline comments
 // this replaces) or a retired RESTOCKED row (see this file's top doc comment).
-function toNotificationItem(row: NotificationRow): NotificationItem[] {
+// `assigneeNames` is resolveTaskDueAssignees' map, used by TASK_DUE only.
+function toNotificationItem(row: NotificationRow, assigneeNames: Map<string, string>): NotificationItem[] {
   if (row.kind === "OUT_OF_STOCK") {
     if (!row.inventoryItem) return [];
     return [{ id: row.id, kind: "outOfStock", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
@@ -257,7 +282,12 @@ function toNotificationItem(row: NotificationRow): NotificationItem[] {
 
   if (row.kind === "TASK_DUE") {
     if (row.taskLines.length === 0) return [];
-    return [{ id: row.id, kind: "taskDue", lines: row.taskLines }];
+    const lines = row.taskLines.map((title, index): TaskDueLine => {
+      // A missing entry (a row written before the ids were stored) reads as unassigned.
+      const userId = row.taskAssigneeIds[index];
+      return { title, assignee: userId ? { name: assigneeNames.get(userId) ?? null } : null };
+    });
+    return [{ id: row.id, kind: "taskDue", lines }];
   }
 
   if (!row.mealPlanEntry) return [];
@@ -297,8 +327,9 @@ export async function getNotificationHistory(householdId: string): Promise<Notif
     include: notificationRowInclude,
   });
 
+  const assigneeNames = await resolveTaskDueAssignees(householdId, rows);
   return rows.flatMap((row): NotificationHistoryItem[] =>
-    toNotificationItem(row).map((item) => ({ ...item, createdAt: row.createdAt, dismissedAt: row.dismissedAt })),
+    toNotificationItem(row, assigneeNames).map((item) => ({ ...item, createdAt: row.createdAt, dismissedAt: row.dismissedAt })),
   );
 }
 
@@ -886,7 +917,7 @@ export async function syncTaskDueNudge(householdId: string, now: Date = new Date
       createdAt: true,
       recurrenceAnchorAt: true,
       skippedUntil: true,
-      assignedToMember: { select: { userId: true, user: { select: { displayName: true } } } },
+      assignedToMember: { select: { userId: true } },
     },
   });
   const due = tasks
@@ -903,9 +934,8 @@ export async function syncTaskDueNudge(householdId: string, now: Date = new Date
         householdId,
         kind: "TASK_DUE",
         taskDueDate: today,
-        taskLines: due.map((task) =>
-          task.assignedToMember ? `${task.title} (${task.assignedToMember.user.displayName})` : task.title,
-        ),
+        taskLines: due.map((task) => task.title),
+        taskAssigneeIds: due.map((task) => task.assignedToMember?.userId ?? ""),
       },
     });
   } catch (error) {
@@ -1000,5 +1030,6 @@ export async function getActiveNotifications(householdId: string): Promise<Notif
     include: notificationRowInclude,
   });
 
-  return rows.flatMap(toNotificationItem);
+  const assigneeNames = await resolveTaskDueAssignees(householdId, rows);
+  return rows.flatMap((row) => toNotificationItem(row, assigneeNames));
 }
