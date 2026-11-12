@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { InventoryTable } from "@/components/inventory/inventory-table";
 import {
+  ALL_FILTER as ALL,
+  UNASSIGNED_LOCATION as UNASSIGNED,
   countProblemStatuses,
   matchesStatusFilter,
   matchesUpdatedFilter,
@@ -39,8 +41,6 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import { isOneOf } from "@/lib/is-one-of";
 
-const ALL = "__all__";
-
 // Value lists for the filter selects. Typed against the unions so a typo
 // fails to compile, and used with isOneOf to narrow a Select's plain-string
 // value instead of asserting it.
@@ -50,7 +50,6 @@ const GROUP_BY_VALUES = ["none", "category", "location", "both"] as const satisf
 const isStatusFilter = isOneOf(STATUS_FILTERS);
 const isUpdatedFilter = isOneOf(UPDATED_FILTERS);
 const isGroupBy = isOneOf(GROUP_BY_VALUES);
-const UNASSIGNED = "__unassigned__";
 
 // Stale filters (least-recently-touched first) surface the items most worth
 // a physical recount; recency filters (most-recently-touched first) are more

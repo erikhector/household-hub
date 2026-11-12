@@ -8,9 +8,9 @@ import type { prisma } from "@/lib/prisma";
 //
 // Why the reason is a plain string column and not a Prisma enum: the set is
 // small and this table is a log, so adding a reason later shouldn't need a
-// migration. STOCK_EVENT_REASONS is the one list the writers and the page
-// share.
-export const STOCK_EVENT_REASONS = ["used", "restocked", "adjusted", "cooked", "trip"] as const;
+// migration. STOCK_EVENT_REASONS, through StockEventReason, is the one list
+// the writers and the page share.
+const STOCK_EVENT_REASONS = ["used", "restocked", "adjusted", "cooked", "trip"] as const;
 export type StockEventReason = (typeof STOCK_EVENT_REASONS)[number];
 
 // How many events an item keeps. Old ones fall off the end as new ones are

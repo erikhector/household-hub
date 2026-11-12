@@ -20,7 +20,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
  * between rows (a shelf is usually one category, and 1-2 units, at a time),
  * so only the name needs retyping. No dialog round trip either way.
  */
-export function QuickAddBar({
+function QuickAddBar({
   dict,
   categories,
   units,

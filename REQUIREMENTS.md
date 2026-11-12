@@ -8983,8 +8983,24 @@ Exactly eight triggers exist — nothing else creates a notification:
   `setTaskDueNudgeAction`, included in the data export), and does nothing
   unless a member has it on and at least one task qualifies. "Open" and
   "due" are the Tasks page's own rules (`isTaskOpen`, `getTaskDueDay`), so
-  completed, ticked-repeating and skipped tasks are left out; "today" is
-  the UTC date. Once a day is the `Notification` unique on
+  completed, ticked-repeating and skipped tasks are left out. "Today",
+  "due" and "open" are worked out on the household's local day, the one
+  the Tasks page shows, not the UTC date. The cron runs once, at 06:00
+  UTC, which is 07:00 or 08:00 in Sweden: a daily chore ticked at 00:10
+  local time (22:10 UTC the evening before) is not due again until the
+  next local midnight, so it stays out of that morning's push. West of UTC
+  the 06:00 UTC run is still the evening before (22:00 at UTC-8), and a
+  push about a nearly-over day is no use, so the dated day is never
+  earlier than the UTC date at run time: there the nudge lists the coming
+  local day, with "open" judged as of its local midnight, so a daily chore
+  ticked earlier that evening is included, as it will be open by morning.
+  The Tasks page's zone is a browser cookie the cron can't read, so the
+  sync uses the zone the opted-in members' browsers reported when
+  subscribing to push (`PushSubscription.timeZone`): the one most of their
+  devices share (the newest device breaks a tie), unknown names skipped,
+  UTC when none has reported one. `taskDueDate` is that day. The cron's
+  candidate filter looks one day past the UTC date for dated tasks, since
+  a zone east of UTC can already be on the next day. Once a day is the `Notification` unique on
   `(householdId, taskDueDate)` (the create is the claim; a repeat run or a
   dismissed entry sends nothing more). The task lines are snapshotted on
   the row (`taskLines`). Tasks are visible to every member, so the bell
@@ -9980,6 +9996,13 @@ approximating them, so the email never disagrees with the app.
   renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
   `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
   Match item toggle.
+- Combobox options wrap a long name instead of clipping it (UX-184, M9):
+  `ComboboxItem`'s label is `min-w-0 break-words`, so a long recipe, item or
+  category name breaks onto more lines inside the list and stays clear of
+  the check (`pr-8`). There is no line clamp: the list already scrolls, and
+  the ending is often what tells two long recipe names apart. Covered by
+  `e2e/ux-184.mobile.spec.ts`: an 80-character recipe name in the add-meal
+  sheet's picker stays inside the list on Pixel 7 and at 320 px.
 - Comboboxes keep their value readable on phones. An autocomplete field
   shows one 44 px button at a time below `sm`: the chevron while it's
   empty, the clear (×) once it has a value (clearing brings the chevron
