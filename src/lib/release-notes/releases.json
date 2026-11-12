@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.151.0",
+    "date": "2026-11-12",
+    "pr": 1352,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed the tab bar sometimes opening scrolled to its last tab on a narrow screen or with large text.\n\nTurn on \"Tasks due today\" in your profile to get a morning reminder naming your own tasks that are due today or overdue. Your household also sees one daily entry in the notification bell listing what's due and who has it.\n\nThe morning \"Tasks due today\" reminder now follows your local day, so a chore you ticked off just after midnight no longer shows up in that morning's reminder.\n\nLong recipe and item names in pick lists now wrap onto a second line instead of being cut off, so you can tell similar names apart.",
+      "sv": "Åtgärdade att flikraden ibland öppnades skrollad till sista fliken på en smal skärm eller med stor text.\n\nSlå på \"Sysslor att göra idag\" i din profil för att få en morgonpåminnelse med dina egna sysslor som ska göras idag eller är försenade. Hushållet ser också en daglig avisering i klockan med vad som ska göras och vem som har det.\n\nMorgonpåminnelsen \"Sysslor att göra idag\" följer nu din lokala dag, så en syssla du bockade av strax efter midnatt kommer inte längre med i påminnelsen samma morgon.\n\nLånga namn på recept och varor i vallistor radbryts nu i stället för att klippas av, så att du kan skilja liknande namn åt."
+    }
+  },
+  {
     "version": "0.150.3",
     "date": "2026-11-10",
     "pr": 1303,
