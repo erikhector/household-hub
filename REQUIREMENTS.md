@@ -2734,7 +2734,11 @@ top of it. No migration was needed.
   your stock.", with a "Match all" button (opens the batch matcher, which is
   mounted for any number of unlinked rows; the ⋯ menu's "Resolve N items"
   keeps its three-row threshold) and a dismiss ×. The dismissal lasts for
-  that visit only (component state, nothing stored in the browser).
+  that visit only (component state, nothing stored in the browser). The
+  note is one row while the sentence keeps at least a 10rem column; at
+  Larger text on a phone (200 %), "Match all" and × wrap onto their own
+  row under the sentence, right-aligned, so the sentence keeps the
+  note's full width (UX-186).
 - Closing the receipt dialogs (`ReceiptScanDialog`, `RegisterReceiptDialog`)
   or the AI shelf scan while their review step is showing asks first
   ("Discard this review?", `DiscardReviewDialog`), whether by Cancel,

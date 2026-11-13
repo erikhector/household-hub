@@ -202,7 +202,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `src/lib/actions/receipt-scan.ts`), shared components
       (`src/components/ui/`, `src/components/shared/`,
       `src/components/charts/`, `src/components/pwa/`,
-      `src/components/dashboard/`).
+      `src/components/dashboard/`), meal planning and recipes
+      (`src/app/dashboard/meal-planning/`, `src/components/meal-planning/`,
+      `src/lib/recipe-import.ts`, `src/lib/recipe-import/`,
+      `src/lib/recipe-source.ts`, `src/lib/recipes/`).
       Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
@@ -250,6 +253,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-11, release PR #1315 on 86ae1b0): `mobile` project, failed once in the full local `ci:local` run (dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job didn't run (docs-only release).
       Further sighting (2026-11-12, release PR #1352 on 1599687): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job was green.
       Further sighting (2026-11-12, UX-184 builder run on d39f82f): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible in time) and passed on a focused re-run and on a second full run of the same commit.
+      Further sighting (2026-11-13, release PR #1382 on 80cc114): `desktop` project again, in the GitHub e2e job (run 43409406202): the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on the retry in 3.7 s. The full local `ci:local` run of the same commit was green.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -480,22 +484,6 @@ budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
 
-- [ ] **UX-186. Stack the shopping list's "match items" note at large text** (impact: high, effort: S) —
-      At 200 % text (`text-200-dashboard-shopping-list-id.png`, Pixel 7),
-      the "2 items aren't in your pantry yet…" note keeps its text,
-      "Match all" and × on one row. The text column shrinks to one word per
-      line (about 14 lines), and "Match all" is drawn over the word "items".
-      People who use Larger text get an unreadable note (DESIGN.md M9,
-      readable and adaptable). The cause is the single `flex items-start`
-      row with a `flex-1` text column at
-      `src/components/shopping/shopping-list-client.tsx:884-899`. Fix: wrap
-      it so the actions drop under the text when there's no room, e.g.
-      `flex-wrap` with `basis-full`/`min-w-[12rem]` on the text and × kept
-      top-right. Acceptance: a `mobile`-project e2e spec sets the root font
-      to 200 % on a list with ≥ 2 unmatched items. It asserts the note's
-      text and the "Match all" button bounding boxes don't intersect, and
-      that the text is at least 60 % of the note's width. At 100 % the note
-      stays one row on `desktop`.
 - [ ] **UX-187. Show the item page's decimals in the user's locale** (impact: med, effort: S) —
       In Swedish, the item page shows English decimals: "lågt lager under
       0.5 st" in the status card and "= 0.375 st" in the units card

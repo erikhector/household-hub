@@ -2,7 +2,7 @@
 // One place decides what counts as a usable source link so the form action,
 // the URL import and the file import can't drift apart.
 
-export const RECIPE_SOURCE_URL_MAX = 2048;
+const RECIPE_SOURCE_URL_MAX = 2048;
 export const RECIPE_NOTES_MAX = 2000;
 
 /**

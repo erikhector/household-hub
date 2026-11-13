@@ -61,7 +61,7 @@ export type IngredientMatchItem = InventoryMatchCandidate & {
  */
 export type IngredientMatchStatus = "confident" | "suggested" | "none";
 
-export type IngredientMatchSource = "linked" | "exact" | "alias" | "staple" | "plural" | "fuzzy";
+type IngredientMatchSource = "linked" | "exact" | "alias" | "staple" | "plural" | "fuzzy";
 
 export type IngredientMatch = {
   rowIndex: number;
