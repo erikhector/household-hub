@@ -272,6 +272,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
+- [ ] **MAINT-96. Flaky: a forced check on the category radio doesn't select it in the Add transaction dialog on mobile** (low, S) —
+      `e2e/transaction-repeats.spec.ts:87` ("without the Repeats switch no recurring item is added"), `mobile` project. Failed once in the builder's locked `ci:local` run on 393b7e0 (PR #1404, a knip refactor that doesn't touch this spec or the budget feature, 2026-11-13), then passed in the full rerun of the same commit. Failing assertion at `:98`: `dialog.getByRole("radio", { name: category }).check({ force: true })` → `locator.check: Clicking the checkbox did not change its state`. The radio is a `peer sr-only` `<input name="categoryId">`, so the forced click lands on a visually hidden input. It may run before the dialog's category picker is hydrated, or a re-render may reset the selection. Start from the trace. Clicking the visible label after `expectHydrated` is likely the honest fix; look for the same pattern in other transaction-dialog specs.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
