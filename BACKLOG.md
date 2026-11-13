@@ -467,6 +467,72 @@ viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
 at 320 px; Save stays pinned above the keyboard and errors sit by the
 field. WebKit was not run (no browser installed here).
 
+### UX (2026-11-13 scout)
+
+Friday area: household and personal budgets. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The deep dive drove the starter set, the
+add-transaction sheet (empty submit, negative amount, a 75-character
+Swedish description, Undo toast) and the Activity, Setup and Insights tabs
+on Pixel 7 and at 320 px. No small targets, no console errors, and errors
+sit by the field, so nothing filed for budgets. One gap: the seeded
+households have no budget categories, so every sweep only photographs the
+budget onboarding card. Safe to spend going red on the first expense with
+no income is the documented UX-154 behaviour. WebKit was not run (no
+browser installed here).
+
+- [ ] **UX-186. Stack the shopping list's "match items" note at large text** (impact: high, effort: S) —
+      At 200 % text (`text-200-dashboard-shopping-list-id.png`, Pixel 7),
+      the "2 items aren't in your pantry yet…" note keeps its text,
+      "Match all" and × on one row. The text column shrinks to one word per
+      line (about 14 lines), and "Match all" is drawn over the word "items".
+      People who use Larger text get an unreadable note (DESIGN.md M9,
+      readable and adaptable). The cause is the single `flex items-start`
+      row with a `flex-1` text column at
+      `src/components/shopping/shopping-list-client.tsx:884-899`. Fix: wrap
+      it so the actions drop under the text when there's no room, e.g.
+      `flex-wrap` with `basis-full`/`min-w-[12rem]` on the text and × kept
+      top-right. Acceptance: a `mobile`-project e2e spec sets the root font
+      to 200 % on a list with ≥ 2 unmatched items. It asserts the note's
+      text and the "Match all" button bounding boxes don't intersect, and
+      that the text is at least 60 % of the note's width. At 100 % the note
+      stays one row on `desktop`.
+- [ ] **UX-187. Show the item page's decimals in the user's locale** (impact: med, effort: S) —
+      In Swedish, the item page shows English decimals: "lågt lager under
+      0.5 st" in the status card and "= 0.375 st" in the units card
+      (`mobile-sv-dashboard-inventory-items-id.png`). Every other amount
+      in the app uses the locale's decimal comma. `short()` is
+      `String(Number(v.toPrecision(3)))` at
+      `src/app/dashboard/inventory/items/[id]/page.tsx:25` (used at :210),
+      and is duplicated at
+      `src/components/inventory/item-page/item-units-and-usage.tsx:37`
+      (:69, :260). The low-stock line at `page.tsx:188` interpolates
+      `item.lowStockThreshold` raw. Fix: one locale-aware helper
+      (`Intl.NumberFormat(locale, { maximumSignificantDigits: 3 })`) used
+      in all four places, plus a unit test for it. Acceptance: a
+      `mobile`-project e2e spec in `sv` on the seeded item with a
+      fractional threshold sees "0,5" and no "0.5" in the status card; the
+      same page in `en` still shows "0.5".
+- [ ] **UX-188. Give the desktop inventory header room and lead with "Add item"** (impact: med, effort: S) —
+      On desktop (`desktop-sv-dashboard-inventory.png`, 1280 px) the
+      header's `lg:flex-row` (`src/app/dashboard/inventory/page.tsx:283`)
+      squeezes the title into a narrow column. The subtitle wraps over three
+      lines, and seven buttons wrap into three ragged rows, with the primary
+      "Lägg till vara" alone and last. The primary action is the last thing
+      you see (DESIGN.md: hierarchy, one primary action per screen). In the
+      table, every "Senast uppdaterad" cell repeats its column header
+      ("Senast uppdaterad 13 nov. 2026",
+      `src/components/inventory/last-updated-cell.tsx:31-37`). That costs
+      about 200 px while Kategori clips to "Dairy & eg…". Fix: stack the
+      toolbar under the title until there's room for one row, put
+      "Add item" first, and show only the date (plus "by {name}") in table
+      cells. Phone cards, which have no column header, keep the prefix.
+      Acceptance: a `desktop`-project e2e spec in `sv` asserts that "Lägg
+      till vara" is the first header button in DOM and visual order. It
+      also asserts that no table cell under "Senast uppdaterad" contains
+      that text, and that the "Dairy & eggs" category cell isn't clipped
+      (scrollWidth ≤ clientWidth).
+
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
