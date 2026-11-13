@@ -62,7 +62,7 @@ const DATA_URL_RE = /^data:([\w./+-]+);base64,([\s\S]+)$/;
 // `barcode` (AUTO-11) is only present when the model read a real GTIN off
 // the line (check digit verified by receiptLineBarcode) — it lets the
 // review dialogs match the line to an item exactly instead of by name.
-export type ScannedReceiptLine = { name: string; quantity: number; price: number; barcode?: string };
+type ScannedReceiptLine = { name: string; quantity: number; price: number; barcode?: string };
 export type ScanReceiptPhotoResult = { lines?: ScannedReceiptLine[]; currency?: string; error?: string };
 
 const rawReceiptLineSchema = z.object({
