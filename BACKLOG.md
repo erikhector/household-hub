@@ -475,6 +475,21 @@ field. WebKit was not run (no browser installed here).
       environment's browsers move. Bump once `npx playwright install
       chromium` (or the image) provides 1254. Acceptance: `npm run
       ci:local` green (desktop and mobile e2e).
+- [ ] **DEPS-9. Group the in-range patch/minor bumps of 2026-11-13** (impact: low, effort: S) —
+      `npm outdated` on `next` (44b29b6): `next` and `eslint-config-next`
+      16.4.5→16.4.6 (both pinned exact in `package.json`, so bump the pin
+      together), `@sentry/nextjs` 11.11.0→11.12.0, `lucide-react`
+      1.70.0→1.72.0, `resend` 6.37.0→6.38.0, `@vercel/functions`
+      3.11.0→3.11.2 and `dotenv` 18.0.9→18.0.10. `npm audit --omit=dev`
+      is clean, so none is a security fix. `@playwright/test` stays on
+      DEPS-8. Majors left alone on purpose: `eslint` 10 (MAINT-12),
+      `typescript` 7 (`typescript-eslint` still accepts `<6.1.0`),
+      `@types/node` 26 (follows the `.nvmrc` Node 22 pin) and `prisma` 8
+      (only `8.0.0-rc.33`, no stable release). If Dependabot's weekly
+      minor-and-patch PR lands these first, delete this item. Acceptance:
+      the listed packages at those versions in `package.json` and the
+      lockfile, `npm audit --omit=dev` still clean, `npm run ci:local`
+      green.
 
 ---
 
