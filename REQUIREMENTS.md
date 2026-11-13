@@ -7410,7 +7410,12 @@ co-managers, not kids earning rewards.
   `data-swipe-edit` button, the same hand-off the swipe tray and the ⋯ menu
   use). Only the checkbox or a right swipe completes or reopens a task, so a
   stray tap while scrolling can't complete one silently
-  (`e2e/task-title-opens.spec.ts`).
+  (`e2e/task-title-opens.spec.ts`). The spec adds a task first and taps
+  the new row's title only once the Add sheet is gone and its
+  `history.back()` has landed (`waitForDialogHistory`) and React owns the
+  title button (`expectHydrated`); tapped in the window while the sheet was
+  still closing, the edit sheet once failed to show on the phone project
+  (MAINT-93).
 - **Labelled title with a length counter (UX-107)**: the task dialog's title
   field has a visible "Task title" label (not just a placeholder). From 100
   characters a status line under it reads "{n} of 120 characters" and turns

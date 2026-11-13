@@ -258,10 +258,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
-- [ ] **MAINT-93. Flaky: tapping a task's title doesn't open its edit dialog in time on mobile** (low, S) —
-      `e2e/task-title-opens.spec.ts:8` ("tapping a task's title opens the edit dialog without completing it"), `mobile` project. In the full local `ci:local` run on release PR #1352 (commit 1599687, 2026-11-12) it failed once: after the title tap at line 18, `getByRole('dialog', { name: 'Edit "Wipe the counters …"' })` was not visible within 5 s. It passed on a `--project=mobile` re-run of the same commit, and the GitHub e2e job was green. The spec clicks the title right after the new row's checkbox shows, with no `expectHydrated` on the title button, so the tap may land before the row's handler is attached (AGENTS.md, "UI tests"). Start there, then check the trace for the dialog opening and closing again.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-title-opens.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
