@@ -51,6 +51,9 @@ export type RecipeData = {
   // Recipe.cookSoonAt (GAP-51) as an ISO string: set while the recipe is on
   // the Recipes tab's "Cook soon" shelf, null otherwise.
   cookSoonAt: string | null;
+  // Recipe.createdAt as an ISO string, for the Recipes tab's "Newest" sort
+  // (GAP-80).
+  createdAt: string;
   // Recipe.tags (GAP-29), already run through parseRecipeTags in page.tsx
   // so only known keys in canonical order ever reach the client.
   tags: RecipeTag[];
