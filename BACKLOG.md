@@ -488,22 +488,6 @@ budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
 
-- [ ] **UX-186. Stack the shopping list's "match items" note at large text** (impact: high, effort: S) —
-      At 200 % text (`text-200-dashboard-shopping-list-id.png`, Pixel 7),
-      the "2 items aren't in your pantry yet…" note keeps its text,
-      "Match all" and × on one row. The text column shrinks to one word per
-      line (about 14 lines), and "Match all" is drawn over the word "items".
-      People who use Larger text get an unreadable note (DESIGN.md M9,
-      readable and adaptable). The cause is the single `flex items-start`
-      row with a `flex-1` text column at
-      `src/components/shopping/shopping-list-client.tsx:884-899`. Fix: wrap
-      it so the actions drop under the text when there's no room, e.g.
-      `flex-wrap` with `basis-full`/`min-w-[12rem]` on the text and × kept
-      top-right. Acceptance: a `mobile`-project e2e spec sets the root font
-      to 200 % on a list with ≥ 2 unmatched items. It asserts the note's
-      text and the "Match all" button bounding boxes don't intersect, and
-      that the text is at least 60 % of the note's width. At 100 % the note
-      stays one row on `desktop`.
 - [ ] **UX-187. Show the item page's decimals in the user's locale** (impact: med, effort: S) —
       In Swedish, the item page shows English decimals: "lågt lager under
       0.5 st" in the status card and "= 0.375 st" in the units card
