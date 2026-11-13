@@ -199,7 +199,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `src/app/dashboard/inventory/`, `src/lib/inventory/`, including the
       named + `default` duplicate), AI (`src/lib/ai/`), shopping
       (`src/lib/shopping/`, `src/app/share/shopping-list/`,
-      `src/lib/actions/receipt-scan.ts`).
+      `src/lib/actions/receipt-scan.ts`), shared components
+      (`src/components/ui/`, `src/components/shared/`,
+      `src/components/charts/`, `src/components/pwa/`,
+      `src/components/dashboard/`).
       Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
