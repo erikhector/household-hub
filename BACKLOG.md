@@ -205,7 +205,8 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `src/components/dashboard/`), meal planning and recipes
       (`src/app/dashboard/meal-planning/`, `src/components/meal-planning/`,
       `src/lib/recipe-import.ts`, `src/lib/recipe-import/`,
-      `src/lib/recipe-source.ts`, `src/lib/recipes/`).
+      `src/lib/recipe-source.ts`, `src/lib/recipes/`), notifications
+      (`src/lib/notifications.ts`, `src/lib/weekly-digest-content.ts`).
       Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local

@@ -99,14 +99,14 @@ import {
   type PricePoint,
 } from "@/lib/price-spike";
 
-export type OutOfStockNotification = {
+type OutOfStockNotification = {
   id: string;
   kind: "outOfStock";
   itemId: string;
   name: string;
 };
 
-export type MealNotLoggedNotification = {
+type MealNotLoggedNotification = {
   id: string;
   kind: "mealNotLogged";
   entryId: string;
@@ -115,7 +115,7 @@ export type MealNotLoggedNotification = {
   name: string;
 };
 
-export type ExpiringSoonNotification = {
+type ExpiringSoonNotification = {
   id: string;
   kind: "expiringSoon";
   itemId: string;
@@ -127,14 +127,14 @@ export type ExpiringSoonNotification = {
   estimated: boolean;
 };
 
-export type ListClearedNotification = {
+type ListClearedNotification = {
   id: string;
   kind: "listCleared";
   shoppingListId: string;
   name: string;
 };
 
-export type PriceSpikeNotification = {
+type PriceSpikeNotification = {
   id: string;
   kind: "priceSpike";
   itemId: string;
@@ -144,14 +144,14 @@ export type PriceSpikeNotification = {
   increasePercent: number | null;
 };
 
-export type PutAwayReminderNotification = {
+type PutAwayReminderNotification = {
   id: string;
   kind: "putAwayReminder";
   shoppingListId: string;
   name: string;
 };
 
-export type TonightsDinnerNotification = {
+type TonightsDinnerNotification = {
   id: string;
   kind: "tonightsDinner";
   // Monday of the nudge's day, for the link into the planner's week view.
@@ -159,7 +159,7 @@ export type TonightsDinnerNotification = {
   names: string[];
 };
 
-export type TaskDueNotification = {
+type TaskDueNotification = {
   id: string;
   kind: "taskDue";
   // One line per task, assignee included ("Water the plants (Anna)").
