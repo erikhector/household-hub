@@ -197,7 +197,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `knip.jsonc`.
       Done: inventory (`src/components/inventory/`,
       `src/app/dashboard/inventory/`, `src/lib/inventory/`, including the
-      named + `default` duplicate).
+      named + `default` duplicate), AI (`src/lib/ai/`).
       Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
@@ -243,6 +243,8 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the GAP-79 head (7e3afdc) and once on the UX-178 head (9137847), each passing on the re-run; 32/32 and 38/38 in isolation.
       Further sighting (2026-11-11, release PR #1315 on 86ae1b0): `mobile` project, failed once in the full local `ci:local` run (dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job didn't run (docs-only release).
+      Further sighting (2026-11-12, release PR #1352 on 1599687): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job was green.
+      Further sighting (2026-11-12, UX-184 builder run on d39f82f): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible in time) and passed on a focused re-run and on a second full run of the same commit.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -256,6 +258,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
+- [ ] **MAINT-93. Flaky: tapping a task's title doesn't open its edit dialog in time on mobile** (low, S) —
+      `e2e/task-title-opens.spec.ts:8` ("tapping a task's title opens the edit dialog without completing it"), `mobile` project. In the full local `ci:local` run on release PR #1352 (commit 1599687, 2026-11-12) it failed once: after the title tap at line 18, `getByRole('dialog', { name: 'Edit "Wipe the counters …"' })` was not visible within 5 s. It passed on a `--project=mobile` re-run of the same commit, and the GitHub e2e job was green. The spec clicks the title right after the new row's checkbox shows, with no `expectHydrated` on the title button, so the tap may land before the row's handler is attached (AGENTS.md, "UI tests"). Start there, then check the trace for the dialog opening and closing again.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-title-opens.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -453,24 +460,6 @@ sheet (empty submit, 80-character Swedish-flavoured name, a keyboard-height
 viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
 at 320 px; Save stays pinned above the keyboard and errors sit by the
 field. WebKit was not run (no browser installed here).
-
-- [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
-      sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
-      shows the dishes already in a slot as one `truncate` line with the
-      full list only in `title`, which a phone can't hover. With two or
-      three planned dishes the joined names outgrow one line on a phone,
-      and the rest is unreachable (confirmed in code, not driven). Breaks
-      M9 (long names wrap or truncate with the full value reachable) and
-      the no-hover-only rule. Fix: drop `truncate` and the `title` and let
-      the dish line wrap (`break-words`, no clamp); it is a short secondary
-      line inside a sheet, so it can grow. Don't copy
-      `cooked-ingredients-checklist.tsx:42`, whose `line-clamp-2` keeps the
-      full text only in `title` too.
-      Acceptance: an e2e test in the `mobile` project plans three dishes
-      with long names into one slot, opens the plan-portions sheet, and
-      asserts the slot's dish line is not clipped: its `scrollHeight` ≤
-      `clientHeight` and `scrollWidth` ≤ `clientWidth`, and the last
-      dish's name is inside the line's bounding box.
 
 ### Dependencies
 
