@@ -2,7 +2,7 @@ import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
 import type { RecipeTag } from "@/lib/recipe-tags";
 import type { PickFreshness, Weekday } from "@/lib/week-picks-spread";
 
-export type RecipeIngredientData = {
+type RecipeIngredientData = {
   id: string;
   name: string;
   quantity: number;
@@ -20,7 +20,7 @@ export type RecipeIngredientData = {
 
 // A sub-recipe this recipe includes (e.g. a lasagna's bolognese +
 // béchamel) — see RecipeComponent in schema.prisma.
-export type RecipeComponentData = {
+type RecipeComponentData = {
   id: string;
   componentRecipeId: string;
   componentRecipeName: string;
@@ -153,7 +153,7 @@ export type CookableRecipeData = {
 
 // One "use it up" match backing a suggestion chip — see
 // computeUseItUpSuggestions (src/lib/inventory/use-it-up-calc.ts).
-export type UseItUpMatchData = {
+type UseItUpMatchData = {
   name: string;
   reason: "expiring" | "lowStock";
 };
