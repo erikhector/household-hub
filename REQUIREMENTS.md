@@ -872,8 +872,9 @@ every lookup the old one did.
     individual icon buttons stay. Each row keeps Edit visible and moves
     Details, Mark opened, Mark empty and Delete into a row "More actions"
     ⋯ menu (8 px between the two targets, M3). Small fixes: ghost
-    quantity steppers, the bare "last updated" date reads "Last updated
-    4 Oct", the bulk-edit bar sticks to the bottom on phones, and the
+    quantity steppers, the table's Last updated cell shows the bare date
+    (UX-188 dropped a "Last updated 4 Oct" prefix the column header
+    already says), the bulk-edit bar sticks to the bottom on phones, and the
     mobile filter selects have real `Label`s.
   - **Compact inventory rows on phones (UX-45)**: below `sm` the list is
     a bordered `<ul>` (one per group) of two-line rows, about 80 px each, so
@@ -895,6 +896,17 @@ every lookup the old one did.
     opened, Freeze, Add to list, Details, Mark empty, Edit, Delete) fits the
     ~990 px column at 1280 px with no horizontal scroll.
     `e2e/ux-130.desktop.spec.ts` asserts it.
+  - **Desktop inventory header and Last updated column (UX-188)**: from
+    `sm` the toolbar sits under the page title, and only moves beside it
+    once the page is 90rem wide (a container query, so a collapsed
+    sidebar counts). Beside the title at 1280 px it squeezed the subtitle
+    over three lines and wrapped the buttons into three ragged rows.
+    "Add item" is the toolbar's first button (DOM, tab and visual order),
+    ahead of the scan tools, Manage items and Export CSV. The table's Last
+    updated cells show only the date (the column header says the rest;
+    the updater's "by {name}" stays in the cell's popover and
+    `aria-label`), which gives Category room for "Dairy & eggs".
+    `e2e/ux-188.desktop.spec.ts` asserts it in Swedish.
   - **Cards below `lg`, table from `lg` (UX-141)**: the inventory table
     only shows from 1024 px (`lg`). Between `sm` and `lg`, a tablet with
     the sidebar open (810 px), the name column was about three characters
@@ -8136,7 +8148,8 @@ components directly.
   that leaves room for more than a row; elsewhere the document scrolls and
   the table header scrolls away with it (the table is wider than the
   column there and keeps its own horizontal scroll, which a sticky header
-  can't see past). Its header row stays stacked until `lg`.
+  can't see past). Its header row stays stacked until the page itself is
+  90rem wide (UX-188).
   Back-links (`← All shopping lists`, the item catalog's) are
   `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
 - **Home (UX-26, UX-HOME-1..4)**: the first tab is called Home ("Hem"),

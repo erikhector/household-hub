@@ -484,26 +484,6 @@ budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
 
-- [ ] **UX-188. Give the desktop inventory header room and lead with "Add item"** (impact: med, effort: S) —
-      On desktop (`desktop-sv-dashboard-inventory.png`, 1280 px) the
-      header's `lg:flex-row` (`src/app/dashboard/inventory/page.tsx:283`)
-      squeezes the title into a narrow column. The subtitle wraps over three
-      lines, and seven buttons wrap into three ragged rows, with the primary
-      "Lägg till vara" alone and last. The primary action is the last thing
-      you see (DESIGN.md: hierarchy, one primary action per screen). In the
-      table, every "Senast uppdaterad" cell repeats its column header
-      ("Senast uppdaterad 13 nov. 2026",
-      `src/components/inventory/last-updated-cell.tsx:31-37`). That costs
-      about 200 px while Kategori clips to "Dairy & eg…". Fix: stack the
-      toolbar under the title until there's room for one row, put
-      "Add item" first, and show only the date (plus "by {name}") in table
-      cells. Phone cards, which have no column header, keep the prefix.
-      Acceptance: a `desktop`-project e2e spec in `sv` asserts that "Lägg
-      till vara" is the first header button in DOM and visual order. It
-      also asserts that no table cell under "Senast uppdaterad" contains
-      that text, and that the "Dairy & eggs" category cell isn't clipped
-      (scrollWidth ≤ clientWidth).
-
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
