@@ -10590,6 +10590,11 @@ UX-14's rapid ticks and the rollback toast.
   claims the page, its fetches skip the route, so a save meant to fail
   went through, and a held language change never reached the route and
   waited out the 30 s test timeout (MAINT-93).
+  A test that goes offline on `/dashboard` or `/dashboard/tasks` first
+  waits for the `time_zone` cookie: without it `TimeZoneCookie` refreshes
+  the page once, and an RSC refresh that fails offline makes Next fall
+  back to a full browser navigation, which destroyed
+  `sw-static-cache.spec.ts`'s offline `evaluate` (MAINT-96).
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
