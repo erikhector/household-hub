@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.151.1",
+    "date": "2026-11-13",
+    "pr": 1360,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you plan portions of a prepped dish, the meals already in each slot are now shown in full on phones instead of being cut off.",
+      "sv": "När du planerar portioner av en förberedd rätt visas rätterna som redan är planerade vid varje måltid nu i sin helhet på mobilen i stället för att kapas."
+    }
+  },
+  {
     "version": "0.151.0",
     "date": "2026-11-12",
     "pr": 1352,
