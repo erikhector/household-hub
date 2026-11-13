@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, LOCALES, waitForDialogHistory } from "./ui";
+import {
+  dismissCookieNotice,
+  expectHydrated,
+  expectNoHorizontalOverflow,
+  expectRouterPatched,
+  LOCALES,
+  waitForDialogHistory,
+} from "./ui";
 
 // GAP-73: a task can carry a few lines of plain-text notes. They're edited in
 // the sheet a tap on the title opens, shown as one truncated line under the
@@ -39,13 +46,23 @@ for (const locale of LOCALES) {
       await page.goto("/dashboard/tasks");
       const addButton = page.getByRole("button", { name: t.add });
       await expectHydrated(addButton);
+      // MAINT-67: the Add sheet's history entry must land after Next patches
+      // history, or the router's first commit rewrites it under the sheet.
+      await expectRouterPatched(page);
       await addButton.click();
       await page.getByRole("textbox", { name: t.titleField }).fill(title);
       await page.getByRole("button", { name: t.submit, exact: true }).click();
       await waitForDialogHistory(page);
 
+      // MAINT-94: the same window MAINT-93 closed in task-title-opens. On a
+      // loaded phone run the edit sheet once never showed after this tap. The
+      // Add sheet is gone and its back() has landed (above); also wait for
+      // React to own the title button, so the tap opens the sheet the way a
+      // person's later tap would.
       const main = page.getByRole("main");
-      await main.getByRole("button", { name: title, exact: true }).click();
+      const titleButton = main.getByRole("button", { name: title, exact: true });
+      await expectHydrated(titleButton);
+      await titleButton.click();
       const sheet = page.getByRole("dialog", { name: t.edit(title) });
       const notes = sheet.getByRole("textbox", { name: t.notesField });
       await expect(notes).toHaveValue("");
@@ -61,7 +78,11 @@ for (const locale of LOCALES) {
 
       await page.reload();
       await expect(main.getByText(note, { exact: true })).toBeVisible();
-      await main.getByRole("button", { name: title, exact: true }).click();
+      // After the reload the row is server-rendered before it hydrates, and
+      // the sheet's history entry needs the router's patch in place first.
+      await expectHydrated(titleButton);
+      await expectRouterPatched(page);
+      await titleButton.click();
       await expect(
         page.getByRole("dialog", { name: t.edit(title) }).getByRole("textbox", { name: t.notesField }),
       ).toHaveValue(note);
