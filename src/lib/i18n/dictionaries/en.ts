@@ -2513,6 +2513,14 @@ export const en = {
     allMealTypes: "All meals",
     tagFilterLabel: "Filter by tag",
     allTags: "All tags",
+    // GAP-80: the Recipes tab's sort, beside the two filters. "Longest since
+    // cooked" puts never-cooked recipes first, then the one cooked longest ago;
+    // the label names that direction, since "Last cooked" read as the opposite.
+    recipeSortLabel: "Sort recipes",
+    recipeSortName: "A–Z",
+    recipeSortLastCooked: "Longest since cooked",
+    recipeSortMostCooked: "Most cooked",
+    recipeSortNewest: "Newest",
     ingredientCount: {
       one: "{count} ingredient",
       other: "{count} ingredients",

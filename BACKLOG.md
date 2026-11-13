@@ -199,7 +199,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `src/app/dashboard/inventory/`, `src/lib/inventory/`, including the
       named + `default` duplicate), AI (`src/lib/ai/`), shopping
       (`src/lib/shopping/`, `src/app/share/shopping-list/`,
-      `src/lib/actions/receipt-scan.ts`).
+      `src/lib/actions/receipt-scan.ts`), shared components
+      (`src/components/ui/`, `src/components/shared/`,
+      `src/components/charts/`, `src/components/pwa/`,
+      `src/components/dashboard/`).
       Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
@@ -265,6 +268,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/task-notes.spec.ts:33` ("task notes (sv) › adds a note, reloads and finds it in the sheet and on the row"), `mobile` project. In the full local `ci:local` run for GAP-80 (#1361, commit 22a6309, 2026-11-13) it failed once: after the title tap at line 48, the `getByRole('dialog', { name: t.edit(title) })` sheet wasn't found. It passed 12/12 on a `--repeat-each=3` re-run on desktop and mobile of the same build, and a second full `ci:local` on 22a6309 was green. The diff doesn't touch Tasks. The spec waits with `waitForDialogHistory` after the Add sheet closes, but taps the new row's title with no `expectHydrated` on that button, the same window MAINT-93 (#1362) closes in `task-title-opens.spec.ts`. Start there; if #1362 has merged, reuse its waits.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/task-notes.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-95. Flaky: the command palette's chunk-load error message isn't shown in time on desktop** (low, S) —
+      `e2e/shell-lazy-popups.spec.ts:71` ("a failed chunk load › the palette says so, and the next press retries"), `desktop` project. In the GitHub e2e job on release PR #1367 (commit 5a99984, 2026-11-13, job 131687624580) the first attempt failed after 6.3 s at line 77: `expect(page.getByText(en.errors.generic)).toBeVisible()` found no element; it passed on the retry, on the `mobile` project, and on both projects in the full local `ci:local` run of the same commit. The test presses the shortcut right after `page.route()` aborts every chunk, with only the switcher button checked for hydration, so the keyboard handler for the palette shortcut may not be attached yet, or the palette chunk may already be cached so the abort never fires. Same family as MAINT-77 (`inventory-lazy-dialogs.spec.ts`): check what that item's fix finds before starting.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/shell-lazy-popups.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -462,6 +469,72 @@ sheet (empty submit, 80-character Swedish-flavoured name, a keyboard-height
 viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
 at 320 px; Save stays pinned above the keyboard and errors sit by the
 field. WebKit was not run (no browser installed here).
+
+### UX (2026-11-13 scout)
+
+Friday area: household and personal budgets. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The deep dive drove the starter set, the
+add-transaction sheet (empty submit, negative amount, a 75-character
+Swedish description, Undo toast) and the Activity, Setup and Insights tabs
+on Pixel 7 and at 320 px. No small targets, no console errors, and errors
+sit by the field, so nothing filed for budgets. One gap: the seeded
+households have no budget categories, so every sweep only photographs the
+budget onboarding card. Safe to spend going red on the first expense with
+no income is the documented UX-154 behaviour. WebKit was not run (no
+browser installed here).
+
+- [ ] **UX-186. Stack the shopping list's "match items" note at large text** (impact: high, effort: S) —
+      At 200 % text (`text-200-dashboard-shopping-list-id.png`, Pixel 7),
+      the "2 items aren't in your pantry yet…" note keeps its text,
+      "Match all" and × on one row. The text column shrinks to one word per
+      line (about 14 lines), and "Match all" is drawn over the word "items".
+      People who use Larger text get an unreadable note (DESIGN.md M9,
+      readable and adaptable). The cause is the single `flex items-start`
+      row with a `flex-1` text column at
+      `src/components/shopping/shopping-list-client.tsx:884-899`. Fix: wrap
+      it so the actions drop under the text when there's no room, e.g.
+      `flex-wrap` with `basis-full`/`min-w-[12rem]` on the text and × kept
+      top-right. Acceptance: a `mobile`-project e2e spec sets the root font
+      to 200 % on a list with ≥ 2 unmatched items. It asserts the note's
+      text and the "Match all" button bounding boxes don't intersect, and
+      that the text is at least 60 % of the note's width. At 100 % the note
+      stays one row on `desktop`.
+- [ ] **UX-187. Show the item page's decimals in the user's locale** (impact: med, effort: S) —
+      In Swedish, the item page shows English decimals: "lågt lager under
+      0.5 st" in the status card and "= 0.375 st" in the units card
+      (`mobile-sv-dashboard-inventory-items-id.png`). Every other amount
+      in the app uses the locale's decimal comma. `short()` is
+      `String(Number(v.toPrecision(3)))` at
+      `src/app/dashboard/inventory/items/[id]/page.tsx:25` (used at :210),
+      and is duplicated at
+      `src/components/inventory/item-page/item-units-and-usage.tsx:37`
+      (:69, :260). The low-stock line at `page.tsx:188` interpolates
+      `item.lowStockThreshold` raw. Fix: one locale-aware helper
+      (`Intl.NumberFormat(locale, { maximumSignificantDigits: 3 })`) used
+      in all four places, plus a unit test for it. Acceptance: a
+      `mobile`-project e2e spec in `sv` on the seeded item with a
+      fractional threshold sees "0,5" and no "0.5" in the status card; the
+      same page in `en` still shows "0.5".
+- [ ] **UX-188. Give the desktop inventory header room and lead with "Add item"** (impact: med, effort: S) —
+      On desktop (`desktop-sv-dashboard-inventory.png`, 1280 px) the
+      header's `lg:flex-row` (`src/app/dashboard/inventory/page.tsx:283`)
+      squeezes the title into a narrow column. The subtitle wraps over three
+      lines, and seven buttons wrap into three ragged rows, with the primary
+      "Lägg till vara" alone and last. The primary action is the last thing
+      you see (DESIGN.md: hierarchy, one primary action per screen). In the
+      table, every "Senast uppdaterad" cell repeats its column header
+      ("Senast uppdaterad 13 nov. 2026",
+      `src/components/inventory/last-updated-cell.tsx:31-37`). That costs
+      about 200 px while Kategori clips to "Dairy & eg…". Fix: stack the
+      toolbar under the title until there's room for one row, put
+      "Add item" first, and show only the date (plus "by {name}") in table
+      cells. Phone cards, which have no column header, keep the prefix.
+      Acceptance: a `desktop`-project e2e spec in `sv` asserts that "Lägg
+      till vara" is the first header button in DOM and visual order. It
+      also asserts that no table cell under "Senast uppdaterad" contains
+      that text, and that the "Dairy & eggs" category cell isn't clipped
+      (scrollWidth ≤ clientWidth).
 
 ### Dependencies
 
@@ -840,35 +913,6 @@ out to be a product-scope question rather than a scoped task should move to
       visible to other members and never in logs.
 
 ### 2026-11-11 scan
-
-- [ ] **GAP-80. Sort recipes by last cooked, most cooked or newest** (impact: med, effort: S) —
-      AnyList's 2026 recipe beta adds sorting a collection by date
-      prepared and by how many times a recipe was made, the quickest way
-      to find what has dropped out of rotation or what the household
-      actually eats. Squirrel already computes both per recipe
-      (`getRecipeCookedStats`, `src/app/dashboard/meal-planning/recipe-cooked-stats.ts`;
-      REQUIREMENTS.md, "Recipe last cooked") and shows them on each row,
-      but the Recipes tab is always alphabetical (the recipes query in
-      `src/app/dashboard/meal-planning/page.tsx` orders by `name`), and
-      GAP-46 left sorting out of scope. Add a sort `Select` to the
-      wrapping row that holds the tag and course filters in
-      `src/components/meal-planning/recipe-manager.tsx`. The tab has no
-      folded mobile "Filters" dialog, so on phones the sort shares the
-      second row with the two filters (search keeps the full first row),
-      with no horizontal overflow at 412 px. Options: A–Z (default), last
-      cooked (oldest first, never-cooked first), most cooked, newest.
-      Sort client-side in the existing `filteredRecipes` memo, from the
-      `recipeCooked` stats prop plus `createdAt`, which `recipeRows` in
-      `page.tsx` doesn't pass yet and needs adding (ISO string) to it and
-      the client recipe type. The Cook soon shelf stays on top. The sort
-      is per-visit component state: nothing in cookies or storage, and
-      it isn't a filter, so it doesn't change the "no matches" copy. No
-      schema change; labels in `en.ts` and `sv.ts`.
-      Acceptance: unit test of the comparator (ties fall back to name,
-      never-cooked placement); e2e on `desktop` and `mobile` creates two
-      `unique()` recipes, cooks A twice and B once, and sees A above B
-      under "Most cooked" and B above A under "Last cooked" (relative
-      order only, since other specs cook recipes in the same household).
 
 - [ ] **GAP-81. A short note on a planned meal** (impact: med, effort: M) `[schema]` —
       AnyList's January 2026 meal-plan update adds notes on meal-plan

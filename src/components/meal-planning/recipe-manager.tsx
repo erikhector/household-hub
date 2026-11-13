@@ -60,6 +60,7 @@ import { itemPageHref } from "@/lib/inventory/item-page-origin";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 import { splitCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
+import { RECIPE_SORTS, isRecipeSort, sortRecipes, type RecipeSort } from "@/app/dashboard/meal-planning/recipe-sort";
 import { COOK_PARAM } from "@/app/dashboard/meal-planning/meal-types";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -74,6 +75,13 @@ const mealTypeDictKey = {
   DINNER: "mealTypeDinner",
   SNACK: "mealTypeSnack",
 } as const;
+
+const recipeSortDictKey = {
+  name: "recipeSortName",
+  lastCooked: "recipeSortLastCooked",
+  mostCooked: "recipeSortMostCooked",
+  newest: "recipeSortNewest",
+} as const satisfies Record<RecipeSort, keyof MealPlanningDict>;
 
 function isMealType(value: string): value is MealType {
   return (MEAL_TYPES as readonly string[]).includes(value);
@@ -145,6 +153,9 @@ export function RecipeManager({
   const [tagFilter, setTagFilter] = useState<string>(ALL);
   // GAP-72: "all / one course", next to the tag filter.
   const [mealTypeFilter, setMealTypeFilter] = useState<string>(ALL);
+  // GAP-80: per-visit only (nothing stored), and not a filter, so it never
+  // changes the "no matches" copy.
+  const [sort, setSort] = useState<RecipeSort>("name");
   // GAP-48: the id of a just-duplicated recipe. Its row opens the edit
   // dialog once it exists in the refreshed list, then clears this.
   const [editNewId, setEditNewId] = useState<string | null>(null);
@@ -168,14 +179,20 @@ export function RecipeManager({
   const numberFormat = useMemo(() => createMoneyFormat(locale, currencyCode), [locale, currencyCode]);
   const filteredRecipes = useMemo(
     () =>
-      recipes.filter(
-        (recipe) =>
-          matchesQuery(recipe, query) && (!isRecipeTag(tagFilter) || recipeMatchesTag(recipe.tags, tagFilter)) &&
-          (!isMealType(mealTypeFilter) || recipe.mealTypes.includes(mealTypeFilter)),
+      sortRecipes(
+        recipes.filter(
+          (recipe) =>
+            matchesQuery(recipe, query) && (!isRecipeTag(tagFilter) || recipeMatchesTag(recipe.tags, tagFilter)) &&
+            (!isMealType(mealTypeFilter) || recipe.mealTypes.includes(mealTypeFilter)),
+        ),
+        sort,
+        recipeCooked,
       ),
-    [recipes, query, tagFilter, mealTypeFilter],
+    [recipes, query, tagFilter, mealTypeFilter, sort, recipeCooked],
   );
-  // GAP-51: queued recipes pin to a "Cook soon" shelf above the list.
+  // GAP-51: queued recipes pin to a "Cook soon" shelf above the list. The
+  // shelf keeps its own oldest-queued-first order whatever the sort; only
+  // the list below it follows the sort.
   const { shelf, rest } = useMemo(() => splitCookSoon(filteredRecipes), [filteredRecipes]);
   const renderRow = (recipe: RecipeData) => (
     <RecipeRow
@@ -393,10 +410,12 @@ export function RecipeManager({
         </MascotEmptyState>
       ) : (
         <>
-          {/* Search + tag filter in one row, the same "all / one value"
-              Select the inventory page uses for category and location. Only
-              one row's worth of controls, so unlike inventory there's no
-              folded mobile "Filters" dialog — both fit side by side. */}
+          {/* Search, the tag and course filters and the sort (GAP-80) in one
+              wrapping row, the filters being the same "all / one value"
+              Select the inventory page uses for category and location. Few
+              enough controls that unlike inventory there's no folded mobile
+              "Filters" dialog: on a phone the search takes the first row and
+              the three Selects share the second. */}
           <div className="flex flex-wrap items-center gap-2">
             <SearchInput
               value={query}
@@ -432,6 +451,18 @@ export function RecipeManager({
                 {MEAL_TYPES.map((type) => (
                   <SelectItem key={type} value={type}>
                     {dict[mealTypeDictKey[type]]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sort} onValueChange={(v) => setSort(v !== null && isRecipeSort(v) ? v : "name")}>
+              <SelectTrigger className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label={dict.recipeSortLabel}>
+                <SelectValue>{(v: string) => dict[recipeSortDictKey[isRecipeSort(v) ? v : "name"]]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {RECIPE_SORTS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {dict[recipeSortDictKey[option]]}
                   </SelectItem>
                 ))}
               </SelectContent>

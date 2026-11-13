@@ -46,7 +46,7 @@ import { useEffect } from "react";
 // tall; anything smaller is noise — a dynamic browser toolbar (<100px),
 // rounding, or a mid-animation transient — and must not lift the sheet
 // (see the header comment).
-export const KEYBOARD_INSET_MIN_PX = 150;
+const KEYBOARD_INSET_MIN_PX = 150;
 
 // The keyboard's height in CSS px: how much shorter (and, under pinch-zoom,
 // how far down) the visual viewport is than the layout viewport. Clamped at

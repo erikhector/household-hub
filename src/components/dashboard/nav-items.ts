@@ -28,7 +28,7 @@ export const SIDEBAR_COOKIE = "sidebar_expanded";
 // Client Component module and the Server layout needs the plain string.
 export const COMPACT_TITLE_SLOT_ID = "compact-page-title";
 
-export type NavKey =
+type NavKey =
   | "overview"
   | "inventory"
   | "shoppingList"

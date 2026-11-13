@@ -13,7 +13,7 @@ import { useParams } from "next/navigation";
 /** The shared names a list row and its detail page agree on. */
 export type MorphKind = "shopping-list" | "inventory-item";
 
-export function morphName(kind: MorphKind, id: string) {
+function morphName(kind: MorphKind, id: string) {
   return `${kind}-${id}`;
 }
 

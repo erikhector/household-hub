@@ -6715,8 +6715,33 @@ what has dropped out of rotation. No schema change: it reads back
   `en.ts` and `sv.ts`. A never-cooked recipe has no entry and shows no line
   (not "0 times"). The date is the UTC day of the latest `consumedAt`, as the
   planner formats its days, so the server render and every browser agree.
-- **Not in scope**: no sort or filter by last cooked; the list stays
-  alphabetical.
+- **Not in scope**: no filter by last cooked. The list can be sorted by it
+  (see "Recipe sort (GAP-80)").
+
+### Recipe sort (GAP-80)
+
+AnyList's 2026 recipe beta sorts a collection by date prepared and by times
+made. The Recipes tab has a sort `Select` ("Sort recipes" / "Sortera recept")
+after the tag and course filters, in the same wrapping row. On a phone the
+search keeps the first row and the two filters and the sort share the second.
+No schema change.
+
+- **Options**: A–Z (default, the page query's `name` order), Longest since
+  cooked ("Längst sedan lagad": never-cooked recipes first, then the one
+  cooked longest ago; the label names the direction because "Last cooked"
+  read as most recent first),
+  Most cooked (highest count first, never cooked counting as 0), Newest
+  (`Recipe.createdAt`, latest first). Ties fall back to the name.
+- **Where**: client-side in `RecipeManager`'s `filteredRecipes` memo, via
+  `sortRecipes` in `src/app/dashboard/meal-planning/recipe-sort.ts`, from the
+  GAP-46 `recipeCooked` stats and `createdAt` (an ISO string on `recipeRows`
+  in `page.tsx` and on `RecipeData`). The Cook soon shelf stays on top in its
+  own order; only the list below follows the sort.
+- **State**: per visit, nothing in cookies or storage. It isn't a filter, so
+  the "no matches" copy is unchanged.
+- Tests: `recipe-sort.test.ts` (each order, never-cooked placement, name
+  tie-break), `e2e/recipe-sort.spec.ts` (desktop and mobile: relative order
+  of two seeded recipes under Most cooked and Longest since cooked).
 
 ### Recipe planned dates
 
@@ -9996,9 +10021,8 @@ approximating them, so the email never disagrees with the app.
   `landscape` and `tablet` projects.
 - Suggestion rows and combobox buttons are 44 px on touch screens (UX-143):
   `AutocompleteItem` has `max-sm:min-h-11 pointer-coarse:min-h-11` like
-  `ComboboxItem`, and `ComboboxTrigger`/`ComboboxClear` set `h-11` there
-  (`h-full` in the `h-11` group measured 42 px after the border; no picker
-  renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
+  `ComboboxItem`, and `ComboboxTrigger` sets `h-11` there (`h-full` in the
+  `h-11` group measured 42 px after the border). Covered by
   `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
   Match item toggle.
 - Combobox options wrap a long name instead of clipping it (UX-184, M9):
