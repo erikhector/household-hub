@@ -259,6 +259,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
+- [ ] **MAINT-94. Flaky: a new task's edit sheet isn't found after tapping its title in task-notes on mobile** (low, S) —
+      `e2e/task-notes.spec.ts:33` ("task notes (sv) › adds a note, reloads and finds it in the sheet and on the row"), `mobile` project. In the full local `ci:local` run for GAP-80 (#1361, commit 22a6309, 2026-11-13) it failed once: after the title tap at line 48, the `getByRole('dialog', { name: t.edit(title) })` sheet wasn't found. It passed 12/12 on a `--repeat-each=3` re-run on desktop and mobile of the same build, and a second full `ci:local` on 22a6309 was green. The diff doesn't touch Tasks. The spec waits with `waitForDialogHistory` after the Add sheet closes, but taps the new row's title with no `expectHydrated` on that button, the same window MAINT-93 (#1362) closes in `task-title-opens.spec.ts`. Start there; if #1362 has merged, reuse its waits.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-notes.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
