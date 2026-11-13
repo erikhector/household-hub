@@ -154,6 +154,17 @@ vi.mock("@/lib/email", () => ({
 // MAINT-7: errors resolve through getDictionary(); `{}` falls back to English,
 // and a test that checks a translated error swaps in `sv` for one call.
 vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock, getDictionary: getDictionaryMock }));
+// Real bcryptjs at the minimum cost factor: joinViaInviteSignupAction hashes
+// at cost 12, ~350 ms of pure-JS CPU per call, enough to push a test past
+// vitest's 5 s timeout on a loaded machine (same fix as golden-path.test.ts).
+vi.mock("bcryptjs", async (importOriginal) => {
+  const actual = (await importOriginal<typeof import("bcryptjs")>()).default;
+  const fast = {
+    ...actual,
+    hash: (password: string) => actual.hash(password, 4),
+  };
+  return { default: fast, ...fast };
+});
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
   headers: headersMock,
