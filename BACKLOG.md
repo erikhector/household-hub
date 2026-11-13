@@ -205,7 +205,8 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `src/components/dashboard/`), meal planning and recipes
       (`src/app/dashboard/meal-planning/`, `src/components/meal-planning/`,
       `src/lib/recipe-import.ts`, `src/lib/recipe-import/`,
-      `src/lib/recipe-source.ts`, `src/lib/recipes/`).
+      `src/lib/recipe-source.ts`, `src/lib/recipes/`), notifications
+      (`src/lib/notifications.ts`, `src/lib/weekly-digest-content.ts`).
       Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
@@ -254,6 +255,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-12, release PR #1352 on 1599687): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job was green.
       Further sighting (2026-11-12, UX-184 builder run on d39f82f): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible in time) and passed on a focused re-run and on a second full run of the same commit.
       Further sighting (2026-11-13, release PR #1382 on 80cc114): `desktop` project again, in the GitHub e2e job (run 43409406202): the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on the retry in 3.7 s. The full local `ci:local` run of the same commit was green.
+      Further sighting (2026-11-13, release PR #1392 on 3fd5a0e, GitHub run 43461814529, job 132010436927): `desktop` project again, in the GitHub e2e job: the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on its retry, so the job was green. That is two release runs in a row on 2026-11-13 where `desktop` failed its first attempt, so desktop is not fixed.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -483,23 +485,6 @@ households have no budget categories, so every sweep only photographs the
 budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
-
-- [ ] **UX-187. Show the item page's decimals in the user's locale** (impact: med, effort: S) —
-      In Swedish, the item page shows English decimals: "lågt lager under
-      0.5 st" in the status card and "= 0.375 st" in the units card
-      (`mobile-sv-dashboard-inventory-items-id.png`). Every other amount
-      in the app uses the locale's decimal comma. `short()` is
-      `String(Number(v.toPrecision(3)))` at
-      `src/app/dashboard/inventory/items/[id]/page.tsx:25` (used at :210),
-      and is duplicated at
-      `src/components/inventory/item-page/item-units-and-usage.tsx:37`
-      (:69, :260). The low-stock line at `page.tsx:188` interpolates
-      `item.lowStockThreshold` raw. Fix: one locale-aware helper
-      (`Intl.NumberFormat(locale, { maximumSignificantDigits: 3 })`) used
-      in all four places, plus a unit test for it. Acceptance: a
-      `mobile`-project e2e spec in `sv` on the seeded item with a
-      fractional threshold sees "0,5" and no "0.5" in the status card; the
-      same page in `en` still shows "0.5".
 
 ### Dependencies
 

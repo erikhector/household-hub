@@ -758,6 +758,15 @@ every lookup the old one did.
       dialog with that unit filled in. The recipe name links to
       `/dashboard/meal-planning?tab=recipes&recipe=<id>`, which opens the
       Recipes tab searched down to that recipe.
+    - **Decimals (UX-187)**: every computed or stored decimal on the page
+      (the low-stock threshold, converted amounts, conversion sentences,
+      the conversion dialog's pre-filled amount, "Try it", and Change
+      unit's pre-filled factor and stock/threshold preview) goes through
+      `formatDecimal` (`src/lib/i18n/format.ts`, `Intl.NumberFormat`
+      without grouping), so Swedish reads "lågt lager under 0,5 st" and
+      "= 0,375 st". Converted amounts and hints keep three significant
+      digits; the threshold and saved conversions keep up to ten, so they
+      read back as typed. Both dialogs read a comma or a point.
     - **Also on**: pending list rows ("E2E Groceries (1 pcs)", linking to
       the list) and templates (linking to the shopping lists page).
     - **Recent prices (GAP-47)**: the item's last 10 `PriceHistory` rows,

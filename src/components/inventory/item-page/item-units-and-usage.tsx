@@ -22,7 +22,7 @@ import { unitConversionHint } from "@/lib/recipes/unit-hints";
 import { canonicalUnit, convertForItem } from "@/lib/units";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { format, plural } from "@/lib/i18n/format";
+import { format, formatDecimal, plural } from "@/lib/i18n/format";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
@@ -32,9 +32,6 @@ type ItemPageDict = Dictionary["inventory"]["itemPage"];
 type ComboDict = ComboFieldDict;
 
 type Conversion = { id: string; fromUnit: string; factor: number };
-
-// Three significant digits, like the recipe review's hints: "60", "0.15".
-const short = (value: number) => String(Number(value.toPrecision(3)));
 
 // What the conversion dialog opens with: an existing row to edit, or a
 // unit to add (from a ⚠ recipe row, or blank from "Add conversion").
@@ -48,6 +45,7 @@ export function ItemUnitsAndUsage({
   conversions,
   rows,
   units,
+  locale,
   dict,
   comboDict,
 }: {
@@ -55,6 +53,7 @@ export function ItemUnitsAndUsage({
   conversions: Conversion[];
   rows: (UsedInRow & { convertedLabel: string | null })[];
   units: string[];
+  locale: string;
   dict: ItemPageDict;
   comboDict: ComboDict;
 }) {
@@ -63,10 +62,12 @@ export function ItemUnitsAndUsage({
   const [isPending, startTransition] = useTransition();
 
   // A new row starts from the ≈ density hint (unit-hints.ts) when the
-  // staple list covers the item and both units, like the recipe review.
+  // staple list covers the item and both units, like the recipe review:
+  // three significant digits ("60", "0,15"). Amounts here are written in
+  // the viewer's decimal mark (UX-187); factorFromSentence reads either.
   const hintAmount = (fromUnit: string) => {
     const hint = fromUnit.trim() ? unitConversionHint(item.name, fromUnit, item.unit) : null;
-    return hint === null ? null : short(conversionSentence(fromUnit, hint, item.unit).amount);
+    return hint === null ? null : formatDecimal(conversionSentence(fromUnit, hint, item.unit).amount, locale);
   };
   const openAdd = (fromUnit: string) => {
     const hint = hintAmount(fromUnit);
@@ -76,7 +77,7 @@ export function ItemUnitsAndUsage({
     setDialog({
       conversionId: conversion.id,
       fromUnit: conversion.fromUnit,
-      amount: String(conversionSentence(conversion.fromUnit, conversion.factor, item.unit).amount),
+      amount: formatDecimal(conversionSentence(conversion.fromUnit, conversion.factor, item.unit).amount, locale, 10),
       fromHint: false,
     });
 
@@ -109,7 +110,7 @@ export function ItemUnitsAndUsage({
               return (
                 <li key={conversion.id} className="flex items-center gap-2 px-3 py-1.5">
                   <span className="min-w-0 flex-1 text-sm break-words">
-                    1 {unitLabel(sentence.leadUnit)} = {sentence.amount} {unitLabel(sentence.otherUnit)}
+                    1 {unitLabel(sentence.leadUnit)} = {formatDecimal(sentence.amount, locale, 10)} {unitLabel(sentence.otherUnit)}
                   </span>
                   <Button
                     type="button"
@@ -149,7 +150,7 @@ export function ItemUnitsAndUsage({
           <Plus />
           {dict.addConversion}
         </Button>
-        <TryIt item={item} conversions={conversions} units={units} dict={dict} comboDict={comboDict} />
+        <TryIt item={item} conversions={conversions} units={units} locale={locale} dict={dict} comboDict={comboDict} />
         </div>
       </details>
 
@@ -216,12 +217,14 @@ function TryIt({
   item,
   conversions,
   units,
+  locale,
   dict,
   comboDict,
 }: {
   item: { unit: string };
   conversions: Conversion[];
   units: string[];
+  locale: string;
   dict: ItemPageDict;
   comboDict: ComboDict;
 }) {
@@ -257,7 +260,7 @@ function TryIt({
         />
       </div>
       <span aria-live="polite" data-testid="try-it-result">
-        {result === null ? dict.tryItNoResult : `= ${short(roundAmount(result))} ${unitLabel(item.unit)}`}
+        {result === null ? dict.tryItNoResult : `= ${formatDecimal(roundAmount(result), locale)} ${unitLabel(item.unit)}`}
       </span>
     </div>
   );
