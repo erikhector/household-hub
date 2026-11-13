@@ -5,8 +5,8 @@ import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
 
-// GAP-80: the Recipes tab sorts A–Z by default and can sort by last cooked
-// (longest ago first) or most cooked. Two recipes share a unique tag so a
+// GAP-80: the Recipes tab sorts A–Z by default and can sort by longest since
+// cooked (never cooked, then longest ago, first) or most cooked. Two recipes share a unique tag so a
 // search narrows the list to just them, and only their relative order is
 // asserted: other specs cook recipes in the same household. A (cooked twice,
 // most recently) is named so it sorts after B alphabetically, so each sort
@@ -90,7 +90,7 @@ async function pickSort(page: Page, label: string) {
   await expect(page.getByRole("combobox", { name: t.recipeSortLabel })).toContainText(label);
 }
 
-test("the recipe list sorts by most cooked and by last cooked", async ({ page }) => {
+test("the recipe list sorts by most cooked and by longest since cooked", async ({ page }) => {
   await gotoRevealed(page, "/dashboard/meal-planning?tab=recipes");
   const sort = page.getByRole("combobox", { name: t.recipeSortLabel });
   await expectHydrated(sort);

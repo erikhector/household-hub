@@ -6723,8 +6723,10 @@ after the tag and course filters, in the same wrapping row. On a phone the
 search keeps the first row and the two filters and the sort share the second.
 No schema change.
 
-- **Options**: A–Z (default, the page query's `name` order), Last cooked
-  (longest since cooked first, never-cooked recipes before any cooked one),
+- **Options**: A–Z (default, the page query's `name` order), Longest since
+  cooked ("Längst sedan lagad": never-cooked recipes first, then the one
+  cooked longest ago; the label names the direction because "Last cooked"
+  read as most recent first),
   Most cooked (highest count first, never cooked counting as 0), Newest
   (`Recipe.createdAt`, latest first). Ties fall back to the name.
 - **Where**: client-side in `RecipeManager`'s `filteredRecipes` memo, via
@@ -6736,7 +6738,7 @@ No schema change.
   the "no matches" copy is unchanged.
 - Tests: `recipe-sort.test.ts` (each order, never-cooked placement, name
   tie-break), `e2e/recipe-sort.spec.ts` (desktop and mobile: relative order
-  of two seeded recipes under Most cooked and Last cooked).
+  of two seeded recipes under Most cooked and Longest since cooked).
 
 ### Recipe planned dates
 
