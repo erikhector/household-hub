@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.152.2",
+    "date": "2026-11-13",
+    "pr": 1392,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The item page now shows decimals the way your language writes them, for example \"0,5\" instead of \"0.5\" in Swedish.",
+      "sv": "Varusidan visar nu decimaler som ditt språk skriver dem, till exempel \"0,5\" i stället för \"0.5\" på svenska."
+    }
+  },
+  {
     "version": "0.152.1",
     "date": "2026-11-13",
     "pr": 1388,
