@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.152.1",
+    "date": "2026-11-13",
+    "pr": 1388,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On phones set to larger text, the shopping list's \"items aren't in your pantry yet\" note is readable again: \"Match all\" and the close button now move below the text instead of squeezing it.",
+      "sv": "På telefoner med större text går det åter att läsa inköpslistans notis om varor som inte finns i skafferiet: \"Koppla alla\" och stängknappen hamnar nu under texten i stället för att trycka ihop den."
+    }
+  },
+  {
     "version": "0.152.0",
     "date": "2026-11-13",
     "pr": 1376,

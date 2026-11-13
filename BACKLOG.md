@@ -202,7 +202,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `src/lib/actions/receipt-scan.ts`), shared components
       (`src/components/ui/`, `src/components/shared/`,
       `src/components/charts/`, `src/components/pwa/`,
-      `src/components/dashboard/`).
+      `src/components/dashboard/`), meal planning and recipes
+      (`src/app/dashboard/meal-planning/`, `src/components/meal-planning/`,
+      `src/lib/recipe-import.ts`, `src/lib/recipe-import/`,
+      `src/lib/recipe-source.ts`, `src/lib/recipes/`).
       Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
@@ -250,6 +253,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-11, release PR #1315 on 86ae1b0): `mobile` project, failed once in the full local `ci:local` run (dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job didn't run (docs-only release).
       Further sighting (2026-11-12, release PR #1352 on 1599687): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job was green.
       Further sighting (2026-11-12, UX-184 builder run on d39f82f): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible in time) and passed on a focused re-run and on a second full run of the same commit.
+      Further sighting (2026-11-13, release PR #1382 on 80cc114): `desktop` project again, in the GitHub e2e job (run 43409406202): the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on the retry in 3.7 s. The full local `ci:local` run of the same commit was green.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -264,18 +268,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
-- [ ] **MAINT-94. Flaky: a new task's edit sheet isn't found after tapping its title in task-notes on mobile** (low, S) —
-      `e2e/task-notes.spec.ts:33` ("task notes (sv) › adds a note, reloads and finds it in the sheet and on the row"), `mobile` project. In the full local `ci:local` run for GAP-80 (#1361, commit 22a6309, 2026-11-13) it failed once: after the title tap at line 48, the `getByRole('dialog', { name: t.edit(title) })` sheet wasn't found. It passed 12/12 on a `--repeat-each=3` re-run on desktop and mobile of the same build, and a second full `ci:local` on 22a6309 was green. The diff doesn't touch Tasks. The spec waits with `waitForDialogHistory` after the Add sheet closes, but taps the new row's title with no `expectHydrated` on that button, the same window MAINT-93 (#1362) closes in `task-title-opens.spec.ts`. Start there; if #1362 has merged, reuse its waits.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/task-notes.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-95. Flaky: the command palette's chunk-load error message isn't shown in time on desktop** (low, S) —
       `e2e/shell-lazy-popups.spec.ts:71` ("a failed chunk load › the palette says so, and the next press retries"), `desktop` project. In the GitHub e2e job on release PR #1367 (commit 5a99984, 2026-11-13, job 131687624580) the first attempt failed after 6.3 s at line 77: `expect(page.getByText(en.errors.generic)).toBeVisible()` found no element; it passed on the retry, on the `mobile` project, and on both projects in the full local `ci:local` run of the same commit. The test presses the shortcut right after `page.route()` aborts every chunk, with only the switcher button checked for hydration, so the keyboard handler for the palette shortcut may not be attached yet, or the palette chunk may already be cached so the abort never fires. Same family as MAINT-77 (`inventory-lazy-dialogs.spec.ts`): check what that item's fix finds before starting.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/shell-lazy-popups.spec.ts --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-96. Flaky: the service-worker cache spec's offline fetch loses its page to a navigation on desktop** (low, S) —
-      `e2e/sw-static-cache.spec.ts:9` ("the service worker caches hashed static assets and nothing else"), `desktop` project. In the GitHub e2e job on release PR #1376 (commit 97e7c4f, 2026-11-13, job 131752127244) the first attempt failed after 2.6 s at line 32: `page.evaluate(... fetch(urls[0]) ...)` threw "Execution context was destroyed, most likely because of a navigation". It passed on the retry, on the `mobile` project, and on both projects in the full local `ci:local` run of the same commit. The spec's second `page.reload()` (line 17) isn't awaited to a settled page before `cachedUrls()` and the offline `evaluate` run, so a late load or redirect of `/dashboard` (an RSC refresh, or the middleware's session redirect) can still replace the context. Wait for the reloaded page to be ready (`expectHydrated` or `waitForLoadState`) before polling the cache, and check whether anything navigates once the worker takes control.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/sw-static-cache.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -488,22 +484,6 @@ budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
 
-- [ ] **UX-186. Stack the shopping list's "match items" note at large text** (impact: high, effort: S) —
-      At 200 % text (`text-200-dashboard-shopping-list-id.png`, Pixel 7),
-      the "2 items aren't in your pantry yet…" note keeps its text,
-      "Match all" and × on one row. The text column shrinks to one word per
-      line (about 14 lines), and "Match all" is drawn over the word "items".
-      People who use Larger text get an unreadable note (DESIGN.md M9,
-      readable and adaptable). The cause is the single `flex items-start`
-      row with a `flex-1` text column at
-      `src/components/shopping/shopping-list-client.tsx:884-899`. Fix: wrap
-      it so the actions drop under the text when there's no room, e.g.
-      `flex-wrap` with `basis-full`/`min-w-[12rem]` on the text and × kept
-      top-right. Acceptance: a `mobile`-project e2e spec sets the root font
-      to 200 % on a list with ≥ 2 unmatched items. It asserts the note's
-      text and the "Match all" button bounding boxes don't intersect, and
-      that the text is at least 60 % of the note's width. At 100 % the note
-      stays one row on `desktop`.
 - [ ] **UX-188. Give the desktop inventory header room and lead with "Add item"** (impact: med, effort: S) —
       On desktop (`desktop-sv-dashboard-inventory.png`, 1280 px) the
       header's `lg:flex-row` (`src/app/dashboard/inventory/page.tsx:283`)

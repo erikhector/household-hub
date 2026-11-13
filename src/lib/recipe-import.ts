@@ -30,29 +30,17 @@
 // makes that review explicit when we were guessing). All three stay
 // regex/string-based — no DOM parser dependency, matching how the JSON-LD
 // tier has always worked.
-export type { ImportedRecipe, ParsedIngredient, ParsedRecipe, RecipeImportSource } from "./recipe-import/types";
-export { parseIngredientLine, parseIngredientString } from "./recipe-import/parse-ingredient";
-export { extractJsonLdBlocks, findRecipeNode, flattenInstructions, mapJsonLdToRecipe } from "./recipe-import/parse-jsonld";
-export { parseMicrodataRecipe } from "./recipe-import/parse-microdata";
-export { parseHeuristicRecipe } from "./recipe-import/parse-heuristic";
+export type { ParsedRecipe, RecipeImportSource } from "./recipe-import/types";
 export { parseRecipeFromHtml } from "./recipe-import/parse";
 // GAP-67: recipes from a .paprikarecipes archive or a Recipe JSON-LD file.
 export {
   parseRecipeFile,
   RECIPE_FILE_MAX_BYTES,
-  RECIPE_FILE_MAX_RECIPES,
   type FileRecipe,
   type RecipeFileError,
-  type RecipeFileResult,
 } from "./recipe-import/parse-file";
 export {
   _setPrivateAddressCheckForTests,
   fetchRecipeHtml,
-  isPrivateOrReservedIPv4,
-  isPrivateOrReservedIPv6,
-  validateRecipeUrl,
   type FetchRecipeError,
-  type FetchRecipeResult,
-  type UrlValidationError,
-  type UrlValidationResult,
 } from "./recipe-import/fetch";

@@ -882,22 +882,32 @@ export function ShoppingListClient({
                   {group.label}
                 </p>
                 {showMatchNote && group.key === matchNoteGroupKey && (
-                  <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
-                    <p className="min-w-0 flex-1 text-muted-foreground">
+                  // UX-186: one row while the sentence keeps a readable
+                  // column (10rem, which grows with the text size); past
+                  // that, at Larger text on a phone, the actions wrap onto
+                  // their own row under it, right-aligned, instead of
+                  // squeezing the sentence to a word per line.
+                  <div
+                    role="note"
+                    className="flex flex-wrap items-start gap-2 rounded-md border border-dashed bg-muted/40 p-3 text-sm"
+                  >
+                    <p className="min-w-0 flex-[1_1_10rem] text-muted-foreground">
                       {format(plural(unresolvedItems.length, dict.matchNote), { count: unresolvedItems.length })}
                     </p>
-                    <Button size="sm" variant="outline" onClick={() => openLazyDialog(dialogs.resolveMappings)}>
-                      {dict.matchAll}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-8 shrink-0 text-muted-foreground max-sm:size-11 pointer-coarse:size-11"
-                      aria-label={dict.matchNoteDismissAriaLabel}
-                      onClick={() => setMatchNoteDismissed(true)}
-                    >
-                      <X className="size-4" />
-                    </Button>
+                    <div className="ml-auto flex shrink-0 items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openLazyDialog(dialogs.resolveMappings)}>
+                        {dict.matchAll}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 shrink-0 text-muted-foreground max-sm:size-11 pointer-coarse:size-11"
+                        aria-label={dict.matchNoteDismissAriaLabel}
+                        onClick={() => setMatchNoteDismissed(true)}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {group.items.map((item) => (

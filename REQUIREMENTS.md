@@ -2742,7 +2742,11 @@ top of it. No migration was needed.
   your stock.", with a "Match all" button (opens the batch matcher, which is
   mounted for any number of unlinked rows; the ⋯ menu's "Resolve N items"
   keeps its three-row threshold) and a dismiss ×. The dismissal lasts for
-  that visit only (component state, nothing stored in the browser).
+  that visit only (component state, nothing stored in the browser). The
+  note is one row while the sentence keeps at least a 10rem column; at
+  Larger text on a phone (200 %), "Match all" and × wrap onto their own
+  row under the sentence, right-aligned, so the sentence keeps the
+  note's full width (UX-186).
 - Closing the receipt dialogs (`ReceiptScanDialog`, `RegisterReceiptDialog`)
   or the AI shelf scan while their review step is showing asks first
   ("Discard this review?", `DiscardReviewDialog`), whether by Cancel,
@@ -7311,7 +7315,7 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
-- **Notes (GAP-73)**: nullable `HouseholdTask.notes`, plain text, trimmed, CRLF folded to LF and cut at 500 characters (`updateTaskAction` clears it on empty and leaves it alone when the caller sends none). Add/Edit dialog has a 16 px "Notes" textarea (`autoComplete="off"`, counter from 450); the row shows one truncated line under the title, never as links; the full text is in the sheet the title opens. No checklists, attachments or comments. Included in the data export. `task-notes.spec.ts` covers add, reload and the sheet in `en` and `sv`.
+- **Notes (GAP-73)**: nullable `HouseholdTask.notes`, plain text, trimmed, CRLF folded to LF and cut at 500 characters (`updateTaskAction` clears it on empty and leaves it alone when the caller sends none). Add/Edit dialog has a 16 px "Notes" textarea (`autoComplete="off"`, counter from 450); the row shows one truncated line under the title, never as links; the full text is in the sheet the title opens. No checklists, attachments or comments. Included in the data export. `task-notes.spec.ts` covers add, reload and the sheet in `en` and `sv`. It taps a row's title only once React owns the button (`expectHydrated`), after the Add sheet's `history.back()` has landed and, after the reload, the router has patched history (`expectRouterPatched`); tapped before hydration, the edit sheet once failed to show on the phone project (MAINT-94).
 - **Create and edit share one dialog (UX-24)**: both modes of
   `TaskFormDialog` have a title field (so a task can be renamed;
   `updateTaskAction` takes an optional trimmed `title`, 1-120 characters), a
@@ -10598,6 +10602,11 @@ UX-14's rapid ticks and the rollback toast.
   claims the page, its fetches skip the route, so a save meant to fail
   went through, and a held language change never reached the route and
   waited out the 30 s test timeout (MAINT-93).
+  A test that goes offline on `/dashboard` or `/dashboard/tasks` first
+  waits for the `time_zone` cookie: without it `TimeZoneCookie` refreshes
+  the page once, and an RSC refresh that fails offline makes Next fall
+  back to a full browser navigation, which destroyed
+  `sw-static-cache.spec.ts`'s offline `evaluate` (MAINT-96).
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
