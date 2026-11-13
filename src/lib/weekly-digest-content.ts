@@ -34,7 +34,7 @@ export const DIGEST_MEAL_WINDOW_DAYS = 7;
 // full picture.
 export const DIGEST_MAX_LIST_ITEMS = 10;
 
-export type DigestInventoryItem = {
+type DigestInventoryItem = {
   name: string;
   expiresAt: Date | null;
   expiresAtEstimated: boolean;
@@ -56,7 +56,7 @@ export type WeeklyDigestInput = {
   budget: Pick<SafeToSpendResult, "safeToSpend" | "status" | "breakdown" | "expectedRecurring"> | null;
 };
 
-export type DigestExpiringItem = { name: string; estimated: boolean };
+type DigestExpiringItem = { name: string; estimated: boolean };
 
 export type WeeklyDigestSummary = {
   meals: { distinctRecipeCount: number } | null;
