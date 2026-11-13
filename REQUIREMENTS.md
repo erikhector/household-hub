@@ -9996,9 +9996,8 @@ approximating them, so the email never disagrees with the app.
   `landscape` and `tablet` projects.
 - Suggestion rows and combobox buttons are 44 px on touch screens (UX-143):
   `AutocompleteItem` has `max-sm:min-h-11 pointer-coarse:min-h-11` like
-  `ComboboxItem`, and `ComboboxTrigger`/`ComboboxClear` set `h-11` there
-  (`h-full` in the `h-11` group measured 42 px after the border; no picker
-  renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
+  `ComboboxItem`, and `ComboboxTrigger` sets `h-11` there (`h-full` in the
+  `h-11` group measured 42 px after the border). Covered by
   `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
   Match item toggle.
 - Combobox options wrap a long name instead of clipping it (UX-184, M9):
