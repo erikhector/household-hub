@@ -484,22 +484,6 @@ budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
 
-- [ ] **UX-187. Show the item page's decimals in the user's locale** (impact: med, effort: S) —
-      In Swedish, the item page shows English decimals: "lågt lager under
-      0.5 st" in the status card and "= 0.375 st" in the units card
-      (`mobile-sv-dashboard-inventory-items-id.png`). Every other amount
-      in the app uses the locale's decimal comma. `short()` is
-      `String(Number(v.toPrecision(3)))` at
-      `src/app/dashboard/inventory/items/[id]/page.tsx:25` (used at :210),
-      and is duplicated at
-      `src/components/inventory/item-page/item-units-and-usage.tsx:37`
-      (:69, :260). The low-stock line at `page.tsx:188` interpolates
-      `item.lowStockThreshold` raw. Fix: one locale-aware helper
-      (`Intl.NumberFormat(locale, { maximumSignificantDigits: 3 })`) used
-      in all four places, plus a unit test for it. Acceptance: a
-      `mobile`-project e2e spec in `sv` on the seeded item with a
-      fractional threshold sees "0,5" and no "0.5" in the status card; the
-      same page in `en` still shows "0.5".
 - [ ] **UX-188. Give the desktop inventory header room and lead with "Add item"** (impact: med, effort: S) —
       On desktop (`desktop-sv-dashboard-inventory.png`, 1280 px) the
       header's `lg:flex-row` (`src/app/dashboard/inventory/page.tsx:283`)

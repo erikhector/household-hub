@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { datedName, format, plural } from "@/lib/i18n/format";
+import { datedName, format, formatDecimal, plural } from "@/lib/i18n/format";
 
 describe("plural", () => {
   it("returns the singular form for a count of exactly 1", () => {
@@ -57,5 +57,27 @@ describe("datedName", () => {
 
   it("writes the date in English for en", () => {
     expect(datedName("Shopping list", "en", date)).toBe("Shopping list — Oct 5, 2026");
+  });
+});
+
+describe("formatDecimal", () => {
+  it("uses the locale's decimal mark (UX-187)", () => {
+    expect(formatDecimal(0.5, "sv")).toBe("0,5");
+    expect(formatDecimal(0.5, "en")).toBe("0.5");
+  });
+
+  it("keeps three significant digits by default and drops trailing zeros", () => {
+    expect(formatDecimal(0.375, "sv")).toBe("0,375");
+    expect(formatDecimal(0.0091234, "en")).toBe("0.00912");
+    expect(formatDecimal(2, "en")).toBe("2");
+  });
+
+  it("keeps more digits when asked, for a value the user typed", () => {
+    expect(formatDecimal(236.588, "en", 10)).toBe("236.588");
+  });
+
+  it("never groups thousands, so the value can pre-fill an input", () => {
+    expect(formatDecimal(1240, "en")).toBe("1240");
+    expect(formatDecimal(2000, "sv")).toBe("2000");
   });
 });
