@@ -856,35 +856,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-11-11 scan
 
-- [ ] **GAP-80. Sort recipes by last cooked, most cooked or newest** (impact: med, effort: S) —
-      AnyList's 2026 recipe beta adds sorting a collection by date
-      prepared and by how many times a recipe was made, the quickest way
-      to find what has dropped out of rotation or what the household
-      actually eats. Squirrel already computes both per recipe
-      (`getRecipeCookedStats`, `src/app/dashboard/meal-planning/recipe-cooked-stats.ts`;
-      REQUIREMENTS.md, "Recipe last cooked") and shows them on each row,
-      but the Recipes tab is always alphabetical (the recipes query in
-      `src/app/dashboard/meal-planning/page.tsx` orders by `name`), and
-      GAP-46 left sorting out of scope. Add a sort `Select` to the
-      wrapping row that holds the tag and course filters in
-      `src/components/meal-planning/recipe-manager.tsx`. The tab has no
-      folded mobile "Filters" dialog, so on phones the sort shares the
-      second row with the two filters (search keeps the full first row),
-      with no horizontal overflow at 412 px. Options: A–Z (default), last
-      cooked (oldest first, never-cooked first), most cooked, newest.
-      Sort client-side in the existing `filteredRecipes` memo, from the
-      `recipeCooked` stats prop plus `createdAt`, which `recipeRows` in
-      `page.tsx` doesn't pass yet and needs adding (ISO string) to it and
-      the client recipe type. The Cook soon shelf stays on top. The sort
-      is per-visit component state: nothing in cookies or storage, and
-      it isn't a filter, so it doesn't change the "no matches" copy. No
-      schema change; labels in `en.ts` and `sv.ts`.
-      Acceptance: unit test of the comparator (ties fall back to name,
-      never-cooked placement); e2e on `desktop` and `mobile` creates two
-      `unique()` recipes, cooks A twice and B once, and sees A above B
-      under "Most cooked" and B above A under "Last cooked" (relative
-      order only, since other specs cook recipes in the same household).
-
 - [ ] **GAP-81. A short note on a planned meal** (impact: med, effort: M) `[schema]` —
       AnyList's January 2026 meal-plan update adds notes on meal-plan
       entries, and Grocy's planner has notes per day: "thaw the chicken

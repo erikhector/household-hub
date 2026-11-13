@@ -2385,6 +2385,13 @@ export const sv = {
     allMealTypes: "Alla måltider",
     tagFilterLabel: "Filtrera på tagg",
     allTags: "Alla taggar",
+    // GAP-80: the Recipes tab's sort, beside the two filters. "Senast lagad"
+    // puts the longest since cooked (and never cooked) first.
+    recipeSortLabel: "Sortera recept",
+    recipeSortName: "A–Ö",
+    recipeSortLastCooked: "Senast lagad",
+    recipeSortMostCooked: "Mest lagad",
+    recipeSortNewest: "Nyast",
     ingredientCount: {
       one: "{count} ingrediens",
       other: "{count} ingredienser",
