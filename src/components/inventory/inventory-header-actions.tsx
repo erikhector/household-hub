@@ -120,6 +120,16 @@ export function InventoryHeaderActionsClient({
 
       {/* Desktop / tablet: keep icon buttons visible */}
       <div className="hidden sm:flex flex-wrap items-center gap-2">
+        {/* UX-50: with no items the empty state holds "Add item" (one primary
+            on screen), so it only joins the header once there is a list.
+            UX-188: when it does, it comes first, ahead of the scan and
+            manage tools. */}
+        {items.length > 0 && (
+          <Button className="gap-1.5" data-shortcut="new" aria-haspopup="dialog" onClick={() => openLazyDialog(addHandle)} {...preloadOnIntent(loadItemFormDialog)}>
+            <Plus className="size-4" />
+            <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
+          </Button>
+        )}
         <Button variant="outline" className="gap-1.5" aria-haspopup="dialog" onClick={() => openLazyDialog(stockHandle)} {...preloadOnIntent(loadStockScanDialog)}>
           <ScanBarcode className="size-4" />
           <span className="sr-only sm:not-sr-only">{dict.stockScan.triggerLabel}</span>
@@ -140,14 +150,6 @@ export function InventoryHeaderActionsClient({
           <Button variant="outline" className="gap-1.5" aria-haspopup="dialog" onClick={() => openLazyDialog(checkHandle)} {...preloadOnIntent(loadStockCheckDialog)}>
             <ClipboardCheck className="size-4" />
             <span className="sr-only sm:not-sr-only">{dict.stockCheck.triggerLabel}</span>
-          </Button>
-        )}
-        {/* UX-50: with no items the empty state holds "Add item" (one primary
-            on screen), so it only joins the header once there is a list. */}
-        {items.length > 0 && (
-          <Button className="gap-1.5" data-shortcut="new" aria-haspopup="dialog" onClick={() => openLazyDialog(addHandle)} {...preloadOnIntent(loadItemFormDialog)}>
-            <Plus className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
           </Button>
         )}
       </div>

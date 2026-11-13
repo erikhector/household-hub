@@ -883,6 +883,17 @@ every lookup the old one did.
     opened, Freeze, Add to list, Details, Mark empty, Edit, Delete) fits the
     ~990 px column at 1280 px with no horizontal scroll.
     `e2e/ux-130.desktop.spec.ts` asserts it.
+  - **Desktop inventory header and Last updated column (UX-188)**: from
+    `sm` the toolbar sits under the page title, and only moves beside it
+    once the page is 90rem wide (a container query, so a collapsed
+    sidebar counts). Beside the title at 1280 px it squeezed the subtitle
+    over three lines and wrapped the buttons into three ragged rows.
+    "Add item" is the toolbar's first button (DOM, tab and visual order),
+    ahead of the scan tools, Manage items and Export CSV. The table's Last
+    updated cells show only the date (the column header says the rest;
+    the updater's "by {name}" stays in the cell's popover and
+    `aria-label`), which gives Category room for "Dairy & eggs".
+    `e2e/ux-188.desktop.spec.ts` asserts it in Swedish.
   - **Cards below `lg`, table from `lg` (UX-141)**: the inventory table
     only shows from 1024 px (`lg`). Between `sm` and `lg`, a tablet with
     the sidebar open (810 px), the name column was about three characters
