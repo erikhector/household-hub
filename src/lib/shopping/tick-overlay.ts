@@ -18,7 +18,7 @@
 // already includes the settled toggle, and anything that disagrees with it
 // (another member unticking the row) is the truth, not something to hide.
 
-export type TickEntry = { expected: boolean; inFlight: number };
+type TickEntry = { expected: boolean; inFlight: number };
 export type TickOverlay = ReadonlyMap<string, TickEntry>;
 
 export const NO_TICKS: TickOverlay = new Map();

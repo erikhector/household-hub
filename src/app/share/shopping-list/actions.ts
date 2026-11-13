@@ -48,7 +48,7 @@ async function findActiveShareLink(token: string) {
   });
 }
 
-export type SharedShoppingListItem = {
+type SharedShoppingListItem = {
   id: string;
   name: string;
   quantity: number;
