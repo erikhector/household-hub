@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, openItemUnits, openRowSheet } from "./ui";
 
@@ -102,6 +102,33 @@ test("an item's details open from the inventory list and show its recipes and le
   await recipeRow(page, flour.recipes.buns).getByRole("link", { name: flour.recipes.buns }).click();
   await expect(page).toHaveURL(/\/dashboard\/meal-planning\?tab=recipes/);
   await expect(page.getByPlaceholder("Search recipes…").filter({ visible: true })).toHaveValue(flour.recipes.buns);
+});
+
+// UX-187: the threshold and converted amounts follow the viewer's decimal
+// mark. The seeded flour's threshold is 0.5 and the buns' 750 g restates
+// as 0.375 bags, so Swedish must read "0,5" / "0,375", never "0.5".
+test("the item page shows its decimals with an English point", async ({ page }) => {
+  const flour = await seedFlour();
+  await page.goto(`/dashboard/inventory/items/${flour.id}`);
+  const status = page.getByRole("main").getByRole("region", { name: "Status" });
+  await expect(status.getByText("running low below 0.5 pcs", { exact: true })).toBeVisible();
+  await expect(recipeRow(page, flour.recipes.buns)).toContainText("= 0.375 pcs");
+});
+
+test.describe("in Swedish", () => {
+  test.use({ storageState: STORAGE_STATE_SV });
+
+  test("the item page shows its decimals with a decimal comma", async ({ page }) => {
+    const flour = await seedFlour();
+    await page.goto(`/dashboard/inventory/items/${flour.id}`);
+    const status = page.getByRole("main").getByRole("region", { name: "Status" });
+    await expect(status.getByText("lågt lager under 0,5 st", { exact: true })).toBeVisible();
+    await expect(status).not.toContainText("0.5");
+    const buns = recipeRow(page, flour.recipes.buns);
+    await expect(buns).toContainText("= 0,375 st");
+    await expect(buns).not.toContainText("0.375");
+    await expectNoHorizontalOverflow(page);
+  });
 });
 
 // UX-172: status, the stepper and "Add to list" are the first card, ahead of
