@@ -896,6 +896,60 @@ out to be a product-scope question rather than a scoped task should move to
       reloads and sees it on the day and in the entry dialog, then clears
       it, in `en` and `sv`.
 
+### 2026-11-13 scan
+
+- [ ] **GAP-82. Move a shopping item to another open list** (impact: med, effort: S) —
+      Bring! now lets you move an item from one list to another (its
+      long-requested iOS feature), and Paprika moves rows between pantry
+      and grocery list. Squirrel supports several `ACTIVE` lists (the
+      household default plus e.g. "Hardware store"), but a row can only
+      be deleted and retyped on the other list: the row's ⋯ menu
+      (`RowActionsMenu` in `src/components/shopping/shopping-row.tsx:296`)
+      has Edit, Delete and Add price only, and the one move that exists is
+      UX-80's bulk carry-over on completion
+      (`completeShoppingListAction`, `src/app/dashboard/shopping-list/list-actions.ts:320`).
+      Add a "Move to list…" entry to the ⋯ menu (the tap path on phones
+      too) for an unbought row, shown only when the household has another `ACTIVE` list. It opens a
+      small picker of the other active lists; picking one calls a new
+      click action `moveShoppingListItemAction(itemId, targetListId)` in
+      `item-actions.ts` that `requireHousehold()`s, checks both lists
+      belong to the household and the target is `ACTIVE`, and updates
+      `shoppingListId` (keeping note, price, `addedByUserId`). If the same
+      inventory item is already pending on the target it merges into that
+      row by summing quantity in the same unit (else refuses with an
+      error), the same dedupe carry-over uses. Toast "Moved {name} to
+      {list}" with Undo (moves it back). Labels in `en.ts` and `sv.ts`.
+      Acceptance: action tests for tenancy (foreign target list rejected),
+      non-`ACTIVE` target rejected, purchased row rejected, and the merge;
+      e2e on `desktop` and `mobile` creates two `unique()` lists, adds a
+      row to the first, moves it via the ⋯ menu, sees it gone from the
+      first list and present on the second after a reload.
+
+- [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
+      Bring! shows suggested details (amount, variant) under a newly
+      added item, learned from what the household usually buys. Squirrel's
+      smart add line already ranks suggestions by last purchase
+      (REQUIREMENTS.md, "Smart add line (AUTO-1)") but a picked suggestion
+      with nothing typed in front always lands as 1 of its usual unit
+      (`rowsForSuggestion`, `src/lib/shopping/smart-add-suggestions.ts:135`),
+      so a household that always buys 12 eggs or 3 l milk retypes the
+      count every trip, which is the in-store typing PRODUCT.md's Direction
+      wants gone. Extend `SmartAddCandidate` with `lastQuantity` (and its
+      unit) from the newest purchased `ShoppingListItem` per inventory
+      item; the `[id]/page.tsx:114` `groupBy` only returns `createdAt`, so
+      replace it with a `distinct: ["inventoryItemId"]` `findMany`
+      ordered by `createdAt desc` (household-scoped, as now). When nothing
+      is typed in front, use the last quantity if its unit matches the
+      item's usual unit, else 1 as today; a typed count/unit always wins.
+      The suggestion row shows the amount it will add ("Eggs · 12 pcs"),
+      so nothing is added silently (Guardrails: suggest, don't mutate),
+      and the row stays editable afterwards. No schema change; any new
+      label in `en.ts` and `sv.ts`.
+      Acceptance: unit tests of `rowsForSuggestion` (last quantity used,
+      typed quantity wins, unit mismatch falls back to 1); e2e on `mobile`
+      buys a `unique()` item as 6 pcs on one list, then on a new list types
+      its prefix, sees "6" in the suggestion and gets a 6 pcs row on pick.
+
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
