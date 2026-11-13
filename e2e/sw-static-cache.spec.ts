@@ -9,6 +9,21 @@ import { dismissCookieNotice } from "./ui";
 test("the service worker caches hashed static assets and nothing else", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await page.goto("/dashboard");
+  // A first visit has no time_zone cookie, so TimeZoneCookie writes it and
+  // router.refresh()es the overview once. If that refresh lands on the last
+  // reloaded page (its effect can run after the worker is ready, since it
+  // hydrates inside the dashboard layout) and is still in flight when the
+  // context goes offline, Next falls back to a full browser navigation on
+  // the failed RSC fetch and the offline evaluate below loses its page
+  // ("Execution context was destroyed", MAINT-96). Waiting for the cookie
+  // here means every reload below is served with it and never refreshes.
+  const zone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  await expect
+    .poll(async () =>
+      // The zone's "/" is stored percent-encoded.
+      (await context.cookies()).some((cookie) => cookie.name === "time_zone" && decodeURIComponent(cookie.value) === zone),
+    )
+    .toBe(true);
   await page.evaluate(() => navigator.serviceWorker.ready);
   // The first load ran before the worker controlled the page, so its chunks
   // went to the network only; a reload is fetched through the worker.
