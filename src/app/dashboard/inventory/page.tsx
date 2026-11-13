@@ -117,10 +117,11 @@ async function InventoryWellStockedNote({ householdId, dict }: { householdId: st
 function InventoryActionButtonsSkeleton() {
   return (
     <div className="flex items-center gap-2" aria-hidden="true">
+      {/* Add item leads the loaded toolbar (UX-188), so its block comes first. */}
+      <div className="h-9 w-9 animate-pulse rounded-md bg-muted max-sm:size-11 sm:w-28" />
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-9 w-9 animate-pulse rounded-md bg-muted max-sm:hidden sm:w-24" />
       ))}
-      <div className="h-9 w-9 animate-pulse rounded-md bg-muted max-sm:size-11 sm:w-28" />
     </div>
   );
 }
@@ -275,12 +276,18 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
     // 600 px tall, see globals.css): on a tablet or a landscape phone the
     // header and filters take most of the height, which left the table a
     // one-row window (UX-7), so there the document scrolls as a whole.
-    // The header row also stays stacked until `lg`: its action buttons
-    // alone are ~640 px wide. Mobile is unaffected (already scrolls via
-    // `main` itself — see layout.tsx).
+    // Mobile is unaffected (already scrolls via `main` itself — see
+    // layout.tsx).
+    //
+    // UX-188: from `sm` the toolbar sits under the title until the page
+    // itself (a container query, so a collapsed sidebar counts) is 90rem
+    // wide. Its eight labelled buttons are ~1 140 px in Swedish, so side by
+    // side at `lg` they squeezed the title into a narrow column (subtitle
+    // over three lines) and wrapped into three ragged rows. Stacked, they
+    // get the full width and wrap at most once.
     <LazyDialogErrorMessage message={dict.errors.generic}>
-    <div className="flex flex-col gap-6 roomy:h-[calc(100dvh-4rem)] roomy:min-h-0">
-      <div className="flex flex-col gap-3 sm:shrink-0 max-sm:flex-row max-sm:items-start max-sm:justify-between lg:flex-row lg:items-center lg:justify-between">
+    <div className="@container flex flex-col gap-6 roomy:h-[calc(100dvh-4rem)] roomy:min-h-0">
+      <div className="flex flex-col gap-3 sm:shrink-0 max-sm:flex-row max-sm:items-start max-sm:justify-between @min-[90rem]:flex-row @min-[90rem]:items-center @min-[90rem]:justify-between">
         <div className="min-w-0">
           <PageTitle>{dict.inventory.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
@@ -289,7 +296,19 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           </Suspense>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Desktop-only like export above: on mobile manage-items
+          {/* UX-188: the action buttons, "Add item" first among them, lead
+              the toolbar, so the screen's one primary action is the first
+              thing you see and tab to. Catalog and export follow. */}
+          <Suspense fallback={<InventoryActionButtonsSkeleton />}>
+            <InventoryActionButtons
+              householdId={household.id}
+              dict={dict.inventory}
+              barcodeDict={dict.barcodeScanner}
+              exportLabel={dict.export.button}
+              manageItemsLabel={dict.inventory.catalog.manageItems}
+            />
+          </Suspense>
+          {/* Desktop-only like export below: on mobile manage-items
               lives inside the ⋯ menu so it isn't duplicated. */}
           <div className="hidden sm:block">
             <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
@@ -302,15 +321,6 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           <div className="hidden sm:block">
             <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
           </div>
-          <Suspense fallback={<InventoryActionButtonsSkeleton />}>
-            <InventoryActionButtons
-              householdId={household.id}
-              dict={dict.inventory}
-              barcodeDict={dict.barcodeScanner}
-              exportLabel={dict.export.button}
-              manageItemsLabel={dict.inventory.catalog.manageItems}
-            />
-          </Suspense>
         </div>
       </div>
       <Suspense fallback={<InventoryTableSkeleton label={dict.common.loading} />}>

@@ -257,6 +257,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-13, release PR #1382 on 80cc114): `desktop` project again, in the GitHub e2e job (run 43409406202): the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on the retry in 3.7 s. The full local `ci:local` run of the same commit was green.
       Further sighting (2026-11-13, release PR #1392 on 3fd5a0e, GitHub run 43461814529, job 132010436927): `desktop` project again, in the GitHub e2e job: the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on its retry, so the job was green. That is two release runs in a row on 2026-11-13 where `desktop` failed its first attempt, so desktop is not fixed.
       Further sighting (2026-11-13, MAINT-92 builder run on 3b2fb5b, PR #1390): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a second full run of the same commit.
+      Further sighting (2026-11-13, release PR #1399 on ccaa00e): `mobile` project, failed once in the reviewer's full local `ci:local` run at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on a focused re-run of the spec on the same commit; the GitHub e2e job was green.
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -482,26 +483,6 @@ households have no budget categories, so every sweep only photographs the
 budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
-
-- [ ] **UX-188. Give the desktop inventory header room and lead with "Add item"** (impact: med, effort: S) —
-      On desktop (`desktop-sv-dashboard-inventory.png`, 1280 px) the
-      header's `lg:flex-row` (`src/app/dashboard/inventory/page.tsx:283`)
-      squeezes the title into a narrow column. The subtitle wraps over three
-      lines, and seven buttons wrap into three ragged rows, with the primary
-      "Lägg till vara" alone and last. The primary action is the last thing
-      you see (DESIGN.md: hierarchy, one primary action per screen). In the
-      table, every "Senast uppdaterad" cell repeats its column header
-      ("Senast uppdaterad 13 nov. 2026",
-      `src/components/inventory/last-updated-cell.tsx:31-37`). That costs
-      about 200 px while Kategori clips to "Dairy & eg…". Fix: stack the
-      toolbar under the title until there's room for one row, put
-      "Add item" first, and show only the date (plus "by {name}") in table
-      cells. Phone cards, which have no column header, keep the prefix.
-      Acceptance: a `desktop`-project e2e spec in `sv` asserts that "Lägg
-      till vara" is the first header button in DOM and visual order. It
-      also asserts that no table cell under "Senast uppdaterad" contains
-      that text, and that the "Dairy & eggs" category cell isn't clipped
-      (scrollWidth ≤ clientWidth).
 
 ### Dependencies
 
