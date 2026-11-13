@@ -6350,8 +6350,11 @@ landed earlier (PR #179, see the data model above). No browser storage.
   never moves the Planner tab, and selections are kept across weeks so
   one save can plan this week's dinners and next Monday's lunch. Each day
   lists its four meal slots, grouped by day on phones. Every slot is
-  selectable; one that already plans something shows the dish's name
+  selectable; one that already plans something shows the dishes' names
   under the slot, and the portion is planned beside it (see Assigning).
+  That line wraps in full, however many dishes or however long their
+  names (UX-185, DESIGN.md M9), rather than truncating behind a hover
+  title a phone can't reach.
   **Days before today are hidden** (UX-100): prepped food can't be
   eaten in the past, so the first week lists today onward, Previous week
   is disabled there (the server would still accept a past slot,

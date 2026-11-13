@@ -460,24 +460,6 @@ viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
 at 320 px; Save stays pinned above the keyboard and errors sit by the
 field. WebKit was not run (no browser installed here).
 
-- [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
-      sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
-      shows the dishes already in a slot as one `truncate` line with the
-      full list only in `title`, which a phone can't hover. With two or
-      three planned dishes the joined names outgrow one line on a phone,
-      and the rest is unreachable (confirmed in code, not driven). Breaks
-      M9 (long names wrap or truncate with the full value reachable) and
-      the no-hover-only rule. Fix: drop `truncate` and the `title` and let
-      the dish line wrap (`break-words`, no clamp); it is a short secondary
-      line inside a sheet, so it can grow. Don't copy
-      `cooked-ingredients-checklist.tsx:42`, whose `line-clamp-2` keeps the
-      full text only in `title` too.
-      Acceptance: an e2e test in the `mobile` project plans three dishes
-      with long names into one slot, opens the plan-portions sheet, and
-      asserts the slot's dish line is not clipped: its `scrollHeight` ≤
-      `clientHeight` and `scrollWidth` ≤ `clientWidth`, and the last
-      dish's name is inside the line's bounding box.
-
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —

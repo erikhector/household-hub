@@ -263,11 +263,10 @@ export function PlanPortionsDialog({
                             />
                             <span className="flex min-w-0 flex-col">
                               <span>{mealLabel}</span>
-                              {dishes && (
-                                <span className="truncate text-xs text-muted-foreground" title={dishes}>
-                                  {dishes}
-                                </span>
-                              )}
+                              {/* UX-185 (M9): the dishes already here wrap in full rather than
+                                  truncate behind a hover-only title a phone can't reach. It's a
+                                  short secondary line in a sheet, so it can take a few lines. */}
+                              {dishes && <span className="text-xs break-words text-muted-foreground">{dishes}</span>}
                             </span>
                           </label>
                           {isSelected && (
