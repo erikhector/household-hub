@@ -198,7 +198,10 @@ easy for AI coding agents to work in correctly:
   mounts the real menu with `defaultOpen`. The dashboard layout wraps the
   shell in `LazyDialogErrorMessage`. `e2e/shell-lazy-popups.spec.ts` and
   `e2e/shell-lazy-more-menu.mobile.spec.ts` cover the first press or tap
-  and the failed-load retry. UX-165 (M2): the menu opens upward, so "Log out"
+  and the failed-load retry. The ⌘K listener attaches in a passive effect,
+  after React already owns the shell's elements, so the spec presses the
+  shortcut again until the palette or the load error shows rather than
+  pressing once after `expectHydrated` (MAINT-95). UX-165 (M2): the menu opens upward, so "Log out"
   is its top row, farthest from the thumb, never the last.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,

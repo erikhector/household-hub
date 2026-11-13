@@ -268,10 +268,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
-- [ ] **MAINT-95. Flaky: the command palette's chunk-load error message isn't shown in time on desktop** (low, S) —
-      `e2e/shell-lazy-popups.spec.ts:71` ("a failed chunk load › the palette says so, and the next press retries"), `desktop` project. In the GitHub e2e job on release PR #1367 (commit 5a99984, 2026-11-13, job 131687624580) the first attempt failed after 6.3 s at line 77: `expect(page.getByText(en.errors.generic)).toBeVisible()` found no element; it passed on the retry, on the `mobile` project, and on both projects in the full local `ci:local` run of the same commit. The test presses the shortcut right after `page.route()` aborts every chunk, with only the switcher button checked for hydration, so the keyboard handler for the palette shortcut may not be attached yet, or the palette chunk may already be cached so the abort never fires. Same family as MAINT-77 (`inventory-lazy-dialogs.spec.ts`): check what that item's fix finds before starting.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/shell-lazy-popups.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
