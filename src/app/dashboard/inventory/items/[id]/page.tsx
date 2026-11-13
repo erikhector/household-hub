@@ -191,6 +191,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
                 conversions: conversions.map(({ fromUnit, factor }) => ({ fromUnit, factor })),
               }}
               units={units}
+              locale={locale}
               dict={dict}
               comboDict={fullDict.inventory}
             />

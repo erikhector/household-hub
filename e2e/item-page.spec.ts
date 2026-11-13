@@ -128,6 +128,16 @@ test.describe("in Swedish", () => {
     await expect(buns).toContainText("= 0,375 st");
     await expect(buns).not.toContainText("0.375");
     await expectNoHorizontalOverflow(page);
+
+    // The Change unit preview restates the same amounts (the factor is
+    // pre-filled from the saved "1 st = 2000 g").
+    await page.getByRole("button", { name: "Byt enhet…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Byt enhet" });
+    const unit = dialog.getByRole("combobox", { name: "Ny enhet" });
+    await unit.fill("g");
+    await unit.press("Tab");
+    await expect(dialog.getByText("Lågt lager under: 0,5 st → 1000 g")).toBeVisible();
+    await expect(dialog).not.toContainText("0.5");
   });
 });
 
