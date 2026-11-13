@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.152.0",
+    "date": "2026-11-13",
+    "pr": 1376,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now sort your recipes by longest since cooked, most cooked or newest, to spot what has dropped out of rotation or what you make most.",
+      "sv": "Nu kan du sortera recepten efter längst sedan lagad, mest lagad eller nyast, så ser du lätt vad som fallit bort ur rotationen eller vad ni lagar oftast."
+    }
+  },
+  {
     "version": "0.151.1",
     "date": "2026-11-13",
     "pr": 1360,
