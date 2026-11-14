@@ -184,35 +184,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       declare `eslint` peers up to `^9`, so 10 only installs by overriding
       them. When all three accept 10, bump `eslint` + `eslint-config-next`
       and drop the `eslint` ignore in `.github/dependabot.yml`.
-- [ ] **MAINT-92. Unused exports and types (knip)** (low, M, several small PRs) —
-      `knip.jsonc` excludes `exports`, `types` and `duplicates` because
-      the first run (MAINT-12) found about 120 exports and types no other
-      file imports, plus `InventoryHeaderActionsClient` exported both
-      named and as `default` in
-      `src/components/inventory/inventory-header-actions.tsx`. List them
-      with `npx knip --include exports,types,duplicates`. Clean up one
-      feature at a time, one small PR each: drop `export` from what's only
-      used in its own file and delete what's used nowhere, without
-      changing behaviour. The last PR deletes the `exclude` line from
-      `knip.jsonc`.
-      Done: inventory (`src/components/inventory/`,
-      `src/app/dashboard/inventory/`, `src/lib/inventory/`, including the
-      named + `default` duplicate), AI (`src/lib/ai/`), shopping
-      (`src/lib/shopping/`, `src/app/share/shopping-list/`,
-      `src/lib/actions/receipt-scan.ts`), shared components
-      (`src/components/ui/`, `src/components/shared/`,
-      `src/components/charts/`, `src/components/pwa/`,
-      `src/components/dashboard/`), meal planning and recipes
-      (`src/app/dashboard/meal-planning/`, `src/components/meal-planning/`,
-      `src/lib/recipe-import.ts`, `src/lib/recipe-import/`,
-      `src/lib/recipe-source.ts`, `src/lib/recipes/`), notifications
-      (`src/lib/notifications.ts`, `src/lib/weekly-digest-content.ts`),
-      shared lib and tasks (every remaining `src/lib/` finding outside the
-      human-only files, plus `src/app/dashboard/tasks/`). Left: budget
-      and personal budget (money-logic files, human-only), the two types
-      in `src/lib/cookie-inventory.ts` (human-only) and
-      `ScannedShelfItem` in `src/lib/actions/inventory-scan.ts`.
-      Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -277,6 +248,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
+      Further sighting (2026-11-14, release PR #1408 on 0522167), two more tests in the same spec: `e2e/recipe-discover.spec.ts:146` ("rows never say the pantry has none of a recipe") and `:298` ("ask for ideas lists AI ideas and previews one without pantry markers"), `mobile` project. In the GitHub e2e job (job 132278197181) both first attempts failed at `openRecipesTab` (`e2e/ui.ts:367`, via `openTabAndDiscover` at `recipe-discover.spec.ts:106`): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s, after `expectRouterPatched` had passed. Both passed on the retry, and the local `ci:local` on the same commit was clean. Same cause as above, so the one fix covers all three call sites.
+- [ ] **MAINT-97. Flaky: a forced check on the category radio doesn't select it in the Add transaction dialog on mobile** (low, S) —
+      `e2e/transaction-repeats.spec.ts:87` ("without the Repeats switch no recurring item is added"), `mobile` project. Failed once in the builder's locked `ci:local` run on 393b7e0 (PR #1404, a knip refactor that doesn't touch this spec or the budget feature, 2026-11-13), then passed in the full rerun of the same commit. Failing assertion at `:98`: `dialog.getByRole("radio", { name: category }).check({ force: true })` → `locator.check: Clicking the checkbox did not change its state`. The radio is a `peer sr-only` `<input name="categoryId">`, so the forced click lands on a visually hidden input. It may run before the dialog's category picker is hydrated, or a re-render may reset the selection. Start from the trace. Clicking the visible label after `expectHydrated` is likely the honest fix; look for the same pattern in other transaction-dialog specs.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 

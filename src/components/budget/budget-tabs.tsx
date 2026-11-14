@@ -95,7 +95,6 @@ import { PrimaryAction } from "@/components/dashboard/primary-action";
 import { parseBudgetTab, type BudgetTab } from "@/lib/budget-url";
 import { LazyTransactionDialog } from "@/components/budget/lazy-budget-dialogs";
 
-export type { BudgetTab };
 type Tab = BudgetTab;
 
 // BudgetDict plus the handful of top-level tab/action labels this file reads

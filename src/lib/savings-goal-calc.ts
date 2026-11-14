@@ -86,7 +86,7 @@ export function goalForType(
   return { goalAmount, goalDate };
 }
 
-export type SavingsGoalStatus =
+type SavingsGoalStatus =
   /** Saved at least the goal amount. */
   | "reached"
   /** A goal with no date: progress only, no monthly pace. */

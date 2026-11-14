@@ -41,7 +41,7 @@ import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
 
-export type RecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
+type RecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
 
 // Shared by both createTransactionAction/updateTransactionAction (household)
 // and createPersonalTransactionAction/updatePersonalTransactionAction
@@ -55,7 +55,7 @@ export type TransactionFormAction = (
 
 export type MemberOption = { id: string; displayName: string };
 
-export type TransactionSplitRow = {
+type TransactionSplitRow = {
   householdMemberId: string;
   amountOwed: number;
   /** What this member has paid towards the bill (TransactionSplit.amountPaid).
