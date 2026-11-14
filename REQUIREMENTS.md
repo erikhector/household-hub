@@ -10619,6 +10619,14 @@ UX-14's rapid ticks and the rollback toast.
   when the test only asserts it's there: the planner's "Add first dinner"
   outlasted `toBeVisible`'s default 5 s on a loaded run (MAINT-86, and
   MAINT-94 for the empty-week check in `planner-add-missing.spec.ts`).
+  A control inside a streamed Suspense boundary is hydrated last: React
+  hydrates the shell first and each dehydrated boundary afterwards at its
+  lowest, never-expiring priority. So `ux-184.mobile.spec.ts` waits in the
+  order the page settles, each step with its own budget: `gotoRevealed`,
+  then `expectRouterPatched` (the shell has hydrated), then
+  `expectHydrated` on "Add first dinner". One 20 s poll straight after
+  `goto` covered the stream, the reveal and both hydrations, and ran out
+  twice in a locked `ci:local` run (MAINT-98).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
