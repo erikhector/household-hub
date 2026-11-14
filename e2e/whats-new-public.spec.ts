@@ -25,7 +25,9 @@ test("the landing footer shows the version and opens the release history", async
   const newest = page.getByRole("listitem").first();
   await expect(newest.getByRole("heading", { name: `Version ${latest}` })).toBeVisible();
   await expect(newest.getByText("Latest", { exact: true })).toBeVisible();
-  await expect(page.getByRole("listitem")).toHaveCount(releases.length);
+  // UX-190: the newest ten; the rest are behind "Show older updates"
+  // (e2e/whats-new-older.spec.ts).
+  await expect(page.getByRole("listitem")).toHaveCount(10);
   await expectNoHorizontalOverflow(page);
 });
 

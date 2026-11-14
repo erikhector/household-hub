@@ -501,22 +501,6 @@ installed here).
       badge no longer covers more than a corner of the bell (for example,
       it is offset so the bell's centre stays visible). Desktop sidebar
       dropdown keeps working, unchanged.
-- [ ] **UX-190. Show the latest releases on What's new and fold the rest behind "Show older"** (impact: med, effort: S) —
-      `ReleaseList` (`src/components/whats-new/release-list.tsx:19`)
-      renders all 275 releases as full cards on `/dashboard/whats-new` and
-      `/whats-new`: about 138 000 CSS px tall on Pixel 7 and 42 000 px on
-      desktop (screenshots `mobile-en-dashboard-whats-new.png`,
-      `desktop-en-dashboard-whats-new.png`). A member who opens it from
-      the unread dot wants the last few changes, and the server sends and
-      the phone lays out hundreds of cards it won't read (M6: long lists
-      stay scannable, most relevant first; M8: a mid-range phone on mobile
-      data). Show the newest 10, then a "Show older updates" control
-      (a `<details>`, or a link to `?all=1` so it works before hydration)
-      that reveals the rest. Strings in `en.ts` and `sv.ts`.
-      Acceptance: in the `mobile` and `desktop` projects, both pages show
-      10 release headings (`h2`) on load and a "Show older updates" control.
-      Activating it shows all of them. The newest release is still first
-      with its "Latest" badge.
 - [ ] **UX-191. Link the notification centre to the notification settings and fix its stale empty state** (impact: med, effort: S) —
       `/dashboard/notifications` (`src/app/dashboard/notifications/page.tsx:14`)
       lists every alert but gives no way to change which ones arrive. The

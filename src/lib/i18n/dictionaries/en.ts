@@ -258,6 +258,8 @@ export const en = {
     latest: "Latest",
     breaking: "Big change",
     empty: "No updates yet.",
+    // UX-190: the link under the newest ten releases to the rest.
+    showOlder: "Show older updates",
   },
   theme: {
     light: "Light",
