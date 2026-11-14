@@ -9189,11 +9189,17 @@ dismissing a second out-of-stock alert while already on
   toggle buttons it sits alongside) and `NotificationMenuItem` (a
   `DropdownMenuSub` nested inside the bottom nav's existing "More" dropdown,
   at the same tier as the theme/language toggle items there). Both show a
-  small red count badge (`NotificationCountBadge`) on the bell icon when
-  there's at least one alert; the mobile "More" trigger also shows the same
+  small red count badge (`NotificationCountBadge`) when there's at least one
+  alert: on the bell icon in the sidebar, and after the "Notifications"
+  label in the "More" submenu's row, where the 18 px badge used to cover the
+  16 px bell (UX-189). The mobile "More" trigger also shows the same
   badge on its `MoreHorizontal` icon so the count is visible without opening
   the menu. An empty list shows a "You're all caught up!" message instead of
-  an empty panel.
+  an empty panel. Each row is a link plus an icon-only ✕ "Dismiss" item that
+  clears the alert without leaving the page or closing the menu. On touch
+  screens the ✕ is at least 44 × 44 px and 8 px from the row's link
+  (DESIGN.md M3, UX-189); with a mouse it keeps its denser size. Covered by
+  `e2e/ux-189.spec.ts`.
 - **Clicking an alert navigates**: an out-of-stock alert links to
   `/dashboard/inventory?status=out`; a meal-not-logged alert links to
   `/dashboard/meal-planning?week={weekStartKey}` (the week containing that
