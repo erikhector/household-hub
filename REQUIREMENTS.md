@@ -8820,13 +8820,22 @@ needs live in `src/lib/release-notes/cookie.ts`, which doesn't import the
 JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
 `releases.json` through its imports.
 
-- `/dashboard/whats-new` lists every release, newest first, with version,
+- `/dashboard/whats-new` lists the releases, newest first, with version,
   date and the note in the user's locale. A note wraps at any width
   (`break-words`), so a URL or long Swedish compound in it can't push the
   page sideways on a phone (BUG-4).
   The page opens with a "Back to overview" link, the first focusable
   thing in `main`, so the phone scroll region passes axe's
   `scrollable-region-focusable` (UX-175; `e2e/whats-new-a11y.mobile.spec.ts`).
+  Only the newest 10 releases render (UX-190): with all of them as cards
+  the page was ~138 000 px tall on a phone, and a member arriving from the
+  unread dot wants the last few changes. Below them a "Show older updates"
+  link (outline button style, 44 px on phones) goes to `?all=1`, which
+  renders the whole history, and jumps to the first older release's anchor
+  (`#release-<version>`) so the reader carries on where they were. A link
+  rather than a `<details>` or a client toggle, so the server doesn't send
+  hundreds of unread cards and it works before hydration. The public
+  `/whats-new` does the same. Covered by `e2e/whats-new-older.spec.ts`.
   Also UX-175: `Button` and `Badge` transition explicit properties
   (`color, background-color, border-color, box-shadow, transform`) rather
   than `transition-all`, and the phone inventory bulk bar uses a
