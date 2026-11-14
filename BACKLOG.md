@@ -517,27 +517,6 @@ installed here).
       10 release headings (`h2`) on load and a "Show older updates" control.
       Activating it shows all of them. The newest release is still first
       with its "Latest" badge.
-- [ ] **UX-191. Link the notification centre to the notification settings and fix its stale empty state** (impact: med, effort: S) —
-      `/dashboard/notifications` (`src/app/dashboard/notifications/page.tsx:14`)
-      lists every alert but gives no way to change which ones arrive. The
-      opt-in toggles (tonight's dinner, tasks due today, weekly digest,
-      push) are on Profile under Notifications (`#profile-notifications`).
-      A member tired of a nudge has to guess that (User control; Context:
-      the setting belongs where the annoyance is). Its empty state
-      (`en.ts:305`, `sv.ts` `history.empty`) still says alerts come only
-      when "an item runs out of stock or is about to expire". Since GAP-9,
-      GAP-57 and GAP-74, price spikes, finished lists, put-away reminders,
-      tonight's dinner and tasks due today arrive too (honest copy; the
-      UX-3 comment above the string is out of date). Add a
-      "Notification settings" link under the subtitle to
-      `/dashboard/profile#profile-notifications`, at least 44 px tall on
-      phones, and rewrite the empty copy in both languages to name the
-      common triggers without promising opt-in ones the user hasn't turned on.
-      Acceptance: in the `mobile` project, the notification centre has a
-      "Notification settings" link that lands on Profile with the
-      "Notifications" heading in view. In the empty state (fresh
-      household), the text no longer says only stock and expiry produce
-      notifications (assert the new copy in `en` and `sv`).
 
 ### Dependencies
 

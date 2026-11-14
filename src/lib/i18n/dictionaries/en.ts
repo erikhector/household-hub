@@ -299,10 +299,13 @@ export const en = {
       subtitle: "Everything sent to your household, read or not.",
       mascotAlt: "Squirrel mascot",
       markAllRead: "Mark all as read",
-      // UX-3: names real triggers only (out of stock, expiring soon; see
-      // "Notification center" in REQUIREMENTS.md). There are no task or
-      // invite notifications, so they're deliberately not promised here.
-      empty: "No notifications yet. You'll see one here when an item runs out of stock or is about to expire.",
+      settingsLink: "Notification settings",
+      // UX-3, UX-191: names the always-on triggers only (see "Notification
+      // center" in REQUIREMENTS.md): out of stock, expiring soon, a price
+      // jump, a finished list, shopping to put away. Tonight's dinner and
+      // tasks due today are opt-in (Profile), so they're not promised here.
+      empty:
+        "No notifications yet. You'll see one here when something runs out or is about to expire, a price jumps, a shopping list is all checked off, or there's shopping to put away.",
       unread: "Unread",
     },
   },

@@ -277,7 +277,9 @@ export const sv = {
       subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
       mascotAlt: "Squirrel-maskot",
       markAllRead: "Markera alla som lästa",
-      empty: "Inga aviseringar än. Du får en här när en vara tar slut eller snart går ut.",
+      settingsLink: "Aviseringsinställningar",
+      empty:
+        "Inga aviseringar än. Du får en här när något tar slut eller snart går ut, ett pris stiger, en inköpslista blir helt avbockad eller det finns varor att ställa in.",
       unread: "Oläst",
     },
   },

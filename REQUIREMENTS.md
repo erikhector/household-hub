@@ -9217,9 +9217,17 @@ clears every currently-active alert in one go. Clicking an individual
 still-unread row dismisses just that one (same as the bell) before letting
 the link navigate; an already-read row is just a link. With no rows at all
 (UX-3) the page says "No notifications yet." plus one sentence naming what
-produces one (an item running out of stock, or about to expire), so a new
-household doesn't read the empty page as broken. Only triggers from the
-list above are named, so it never promises task or invite notifications.
+produces one, so a new household doesn't read the empty page as broken.
+Since UX-191 that sentence names the always-on triggers from the list
+above (something running out or about to expire, a price jump, a list all
+checked off, shopping to put away). The opt-in ones (tonight's dinner,
+tasks due today) are left out, since a member who hasn't turned them on
+would never get them, and it never promises invite notifications.
+Under the subtitle a "Notification settings" link (UX-191, 44 px tall on
+phones via `touch-target`) goes to `/dashboard/profile#profile-notifications`,
+the Profile section holding the push, weekly digest, tonight's dinner and
+tasks-due switches, so a member tired of a nudge finds the switch where
+the nudge shows up.
 
 ## PWA install & push notifications
 
