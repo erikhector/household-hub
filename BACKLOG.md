@@ -234,6 +234,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-13, release PR #1392 on 3fd5a0e, GitHub run 43461814529, job 132010436927): `desktop` project again, in the GitHub e2e job: the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on its retry, so the job was green. That is two release runs in a row on 2026-11-13 where `desktop` failed its first attempt, so desktop is not fixed.
       Further sighting (2026-11-13, MAINT-92 builder run on 3b2fb5b, PR #1390): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a second full run of the same commit.
       Further sighting (2026-11-13, release PR #1399 on ccaa00e): `mobile` project, failed once in the reviewer's full local `ci:local` run at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on a focused re-run of the spec on the same commit; the GitHub e2e job was green.
+      Further sighting (2026-11-14, MAINT-97 builder run on a5fc3e8, PR #1418): `mobile` project, failed once in the second full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a locked `--project=mobile --repeat-each=10` rerun of the spec on the same commit (32 passed).
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -253,6 +254,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/transaction-repeats.spec.ts:87` ("without the Repeats switch no recurring item is added"), `mobile` project. Failed once in the builder's locked `ci:local` run on 393b7e0 (PR #1404, a knip refactor that doesn't touch this spec or the budget feature, 2026-11-13), then passed in the full rerun of the same commit. Failing assertion at `:98`: `dialog.getByRole("radio", { name: category }).check({ force: true })` → `locator.check: Clicking the checkbox did not change its state`. The radio is a `peer sr-only` `<input name="categoryId">`, so the forced click lands on a visually hidden input. It may run before the dialog's category picker is hydrated, or a re-render may reset the selection. Start from the trace. Clicking the visible label after `expectHydrated` is likely the honest fix; look for the same pattern in other transaction-dialog specs.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-98. Flaky: the meal planner's "Add first dinner" button never hydrates within 20 s in the long-recipe-name picker specs on mobile** (low, S) —
+      `e2e/ux-184.mobile.spec.ts:69` ("a long recipe name wraps inside the add-meal picker") and `:73` ("… at 320 px"), `mobile` project. Both failed in the reviewer's locked `ci:local` run on release PR #1414 (977b161, 2026-11-14), then both passed in a locked re-run of the spec on the same commit (4 passed) and in the GitHub e2e job (job 132329664727, no retry needed). Neither test is changed by anything in that release. Both failed at the same point: `Error: Timeout 20000ms exceeded while waiting on the predicate` in `expectHydrated` (`e2e/ui.ts:325`), called from `expectLongNameFits` (`ux-184.mobile.spec.ts:36`) on `getByRole("main").getByRole("button", { name: "Add first dinner" })` right after `page.goto('/dashboard/meal-planning?week=…')`. So the meal-planning page took more than 20 s to hydrate under a loaded runner, or the button the locator found was replaced by a later render before the predicate saw it hydrate. Start from the trace: check whether the week page re-renders the empty-slot button after hydration (a Suspense boundary or a router refresh), and wait for the settled page (for example the week heading plus `expectRouterPatched`) before `expectHydrated`.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-184.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-99. Flaky: the command palette's "No matching commands." empty state isn't visible within 5 s on mobile** (low, S) —
+      `e2e/command-palette.spec.ts:36` ("arrow keys move the highlight and Escape closes"), `mobile` project. Failed once in the builder's locked `ci:local` run on a5fc3e8 (PR #1418, MAINT-97, a test-only change to `e2e/transaction-repeats.spec.ts` that doesn't touch the palette, 2026-11-14), then passed in a locked rerun of the spec on the same commit (`--repeat-each=5`, desktop and mobile, 62 passed). Failing assertion at `:49`: after `input.fill("zzzz")`, `expect(palette.getByText("No matching commands.")).toBeVisible()` timed out at 5 s. The arrow-key steps before it passed, so the palette was open and hydrated. Either the filter runs deferred (a transition or `useDeferredValue`) and lags under a loaded runner, or a re-render resets the input after `fill`. Start from the trace: check whether the input still holds "zzzz" at the timeout, and whether the option list ever empties.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -464,6 +473,71 @@ households have no budget categories, so every sweep only photographs the
 budget onboarding card. Safe to spend going red on the first expense with
 no income is the documented UX-154 behaviour. WebKit was not run (no
 browser installed here).
+
+### UX (2026-11-14 scout)
+
+Saturday area: overview, navigation shell, profile, notifications, what's
+new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
+`light`, `text-200` and both dialog sweeps; all 290 + 132 tests pass, and
+the only audit hits are the known `text-200` bottom-bar ellipsis (UX-150).
+The deep dive drove the More menu, the notification submenu (four seeded
+notifications: dismiss one, dismiss all) and the notification centre on
+Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
+UX-7 documents, so it isn't filed). WebKit was not run (no browser
+installed here).
+
+- [ ] **UX-189. Give the notification bell's Dismiss buttons a 44 px target and unhide the bell under its badge** (impact: med, effort: S) —
+      On a phone the bell lives in More → Notifications. Each row's ✕
+      Dismiss (`src/components/notifications/notification-bell.tsx:155`,
+      `px-1.5` around a 14 px icon) measures **26 × 48 px**, only 4 px
+      (`gap-1`, line 128) from the row link beside it. A slip navigates
+      away instead of dismissing (M3: 44 × 44 with 8 px gaps). The submenu
+      trigger's count badge (`BellIcon`, line 111: an 18 px `size-4.5`
+      badge on a 16 px bell) covers the bell, so the row reads as a red
+      "4" and no icon (Pixel 7, More → Notifications with any unread).
+      Acceptance: in the `mobile` project, with a seeded notification,
+      every "Dismiss" menu item in the open submenu has a bounding box of
+      at least 44 × 44 and sits at least 8 px from its row's link. The
+      badge no longer covers more than a corner of the bell (for example,
+      it is offset so the bell's centre stays visible). Desktop sidebar
+      dropdown keeps working, unchanged.
+- [ ] **UX-190. Show the latest releases on What's new and fold the rest behind "Show older"** (impact: med, effort: S) —
+      `ReleaseList` (`src/components/whats-new/release-list.tsx:19`)
+      renders all 275 releases as full cards on `/dashboard/whats-new` and
+      `/whats-new`: about 138 000 CSS px tall on Pixel 7 and 42 000 px on
+      desktop (screenshots `mobile-en-dashboard-whats-new.png`,
+      `desktop-en-dashboard-whats-new.png`). A member who opens it from
+      the unread dot wants the last few changes, and the server sends and
+      the phone lays out hundreds of cards it won't read (M6: long lists
+      stay scannable, most relevant first; M8: a mid-range phone on mobile
+      data). Show the newest 10, then a "Show older updates" control
+      (a `<details>`, or a link to `?all=1` so it works before hydration)
+      that reveals the rest. Strings in `en.ts` and `sv.ts`.
+      Acceptance: in the `mobile` and `desktop` projects, both pages show
+      10 release headings (`h2`) on load and a "Show older updates" control.
+      Activating it shows all of them. The newest release is still first
+      with its "Latest" badge.
+- [ ] **UX-191. Link the notification centre to the notification settings and fix its stale empty state** (impact: med, effort: S) —
+      `/dashboard/notifications` (`src/app/dashboard/notifications/page.tsx:14`)
+      lists every alert but gives no way to change which ones arrive. The
+      opt-in toggles (tonight's dinner, tasks due today, weekly digest,
+      push) are on Profile under Notifications (`#profile-notifications`).
+      A member tired of a nudge has to guess that (User control; Context:
+      the setting belongs where the annoyance is). Its empty state
+      (`en.ts:305`, `sv.ts` `history.empty`) still says alerts come only
+      when "an item runs out of stock or is about to expire". Since GAP-9,
+      GAP-57 and GAP-74, price spikes, finished lists, put-away reminders,
+      tonight's dinner and tasks due today arrive too (honest copy; the
+      UX-3 comment above the string is out of date). Add a
+      "Notification settings" link under the subtitle to
+      `/dashboard/profile#profile-notifications`, at least 44 px tall on
+      phones, and rewrite the empty copy in both languages to name the
+      common triggers without promising opt-in ones the user hasn't turned on.
+      Acceptance: in the `mobile` project, the notification centre has a
+      "Notification settings" link that lands on Profile with the
+      "Notifications" heading in view. In the empty state (fresh
+      household), the text no longer says only stock and expiry produce
+      notifications (assert the new copy in `en` and `sv`).
 
 ### Dependencies
 
