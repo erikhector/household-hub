@@ -49,6 +49,13 @@ test("the notification centre links to the notification settings", async ({ page
   expect(box).not.toBeNull();
   if (test.info().project.name !== "desktop") expect(box!.height).toBeGreaterThanOrEqual(44);
 
+  // Hold Profile back so the click commits its loading skeleton first, as on
+  // a slow phone. Next's own hash scroll then finds no heading, and only
+  // ScrollToHash brings it into view once the page streams in.
+  await page.route(/\/dashboard\/profile/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
   await link.click();
   await expect(page).toHaveURL(/\/dashboard\/profile#profile-notifications$/);
   await expect(

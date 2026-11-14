@@ -9227,7 +9227,11 @@ Under the subtitle a "Notification settings" link (UX-191, 44 px tall on
 phones via `touch-target`) goes to `/dashboard/profile#profile-notifications`,
 the Profile section holding the push, weekly digest, tonight's dinner and
 tasks-due switches, so a member tired of a nudge finds the switch where
-the nudge shows up.
+the nudge shows up. Profile renders `ScrollToHash`
+(`src/components/dashboard/scroll-to-hash.tsx`), which scrolls the
+hash's target into view on mount: a client-side link first commits
+Profile's loading skeleton, so Next's own hash scroll finds no heading
+on a slow load and would leave the page at the top.
 
 ## PWA install & push notifications
 
