@@ -3994,7 +3994,10 @@ Insights, three Add panels on Manage). No data model changed.
   the household item. Not offered on an edit, on a payment logged from a
   recurring item or planned bill, or on a shared expense logged from the
   sheet. A saved repeat shows no Undo, since Undo would remove only the row
-  and leave the item Due. Covered by `e2e/transaction-repeats.spec.ts`.
+  and leave the item Due. Covered by `e2e/transaction-repeats.spec.ts`. It
+  picks a category by tapping the visible chip, which waits for the phone
+  sheet to stop sliding and resizing; a forced `check()` on the hidden radio
+  skipped that wait and sometimes left it unchecked (MAINT-97).
 
 #### Personal starter categories (BUDGET-5)
 
