@@ -256,7 +256,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-102. Flaky: the inventory page shifts layout while loading on desktop** (low, S) —
-      `e2e/cls.spec.ts:66` ("/dashboard/inventory does not shift while loading"), `desktop` project. Failed in the builder's locked `ci:local` run on f643d47 (PR #1429, UX-191, which touches the notifications page and Profile, not inventory, 2026-11-14) with `CLS on /dashboard/inventory` expected `< 0.05`, received `0.298` (line 82). The same test came in at 0.051 in an earlier full run of that branch (8ecc6ad). It passed 170/170 in a locked `cls.spec` run on that branch (`--repeat-each=3`, desktop and mobile), passed on clean `next` d52d120 (58 passed), and passed in the next full gate on 47d2ee9. So it only shifts on a loaded runner. Seen again in the reviewer's locked `ci:local` run on release PR #1436 (7c48109, 2026-11-14): `0.298` again, then 30 passed in a re-run of `cls.spec` on `desktop` on the same commit, and the GitHub e2e job on that commit passed. The same value twice suggests one specific element moving, not noise. Start from the trace: find which element moves (a late-loading part of the inventory page that the skeleton doesn't reserve space for, or a font or image without a set size). Fix the skeleton or the page so their sizes match.
+      `e2e/cls.spec.ts:66` ("/dashboard/inventory does not shift while loading"), `desktop` project. Failed in the builder's locked `ci:local` run on f643d47 (PR #1429, UX-191, which touches the notifications page and Profile, not inventory, 2026-11-14) with `CLS on /dashboard/inventory` expected `< 0.05`, received `0.298` (line 82). The same test came in at 0.051 in an earlier full run of that branch (8ecc6ad). It passed 170/170 in a locked `cls.spec` run on that branch (`--repeat-each=3`, desktop and mobile), passed on clean `next` d52d120 (58 passed), and passed in the next full gate on 47d2ee9. So it only shifts on a loaded runner. Seen again in the builder's first locked `ci:local` run on 955cc23 (the same PR's review fix, still not touching inventory, 2026-11-14): `0.051`, then passed in a locked `cls.spec` rerun on that build (58 passed) and in a second full gate on the same commit. Seen a third time in the reviewer's locked `ci:local` run on release PR #1436 (7c48109, 2026-11-14): `0.298` again, then 30 passed in a re-run of `cls.spec` on `desktop` on the same commit, and the GitHub e2e job on that commit passed. So there are two sizes of shift: a small one that lands just over the budget (0.051, on 8ecc6ad and 955cc23), and the 0.298 one (on f643d47 and 7c48109). The same large value twice suggests one specific element moving, not noise. Start from the trace: find which element moves (a late-loading part of the inventory page that the skeleton doesn't reserve space for, or a font or image without a set size). Fix the skeleton or the page so their sizes match.
       The fix is in the app or the test's waiting, never a loosened assertion or budget, a skip or a retry.
       Acceptance: `npx playwright test e2e/cls.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-100. Flaky: a just-ticked task's "Mark … as not done" checkbox isn't found within 5 s on mobile** (low, S) —
@@ -494,6 +494,24 @@ notifications: dismiss one, dismiss all) and the notification centre on
 Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
 UX-7 documents, so it isn't filed). WebKit was not run (no browser
 installed here).
+
+- [ ] **UX-193. Back to Profile restores the scroll position** (impact: med, effort: S) —
+      Found by the UX-191 fix builder (#1429, 955cc23, 2026-11-14) while
+      answering the reviewer's M7 question, on a production build,
+      desktop (document scrolls) and Pixel 7 (`main` scrolls): scroll
+      down Profile, follow a link out (for example "See what's new"),
+      press Back, and Profile lands at the top, not where the reader
+      left (M7). With a hash in the URL, `ScrollToHash`
+      (`src/components/dashboard/scroll-to-hash.tsx`) puts Back on that
+      hash's section, which is closer but still not the left position.
+      Only Profile was measured; check whether other long dashboard
+      pages with a `loading.tsx` skeleton do the same before fixing it
+      for one page. The measurements are in #1429's review thread on
+      `scroll-to-hash.tsx`.
+      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, scroll
+      Profile to "What's new", follow the link, press Back, and the
+      scroll offset is within a few pixels of what it was, with and
+      without a hash in the URL.
 
 ### Dependencies
 
