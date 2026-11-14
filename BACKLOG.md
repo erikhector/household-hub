@@ -216,6 +216,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
 - [ ] **MAINT-74. Flaky: a phone dialog's comboboxes aren't there yet when `form-field-room` measures them** (low, S) `[!]` —
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Further sighting (2026-11-14, UX-191 builder run on 47d2ee9, PR #1429): line 89 failed once in the full locked `ci:local` run with the same `dialog has at least one combobox` error. It passed `--repeat-each=10` (52 passed) on clean `next` d52d120 and in the next full gate on the same commit.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
@@ -258,6 +259,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/command-palette.spec.ts:36` ("arrow keys move the highlight and Escape closes"), `mobile` project. Failed once in the builder's locked `ci:local` run on a5fc3e8 (PR #1418, MAINT-97, a test-only change to `e2e/transaction-repeats.spec.ts` that doesn't touch the palette, 2026-11-14), then passed in a locked rerun of the spec on the same commit (`--repeat-each=5`, desktop and mobile, 62 passed). Failing assertion at `:49`: after `input.fill("zzzz")`, `expect(palette.getByText("No matching commands.")).toBeVisible()` timed out at 5 s. The arrow-key steps before it passed, so the palette was open and hydrated. Either the filter runs deferred (a transition or `useDeferredValue`) and lags under a loaded runner, or a re-render resets the input after `fill`. Start from the trace: check whether the input still holds "zzzz" at the timeout, and whether the option list ever empties.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-102. Flaky: the inventory page shifts layout while loading on desktop** (low, S) —
+      `e2e/cls.spec.ts:66` ("/dashboard/inventory does not shift while loading"), `desktop` project. Failed in the builder's locked `ci:local` run on f643d47 (PR #1429, UX-191, which touches the notifications page and Profile, not inventory, 2026-11-14) with `CLS on /dashboard/inventory` expected `< 0.05`, received `0.298` (line 82). The same test came in at 0.051 in an earlier full run of that branch (8ecc6ad). It passed 170/170 in a locked `cls.spec` run on that branch (`--repeat-each=3`, desktop and mobile), passed on clean `next` d52d120 (58 passed), and passed in the next full gate on 47d2ee9. So it only shifts on a loaded runner. Start from the trace: find which element moves (a late-loading part of the inventory page that the skeleton doesn't reserve space for, or a font or image without a set size). Fix the skeleton or the page so their sizes match.
+      The fix is in the app or the test's waiting, never a loosened assertion or budget, a skip or a retry.
+      Acceptance: `npx playwright test e2e/cls.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 - [ ] **MAINT-100. Flaky: a just-ticked task's "Mark … as not done" checkbox isn't found within 5 s on mobile** (low, S) —
       `e2e/flows.spec.ts:23` ("add a task and mark it done"), `mobile` project. Failed once in the reviewer's locked `ci:local` run on release PR #1425 (138ae29, 2026-11-14, carrying only #1423, a What's new change that doesn't touch tasks or this spec), then passed in a re-run of the spec on the same commit (`npx playwright test e2e/flows.spec.ts --project=mobile`, 6 passed) and in the GitHub e2e job. Failing assertion at `:45`: `expect(page.getByRole("checkbox", { name: "Mark <title> as not done" })).toBeChecked()` → `element(s) not found` after 5 s, followed by `page.waitForResponse: Test ended.` at `:38`. So after `done.click()` the row never showed its optimistic "not done" label and no Server Action POST was seen: the tap most likely landed before the task row's checkbox was hydrated (the test calls neither `expectHydrated` nor `gotoRevealed` before it), or a re-render after the add swallowed it. Start from the trace: check whether the click reached a hydrated checkbox, and wait for hydration before the tap as AGENTS.md's "Shared checks" describes.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -490,6 +495,25 @@ Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
 UX-7 documents, so it isn't filed). WebKit was not run (no browser
 installed here).
 
+- [ ] **UX-192. Move focus to the first older release after "Show older updates"** (impact: med, effort: S) —
+      UX-190 (#1423) folds What's new behind a "Show older updates" link
+      to `?all=1#release-<version>`. After hydration that's a soft
+      navigation: the focused link is gone, and Next's hash scroll calls
+      `.focus()` on the target `<li>`
+      (`src/components/whats-new/release-list.tsx`), which isn't
+      focusable, so focus falls to `<body>`. A keyboard or screen-reader
+      user starts again from the top of the page instead of at the
+      release they asked for (M10). Observed by the UX-190 builder on
+      c4675b9 with a probe spec: `document.activeElement` was `BODY`
+      1.5 s after pressing Enter on the link, on `/dashboard/whats-new`
+      and `/whats-new`, `desktop` and `mobile`. Likely fix: give each
+      release `<li>` `tabIndex={-1}` and `outline-none` (as `main` has)
+      so Next's focus lands. Don't add a focus ring to a card that
+      isn't interactive.
+      Acceptance: in `e2e/whats-new-older.spec.ts`, after pressing
+      Enter on "Show older updates", `#release-<11th release version>`
+      is focused (`toBeFocused()`) on both pages, `desktop` and
+      `mobile`.
 - [ ] **UX-189. Give the notification bell's Dismiss buttons a 44 px target and unhide the bell under its badge** (impact: med, effort: S) —
       On a phone the bell lives in More → Notifications. Each row's ✕
       Dismiss (`src/components/notifications/notification-bell.tsx:155`,
