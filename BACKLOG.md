@@ -486,6 +486,25 @@ Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
 UX-7 documents, so it isn't filed). WebKit was not run (no browser
 installed here).
 
+- [ ] **UX-192. Move focus to the first older release after "Show older updates"** (impact: med, effort: S) —
+      UX-190 (#1423) folds What's new behind a "Show older updates" link
+      to `?all=1#release-<version>`. After hydration that's a soft
+      navigation: the focused link is gone, and Next's hash scroll calls
+      `.focus()` on the target `<li>`
+      (`src/components/whats-new/release-list.tsx`), which isn't
+      focusable, so focus falls to `<body>`. A keyboard or screen-reader
+      user starts again from the top of the page instead of at the
+      release they asked for (M10). Observed by the UX-190 builder on
+      c4675b9 with a probe spec: `document.activeElement` was `BODY`
+      1.5 s after pressing Enter on the link, on `/dashboard/whats-new`
+      and `/whats-new`, `desktop` and `mobile`. Likely fix: give each
+      release `<li>` `tabIndex={-1}` and `outline-none` (as `main` has)
+      so Next's focus lands. Don't add a focus ring to a card that
+      isn't interactive.
+      Acceptance: in `e2e/whats-new-older.spec.ts`, after pressing
+      Enter on "Show older updates", `#release-<11th release version>`
+      is focused (`toBeFocused()`) on both pages, `desktop` and
+      `mobile`.
 - [ ] **UX-189. Give the notification bell's Dismiss buttons a 44 px target and unhide the bell under its badge** (impact: med, effort: S) —
       On a phone the bell lives in More → Notifications. Each row's ✕
       Dismiss (`src/components/notifications/notification-bell.tsx:155`,
