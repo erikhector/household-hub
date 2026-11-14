@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
 import { dismissCookieNotice } from "./ui";
 
@@ -10,6 +10,17 @@ import { dismissCookieNotice } from "./ui";
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
+
+// MAINT-97: the category radios are `peer sr-only` inputs behind visible
+// chips. A forced check() on the 1 px input skips Playwright's "stable" wait,
+// and on phones the Add transaction sheet is still sliding up and animating
+// its height (ui/dialog.tsx), so the click could land where the input used to
+// be and leave it unchecked. Tap the chip a user sees instead: a plain click
+// waits for the sheet to settle, and the radio must then read as checked.
+async function pickCategory(dialog: Locator, name: string) {
+  await dialog.getByText(name, { exact: true }).click();
+  await expect(dialog.getByRole("radio", { name })).toBeChecked();
+}
 
 test("a new transaction has no 'This repeats' box", async ({ page }) => {
   // Without a category the budget shows its set-up cards, not "Add
@@ -70,7 +81,7 @@ test("Repeats on a new transaction adds a monthly item that is already Logged", 
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Amount", { exact: true }).fill("119");
   await dialog.getByLabel("Description").fill(described);
-  await dialog.getByRole("radio", { name: category }).check({ force: true });
+  await pickCategory(dialog, category);
   await dialog.getByRole("checkbox", { name: "Repeats" }).check();
   await expect(dialog.getByText(/monthly item under Repeating/)).toBeVisible();
   await dialog.getByRole("button", { name: "Add transaction" }).click();
@@ -95,7 +106,7 @@ test("without the Repeats switch no recurring item is added", async ({ page }) =
   const dialog = page.getByRole("dialog", { name: "Add transaction" });
   await dialog.getByLabel("Amount", { exact: true }).fill("20");
   await dialog.getByLabel("Description").fill(described);
-  await dialog.getByRole("radio", { name: category }).check({ force: true });
+  await pickCategory(dialog, category);
   await expect(dialog.getByRole("checkbox", { name: "Repeats" })).not.toBeChecked();
   await dialog.getByRole("button", { name: "Add transaction" }).click();
   await expect(dialog).toBeHidden();
