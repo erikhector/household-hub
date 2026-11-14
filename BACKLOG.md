@@ -184,35 +184,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       declare `eslint` peers up to `^9`, so 10 only installs by overriding
       them. When all three accept 10, bump `eslint` + `eslint-config-next`
       and drop the `eslint` ignore in `.github/dependabot.yml`.
-- [ ] **MAINT-92. Unused exports and types (knip)** (low, M, several small PRs) —
-      `knip.jsonc` excludes `exports`, `types` and `duplicates` because
-      the first run (MAINT-12) found about 120 exports and types no other
-      file imports, plus `InventoryHeaderActionsClient` exported both
-      named and as `default` in
-      `src/components/inventory/inventory-header-actions.tsx`. List them
-      with `npx knip --include exports,types,duplicates`. Clean up one
-      feature at a time, one small PR each: drop `export` from what's only
-      used in its own file and delete what's used nowhere, without
-      changing behaviour. The last PR deletes the `exclude` line from
-      `knip.jsonc`.
-      Done: inventory (`src/components/inventory/`,
-      `src/app/dashboard/inventory/`, `src/lib/inventory/`, including the
-      named + `default` duplicate), AI (`src/lib/ai/`), shopping
-      (`src/lib/shopping/`, `src/app/share/shopping-list/`,
-      `src/lib/actions/receipt-scan.ts`), shared components
-      (`src/components/ui/`, `src/components/shared/`,
-      `src/components/charts/`, `src/components/pwa/`,
-      `src/components/dashboard/`), meal planning and recipes
-      (`src/app/dashboard/meal-planning/`, `src/components/meal-planning/`,
-      `src/lib/recipe-import.ts`, `src/lib/recipe-import/`,
-      `src/lib/recipe-source.ts`, `src/lib/recipes/`), notifications
-      (`src/lib/notifications.ts`, `src/lib/weekly-digest-content.ts`),
-      shared lib and tasks (every remaining `src/lib/` finding outside the
-      human-only files, plus `src/app/dashboard/tasks/`). Left: budget
-      and personal budget (money-logic files, human-only), the two types
-      in `src/lib/cookie-inventory.ts` (human-only) and
-      `ScannedShelfItem` in `src/lib/actions/inventory-scan.ts`.
-      Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after

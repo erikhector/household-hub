@@ -8739,16 +8739,17 @@ version or the notes by hand.
   dev-tool advisories that wait on upstream (typescript-eslint's
   minimatch, shadcn's deepmerge) don't turn every PR red. Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
-  imports and on unused or unlisted dependencies. Its framework plugins
+  imports, on unused or unlisted dependencies, and on exports, types and
+  duplicate exports no other file imports. Its framework plugins
   find the entry points; the config adds the two they miss
   (`e2e/auth.setup.ts`, matched by a Playwright regex, and
   `prisma7.config.ts`) and ignores `@prisma/client` (imported only by the
   gitignored generated client) and `server-only` (resolved by Next.js).
-  Unused exports and types are not checked yet: the first run found
-  about 120, a cleanup of its own (MAINT-92), done one feature at a time.
-  The shared `src/lib/` modules and tasks are clean; what's left is mostly
-  budget code and `cookie-inventory.ts`. `npm run check` runs knip alongside
-  lint, typecheck and tests.
+  The export and type checks came later (MAINT-92): the first run found
+  about 120 exports and types nothing else imported, cleaned up one
+  feature at a time, so a symbol used only in its own file isn't
+  exported and one used nowhere is deleted. `npm run check` runs knip
+  alongside lint, typecheck and tests.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →
