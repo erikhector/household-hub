@@ -491,22 +491,6 @@ Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
 UX-7 documents, so it isn't filed). WebKit was not run (no browser
 installed here).
 
-- [ ] **UX-189. Give the notification bell's Dismiss buttons a 44 px target and unhide the bell under its badge** (impact: med, effort: S) —
-      On a phone the bell lives in More → Notifications. Each row's ✕
-      Dismiss (`src/components/notifications/notification-bell.tsx:155`,
-      `px-1.5` around a 14 px icon) measures **26 × 48 px**, only 4 px
-      (`gap-1`, line 128) from the row link beside it. A slip navigates
-      away instead of dismissing (M3: 44 × 44 with 8 px gaps). The submenu
-      trigger's count badge (`BellIcon`, line 111: an 18 px `size-4.5`
-      badge on a 16 px bell) covers the bell, so the row reads as a red
-      "4" and no icon (Pixel 7, More → Notifications with any unread).
-      Acceptance: in the `mobile` project, with a seeded notification,
-      every "Dismiss" menu item in the open submenu has a bounding box of
-      at least 44 × 44 and sits at least 8 px from its row's link. The
-      badge no longer covers more than a corner of the bell (for example,
-      it is offset so the bell's centre stays visible). Desktop sidebar
-      dropdown keeps working, unchanged.
-
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
