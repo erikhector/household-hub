@@ -10627,6 +10627,14 @@ UX-14's rapid ticks and the rollback toast.
   `expectHydrated` on "Add first dinner". One 20 s poll straight after
   `goto` covered the stream, the reveal and both hydrations, and ran out
   twice in a locked `ci:local` run (MAINT-98).
+  A helper that presses a toggle until a dialog shows checks that the
+  dialog is open (`data-open` on the Base UI popup), not just visible. A
+  closing sheet stays visible while it slides out, long enough on a phone
+  for several more steps to pass. `command-palette.spec.ts` pressed ⌘K
+  while the palette wasn't visible, and the palette's lazy chunk could
+  land between that check and the press, which then closed it:
+  `toBeVisible` passed on the sheet sliding out, the arrow keys and the
+  `fill` still worked, and "No matching commands." never came (MAINT-99).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
