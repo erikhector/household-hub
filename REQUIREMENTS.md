@@ -8836,6 +8836,14 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   rather than a `<details>` or a client toggle, so the server doesn't send
   hundreds of unread cards and it works before hydration. The public
   `/whats-new` does the same. Covered by `e2e/whats-new-older.spec.ts`.
+  After the link's soft navigation the link that had focus is gone, and
+  Next 16 scrolls to the hash target without focusing it, so focus fell
+  to `<body>`. On `?all=1` a small Client Component
+  (`src/components/whats-new/focus-release-anchor.tsx`) moves focus to the
+  release the hash names when nothing else has focus, so a keyboard or
+  screen-reader user carries on from the first older release (UX-192,
+  M10). Each release card is focusable from script only (`tabIndex={-1}`:
+  not a tab stop, and no focus ring since it isn't interactive).
   Also UX-175: `Button` and `Badge` transition explicit properties
   (`color, background-color, border-color, box-shadow, transform`) rather
   than `transition-all`, and the phone inventory bulk bar uses a
@@ -9189,11 +9197,17 @@ dismissing a second out-of-stock alert while already on
   toggle buttons it sits alongside) and `NotificationMenuItem` (a
   `DropdownMenuSub` nested inside the bottom nav's existing "More" dropdown,
   at the same tier as the theme/language toggle items there). Both show a
-  small red count badge (`NotificationCountBadge`) on the bell icon when
-  there's at least one alert; the mobile "More" trigger also shows the same
+  small red count badge (`NotificationCountBadge`) when there's at least one
+  alert: on the bell icon in the sidebar, and after the "Notifications"
+  label in the "More" submenu's row, where the 18 px badge used to cover the
+  16 px bell (UX-189). The mobile "More" trigger also shows the same
   badge on its `MoreHorizontal` icon so the count is visible without opening
   the menu. An empty list shows a "You're all caught up!" message instead of
-  an empty panel.
+  an empty panel. Each row is a link plus an icon-only ✕ "Dismiss" item that
+  clears the alert without leaving the page or closing the menu. On touch
+  screens the ✕ is at least 44 × 44 px and 8 px from the row's link
+  (DESIGN.md M3, UX-189); with a mouse it keeps its denser size. Covered by
+  `e2e/ux-189.spec.ts`.
 - **Clicking an alert navigates**: an out-of-stock alert links to
   `/dashboard/inventory?status=out`; a meal-not-logged alert links to
   `/dashboard/meal-planning?week={weekStartKey}` (the week containing that
@@ -9226,9 +9240,27 @@ clears every currently-active alert in one go. Clicking an individual
 still-unread row dismisses just that one (same as the bell) before letting
 the link navigate; an already-read row is just a link. With no rows at all
 (UX-3) the page says "No notifications yet." plus one sentence naming what
-produces one (an item running out of stock, or about to expire), so a new
-household doesn't read the empty page as broken. Only triggers from the
-list above are named, so it never promises task or invite notifications.
+produces one, so a new household doesn't read the empty page as broken.
+Since UX-191 that sentence names the common always-on triggers from the
+list above (something running out or about to expire, a price jump, a list
+all checked off, shopping to put away). It is not the whole list: "Meal
+not logged" has no setting either, so it is always on, and is left out
+only to keep the sentence short. The opt-in ones (tonight's dinner, tasks
+due today) are left out, since a member who hasn't turned them on would
+never get them, and it never promises invite notifications.
+Under the subtitle a "Notification settings" link (UX-191, 44 px tall on
+phones via `touch-target`) goes to `/dashboard/profile#profile-notifications`,
+the Profile section holding the push, weekly digest, tonight's dinner and
+tasks-due switches, so a member tired of a nudge finds the switch where
+the nudge shows up. Profile renders `ScrollToHash`
+(`src/components/dashboard/scroll-to-hash.tsx`), which scrolls the
+hash's target into view on mount: a client-side link first commits
+Profile's loading skeleton, so Next's own hash scroll finds no heading
+on a slow load and would leave the page at the top. The same holds on
+Back: Profile streams in behind its skeleton again, so the browser's
+restored position is the top of the page with or without a hash, and
+`ScrollToHash` puts the reader back on the section the hash names. A
+malformed hash (`#%`) is ignored, never an error.
 
 ## PWA install & push notifications
 
@@ -10619,6 +10651,22 @@ UX-14's rapid ticks and the rollback toast.
   when the test only asserts it's there: the planner's "Add first dinner"
   outlasted `toBeVisible`'s default 5 s on a loaded run (MAINT-86, and
   MAINT-94 for the empty-week check in `planner-add-missing.spec.ts`).
+  A control inside a streamed Suspense boundary is hydrated last: React
+  hydrates the shell first and each dehydrated boundary afterwards at its
+  lowest, never-expiring priority. So `ux-184.mobile.spec.ts` waits in the
+  order the page settles, each step with its own budget: `gotoRevealed`,
+  then `expectRouterPatched` (the shell has hydrated), then
+  `expectHydrated` on "Add first dinner". One 20 s poll straight after
+  `goto` covered the stream, the reveal and both hydrations, and ran out
+  twice in a locked `ci:local` run (MAINT-98).
+  A helper that presses a toggle until a dialog shows checks that the
+  dialog is open (`data-open` on the Base UI popup), not just visible. A
+  closing sheet stays visible while it slides out, long enough on a phone
+  for several more steps to pass. `command-palette.spec.ts` pressed ⌘K
+  while the palette wasn't visible, and the palette's lazy chunk could
+  land between that check and the press, which then closed it:
+  `toBeVisible` passed on the sheet sliding out, the arrow keys and the
+  `fill` still worked, and "No matching commands." never came (MAINT-99).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
