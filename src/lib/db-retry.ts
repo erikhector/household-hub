@@ -26,7 +26,7 @@ const READ_OPERATIONS = new Set([
   "$queryRawUnsafe",
 ]);
 
-export function isReadOperation(operation: string): boolean {
+function isReadOperation(operation: string): boolean {
   return READ_OPERATIONS.has(operation);
 }
 

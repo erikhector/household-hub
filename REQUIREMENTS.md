@@ -8745,7 +8745,9 @@ version or the notes by hand.
   `prisma7.config.ts`) and ignores `@prisma/client` (imported only by the
   gitignored generated client) and `server-only` (resolved by Next.js).
   Unused exports and types are not checked yet: the first run found
-  about 120, a cleanup of its own (MAINT-92). `npm run check` runs knip alongside
+  about 120, a cleanup of its own (MAINT-92), done one feature at a time.
+  The shared `src/lib/` modules and tasks are clean; what's left is mostly
+  budget code and `cookie-inventory.ts`. `npm run check` runs knip alongside
   lint, typecheck and tests.
 
 - **PR title = release type.** Titles follow Conventional Commits

@@ -3,7 +3,7 @@
 // grew without end, in creation order, below the tasks that matter. Past this
 // many days they collapse behind "Show N older" instead of being deleted, so
 // nothing is lost and no data changes.
-export const OLDER_COMPLETED_DAYS = 7;
+const OLDER_COMPLETED_DAYS = 7;
 
 /**
  * Whether a task belongs behind "Show N older": shown completed, a one-off
