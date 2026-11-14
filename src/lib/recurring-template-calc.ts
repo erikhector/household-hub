@@ -292,7 +292,7 @@ export function computeBudgetBalanceStatus({
   return "balanced";
 }
 
-export type TemplateStatus = "posted" | "acknowledged" | "due";
+type TemplateStatus = "posted" | "acknowledged" | "due";
 
 export type RecurringTemplateInput = {
   id: string;

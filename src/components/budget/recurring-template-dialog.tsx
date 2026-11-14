@@ -50,7 +50,7 @@ export type RecurringTemplateFormAction = (
   formData: FormData,
 ) => Promise<ActionState>;
 
-export type RecurringTemplateSplitRow = { householdMemberId: string; amountOwed: number };
+type RecurringTemplateSplitRow = { householdMemberId: string; amountOwed: number };
 
 export type RecurringTemplateRow = {
   id: string;
