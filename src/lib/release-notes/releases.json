@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.155.0",
+    "date": "2026-11-14",
+    "pr": 1436,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "After choosing \"Show older updates\" on What's new, keyboard and screen-reader users now carry on from the first older release instead of being sent back to the top of the page.\n\nThe Notifications page now links straight to your notification settings, and when it's empty it lists what will show up there.\n\nOn phones, the ✕ that dismisses a notification is now bigger and sits further from the notification itself, so it's harder to open one by mistake. The bell icon in the More menu is no longer hidden behind the unread count.",
+      "sv": "När du väljer \"Visa äldre uppdateringar\" under Nyheter fortsätter du som använder tangentbord eller skärmläsare nu från den första äldre versionen i stället för att hamna högst upp på sidan igen.\n\nSidan Aviseringar länkar nu direkt till dina aviseringsinställningar, och när den är tom står det vad som kommer att dyka upp där.\n\nPå mobilen är krysset som avfärdar en avisering nu större och sitter längre från själva aviseringen, så det är svårare att öppna en av misstag. Klockikonen i Mer-menyn döljs inte längre av antalet olästa."
+    }
+  },
+  {
     "version": "0.154.0",
     "date": "2026-11-14",
     "pr": 1425,
