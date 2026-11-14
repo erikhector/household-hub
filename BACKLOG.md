@@ -255,10 +255,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/transaction-repeats.spec.ts:87` ("without the Repeats switch no recurring item is added"), `mobile` project. Failed once in the builder's locked `ci:local` run on 393b7e0 (PR #1404, a knip refactor that doesn't touch this spec or the budget feature, 2026-11-13), then passed in the full rerun of the same commit. Failing assertion at `:98`: `dialog.getByRole("radio", { name: category }).check({ force: true })` → `locator.check: Clicking the checkbox did not change its state`. The radio is a `peer sr-only` `<input name="categoryId">`, so the forced click lands on a visually hidden input. It may run before the dialog's category picker is hydrated, or a re-render may reset the selection. Start from the trace. Clicking the visible label after `expectHydrated` is likely the honest fix; look for the same pattern in other transaction-dialog specs.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-99. Flaky: the command palette's "No matching commands." empty state isn't visible within 5 s on mobile** (low, S) —
-      `e2e/command-palette.spec.ts:36` ("arrow keys move the highlight and Escape closes"), `mobile` project. Failed once in the builder's locked `ci:local` run on a5fc3e8 (PR #1418, MAINT-97, a test-only change to `e2e/transaction-repeats.spec.ts` that doesn't touch the palette, 2026-11-14), then passed in a locked rerun of the spec on the same commit (`--repeat-each=5`, desktop and mobile, 62 passed). Failing assertion at `:49`: after `input.fill("zzzz")`, `expect(palette.getByText("No matching commands.")).toBeVisible()` timed out at 5 s. The arrow-key steps before it passed, so the palette was open and hydrated. Either the filter runs deferred (a transition or `useDeferredValue`) and lags under a loaded runner, or a re-render resets the input after `fill`. Start from the trace: check whether the input still holds "zzzz" at the timeout, and whether the option list ever empties.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-102. Flaky: the inventory page shifts layout while loading on desktop** (low, S) —
       `e2e/cls.spec.ts:66` ("/dashboard/inventory does not shift while loading"), `desktop` project. Failed in the builder's locked `ci:local` run on f643d47 (PR #1429, UX-191, which touches the notifications page and Profile, not inventory, 2026-11-14) with `CLS on /dashboard/inventory` expected `< 0.05`, received `0.298` (line 82). The same test came in at 0.051 in an earlier full run of that branch (8ecc6ad). It passed 170/170 in a locked `cls.spec` run on that branch (`--repeat-each=3`, desktop and mobile), passed on clean `next` d52d120 (58 passed), and passed in the next full gate on 47d2ee9. So it only shifts on a loaded runner. Start from the trace: find which element moves (a late-loading part of the inventory page that the skeleton doesn't reserve space for, or a font or image without a set size). Fix the skeleton or the page so their sizes match.
       The fix is in the app or the test's waiting, never a loosened assertion or budget, a skip or a retry.
@@ -494,47 +490,6 @@ notifications: dismiss one, dismiss all) and the notification centre on
 Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
 UX-7 documents, so it isn't filed). WebKit was not run (no browser
 installed here).
-
-- [ ] **UX-192. Move focus to the first older release after "Show older updates"** (impact: med, effort: S) —
-      UX-190 (#1423) folds What's new behind a "Show older updates" link
-      to `?all=1#release-<version>`. After hydration that's a soft
-      navigation: the focused link is gone, and Next's hash scroll calls
-      `.focus()` on the target `<li>`
-      (`src/components/whats-new/release-list.tsx`), which isn't
-      focusable, so focus falls to `<body>`. A keyboard or screen-reader
-      user starts again from the top of the page instead of at the
-      release they asked for (M10). Observed by the UX-190 builder on
-      c4675b9 with a probe spec: `document.activeElement` was `BODY`
-      1.5 s after pressing Enter on the link, on `/dashboard/whats-new`
-      and `/whats-new`, `desktop` and `mobile`. Likely fix: give each
-      release `<li>` `tabIndex={-1}` and `outline-none` (as `main` has)
-      so Next's focus lands. Don't add a focus ring to a card that
-      isn't interactive.
-      Acceptance: in `e2e/whats-new-older.spec.ts`, after pressing
-      Enter on "Show older updates", `#release-<11th release version>`
-      is focused (`toBeFocused()`) on both pages, `desktop` and
-      `mobile`.
-- [ ] **UX-191. Link the notification centre to the notification settings and fix its stale empty state** (impact: med, effort: S) —
-      `/dashboard/notifications` (`src/app/dashboard/notifications/page.tsx:14`)
-      lists every alert but gives no way to change which ones arrive. The
-      opt-in toggles (tonight's dinner, tasks due today, weekly digest,
-      push) are on Profile under Notifications (`#profile-notifications`).
-      A member tired of a nudge has to guess that (User control; Context:
-      the setting belongs where the annoyance is). Its empty state
-      (`en.ts:305`, `sv.ts` `history.empty`) still says alerts come only
-      when "an item runs out of stock or is about to expire". Since GAP-9,
-      GAP-57 and GAP-74, price spikes, finished lists, put-away reminders,
-      tonight's dinner and tasks due today arrive too (honest copy; the
-      UX-3 comment above the string is out of date). Add a
-      "Notification settings" link under the subtitle to
-      `/dashboard/profile#profile-notifications`, at least 44 px tall on
-      phones, and rewrite the empty copy in both languages to name the
-      common triggers without promising opt-in ones the user hasn't turned on.
-      Acceptance: in the `mobile` project, the notification centre has a
-      "Notification settings" link that lands on Profile with the
-      "Notifications" heading in view. In the empty state (fresh
-      household), the text no longer says only stock and expiry produce
-      notifications (assert the new copy in `en` and `sv`).
 
 ### Dependencies
 
