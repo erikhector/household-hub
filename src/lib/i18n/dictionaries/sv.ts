@@ -245,6 +245,7 @@ export const sv = {
     latest: "Senaste",
     breaking: "Stor ändring",
     empty: "Inga uppdateringar än.",
+    showOlder: "Visa äldre uppdateringar",
   },
   theme: {
     light: "Ljust",
