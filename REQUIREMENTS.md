@@ -8836,6 +8836,14 @@ JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
   rather than a `<details>` or a client toggle, so the server doesn't send
   hundreds of unread cards and it works before hydration. The public
   `/whats-new` does the same. Covered by `e2e/whats-new-older.spec.ts`.
+  After the link's soft navigation the link that had focus is gone, and
+  Next 16 scrolls to the hash target without focusing it, so focus fell
+  to `<body>`. On `?all=1` a small Client Component
+  (`src/components/whats-new/focus-release-anchor.tsx`) moves focus to the
+  release the hash names when nothing else has focus, so a keyboard or
+  screen-reader user carries on from the first older release (UX-192,
+  M10). Each release card is focusable from script only (`tabIndex={-1}`:
+  not a tab stop, and no focus ring since it isn't interactive).
   Also UX-175: `Button` and `Badge` transition explicit properties
   (`color, background-color, border-color, box-shadow, transform`) rather
   than `transition-all`, and the phone inventory bulk bar uses a

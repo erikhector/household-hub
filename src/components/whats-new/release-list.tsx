@@ -4,6 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { RELEASES, releaseNoteFor } from "@/lib/release-notes";
+import { FocusReleaseAnchor } from "./focus-release-anchor";
 
 // UX-190: how many releases the page renders before "Show older updates".
 // With every release as a card the page was ~138 000 px tall on a phone,
@@ -44,12 +45,18 @@ export function ReleaseList({
   const firstOlder = showAll ? undefined : RELEASES[RECENT_RELEASES];
   return (
     <div className="flex max-w-2xl flex-col gap-3">
+      {showAll && <FocusReleaseAnchor />}
       <ol className="list-bleed flex flex-col gap-3">
         {releases.map((release, index) => (
           <li
             key={release.version}
             id={releaseAnchor(release.version)}
-            className="flex min-w-0 scroll-mt-4 flex-col gap-2 rounded-md border p-4"
+            // UX-192: focusable from script only, so FocusReleaseAnchor can
+            // move focus to the release "Show older updates" jumps to. Not a
+            // tab stop, and no ring (outline-none, as `main` has): the card
+            // isn't interactive.
+            tabIndex={-1}
+            className="flex min-w-0 scroll-mt-4 flex-col gap-2 rounded-md border p-4 outline-none"
           >
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-heading text-base font-semibold tabular-nums">
