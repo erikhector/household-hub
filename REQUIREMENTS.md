@@ -9227,11 +9227,13 @@ still-unread row dismisses just that one (same as the bell) before letting
 the link navigate; an already-read row is just a link. With no rows at all
 (UX-3) the page says "No notifications yet." plus one sentence naming what
 produces one, so a new household doesn't read the empty page as broken.
-Since UX-191 that sentence names the always-on triggers from the list
-above (something running out or about to expire, a price jump, a list all
-checked off, shopping to put away). The opt-in ones (tonight's dinner,
-tasks due today) are left out, since a member who hasn't turned them on
-would never get them, and it never promises invite notifications.
+Since UX-191 that sentence names the common always-on triggers from the
+list above (something running out or about to expire, a price jump, a list
+all checked off, shopping to put away). It is not the whole list: "Meal
+not logged" has no setting either, so it is always on, and is left out
+only to keep the sentence short. The opt-in ones (tonight's dinner, tasks
+due today) are left out, since a member who hasn't turned them on would
+never get them, and it never promises invite notifications.
 Under the subtitle a "Notification settings" link (UX-191, 44 px tall on
 phones via `touch-target`) goes to `/dashboard/profile#profile-notifications`,
 the Profile section holding the push, weekly digest, tonight's dinner and
@@ -9240,7 +9242,11 @@ the nudge shows up. Profile renders `ScrollToHash`
 (`src/components/dashboard/scroll-to-hash.tsx`), which scrolls the
 hash's target into view on mount: a client-side link first commits
 Profile's loading skeleton, so Next's own hash scroll finds no heading
-on a slow load and would leave the page at the top.
+on a slow load and would leave the page at the top. The same holds on
+Back: Profile streams in behind its skeleton again, so the browser's
+restored position is the top of the page with or without a hash, and
+`ScrollToHash` puts the reader back on the section the hash names. A
+malformed hash (`#%`) is ignored, never an error.
 
 ## PWA install & push notifications
 

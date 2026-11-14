@@ -302,10 +302,12 @@ export const en = {
       mascotAlt: "Squirrel mascot",
       markAllRead: "Mark all as read",
       settingsLink: "Notification settings",
-      // UX-3, UX-191: names the always-on triggers only (see "Notification
-      // center" in REQUIREMENTS.md): out of stock, expiring soon, a price
-      // jump, a finished list, shopping to put away. Tonight's dinner and
-      // tasks due today are opt-in (Profile), so they're not promised here.
+      // UX-3, UX-191: names the common always-on triggers (see
+      // "Notification center" in REQUIREMENTS.md): out of stock, expiring
+      // soon, a price jump, a finished list, shopping to put away. It is
+      // not the whole list: "Meal not logged" is always on too, and is left
+      // out to keep the sentence short. Tonight's dinner and tasks due
+      // today are opt-in (Profile), so they're not promised here.
       empty:
         "No notifications yet. You'll see one here when something runs out or is about to expire, a price jumps, a shopping list is all checked off, or there's shopping to put away.",
       unread: "Unread",

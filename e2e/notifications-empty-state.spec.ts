@@ -3,14 +3,14 @@ import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { expectHydrated, gotoRevealed } from "./ui";
+import { expectHydrated, expectRouterPatched, gotoRevealed } from "./ui";
 
 // UX-3, UX-191: a household with no notifications yet must be told what
 // would produce one, so the empty page doesn't look broken, and the copy
-// must name today's always-on triggers, not just stock and expiry. Other
-// specs in this worker's household can raise real notifications (an item
-// running out), so clear them first. Each worker has its own household and
-// runs its specs one at a time, so nothing races this delete.
+// must name today's common always-on triggers, not just stock and expiry.
+// Other specs in this worker's household can raise real notifications (an
+// item running out), so clear them first. Each worker has its own household
+// and runs its specs one at a time, so nothing races this delete.
 for (const [locale, dict, storageState] of [
   ["en", en, STORAGE_STATE],
   ["sv", sv, STORAGE_STATE_SV],
@@ -58,7 +58,40 @@ test("the notification centre links to the notification settings", async ({ page
   });
   await link.click();
   await expect(page).toHaveURL(/\/dashboard\/profile#profile-notifications$/);
-  await expect(
-    page.getByRole("heading", { level: 2, name: en.profile.sections.notifications, exact: true }),
-  ).toBeInViewport();
+  const heading = page.getByRole("heading", { level: 2, name: en.profile.sections.notifications, exact: true });
+  await expect(heading).toBeInViewport();
+
+  // M7: leaving Profile and pressing Back returns to the section the reader
+  // came for. Profile streams in behind its skeleton on Back too, so
+  // without ScrollToHash the restored position is the top of the page.
+  // "See what's new" sits in the closed About disclosure (a native
+  // <details>, so its summary needs no hydration wait).
+  const main = page.getByRole("main");
+  await main.getByText(en.profile.about.title, { exact: true }).click();
+  await main.getByRole("link", { name: en.profile.about.whatsNewLink }).click();
+  await expect(page).toHaveURL(/\/dashboard\/whats-new$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/dashboard\/profile#profile-notifications$/);
+  await expect(heading).toBeInViewport();
+});
+
+// A hash is anything a pasted or truncated link ends in. A malformed escape
+// made decodeURIComponent throw inside ScrollToHash's effect, which sent the
+// whole Profile page to the error boundary. The server-rendered page looks
+// fine until that effect runs, so first do something only a hydrated
+// Profile answers (React runs pending effects before it handles a click),
+// then check the page is still there.
+test("a malformed hash doesn't take Profile down", async ({ page }) => {
+  await gotoRevealed(page, "/dashboard/profile#%");
+  const main = page.getByRole("main");
+  await main.getByText(en.profile.dangerZoneTitle, { exact: true }).click();
+  const trigger = main.getByRole("button", { name: en.profile.deleteAccount.trigger });
+  await expectHydrated(trigger);
+  await expectRouterPatched(page);
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: en.profile.deleteAccount.title });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("heading", { level: 1, name: en.profile.title, exact: true })).toBeVisible();
 });
