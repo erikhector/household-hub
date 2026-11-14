@@ -12,12 +12,13 @@ import { PageTitle } from "@/components/dashboard/page-title";
 // Release history, one entry per released PR, written by the release
 // workflow into src/lib/release-notes/releases.json (see REQUIREMENTS.md's
 // "Releases & What's new" section).
-export default async function WhatsNewPage() {
-  const [, dict, locale, cookieStore] = await Promise.all([
+export default async function WhatsNewPage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
+  const [, dict, locale, cookieStore, { all }] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
     cookies(),
+    searchParams,
   ]);
   const t = dict.whatsNew;
   const alreadySeen = !hasUnseenRelease(cookieStore.get(LAST_SEEN_RELEASE_COOKIE)?.value);
@@ -43,7 +44,7 @@ export default async function WhatsNewPage() {
           <p className="mt-1 text-xs text-muted-foreground">{format(t.currentVersion, { version: CURRENT_VERSION })}</p>
         </div>
       </div>
-      <ReleaseList dict={t} locale={locale} />
+      <ReleaseList dict={t} locale={locale} showAll={all === "1"} path="/dashboard/whats-new" />
     </div>
   );
 }

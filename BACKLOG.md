@@ -262,6 +262,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/command-palette.spec.ts:36` ("arrow keys move the highlight and Escape closes"), `mobile` project. Failed once in the builder's locked `ci:local` run on a5fc3e8 (PR #1418, MAINT-97, a test-only change to `e2e/transaction-repeats.spec.ts` that doesn't touch the palette, 2026-11-14), then passed in a locked rerun of the spec on the same commit (`--repeat-each=5`, desktop and mobile, 62 passed). Failing assertion at `:49`: after `input.fill("zzzz")`, `expect(palette.getByText("No matching commands.")).toBeVisible()` timed out at 5 s. The arrow-key steps before it passed, so the palette was open and hydrated. Either the filter runs deferred (a transition or `useDeferredValue`) and lags under a loaded runner, or a re-render resets the input after `fill`. Start from the trace: check whether the input still holds "zzzz" at the timeout, and whether the option list ever empties.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-100. Flaky: a just-ticked task's "Mark … as not done" checkbox isn't found within 5 s on mobile** (low, S) —
+      `e2e/flows.spec.ts:23` ("add a task and mark it done"), `mobile` project. Failed once in the reviewer's locked `ci:local` run on release PR #1425 (138ae29, 2026-11-14, carrying only #1423, a What's new change that doesn't touch tasks or this spec), then passed in a re-run of the spec on the same commit (`npx playwright test e2e/flows.spec.ts --project=mobile`, 6 passed) and in the GitHub e2e job. Failing assertion at `:45`: `expect(page.getByRole("checkbox", { name: "Mark <title> as not done" })).toBeChecked()` → `element(s) not found` after 5 s, followed by `page.waitForResponse: Test ended.` at `:38`. So after `done.click()` the row never showed its optimistic "not done" label and no Server Action POST was seen: the tap most likely landed before the task row's checkbox was hydrated (the test calls neither `expectHydrated` nor `gotoRevealed` before it), or a re-render after the add swallowed it. Start from the trace: check whether the click reached a hydrated checkbox, and wait for hydration before the tap as AGENTS.md's "Shared checks" describes.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/flows.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-101. Flaky: `router.push("/dashboard/profile")` leaves the page on `/dashboard/tasks` in the cached-page spec on the `iphone` project** (low, S) —
+      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (it runs in the GitHub e2e job). In the GitHub `End-to-end (Playwright)` job on release PR #1425 (138ae29, 2026-11-14, job 132417142477) the first attempt failed and the retry passed, so Playwright marked it `flaky`. The local `ci:local` on the same commit passed this test. Failing assertion at `:71`: `expect(page).toHaveURL(/\/dashboard\/profile/)` → received `http://localhost:3000/dashboard/tasks` for the whole 5 s. The test calls `window.next.router.push` right after the new task's checkbox is visible, so the push may run while the add action's `revalidatePath` refresh is still in flight and get dropped, or before the router is patched. Start from the trace: check whether a navigation request for `/dashboard/profile` was ever sent, and wait for the add to settle (the Server Action's response, or `expectRouterPatched`) before the push.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub e2e job is the evidence).
 
 ### UX (2026-09-26 scout)
 
@@ -501,22 +509,6 @@ installed here).
       badge no longer covers more than a corner of the bell (for example,
       it is offset so the bell's centre stays visible). Desktop sidebar
       dropdown keeps working, unchanged.
-- [ ] **UX-190. Show the latest releases on What's new and fold the rest behind "Show older"** (impact: med, effort: S) —
-      `ReleaseList` (`src/components/whats-new/release-list.tsx:19`)
-      renders all 275 releases as full cards on `/dashboard/whats-new` and
-      `/whats-new`: about 138 000 CSS px tall on Pixel 7 and 42 000 px on
-      desktop (screenshots `mobile-en-dashboard-whats-new.png`,
-      `desktop-en-dashboard-whats-new.png`). A member who opens it from
-      the unread dot wants the last few changes, and the server sends and
-      the phone lays out hundreds of cards it won't read (M6: long lists
-      stay scannable, most relevant first; M8: a mid-range phone on mobile
-      data). Show the newest 10, then a "Show older updates" control
-      (a `<details>`, or a link to `?all=1` so it works before hydration)
-      that reveals the rest. Strings in `en.ts` and `sv.ts`.
-      Acceptance: in the `mobile` and `desktop` projects, both pages show
-      10 release headings (`h2`) on load and a "Show older updates" control.
-      Activating it shows all of them. The newest release is still first
-      with its "Latest" badge.
 
 ### Dependencies
 
