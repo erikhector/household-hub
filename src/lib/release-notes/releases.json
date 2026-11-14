@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.154.0",
+    "date": "2026-11-14",
+    "pr": 1425,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "What's new now shows the ten latest updates, so the page opens quickly. Tap \"Show older updates\" to see the rest.",
+      "sv": "Nyheter visar nu de tio senaste uppdateringarna, så sidan öppnas snabbt. Tryck på \"Visa äldre uppdateringar\" för att se resten."
+    }
+  },
+  {
     "version": "0.153.0",
     "date": "2026-11-13",
     "pr": 1403,
