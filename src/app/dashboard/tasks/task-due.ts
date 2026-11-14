@@ -25,7 +25,7 @@ export type TaskDueFields = RecurrenceFields & {
 export type TaskUrgency = "overdue" | "today" | "later" | "none";
 
 /** The calendar day a `dueDate` column value names, as days since 1970-01-01. */
-export function dueDateToDayNumber(dueDate: Date): number {
+function dueDateToDayNumber(dueDate: Date): number {
   return Math.floor(dueDate.getTime() / MS_PER_DAY);
 }
 

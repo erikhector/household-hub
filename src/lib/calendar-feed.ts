@@ -59,7 +59,7 @@ export function calendarFeedWindow(now: Date): { from: Date; to: Date } {
   };
 }
 
-export type FeedMealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+type FeedMealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
 
 export type FeedMealEntry = {
   id: string;

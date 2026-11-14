@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.153.0",
+    "date": "2026-11-13",
+    "pr": 1403,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On a computer, Inventory now leads with \"Add item\", puts its tools on a full-width row under the title, and shows just the date in the Last updated column so categories fit.",
+      "sv": "På datorn börjar Lager nu med \"Lägg till vara\", verktygen ligger på en bred rad under rubriken och kolumnen Senast uppdaterad visar bara datumet så att kategorierna får plats."
+    }
+  },
+  {
     "version": "0.152.2",
     "date": "2026-11-13",
     "pr": 1392,

@@ -508,7 +508,7 @@ export async function resetPasswordAction(
  * message from the dictionary by this code, because `error` is one English
  * string it can't tell the causes apart by.
  */
-export type VerifyEmailErrorCode = "invalid" | "rateLimited" | "generic";
+type VerifyEmailErrorCode = "invalid" | "rateLimited" | "generic";
 
 export type VerifyEmailState = {
   status?: "verified" | "alreadyVerified";
