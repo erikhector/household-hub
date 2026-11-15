@@ -560,26 +560,6 @@ dark was not looked at.
       view the "couldn't send" text and warning icon are gone and only
       the resend result shows.
 
-- [ ] **UX-196. A possible-duplicates row lines its name up with its Keep and Merge controls** (impact: med, effort: S) —
-      `mobile-sv-dashboard-inventory-items.png`, and the same in
-      `tablet-`, `landscape-` and `desktop-`, `en` and `sv`
-      (`/dashboard/inventory/items?filter=duplicates`). In each
-      candidate row the name sits about 12 px lower than its "Keep"
-      radio and the detail line ("2 st", "0 dl · aldrig i lager") falls
-      between that row's controls and the next row's, so the "Merge"
-      tick reads as belonging to neither item: the name link is a 44 px
-      `touch-target` beside a 20 px label, both top-aligned
-      (`src/components/inventory/catalog/item-catalog.tsx:266-299`).
-      The keeper's hidden Merge also leaves a blank band under the
-      first item. Breaks principle 3 (hierarchy: related things read as
-      one group) on a screen where ticking the wrong row merges the
-      wrong item away.
-      Acceptance: in an `e2e/` spec on `mobile`, `tablet` and
-      `desktop`, in `en` and `sv`, on the seeded duplicate group each
-      row's name is vertically centred on its Keep control (centres
-      within 4 px), each row's detail line ends above the next row's
-      Keep control, and `expectTouchTargets` still passes on `mobile`.
-
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —

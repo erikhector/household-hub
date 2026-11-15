@@ -972,7 +972,13 @@ every lookup the old one did.
     most recipe/list/template/price rows, then the oldest. In each group a
     radio picks the keeper (the suggested one to start with) and a
     checkbox each item to merge (all ticked), each with a visible "Keep" /
-    "Merge" label (UX-131).
+    "Merge" label (UX-131). An item is two lines of a two-column grid,
+    each centred on its control: Keep beside the name, Merge beside the
+    details (stock, recipes, barcode, never stocked), so both controls
+    read as that item's and the details never sit between two items'
+    controls. The keeper's Merge is hidden but keeps its place, with the
+    details beside it. `e2e/ux-196.spec.ts` measures the seeded pair on
+    `desktop`, `mobile` and `tablet`, in both languages (UX-196).
     - **Not duplicates** (`dismissDuplicatesAction`) stores every pair in
       the group as an `InventoryDuplicateDismissal` (`householdId`,
       `itemAId`, `itemBId`, ids sorted, unique, cascading with either item
