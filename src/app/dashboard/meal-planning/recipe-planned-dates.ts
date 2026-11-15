@@ -6,7 +6,7 @@ import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-util
 // GAP-46's "last cooked", so a household doesn't plan the same dish twice
 // without noticing. One query for the whole household, grouped here, like
 // getRecipeCookedStats; a recipe that isn't planned has no key at all.
-export const PLANNED_DATES_LIMIT = 3;
+const PLANNED_DATES_LIMIT = 3;
 
 export type RecipePlannedDate = {
   // yyyy-mm-dd (UTC day, like every planner date).

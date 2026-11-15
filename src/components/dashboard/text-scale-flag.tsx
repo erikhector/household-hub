@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 // default, and controls that only fit at normal sizes drop to their compact
 // form (the floating primary action to its icon, the smart-add icons to a
 // fixed 44 px).
-export const LARGE_TEXT_ROOT_PX = 24;
+const LARGE_TEXT_ROOT_PX = 24;
 
 /**
  * Mirrors "text is larger than 150 %" onto <html data-large-text>, which

@@ -73,7 +73,7 @@ export function pickTargetList<T extends { isDefault: boolean; createdAt: Date }
   return best;
 }
 
-export type UseSoonDay = "expired" | "today" | "tomorrow" | "later";
+type UseSoonDay = "expired" | "today" | "tomorrow" | "later";
 
 export type UseSoonItem = { id: string; name: string; expiresAt: Date; day: UseSoonDay };
 

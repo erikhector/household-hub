@@ -9,7 +9,7 @@
 // link dropped it, bouncing someone paging back through Transactions to
 // Overview on every tap.
 
-export const BUDGET_TABS = ["overview", "manage", "transactions", "insights"] as const;
+const BUDGET_TABS = ["overview", "manage", "transactions", "insights"] as const;
 export type BudgetTab = (typeof BUDGET_TABS)[number];
 
 /** `?tab=` → a known tab, or Overview (the landing tab) for anything else. */

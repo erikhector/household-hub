@@ -10,10 +10,10 @@ export const SEARCH_MAX_CHARS = 80;
 /** Rows per group: the palette is a jump list, not a results page. */
 export const SEARCH_GROUP_LIMIT = 5;
 
-export const SEARCH_GROUPS = ["inventory", "recipes", "shoppingLists", "tasks", "budgetCategories"] as const;
+const SEARCH_GROUPS = ["inventory", "recipes", "shoppingLists", "tasks", "budgetCategories"] as const;
 export type SearchGroupKey = (typeof SEARCH_GROUPS)[number];
 
-export type SearchHit = { id: string; name: string; href: string };
+type SearchHit = { id: string; name: string; href: string };
 export type SearchGroup = { key: SearchGroupKey; hits: SearchHit[] };
 export type SearchResult = { ok: true; groups: SearchGroup[] } | { ok: false; rateLimited: true };
 

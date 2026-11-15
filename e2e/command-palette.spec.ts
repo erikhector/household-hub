@@ -8,11 +8,21 @@ const SHORTCUT = "ControlOrMeta+k";
 // The shortcut listener attaches on hydration, which a press right after
 // page.goto can beat. Press again only while the palette isn't up, so a slow
 // hydration doesn't toggle it open and shut.
+//
+// Open, not just visible (MAINT-99). The palette's chunk is lazy (PERF-27),
+// so it can show up between the isVisible() check and the press, and that
+// press then closes it. A closing sheet stays visible while it slides out
+// (about 100 ms on desktop, long enough on a phone for the arrow keys and
+// a fill to pass), so toBeVisible handed back a palette that was on its
+// way out, and the next thing asked of it was never there. Base UI puts
+// `data-open` on the popup only while it's open and swaps it for
+// `data-closed` the moment it starts to close, so a press that closed it
+// fails this check and the loop opens it again.
 async function openPalette(page: Page) {
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(async () => {
     if (!(await palette.isVisible())) await page.keyboard.press(SHORTCUT);
-    await expect(palette).toBeVisible({ timeout: 1000 });
+    await expect(palette).toHaveAttribute("data-open", "", { timeout: 1000 });
   }).toPass();
   return palette;
 }

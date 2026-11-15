@@ -53,8 +53,8 @@ export const SHOPPING_LIST_CACHE_NAME = "squirrel-shopping-list-v1";
 // as each one syncs, and on logout.
 export const SHOPPING_TICK_QUEUE_STORAGE_KEY = "shopping.offlineTicks";
 
-export type StorageKind = "cookie" | "localStorage" | "cache";
-export type StorageCategory = "necessary" | "preference";
+type StorageKind = "cookie" | "localStorage" | "cache";
+type StorageCategory = "necessary" | "preference";
 
 export type StorageEntry = {
   /**

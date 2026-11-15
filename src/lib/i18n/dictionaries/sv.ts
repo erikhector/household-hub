@@ -245,6 +245,7 @@ export const sv = {
     latest: "Senaste",
     breaking: "Stor ändring",
     empty: "Inga uppdateringar än.",
+    showOlder: "Visa äldre uppdateringar",
   },
   theme: {
     light: "Ljust",
@@ -277,7 +278,9 @@ export const sv = {
       subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
       mascotAlt: "Squirrel-maskot",
       markAllRead: "Markera alla som lästa",
-      empty: "Inga aviseringar än. Du får en här när en vara tar slut eller snart går ut.",
+      settingsLink: "Aviseringsinställningar",
+      empty:
+        "Inga aviseringar än. Du får en här när något tar slut eller snart går ut, ett pris stiger, en inköpslista blir helt avbockad eller det finns varor att ställa in.",
       unread: "Oläst",
     },
   },
@@ -430,7 +433,7 @@ export const sv = {
       description:
         "Prenumerera från Google Kalender, Apple Kalender eller Outlook för att se planerade måltider och förfallodagar för månadsräkningar. Det uppdateras av sig självt och är skrivskyddat.",
       publicWarning:
-        "Alla som har länken kan se era planerade måltider och namnen på räkningarna, utan att logga in. Belopp visas aldrig. Dela den bara med personer du litar på.",
+        "Alla som har länken kan se era planerade måltider, anteckningarna på dem och namnen på räkningarna, utan att logga in. Belopp visas aldrig. Dela den bara med personer du litar på.",
       offDescription: "Kalenderflödet är avstängt.",
       contributorOffDescription: "Kalenderflödet är avstängt. Hushållets ägare kan slå på det.",
       enable: "Slå på kalenderflöde",
@@ -2089,6 +2092,9 @@ export const sv = {
     fromCustomMealsHint: "Ingredienser du skrev på en egen måltid. Inget skalas.",
     portionsLabel: "Portioner",
     portionsHint: "Hur många portioner av receptet du lagar för det här tillfället.",
+    mealNoteLabel: "Anteckning (valfritt)",
+    mealNotePlaceholder: "t.ex. tina kycklingen kvällen innan",
+    mealNoteHeading: "Anteckning",
     removeMealAriaLabel: "Ta bort måltid",
     // UX-49: Ta bort sker direkt; toasten har vägen tillbaka.
     mealRemovedToast: 'Tog bort "{meal}"',
@@ -2385,6 +2391,14 @@ export const sv = {
     allMealTypes: "Alla måltider",
     tagFilterLabel: "Filtrera på tagg",
     allTags: "Alla taggar",
+    // GAP-80: the Recipes tab's sort, beside the two filters. "Längst sedan
+    // lagad" puts never-cooked recipes first, then the one cooked longest ago;
+    // the label names that direction, since "Senast lagad" read as the opposite.
+    recipeSortLabel: "Sortera recept",
+    recipeSortName: "A–Ö",
+    recipeSortLastCooked: "Längst sedan lagad",
+    recipeSortMostCooked: "Mest lagad",
+    recipeSortNewest: "Nyast",
     ingredientCount: {
       one: "{count} ingrediens",
       other: "{count} ingredienser",

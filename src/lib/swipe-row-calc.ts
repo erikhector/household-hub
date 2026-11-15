@@ -11,7 +11,7 @@ export const EDGE_ZONE_PX = 20;
 /** How far the finger moves before we decide between swipe and scroll. */
 export const AXIS_LOCK_PX = 8;
 /** Share of the row's width a right swipe must cross to commit. */
-export const COMMIT_FRACTION = 0.4;
+const COMMIT_FRACTION = 0.4;
 /** How much of the finger's travel past a limit still moves the row. */
 const RUBBER_BAND = 0.3;
 

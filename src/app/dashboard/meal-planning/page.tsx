@@ -153,6 +153,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     fatGramsPerServing: recipe.fatGramsPerServing,
     isFavorite: recipe.isFavorite,
     cookSoonAt: recipe.cookSoonAt ? recipe.cookSoonAt.toISOString() : null,
+    createdAt: recipe.createdAt.toISOString(),
     // GAP-29: re-parsed on read too, so a key since removed from
     // RECIPE_TAGS is dropped here instead of rendering as a raw key.
     tags: parseRecipeTags(recipe.tags),
@@ -183,6 +184,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     recipeName: entry.recipe?.name ?? null,
     freeformName: entry.freeformName,
     freeformIngredients: entry.freeformIngredients,
+    note: entry.note,
     portions: entry.portions,
     consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
     preparedBatchId: entry.preparedBatchId,

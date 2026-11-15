@@ -46,7 +46,7 @@ export type SpreadRow = { pickId: string; weekday: Weekday; reason: SpreadReason
  * Produce (5) and bakery (4) defaults are left out, or nearly every recipe
  * with an onion would jump the queue and the rule would mean nothing.
  */
-export const PERISHABLE_WITHIN_DAYS = 3;
+const PERISHABLE_WITHIN_DAYS = 3;
 
 /**
  * Suggests a day for each pick. `freeWeekdays` are the dinners with nothing

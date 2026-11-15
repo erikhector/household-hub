@@ -51,7 +51,7 @@ import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
 
-export type ShareableHouseholdMember = { id: string; displayName: string };
+type ShareableHouseholdMember = { id: string; displayName: string };
 export type ShareableHouseholdCategory = { id: string; name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" };
 
 export type ShareableHousehold = {

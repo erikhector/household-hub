@@ -123,7 +123,7 @@ export function withCategoryLimits(
 }
 
 /** UX-108: a category counts as "near its limit" from this share of it. */
-export const NEAR_LIMIT_PERCENT = 90;
+const NEAR_LIMIT_PERCENT = 90;
 
 export type LimitAlert = {
   id: string;

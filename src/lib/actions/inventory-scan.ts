@@ -75,7 +75,7 @@ const DATA_URL_RE = /^data:([\w./+-]+);base64,([\s\S]+)$/;
 
 export type ScanShelfMode = "add" | "restock";
 
-export type ScannedShelfItem = {
+type ScannedShelfItem = {
   name: string;
   quantity: number;
   /** Set only in "restock" mode, and only when resolveMatches found a

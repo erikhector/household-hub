@@ -1,5 +1,93 @@
 [
   {
+    "version": "0.156.1",
+    "date": "2026-11-15",
+    "pr": 1455,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Going back to a page now returns you to where you were on it, not to the top. On phones this works on every page, including long ones like Profile.",
+      "sv": "När du går tillbaka till en sida hamnar du nu där du var, inte högst upp. På mobilen gäller det alla sidor, även långa som Profil."
+    }
+  },
+  {
+    "version": "0.156.0",
+    "date": "2026-11-15",
+    "pr": 1449,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now add a short note to a planned meal, like \"thaw the chicken the night before\". It shows on the day, in the meal's details and while you cook, and follows along when you copy last week.\n\nThe inventory page no longer jumps while it loads on a slow connection.",
+      "sv": "Nu kan du lägga till en kort anteckning på en planerad måltid, till exempel \"tina kycklingen kvällen innan\". Den visas på dagen, i måltidens detaljer och när du lagar maten, och följer med när du kopierar förra veckan.\n\nLagersidan hoppar inte längre till medan den laddas på en långsam anslutning."
+    }
+  },
+  {
+    "version": "0.155.0",
+    "date": "2026-11-14",
+    "pr": 1436,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "After choosing \"Show older updates\" on What's new, keyboard and screen-reader users now carry on from the first older release instead of being sent back to the top of the page.\n\nThe Notifications page now links straight to your notification settings, and when it's empty it lists what will show up there.\n\nOn phones, the ✕ that dismisses a notification is now bigger and sits further from the notification itself, so it's harder to open one by mistake. The bell icon in the More menu is no longer hidden behind the unread count.",
+      "sv": "När du väljer \"Visa äldre uppdateringar\" under Nyheter fortsätter du som använder tangentbord eller skärmläsare nu från den första äldre versionen i stället för att hamna högst upp på sidan igen.\n\nSidan Aviseringar länkar nu direkt till dina aviseringsinställningar, och när den är tom står det vad som kommer att dyka upp där.\n\nPå mobilen är krysset som avfärdar en avisering nu större och sitter längre från själva aviseringen, så det är svårare att öppna en av misstag. Klockikonen i Mer-menyn döljs inte längre av antalet olästa."
+    }
+  },
+  {
+    "version": "0.154.0",
+    "date": "2026-11-14",
+    "pr": 1425,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "What's new now shows the ten latest updates, so the page opens quickly. Tap \"Show older updates\" to see the rest.",
+      "sv": "Nyheter visar nu de tio senaste uppdateringarna, så sidan öppnas snabbt. Tryck på \"Visa äldre uppdateringar\" för att se resten."
+    }
+  },
+  {
+    "version": "0.153.0",
+    "date": "2026-11-13",
+    "pr": 1403,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On a computer, Inventory now leads with \"Add item\", puts its tools on a full-width row under the title, and shows just the date in the Last updated column so categories fit.",
+      "sv": "På datorn börjar Lager nu med \"Lägg till vara\", verktygen ligger på en bred rad under rubriken och kolumnen Senast uppdaterad visar bara datumet så att kategorierna får plats."
+    }
+  },
+  {
+    "version": "0.152.2",
+    "date": "2026-11-13",
+    "pr": 1392,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The item page now shows decimals the way your language writes them, for example \"0,5\" instead of \"0.5\" in Swedish.",
+      "sv": "Varusidan visar nu decimaler som ditt språk skriver dem, till exempel \"0,5\" i stället för \"0.5\" på svenska."
+    }
+  },
+  {
+    "version": "0.152.1",
+    "date": "2026-11-13",
+    "pr": 1388,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On phones set to larger text, the shopping list's \"items aren't in your pantry yet\" note is readable again: \"Match all\" and the close button now move below the text instead of squeezing it.",
+      "sv": "På telefoner med större text går det åter att läsa inköpslistans notis om varor som inte finns i skafferiet: \"Koppla alla\" och stängknappen hamnar nu under texten i stället för att trycka ihop den."
+    }
+  },
+  {
+    "version": "0.152.0",
+    "date": "2026-11-13",
+    "pr": 1376,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now sort your recipes by longest since cooked, most cooked or newest, to spot what has dropped out of rotation or what you make most.",
+      "sv": "Nu kan du sortera recepten efter längst sedan lagad, mest lagad eller nyast, så ser du lätt vad som fallit bort ur rotationen eller vad ni lagar oftast."
+    }
+  },
+  {
     "version": "0.151.1",
     "date": "2026-11-13",
     "pr": 1360,

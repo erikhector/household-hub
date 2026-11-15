@@ -258,6 +258,8 @@ export const en = {
     latest: "Latest",
     breaking: "Big change",
     empty: "No updates yet.",
+    // UX-190: the link under the newest ten releases to the rest.
+    showOlder: "Show older updates",
   },
   theme: {
     light: "Light",
@@ -299,10 +301,15 @@ export const en = {
       subtitle: "Everything sent to your household, read or not.",
       mascotAlt: "Squirrel mascot",
       markAllRead: "Mark all as read",
-      // UX-3: names real triggers only (out of stock, expiring soon; see
-      // "Notification center" in REQUIREMENTS.md). There are no task or
-      // invite notifications, so they're deliberately not promised here.
-      empty: "No notifications yet. You'll see one here when an item runs out of stock or is about to expire.",
+      settingsLink: "Notification settings",
+      // UX-3, UX-191: names the common always-on triggers (see
+      // "Notification center" in REQUIREMENTS.md): out of stock, expiring
+      // soon, a price jump, a finished list, shopping to put away. It is
+      // not the whole list: "Meal not logged" is always on too, and is left
+      // out to keep the sentence short. Tonight's dinner and tasks due
+      // today are opt-in (Profile), so they're not promised here.
+      empty:
+        "No notifications yet. You'll see one here when something runs out or is about to expire, a price jumps, a shopping list is all checked off, or there's shopping to put away.",
       unread: "Unread",
     },
   },
@@ -472,7 +479,7 @@ export const en = {
       description:
         "Subscribe from Google Calendar, Apple Calendar or Outlook to see planned meals and the due dates of monthly bills. It updates on its own and is read-only.",
       publicWarning:
-        "Anyone who has the link can see your planned meals and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
+        "Anyone who has the link can see your planned meals, the notes on them and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
       offDescription: "The calendar feed is off.",
       contributorOffDescription: "The calendar feed is off. The household owner can turn it on.",
       enable: "Turn on calendar feed",
@@ -2208,6 +2215,9 @@ export const en = {
     fromCustomMealsHint: "Ingredients you typed on a custom meal. Nothing is scaled.",
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
+    mealNoteLabel: "Note (optional)",
+    mealNotePlaceholder: "e.g. thaw the chicken the night before",
+    mealNoteHeading: "Note",
     removeMealAriaLabel: "Remove meal",
     // UX-49: Remove goes at once; the toast carries the way back.
     mealRemovedToast: 'Removed "{meal}"',
@@ -2513,6 +2523,14 @@ export const en = {
     allMealTypes: "All meals",
     tagFilterLabel: "Filter by tag",
     allTags: "All tags",
+    // GAP-80: the Recipes tab's sort, beside the two filters. "Longest since
+    // cooked" puts never-cooked recipes first, then the one cooked longest ago;
+    // the label names that direction, since "Last cooked" read as the opposite.
+    recipeSortLabel: "Sort recipes",
+    recipeSortName: "A–Z",
+    recipeSortLastCooked: "Longest since cooked",
+    recipeSortMostCooked: "Most cooked",
+    recipeSortNewest: "Newest",
     ingredientCount: {
       one: "{count} ingredient",
       other: "{count} ingredients",

@@ -27,15 +27,15 @@ export function LastUpdatedCell({
   const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   const dateLabel = dateFormat.format(item.updatedAt);
   const updaterName = members.find((m) => m.userId === item.updatedByUserId)?.displayName;
-  const fullLabel = updaterName
-    ? format(dict.lastUpdatedWithUser, { date: dateLabel, name: updaterName })
-    : format(dict.lastUpdatedNoUser, { date: dateLabel });
 
   // Nothing extra to disclose (no resolvable updater) — plain text, no
-  // need for a tap target.
+  // need for a tap target. Just the date (UX-188): the column header
+  // already says "Last updated", and repeating it in every row cost the
+  // table ~200 px that Category needed.
   if (!updaterName) {
-    return <span className="block text-muted-foreground">{format(dict.lastUpdatedNoUser, { date: dateLabel })}</span>;
+    return <span className="block text-muted-foreground">{dateLabel}</span>;
   }
+  const fullLabel = format(dict.lastUpdatedWithUser, { date: dateLabel, name: updaterName });
 
   return (
     <PopoverPrimitive.Root>
