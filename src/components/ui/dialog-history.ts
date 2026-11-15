@@ -37,6 +37,17 @@ let ownBack: { href: string; overwritten: boolean } | null = null;
 // land before they push their entry (see pushDialogEntry).
 const deferred: Entry[] = [];
 
+// Other modules' keys in history.state that must outlive the router's
+// same-URL replaces too (UX-193: the scroll offset scroll-memory.ts keeps
+// per entry). Kept by the wrapper below rather than by one of their own:
+// this one is installed before the router's patch, so the router's stays
+// the outermost, which the e2e suite's expectRouterPatched looks for.
+const keptKeys: string[] = [];
+
+export function keepHistoryStateKey(key: string) {
+  if (!keptKeys.includes(key)) keptKeys.push(key);
+}
+
 // <html> carries this while ownBack is set, so the e2e suite's
 // waitForDialogHistory can wait for that back() to land: a page.reload()
 // issued before it does races it and comes back net::ERR_ABORTED. Nothing
@@ -114,6 +125,14 @@ function install() {
     const marker = markerOf(history.state);
     if (sameUrl && marker !== undefined && data && typeof data === "object" && markerOf(data) === undefined) {
       data = { ...data, [KEY]: marker };
+    }
+    const current: unknown = history.state;
+    if (sameUrl && current && typeof current === "object" && data && typeof data === "object") {
+      const kept: Record<string, unknown> = {};
+      for (const key of keptKeys) {
+        if (key in current && !(key in data)) kept[key] = (current as Record<string, unknown>)[key];
+      }
+      data = { ...data, ...kept };
     }
     if (!sameUrl && ownBack !== null) ownBack.overwritten = true;
     return originalReplace(data, unused, url);
