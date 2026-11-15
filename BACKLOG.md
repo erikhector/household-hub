@@ -515,29 +515,6 @@ WebKit was not run (no browser installed here), and no project in
 either sweep renders the dark theme (`mobile` has no `colorScheme`), so
 dark was not looked at.
 
-- [ ] **UX-194. A password mistake on the invite and reset-password forms doesn't wipe both fields** (impact: med, effort: S) —
-      Driven on Pixel 7 and at 320 px, `en` and `sv`, on `/join/<valid
-      token>` and `/reset-password/<valid token>`: a 5-character
-      password, or two that differ (and on the invite form a malformed
-      email), goes to the server and comes back with both password
-      fields emptied, focus on `<body>` and the message as one line
-      above the consent text or the button, not under its field
-      (`src/components/household/join-signup-form.tsx:176`,
-      `src/components/auth/reset-password-form.tsx:79`). The invite form
-      also never says "at least 8 characters" before the server does.
-      `/signup` already checks all of this in the browser (UX-59,
-      `validate` in `src/components/auth/signup-form.tsx`); these two
-      forms only check for empty fields (UX-183b). Breaks principle 7
-      (prevent errors, validate inline, next to the field) and M4: an
-      invitee, the person a household most wants to get in, retypes two
-      passwords on a phone keyboard.
-      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, in `en`
-      and `sv`, on both forms a too-short password and a mismatched
-      confirmation show their message under that field with
-      `aria-invalid`, focus is on it, no Server Action request is sent
-      and both password fields still hold what was typed; the invite
-      form shows the 8-character hint under Password before any submit.
-
 - [ ] **UX-195. The "account created" view after signing up or joining has a 44 px Log in and one message at a time** (impact: med, effort: S) —
       Driven on Pixel 7 and at 320 px after `/signup` and after
       `/join/<valid token>`. (1) The view's only way on, "Log in", is a

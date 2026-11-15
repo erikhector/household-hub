@@ -10083,6 +10083,22 @@ approximating them, so the email never disagrees with the app.
   `required` sits in a `noValidate` form that words its own message (UX-59's
   login and signup forms keep their own validation). Covered by
   `e2e/shopping-field-errors.spec.ts`.
+- **Invite and reset-password forms check the password in the browser
+  (UX-194).** `join-signup-form.tsx` and `reset-password-form.tsx` give
+  their `useRequiredFields` rules an `invalid` check (the hook's
+  `findFieldProblems`, run only on a field that isn't empty): a password
+  under 8 characters, a confirmation that differs and, on the invite form,
+  a malformed email (`src/lib/email-pattern.ts`, shared with `/signup`) are
+  worded under their field in the page's language (`auth.join` /
+  `auth.resetPassword` `passwordTooShort`, `passwordsDontMatch`,
+  `emailInvalid`), with `aria-invalid`, `aria-describedby` and focus on the
+  first. The submit is blocked before the Server Action runs, so React
+  never resets the form and both passwords stay as typed. Both forms show
+  "At least 8 characters" under the password field from the start
+  (`passwordHint`), and it describes the field. A blocked submit hides the
+  last server error line. The server still validates everything; a
+  rejection only it can find (a taken email, an expired link) still comes
+  back as the one line above the button. Covered by `e2e/ux-194.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

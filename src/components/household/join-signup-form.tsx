@@ -11,6 +11,7 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { EMAIL_PATTERN } from "@/lib/email-pattern";
 import { joinViaInviteSignupAction } from "@/lib/actions/household";
 import { resendVerificationEmailForLoginAction, type ResendVerificationForLoginState } from "@/lib/actions/auth";
 import type { SignupState } from "@/lib/actions/auth";
@@ -40,21 +41,42 @@ export function JoinSignupForm({
   // UX-13, as in SignupForm: an error keeps the name and email.
   const kept = useKeptFormValues(["displayName", "email"]);
   // UX-183b: a missing name, email or password is worded under its field in
-  // the page's language (`noValidate`), not by the browser's own bubble. The
-  // server still owns the format rules (email shape, length, match).
+  // the page's language (`noValidate`), not by the browser's own bubble.
+  // UX-194: so are a malformed email, a password under 8 characters and a
+  // confirmation that differs, as on /signup (UX-59). Those used to go to the
+  // server, and React's reset after the action then emptied both password
+  // fields. The server still validates everything (joinSignupSchema).
   const req = useRequiredFields();
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     const blocked = req.check(event, [
       { name: "displayName", id: "displayName", message: dict.nameRequired },
-      { name: "email", id: "email", message: dict.emailRequired },
-      { name: "password", id: "password", message: dict.passwordRequired },
-      { name: "confirmPassword", id: "confirmPassword", message: dict.confirmPasswordRequired },
+      {
+        name: "email",
+        id: "email",
+        message: dict.emailRequired,
+        invalid: (value) => (EMAIL_PATTERN.test(value.trim()) ? undefined : dict.emailInvalid),
+      },
+      {
+        name: "password",
+        id: "password",
+        message: dict.passwordRequired,
+        invalid: (value) => (value.length < 8 ? dict.passwordTooShort : undefined),
+      },
+      {
+        name: "confirmPassword",
+        id: "confirmPassword",
+        message: dict.confirmPasswordRequired,
+        invalid: (value, data) => (value !== data.get("password") ? dict.passwordsDontMatch : undefined),
+      },
     ]);
     if (!blocked) kept.onSubmit(event);
   }
-  const invalid = (name: string, id: string) => ({
+  // `hintId` is the field's always-visible hint, which describes it with or
+  // without an error.
+  const invalid = (name: string, id: string, hintId?: string) => ({
     "aria-invalid": req.messageFor(name) ? (true as const) : undefined,
-    "aria-describedby": req.messageFor(name) ? fieldErrorId(id) : undefined,
+    "aria-describedby":
+      [hintId, req.messageFor(name) ? fieldErrorId(id) : undefined].filter(Boolean).join(" ") || undefined,
   });
 
   // Carries the invite forward through login (A5's redirect-back param) so
@@ -152,8 +174,11 @@ export function JoinSignupForm({
           autoComplete="new-password"
           showLabel={dict.showPassword}
           hideLabel={dict.hidePassword}
-          {...invalid("password", "password")}
+          {...invalid("password", "password", "password-hint")}
         />
+        <p id="password-hint" className="text-sm text-muted-foreground">
+          {dict.passwordHint}
+        </p>
         <FieldError fieldId="password">{req.messageFor("password")}</FieldError>
       </div>
       <div className="flex flex-col gap-2">
@@ -173,7 +198,10 @@ export function JoinSignupForm({
         />
         <FieldError fieldId="confirmPassword">{req.messageFor("confirmPassword")}</FieldError>
       </div>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {/* A blocked submit shows only its own errors, not the last server verdict. */}
+      {state.error && Object.keys(req.errors).length === 0 && (
+        <p className="text-sm text-destructive">{state.error}</p>
+      )}
       <p className="text-center text-sm text-muted-foreground">
         {legalDict.signupConsentPrefix}{" "}
         <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
