@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.156.2",
+    "date": "2026-11-15",
+    "pr": 1471,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "A password that's too short, or two that don't match, is now pointed out right under the field when you join a household by invite or reset your password, and you no longer have to type both passwords again.\n\nIn the possible-duplicates view, each item's name now lines up with its Keep choice and its details with its Merge tick, so it's clear which item each control belongs to.\n\nAfter you create an account or join a household, the \"Log in\" link is now easy to tap and opens the login page with your email already filled in. If the verification email couldn't be sent and you resend it, you now see only the result of the resend.",
+      "sv": "Ett för kort lösenord, eller två som inte matchar, visas nu direkt under fältet när du går med i ett hushåll via inbjudan eller återställer ditt lösenord, och du behöver inte längre skriva båda lösenorden igen.\n\nI vyn för möjliga dubbletter står varje varas namn nu i linje med dess Behåll-val och dess detaljer i linje med Slå ihop-rutan, så att det syns tydligt vilken vara varje val hör till.\n\nNär du har skapat ett konto eller gått med i ett hushåll är länken \"Logga in\" nu lätt att trycka på och öppnar inloggningen med din e-postadress redan ifylld. Om verifieringsmejlet inte kunde skickas och du skickar det igen ser du nu bara resultatet av det nya försöket."
+    }
+  },
+  {
     "version": "0.156.1",
     "date": "2026-11-15",
     "pr": 1455,
