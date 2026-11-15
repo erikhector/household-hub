@@ -479,7 +479,7 @@ export const en = {
       description:
         "Subscribe from Google Calendar, Apple Calendar or Outlook to see planned meals and the due dates of monthly bills. It updates on its own and is read-only.",
       publicWarning:
-        "Anyone who has the link can see your planned meals and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
+        "Anyone who has the link can see your planned meals, the notes on them and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
       offDescription: "The calendar feed is off.",
       contributorOffDescription: "The calendar feed is off. The household owner can turn it on.",
       enable: "Turn on calendar feed",
@@ -2215,6 +2215,9 @@ export const en = {
     fromCustomMealsHint: "Ingredients you typed on a custom meal. Nothing is scaled.",
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
+    mealNoteLabel: "Note (optional)",
+    mealNotePlaceholder: "e.g. thaw the chicken the night before",
+    mealNoteHeading: "Note",
     removeMealAriaLabel: "Remove meal",
     // UX-49: Remove goes at once; the toast carries the way back.
     mealRemovedToast: 'Removed "{meal}"',

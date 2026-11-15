@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.156.0",
+    "date": "2026-11-15",
+    "pr": 1449,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now add a short note to a planned meal, like \"thaw the chicken the night before\". It shows on the day, in the meal's details and while you cook, and follows along when you copy last week.\n\nThe inventory page no longer jumps while it loads on a slow connection.",
+      "sv": "Nu kan du lägga till en kort anteckning på en planerad måltid, till exempel \"tina kycklingen kvällen innan\". Den visas på dagen, i måltidens detaljer och när du lagar maten, och följer med när du kopierar förra veckan.\n\nLagersidan hoppar inte längre till medan den laddas på en långsam anslutning."
+    }
+  },
+  {
     "version": "0.155.0",
     "date": "2026-11-14",
     "pr": 1436,

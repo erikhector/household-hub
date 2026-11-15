@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Timer, X } from "lucide-react";
+import { Check, StickyNote, Timer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -55,6 +55,7 @@ export function CookModeDialog({
   locale,
   recipe,
   portions = null,
+  note = null,
   handle,
   onDone,
 }: {
@@ -62,6 +63,9 @@ export function CookModeDialog({
   locale: Locale;
   recipe: RecipeData;
   portions?: number | null;
+  /** GAP-81: the planned meal's note ("double it for lunch boxes"), shown
+   * under the title. The recipe list has no meal, so no note. */
+  note?: string | null;
   /** Opened from the planner's and recipe list's row sheets (see
    * createDialogHandle), so it has no trigger of its own. */
   handle: DialogHandle;
@@ -109,6 +113,7 @@ export function CookModeDialog({
             locale={locale}
             recipe={recipe}
             portions={portions}
+            note={note}
             onProgress={onProgress}
             onDone={
               onDone
@@ -145,6 +150,7 @@ function CookModeContent({
   locale,
   recipe,
   portions,
+  note,
   onProgress,
   onDone,
 }: {
@@ -152,6 +158,7 @@ function CookModeContent({
   locale: Locale;
   recipe: RecipeData;
   portions: number | null;
+  note: string | null;
   onProgress: (doneSteps: number, runningTimers: number) => void;
   onDone?: () => void;
 }) {
@@ -263,6 +270,15 @@ function CookModeContent({
           <p className="mt-1 text-base text-muted-foreground">
             {format(plural(shownPortions, dict.entryPortionsCount), { count: shownPortions })}
           </p>
+          {/* GAP-81: in full and in reading size: it's often about the
+              cooking itself. */}
+          {note && (
+            <p className="mt-2 flex items-start gap-2 text-base break-words">
+              <StickyNote className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="sr-only">{dict.mealNoteHeading}</span>
+              <span className="min-w-0">{note}</span>
+            </p>
+          )}
         </div>
 
         {/* Sticky so a ring is seen wherever the cook has scrolled to; role
