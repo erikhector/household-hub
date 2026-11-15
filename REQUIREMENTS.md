@@ -8506,6 +8506,50 @@ components directly.
   `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
+- **Back restores the scroll position (UX-193, DESIGN.md M7)**: Back or
+  Forward to a dashboard page lands where the reader left it, within a
+  pixel, not at the top. The browser can't do this here: on a phone only
+  `main` scrolls, which no browser restores, and on a desktop Back first
+  commits the route's `loading.tsx` skeleton, a screen tall, so the
+  restored document offset is clamped to the top and nothing scrolls
+  again when the page streams in (measured on Profile, but every
+  dashboard page has the shell and a skeleton, so it is fixed for all of
+  them). `ScrollRestoration` (`src/components/dashboard/scroll-restoration.tsx`,
+  rendered once in the dashboard layout) drives
+  `src/components/dashboard/scroll-memory.ts`: the offset of whichever
+  scrolls (`main` or the document) is written to the current entry's
+  `history.state` under `__squirrelScroll`, next to Next's router state,
+  once a scroll has been still for 150 ms and again on any click (a link
+  may be about to push the next entry). It is per history entry, lives
+  only in the tab's session history, and is not a cookie or web storage,
+  so it is not in the storage inventory. The router rewrites the entry's
+  state on every commit, so the key is registered with
+  `keepHistoryStateKey` and `dialog-history.ts`'s `replaceState` wrapper
+  carries it over on same-URL replaces, as it does its own marker (one
+  wrapper, installed before the router's patch, so the router's stays
+  outermost for `expectRouterPatched`).
+  When React commits another page (pathname or search changed; a
+  dialog's entry closing or a hash change is left alone) and its entry
+  remembers an offset, which only an entry the reader came back to does
+  (a link pushes a fresh one), the offset is put back once the skeleton
+  (`data-page-skeleton` on `PageSkeleton` and the dashboard's
+  `loading.tsx`) is gone and the content is tall enough, retrying as
+  content streams in. That covers both ways Back arrives: React renders
+  a page the router still has cached inside the router's own `popstate`
+  listener, and one it has to fetch commits later, skeleton first. It
+  stops when the offset is reached, when the reader scrolls, taps or
+  presses a key, or after 15 s. Scrolls that aren't the reader's (the
+  browser's own attempt between a Back and its commit, the skeleton
+  clamping while the restore waits) aren't remembered, and the offset is
+  read from whichever scrolls, since on a phone the document fires
+  scroll events too while staying at 0. `ScrollToHash` stands down on
+  such a page. Not restored: the first page of a load (a reload is left
+  to the browser, which on a phone restores nothing), and state the page
+  itself forgets, so Back to Profile shows its "About Squirrel"
+  disclosure closed again and a position at the very bottom lands that
+  much higher. Covered by `e2e/ux-193.spec.ts` (Profile, with and
+  without a hash, cached and fetched again behind a held skeleton),
+  `scroll-memory.test.ts` and `dialog-history.test.ts`.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
   `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
   a long form (the recipe form, add/edit item, receipts) instead of
@@ -9256,11 +9300,12 @@ the nudge shows up. Profile renders `ScrollToHash`
 (`src/components/dashboard/scroll-to-hash.tsx`), which scrolls the
 hash's target into view on mount: a client-side link first commits
 Profile's loading skeleton, so Next's own hash scroll finds no heading
-on a slow load and would leave the page at the top. The same holds on
-Back: Profile streams in behind its skeleton again, so the browser's
-restored position is the top of the page with or without a hash, and
-`ScrollToHash` puts the reader back on the section the hash names. A
-malformed hash (`#%`) is ignored, never an error.
+on a slow load and would leave the page at the top. On Back it stands
+down: the reader's own scroll position is put back (UX-193, see "Back
+restores the scroll position" under Navigation & responsive layout),
+and only a Back to an entry with no remembered position falls back to
+the section the hash names. A malformed hash (`#%`) is ignored, never
+an error.
 
 ## PWA install & push notifications
 

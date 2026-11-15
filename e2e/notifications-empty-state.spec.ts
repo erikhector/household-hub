@@ -61,18 +61,8 @@ test("the notification centre links to the notification settings", async ({ page
   const heading = page.getByRole("heading", { level: 2, name: en.profile.sections.notifications, exact: true });
   await expect(heading).toBeInViewport();
 
-  // M7: leaving Profile and pressing Back returns to the section the reader
-  // came for. Profile streams in behind its skeleton on Back too, so
-  // without ScrollToHash the restored position is the top of the page.
-  // "See what's new" sits in the closed About disclosure (a native
-  // <details>, so its summary needs no hydration wait).
-  const main = page.getByRole("main");
-  await main.getByText(en.profile.about.title, { exact: true }).click();
-  await main.getByRole("link", { name: en.profile.about.whatsNewLink }).click();
-  await expect(page).toHaveURL(/\/dashboard\/whats-new$/);
-  await page.goBack();
-  await expect(page).toHaveURL(/\/dashboard\/profile#profile-notifications$/);
-  await expect(heading).toBeInViewport();
+  // What Back to here does (the reader's own scroll position, not this
+  // section again) is UX-193's: e2e/ux-193.spec.ts.
 });
 
 // A hash is anything a pasted or truncated link ends in. A malformed escape
