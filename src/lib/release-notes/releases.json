@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.156.3",
+    "date": "2026-11-15",
+    "pr": 1477,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On a phone, the rows of a list no longer jump and slide back the first time the list changes after you close a sheet, for example when you tick a task right after adding one.\n\nMessages from your personal budget, such as a category name that's already taken, now appear in the language you use Squirrel in.",
+      "sv": "På mobilen hoppar raderna i en lista inte längre till och glider tillbaka första gången listan ändras efter att du stängt ett blad, till exempel när du bockar av en uppgift direkt efter att du lagt till en.\n\nMeddelanden från din personliga budget, till exempel att ett kategorinamn redan finns, visas nu på det språk du använder Squirrel på."
+    }
+  },
+  {
     "version": "0.156.2",
     "date": "2026-11-15",
     "pr": 1471,
