@@ -44,3 +44,7 @@ export const COOK_PARAM = "cook";
 // (to know when to ask) and the loader (to refuse), since a one-letter query
 // matches half the plan.
 export const MEAL_SEARCH_MIN_CHARS = 2;
+
+// GAP-81: the cap on MealPlanEntry.note, a one-line reminder on a planned
+// meal. Shared by the form's maxLength and the actions' Zod schema.
+export const MAX_MEAL_NOTE_LENGTH = 200;

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRightLeft, BookmarkPlus, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, LayoutTemplate, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Undo2, Unlink, Utensils } from "lucide-react";
+import { ArrowRightLeft, BookmarkPlus, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, LayoutTemplate, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, StickyNote, Trash2, Undo2, Unlink, Utensils } from "lucide-react";
 import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
 import { MissingDietBadges } from "@/components/meal-planning/missing-diet-badges";
@@ -427,6 +427,7 @@ export function WeekPlanner({
         recipeName: pick.name,
         freeformName: null,
         freeformIngredients: null,
+        note: null,
         portions: pick.portions,
         consumedAt: null,
         preparedBatchId: null,
@@ -1179,6 +1180,15 @@ function MealEntryRow({
           <MissingDietBadges dict={dict} recipeTags={linkedRecipe.tags} requiredTags={requiredTags} />
         </span>
       )}
+      {/* GAP-81: one muted line, cut short here; the row's sheet has it in
+          full (M9), so nothing depends on a hover `title`. */}
+      {entry.note && (
+        <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+          <StickyNote className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="sr-only">{dict.mealNoteHeading}</span>
+          <span className="truncate">{entry.note}</span>
+        </span>
+      )}
     </span>
     {/* Words, not just a colour or an icon, so the state reads the
         same to everyone (GAP-49's badge, the cooked tick). */}
@@ -1246,6 +1256,15 @@ function MealEntryRow({
               {[slotLabel, dayLabel, portionsLabel].filter(Boolean).join(" · ")}
             </DialogDescription>
           </DialogHeader>
+          {/* GAP-81: the whole note, wrapped. */}
+          {entry.note && (
+            <p className="rounded-md bg-muted px-3 py-2 text-sm break-words">
+              <span className="block text-xs font-medium uppercase text-muted-foreground">
+                {dict.mealNoteHeading}
+              </span>
+              {entry.note}
+            </p>
+          )}
           <div className="flex flex-col gap-2">
             {/* Cooking it is what a planned meal is waiting for, so it's the
                 sheet's one primary action. Custom (non-recipe) meals have no
@@ -1357,6 +1376,7 @@ function MealEntryRow({
               locale={locale}
               recipe={cookRecipe}
               portions={entry.portions}
+              note={entry.note}
               handle={dialogs.cook}
               onDone={!cooked && entry.recipeId ? () => openLazyDialog(dialogs.markCooked) : undefined}
             />

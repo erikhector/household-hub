@@ -62,6 +62,7 @@ describe("GET /api/calendar/[token]", () => {
         date: new Date("2026-09-26T00:00:00Z"),
         mealType: "DINNER",
         freeformName: null,
+        note: "Thaw the mince, tonight",
         recipe: { name: "Lasagna" },
       },
       { id: "m2", date: new Date("2026-09-27T00:00:00Z"), mealType: "LUNCH", freeformName: "Picnic", recipe: null },
@@ -81,6 +82,9 @@ describe("GET /api/calendar/[token]", () => {
     expect(body).toContain("X-WR-CALNAME:Home (Squirrel)\r\n");
     expect(body).toContain("SUMMARY:Dinner: Lasagna\r\n");
     expect(body).toContain("SUMMARY:Lunch: Picnic\r\n");
+    // GAP-81: a meal's note is the event's description, escaped like any TEXT.
+    expect(body).toContain("DESCRIPTION:Thaw the mince\\, tonight\r\n");
+    expect(body.match(/DESCRIPTION:/g)).toHaveLength(1);
     expect(body).toContain("UID:bill-b1-20260928@squirrel-calendar-feed\r\n");
     expect(body).toContain("SUMMARY:Due: Rent\r\n");
     expect(body).toContain("DTSTAMP:20260925T120000Z\r\n");

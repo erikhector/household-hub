@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { MEAL_TYPES, CUSTOM_RECIPE_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
+import { MEAL_TYPES, CUSTOM_RECIPE_SENTINEL, MAX_MEAL_NOTE_LENGTH } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { LEFTOVERS_DAY_SEARCH_DAYS, nextFreeDinnerDay } from "@/app/dashboard/meal-planning/leftovers";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
@@ -24,6 +24,12 @@ import {
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
+// GAP-81: a meal's one-line reminder. Trimmed; an empty one is stored as
+// null by the actions below. Not sent at all (undefined) is different from
+// sent empty: the edit action leaves the column alone for the first and
+// clears it for the second.
+const noteSchema = z.string().trim().max(MAX_MEAL_NOTE_LENGTH, v("noteTooLong")).optional();
+
 const addEntrySchema = z.object({
   weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidWeek")),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidDate")),
@@ -32,6 +38,7 @@ const addEntrySchema = z.object({
   freeformName: z.string().trim().max(120).optional(),
   // GAP-58: a custom meal's ingredients, one per line. Ignored for a recipe.
   freeformIngredients: z.string().max(MAX_FREEFORM_INGREDIENTS_LENGTH).optional(),
+  note: noteSchema,
   // How many portions of the recipe this slot is for — see
   // MealPlanEntry.portions' doc comment in schema.prisma. Optional because a
   // freeform entry has no recipe to scale; when omitted for a recipe entry,
@@ -56,6 +63,7 @@ export async function addMealEntryAction(
     recipeId: formData.get("recipeId") || undefined,
     freeformName: formData.get("freeformName") || undefined,
     freeformIngredients: formData.get("freeformIngredients") || undefined,
+    note: formData.get("note") ?? undefined,
     portions: formData.get("portions") || undefined,
     preparedBatchId: formData.get("preparedBatchId") || undefined,
   });
@@ -129,6 +137,7 @@ export async function addMealEntryAction(
       recipeId: linkedRecipeId,
       freeformName: freeformMealName,
       freeformIngredients,
+      note: parsed.data.note || null,
       portions,
     },
   });
@@ -144,6 +153,7 @@ const updateEntrySchema = z.object({
   recipeId: z.string().optional(),
   freeformName: z.string().trim().max(120).optional(),
   freeformIngredients: z.string().max(MAX_FREEFORM_INGREDIENTS_LENGTH).optional(),
+  note: noteSchema,
   portions: z.coerce.number().int().min(1, v("portionsMin")).max(1_000).optional(),
 });
 
@@ -158,6 +168,7 @@ export async function updateMealEntryAction(
     recipeId: formData.get("recipeId") || undefined,
     freeformName: formData.get("freeformName") || undefined,
     freeformIngredients: formData.get("freeformIngredients") || undefined,
+    note: formData.get("note") ?? undefined,
     portions: formData.get("portions") || undefined,
   });
   if (!parsed.success) {
@@ -191,7 +202,15 @@ export async function updateMealEntryAction(
 
   const edit = {
     where: { id: entry.id },
-    data: { recipeId: linkedRecipeId, freeformName: freeformMealName, freeformIngredients, portions },
+    data: {
+      recipeId: linkedRecipeId,
+      freeformName: freeformMealName,
+      freeformIngredients,
+      portions,
+      // GAP-81: the form always posts the field, so an emptied one clears
+      // the note; a caller that doesn't post it leaves the note as it was.
+      ...(parsed.data.note !== undefined && { note: parsed.data.note || null }),
+    },
   };
 
   // GAP-49: an entry eating from a batch eats that batch's dish, its
@@ -415,7 +434,7 @@ export type CopyWeekResult = ActionState & {
 // than trusted.
 //
 // Each source entry keeps its weekday offset (Tuesday stays Tuesday), meal
-// type, recipe or freeform name, and portions. `consumedAt` is deliberately
+// type, recipe or freeform name, portions and note (GAP-81). `consumedAt` is deliberately
 // *not* carried over: last week's "cooked" state says nothing about this
 // week's. A target slot (date + mealType) that already has anything in it is
 // left alone rather than overwritten or stacked onto, so re-running the copy
@@ -436,7 +455,15 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
     const [sourceEntries, targetEntries] = await Promise.all([
       prisma.mealPlanEntry.findMany({
         where: { mealPlan: { householdId: household.id, weekStartDate: fromDate } },
-        select: { date: true, mealType: true, recipeId: true, freeformName: true, freeformIngredients: true, portions: true },
+        select: {
+          date: true,
+          mealType: true,
+          recipeId: true,
+          freeformName: true,
+          freeformIngredients: true,
+          portions: true,
+          note: true,
+        },
         orderBy: [{ date: "asc" }, { mealType: "asc" }],
       }),
       prisma.mealPlanEntry.findMany({
@@ -483,6 +510,7 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
           freeformName: recipeId ? null : entry.freeformName,
           freeformIngredients: recipeId ? null : entry.freeformIngredients,
           portions: entry.portions,
+          note: entry.note,
         },
       ];
     });
