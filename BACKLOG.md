@@ -538,28 +538,6 @@ dark was not looked at.
       and both password fields still hold what was typed; the invite
       form shows the 8-character hint under Password before any submit.
 
-- [ ] **UX-195. The "account created" view after signing up or joining has a 44 px Log in and one message at a time** (impact: med, effort: S) —
-      Driven on Pixel 7 and at 320 px after `/signup` and after
-      `/join/<valid token>`. (1) The view's only way on, "Log in", is a
-      stand-alone text link 39 × 20 px (`Logga in` 54 × 20), M3
-      (`src/components/auth/signup-form.tsx:304`,
-      `src/components/household/join-signup-form.tsx:97`); the other
-      status cards use `StatusCardLink` for this. (2) The invite
-      version links to a bare `/login`, so the email just typed is
-      typed again; signup's uses `loginPath(state.email)` (M4).
-      (3) When the first email fails to send and the user taps "Resend
-      verification email", the red warning icon and "we couldn't send
-      the verification email just now. Try resending it below." stay
-      on screen above "we've sent a fresh verification link", with no
-      button left below: two messages that contradict each other
-      (principle 5, visible feedback on what happened).
-      Acceptance: in an `e2e/` spec on `mobile`, in `en` and `sv`, the
-      confirmation view after signup and after joining passes
-      `expectTouchTargets`; the invite version's Log in opens `/login`
-      with the email filled in; and after a resend on the send-failed
-      view the "couldn't send" text and warning icon are gone and only
-      the resend result shows.
-
 - [ ] **UX-196. A possible-duplicates row lines its name up with its Keep and Merge controls** (impact: med, effort: S) —
       `mobile-sv-dashboard-inventory-items.png`, and the same in
       `tablet-`, `landscape-` and `desktop-`, `en` and `sv`
