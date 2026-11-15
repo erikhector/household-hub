@@ -190,6 +190,21 @@ export const en = {
     invalidQuietHours: "Invalid quiet hours",
     quietHoursMustDiffer: "Start and end must differ",
     subscriptionNotFound: "Subscription not found",
+    // MAINT-7: the personal budget's actions (personal-budget/actions.ts).
+    categoryNameTooLong: "Name must be 60 characters or fewer",
+    categoryNameTaken: "A category with that name already exists",
+    categoryHasTransactions: "This category has transactions and can't be deleted",
+    categoryUsedByRecurringItem: 'This category is used by the recurring item "{name}" — remove or reassign it first',
+    monthlyLimitNumber: "Monthly limit must be a number",
+    monthlyLimitPositive: "Monthly limit must be greater than 0",
+    savingsGoalNumber: "Savings goal must be a number",
+    savingsGoalPositive: "Savings goal must be greater than 0",
+    goalDateInvalid: "Goal date must be a valid date",
+    dateRequired: "Date is required",
+    chooseRepeatFrequency: "Choose how often this repeats",
+    transactionNotFound: "Transaction not found",
+    recurringItemNotFound: "Recurring item not found",
+    recurringItemAlreadyLogged: "A transaction for this recurring item already exists for this period",
   },
   nav: {
     // UX-164: the keyboard skip link that opens the dashboard.

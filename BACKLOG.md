@@ -165,14 +165,21 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       auth and profile, the invite email, and checked the receipt and shelf
       scans and `parse-import-csv.ts` (codes their clients already
       translate), all done, and the shared share-split parser
-      (`share-split-form.ts`). Still English: the string-literal `error:`
-      values and Zod messages in the files on `PENDING` in
-      `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19), plus `lib/recipe-import.ts` (MAINT-65 is splitting it) and the
-      Zod messages in `savings-goal-calc.ts` and `budget-category-limit.ts`,
-      which only the two budget action files use, so convert them with
-      those (`v()` keys plus `zodFail()`, otherwise the key itself would
-      show). Convert a feature at a time, add its keys to `dict.errors` (or
+      (`share-split-form.ts`), and the personal budget
+      (`personal-budget/actions.ts`). Still English: the string-literal
+      `error:` values and Zod messages in the one file left on `PENDING` in
+      `src/lib/actions/error-strings.test.ts`, the household budget's
+      `budget/actions.ts` (35), plus `lib/recipe-import.ts` (MAINT-65 is
+      splitting it). The Zod messages of the limit and goal fields in
+      `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
+      for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
+      `goalDateFieldWith`): the personal budget passes `v()` keys, the
+      household budget still gets the English constants. When converting
+      the household budget, switch its actions to `zodFail()`, put the keys
+      (`monthlyLimitNumber`, `monthlyLimitPositive`, `savingsGoalNumber`,
+      `savingsGoalPositive`, `goalDateInvalid`, already in `dict.errors`)
+      straight into the constants and delete the `…With` functions and the
+      personal budget's local copies. Add any new keys to `dict.errors` (or
       a feature namespace, as `template-actions.ts` does), and delete the
       file from `PENDING`: the test fails if a clean file stays listed.
       Leave budget until BUDGET-6 is decided.
@@ -260,10 +267,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
-- [ ] **MAINT-100. Flaky: a just-ticked task's "Mark … as not done" checkbox isn't found within 5 s on mobile** (low, S) —
-      `e2e/flows.spec.ts:23` ("add a task and mark it done"), `mobile` project. Failed once in the reviewer's locked `ci:local` run on release PR #1425 (138ae29, 2026-11-14, carrying only #1423, a What's new change that doesn't touch tasks or this spec), then passed in a re-run of the spec on the same commit (`npx playwright test e2e/flows.spec.ts --project=mobile`, 6 passed) and in the GitHub e2e job. Failing assertion at `:45`: `expect(page.getByRole("checkbox", { name: "Mark <title> as not done" })).toBeChecked()` → `element(s) not found` after 5 s, followed by `page.waitForResponse: Test ended.` at `:38`. So after `done.click()` the row never showed its optimistic "not done" label and no Server Action POST was seen: the tap most likely landed before the task row's checkbox was hydrated (the test calls neither `expectHydrated` nor `gotoRevealed` before it), or a re-render after the add swallowed it. Start from the trace: check whether the click reached a hydrated checkbox, and wait for hydration before the tap as AGENTS.md's "Shared checks" describes.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/flows.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-101. Flaky: `router.push("/dashboard/profile")` leaves the page on `/dashboard/tasks` in the cached-page spec on the `iphone` project** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (it runs in the GitHub e2e job). In the GitHub `End-to-end (Playwright)` job on release PR #1425 (138ae29, 2026-11-14, job 132417142477) the first attempt failed and the retry passed, so Playwright marked it `flaky`. The local `ci:local` on the same commit passed this test. Failing assertion at `:71`: `expect(page).toHaveURL(/\/dashboard\/profile/)` → received `http://localhost:3000/dashboard/tasks` for the whole 5 s. The test calls `window.next.router.push` right after the new task's checkbox is visible, so the push may run while the add action's `revalidatePath` refresh is still in flight and get dropped, or before the router is patched. Start from the trace: check whether a navigation request for `/dashboard/profile` was ever sent, and wait for the add to settle (the Server Action's response, or `expectRouterPatched`) before the push.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -277,6 +280,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-105. Flaky: the list menu's "Add item" isn't stable, then is covered and detached, in the field-size spec on `landscape`** (low, S) —
+      `e2e/form-control-sizes.mobile.spec.ts:42` ("shopping add and edit item dialogs use 16px fields and show the whole unit"), `landscape` project. Failed once in the builder's locked `ci:local` run on #1469 (06e3830, 2026-11-15, UX-195: the account-created view, which touches neither shopping nor this spec), then passed in a second full `ci:local` run on the same commit and in `npx playwright test form-control-sizes.mobile ux-195 --repeat-each=2` (30 passed). Failing step is `clickListSetting(page, "Add item")` at `e2e/ui.ts:454` (called from `:47`): `locator.click` on `getByRole("menuitem", { name: "Add item", exact: true })` timed out at 30 s. Call log: "element is not stable" twice, then stable, then `<div role="presentation" data-base-ui-inert="">` "intercepts pointer events", then "element was detached from the DOM". So the first click ("More list actions" at `:46`, then "List settings" at `ui.ts:453`) opened a menu that was still moving and then closed or re-mounted under the pointer. The test goes straight from `page.goto` to the menu button with no `expectHydrated`, so the likeliest cause is a tap before hydration that re-renders the menu; a submenu that re-positions in the short landscape viewport is the other candidate. Start from the trace.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/form-control-sizes.mobile.spec.ts --project=landscape --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 

@@ -8,6 +8,7 @@
 // next/cache) is mocked — no database is touched.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   requireUserIdMock,
@@ -34,6 +35,7 @@ const {
   userFindUniqueMock,
   userUpdateMock,
   revalidatePathMock,
+  getDictionaryMock,
 } = vi.hoisted(() => ({
   requireUserIdMock: vi.fn(),
   categoryFindFirstMock: vi.fn(),
@@ -59,6 +61,7 @@ const {
   userFindUniqueMock: vi.fn(),
   userUpdateMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -98,8 +101,9 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 // fail() (src/lib/actions/errors.ts) reads the request's dictionary. With no
-// request here, `{}` makes it fall back to English (see budget/actions.test.ts).
-vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: vi.fn(async () => ({})), getLocale: vi.fn(async () => "en") }));
+// request here, `{}` makes it fall back to English (see budget/actions.test.ts),
+// and a test that checks a translated error swaps in `sv` for one call.
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: getDictionaryMock, getLocale: vi.fn(async () => "en") }));
 
 const {
   createPersonalCategoryAction,
@@ -136,6 +140,80 @@ afterEach(() => {
 requireUserIdMock.mockResolvedValue(userId);
 transactionFindManyMock.mockResolvedValue([]);
 userFindUniqueMock.mockResolvedValue({ personalBudgetMonthStartDay: 1 });
+
+// MAINT-7: every message comes back in the request's language, whether it's
+// a plain `fail()`, one with a variable, or a Zod message (a `v()` key
+// resolved by `zodFail()`), including the limit and goal fields shared with
+// the household budget.
+describe("errors in the request's language (MAINT-7)", () => {
+  it("translates a duplicate category name", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    categoryFindFirstMock.mockResolvedValue({ id: "existing" });
+
+    const result = await createPersonalCategoryAction({}, formData({ name: "groceries", type: "EXPENSE" }));
+
+    expect(result.error).toBe(sv.errors.categoryNameTaken);
+    expect(sv.errors.categoryNameTaken).not.toBe("A category with that name already exists");
+  });
+
+  it("translates the schema's own messages instead of showing their keys", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const blank = await createPersonalCategoryAction({}, formData({ name: "   ", type: "EXPENSE" }));
+    expect(blank.error).toBe(sv.errors.nameRequired);
+
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const zeroLimit = await createPersonalCategoryAction(
+      {},
+      formData({ name: "Hobbies", type: "EXPENSE", monthlyLimit: "0" }),
+    );
+    expect(zeroLimit.error).toBe(sv.errors.monthlyLimitPositive);
+
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const badGoal = await createPersonalCategoryAction(
+      {},
+      formData({ name: "Trip", type: "SAVINGS", goalAmount: "-5" }),
+    );
+    expect(badGoal.error).toBe(sv.errors.savingsGoalPositive);
+
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const badDate = await createPersonalCategoryAction(
+      {},
+      formData({ name: "Trip", type: "SAVINGS", goalAmount: "500", goalDate: "2026-02-31" }),
+    );
+    expect(badDate.error).toBe(sv.errors.goalDateInvalid);
+    expect(categoryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to 'Invalid input' for a Zod message that has no key", async () => {
+    const result = await createPersonalCategoryAction({}, formData({ name: "Hobbies", type: "OTHER" }));
+
+    expect(result.error).toBe("Invalid input");
+  });
+
+  it("names the recurring item that still uses a category, in Swedish", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      _count: { transactions: 0 },
+      recurringTemplates: [{ name: "Gym" }],
+      plannedExpenses: [],
+    });
+
+    const result = await deletePersonalCategoryAction("cat-1");
+
+    expect(result.error).toBe(sv.errors.categoryUsedByRecurringItem.replace("{name}", "Gym"));
+    expect(categoryDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("spells out the allowed days when the month start day is out of range", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+
+    const result = await setPersonalBudgetMonthStartDayAction(29);
+
+    expect(result.error).toBe("Välj en dag från 1 till 28");
+    expect(userUpdateMock).not.toHaveBeenCalled();
+  });
+});
 
 describe("createPersonalStarterCategoriesAction", () => {
   it("rejects an empty item list", async () => {
@@ -495,7 +573,7 @@ describe("createPersonalTransactionAction", () => {
       formData({ ...base, recurringTemplateId: "someone-elses-template" }),
     );
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(transactionCreateMock).not.toHaveBeenCalled();
   });
 
@@ -719,7 +797,7 @@ describe("personal recurring templates", () => {
     expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
   });
 
-  it("updatePersonalRecurringTemplateAction returns 'Recurring template not found' for another user's template (IDOR guard)", async () => {
+  it("updatePersonalRecurringTemplateAction returns 'Recurring item not found' for another user's template (IDOR guard)", async () => {
     categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
     recurringTemplateFindFirstMock.mockResolvedValue(null);
 
@@ -728,7 +806,7 @@ describe("personal recurring templates", () => {
       formData({ ...templateBase, id: "someone-elses-template" }),
     );
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(recurringTemplateUpdateMock).not.toHaveBeenCalled();
   });
 
@@ -753,31 +831,31 @@ describe("personal recurring templates", () => {
     });
   });
 
-  it("acknowledgePersonalTemplatePeriodAction returns 'Recurring template not found' for another user's template", async () => {
+  it("acknowledgePersonalTemplatePeriodAction returns 'Recurring item not found' for another user's template", async () => {
     recurringTemplateFindFirstMock.mockResolvedValue(null);
 
     const result = await acknowledgePersonalTemplatePeriodAction("someone-elses-template");
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(recurringTemplateAckUpsertMock).not.toHaveBeenCalled();
   });
 
-  it("unacknowledgePersonalTemplatePeriodAction returns 'Recurring template not found' for another user's template", async () => {
+  it("unacknowledgePersonalTemplatePeriodAction returns 'Recurring item not found' for another user's template", async () => {
     recurringTemplateFindFirstMock.mockResolvedValue(null);
 
     const result = await unacknowledgePersonalTemplatePeriodAction("someone-elses-template");
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(recurringTemplateAckDeleteManyMock).not.toHaveBeenCalled();
   });
 
   describe("logPersonalRecurringTemplateAction", () => {
-    it("returns 'Recurring template not found' for another user's template (IDOR guard)", async () => {
+    it("returns 'Recurring item not found' for another user's template (IDOR guard)", async () => {
       recurringTemplateFindFirstMock.mockResolvedValue(null);
 
       const result = await logPersonalRecurringTemplateAction("someone-elses-template");
 
-      expect(result.error).toBe("Recurring template not found");
+      expect(result.error).toBe("Recurring item not found");
       expect(transactionCreateMock).not.toHaveBeenCalled();
       expect(recurringTemplateFindFirstMock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "someone-elses-template", userId } }),

@@ -11,10 +11,7 @@ import { describe, expect, it } from "vitest";
 // PENDING lists the files not converted yet (MAINT-7 in BACKLOG.md). It is a
 // ratchet: the second test fails once a listed file is clean, so the entry
 // has to be deleted and the file is guarded from then on.
-const PENDING = new Set([
-  "src/app/dashboard/budget/actions.ts",
-  "src/app/dashboard/personal-budget/actions.ts",
-]);
+const PENDING = new Set(["src/app/dashboard/budget/actions.ts"]);
 
 // These answer with codes that their client dialogs map to text, so a
 // literal there is not user-facing English: inventory/items/actions.ts
