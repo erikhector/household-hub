@@ -31,7 +31,12 @@ import {
 import { orderRecipesForPicker } from "@/components/meal-planning/recipe-picker-order";
 import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
 import { addMealEntryAction, updateMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
-import { CUSTOM_RECIPE_SENTINEL, MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
+import {
+  CUSTOM_RECIPE_SENTINEL,
+  MAX_MEAL_NOTE_LENGTH,
+  MEAL_TYPES,
+  type MealType,
+} from "@/app/dashboard/meal-planning/meal-types";
 import { PortionStepper } from "@/components/meal-planning/portion-stepper";
 import { ChipScroller } from "@/components/meal-planning/chip-scroller";
 import { PickChip } from "@/components/meal-planning/week-picks-tray";
@@ -371,6 +376,26 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
                 className="w-24"
               />
               <p className="text-xs text-muted-foreground">{dict.portionsHint}</p>
+            </div>
+          )}
+
+          {/* GAP-81: a reminder for this one meal, whatever the dish is. Not
+              while nothing is picked yet (one thing at a time, M6), and not
+              for a meal-prep slot, which assignInTx writes without one. It
+              stays mounted across a recipe/custom switch, so what's typed
+              survives changing the dish. */}
+          {choice !== NO_CHOICE && choice !== FROM_PREP_SENTINEL && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="mealNote">{dict.mealNoteLabel}</Label>
+              <Input
+                autoComplete="off"
+                enterKeyHint="done"
+                id="mealNote"
+                name="note"
+                placeholder={dict.mealNotePlaceholder}
+                maxLength={MAX_MEAL_NOTE_LENGTH}
+                defaultValue={isEdit ? (props.entry.note ?? "") : undefined}
+              />
             </div>
           )}
 

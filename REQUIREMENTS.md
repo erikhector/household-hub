@@ -7305,6 +7305,45 @@ Mealime builds plans around a diet set once; Squirrel's recipe tags
 - **Not in scope**: per-member diets, ingredient-name allergen detection,
   auto-swap.
 
+### Meal note (GAP-81)
+
+AnyList and Grocy let a planned meal carry a reminder ("thaw the chicken
+the night before", "Anna cooks", "double it for lunch boxes"). Squirrel's
+entries had only the dish, so households put it in the name or on the
+notes board. `MealPlanEntry.note String?` (migration
+`meal_plan_entry_note`) holds one short line, on a recipe meal and a
+custom one alike.
+
+- **Editing**: the meal form (`MealEntryDialog`) has a "Note (optional)"
+  field under the dish and its portions or ingredients, for a new meal and
+  an edited one. It's hidden until a dish is picked and for a "From meal
+  prep" slot, which `assignInTx` writes without one. A cooked meal has no
+  edit form, so its note stays as it was.
+- **Rules**: `addMealEntryAction` and `updateMealEntryAction` trim it and
+  cap it at `MAX_MEAL_NOTE_LENGTH` (200, `meal-types.ts`; over that is
+  "Note must be 200 characters or fewer" and nothing is written). Empty
+  after trimming is stored as null. On an edit, a form that doesn't post
+  the field leaves the note alone; the dialog always posts it, so emptying
+  the field clears it. Both actions take the household from
+  `requireHousehold()` and find the entry through its plan's household.
+- **Where it shows**: one muted line under the meal's name on the day,
+  cut short with an ellipsis (a note icon, and "Note" for screen readers);
+  in full in the meal's sheet, so the whole text never depends on a hover
+  `title`; and under the title in Cook mode opened from that meal.
+- **Carried or dropped**: "Copy last week" (`copyWeekAction`) carries it,
+  and moving a meal keeps it. Saving a week as a template (GAP-52) and
+  "Back to picks" drop it, since `MealPlanTemplateEntry` and
+  `MealPlanPick` have no note column; so do meals placed from a pick, a
+  template or "Fill empty days". The calendar feed puts it in the event's
+  `DESCRIPTION` (see "Calendar feed").
+- **Not done**: no reminders or push for a note, no note per day, no notes
+  on picks or templates.
+- Tests: `planner-actions.test.ts` ("meal note (GAP-81)": saved, trimmed,
+  capped, household-scoped, carried by the copy), `calendar-feed.test.ts`
+  and the feed route's test (the description), `e2e/meal-note.spec.ts`
+  (en and sv, desktop and mobile: add, reload, see it on the day and in
+  the sheet and form, clear).
+
 ## Household tasks
 
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
@@ -7660,7 +7699,9 @@ URL and re-fetch on their own; nothing is ever written back.
   - Meal-plan entries, titled "Dinner: Lasagna" (slot label from
     `mealPlanning.mealType*`, then the recipe name, else the freeform name;
     just the slot when a deleted recipe left neither). Ordered breakfast →
-    snack within a day. Capped at 2000 entries per response.
+    snack within a day. Capped at 2000 entries per response. A meal's note
+    (GAP-81, `MealPlanEntry.note`) is the event's `DESCRIPTION`, trimmed
+    and escaped like any TEXT value; an entry without one has none.
   - Active `EXPENSE` recurring templates, titled "Due: Rent", one event per
     due day. Only MONTHLY templates with a `dayOfMonth` have a real due day;
     WEEKLY/YEARLY templates don't (the schema ignores `dayOfMonth` for them),
@@ -7670,9 +7711,11 @@ URL and re-fetch on their own; nothing is ever written back.
     clamps a day past a short month's end to its last day (the 31st becomes
     30 April, 28/29 February). Income and savings templates, and the
     personal budget, aren't included.
-  - **No amounts**, recipes, notes or member names. The link works without
-    a login and gets pasted into third-party calendar services, so the feed
-    carries only what a calendar entry needs.
+  - **No amounts**, recipes, notes-board notes or member names. The link
+    works without a login and gets pasted into third-party calendar
+    services, so the feed carries only what a calendar entry needs. A
+    meal's own note is the one free-text field in it, which is why the
+    card's warning names "the notes on them" next to the planned meals.
 - **UIDs** are stable across fetches so clients update events in place:
   `meal-<entryId>@squirrel-calendar-feed` and
   `bill-<templateId>-<YYYYMMDD>@squirrel-calendar-feed` (changing a bill's
@@ -10149,11 +10192,19 @@ check. The household page (MAINT-31) has no Suspense boundaries at all:
 its note, member list and notes board used to stream in behind fallbacks of
 a different height (or none), which under load moved the settings cards
 below them past the budget (0.0647), so it now arrives in one piece behind
-`loading.tsx`. The three remaining `fallback={null}` slots above content
-(inventory `InventoryWellStockedNote`, shopping list
-`RepurchaseSuggestionsSection`, the layout's email-verification banner) stay
-empty on purpose: each renders nothing in the common case (a solo household,
-a stock with something low, no suggestion, an already verified email), so a
+`loading.tsx`. The inventory page (MAINT-102) is the same: its well-stocked
+note, toolbar, manage-items link and table each streamed in behind their own
+fallback, and on a loaded machine the browser painted them one at a time.
+The note (no fallback) pushed the toolbar and table down a line, then the
+real toolbar wrapped onto a second row that its one-row skeleton hadn't held
+open and pushed the already-painted table down 36 px (0.298 on desktop). How
+the toolbar wraps depends on the language and the data, so no skeleton can
+reserve it; the sections all wait on the same cached query anyway, so the
+page arrives whole. `src/app/loading-coverage.test.ts` fails if either page
+gets a `<Suspense>` again. The two remaining `fallback={null}` slots above
+content (shopping list `RepurchaseSuggestionsSection`, the layout's
+email-verification banner) stay empty on purpose: each renders nothing in
+the common case (no suggestion, an already verified email), so a
 fixed-height placeholder would add a gap and a shift to every visit that has
 nothing to show. The delayed-navigation measurement showed no shift from
 them, so none was added; reserve height for one only if a measurement shows
