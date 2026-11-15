@@ -519,7 +519,9 @@ screenshot review found UX-196. The deep
 dive drove login, forgot and reset password, signup (to the confirmation
 view and a resend), a valid invite, the no-household page and a new
 household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
-WebKit was not run (no browser installed here).
+WebKit was not run (no browser installed here), and no project in
+either sweep renders the dark theme (`mobile` has no `colorScheme`), so
+dark was not looked at.
 
 - [ ] **UX-194. A password mistake on the invite and reset-password forms doesn't wipe both fields** (impact: med, effort: S) —
       Driven on Pixel 7 and at 320 px, `en` and `sv`, on `/join/<valid
