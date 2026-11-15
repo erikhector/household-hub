@@ -493,24 +493,6 @@ Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
 UX-7 documents, so it isn't filed). WebKit was not run (no browser
 installed here).
 
-- [ ] **UX-193. Back to Profile restores the scroll position** (impact: med, effort: S) —
-      Found by the UX-191 fix builder (#1429, 955cc23, 2026-11-14) while
-      answering the reviewer's M7 question, on a production build,
-      desktop (document scrolls) and Pixel 7 (`main` scrolls): scroll
-      down Profile, follow a link out (for example "See what's new"),
-      press Back, and Profile lands at the top, not where the reader
-      left (M7). With a hash in the URL, `ScrollToHash`
-      (`src/components/dashboard/scroll-to-hash.tsx`) puts Back on that
-      hash's section, which is closer but still not the left position.
-      Only Profile was measured; check whether other long dashboard
-      pages with a `loading.tsx` skeleton do the same before fixing it
-      for one page. The measurements are in #1429's review thread on
-      `scroll-to-hash.tsx`.
-      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, scroll
-      Profile to "What's new", follow the link, press Back, and the
-      scroll offset is within a few pixels of what it was, with and
-      without a hash in the URL.
-
 ### UX (2026-11-15 scout)
 
 Sunday area: public, auth and legal pages, and the first-run flow. Swept

@@ -225,6 +225,26 @@ describe("pushDialogEntry", () => {
     expect(close).not.toHaveBeenCalled();
   });
 
+  it("keeps a registered key through the router's same-URL state replaces", async () => {
+    fakeBrowser();
+    const { keepHistoryStateKey } = await load();
+    keepHistoryStateKey("__squirrelScroll");
+    window.history.replaceState({ __NA: true, __squirrelScroll: 420 }, "");
+
+    // The router's commit: its own state only, URL unchanged.
+    window.history.replaceState({ __NA: true, tree: "new" }, "", window.location.href);
+    expect(window.history.state).toEqual({ __NA: true, tree: "new", __squirrelScroll: 420 });
+
+    // A newer value in the replace wins, and a key nobody registered goes.
+    window.history.replaceState({ __NA: true, __squirrelScroll: 12, other: 1 }, "");
+    window.history.replaceState({ __NA: true }, "");
+    expect(window.history.state).toEqual({ __NA: true, __squirrelScroll: 12 });
+
+    // Another URL is another page: it starts without the key.
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+    expect(window.history.state).toEqual({ __NA: true });
+  });
+
   it("lets the router handle a back that leaves the page the dialog was opened on", async () => {
     const browser = fakeBrowser("https://app.test/dashboard/inventory/items/a");
     const { pushDialogEntry } = await load();

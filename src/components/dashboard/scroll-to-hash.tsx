@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { restoresThisPage } from "@/components/dashboard/scroll-memory";
 
 /**
  * Scrolls the element the URL's hash names into view once the page has
@@ -12,17 +13,15 @@ import { useEffect } from "react";
  * that is linked to by hash. It only acts on mount, so the page's own
  * in-page anchors (the Profile jump chips) keep the browser's behaviour.
  *
- * It also runs when Back or Forward remounts the page, on purpose: the
- * page streams in behind the skeleton then too, so the position the
- * browser restores is the top (measured on Profile, with and without a
- * hash, document scroll and the phone's `main` scroll alike). Landing on
- * the section the hash names is the nearer of the two to where the reader
- * left.
+ * On Back or Forward the page remounts, but there the reader's own scroll
+ * position is put back (UX-193, scroll-memory.ts), which is where they
+ * left and not just the section they first came for, so this stands down.
+ * It still acts on a Back to an entry with no remembered position.
  */
 export function ScrollToHash() {
   useEffect(() => {
     const raw = window.location.hash.slice(1);
-    if (!raw) return;
+    if (!raw || restoresThisPage()) return;
     // An id with a space or a non-ASCII letter arrives percent-encoded. A
     // malformed escape (`#%`, a truncated pasted link) makes the decode
     // throw, and an error in an effect takes the whole page to the error
