@@ -10149,11 +10149,19 @@ check. The household page (MAINT-31) has no Suspense boundaries at all:
 its note, member list and notes board used to stream in behind fallbacks of
 a different height (or none), which under load moved the settings cards
 below them past the budget (0.0647), so it now arrives in one piece behind
-`loading.tsx`. The three remaining `fallback={null}` slots above content
-(inventory `InventoryWellStockedNote`, shopping list
-`RepurchaseSuggestionsSection`, the layout's email-verification banner) stay
-empty on purpose: each renders nothing in the common case (a solo household,
-a stock with something low, no suggestion, an already verified email), so a
+`loading.tsx`. The inventory page (MAINT-102) is the same: its well-stocked
+note, toolbar, manage-items link and table each streamed in behind their own
+fallback, and on a loaded machine the browser painted them one at a time.
+The note (no fallback) pushed the toolbar and table down a line, then the
+real toolbar wrapped onto a second row that its one-row skeleton hadn't held
+open and pushed the already-painted table down 36 px (0.298 on desktop). How
+the toolbar wraps depends on the language and the data, so no skeleton can
+reserve it; the sections all wait on the same cached query anyway, so the
+page arrives whole. `src/app/loading-coverage.test.ts` fails if either page
+gets a `<Suspense>` again. The two remaining `fallback={null}` slots above
+content (shopping list `RepurchaseSuggestionsSection`, the layout's
+email-verification banner) stay empty on purpose: each renders nothing in
+the common case (no suggestion, an already verified email), so a
 fixed-height placeholder would add a gap and a shift to every visit that has
 nothing to show. The delayed-navigation measurement showed no shift from
 them, so none was added; reserve height for one only if a measurement shows
