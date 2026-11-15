@@ -433,7 +433,7 @@ export const sv = {
       description:
         "Prenumerera från Google Kalender, Apple Kalender eller Outlook för att se planerade måltider och förfallodagar för månadsräkningar. Det uppdateras av sig självt och är skrivskyddat.",
       publicWarning:
-        "Alla som har länken kan se era planerade måltider och namnen på räkningarna, utan att logga in. Belopp visas aldrig. Dela den bara med personer du litar på.",
+        "Alla som har länken kan se era planerade måltider, anteckningarna på dem och namnen på räkningarna, utan att logga in. Belopp visas aldrig. Dela den bara med personer du litar på.",
       offDescription: "Kalenderflödet är avstängt.",
       contributorOffDescription: "Kalenderflödet är avstängt. Hushållets ägare kan slå på det.",
       enable: "Slå på kalenderflöde",
@@ -2092,6 +2092,9 @@ export const sv = {
     fromCustomMealsHint: "Ingredienser du skrev på en egen måltid. Inget skalas.",
     portionsLabel: "Portioner",
     portionsHint: "Hur många portioner av receptet du lagar för det här tillfället.",
+    mealNoteLabel: "Anteckning (valfritt)",
+    mealNotePlaceholder: "t.ex. tina kycklingen kvällen innan",
+    mealNoteHeading: "Anteckning",
     removeMealAriaLabel: "Ta bort måltid",
     // UX-49: Ta bort sker direkt; toasten har vägen tillbaka.
     mealRemovedToast: 'Tog bort "{meal}"',

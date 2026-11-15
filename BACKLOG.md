@@ -889,30 +889,6 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-11 scan
-
-- [ ] **GAP-81. A short note on a planned meal** (impact: med, effort: M) `[schema]` —
-      AnyList's January 2026 meal-plan update adds notes on meal-plan
-      entries, and Grocy's planner has notes per day: "thaw the chicken
-      the night before", "Anna cooks", "double it for lunch boxes".
-      Squirrel's `MealPlanEntry` (`prisma/schema.prisma`) has only a
-      recipe or a free-form name plus `freeformIngredients`, so a
-      recipe meal has nowhere to carry a reminder and households put it
-      in the name or on the notes board. Add a nullable
-      `MealPlanEntry.note` (≤ 200 chars, Zod-trimmed, empty → null),
-      edited in `src/components/meal-planning/meal-entry-dialog.tsx`
-      under the recipe/name field, shown as one muted truncated line on
-      the planner cell in `week-planner.tsx` (full text in the entry
-      dialog, not only in `title`) and in cook mode's header. Copy last
-      week (`copyWeekAction`) carries the note. Saving as a template
-      (GAP-52) and "Back to picks" drop it: no note column on
-      `MealPlanTemplateEntry` or `MealPlanPick`. The calendar feed puts
-      it in the event `DESCRIPTION`. No reminders or push. One migration.
-      Acceptance: action test that the note is saved, trimmed, capped and
-      household-scoped; e2e on `mobile` adds a note to a planned dinner,
-      reloads and sees it on the day and in the entry dialog, then clears
-      it, in `en` and `sv`.
-
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36

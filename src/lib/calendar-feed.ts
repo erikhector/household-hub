@@ -67,6 +67,8 @@ export type FeedMealEntry = {
   mealType: FeedMealType;
   recipeName: string | null;
   freeformName: string | null;
+  // GAP-81: MealPlanEntry.note, the event's DESCRIPTION when set.
+  note?: string | null;
 };
 
 export type FeedBill = {
@@ -98,8 +100,11 @@ function dayKey(date: Date): string {
  * Turns meal-plan entries and recurring bills into the feed's events.
  *
  * Only what a calendar needs: a meal's slot and name, and a bill's name. No
- * amounts, recipes, notes or member names, since the link works without a
- * login and gets pasted into third-party calendar services.
+ * amounts, recipes, notes-board notes or member names, since the link works
+ * without a login and gets pasted into third-party calendar services. The
+ * one exception is a meal's own short note (GAP-81, "thaw the chicken the
+ * night before"), which the household wrote about that meal for whoever
+ * reads the plan; it goes in the event's DESCRIPTION.
  *
  * Bills only appear when they have a concrete due day, which today means a
  * MONTHLY template with `dayOfMonth` set. WEEKLY and YEARLY templates have no
@@ -137,12 +142,14 @@ export function buildCalendarFeedEvents({
       // with no freeform name to fall back on; the slot alone still tells
       // the reader a meal was planned.
       const name = (meal.recipeName ?? meal.freeformName ?? "").trim();
+      const note = meal.note?.trim();
       return {
         sortKey: `${dayKey(meal.date)}|0|${MEAL_TYPE_ORDER[meal.mealType]}|${meal.id}`,
         event: {
           uid: `meal-${meal.id}@${UID_DOMAIN}`,
           date: meal.date,
           summary: name ? format(strings.mealSummary, { meal: slot, name }) : slot,
+          ...(note && { description: note }),
         },
       };
     });

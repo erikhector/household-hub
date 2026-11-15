@@ -93,6 +93,23 @@ describe("buildCalendarFeedEvents", () => {
     expect(events.map((e) => e.summary)).toEqual(["Breakfast", "Lunch: Takeaway", "Snack"]);
   });
 
+  it("puts a meal's note in the event description, trimmed, and leaves it out when there is none (GAP-81)", () => {
+    const events = buildCalendarFeedEvents({
+      meals: [
+        meal({ id: "m1", recipeName: "Chicken stew", note: "  Thaw the chicken the night before " }),
+        meal({ id: "m2", freeformName: "Takeaway", mealType: "LUNCH", note: null }),
+        meal({ id: "m3", mealType: "SNACK", note: "   " }),
+      ],
+      bills: [],
+      from,
+      to,
+      strings,
+    });
+    // Breakfast → snack order: the lunch, the dinner, the snack.
+    expect(events.map((e) => e.description)).toEqual([undefined, "Thaw the chicken the night before", undefined]);
+    expect(events[0]).not.toHaveProperty("description");
+  });
+
   it("prefers the recipe name over a freeform name", () => {
     const [event] = buildCalendarFeedEvents({
       meals: [meal({ id: "m1", recipeName: "Soup", freeformName: "Other" })],
