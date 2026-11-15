@@ -318,6 +318,17 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   "if an account exists" confirmations, which stay identical whether or not
   the account exists) and the profile actions
   (`dashboard/profile/actions.ts`: name, email, password, delete account).
+  The personal budget's actions (`dashboard/personal-budget/actions.ts`:
+  categories, transactions, recurring items and the month start day) are
+  converted as well, which leaves the household budget's `actions.ts` as the
+  only file on `PENDING` (it waits for BUDGET-6). The monthly-limit and
+  savings-goal fields both budgets share take their messages as a parameter
+  meanwhile (`monthlyLimitFieldWith` in `budget-category-limit.ts`,
+  `goalAmountFieldWith` and `goalDateFieldWith` in `savings-goal-calc.ts`):
+  the personal budget passes `v()` keys, the household budget keeps the
+  English constants, because its actions still return a Zod message as it
+  is and a key would show as text. Converting the household budget turns
+  them back into one constant each.
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to

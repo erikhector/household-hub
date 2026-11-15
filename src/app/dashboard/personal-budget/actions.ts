@@ -6,24 +6,38 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
-import { fail, toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { isPlannedExpenseTarget, isUniqueViolation } from "@/lib/prisma-errors";
 import { repeatTemplateFields } from "@/lib/repeat-template";
 import { plannedItemType } from "@/lib/planned-expense-calc";
 import {
   limitForType,
-  monthlyLimitField,
+  monthlyLimitFieldWith,
   rolloverEnabledField,
   rolloverForLimit,
 } from "@/lib/budget-category-limit";
-import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
+import { goalAmountFieldWith, goalDateFieldWith, goalForType } from "@/lib/savings-goal-calc";
 import { MAX_BUDGET_MONTH_START_DAY, MIN_BUDGET_MONTH_START_DAY } from "@/lib/budget-date-utils";
 import { getPersonalBudgetStartDay } from "@/lib/personal-budget-period";
+
+// MAINT-7: every `{ error }` here is in the request's language (`fail()` /
+// `zodFail()`), so the shared limit and goal fields get `errors` keys as
+// their messages. The household budget's actions still use the English
+// constants (monthlyLimitField and friends) until they're converted.
+const monthlyLimitField = monthlyLimitFieldWith({
+  number: v("monthlyLimitNumber"),
+  positive: v("monthlyLimitPositive"),
+});
+const goalAmountField = goalAmountFieldWith({
+  number: v("savingsGoalNumber"),
+  positive: v("savingsGoalPositive"),
+});
+const goalDateField = goalDateFieldWith(v("goalDateInvalid"));
 
 // --- Categories --------------------------------------------------------
 
 const categorySchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  name: z.string().trim().min(1, v("nameRequired")).max(60, v("categoryNameTooLong")),
   type: z.enum(["INCOME", "EXPENSE", "SAVINGS"]),
   // GAP-12 — see src/lib/budget-category-limit.ts. Empty = no limit.
   monthlyLimit: monthlyLimitField,
@@ -49,13 +63,13 @@ export async function createPersonalCategoryAction(
     goalDate: formData.get("goalDate"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const existing = await prisma.personalBudgetCategory.findFirst({
     where: { userId, name: { equals: parsed.data.name, mode: "insensitive" } },
   });
-  if (existing) return { error: "A category with that name already exists" };
+  if (existing) return fail("categoryNameTaken");
 
   const monthlyLimit = limitForType(parsed.data.type, parsed.data.monthlyLimit);
   const goal = goalForType(parsed.data.type, parsed.data.goalAmount, parsed.data.goalDate);
@@ -102,7 +116,7 @@ export async function createPersonalStarterCategoriesAction(
 
   const parsed = starterCategorySchema.safeParse({ items });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   let added = 0;
@@ -137,7 +151,7 @@ export async function createPersonalStarterCategoriesAction(
 
 const updateCategorySchema = z.object({
   id: z.string().min(1),
-  name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  name: z.string().trim().min(1, v("nameRequired")).max(60, v("categoryNameTooLong")),
   // A category's type can't be edited, so whether this is kept is decided
   // by the stored type below, not by anything the form sends.
   monthlyLimit: monthlyLimitField,
@@ -162,13 +176,13 @@ export async function updatePersonalCategoryAction(
     goalDate: formData.get("goalDate"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const category = await prisma.personalBudgetCategory.findFirst({
     where: { id: parsed.data.id, userId },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.personalBudgetCategory.findFirst({
     where: {
@@ -177,7 +191,7 @@ export async function updatePersonalCategoryAction(
       NOT: { id: category.id },
     },
   });
-  if (existing) return { error: "A category with that name already exists" };
+  if (existing) return fail("categoryNameTaken");
 
   const monthlyLimit = limitForType(category.type, parsed.data.monthlyLimit);
   // Decided from the stored type like the limit above: a category's type
@@ -216,15 +230,13 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
       plannedExpenses: { select: { name: true }, take: 1 },
     },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
   if (category._count.transactions > 0) {
-    return { error: "This category has transactions and can't be deleted" };
+    return fail("categoryHasTransactions");
   }
   const blockingTemplate = category.recurringTemplates[0];
   if (blockingTemplate) {
-    return {
-      error: `This category is used by the recurring item "${blockingTemplate.name}" — remove or reassign it first`,
-    };
+    return fail("categoryUsedByRecurringItem", { name: blockingTemplate.name });
   }
   const blockingPlanned = category.plannedExpenses[0];
   if (blockingPlanned) {
@@ -246,10 +258,10 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
 // --- Transactions --------------------------------------------------------
 
 const transactionSchema = z.object({
-  categoryId: z.string().min(1, "Category is required"),
-  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  categoryId: z.string().min(1, v("categoryRequired")),
+  amount: z.coerce.number().positive(v("amountPositive")),
   description: z.string().trim().max(200).optional(),
-  date: z.string().min(1, "Date is required"),
+  date: z.string().min(1, v("dateRequired")),
   isRecurring: z.boolean(),
   recurrenceFrequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).optional(),
   // Mirrors the household budget's recurringTemplateId — see
@@ -309,7 +321,7 @@ async function resolvePersonalRecurringTemplateId(
     where: { id: recurringTemplateId, userId },
     select: { id: true, frequency: true },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
   return { id: template.id, frequency: template.frequency };
 }
 
@@ -333,9 +345,7 @@ async function assertNoDuplicatePersonalTemplatePeriod(
     select: { date: true },
   });
   const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency, startDay) === periodKey);
-  return alreadyLogged
-    ? { error: "A transaction for this recurring item already exists for this period" }
-    : null;
+  return alreadyLogged ? fail("recurringItemAlreadyLogged") : null;
 }
 
 export async function createPersonalTransactionAction(
@@ -346,16 +356,16 @@ export async function createPersonalTransactionAction(
 
   const parsed = parseTransactionFormData(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
   if (parsed.data.isRecurring && !parsed.data.recurrenceFrequency) {
-    return { error: "Choose how often this repeats" };
+    return fail("chooseRepeatFrequency");
   }
 
   const category = await prisma.personalBudgetCategory.findFirst({
     where: { id: parsed.data.categoryId, userId },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const recurringTemplate = await resolvePersonalRecurringTemplateId(
     userId,
@@ -463,22 +473,22 @@ export async function updatePersonalTransactionAction(
     recurrenceFrequency: formData.get("recurrenceFrequency") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
   if (parsed.data.isRecurring && !parsed.data.recurrenceFrequency) {
-    return { error: "Choose how often this repeats" };
+    return fail("chooseRepeatFrequency");
   }
 
   const category = await prisma.personalBudgetCategory.findFirst({
     where: { id: parsed.data.categoryId, userId },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.personalTransaction.findFirst({
     where: { id: parsed.data.id, userId },
     select: { id: true, plannedExpense: { select: { category: { select: { type: true } } } } },
   });
-  if (!existing) return { error: "Transaction not found" };
+  if (!existing) return fail("transactionNotFound");
   // Same rule as on create: a planned bill's payment stays an expense,
   // received planned income stays income.
   const plannedType = existing.plannedExpense?.category.type;
@@ -530,9 +540,9 @@ export async function deletePersonalTransactionAction(transactionId: string): Pr
 // prisma/schema.prisma's doc comments for the "accounted for" model.
 
 const recurringTemplateSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(120, "Name is too long"),
-  categoryId: z.string().min(1, "Category is required"),
-  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
+  categoryId: z.string().min(1, v("categoryRequired")),
+  amount: z.coerce.number().positive(v("amountPositive")),
   frequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]),
   dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
 });
@@ -555,13 +565,13 @@ export async function createPersonalRecurringTemplateAction(
 
   const parsed = parseRecurringTemplateFormData(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const category = await prisma.personalBudgetCategory.findFirst({
     where: { id: parsed.data.categoryId, userId },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   try {
     await prisma.personalRecurringTemplate.create({
@@ -602,18 +612,18 @@ export async function updatePersonalRecurringTemplateAction(
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
 
   const category = await prisma.personalBudgetCategory.findFirst({
     where: { id: parsed.data.categoryId, userId },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.personalRecurringTemplate.findFirst({
     where: { id: parsed.data.id, userId },
   });
-  if (!existing) return { error: "Recurring template not found" };
+  if (!existing) return fail("recurringItemNotFound");
 
   try {
     await prisma.personalRecurringTemplate.update({
@@ -685,7 +695,7 @@ export async function logPersonalRecurringTemplateAction(templateId: string): Pr
   const template = await prisma.personalRecurringTemplate.findFirst({
     where: { id: templateId, userId },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
 
   const dup = await assertNoDuplicatePersonalTemplatePeriod(
     template.id,
@@ -725,7 +735,7 @@ export async function acknowledgePersonalTemplatePeriodAction(
   const template = await prisma.personalRecurringTemplate.findFirst({
     where: { id: templateId, userId },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
 
   try {
     const periodKey = getPeriodKey(new Date(), template.frequency, await getPersonalBudgetStartDay(userId));
@@ -755,7 +765,7 @@ export async function unacknowledgePersonalTemplatePeriodAction(
   const template = await prisma.personalRecurringTemplate.findFirst({
     where: { id: templateId, userId },
   });
-  if (!template) return { error: "Recurring template not found" };
+  if (!template) return fail("recurringItemNotFound");
 
   try {
     const periodKey = getPeriodKey(new Date(), template.frequency, await getPersonalBudgetStartDay(userId));
@@ -791,7 +801,9 @@ export async function setPersonalBudgetMonthStartDayAction(day: number): Promise
     .min(MIN_BUDGET_MONTH_START_DAY)
     .max(MAX_BUDGET_MONTH_START_DAY)
     .safeParse(day);
-  if (!parsed.success) return { error: "Choose a day from 1 to 28" };
+  if (!parsed.success) {
+    return fail("chooseBudgetDay", { min: MIN_BUDGET_MONTH_START_DAY, max: MAX_BUDGET_MONTH_START_DAY });
+  }
 
   try {
     await prisma.user.update({
