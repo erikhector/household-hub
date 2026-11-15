@@ -511,6 +511,85 @@ installed here).
       scroll offset is within a few pixels of what it was, with and
       without a hash in the URL.
 
+### UX (2026-11-15 scout)
+
+Sunday area: public, auth and legal pages, and the first-run flow. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass, and the
+only audit hits are the known `text-200` truncations (UX-150); the
+screenshot review found UX-196. The deep
+dive drove login, forgot and reset password, signup (to the confirmation
+view and a resend), a valid invite, the no-household page and a new
+household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
+WebKit was not run (no browser installed here), and no project in
+either sweep renders the dark theme (`mobile` has no `colorScheme`), so
+dark was not looked at.
+
+- [ ] **UX-194. A password mistake on the invite and reset-password forms doesn't wipe both fields** (impact: med, effort: S) —
+      Driven on Pixel 7 and at 320 px, `en` and `sv`, on `/join/<valid
+      token>` and `/reset-password/<valid token>`: a 5-character
+      password, or two that differ (and on the invite form a malformed
+      email), goes to the server and comes back with both password
+      fields emptied, focus on `<body>` and the message as one line
+      above the consent text or the button, not under its field
+      (`src/components/household/join-signup-form.tsx:176`,
+      `src/components/auth/reset-password-form.tsx:79`). The invite form
+      also never says "at least 8 characters" before the server does.
+      `/signup` already checks all of this in the browser (UX-59,
+      `validate` in `src/components/auth/signup-form.tsx`); these two
+      forms only check for empty fields (UX-183b). Breaks principle 7
+      (prevent errors, validate inline, next to the field) and M4: an
+      invitee, the person a household most wants to get in, retypes two
+      passwords on a phone keyboard.
+      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, in `en`
+      and `sv`, on both forms a too-short password and a mismatched
+      confirmation show their message under that field with
+      `aria-invalid`, focus is on it, no Server Action request is sent
+      and both password fields still hold what was typed; the invite
+      form shows the 8-character hint under Password before any submit.
+
+- [ ] **UX-195. The "account created" view after signing up or joining has a 44 px Log in and one message at a time** (impact: med, effort: S) —
+      Driven on Pixel 7 and at 320 px after `/signup` and after
+      `/join/<valid token>`. (1) The view's only way on, "Log in", is a
+      stand-alone text link 39 × 20 px (`Logga in` 54 × 20), M3
+      (`src/components/auth/signup-form.tsx:304`,
+      `src/components/household/join-signup-form.tsx:97`); the other
+      status cards use `StatusCardLink` for this. (2) The invite
+      version links to a bare `/login`, so the email just typed is
+      typed again; signup's uses `loginPath(state.email)` (M4).
+      (3) When the first email fails to send and the user taps "Resend
+      verification email", the red warning icon and "we couldn't send
+      the verification email just now. Try resending it below." stay
+      on screen above "we've sent a fresh verification link", with no
+      button left below: two messages that contradict each other
+      (principle 5, visible feedback on what happened).
+      Acceptance: in an `e2e/` spec on `mobile`, in `en` and `sv`, the
+      confirmation view after signup and after joining passes
+      `expectTouchTargets`; the invite version's Log in opens `/login`
+      with the email filled in; and after a resend on the send-failed
+      view the "couldn't send" text and warning icon are gone and only
+      the resend result shows.
+
+- [ ] **UX-196. A possible-duplicates row lines its name up with its Keep and Merge controls** (impact: med, effort: S) —
+      `mobile-sv-dashboard-inventory-items.png`, and the same in
+      `tablet-`, `landscape-` and `desktop-`, `en` and `sv`
+      (`/dashboard/inventory/items?filter=duplicates`). In each
+      candidate row the name sits about 12 px lower than its "Keep"
+      radio and the detail line ("2 st", "0 dl · aldrig i lager") falls
+      between that row's controls and the next row's, so the "Merge"
+      tick reads as belonging to neither item: the name link is a 44 px
+      `touch-target` beside a 20 px label, both top-aligned
+      (`src/components/inventory/catalog/item-catalog.tsx:266-299`).
+      The keeper's hidden Merge also leaves a blank band under the
+      first item. Breaks principle 3 (hierarchy: related things read as
+      one group) on a screen where ticking the wrong row merges the
+      wrong item away.
+      Acceptance: in an `e2e/` spec on `mobile`, `tablet` and
+      `desktop`, in `en` and `sv`, on the seeded duplicate group each
+      row's name is vertically centred on its Keep control (centres
+      within 4 px), each row's detail line ends above the next row's
+      Keep control, and `expectTouchTargets` still passes on `mobile`.
+
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
