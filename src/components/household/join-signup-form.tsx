@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { StatusCardLink } from "@/components/auth/status-card";
+import { loginPath } from "@/lib/login-path";
 import { PasswordInput } from "@/components/auth/password-input";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
@@ -91,21 +93,27 @@ export function JoinSignupForm({
   // signup-form.tsx): the account exists but can't sign in until its email
   // is verified (see joinViaInviteSignupAction's doc comment).
   if (state.status === "verification-sent") {
+    // UX-195, as in SignupForm: once a resend has answered, the "couldn't
+    // send, try resending below" warning and its red icon are out of date,
+    // so only the resend's own message shows.
+    const sendFailed = Boolean(state.emailError) && !resendState.message;
     return (
       <div className="flex flex-col items-center gap-4 py-2 text-center">
-        {state.emailError ? (
+        {sendFailed ? (
           <AlertTriangle className="size-10 text-destructive" />
         ) : (
           <MailCheck className="size-10 text-muted-foreground" />
         )}
-        <p className="text-sm text-muted-foreground">
-          {state.emailError
-            ? format(dict.verificationSendFailedDescription, { household: state.householdName ?? "" })
-            : format(dict.verificationSentDescription, {
-                household: state.householdName ?? "",
-                email: state.email ?? "",
-              })}
-        </p>
+        {(sendFailed || !state.emailError) && (
+          <p className="text-sm text-muted-foreground">
+            {sendFailed
+              ? format(dict.verificationSendFailedDescription, { household: state.householdName ?? "" })
+              : format(dict.verificationSentDescription, {
+                  household: state.householdName ?? "",
+                  email: state.email ?? "",
+                })}
+          </p>
+        )}
         {resendState.message ? (
           <p className="text-sm text-muted-foreground">{resendState.message}</p>
         ) : (
@@ -116,9 +124,10 @@ export function JoinSignupForm({
             </Button>
           </form>
         )}
-        <Link href="/login" className="text-sm font-medium text-primary underline underline-offset-4">
-          {dict.logIn}
-        </Link>
+        {/* UX-195: a 44 px target (M3) that carries the address just typed
+            to /login, so it isn't typed twice (M4). Not `loginHref` above:
+            the invite is used up, so there's nothing to come back to. */}
+        <StatusCardLink href={loginPath(state.email)}>{dict.logIn}</StatusCardLink>
       </div>
     );
   }

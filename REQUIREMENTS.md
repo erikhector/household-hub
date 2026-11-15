@@ -8428,6 +8428,16 @@ components directly.
   the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
   signup card's "Log in" link carries the address too. Covered by
   `e2e/ux-61.spec.ts`.
+- **The "account created" view (UX-195)**: the confirmation that replaces
+  the form after `/signup` and after `/join/<token>` (`SignupForm`,
+  `JoinSignupForm`) ends in a stand-alone "Log in", which is a
+  `StatusCardLink` (44 px, M3) to `loginPath(email)` in both, so the
+  address just typed is already in the login form (M4). When the first
+  verification email failed to send, the red warning icon and the
+  "couldn't send … try resending it below" text show only until "Resend
+  verification email" has answered: after that the view shows the mail
+  icon and the resend's message alone, never both. Covered by
+  `e2e/ux-195.spec.ts` (`en` and `sv`).
 - **Signing in from the verification link (UX-135).** ⚠️ Auth. A visitor
   with no session who opens `/verify-email/<token>` is signed in by it and
   lands on `/dashboard?welcome=1`, where `WelcomeToast` shows "Welcome to
