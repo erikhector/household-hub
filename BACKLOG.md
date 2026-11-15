@@ -514,7 +514,8 @@ installed here).
 Sunday area: public, auth and legal pages, and the first-run flow. Swept
 `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
 `text-200` and both dialog sweeps; all 290 + 132 tests pass, and the
-only audit hits are the known `text-200` truncations (UX-150). The deep
+only audit hits are the known `text-200` truncations (UX-150); the
+screenshot review found UX-196. The deep
 dive drove login, forgot and reset password, signup (to the confirmation
 view and a resend), a valid invite, the no-household page and a new
 household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
@@ -565,21 +566,25 @@ WebKit was not run (no browser installed here).
       view the "couldn't send" text and warning icon are gone and only
       the resend result shows.
 
-- [ ] **UX-196. "Forgot password?" carries the email already typed on the login form** (impact: low, effort: S) —
-      Driven on Pixel 7 and at 320 px: type an email on `/login`, get
-      "Invalid email or password", tap "Forgot password?", and
-      `/forgot-password` opens with an empty Email field
-      (`src/components/auth/login-form.tsx:117` links to the bare path
-      and `src/components/auth/forgot-password-form.tsx` has no
-      `defaultValue`). The reverse trip already keeps it (`loginPath`,
-      UX-61). M4: don't ask for what we can remember. Same link on the
-      "email already in use" line of `/signup`
-      (`src/components/auth/signup-form.tsx:188`).
-      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, an email
-      typed on `/login` (and the taken email on `/signup`) is in the
-      Email field of `/forgot-password` after following "Forgot
-      password?", and the field is empty when the page is opened
-      directly.
+- [ ] **UX-196. A possible-duplicates row lines its name up with its Keep and Merge controls** (impact: med, effort: S) —
+      `mobile-sv-dashboard-inventory-items.png`, and the same in
+      `tablet-`, `landscape-` and `desktop-`, `en` and `sv`
+      (`/dashboard/inventory/items?filter=duplicates`). In each
+      candidate row the name sits about 12 px lower than its "Keep"
+      radio and the detail line ("2 st", "0 dl · aldrig i lager") falls
+      between that row's controls and the next row's, so the "Merge"
+      tick reads as belonging to neither item: the name link is a 44 px
+      `touch-target` beside a 20 px label, both top-aligned
+      (`src/components/inventory/catalog/item-catalog.tsx:266-299`).
+      The keeper's hidden Merge also leaves a blank band under the
+      first item. Breaks principle 3 (hierarchy: related things read as
+      one group) on a screen where ticking the wrong row merges the
+      wrong item away.
+      Acceptance: in an `e2e/` spec on `mobile`, `tablet` and
+      `desktop`, in `en` and `sv`, on the seeded duplicate group each
+      row's name is vertically centred on its Keep control (centres
+      within 4 px), each row's detail line ends above the next row's
+      Keep control, and `expectTouchTargets` still passes on `mobile`.
 
 ### Dependencies
 
