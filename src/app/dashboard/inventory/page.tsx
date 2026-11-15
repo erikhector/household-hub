@@ -1,6 +1,6 @@
 import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { withCommonUnits } from "@/lib/units";
-import { Suspense, cache } from "react";
+import { cache } from "react";
 import Link from "next/link";
 import { ListChecks } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -44,8 +44,8 @@ const LINKABLE_STATUSES: InventoryStatusFilter[] = ["low", "out", "expiring", "e
 // stocked" note) is the one genuinely per-request DB round trip on this
 // page; household/dict/locale/prefs above are all cheap (React `cache()`-
 // deduped with dashboard/layout.tsx's own calls, or in-memory). Wrapped in
-// `cache()` so the three Suspense-bound consumers below (well-stocked note,
-// action buttons, table) share a single Prisma query instead of one each.
+// `cache()` so the three async consumers below (well-stocked note, action
+// buttons, table) share a single Prisma query instead of one each.
 const getInventoryData = cache(async (householdId: string) => {
   const [rawItems, householdMembers, incoming, onListRows, householdSettings] = await Promise.all([
     prisma.inventoryItem.findMany({
@@ -114,20 +114,8 @@ async function InventoryWellStockedNote({ householdId, dict }: { householdId: st
   return <p className="text-xs text-muted-foreground">{dict.wellStocked}</p>;
 }
 
-function InventoryActionButtonsSkeleton() {
-  return (
-    <div className="flex items-center gap-2" aria-hidden="true">
-      {/* Add item leads the loaded toolbar (UX-188), so its block comes first. */}
-      <div className="h-9 w-9 animate-pulse rounded-md bg-muted max-sm:size-11 sm:w-28" />
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-9 w-9 animate-pulse rounded-md bg-muted max-sm:hidden sm:w-24" />
-      ))}
-    </div>
-  );
-}
-
 // One duplicate-group count per render, shared by the desktop link and the
-// phone ⋯ menu (react `cache` dedupes it across both Suspense boundaries).
+// phone ⋯ menu (react `cache` dedupes it across both).
 const getDuplicateGroups = cache(async (householdId: string) => {
   const { items } = await getInventoryData(householdId);
   return countDuplicateGroups(householdId, items);
@@ -192,24 +180,6 @@ async function ManageItemsLink({ householdId, dict }: { householdId: string; dic
         </Badge>
       )}
     </Link>
-  );
-}
-
-function InventoryTableSkeleton({ label }: { label: string }) {
-  return (
-    <div className="flex animate-pulse flex-col gap-4" role="status" aria-label={label}>
-      <div className="flex items-center gap-2">
-        <div className="h-9 w-48 rounded-md bg-muted" />
-        <div className="hidden h-9 w-32 rounded-md bg-muted sm:block" />
-        <div className="hidden h-9 w-32 rounded-md bg-muted sm:block" />
-        <div className="hidden h-9 w-32 rounded-md bg-muted sm:block" />
-      </div>
-      <div className="list-bleed flex flex-col gap-2 rounded-lg border p-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-10 rounded-md bg-muted/40" />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -285,35 +255,42 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
     // side at `lg` they squeezed the title into a narrow column (subtitle
     // over three lines) and wrapped into three ragged rows. Stacked, they
     // get the full width and wrap at most once.
+    //
+    // MAINT-102: no Suspense around the async sections below (the
+    // well-stocked note, the toolbar, the manage-items link, the table), the
+    // same as the household page (MAINT-31). They all wait on the one cached
+    // query, but each used to stream in behind its own fallback, and under
+    // load the browser painted them one at a time: the note pushed the
+    // toolbar and table down a line, then the real toolbar wrapped onto a
+    // second row its one-row skeleton hadn't held open and pushed the
+    // already-painted table down another 36 px (CLS 0.298 on desktop, budget
+    // 0.05). A skeleton can't know how the buttons wrap (label widths differ
+    // per language, two buttons and the duplicates badge depend on the data),
+    // so the page now arrives in one piece behind `loading.tsx`, and nothing
+    // already on screen moves.
     <LazyDialogErrorMessage message={dict.errors.generic}>
     <div className="@container flex flex-col gap-6 roomy:h-[calc(100dvh-4rem)] roomy:min-h-0">
       <div className="flex flex-col gap-3 sm:shrink-0 max-sm:flex-row max-sm:items-start max-sm:justify-between @min-[90rem]:flex-row @min-[90rem]:items-center @min-[90rem]:justify-between">
         <div className="min-w-0">
           <PageTitle>{dict.inventory.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
-          <Suspense fallback={null}>
-            <InventoryWellStockedNote householdId={household.id} dict={dict.inventory} />
-          </Suspense>
+          <InventoryWellStockedNote householdId={household.id} dict={dict.inventory} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* UX-188: the action buttons, "Add item" first among them, lead
               the toolbar, so the screen's one primary action is the first
               thing you see and tab to. Catalog and export follow. */}
-          <Suspense fallback={<InventoryActionButtonsSkeleton />}>
-            <InventoryActionButtons
-              householdId={household.id}
-              dict={dict.inventory}
-              barcodeDict={dict.barcodeScanner}
-              exportLabel={dict.export.button}
-              manageItemsLabel={dict.inventory.catalog.manageItems}
-            />
-          </Suspense>
+          <InventoryActionButtons
+            householdId={household.id}
+            dict={dict.inventory}
+            barcodeDict={dict.barcodeScanner}
+            exportLabel={dict.export.button}
+            manageItemsLabel={dict.inventory.catalog.manageItems}
+          />
           {/* Desktop-only like export below: on mobile manage-items
               lives inside the ⋯ menu so it isn't duplicated. */}
           <div className="hidden sm:block">
-            <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
-              <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
-            </Suspense>
+            <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
           </div>
           {/* Page-level export stays desktop-only: on mobile it lives
               inside the ⋯ menu (InventoryHeaderActionsClient) so there is
@@ -323,16 +300,14 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           </div>
         </div>
       </div>
-      <Suspense fallback={<InventoryTableSkeleton label={dict.common.loading} />}>
-        <InventoryTable
-          householdId={household.id}
-          dict={dict.inventory}
-          barcodeDict={dict.barcodeScanner}
-          locale={locale}
-          initialStatus={initialStatus}
-          initialViewPrefs={initialViewPrefs}
-        />
-      </Suspense>
+      <InventoryTable
+        householdId={household.id}
+        dict={dict.inventory}
+        barcodeDict={dict.barcodeScanner}
+        locale={locale}
+        initialStatus={initialStatus}
+        initialViewPrefs={initialViewPrefs}
+      />
     </div>
     </LazyDialogErrorMessage>
   );
