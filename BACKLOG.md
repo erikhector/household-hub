@@ -509,6 +509,78 @@ installed here).
       scroll offset is within a few pixels of what it was, with and
       without a hash in the URL.
 
+### UX (2026-11-15 scout)
+
+Sunday area: public, auth and legal pages, and the first-run flow. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass, and the
+only audit hits are the known `text-200` truncations (UX-150). The deep
+dive drove login, forgot and reset password, signup (to the confirmation
+view and a resend), a valid invite, the no-household page and a new
+household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
+WebKit was not run (no browser installed here).
+
+- [ ] **UX-194. A password mistake on the invite and reset-password forms doesn't wipe both fields** (impact: med, effort: S) —
+      Driven on Pixel 7 and at 320 px, `en` and `sv`, on `/join/<valid
+      token>` and `/reset-password/<valid token>`: a 5-character
+      password, or two that differ (and on the invite form a malformed
+      email), goes to the server and comes back with both password
+      fields emptied, focus on `<body>` and the message as one line
+      above the consent text or the button, not under its field
+      (`src/components/household/join-signup-form.tsx:176`,
+      `src/components/auth/reset-password-form.tsx:79`). The invite form
+      also never says "at least 8 characters" before the server does.
+      `/signup` already checks all of this in the browser (UX-59,
+      `validate` in `src/components/auth/signup-form.tsx`); these two
+      forms only check for empty fields (UX-183b). Breaks principle 7
+      (prevent errors, validate inline, next to the field) and M4: an
+      invitee, the person a household most wants to get in, retypes two
+      passwords on a phone keyboard.
+      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, in `en`
+      and `sv`, on both forms a too-short password and a mismatched
+      confirmation show their message under that field with
+      `aria-invalid`, focus is on it, no Server Action request is sent
+      and both password fields still hold what was typed; the invite
+      form shows the 8-character hint under Password before any submit.
+
+- [ ] **UX-195. The "account created" view after signing up or joining has a 44 px Log in and one message at a time** (impact: med, effort: S) —
+      Driven on Pixel 7 and at 320 px after `/signup` and after
+      `/join/<valid token>`. (1) The view's only way on, "Log in", is a
+      stand-alone text link 39 × 20 px (`Logga in` 54 × 20), M3
+      (`src/components/auth/signup-form.tsx:304`,
+      `src/components/household/join-signup-form.tsx:97`); the other
+      status cards use `StatusCardLink` for this. (2) The invite
+      version links to a bare `/login`, so the email just typed is
+      typed again; signup's uses `loginPath(state.email)` (M4).
+      (3) When the first email fails to send and the user taps "Resend
+      verification email", the red warning icon and "we couldn't send
+      the verification email just now. Try resending it below." stay
+      on screen above "we've sent a fresh verification link", with no
+      button left below: two messages that contradict each other
+      (principle 5, visible feedback on what happened).
+      Acceptance: in an `e2e/` spec on `mobile`, in `en` and `sv`, the
+      confirmation view after signup and after joining passes
+      `expectTouchTargets`; the invite version's Log in opens `/login`
+      with the email filled in; and after a resend on the send-failed
+      view the "couldn't send" text and warning icon are gone and only
+      the resend result shows.
+
+- [ ] **UX-196. "Forgot password?" carries the email already typed on the login form** (impact: low, effort: S) —
+      Driven on Pixel 7 and at 320 px: type an email on `/login`, get
+      "Invalid email or password", tap "Forgot password?", and
+      `/forgot-password` opens with an empty Email field
+      (`src/components/auth/login-form.tsx:117` links to the bare path
+      and `src/components/auth/forgot-password-form.tsx` has no
+      `defaultValue`). The reverse trip already keeps it (`loginPath`,
+      UX-61). M4: don't ask for what we can remember. Same link on the
+      "email already in use" line of `/signup`
+      (`src/components/auth/signup-form.tsx:188`).
+      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, an email
+      typed on `/login` (and the taken email on `/signup`) is in the
+      Email field of `/forgot-password` after following "Forgot
+      password?", and the field is empty when the page is opened
+      directly.
+
 ### Dependencies
 
 - [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
