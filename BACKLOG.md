@@ -165,14 +165,21 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       auth and profile, the invite email, and checked the receipt and shelf
       scans and `parse-import-csv.ts` (codes their clients already
       translate), all done, and the shared share-split parser
-      (`share-split-form.ts`). Still English: the string-literal `error:`
-      values and Zod messages in the files on `PENDING` in
-      `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19), plus `lib/recipe-import.ts` (MAINT-65 is splitting it) and the
-      Zod messages in `savings-goal-calc.ts` and `budget-category-limit.ts`,
-      which only the two budget action files use, so convert them with
-      those (`v()` keys plus `zodFail()`, otherwise the key itself would
-      show). Convert a feature at a time, add its keys to `dict.errors` (or
+      (`share-split-form.ts`), and the personal budget
+      (`personal-budget/actions.ts`). Still English: the string-literal
+      `error:` values and Zod messages in the one file left on `PENDING` in
+      `src/lib/actions/error-strings.test.ts`, the household budget's
+      `budget/actions.ts` (35), plus `lib/recipe-import.ts` (MAINT-65 is
+      splitting it). The Zod messages of the limit and goal fields in
+      `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
+      for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
+      `goalDateFieldWith`): the personal budget passes `v()` keys, the
+      household budget still gets the English constants. When converting
+      the household budget, switch its actions to `zodFail()`, put the keys
+      (`monthlyLimitNumber`, `monthlyLimitPositive`, `savingsGoalNumber`,
+      `savingsGoalPositive`, `goalDateInvalid`, already in `dict.errors`)
+      straight into the constants and delete the `…With` functions and the
+      personal budget's local copies. Add any new keys to `dict.errors` (or
       a feature namespace, as `template-actions.ts` does), and delete the
       file from `PENDING`: the test fails if a clean file stays listed.
       Leave budget until BUDGET-6 is decided.
