@@ -246,6 +246,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
+      Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193, which doesn't touch this spec or inventory): `e2e/never-stocked.spec.ts:18` failed once on `desktop` in the first full run, then passed in a second full run of the same commit and 15/15 in a locked `--repeat-each=15` on that build.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -253,10 +254,12 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
       Further sighting (2026-11-14, release PR #1408 on 0522167), two more tests in the same spec: `e2e/recipe-discover.spec.ts:146` ("rows never say the pantry has none of a recipe") and `:298` ("ask for ideas lists AI ideas and previews one without pantry markers"), `mobile` project. In the GitHub e2e job (job 132278197181) both first attempts failed at `openRecipesTab` (`e2e/ui.ts:367`, via `openTabAndDiscover` at `recipe-discover.spec.ts:106`): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s, after `expectRouterPatched` had passed. Both passed on the retry, and the local `ci:local` on the same commit was clean. Same cause as above, so the one fix covers all three call sites.
       Further sighting (2026-11-15, release PR #1449 on 57e93f4, GitHub run 43676498568, job 132697723956): `e2e/recipe-photo-import.spec.ts:59` again, `mobile` project. The first attempt failed at `openRecipesTab` (`e2e/ui.ts:367`, called from spec line 89): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s. It passed on the retry, and the local `ci:local` on the same commit passed this test.
+      Further sighting (2026-11-15, builder's locked `ci:local` on 6faed9d, PR #1453's branch merged with `next`), another test in `e2e/recipe-discover.spec.ts` with a different symptom: `:185` ("save a catalog recipe through the form"), `mobile` project. The New recipe dialog's Name field never got its value and the test timed out. It passed in the next full gate (b9fb3e1) and 20/20 in a loaded `--repeat-each=10` on that build. Not ruled out: #1453 (now on `next`) changed `src/components/ui/dialog-history.ts`, which this dialog goes through, and no run on a clean checkout from before it was made, so compare against 46ed05c before treating it as the same flake.
 - [ ] **MAINT-97. Flaky: a forced check on the category radio doesn't select it in the Add transaction dialog on mobile** (low, S) —
       `e2e/transaction-repeats.spec.ts:87` ("without the Repeats switch no recurring item is added"), `mobile` project. Failed once in the builder's locked `ci:local` run on 393b7e0 (PR #1404, a knip refactor that doesn't touch this spec or the budget feature, 2026-11-13), then passed in the full rerun of the same commit. Failing assertion at `:98`: `dialog.getByRole("radio", { name: category }).check({ force: true })` → `locator.check: Clicking the checkbox did not change its state`. The radio is a `peer sr-only` `<input name="categoryId">`, so the forced click lands on a visually hidden input. It may run before the dialog's category picker is hydrated, or a re-render may reset the selection. Start from the trace. Clicking the visible label after `expectHydrated` is likely the honest fix; look for the same pattern in other transaction-dialog specs.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
 - [ ] **MAINT-100. Flaky: a just-ticked task's "Mark … as not done" checkbox isn't found within 5 s on mobile** (low, S) —
       `e2e/flows.spec.ts:23` ("add a task and mark it done"), `mobile` project. Failed once in the reviewer's locked `ci:local` run on release PR #1425 (138ae29, 2026-11-14, carrying only #1423, a What's new change that doesn't touch tasks or this spec), then passed in a re-run of the spec on the same commit (`npx playwright test e2e/flows.spec.ts --project=mobile`, 6 passed) and in the GitHub e2e job. Failing assertion at `:45`: `expect(page.getByRole("checkbox", { name: "Mark <title> as not done" })).toBeChecked()` → `element(s) not found` after 5 s, followed by `page.waitForResponse: Test ended.` at `:38`. So after `done.click()` the row never showed its optimistic "not done" label and no Server Action POST was seen: the tap most likely landed before the task row's checkbox was hydrated (the test calls neither `expectHydrated` nor `gotoRevealed` before it), or a re-render after the add swallowed it. Start from the trace: check whether the click reached a hydrated checkbox, and wait for hydration before the tap as AGENTS.md's "Shared checks" describes.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -269,6 +272,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/command-palette.spec.ts:65` ("Add task opens the add-task dialog on the tasks page"), `desktop` project. Failed once in the reviewer's locked `ci:local` run on release PR #1436 (7c48109, 2026-11-14, which already carries MAINT-99's `openPalette` fix, #1435), then passed in a re-run of the spec on the same commit (`npx playwright test e2e/command-palette.spec.ts --project=desktop`, 8 passed) and in the GitHub e2e job. Failing assertion at `:72`: `expect(page).toHaveURL(/\/dashboard\/tasks$/)` → received `http://localhost:3000/dashboard` for the whole 5 s. So the palette was open (`openPalette` returned), "add task" was typed and Enter was pressed, but no navigation followed. The Enter may have landed before the filtered list had settled on the "Add task" option (the test presses it straight after `fill`, with no wait for the highlighted option), or the option's action ran before the router was patched. Start from the trace: check which option was highlighted when Enter was pressed and whether a navigation request was sent. Waiting for the "Add task" option to be `aria-selected` before Enter (and `expectRouterPatched` before opening the palette) is the likely honest fix; the "Add to shopping list" test (`:76`) presses Enter the same way, while the first test waits for `toHaveCount(1)` (`:39`) before its Enter.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+- [ ] **MAINT-104. Flaky: the What's new link in Profile's About disclosure isn't found within 20 s in the Back-restores-scroll spec** (low, S) —
+      `e2e/ux-193.spec.ts:26`, the `#profile-notifications` variants only: "Back to Profile restores the scroll position, with a hash" on `desktop`, and "…, with a hash, fetched again" on `mobile`. The spec is new in #1453 (UX-193). Three sightings, all on 2026-11-15. (1) The builder's locked `ci:local` on 6faed9d (#1453's branch merged with `next`): "with a hash, fetched again" failed once on `mobile`, and passed in the next full gate. (2) and (3) The GitHub `End-to-end (Playwright)` job on release PR #1455 (908b494, job 132738518572): the `desktop` "with a hash" test and the `mobile` "with a hash, fetched again" test each failed their first attempt (after 21.4 s and 22.1 s) and passed on the retry, so Playwright marked both `flaky`; the reviewer's locked `ci:local` on the same commit passed all eight `ux-193` tests. Failing step, the same each time: `expectHydrated(link)` at `:35` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`). That error alone can't tell "the link is there but not hydrated" from "the link isn't there": `expectHydrated` polls `target.evaluate(…)`, which waits for the element. The builder's failure snapshot (sighting 1) shows the second: the About summary focused and the `<details>` closed again, after the spec clicked the summary straight after `gotoRevealed`, before hydration. What closes the disclosure is not known; that only the hash variants fail points at whatever the hash sets off while the page hydrates (`ScrollToHash`, or the restore). `e2e/notifications-empty-state.spec.ts:74` clicks a summary (Danger zone) the same way.
+      Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -506,71 +514,6 @@ household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
 WebKit was not run (no browser installed here), and no project in
 either sweep renders the dark theme (`mobile` has no `colorScheme`), so
 dark was not looked at.
-
-- [ ] **UX-194. A password mistake on the invite and reset-password forms doesn't wipe both fields** (impact: med, effort: S) —
-      Driven on Pixel 7 and at 320 px, `en` and `sv`, on `/join/<valid
-      token>` and `/reset-password/<valid token>`: a 5-character
-      password, or two that differ (and on the invite form a malformed
-      email), goes to the server and comes back with both password
-      fields emptied, focus on `<body>` and the message as one line
-      above the consent text or the button, not under its field
-      (`src/components/household/join-signup-form.tsx:176`,
-      `src/components/auth/reset-password-form.tsx:79`). The invite form
-      also never says "at least 8 characters" before the server does.
-      `/signup` already checks all of this in the browser (UX-59,
-      `validate` in `src/components/auth/signup-form.tsx`); these two
-      forms only check for empty fields (UX-183b). Breaks principle 7
-      (prevent errors, validate inline, next to the field) and M4: an
-      invitee, the person a household most wants to get in, retypes two
-      passwords on a phone keyboard.
-      Acceptance: in an `e2e/` spec on `desktop` and `mobile`, in `en`
-      and `sv`, on both forms a too-short password and a mismatched
-      confirmation show their message under that field with
-      `aria-invalid`, focus is on it, no Server Action request is sent
-      and both password fields still hold what was typed; the invite
-      form shows the 8-character hint under Password before any submit.
-
-- [ ] **UX-195. The "account created" view after signing up or joining has a 44 px Log in and one message at a time** (impact: med, effort: S) —
-      Driven on Pixel 7 and at 320 px after `/signup` and after
-      `/join/<valid token>`. (1) The view's only way on, "Log in", is a
-      stand-alone text link 39 × 20 px (`Logga in` 54 × 20), M3
-      (`src/components/auth/signup-form.tsx:304`,
-      `src/components/household/join-signup-form.tsx:97`); the other
-      status cards use `StatusCardLink` for this. (2) The invite
-      version links to a bare `/login`, so the email just typed is
-      typed again; signup's uses `loginPath(state.email)` (M4).
-      (3) When the first email fails to send and the user taps "Resend
-      verification email", the red warning icon and "we couldn't send
-      the verification email just now. Try resending it below." stay
-      on screen above "we've sent a fresh verification link", with no
-      button left below: two messages that contradict each other
-      (principle 5, visible feedback on what happened).
-      Acceptance: in an `e2e/` spec on `mobile`, in `en` and `sv`, the
-      confirmation view after signup and after joining passes
-      `expectTouchTargets`; the invite version's Log in opens `/login`
-      with the email filled in; and after a resend on the send-failed
-      view the "couldn't send" text and warning icon are gone and only
-      the resend result shows.
-
-- [ ] **UX-196. A possible-duplicates row lines its name up with its Keep and Merge controls** (impact: med, effort: S) —
-      `mobile-sv-dashboard-inventory-items.png`, and the same in
-      `tablet-`, `landscape-` and `desktop-`, `en` and `sv`
-      (`/dashboard/inventory/items?filter=duplicates`). In each
-      candidate row the name sits about 12 px lower than its "Keep"
-      radio and the detail line ("2 st", "0 dl · aldrig i lager") falls
-      between that row's controls and the next row's, so the "Merge"
-      tick reads as belonging to neither item: the name link is a 44 px
-      `touch-target` beside a 20 px label, both top-aligned
-      (`src/components/inventory/catalog/item-catalog.tsx:266-299`).
-      The keeper's hidden Merge also leaves a blank band under the
-      first item. Breaks principle 3 (hierarchy: related things read as
-      one group) on a screen where ticking the wrong row merges the
-      wrong item away.
-      Acceptance: in an `e2e/` spec on `mobile`, `tablet` and
-      `desktop`, in `en` and `sv`, on the seeded duplicate group each
-      row's name is vertically centred on its Keep control (centres
-      within 4 px), each row's detail line ends above the next row's
-      Keep control, and `expectTouchTargets` still passes on `mobile`.
 
 ### Dependencies
 

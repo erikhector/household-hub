@@ -26,14 +26,19 @@ for (const [name, url, refetch] of [
   test(`Back to Profile restores the scroll position, ${name}`, async ({ page }) => {
     await gotoRevealed(page, url);
     const main = page.getByRole("main");
-    // The link sits in the closed About disclosure (a native <details>, so
-    // its summary needs no hydration wait).
-    await main.getByText(en.profile.about.title, { exact: true }).click();
-    const link = main.getByRole("link", { name: en.profile.about.whatsNewLink });
-    // Positions are remembered from hydration on, and the link's click is
-    // the router's only once it has patched history.
-    await expectHydrated(link);
+    // The link sits in the closed About disclosure. A native <details>
+    // opens without React, but one opened before React has hydrated the
+    // page was found closed again afterwards (a full ci:local run, phone,
+    // with a hash), and the link is then no longer there to find. So wait
+    // for React to own the summary first. Positions are remembered from
+    // hydration on too, and the link's click is the router's only once it
+    // has patched history.
+    const about = main.getByText(en.profile.about.title, { exact: true });
+    await expectHydrated(about);
     await expectRouterPatched(page);
+    await about.click();
+    const link = main.getByRole("link", { name: en.profile.about.whatsNewLink });
+    await expect(link).toBeVisible();
     // Scroll the way a reader does: until the link comes up from the bottom
     // edge. Not all the way down, since Back brings the page back with the
     // disclosure closed again, so a little shorter than it was left.

@@ -623,8 +623,7 @@ export async function resendVerificationEmailAction(
   // Unused, but kept (rather than dropped) so this still matches the
   // (state, payload) => State shape useActionState expects of every action
   // it dispatches — this is the only action in the file with no form
-  // fields to read, hence the lone lint suppression.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // fields to read. The leading underscore keeps lint quiet about it.
   _prevState: ResendVerificationState,
 ): Promise<ResendVerificationState> {
   const userId = await requireUserId();
