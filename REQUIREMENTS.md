@@ -10378,10 +10378,19 @@ section, and only what's below it moves.
 **List rows: the glide.** `useFlipList` (`src/components/shared/use-flip-list.ts`)
 runs after every commit of a list:
 - It measures each element with `data-flip-key` against its parent (or the
-  viewport if it changed parent) and plays the difference from where it was
+  list if it changed parent) and plays the difference from where it was
   back on the real element with the Web Animations API (FLIP). Keys pair
   across sections, so a ticked row glides into "Purchased" or "Completed",
   and a completed list's card into its section on the overview.
+- It measures in layout pixels, not as drawn (MAINT-100): what
+  `getBoundingClientRect` returns is divided by the list's drawn width over
+  its computed width (`renderedScale`). On a phone the page behind an open
+  sheet is drawn at 0.94 and eases back for 400 ms after the sheet closes
+  (`sheet-indent.tsx`), so a row added through a sheet was measured small,
+  and at the list's next change every row jumped 6% of its offset (37 px
+  for the fourteenth task) and glided back, though nothing had moved. A
+  tap whose press and release straddled that jump was released over
+  another row and ticked nothing.
 - A new row rises in.
 - A removed row's node is put back in its list, absolutely positioned and
   inert, to fade where it was (not table rows, which don't lay out alone).
@@ -10487,6 +10496,11 @@ delay to 0. Every change happens at once.
   times from where it started, for the reason above).
 - Under `reducedMotion: "reduce"` no FLIP plays and view transitions take
   no time.
+
+`e2e/maint-100.spec.ts` (MAINT-100) adds a task through the sheet with
+four tasks above it, then ticks a task below them all: the ticked row
+glides, and none of the rows above it gets a `flip-move`. `renderedScale`
+is unit-tested.
 
 Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
 `withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
