@@ -972,7 +972,13 @@ every lookup the old one did.
     most recipe/list/template/price rows, then the oldest. In each group a
     radio picks the keeper (the suggested one to start with) and a
     checkbox each item to merge (all ticked), each with a visible "Keep" /
-    "Merge" label (UX-131).
+    "Merge" label (UX-131). An item is two lines of a two-column grid,
+    each centred on its control: Keep beside the name, Merge beside the
+    details (stock, recipes, barcode, never stocked), so both controls
+    read as that item's and the details never sit between two items'
+    controls. The keeper's Merge is hidden but keeps its place, with the
+    details beside it. `e2e/ux-196.spec.ts` measures the seeded pair on
+    `desktop`, `mobile` and `tablet`, in both languages (UX-196).
     - **Not duplicates** (`dismissDuplicatesAction`) stores every pair in
       the group as an `InventoryDuplicateDismissal` (`householdId`,
       `itemAId`, `itemBId`, ids sorted, unique, cascading with either item
@@ -10093,6 +10099,22 @@ approximating them, so the email never disagrees with the app.
   `required` sits in a `noValidate` form that words its own message (UX-59's
   login and signup forms keep their own validation). Covered by
   `e2e/shopping-field-errors.spec.ts`.
+- **Invite and reset-password forms check the password in the browser
+  (UX-194).** `join-signup-form.tsx` and `reset-password-form.tsx` give
+  their `useRequiredFields` rules an `invalid` check (the hook's
+  `findFieldProblems`, run only on a field that isn't empty): a password
+  under 8 characters, a confirmation that differs and, on the invite form,
+  a malformed email (`src/lib/email-pattern.ts`, shared with `/signup`) are
+  worded under their field in the page's language (`auth.join` /
+  `auth.resetPassword` `passwordTooShort`, `passwordsDontMatch`,
+  `emailInvalid`), with `aria-invalid`, `aria-describedby` and focus on the
+  first. The submit is blocked before the Server Action runs, so React
+  never resets the form and both passwords stay as typed. Both forms show
+  "At least 8 characters" under the password field from the start
+  (`passwordHint`), and it describes the field. A blocked submit hides the
+  last server error line. The server still validates everything; a
+  rejection only it can find (a taken email, an expired link) still comes
+  back as the one line above the button. Covered by `e2e/ux-194.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

@@ -4188,6 +4188,10 @@ export const en = {
       confirmPassword: "Confirm new password",
       newPasswordRequired: "Enter a new password",
       confirmPasswordRequired: "Confirm your new password",
+      // UX-194: the rule under New password, and the browser-side checks.
+      passwordHint: "At least 8 characters",
+      passwordTooShort: "Use at least 8 characters",
+      passwordsDontMatch: "The passwords don't match",
       showPassword: "Show password",
       hidePassword: "Hide password",
       saving: "Updating…",
@@ -4272,6 +4276,11 @@ export const en = {
       emailRequired: "Enter your email address.",
       passwordRequired: "Enter a password.",
       confirmPasswordRequired: "Type the password again to confirm it.",
+      // UX-194: the rule under Password, and the browser-side checks.
+      emailInvalid: "Enter a valid email address.",
+      passwordHint: "At least 8 characters",
+      passwordTooShort: "Use at least 8 characters.",
+      passwordsDontMatch: "The passwords don't match.",
       email: "Email",
       password: "Password",
       confirmPassword: "Confirm password",

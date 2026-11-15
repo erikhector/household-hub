@@ -17,6 +17,7 @@ import {
   type ResendVerificationForLoginState,
 } from "@/lib/actions/auth";
 import { StatusCardLink } from "@/components/auth/status-card";
+import { EMAIL_PATTERN } from "@/lib/email-pattern";
 import { loginPath } from "@/lib/login-path";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -30,7 +31,6 @@ type FieldErrors = Partial<Record<Field, string>>;
 
 // Top to bottom, so focus lands on the first field that needs fixing.
 const FIELD_ORDER: Field[] = ["displayName", "householdName", "email", "password", "confirmPassword"];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // UX-59: checked in the browser before the action runs, so a mistake is
 // worded in the page's language (the server's messages are English-only,
