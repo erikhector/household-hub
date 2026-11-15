@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.156.1",
+    "date": "2026-11-15",
+    "pr": 1455,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Going back to a page now returns you to where you were on it, not to the top. On phones this works on every page, including long ones like Profile.",
+      "sv": "När du går tillbaka till en sida hamnar du nu där du var, inte högst upp. På mobilen gäller det alla sidor, även långa som Profil."
+    }
+  },
+  {
     "version": "0.156.0",
     "date": "2026-11-15",
     "pr": 1449,
