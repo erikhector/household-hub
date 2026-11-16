@@ -47,6 +47,10 @@ export const en = {
     shoppingListNotFound: "Shopping list not found",
     templateNotFound: "That template couldn't be found, it may have been deleted",
     listNotEditable: "This list can't be edited right now",
+    // GAP-82: moving a row to another list.
+    moveItemPurchased: "A ticked-off item can't be moved",
+    moveUnitMismatch: "{name} is already on {list} in another unit",
+    moveUndoStale: "That list has changed, so the move can't be undone",
     shareLinkNotFound: "Share link not found",
     shareLinkInvalid: "This share link is invalid or has been revoked",
     linkItemToPantryFirst: "Link this item to your pantry first",
@@ -902,8 +906,18 @@ export const en = {
       undo: "Undo",
     },
     editItemAriaLabel: "Edit {name}",
-    // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
+    // The row's Edit and Delete behind one ⋯ (RowActionsMenu): phone only,
+    // unless the row also offers "Move to list…" (GAP-82).
     rowActionsAriaLabel: "More actions for {name}",
+    // GAP-82: the row's ⋯ "Move to list…" and the sheet it opens.
+    moveItem: {
+      menuLabel: "Move to list…",
+      title: "Move {name} to",
+      description: "Pick one of your other open lists.",
+      cancel: "Cancel",
+      movedToast: "Moved {name} to {list}",
+      mergedToast: "Merged {name} into {list}",
+    },
     // AUTO-4: the header's running estimate and each row's tappable "≈
     // price" / inline correction input.
     estimatedTotal: "≈ {amount} still to buy ({priced} of {total} priced)",

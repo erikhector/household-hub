@@ -17,11 +17,18 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 // `data-row-delete` (the trash button, which keeps its confirm dialog).
 // Those stay in the DOM on a phone, just `max-sm:hidden`, so their dialogs
 // and handlers are the same ones a desktop tap uses.
+//
+// GAP-82: a row can also offer an action that has no icon of its own ("Move
+// to list…" on a shopping row). Then the ⋯ shows at every width, since on a
+// desktop it is that action's only way in, and keeps Edit and Delete beside
+// it so the menu reads the same everywhere.
 export function RowActionsMenu({
   label,
   editLabel,
   deleteLabel,
   priceLabel,
+  moveLabel,
+  onMove,
   disabled = false,
   className,
 }: {
@@ -32,9 +39,13 @@ export function RowActionsMenu({
   /** A shopping row (UX-79) with no room for "Add price" on its line: an
    *  item that clicks the row's `data-price-edit` button. Omit for none. */
   priceLabel?: string;
+  /** GAP-82: "Move to list…", shown with `onMove`. */
+  moveLabel?: string;
+  onMove?: () => void;
   disabled?: boolean;
   className?: string;
 }) {
+  const canMove = moveLabel !== undefined && onMove !== undefined;
   const triggerRef = useRef<HTMLButtonElement>(null);
   function clickMarked(selector: string) {
     triggerRef.current?.closest("[data-swipe-row]")?.querySelector<HTMLElement>(selector)?.click();
@@ -47,7 +58,7 @@ export function RowActionsMenu({
             ref={triggerRef}
             variant="ghost"
             size="icon"
-            className={cn("shrink-0 text-muted-foreground sm:hidden", className)}
+            className={cn("shrink-0 text-muted-foreground", !canMove && "sm:hidden", className)}
             disabled={disabled}
             aria-label={label}
           >
@@ -64,6 +75,7 @@ export function RowActionsMenu({
             {priceLabel}
           </DropdownMenuItem>
         )}
+        {canMove && <DropdownMenuItem onClick={onMove}>{moveLabel}</DropdownMenuItem>}
         <DropdownMenuItem variant="destructive" onClick={() => clickMarked("[data-row-delete]")}>
           {deleteLabel}
         </DropdownMenuItem>

@@ -2841,6 +2841,47 @@ moves back only those still unticked in the household. The checkbox label
 names the target list (page query for the active default). Flow spec:
 `e2e/shopping-finish-carry-over.spec.ts`.
 
+**Moving one row to another list (GAP-82).** An unbought row's ⋯ menu has
+**"Move to list…"** while the household has another `ACTIVE` list (the
+detail page loads the household's active lists once, default first; the
+same query names UX-80's carry-over target). It shows on a phone and, since
+it has no icon of its own, makes the ⋯ visible on a desktop too (see "Swipe
+row actions"). It opens `MoveItemDialog`
+(`src/components/shopping/move-item-dialog.tsx`, lazy like the page's other
+dialogs, a bottom sheet on phones): one button per other active list and a
+Cancel. A tap moves at once through the click action
+`moveShoppingListItemAction(itemId, targetListId)` (`item-actions.ts`).
+It `requireHousehold()`s, finds the row through a list in the household,
+refuses a ticked row ("A ticked-off item can't be moved") and takes only an
+`ACTIVE` target in the household other than the row's own list. Then, in
+one transaction:
+
+- **Plain move** (no inventory link, or that item has no unticked row on
+  the target): only `shoppingListId` changes, so note, price and
+  `addedByUserId` travel with the row. Toast "Moved {name} to {list}"; Undo
+  is the same action back to the source list.
+- **Merge** (the item is already unticked on the target, same unit): the
+  target row gets the quantity added and keeps its own note, price and
+  author; the moved row is deleted. The action returns the target row's id
+  and the deleted row's quantity, note, `estimatedPrice` and
+  `addedByUserId`. Toast "Merged {name} into {list}"; Undo calls
+  `undoMergedShoppingListMoveAction`, which checks the source list is the
+  household's and `ACTIVE` and the target row the household's, Zod-validates
+  the values with the edit dialog's bounds, keeps the author only if still
+  a member, and in one transaction subtracts the quantity (a conditional
+  write: the row must be unticked and hold more than that) and recreates
+  the row on the source list with name, unit and link read from the target
+  row. Otherwise it changes nothing: "That list has changed, so the move
+  can't be undone".
+- **Different unit**: nothing changes and the sheet stays open with "{name}
+  is already on {list} in another unit".
+
+The writes re-check that the moved row is still unticked on its list, so a
+tick landing mid-move changes nothing ("Item not found"). A move records no
+LIST_CLEARED notification even when it empties the source: the shopping
+moved, it isn't done. Unit tests: `item-actions.move.test.ts`; flow spec:
+`e2e/shopping-move-item.spec.ts`.
+
 The "Done shopping after Undo leaves a late pending row" spec (MAINT-47) waits
 for each server action's answer before it inserts the late row, because the
 database changes before the action's revalidated list reaches the page: after
@@ -9779,7 +9820,10 @@ Todoist-style. Built as one shared wrapper,
   (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
-  `sm` up the icons show as before. Task rows have no ⋯ at all (UX-106):
+  `sm` up the icons show as before, and the ⋯ is hidden unless the row
+  also offers "Move to list…" (GAP-82, below), which has no icon of its
+  own: then it shows at every width, between the edit and delete icons, so
+  delete stays last. Task rows have no ⋯ at all (UX-106):
   the edit sheet has a Delete button instead.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the

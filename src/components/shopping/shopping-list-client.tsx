@@ -39,6 +39,7 @@ import { LazyDialog, openLazyDialog } from "@/components/ui/lazy-dialog";
 import { LazyReceiptScan } from "@/components/shopping/lazy-receipt-scan";
 import {
   loadImportListDialog,
+  loadMoveItemDialog,
   loadPartialPriceDialog,
   loadPutAwayDialog,
   loadRenameListDialog,
@@ -95,6 +96,7 @@ import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 import { PrintableList } from "@/components/shopping/printable-list";
 import { ClearedState, CompletedActions } from "@/components/shopping/cleared-state";
 import { ShoppingRow } from "@/components/shopping/shopping-row";
+import type { MoveTarget } from "@/components/shopping/move-item-dialog";
 import {
   useAddedHighlight,
   useCarryOver,
@@ -132,6 +134,7 @@ export function ShoppingListClient({
   locations = [],
   carryOverListName = "",
   nextListId = null,
+  moveTargets = [],
   aliases = [],
 }: {
   list: ShoppingListData;
@@ -164,6 +167,9 @@ export function ShoppingListClient({
   /** UX-81: the household's active default list when it isn't this one, which
    * "Start next list" opens; null makes that button create a fresh list. */
   nextListId?: string | null;
+  /** GAP-82: the household's other ACTIVE lists, where a row's "Move to
+   * list…" can send it. Empty hides that menu item. */
+  moveTargets?: MoveTarget[];
   /** MATCH-5: the household's learned item names, so a receipt line or an
    * unlinked row's suggestion links the way the household taught it. */
   aliases?: ItemAliasLike[];
@@ -268,7 +274,18 @@ export function ShoppingListClient({
     reorderSections: createDialogHandle(),
     saveTemplate: createDialogHandle(),
     renameList: createDialogHandle(),
+    moveItem: createDialogHandle(),
   }));
+  // GAP-82: the row whose ⋯ "Move to list…" opened the move sheet. Kept
+  // after it closes, so the sheet's closing animation still names it.
+  const [movingItem, setMovingItem] = useState<{ id: string; name: string } | null>(null);
+  const moveItem =
+    moveTargets.length > 0
+      ? (item: { id: string; name: string }) => {
+          setMovingItem({ id: item.id, name: item.name });
+          openLazyDialog(dialogs.moveItem);
+        }
+      : undefined;
 
   // GAP-67: a list shared to Squirrel from another app arrives as
   // `?pasteText=…` (src/app/dashboard/share, via the shopping-list page's
@@ -759,6 +776,19 @@ export function ShoppingListClient({
             {(ImportListDialog) => <ImportListDialog listId={list.id} dict={dict.importList} handle={dialogs.importList} initialText={prefillText} />}
           </LazyDialog>
           <ShareListButton shoppingListId={list.id} dict={dict.shareLink} handle={dialogs.share} />
+          {moveTargets.length > 0 && (
+            <LazyDialog loader={loadMoveItemDialog} handle={dialogs.moveItem}>
+              {(MoveItemDialog) => (
+                <MoveItemDialog
+                  item={movingItem}
+                  targets={moveTargets}
+                  dict={dict.moveItem}
+                  undoLabel={dict.undo}
+                  handle={dialogs.moveItem}
+                />
+              )}
+            </LazyDialog>
+          )}
           <LazyDialog loader={loadReorderSectionsDialog} handle={dialogs.reorderSections}>
             {(ReorderSectionsDialog) => (
               <ReorderSectionsDialog
@@ -916,6 +946,7 @@ export function ShoppingListClient({
                     item={item}
                     onToggle={() => toggleItem(item)}
                     onDelete={deleteItem}
+                    onMove={moveItem}
                     leaving={leaving.has(item.id)}
                     highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
