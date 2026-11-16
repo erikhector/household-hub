@@ -275,15 +275,15 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-106. Flaky: the empty week's "Add first dinner" button isn't hydrated within 20 s on mobile** (low, S) —
-      `e2e/native-sheets.spec.ts:72` ("a flick down on the grabber dismisses the sheet and leaves no back step"), `:87` ("a short, slow pull springs back instead of dismissing"), `:141` ("the page behind scales down while a sheet is open"), `:153` ("under reduced motion the page behind stays put") and `:161` ("a touch open focuses the sheet, not a field, so the keyboard stays down"), plus `e2e/planner-add-missing.spec.ts:94` ("an empty week has no Add missing button"), all on the `mobile` project. One sighting: the reviewer's locked `ci:local` on release commit 04f98b7 (release PR #1489, 2026-11-16, three BACKLOG.md-only PRs, so nobody's change is in it). All six failed in that one run (1691 passed, 6 failed) and all passed when the two specs were re-run on the same commit (`--project=mobile`: 11 passed, 2 skipped). On `desktop` in that run, `planner-add-missing.spec.ts:94` and `native-sheets.spec.ts:181` (which also goes through `openAddMeal`) passed; the five `native-sheets` tests are phone-only (`test.skip(!isMobile)`) and were skipped there. The GitHub e2e job didn't run (docs-only release). Failing step, the same in all six: `expectHydrated` on `getByRole("button", { name: "Add first dinner" })` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`), called from `openAddMeal` (`native-sheets.spec.ts:56`) and from `planner-add-missing.spec.ts:102`. Both open `/dashboard/meal-planning` on an empty far-future week. As MAINT-104 notes, that error can't tell "the button is there but not hydrated" from "the button never rendered", so start from the trace: whether the planner was still behind its `loading.tsx` skeleton, showed day cards instead of the empty-week button (another spec's meal in that week of the worker's household), or rendered the button without React owning it. `native-sheets.spec.ts:98`, which ran between the failures, passed. Six failures at once in two specs that share one page points at the planner being slow or stuck for that worker, not at six separate races.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/native-sheets.spec.ts e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-107. Run `command-palette.spec.ts` on the `iphone` project, so the MAINT-103 repair is tested in WebKit** (med, S) —
       A navigation issued while a dialog's `history.back()` is still pending is repaired in `src/components/ui/dialog-history.ts` (MAINT-103): the back undoes the push and the helper steps forward onto it again. That repair has never run in WebKit. The one test that forces the ordering, "Enter still navigates when the router pushes before the palette's history entry is gone" (`e2e/command-palette.spec.ts:85`), is not in the `iphone` project, whose `testMatch` in `playwright.config.ts` is `smoke|flows|form-control-sizes.mobile`. Why it matters: MAINT-101 ("an edit still shows after navigating away and back", `e2e/flows.spec.ts`) twice failed its first attempt on `iphone` in the GitHub e2e job with the page still on `/dashboard/tasks` 5 s after `router.push("/dashboard/profile")` (release PR #1425 on 138ae29, 2026-11-14, job 132417142477; release PR #1484 on f77b161, 2026-11-16, job 133033346476), and the second sighting already had the MAINT-103 repair. The inferred cause, never reproduced (no trace was kept and WebKit can't be installed in the build container), is the push falling inside the Add dialog's pending back. #1487 settled the test by waiting with `waitForDialogHistory` before the push, so no test goes through that path in WebKit any more. If the inference is right, the repair doesn't hold on iOS, and someone who taps a nav link straight after adding a task stays on the page.
       Change: add `command-palette` to the `iphone` project's `testMatch` in `playwright.config.ts`. The spec opens the palette with Ctrl+K and has no `isMobile` branches; if one of its other tests can't pass in WebKit for a reason that has nothing to do with the repair, move the MAINT-103 test to a spec of its own that `iphone` matches and say so in the PR, rather than skipping it there. If the MAINT-103 test fails on `iphone`, that is the finding: fix the repair in `dialog-history.ts` in the same PR, or file the bug with the trace as its own item. Never merge it skipped, loosened or retried.
       Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time, with the MAINT-103 test among the tests run (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next release PR is the evidence: it lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt, none `flaky`).
+- [ ] **MAINT-111. Flaky: the task added through the sheet shows as ticked and glides when another task is ticked on mobile** (low, S) —
+      `e2e/maint-100.spec.ts:41` ("after a task is added through the sheet, ticking another leaves the rows above it where they are"), `mobile` project. One sighting: the reviewer's locked `ci:local` on release commit 073fd6d (release PR #1496, 2026-11-16; its only non-docs change is #1487, a test-only fix in `flows.spec.ts`): failed once in the full run (1 failed, 1696 passed) and passed when re-run on the same commit (`--project=mobile`, 3 passed). The GitHub `End-to-end (Playwright)` job on that commit passed it on the first attempt. Failing step: `:104`, `expect((await flipMoves()).filter((label) => label.includes("Stay put"))).toEqual([])` received `["Mark Stay put added <token> as not done", "Mark Stay put added <token> as not done"]`. So the added task's row started two glides, and when they started its checkbox was labelled "as not done", i.e. ticked. The earlier assertions held, including `Mark Tick me <token> as not done` being checked, so the tap reached "Tick me" too. Start from whether the added task really got ticked (a stray tap while the sheet closes and the page scales back, the MAINT-100 failure this spec guards) or only read as ticked when measured (a row reused across a re-render while `use-flip-list.ts` measured), with a trace from a `--repeat-each` run.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/maint-100.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -600,35 +600,6 @@ not looked at (no project renders it).
       neither trigger's value to be clipped (`scrollWidth` no more than
       `clientWidth`) with the default filters and with the longest option
       of each selected, and no horizontal overflow.
-
-### Dependencies
-
-- [ ] **DEPS-9. Group the in-range patch/minor bumps** (impact: low, effort: S) —
-      `package-lock.json` on `next` (e1d7b00) against the registry on
-      2026-11-16: `next` and `eslint-config-next` 16.4.5→16.4.6,
-      `@playwright/test` 1.65.0→1.65.1 and `knip` 6.44.1→6.45.1 (all four
-      pinned exact in `package.json`, so bump the pins, `next` and
-      `eslint-config-next` together), `@sentry/nextjs` 11.11.0→11.12.0,
-      `lucide-react` 1.70.0→1.73.0, `resend` 6.37.0→6.38.1,
-      `@vercel/functions` 3.11.0→3.11.3, `barcode-detector` 3.2.3→3.2.4
-      and `dotenv` 18.0.9→18.0.10. `npm audit --omit=dev` is still clean on
-      that lockfile, so none is a known security fix. Playwright
-      1.65.1 asks for Chromium build 1255 (1.65.0: 1254) and the web
-      sandbox only ships 1243, which doesn't block the bump: CI installs
-      the matching build, and in the sandbox `fallbackChromium()` in
-      `playwright.config.ts` (DEPS-4) launches the installed Chromium
-      instead, as it already does for 1.65.0. Run `npm ci` first: a
-      `node_modules` left over from before a Dependabot merge makes
-      `npm outdated` report the wrong "from" versions. Majors left alone
-      on purpose: `eslint` 10 (MAINT-12), `typescript` 7
-      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` 26
-      (follows the `.nvmrc` Node 22 pin) and `prisma` 8 (only
-      `8.0.0-rc.33`, no stable release). If Dependabot's weekly
-      minor-and-patch PR lands some of these first, drop them from the
-      list (or delete the item if none is left). Acceptance: the listed
-      packages at those versions in `package.json` and the lockfile,
-      `npm audit --omit=dev` clean, `npm run ci:local` green (desktop and
-      mobile e2e).
 
 ---
 
