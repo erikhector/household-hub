@@ -39,6 +39,17 @@ let ownBack: { href: string; closedId: number; overwritten: boolean; repairing: 
 // Dialogs that opened while ownBack was pending, waiting for that back() to
 // land before they push their entry (see pushDialogEntry).
 const deferred: Entry[] = [];
+// The app's own pushState/replaceState calls that came after it navigated
+// under a pending back() (ownBack.overwritten), held until the repair has
+// landed. MAINT-113: by then the browser is, or is about to be, on an entry
+// the app has left (the page under the closed dialog, or the dialog's own
+// entry the repair steps through), so writing there rewrites the wrong
+// entry: the tasks page the palette pushed strips its `?add=1` with
+// router.replace() at once, that replace rewrote an entry below, and the
+// repair then landed on the untouched `?add=1` entry, which the router
+// restored. Applied where the repair lands, they reach the entry the app
+// meant.
+const heldWrites: (() => void)[] = [];
 
 // Other modules' keys in history.state that must outlive the router's
 // same-URL replaces too (UX-193: the scroll offset scroll-memory.ts keeps
@@ -95,8 +106,14 @@ function onPopState(event: PopStateEvent) {
     const { href, repairing } = ownBack;
     setOwnBack(null);
     // The repair's last step lands on the page the app went to, which the
-    // router restores like any other forward.
-    if (!repairing) swallow = window.location.href === href;
+    // router restores like any other forward. Unless the app wrote to its
+    // history since: then this entry still holds what the router has moved
+    // on from (the `?add=1` tree it has already replaced), so the writes
+    // are applied here and the router, already on that page, is left alone.
+    if (heldWrites.length > 0) {
+      for (const write of heldWrites.splice(0)) write();
+      swallow = true;
+    } else if (!repairing) swallow = window.location.href === href;
   }
   const landedOn = markerOf(event.state);
   while (stack.length > 0 && stack[stack.length - 1].id !== landedOn) {
@@ -135,11 +152,11 @@ function install() {
   const { history } = window;
   const originalPush = history.pushState.bind(history);
   const originalReplace = history.replaceState.bind(history);
-  history.pushState = (...args: Parameters<History["pushState"]>) => {
+  const push = (...args: Parameters<History["pushState"]>) => {
     if (ownBack !== null) ownBack.overwritten = true;
     return originalPush(...args);
   };
-  history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
+  const replace = (data: unknown, unused: string, url?: string | URL | null) => {
     const sameUrl = url == null || new URL(url, window.location.href).href === window.location.href;
     const marker = markerOf(history.state);
     if (sameUrl && marker !== undefined && data && typeof data === "object" && markerOf(data) === undefined) {
@@ -155,6 +172,14 @@ function install() {
     }
     if (!sameUrl && ownBack !== null) ownBack.overwritten = true;
     return originalReplace(data, unused, url);
+  };
+  history.pushState = (...args: Parameters<History["pushState"]>) => {
+    if (ownBack?.overwritten) heldWrites.push(() => push(...args));
+    else push(...args);
+  };
+  history.replaceState = (...args: Parameters<History["replaceState"]>) => {
+    if (ownBack?.overwritten) heldWrites.push(() => replace(...args));
+    else replace(...args);
   };
 }
 
