@@ -10563,8 +10563,11 @@ delay to 0. Every change happens at once.
 
 `e2e/maint-100.spec.ts` (MAINT-100) adds a task through the sheet with
 four tasks above it, then ticks a task below them all: the ticked row
-glides, and none of the rows above it gets a `flip-move`. `renderedScale`
-is unit-tested.
+glides, and none of the rows above it gets a `flip-move`. It checks its
+own rows by their exact labels and deletes the task it added afterwards:
+a leftover from an earlier run, ticked by another spec, sits under
+Completed and rightly glides (MAINT-111). `renderedScale` is
+unit-tested.
 
 Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
 `withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
