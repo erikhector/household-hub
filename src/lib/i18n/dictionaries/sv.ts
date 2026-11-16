@@ -41,6 +41,9 @@ export const sv = {
     shoppingListNotFound: "Inköpslistan hittades inte",
     templateNotFound: "Mallen hittades inte, den kan ha tagits bort",
     listNotEditable: "Den här listan kan inte redigeras just nu",
+    moveItemPurchased: "En avbockad vara kan inte flyttas",
+    moveUnitMismatch: "{name} finns redan på {list} i en annan enhet",
+    moveUndoStale: "Listan har ändrats, så flytten kan inte ångras",
     shareLinkNotFound: "Delningslänken hittades inte",
     shareLinkInvalid: "Delningslänken är ogiltig eller har återkallats",
     linkItemToPantryFirst: "Koppla varan till ditt lager först",
@@ -848,6 +851,14 @@ export const sv = {
     editItemAriaLabel: "Redigera {name}",
     // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
     rowActionsAriaLabel: "Fler åtgärder för {name}",
+    moveItem: {
+      menuLabel: "Flytta till lista…",
+      title: "Flytta {name} till",
+      description: "Välj en av dina andra öppna listor.",
+      cancel: "Avbryt",
+      movedToast: "Flyttade {name} till {list}",
+      mergedToast: "Slog ihop {name} med raden på {list}",
+    },
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
     estimatedTotal: "≈ {amount} kvar att köpa ({priced} av {total} med pris)",
