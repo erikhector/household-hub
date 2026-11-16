@@ -275,6 +275,10 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-106. Flaky: the empty week's "Add first dinner" button isn't hydrated within 20 s on mobile** (low, S) —
+      `e2e/native-sheets.spec.ts:72` ("a flick down on the grabber dismisses the sheet and leaves no back step"), `:87` ("a short, slow pull springs back instead of dismissing"), `:141` ("the page behind scales down while a sheet is open"), `:153` ("under reduced motion the page behind stays put") and `:161` ("a touch open focuses the sheet, not a field, so the keyboard stays down"), plus `e2e/planner-add-missing.spec.ts:94` ("an empty week has no Add missing button"), all on the `mobile` project. One sighting: the reviewer's locked `ci:local` on release commit 04f98b7 (release PR #1489, 2026-11-16, three BACKLOG.md-only PRs, so nobody's change is in it). All six failed in that one run (1691 passed, 6 failed) and all passed when the two specs were re-run on the same commit (`--project=mobile`: 11 passed, 2 skipped). On `desktop` in that run, `planner-add-missing.spec.ts:94` and `native-sheets.spec.ts:181` (which also goes through `openAddMeal`) passed; the five `native-sheets` tests are phone-only (`test.skip(!isMobile)`) and were skipped there. The GitHub e2e job didn't run (docs-only release). Failing step, the same in all six: `expectHydrated` on `getByRole("button", { name: "Add first dinner" })` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`), called from `openAddMeal` (`native-sheets.spec.ts:56`) and from `planner-add-missing.spec.ts:102`. Both open `/dashboard/meal-planning` on an empty far-future week. As MAINT-104 notes, that error can't tell "the button is there but not hydrated" from "the button never rendered", so start from the trace: whether the planner was still behind its `loading.tsx` skeleton, showed day cards instead of the empty-week button (another spec's meal in that week of the worker's household), or rendered the button without React owning it. `native-sheets.spec.ts:98`, which ran between the failures, passed. Six failures at once in two specs that share one page points at the planner being slow or stuck for that worker, not at six separate races.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/native-sheets.spec.ts e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -513,14 +517,113 @@ WebKit was not run (no browser installed here), and no project in
 either sweep renders the dark theme (`mobile` has no `colorScheme`), so
 dark was not looked at.
 
+### UX (2026-11-16 scout)
+
+Monday area: inventory and item pages. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` truncations (UX-150). The deep dive drove add (empty and with
+a 70-character name), the quantity sheet, Mark as empty, delete and Undo,
+bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
+and `sv`. WebKit was not run (no browser installed here), and dark was
+not looked at (no project renders it).
+
+- [ ] **UX-197. Undo for emptying an inventory item** (impact: med, effort: M) —
+      "Mark as empty" in a row's ⋯ menu, and the "All" chip in the
+      quantity sheet (which applies on one tap), overwrite the amount
+      with 0 and nothing puts it back: a slip on "Olive oil, 0.7 l" loses
+      the 0.7. With auto-add on, the toast that follows reads 'Added
+      Olive oil to "Next shop" · Undo', and that Undo only removes the
+      list row, so the item stays at 0 while the user thinks it was
+      undone; with auto-add off and plain "Mark as empty" there is no
+      toast at all (`src/components/inventory/use-item-handlers.ts:50-60`,
+      `showAutoAddedToast` returns on an empty list). Mark opened and
+      Freeze, in the same menu, already restore a snapshot from their
+      toast. Breaks principle 5 (destructive actions are confirmed or
+      undoable; every action gives a result) and Guardrails' "undo over
+      confirm". Seen on `/dashboard/inventory` on `mobile` and at 320 px,
+      `en` and `sv`; the item page shares the handler. Fix: one toast per
+      emptying ('Olive oil marked as empty · Undo') whose Undo restores
+      the previous quantity and removes the list row that emptying added,
+      refusing with a message if the amount changed since (the
+      `undoMarkItemOpenedAction` shape); the same toast when the quantity
+      sheet takes an item to 0
+      (`src/components/inventory/quantity-sheet.tsx:107`,
+      `inventory-table.tsx:735`). Text in `en.ts` and `sv.ts`.
+      Acceptance: an e2e test on `mobile` and `desktop` marks an item
+      with 6 pcs as empty from the row menu, sees one toast naming the
+      item with Undo, taps it, and after a reload the row shows 6 pcs and
+      the default list has no row for it; the same through the quantity
+      sheet's "All"; a unit test covers the undo action's tenancy check
+      and its refusal after a later change.
+- [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
+      with rows selected on `/dashboard/inventory` at 320 px, the bar's
+      second row is the field select (`w-36`, 144 px), the value input
+      and Apply, and the input gets what is left: 41 × 44 px, showing
+      "t.e…" for its placeholder and about two characters of a typed
+      location or category. The count beside "Markera alla" is cut to
+      "2 varor ma…" in Swedish (81 px for 116 px of text). At 412 px the
+      input is 136 px and reads fine. Breaks M1 ("a field whose value
+      can't be read isn't a field"; a select gets its own row on a
+      phone) and M9 (Swedish strings truncate with the full value
+      reachable). `src/components/inventory/inventory-table.tsx:295`,
+      `:335`, `:354-374`. Fix: let the second row wrap so the value input
+      keeps a readable minimum (`min-w-32`) and the select or Apply moves
+      to its own line when the row is narrower than that, and let the
+      count wrap instead of truncating. Acceptance: an e2e test on
+      `mobile` at a 320 px viewport, in `sv`, selects two rows and
+      expects the value field to be at least 128 px wide, the count's
+      `scrollWidth` to be no more than its `clientWidth`, every target in
+      the bar to pass `expectTouchTargets`, and no horizontal overflow;
+      at 412 px the bar is still two rows.
+- [ ] **UX-199. Inventory filter chips cut off their own value on desktop and tablet** (impact: med, effort: S) —
+      the "Last updated" and "Group by" selects above the inventory table
+      have fixed widths (`w-48`, `w-44`) but show "label: value", so the
+      value is the part that gets cut: "Senast uppdaterad: N…" and
+      "Gruppera efter: Ing…" in Swedish, "Group by: No group…" in
+      English, with 110 px or more free to the right of the row.
+      `src/components/inventory/inventory-client.tsx:421`, `:436`;
+      screenshots `desktop-sv-dashboard-inventory.png`,
+      `tablet-sv-dashboard-inventory.png`,
+      `landscape-en-dashboard-inventory.png`. Breaks principle 3
+      (Hierarchy: the current filter is what the control is for) and M9
+      on `tablet` and `landscape` (truncated with no way to read the
+      rest, since touch shows no `title`). Fix: size both triggers to
+      their content (`w-auto min-w-44`, the row already wraps), keeping
+      the accessible names UX-155 added. Acceptance: an e2e test on
+      `desktop`, `tablet` and `landscape`, in `en` and `sv`, expects
+      neither trigger's value to be clipped (`scrollWidth` no more than
+      `clientWidth`) with the default filters and with the longest option
+      of each selected, and no horizontal overflow.
+
 ### Dependencies
 
-- [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
-      Held back from DEPS-7: 1.65 wants Chromium build 1254 but the
-      pre-installed one is 1243, so the e2e suite can't launch until the
-      environment's browsers move. Bump once `npx playwright install
-      chromium` (or the image) provides 1254. Acceptance: `npm run
-      ci:local` green (desktop and mobile e2e).
+- [ ] **DEPS-9. Group the in-range patch/minor bumps** (impact: low, effort: S) —
+      `package-lock.json` on `next` (e1d7b00) against the registry on
+      2026-11-16: `next` and `eslint-config-next` 16.4.5→16.4.6,
+      `@playwright/test` 1.65.0→1.65.1 and `knip` 6.44.1→6.45.1 (all four
+      pinned exact in `package.json`, so bump the pins, `next` and
+      `eslint-config-next` together), `@sentry/nextjs` 11.11.0→11.12.0,
+      `lucide-react` 1.70.0→1.73.0, `resend` 6.37.0→6.38.1,
+      `@vercel/functions` 3.11.0→3.11.3, `barcode-detector` 3.2.3→3.2.4
+      and `dotenv` 18.0.9→18.0.10. `npm audit --omit=dev` is still clean on
+      that lockfile, so none is a known security fix. Playwright
+      1.65.1 asks for Chromium build 1255 (1.65.0: 1254) and the web
+      sandbox only ships 1243, which doesn't block the bump: CI installs
+      the matching build, and in the sandbox `fallbackChromium()` in
+      `playwright.config.ts` (DEPS-4) launches the installed Chromium
+      instead, as it already does for 1.65.0. Run `npm ci` first: a
+      `node_modules` left over from before a Dependabot merge makes
+      `npm outdated` report the wrong "from" versions. Majors left alone
+      on purpose: `eslint` 10 (MAINT-12), `typescript` 7
+      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` 26
+      (follows the `.nvmrc` Node 22 pin) and `prisma` 8 (only
+      `8.0.0-rc.33`, no stable release). If Dependabot's weekly
+      minor-and-patch PR lands some of these first, drop them from the
+      list (or delete the item if none is left). Acceptance: the listed
+      packages at those versions in `package.json` and the lockfile,
+      `npm audit --omit=dev` clean, `npm run ci:local` green (desktop and
+      mobile e2e).
 
 ---
 
@@ -888,6 +991,88 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
+
+### 2026-11-13 scan
+
+- [ ] **GAP-82. Move a shopping item to another open list** (impact: med, effort: M) —
+      Bring! now lets you move an item from one list to another (its
+      long-requested iOS feature), and Paprika moves rows between pantry
+      and grocery list. Squirrel supports several `ACTIVE` lists (the
+      household default plus e.g. "Hardware store"), but a row can only
+      be deleted and retyped on the other list: the row's ⋯ menu
+      (`RowActionsMenu` in `src/components/shopping/shopping-row.tsx:296`)
+      has Edit, Delete and Add price only, and the one move that exists is
+      UX-80's bulk carry-over on completion
+      (`completeShoppingListAction`, `src/app/dashboard/shopping-list/list-actions.ts:327`).
+      Add a "Move to list…" entry to the ⋯ menu (the tap path on phones
+      too) for an unbought row, shown only when the household has another `ACTIVE` list. It opens a
+      small picker of the other active lists; picking one calls a new
+      click action `moveShoppingListItemAction(itemId, targetListId)` in
+      `item-actions.ts` that `requireHousehold()`s, checks both lists
+      belong to the household and the target is `ACTIVE`, and rejects a
+      purchased row. Two outcomes, both in one transaction:
+      - **Plain move**: the row has no `inventoryItemId`, or that
+        inventory item has no pending (`purchased: false`) row on the
+        target. Update `shoppingListId` only, so note, price and
+        `addedByUserId` travel with the row. Toast "Moved {name} to
+        {list}" with Undo, which calls the same action with the source
+        list as target.
+      - **Merge**: the same inventory item is already pending on the
+        target (the check carry-over makes, but carry-over then leaves
+        its row behind; there is no merge helper to reuse, this is new
+        code). Same unit: add the moved quantity to the target row,
+        which keeps its own note, price and `addedByUserId`, and delete
+        the moved row. Different unit: change nothing and return an
+        error ("{name} is already on {list} in another unit"). The
+        action returns the target row's id and the deleted row's
+        quantity, note, `estimatedPrice` and `addedByUserId`. Toast
+        "Merged {name} into {list}" with Undo, which calls a second
+        click action `undoMergedShoppingListMoveAction` with those
+        values and the source list id. It `requireHousehold()`s, checks
+        both lists belong to the household and the source is `ACTIVE`,
+        Zod-validates the values like `updateShoppingListItemAction`
+        does (and keeps `addedByUserId` only if it is a member of the
+        household, else null), then in one transaction subtracts the
+        quantity from the target row and recreates the row on the
+        source list with name, unit and `inventoryItemId` read from the
+        target row. If the target row is gone, purchased, or holds no
+        more than that quantity, it changes nothing and returns an
+        error ("That list has changed, so the move can't be undone").
+      Labels in `en.ts` and `sv.ts`.
+      Acceptance: action tests for tenancy (foreign target list rejected,
+      in both actions), non-`ACTIVE` target rejected, purchased row
+      rejected, the plain move keeping note and price, the merge summing
+      quantity, the unit mismatch refused, and the merge undo restoring
+      the source row and the target's quantity (and refusing when the
+      target row was bought meanwhile);
+      e2e on `desktop` and `mobile` creates two `unique()` lists, adds a
+      row to the first, moves it via the ⋯ menu, sees it gone from the
+      first list and present on the second after a reload.
+
+- [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
+      Bring! shows suggested details (amount, variant) under a newly
+      added item, learned from what the household usually buys. Squirrel's
+      smart add line already ranks suggestions by last purchase
+      (REQUIREMENTS.md, "Smart add line (AUTO-1)") but a picked suggestion
+      with nothing typed in front always lands as 1 of its usual unit
+      (`rowsForSuggestion`, `src/lib/shopping/smart-add-suggestions.ts:135`),
+      so a household that always buys 12 eggs or 3 l milk retypes the
+      count every trip, which is the in-store typing PRODUCT.md's Direction
+      wants gone. Extend `SmartAddCandidate` with `lastQuantity` (and its
+      unit) from the newest purchased `ShoppingListItem` per inventory
+      item; the `[id]/page.tsx:114` `groupBy` only returns `createdAt`, so
+      replace it with a `distinct: ["inventoryItemId"]` `findMany`
+      ordered by `createdAt desc` (household-scoped, as now). When nothing
+      is typed in front, use the last quantity if its unit matches the
+      item's usual unit, else 1 as today; a typed count/unit always wins.
+      The suggestion row shows the amount it will add ("Eggs · 12 pcs"),
+      so nothing is added silently (Guardrails: suggest, don't mutate),
+      and the row stays editable afterwards. No schema change; any new
+      label in `en.ts` and `sv.ts`.
+      Acceptance: unit tests of `rowsForSuggestion` (last quantity used,
+      typed quantity wins, unit mismatch falls back to 1); e2e on `mobile`
+      buys a `unique()` item as 6 pcs on one list, then on a new list types
+      its prefix, sees "6" in the suggestion and gets a 6 pcs row on pick.
 
 ## Needs a decision before building
 
