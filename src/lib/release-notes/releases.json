@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.156.5",
+    "date": "2026-11-16",
+    "pr": 1514,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Last updated\" and \"Group by\" filters above your inventory now show the whole choice instead of cutting it off.",
+      "sv": "Filtren \"Senast uppdaterad\" och \"Gruppera efter\" ovanför lagret visar nu hela valet i stället för att klippa av det."
+    }
+  },
+  {
     "version": "0.156.4",
     "date": "2026-11-16",
     "pr": 1484,
