@@ -7,6 +7,10 @@ import { dismissCookieNotice, LOCALES } from "./ui";
 // updated: Any time" (en) and "Senast uppdaterad: När som helst" (sv) are
 // the kind of labels that clipped at 1280px. Desktop only: phones fold these
 // selects into the Filters dialog, where each trigger is full width.
+// Since UX-199 those two triggers size to their content, so their longest
+// option no longer overflows (e2e/ux-199.spec.ts checks that); the ellipsis
+// stays as the fallback for any trigger with a fixed width, like the
+// Category and Location filters holding a long user-typed name.
 const UPDATED_PREFIX = { en: "Last updated:", sv: "Senast uppdaterad:" } as const;
 
 for (const locale of LOCALES) {
@@ -20,31 +24,13 @@ for (const locale of LOCALES) {
     test("select values truncate with an ellipsis instead of clipping", async ({ page }) => {
       await page.goto("/dashboard/inventory");
       const all = page.locator('[data-slot="select-value"]');
-      const updated = all.filter({ hasText: UPDATED_PREFIX[locale] });
-      await expect(updated).toBeVisible();
+      await expect(all.filter({ hasText: UPDATED_PREFIX[locale] })).toBeVisible();
 
       // Every select value is a truncating block, so any label too long for
       // its trigger, in any locale, ends in "…" rather than a mid-word cut.
       for (const el of await all.all()) {
         await expect(el).toHaveCSS("text-overflow", "ellipsis");
         await expect(el).toHaveCSS("overflow-x", "hidden");
-      }
-
-      // Pick the longest "updated" option ("Not updated in 90+ days" and its
-      // Swedish twin) so the label is certain to be wider than its trigger's
-      // box at 1280px, then the ellipsis is what the user sees.
-      await updated.click();
-      await page.getByRole("option").last().click();
-      try {
-        await expect(updated).toBeVisible();
-        const clipped = await updated.evaluate((el) => el.scrollWidth > el.clientWidth);
-        expect(clipped, "the 'Last updated' label should overflow its trigger").toBe(true);
-      } finally {
-        // The filter is remembered for the signed-in user, and the other
-        // inventory specs share that user (they'd start with "Filters 1"
-        // active and find nothing), so put it back to "any time".
-        await updated.click();
-        await page.getByRole("option").first().click();
       }
     });
   });
