@@ -878,6 +878,7 @@ export const sv = {
       hint: "Separera varor med kommatecken och tryck Enter.",
       add: "Lägg till",
       suggestionsLabel: "Förslag",
+      suggestionAmount: "{quantity} {unit}",
       stockOut: "Slut",
       stockLow: "Lågt",
       alreadyOnList: {

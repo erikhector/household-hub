@@ -937,6 +937,8 @@ export const en = {
       hint: "Separate items with commas and press Enter.",
       add: "Add",
       suggestionsLabel: "Suggestions",
+      // GAP-83: on each suggestion, the amount picking it adds ("12 pcs").
+      suggestionAmount: "{quantity} {unit}",
       stockOut: "Out",
       stockLow: "Low",
       alreadyOnList: {

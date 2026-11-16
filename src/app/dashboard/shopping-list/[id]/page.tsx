@@ -75,8 +75,9 @@ export default async function ShoppingListDetailPage(
   //   - A nested `take: 1` isn't pushed down to SQL either: Prisma fetched
   //     EVERY purchased row the household has ever had and kept the
   //     newest per item in memory, so the page slowed down with every
-  //     completed trip. A groupBy with `_max` gets the same "last
-  //     purchased" answer as one row per item.
+  //     completed trip. The same goes for `distinct` (without the
+  //     nativeDistinct preview it's deduplicated in memory too), so the
+  //     newest purchased row per item is one raw `DISTINCT ON` instead.
   //
   // The repurchase chips (AUTO-10), the heaviest read here, don't gate the
   // page at all any more — see RepurchaseSuggestionsSection above.
@@ -110,12 +111,17 @@ export default async function ShoppingListDetailPage(
     // The ranking's "last purchased": the newest checked-off list row linked
     // to each item. ShoppingListItem has no purchasedAt, so its createdAt
     // stands in (a row is normally bought within days of being added, which
-    // is plenty for ordering by recency).
-    prisma.shoppingListItem.groupBy({
-      by: ["inventoryItemId"],
-      where: { purchased: true, inventoryItemId: { not: null }, shoppingList: { householdId: household.id } },
-      _max: { createdAt: true },
-    }),
+    // is plenty for ordering by recency). Its quantity/unit is what picking
+    // the suggestion adds when nothing is typed (GAP-83,
+    // smartAddSuggestionAmount). Scoped by the session's household id,
+    // bound as a parameter.
+    prisma.$queryRaw<{ inventoryItemId: string; createdAt: Date; quantity: number; unit: string }[]>`
+      SELECT DISTINCT ON (i."inventoryItemId") i."inventoryItemId", i."createdAt", i."quantity", i."unit"
+      FROM "ShoppingListItem" i
+      JOIN "ShoppingList" l ON l."id" = i."shoppingListId"
+      WHERE l."householdId" = ${household.id} AND i."purchased" AND i."inventoryItemId" IS NOT NULL
+      ORDER BY i."inventoryItemId", i."createdAt" DESC
+    `,
     // MATCH-5: the household's learned names, for ReceiptScanDialog's line
     // matching and ResolveMappingsDialog's suggestions. Untracked ones never
     // link a list row, so they stay on the server.
@@ -142,9 +148,7 @@ export default async function ShoppingListDetailPage(
   const activeDefault = activeLists.find((other) => other.isDefault);
 
   const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
-  const lastPurchasedById = new Map(
-    lastPurchased.map((row) => [row.inventoryItemId, row._max.createdAt?.getTime() ?? null]),
-  );
+  const lastPurchasedById = new Map(lastPurchased.map((row) => [row.inventoryItemId, row]));
 
   // GAP-65: "Added by Anna" only when there is someone else to tell apart
   // from, and never on the viewer's own lines.
@@ -152,13 +156,18 @@ export default async function ShoppingListDetailPage(
   const addedByName = (adderId: string | null) =>
     members.length >= 2 && adderId && adderId !== userId ? (memberNames.get(adderId) ?? null) : null;
 
-  const smartAddCandidates: SmartAddCandidate[] = inventoryItems.map((item) => ({
-    id: item.id,
-    name: item.name,
-    unit: item.unit,
-    stockStatus: getStockStatus(item.quantity, item.lowStockThreshold),
-    lastPurchasedAt: lastPurchasedById.get(item.id) ?? null,
-  }));
+  const smartAddCandidates: SmartAddCandidate[] = inventoryItems.map((item) => {
+    const last = lastPurchasedById.get(item.id);
+    return {
+      id: item.id,
+      name: item.name,
+      unit: item.unit,
+      stockStatus: getStockStatus(item.quantity, item.lowStockThreshold),
+      lastPurchasedAt: last?.createdAt.getTime() ?? null,
+      lastQuantity: last?.quantity ?? null,
+      lastUnit: last?.unit ?? null,
+    };
+  });
 
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
   const units = withCommonUnits([...new Set(inventoryItems.map((item) => item.unit))].sort());

@@ -4,12 +4,13 @@ import {
   parseSmartAddInput,
   rankSmartAddSuggestions,
   rowsForSuggestion,
+  smartAddSuggestionAmount,
   splitSmartAddInput,
   type SmartAddCandidate,
 } from "./smart-add-suggestions";
 
 function candidate(overrides: Partial<SmartAddCandidate> & { id: string; name: string }): SmartAddCandidate {
-  return { unit: "pcs", stockStatus: "in", lastPurchasedAt: null, ...overrides };
+  return { unit: "pcs", stockStatus: "in", lastPurchasedAt: null, lastQuantity: null, lastUnit: null, ...overrides };
 }
 
 const names = (items: SmartAddCandidate[]) => items.map((item) => item.name);
@@ -139,6 +140,42 @@ describe("rowsForSuggestion", () => {
       { name: "bröd", quantity: 1 },
       { name: "ägg", quantity: 6 },
       { name: "Mjölk", quantity: 2, unit: "dl", inventoryItemId: "inv-milk" },
+    ]);
+  });
+
+  // GAP-83: the amount last bought, when nothing is typed in front.
+  const eggs = candidate({ id: "inv-eggs", name: "Ägg", unit: "pcs", lastQuantity: 12, lastUnit: "pcs" });
+
+  it("uses the quantity last bought when nothing is typed in front", () => {
+    expect(rowsForSuggestion("bröd, äg", eggs)).toEqual([
+      { name: "bröd", quantity: 1 },
+      { name: "Ägg", quantity: 12, unit: "pcs", inventoryItemId: "inv-eggs" },
+    ]);
+    expect(smartAddSuggestionAmount("äg", eggs)).toEqual({ quantity: 12, unit: "pcs" });
+  });
+
+  it("lets a typed count or unit win over the last quantity, an explicit 1 included", () => {
+    expect(rowsForSuggestion("6 äg", eggs)).toEqual([
+      { name: "Ägg", quantity: 6, unit: "pcs", inventoryItemId: "inv-eggs" },
+    ]);
+    expect(rowsForSuggestion("1 äg", eggs)).toEqual([
+      { name: "Ägg", quantity: 1, unit: "pcs", inventoryItemId: "inv-eggs" },
+    ]);
+    expect(rowsForSuggestion("2 förp äg", eggs)).toEqual([
+      { name: "Ägg", quantity: 2, unit: "förp", inventoryItemId: "inv-eggs" },
+    ]);
+  });
+
+  it("falls back to 1 when the last purchase was in another unit than the usual one", () => {
+    const milkInDl = candidate({ id: "inv-milk", name: "Mjölk", unit: "l", lastQuantity: 5, lastUnit: "dl" });
+    expect(rowsForSuggestion("mj", milkInDl)).toEqual([
+      { name: "Mjölk", quantity: 1, unit: "l", inventoryItemId: "inv-milk" },
+    ]);
+  });
+
+  it("treats a leading list marker as nothing typed", () => {
+    expect(rowsForSuggestion("- äg", eggs)).toEqual([
+      { name: "Ägg", quantity: 12, unit: "pcs", inventoryItemId: "inv-eggs" },
     ]);
   });
 });

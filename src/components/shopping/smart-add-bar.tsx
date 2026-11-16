@@ -13,10 +13,12 @@ import { BarcodeScannerButton } from "@/components/shared/barcode-scanner";
 import { format, plural } from "@/lib/i18n/format";
 import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 import { cn } from "@/lib/utils";
+import { formatQuantity } from "@/lib/format-quantity";
 import {
   parseSmartAddInput,
   rankSmartAddSuggestions,
   rowsForSuggestion,
+  smartAddSuggestionAmount,
   splitSmartAddInput,
   type SmartAddCandidate,
   type SmartAddRow,
@@ -293,33 +295,41 @@ export function SmartAddBar({
               aria-label={dict.suggestionsLabel}
               className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-popover ring-1 ring-foreground/10"
             >
-              {suggestions.map((suggestion, index) => (
-                <li
-                  key={suggestion.id}
-                  id={`${listboxId}-${index}`}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  // Keeps focus (and the on-screen keyboard) in the input
-                  // when a suggestion is tapped.
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseMove={() => setActiveIndex(index)}
-                  onClick={() => pick(suggestion)}
-                  className={cn(
-                    "flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm max-sm:min-h-11 pointer-coarse:min-h-11",
-                    index === activeIndex && "bg-accent text-accent-foreground",
-                  )}
-                >
-                  <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1">{suggestion.name}</span>
-                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                    {suggestion.stockStatus !== "in" && (
-                      <Badge variant={suggestion.stockStatus === "out" ? "destructive" : "warning"}>
-                        {suggestion.stockStatus === "out" ? dict.stockOut : dict.stockLow}
-                      </Badge>
+              {suggestions.map((suggestion, index) => {
+                // GAP-83: the amount a pick adds (typed, else last bought,
+                // else 1), shown up front so nothing is added silently.
+                const amount = smartAddSuggestionAmount(value, suggestion);
+                return (
+                  <li
+                    key={suggestion.id}
+                    id={`${listboxId}-${index}`}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    // Keeps focus (and the on-screen keyboard) in the input
+                    // when a suggestion is tapped.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseMove={() => setActiveIndex(index)}
+                    onClick={() => pick(suggestion)}
+                    className={cn(
+                      "flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm max-sm:min-h-11 pointer-coarse:min-h-11",
+                      index === activeIndex && "bg-accent text-accent-foreground",
                     )}
-                    {unitLabel(suggestion.unit)}
-                  </span>
-                </li>
-              ))}
+                  >
+                    <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1">{suggestion.name}</span>
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      {suggestion.stockStatus !== "in" && (
+                        <Badge variant={suggestion.stockStatus === "out" ? "destructive" : "warning"}>
+                          {suggestion.stockStatus === "out" ? dict.stockOut : dict.stockLow}
+                        </Badge>
+                      )}
+                      {format(dict.suggestionAmount, {
+                        quantity: formatQuantity(amount.quantity),
+                        unit: unitLabel(amount.unit, amount.quantity),
+                      })}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -1940,7 +1940,18 @@ every lookup the old one did.
     from the detail page's existing `inventoryItems` query, extended with
     quantity/threshold (→ `getStockStatus`) and the item's newest purchased
     `ShoppingListItem`. There's no `purchasedAt`, so that row's `createdAt`
-    stands in for "last bought".
+    stands in for "last bought". That row is one raw `DISTINCT ON
+    ("inventoryItemId")` query (Prisma's own `distinct` dedupes in memory,
+    which would fetch every purchased row the household ever had).
+  - **Last bought amount (GAP-83)** — the amount a pick adds
+    (`smartAddSuggestionAmount`, unit-tested with `rowsForSuggestion`):
+    a count/unit typed in front always wins, an explicit `1` included;
+    with nothing typed, the quantity of that newest purchased row, as
+    long as its unit is still the item's usual unit (else 1, as a
+    different unit would be the wrong amount). So a household that always
+    buys 12 eggs gets 12 by typing "äg" and picking. Each suggestion shows
+    the amount it will add ("12 pcs", `smartAdd.suggestionAmount`) before
+    it's picked, and the row stays editable afterwards.
   - **Commit path**: one batch Server Action,
     `smartAddShoppingListItemsAction(listId, rows)`
     (`src/app/dashboard/shopping-list/smart-add-actions.ts`), up to 50 rows,

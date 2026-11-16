@@ -1,0 +1,59 @@
+import { expect, test, type Page } from "@playwright/test";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectRouterPatched } from "./ui";
+
+// GAP-83: picking a smart add suggestion with nothing typed in front adds
+// the amount last bought, and the suggestion shows that amount first. The
+// household holds other specs' lists and items, so this one makes its own
+// two lists and its own item, all uniquely named, and checks only those.
+// Letters only: the smart add line reads a name ending in "x7" as "× 7".
+const unique = (label: string) =>
+  `${label} ${`${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.replace(/\d/g, (d) => "abcdefghij"[Number(d)])}`;
+
+async function createList(page: Page, name: string) {
+  await page.goto("/dashboard/shopping-list");
+  const newList = page.getByRole("button", { name: "New list" });
+  await expectHydrated(newList);
+  await expectRouterPatched(page);
+  await newList.click();
+  await page.getByRole("textbox", { name: "Name" }).fill(name);
+  await page.getByRole("button", { name: "Create list" }).click();
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+}
+
+const rowOf = (page: Page, item: string) => page.getByRole("checkbox", { name: new RegExp(`^${item}\\b`) });
+
+test("a picked suggestion adds the quantity last bought", async ({ page, context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+  const item = unique("Free range eggs");
+  const sixPcs = new RegExp(`^${item} × 6 pcs`);
+
+  // First trip: buy 6 of it.
+  await createList(page, unique("Last qty first"));
+  const addBox = page.getByRole("combobox", { name: "Add to the list" });
+  await expectHydrated(addBox);
+  await addBox.fill(`6 ${item}`);
+  await addBox.press("Enter");
+  const firstRow = rowOf(page, item);
+  await expect(firstRow).toHaveAccessibleName(sixPcs);
+  await expectHydrated(firstRow);
+  await firstRow.click();
+  // A ticked row moves into the collapsed "In the cart" group. Reload so
+  // the next list only opens once the tick has reached the server.
+  const cart = page.getByRole("button", { name: /^In the cart/ });
+  await expect(cart).toContainText("1");
+  await page.reload();
+  await expect(cart).toContainText("1");
+
+  // Next trip, on a new list: typing the start of the name suggests it with
+  // the 6 it will add, and picking it adds 6, not 1.
+  await createList(page, unique("Last qty second"));
+  await expectHydrated(addBox);
+  await addBox.fill(item.slice(0, -2));
+  const suggestion = page.getByRole("option", { name: new RegExp(`^${item}`) });
+  await expect(suggestion).toContainText("6 pcs");
+  await expectNoHorizontalOverflow(page);
+  await suggestion.click();
+  await expect(rowOf(page, item)).toHaveAccessibleName(sixPcs);
+  await page.reload();
+  await expect(rowOf(page, item)).toHaveAccessibleName(sixPcs);
+});

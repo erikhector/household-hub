@@ -929,33 +929,6 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-13 scan
-
-- [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
-      Bring! shows suggested details (amount, variant) under a newly
-      added item, learned from what the household usually buys. Squirrel's
-      smart add line already ranks suggestions by last purchase
-      (REQUIREMENTS.md, "Smart add line (AUTO-1)") but a picked suggestion
-      with nothing typed in front always lands as 1 of its usual unit
-      (`rowsForSuggestion`, `src/lib/shopping/smart-add-suggestions.ts:135`),
-      so a household that always buys 12 eggs or 3 l milk retypes the
-      count every trip, which is the in-store typing PRODUCT.md's Direction
-      wants gone. Extend `SmartAddCandidate` with `lastQuantity` (and its
-      unit) from the newest purchased `ShoppingListItem` per inventory
-      item; the `[id]/page.tsx:114` `groupBy` only returns `createdAt`, so
-      replace it with a `distinct: ["inventoryItemId"]` `findMany`
-      ordered by `createdAt desc` (household-scoped, as now). When nothing
-      is typed in front, use the last quantity if its unit matches the
-      item's usual unit, else 1 as today; a typed count/unit always wins.
-      The suggestion row shows the amount it will add ("Eggs · 12 pcs"),
-      so nothing is added silently (Guardrails: suggest, don't mutate),
-      and the row stays editable afterwards. No schema change; any new
-      label in `en.ts` and `sv.ts`.
-      Acceptance: unit tests of `rowsForSuggestion` (last quantity used,
-      typed quantity wins, unit mismatch falls back to 1); e2e on `mobile`
-      buys a `unique()` item as 6 pcs on one list, then on a new list types
-      its prefix, sees "6" in the suggestion and gets a 6 pcs row on pick.
-
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
