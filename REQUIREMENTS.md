@@ -318,6 +318,17 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   "if an account exists" confirmations, which stay identical whether or not
   the account exists) and the profile actions
   (`dashboard/profile/actions.ts`: name, email, password, delete account).
+  The personal budget's actions (`dashboard/personal-budget/actions.ts`:
+  categories, transactions, recurring items and the month start day) are
+  converted as well, which leaves the household budget's `actions.ts` as the
+  only file on `PENDING` (it waits for BUDGET-6). The monthly-limit and
+  savings-goal fields both budgets share take their messages as a parameter
+  meanwhile (`monthlyLimitFieldWith` in `budget-category-limit.ts`,
+  `goalAmountFieldWith` and `goalDateFieldWith` in `savings-goal-calc.ts`):
+  the personal budget passes `v()` keys, the household budget keeps the
+  English constants, because its actions still return a Zod message as it
+  is and a key would show as text. Converting the household budget turns
+  them back into one constant each.
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
@@ -972,7 +983,13 @@ every lookup the old one did.
     most recipe/list/template/price rows, then the oldest. In each group a
     radio picks the keeper (the suggested one to start with) and a
     checkbox each item to merge (all ticked), each with a visible "Keep" /
-    "Merge" label (UX-131).
+    "Merge" label (UX-131). An item is two lines of a two-column grid,
+    each centred on its control: Keep beside the name, Merge beside the
+    details (stock, recipes, barcode, never stocked), so both controls
+    read as that item's and the details never sit between two items'
+    controls. The keeper's Merge is hidden but keeps its place, with the
+    details beside it. `e2e/ux-196.spec.ts` measures the seeded pair on
+    `desktop`, `mobile` and `tablet`, in both languages (UX-196).
     - **Not duplicates** (`dismissDuplicatesAction`) stores every pair in
       the group as an `InventoryDuplicateDismissal` (`householdId`,
       `itemAId`, `itemBId`, ids sorted, unique, cascading with either item
@@ -8422,6 +8439,16 @@ components directly.
   the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
   signup card's "Log in" link carries the address too. Covered by
   `e2e/ux-61.spec.ts`.
+- **The "account created" view (UX-195)**: the confirmation that replaces
+  the form after `/signup` and after `/join/<token>` (`SignupForm`,
+  `JoinSignupForm`) ends in a stand-alone "Log in", which is a
+  `StatusCardLink` (44 px, M3) to `loginPath(email)` in both, so the
+  address just typed is already in the login form (M4). When the first
+  verification email failed to send, the red warning icon and the
+  "couldn't send … try resending it below" text show only until "Resend
+  verification email" has answered: after that the view shows the mail
+  icon and the resend's message alone, never both. Covered by
+  `e2e/ux-195.spec.ts` (`en` and `sv`).
 - **Signing in from the verification link (UX-135).** ⚠️ Auth. A visitor
   with no session who opens `/verify-email/<token>` is signed in by it and
   lands on `/dashboard?welcome=1`, where `WelcomeToast` shows "Welcome to
@@ -8546,6 +8573,17 @@ components directly.
   its way (a sheet handing over to its confirm) waits for that back to land
   before pushing its entry; pushing sooner made the back land below both
   entries and the repairing `forward()` pop the new dialog (MAINT-23).
+  When the app *pushed* a page before the back landed (the command palette
+  closes, then `router.push`es the command's page), the closed dialog's
+  entry is still there between the page and the new one, and one
+  `forward()` only reaches it: the palette closed and the app stayed where
+  it was. So the repair steps forward once more from that entry, and the
+  back counts as pending (new dialogs wait, `<html>` stays marked) until
+  the repair has landed (MAINT-103). Normally the back lands some 15 ms
+  after it is called and the router pushes about 100 ms after Enter, so
+  this only showed on a loaded machine; `command-palette.spec.ts` holds
+  the palette's `back()` until the router's push to get that order every
+  time.
   `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
@@ -10083,6 +10121,22 @@ approximating them, so the email never disagrees with the app.
   `required` sits in a `noValidate` form that words its own message (UX-59's
   login and signup forms keep their own validation). Covered by
   `e2e/shopping-field-errors.spec.ts`.
+- **Invite and reset-password forms check the password in the browser
+  (UX-194).** `join-signup-form.tsx` and `reset-password-form.tsx` give
+  their `useRequiredFields` rules an `invalid` check (the hook's
+  `findFieldProblems`, run only on a field that isn't empty): a password
+  under 8 characters, a confirmation that differs and, on the invite form,
+  a malformed email (`src/lib/email-pattern.ts`, shared with `/signup`) are
+  worded under their field in the page's language (`auth.join` /
+  `auth.resetPassword` `passwordTooShort`, `passwordsDontMatch`,
+  `emailInvalid`), with `aria-invalid`, `aria-describedby` and focus on the
+  first. The submit is blocked before the Server Action runs, so React
+  never resets the form and both passwords stay as typed. Both forms show
+  "At least 8 characters" under the password field from the start
+  (`passwordHint`), and it describes the field. A blocked submit hides the
+  last server error line. The server still validates everything; a
+  rejection only it can find (a taken email, an expired link) still comes
+  back as the one line above the button. Covered by `e2e/ux-194.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
@@ -10378,10 +10432,19 @@ section, and only what's below it moves.
 **List rows: the glide.** `useFlipList` (`src/components/shared/use-flip-list.ts`)
 runs after every commit of a list:
 - It measures each element with `data-flip-key` against its parent (or the
-  viewport if it changed parent) and plays the difference from where it was
+  list if it changed parent) and plays the difference from where it was
   back on the real element with the Web Animations API (FLIP). Keys pair
   across sections, so a ticked row glides into "Purchased" or "Completed",
   and a completed list's card into its section on the overview.
+- It measures in layout pixels, not as drawn (MAINT-100): what
+  `getBoundingClientRect` returns is divided by the list's drawn width over
+  its computed width (`renderedScale`). On a phone the page behind an open
+  sheet is drawn at 0.94 and eases back for 400 ms after the sheet closes
+  (`sheet-indent.tsx`), so a row added through a sheet was measured small,
+  and at the list's next change every row jumped 6% of its offset (37 px
+  for the fourteenth task) and glided back, though nothing had moved. A
+  tap whose press and release straddled that jump was released over
+  another row and ticked nothing.
 - A new row rises in.
 - A removed row's node is put back in its list, absolutely positioned and
   inert, to fade where it was (not table rows, which don't lay out alone).
@@ -10487,6 +10550,11 @@ delay to 0. Every change happens at once.
   times from where it started, for the reason above).
 - Under `reducedMotion: "reduce"` no FLIP plays and view transitions take
   no time.
+
+`e2e/maint-100.spec.ts` (MAINT-100) adds a task through the sheet with
+four tasks above it, then ticks a task below them all: the ticked row
+glides, and none of the rows above it gets a `flip-move`. `renderedScale`
+is unit-tested.
 
 Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
 `withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
@@ -10763,6 +10831,19 @@ UX-14's rapid ticks and the rollback toast.
   land between that check and the press, which then closed it:
   `toBeVisible` passed on the sheet sliding out, the arrow keys and the
   `fill` still worked, and "No matching commands." never came (MAINT-99).
+  `clickListSetting` waits for each menu's 100 ms open animation to end
+  before it clicks in it. `click()` waits for a moving target by
+  retrying, and from its third attempt Playwright scrolls the target
+  into view by force. An open menu stops the user scrolling, not a
+  script, so on a screen shorter than the page (`landscape`) that
+  scrolled the window under the menu, which followed its button away
+  from the pointer. The "List settings" submenu opens on hover for a
+  mouse, so it never opened, or closed again under the click on
+  "Add item" (MAINT-105). The same item's second finding:
+  `form-control-sizes.mobile.spec.ts` measures a dialog's fields with
+  `evaluateAll`, which doesn't wait, so it first asserts the dialog is
+  visible (the recurring-item dialog had not mounted yet and measured
+  no fields).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured

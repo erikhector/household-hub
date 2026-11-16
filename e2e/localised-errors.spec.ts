@@ -1,8 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
+import { budgetTag } from "./budget-seed";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { createHouseholdMenuTrigger, dismissCookieNotice, expectHydrated } from "./ui";
+import {
+  createHouseholdMenuTrigger,
+  dismissCookieNotice,
+  expectHydrated,
+  expectRouterPatched,
+  waitForDialogHistory,
+} from "./ui";
 
 // UX-16: what a server action returns as `{ error }` and the labels that
 // primitives hard-coded ("Close" on every dialog) follow the user's
@@ -72,6 +79,33 @@ for (const [locale, storageState, t] of [
       await email.press("Enter");
 
       await expect(page.locator("[data-sonner-toast]").getByText(t.errors.emailNotConfigured)).toBeVisible();
+    });
+    // MAINT-7: the personal budget's actions follow the language too. Only
+    // the server knows a name is taken, so the dialog shows the action's own
+    // message. The category is made through the dialog first, since each
+    // locale signs in as its own user and personal categories are per user.
+    test("a taken personal category name says so in the user's language", async ({ page }) => {
+      const c = t.personalBudget.categories;
+      const name = `Taken ${budgetTag()}`;
+      await page.goto("/dashboard/personal-budget?tab=manage");
+      const opener = page.getByRole("main").getByRole("button", { name: c.addCategory }).first();
+      await expectHydrated(opener);
+      await expectRouterPatched(page);
+
+      await opener.click();
+      const dialog = page.getByRole("dialog", { name: c.addDialogTitle });
+      await dialog.getByLabel(c.nameLabel, { exact: true }).fill(name);
+      await dialog.getByRole("button", { name: c.add, exact: true }).click();
+      // The dialog closes with a history.back() that has to land before it
+      // can be opened again.
+      await waitForDialogHistory(page);
+      await expect(page.getByRole("main").getByText(name).first()).toBeVisible();
+
+      await opener.click();
+      await dialog.getByLabel(c.nameLabel, { exact: true }).fill(name.toUpperCase());
+      await dialog.getByRole("button", { name: c.add, exact: true }).click();
+
+      await expect(dialog.getByText(t.errors.categoryNameTaken)).toBeVisible();
     });
   });
 }

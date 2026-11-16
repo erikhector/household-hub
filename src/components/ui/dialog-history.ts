@@ -31,8 +31,11 @@ const stack: Entry[] = [];
 let nextId = 1;
 let installed = false;
 // Set while a history.back() of ours is on its way (it's async): the URL it
-// lands on, and whether anything pushed or replaced an entry before it did.
-let ownBack: { href: string; overwritten: boolean } | null = null;
+// lands on, the id of the closed dialog whose entry it takes off, and whether
+// anything pushed or replaced an entry before it did. `repairing` is set once
+// it has landed and we're stepping forward again to undo it; the back counts
+// as pending until that has landed too.
+let ownBack: { href: string; closedId: number; overwritten: boolean; repairing: boolean } | null = null;
 // Dialogs that opened while ownBack was pending, waiting for that back() to
 // land before they push their entry (see pushDialogEntry).
 const deferred: Entry[] = [];
@@ -66,18 +69,34 @@ function markerOf(state: unknown): unknown {
 function onPopState(event: PopStateEvent) {
   let swallow = false;
   if (ownBack !== null) {
-    const { href, overwritten } = ownBack;
-    setOwnBack(null);
-    if (overwritten) {
+    if (ownBack.overwritten && !ownBack.repairing) {
       // Something got in before our back() landed: the app navigated right
       // after closing the dialog (the item page's merge dialog closes, then
       // replaces the URL with the kept item's page), or another dialog
       // opened. The back undid that, so step forward onto it again.
+      ownBack.repairing = true;
       event.stopImmediatePropagation();
       window.history.forward();
       return;
     }
-    swallow = window.location.href === href;
+    if (ownBack.repairing && markerOf(event.state) === ownBack.closedId && window.location.href === ownBack.href) {
+      // MAINT-103: the app didn't replace the closed dialog's entry, it
+      // pushed a new one above it (the command palette closes, then
+      // router.push()es the command's page). The browser takes our back()
+      // from where history stood when we called it, so it landed on the
+      // page under the dialog, and the forward from there has only reached
+      // the closed dialog's own entry, still on the old URL. The page the
+      // app went to is one more step up; stopping here left the palette
+      // closed and the app where it was.
+      event.stopImmediatePropagation();
+      window.history.forward();
+      return;
+    }
+    const { href, repairing } = ownBack;
+    setOwnBack(null);
+    // The repair's last step lands on the page the app went to, which the
+    // router restores like any other forward.
+    if (!repairing) swallow = window.location.href === href;
   }
   const landedOn = markerOf(event.state);
   while (stack.length > 0 && stack[stack.length - 1].id !== landedOn) {
@@ -176,7 +195,7 @@ export function pushDialogEntry(close: () => void): () => void {
     // something else, so the entry is left behind as a harmless same-URL
     // step.
     if (markerOf(window.history.state) === entry.id) {
-      setOwnBack({ href: entry.href, overwritten: false });
+      setOwnBack({ href: entry.href, closedId: entry.id, overwritten: false, repairing: false });
       window.history.back();
     }
   };

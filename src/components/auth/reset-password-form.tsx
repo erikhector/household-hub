@@ -25,13 +25,26 @@ export function ResetPasswordForm({
 }) {
   const [state, formAction, pending] = useActionState(resetPasswordAction, initialState);
   // UX-183b: a missing password is worded under its field in the page's
-  // language (`noValidate`), not by the browser's own bubble. The length and
-  // match rules stay the server's, which words them too.
+  // language (`noValidate`), not by the browser's own bubble.
+  // UX-194: so are a password under 8 characters and a confirmation that
+  // differs, as on /signup (UX-59). Those used to go to the server, and
+  // React's reset after the action then emptied both fields. The server
+  // still checks both (resetPasswordAction).
   const req = useRequiredFields();
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     req.check(event, [
-      { name: "newPassword", id: "newPassword", message: dict.newPasswordRequired },
-      { name: "confirmPassword", id: "confirmPassword", message: dict.confirmPasswordRequired },
+      {
+        name: "newPassword",
+        id: "newPassword",
+        message: dict.newPasswordRequired,
+        invalid: (value) => (value.length < 8 ? dict.passwordTooShort : undefined),
+      },
+      {
+        name: "confirmPassword",
+        id: "confirmPassword",
+        message: dict.confirmPasswordRequired,
+        invalid: (value, data) => (value !== data.get("newPassword") ? dict.passwordsDontMatch : undefined),
+      },
     ]);
   }
 
@@ -52,10 +65,15 @@ export function ResetPasswordForm({
           maxLength={72}
           autoComplete="new-password"
           aria-invalid={req.messageFor("newPassword") ? true : undefined}
-          aria-describedby={req.messageFor("newPassword") ? fieldErrorId("newPassword") : undefined}
+          aria-describedby={
+            req.messageFor("newPassword") ? `newPassword-hint ${fieldErrorId("newPassword")}` : "newPassword-hint"
+          }
           showLabel={dict.showPassword}
           hideLabel={dict.hidePassword}
         />
+        <p id="newPassword-hint" className="text-sm text-muted-foreground">
+          {dict.passwordHint}
+        </p>
         <FieldError fieldId="newPassword">{req.messageFor("newPassword")}</FieldError>
       </div>
       <div className="flex flex-col gap-2">
@@ -76,7 +94,10 @@ export function ResetPasswordForm({
         />
         <FieldError fieldId="confirmPassword">{req.messageFor("confirmPassword")}</FieldError>
       </div>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {/* A blocked submit shows only its own errors, not the last server verdict. */}
+      {state.error && Object.keys(req.errors).length === 0 && (
+        <p className="text-sm text-destructive">{state.error}</p>
+      )}
       <Button type="submit" disabled={pending} className="w-full">
         <KeyRound className="size-4" />
         <PendingLabel pending={pending} busy={dict.saving} idle={dict.submit} />
