@@ -541,34 +541,6 @@ bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
 and `sv`. WebKit was not run (no browser installed here), and dark was
 not looked at (no project renders it).
 
-- [ ] **UX-197. Undo for emptying an inventory item** (impact: med, effort: M) —
-      "Mark as empty" in a row's ⋯ menu, and the "All" chip in the
-      quantity sheet (which applies on one tap), overwrite the amount
-      with 0 and nothing puts it back: a slip on "Olive oil, 0.7 l" loses
-      the 0.7. With auto-add on, the toast that follows reads 'Added
-      Olive oil to "Next shop" · Undo', and that Undo only removes the
-      list row, so the item stays at 0 while the user thinks it was
-      undone; with auto-add off and plain "Mark as empty" there is no
-      toast at all (`src/components/inventory/use-item-handlers.ts:50-60`,
-      `showAutoAddedToast` returns on an empty list). Mark opened and
-      Freeze, in the same menu, already restore a snapshot from their
-      toast. Breaks principle 5 (destructive actions are confirmed or
-      undoable; every action gives a result) and Guardrails' "undo over
-      confirm". Seen on `/dashboard/inventory` on `mobile` and at 320 px,
-      `en` and `sv`; the item page shares the handler. Fix: one toast per
-      emptying ('Olive oil marked as empty · Undo') whose Undo restores
-      the previous quantity and removes the list row that emptying added,
-      refusing with a message if the amount changed since (the
-      `undoMarkItemOpenedAction` shape); the same toast when the quantity
-      sheet takes an item to 0
-      (`src/components/inventory/quantity-sheet.tsx:107`,
-      `inventory-table.tsx:735`). Text in `en.ts` and `sv.ts`.
-      Acceptance: an e2e test on `mobile` and `desktop` marks an item
-      with 6 pcs as empty from the row menu, sees one toast naming the
-      item with Undo, taps it, and after a reload the row shows 6 pcs and
-      the default list has no row for it; the same through the quantity
-      sheet's "All"; a unit test covers the undo action's tenancy check
-      and its refusal after a later change.
 - [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
       with rows selected on `/dashboard/inventory` at 320 px, the bar's
       second row is the field select (`w-36`, 144 px), the value input
