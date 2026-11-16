@@ -46,7 +46,9 @@ async function grabberPoint(dialog: Locator) {
 }
 
 // A short form (not a long one with snap points), in a far-future week so it
-// opens on an empty plan.
+// opens on an empty plan. planner-add-missing.spec.ts reads the same week as
+// empty, so no spec may plan a meal in it (MAINT-106: ux-19's leftover meal
+// there hid "Add first dinner" from both for the rest of a worker's run).
 async function openAddMeal(page: Page, open: "tap" | "click" = "click") {
   await page.goto("/dashboard/meal-planning?week=2031-03-03");
   // UX-50: an empty week holds one "Add first dinner" in place of the day cards.

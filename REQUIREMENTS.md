@@ -10681,7 +10681,13 @@ UX-14's rapid ticks and the rollback toast.
   with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
   one file can now run at the same time; and it sets up what it needs
   rather than counting on another spec having run first, and cleans up
-  only inside its own `E2E_HOUSEHOLD`. That took the suite from 10.1
+  only inside its own `E2E_HOUSEHOLD`. Every later spec on a worker sees
+  what an earlier one left in that household, so a spec that plans a meal
+  in a far-future week takes a week no other spec opens and deletes that
+  week's plan after the test (MAINT-106: `ux-19.mobile.spec.ts` left a meal
+  in 2031-03-03, the week `native-sheets.spec.ts` and
+  `planner-add-missing.spec.ts` open as empty, and both then timed out
+  waiting for an "Add first dinner" that never rendered). That took the suite from 10.1
   minutes (`workers: 1`) to 5.6 on 4 cores. More workers don't help:
   the single `next start` process is the bottleneck (4 workers: 5.4
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
