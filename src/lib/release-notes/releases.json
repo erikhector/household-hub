@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.157.0",
+    "date": "2026-11-16",
+    "pr": 1518,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now move an item to another open shopping list from its ⋯ menu. If the item is already on that list, the amounts are added together, and Undo puts it back.\n\nMarking an item as empty now shows a confirmation with Undo, which puts the old amount back and takes the item off the shopping list again. The same works when you use \"All\" in the quantity sheet.",
+      "sv": "Nu kan du flytta en vara till en annan öppen inköpslista från dess ⋯-meny. Finns varan redan på den listan läggs mängderna ihop, och Ångra flyttar tillbaka den.\n\nNär du markerar en vara som slut visas nu en bekräftelse med Ångra, som lägger tillbaka den gamla mängden och tar bort varan från inköpslistan igen. Samma sak gäller när du väljer \"Allt\" i mängdpanelen."
+    }
+  },
+  {
     "version": "0.156.5",
     "date": "2026-11-16",
     "pr": 1514,
