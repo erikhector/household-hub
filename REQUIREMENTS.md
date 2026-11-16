@@ -8095,8 +8095,10 @@ needs a pin rather than a fix: `@vercel/cli-config` (under
 `@vercel/functions` > `@vercel/oidc`) pins `zod` to 4.1.11, so
 `package.json` has an `overrides` entry that makes it use the app's `zod`.
 Drop the override once `@vercel/cli-config` ships a patched `zod`. Re-run the
-audit on dependency bumps. `next-auth` is still `5.0.0-beta.32`; there is no
-stable v5, so watch its advisories through MAINT-12's Dependabot config.
+audit on dependency bumps: it was still clean after DEPS-9's grouped
+patch/minor bumps (`next` 16.4.6, `@playwright/test` 1.65.1, `@sentry/nextjs`
+11.12.0 and others), none of which was a security fix. `next-auth` is still
+`5.0.0-beta.32`; there is no stable v5, so watch its advisories through MAINT-12's Dependabot config.
 
 ## Navigation & responsive layout
 
