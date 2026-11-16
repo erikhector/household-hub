@@ -10798,7 +10798,11 @@ UX-14's rapid ticks and the rollback toast.
   calls `waitForDialogHistory(page)` from `e2e/ui.ts` first. It waits on
   the `data-dialog-back-pending` attribute that `dialog-history.ts` keeps
   on `<html>` while that back is on its way. Without it the reload races
-  the back and comes back `net::ERR_ABORTED`. A CSS
+  the back and comes back `net::ERR_ABORTED`. A scripted
+  `router.push` after a dialog closes waits the same way (the cached-page
+  test in `flows.spec.ts`, MAINT-101): the back would undo the push and
+  leave `dialog-history.ts` to step forward onto it again, which is not
+  what that test is about. A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing

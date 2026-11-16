@@ -268,7 +268,9 @@ export async function openRowSheet(page: Page, name: string) {
  * submit, Undo removing the row it edits) does that back() asynchronously
  * (src/components/ui/dialog-history.ts, which marks <html> until it
  * lands): a page.reload() issued before then races it and comes back
- * net::ERR_ABORTED. Call it before a reload that follows a dialog closing. */
+ * net::ERR_ABORTED, and a router.push() issued before then is undone by it
+ * and has to be stepped forward onto again (MAINT-101). Call it before a
+ * reload or a scripted navigation that follows a dialog closing. */
 export async function waitForDialogHistory(page: Page) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);

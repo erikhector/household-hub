@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice, gotoRevealed } from "./ui";
+import { dismissCookieNotice, gotoRevealed, waitForDialogHistory } from "./ui";
 
 // Core write paths through the real UI, server actions and database. Each
 // test creates its own uniquely named data, so reruns against the same
@@ -62,6 +62,16 @@ test("an edit still shows after navigating away and back", async ({ page, contex
   await page.getByRole("textbox", { name: "Task title" }).fill(title);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
+  // MAINT-101: the Add dialog closes as the action answers, and takes its
+  // history entry off with a history.back() that lands some time later
+  // (dialog-history.ts). The row can show before it has, and a push issued
+  // in that gap is undone by the back, so the page has to step forward onto
+  // it again. On the iphone project in CI the URL was twice still
+  // /dashboard/tasks 5 s after the push. No trace was kept, so this gap is
+  // the likely cause rather than a proven one. This test is about the cached
+  // page, not that race (command-palette.spec.ts covers a push that beats a
+  // dialog's back), so it leaves the page from a settled history.
+  await waitForDialogHistory(page);
 
   const push = (path: string) =>
     page.evaluate((to) => {
