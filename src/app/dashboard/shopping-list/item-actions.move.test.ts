@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => {
       findFirst: vi.fn(),
       updateMany: vi.fn(async () => ({ count: 1 })),
       deleteMany: vi.fn(async () => ({ count: 1 })),
-      update: vi.fn(async () => ({})),
       create: vi.fn(async () => ({ id: "recreated" })),
     },
   };
@@ -65,6 +64,8 @@ const row = {
   note: "the organic one",
   estimatedPrice: 30,
   addedByUserId: "user-2",
+  addedAutomatically: true,
+  sample: "sample-batch-1",
 };
 const target = { id: "list-b", name: "Hardware store" };
 
@@ -184,12 +185,13 @@ describe("moveShoppingListItemAction", () => {
     expect(mocks.tx.shoppingListItem.deleteMany).toHaveBeenCalledWith({
       where: { id: "row-1", shoppingListId: "list-a", purchased: false },
     });
-    // The target row keeps its own note, price and author: only quantity changes.
-    expect(mocks.tx.shoppingListItem.update).toHaveBeenCalledWith({
-      where: { id: "row-b" },
+    // The target row keeps its own note, price and author: only quantity
+    // changes, and only while it's still unticked on the target list.
+    expect(mocks.tx.shoppingListItem.updateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.tx.shoppingListItem.updateMany).toHaveBeenCalledWith({
+      where: { id: "row-b", shoppingListId: "list-b", purchased: false },
       data: { quantity: { increment: 2 } },
     });
-    expect(mocks.tx.shoppingListItem.updateMany).not.toHaveBeenCalled();
     expect(result).toEqual({
       sourceListId: "list-a",
       listName: "Hardware store",
@@ -199,8 +201,28 @@ describe("moveShoppingListItemAction", () => {
         note: "the organic one",
         estimatedPrice: 30,
         addedByUserId: "user-2",
+        addedAutomatically: true,
+        sample: "sample-batch-1",
       },
     });
+  });
+
+  it("rolls the merge back when the target row was ticked between the read and the write", async () => {
+    mocks.itemFindFirst.mockResolvedValueOnce(row);
+    mocks.listFindFirst.mockResolvedValueOnce(target);
+    mocks.tx.shoppingListItem.findFirst.mockResolvedValueOnce({ id: "row-b", unit: "l" });
+    // The moved row's delete matches, but the target row is no longer
+    // unticked (someone put it in the cart on another device).
+    mocks.tx.shoppingListItem.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await moveShoppingListItemAction("row-1", "list-b");
+
+    expect(result.error).toBe(en.errors.itemNotFound);
+    // The transaction callback rejects, which is what makes Prisma roll the
+    // delete back: a resolved callback would commit it.
+    expect(mocks.tx.shoppingListItem.deleteMany).toHaveBeenCalledTimes(1);
+    await expect(mocks.transaction.mock.results[0].value).rejects.toThrow();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
   it("refuses a merge across units and changes nothing", async () => {
@@ -213,7 +235,6 @@ describe("moveShoppingListItemAction", () => {
     expect(result.error).toBe("Milk is already on Hardware store in another unit");
     expect(mocks.tx.shoppingListItem.updateMany).not.toHaveBeenCalled();
     expect(mocks.tx.shoppingListItem.deleteMany).not.toHaveBeenCalled();
-    expect(mocks.tx.shoppingListItem.update).not.toHaveBeenCalled();
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 });
@@ -226,6 +247,8 @@ describe("undoMergedShoppingListMoveAction", () => {
     note: "the organic one",
     estimatedPrice: 30,
     addedByUserId: "user-2",
+    addedAutomatically: false,
+    sample: null,
   };
   const targetRow = { id: "row-b", shoppingListId: "list-b", name: "Milk", unit: "l", inventoryItemId: "inv-milk" };
 
@@ -261,10 +284,24 @@ describe("undoMergedShoppingListMoveAction", () => {
         note: "the organic one",
         estimatedPrice: 30,
         addedByUserId: "user-2",
+        addedAutomatically: false,
+        sample: null,
       },
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/shopping-list/list-a");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/shopping-list/list-b");
+  });
+
+  it("recreates an auto-added sample row as one, so AUTO-8's undo and Clear sample data still find it", async () => {
+    mocks.listFindFirst.mockResolvedValueOnce({ id: "list-a" });
+    mocks.itemFindFirst.mockResolvedValueOnce(targetRow);
+    mocks.memberFindFirst.mockResolvedValueOnce({ userId: "user-2" });
+
+    await undoMergedShoppingListMoveAction({ ...undo, addedAutomatically: true, sample: "sample-batch-1" });
+
+    expect(mocks.tx.shoppingListItem.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ addedAutomatically: true, sample: "sample-batch-1" }),
+    });
   });
 
   it("drops an author who isn't a member of the household", async () => {

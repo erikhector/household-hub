@@ -2863,21 +2863,24 @@ one transaction:
 - **Merge** (the item is already unticked on the target, same unit): the
   target row gets the quantity added and keeps its own note, price and
   author; the moved row is deleted. The action returns the target row's id
-  and the deleted row's quantity, note, `estimatedPrice` and
-  `addedByUserId`. Toast "Merged {name} into {list}"; Undo calls
+  and the deleted row's quantity, note, `estimatedPrice`, `addedByUserId`,
+  `addedAutomatically` and `sample`. Toast "Merged {name} into {list}"; Undo calls
   `undoMergedShoppingListMoveAction`, which checks the source list is the
   household's and `ACTIVE` and the target row the household's, Zod-validates
   the values with the edit dialog's bounds, keeps the author only if still
   a member, and in one transaction subtracts the quantity (a conditional
   write: the row must be unticked and hold more than that) and recreates
   the row on the source list with name, unit and link read from the target
-  row. Otherwise it changes nothing: "That list has changed, so the move
+  row and the deleted row's AUTO-8 and sample flags, so AUTO-8's Undo and
+  "Clear sample data" still find it. Otherwise it changes nothing: "That list has changed, so the move
   can't be undone".
 - **Different unit**: nothing changes and the sheet stays open with "{name}
   is already on {list} in another unit".
 
-The writes re-check that the moved row is still unticked on its list, so a
-tick landing mid-move changes nothing ("Item not found"). A move records no
+The writes re-check that the moved row is still unticked on its list, and a
+merge's addition re-checks the target row the same way (a miss throws, so
+the transaction rolls the delete back), so a tick on either row landing
+mid-move changes nothing ("Item not found"). A move records no
 LIST_CLEARED notification even when it empties the source: the shopping
 moved, it isn't done. Unit tests: `item-actions.move.test.ts`; flow spec:
 `e2e/shopping-move-item.spec.ts`.

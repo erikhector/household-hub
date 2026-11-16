@@ -671,7 +671,14 @@ export type MergedMove = {
   note: string | null;
   estimatedPrice: number | null;
   addedByUserId: string | null;
+  /** The deleted row's AUTO-8 flag and UX-136 sample batch, so the Undo's
+   *  row is still found by undoAutoAddedItemsAction and "Clear sample data". */
+  addedAutomatically: boolean;
+  sample: string | null;
 };
+
+/** Thrown inside a merging move's transaction to roll its delete back. */
+class MoveRaced extends Error {}
 
 const moveIdsSchema = z.object({ itemId: z.string().min(1), targetListId: z.string().min(1) });
 
@@ -716,6 +723,8 @@ export async function moveShoppingListItemAction(
       note: true,
       estimatedPrice: true,
       addedByUserId: true,
+      addedAutomatically: true,
+      sample: true,
     },
   });
   if (!item) return await fail("itemNotFound");
@@ -743,7 +752,12 @@ export async function moveShoppingListItemAction(
 
       // Each write re-checks that the row is still unticked on its list, so
       // a tick (or another device's move) between the read above and here
-      // changes nothing instead of moving a row out of someone's cart.
+      // changes nothing instead of moving a row out of someone's cart. The
+      // merge's second write re-checks the target row the same way: if it was
+      // ticked meanwhile, adding to it would put the moved quantity in that
+      // trip's cart and leave the item on neither to-buy list (and its Undo,
+      // which needs the row unticked, would refuse). That miss throws, so the
+      // delete before it rolls back with the transaction.
       const stillPending = { id: item.id, shoppingListId: item.shoppingListId, purchased: false };
       if (!pendingThere) {
         const { count } = await tx.shoppingListItem.updateMany({
@@ -754,19 +768,23 @@ export async function moveShoppingListItemAction(
       }
       const { count } = await tx.shoppingListItem.deleteMany({ where: stillPending });
       if (count !== 1) return "gone";
-      await tx.shoppingListItem.update({
-        where: { id: pendingThere.id },
+      const { count: added } = await tx.shoppingListItem.updateMany({
+        where: { id: pendingThere.id, shoppingListId: target.id, purchased: false },
         data: { quantity: { increment: item.quantity } },
       });
+      if (added !== 1) throw new MoveRaced();
       return {
         targetItemId: pendingThere.id,
         quantity: item.quantity,
         note: item.note,
         estimatedPrice: item.estimatedPrice,
         addedByUserId: item.addedByUserId,
+        addedAutomatically: item.addedAutomatically,
+        sample: item.sample,
       };
     }, INTERACTIVE_TX_OPTIONS);
   } catch (error) {
+    if (error instanceof MoveRaced) return await fail("itemNotFound");
     return toFriendlyError(error);
   }
 
@@ -792,6 +810,11 @@ const undoMergedMoveSchema = z.object({
   note: z.string().trim().max(SHOPPING_ITEM_NOTE_MAX_LENGTH, v("noteTooLong")).nullable(),
   estimatedPrice: updateItemPriceSchema.shape.price.nullable(),
   addedByUserId: z.string().min(1).nullable(),
+  // Echoed back so the recreated row keeps what it was (see MergedMove).
+  // Within the session's own household either value only decides which of
+  // its own clean-ups (AUTO-8's undo, "Clear sample data") the row joins.
+  addedAutomatically: z.boolean(),
+  sample: z.string().min(1).max(100).nullable(),
 });
 
 /**
@@ -812,7 +835,8 @@ export async function undoMergedShoppingListMoveAction(
 
   const parsed = undoMergedMoveSchema.safeParse(data);
   if (!parsed.success) return await zodFail(parsed.error);
-  const { targetItemId, sourceListId, quantity, note, estimatedPrice, addedByUserId } = parsed.data;
+  const { targetItemId, sourceListId, quantity, note, estimatedPrice, addedByUserId, addedAutomatically, sample } =
+    parsed.data;
 
   const [source, targetRow, author] = await Promise.all([
     prisma.shoppingList.findFirst({
@@ -853,6 +877,8 @@ export async function undoMergedShoppingListMoveAction(
           note: note || null,
           estimatedPrice,
           addedByUserId: author?.userId ?? null,
+          addedAutomatically,
+          sample,
         },
       });
       return true;
