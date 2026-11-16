@@ -275,7 +275,9 @@ describe("undoMergedShoppingListMoveAction", () => {
     await undoMergedShoppingListMoveAction({ ...undo, addedByUserId: "outsider" });
 
     expect(mocks.memberFindFirst.mock.calls[0][0].where).toEqual({ householdId: household.id, userId: "outsider" });
-    expect(mocks.tx.shoppingListItem.create.mock.calls[0][0].data.addedByUserId).toBeNull();
+    expect(mocks.tx.shoppingListItem.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ addedByUserId: null }),
+    });
   });
 
   it("rejects a source list outside the household or no longer active", async () => {
