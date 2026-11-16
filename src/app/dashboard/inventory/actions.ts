@@ -597,10 +597,17 @@ export async function addStarterKitItemsAction(
   return { added };
 }
 
+// UX-197: when the delta takes an in-stock item to 0 on the server, the
+// result also carries `undo`, the same snapshot markItemEmptyAction returns,
+// so the quantity sheet can show the "marked as empty" toast with its Undo.
+// The sheet goes through here rather than markItemEmptyAction because the
+// delta is applied to the server's amount: if another member restocked
+// since the row rendered, "I used 5" takes 9 down to 4, not to 0, and no
+// emptying (and no Undo) happens. The stepper's − ignores `undo`.
 export async function adjustQuantityAction(
   itemId: string,
   delta: number,
-): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
+): Promise<ActionState & { autoAdded?: AutoAddedItem[]; undo?: EmptyUndoSnapshot }> {
   const { household, userId } = await requireHousehold();
 
   const item = await prisma.inventoryItem.findFirst({
@@ -610,11 +617,13 @@ export async function adjustQuantityAction(
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, delta);
   let autoAdded: AutoAddedItem | null = null;
+  let updatedAt: Date;
   try {
-    await prisma.inventoryItem.update({
+    ({ updatedAt } = await prisma.inventoryItem.update({
       where: { id: item.id },
       data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
-    });
+      select: { updatedAt: true },
+    }));
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
     await recordStockEvent(prisma, {
       householdId: household.id,
@@ -633,7 +642,11 @@ export async function adjustQuantityAction(
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
   revalidateAutoAdded([autoAdded]);
-  return autoAdded ? { autoAdded: [autoAdded] } : {};
+  const undo: EmptyUndoSnapshot | undefined =
+    item.quantity > 0 && nextQuantity === 0
+      ? { previousQuantity: item.quantity, emptiedAt: updatedAt, shoppingListItemId: autoAdded?.shoppingListItemId ?? null }
+      : undefined;
+  return { ...(autoAdded ? { autoAdded: [autoAdded] } : {}), ...(undo ? { undo } : {}) };
 }
 
 // Zeroes an item's quantity in one click and, optionally, drops it onto the
@@ -722,8 +735,8 @@ export async function markItemEmptyAction(
   }
 }
 
-// UX-197: what "Mark as empty" (or the quantity sheet's "All") overwrote and
-// added, for the toast's Undo. `shoppingListItemId` is the row that click
+// UX-197: what "Mark as empty" (or a quantity-sheet amount that emptied the
+// item, via adjustQuantityAction) overwrote and added, for the toast's Undo. `shoppingListItemId` is the row that click
 // created, never one that was already pending, so Undo can't take off a row
 // a person added by hand.
 export type EmptyUndoSnapshot = {

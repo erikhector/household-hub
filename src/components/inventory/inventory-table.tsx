@@ -25,7 +25,6 @@ import {
   adjustQuantityAction,
   bulkUpdateFieldAction,
   deleteInventoryItemAction,
-  markItemEmptyAction,
 } from "@/app/dashboard/inventory/actions";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { createDialogHandle } from "@/components/ui/dialog";
@@ -693,19 +692,19 @@ export function QuantityStepper({
   }
 
   // UX-197: a sheet amount that takes the item to 0 ("All", or a typed
-  // amount at least the stock) is an emptying, so it saves and toasts like
-  // "Mark as empty" and gets the same Undo back to the old amount. The
-  // stepper's own − keeps its auto-add toast: one step down is put right
-  // with one step up.
+  // amount at least the stock) is an emptying, so it toasts like "Mark as
+  // empty" and gets the same Undo back to the old amount. It still saves as
+  // a delta, so the server decides: on a stale row (another member
+  // restocked) the amount comes off the server's stock, nothing empties and
+  // there's no `undo`, just the usual auto-add toast. The stepper's own −
+  // keeps its auto-add toast: one step down is put right with one step up.
   function applyFromSheet(delta: number) {
-    if (quantity <= 0 || nextQuantityAfterDelta(quantity, delta) > 0) {
-      adjust(delta);
-      return;
-    }
     startTransition(async () => {
       addOptimisticDelta(delta);
-      const result = await settleOptimisticAction(() => markItemEmptyAction(item.id, false), dict.saveFailedToast);
-      if (result) showMarkedEmptyToast(item, result, dict);
+      const result = await settleOptimisticAction(() => adjustQuantityAction(item.id, delta), dict.saveFailedToast);
+      if (!result) return;
+      if (result.undo) showMarkedEmptyToast(item, { listName: result.autoAdded?.[0]?.listName, undo: result.undo }, dict);
+      else showAutoAddedToast(result.autoAdded, dict.autoAdd);
     });
   }
 

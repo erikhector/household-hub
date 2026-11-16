@@ -1658,7 +1658,12 @@ every lookup the old one did.
     transaction. It only applies while the item is still at 0 with the
     `updatedAt` the emptying stamped; after any later change it refuses
     with "Olive oil has changed since, so the old amount wasn't put
-    back". The History gets an "adjusted" event for the restore.
+    back". The History gets an "adjusted" event for the restore. The
+    sheet still saves its amount as a change (`adjustQuantityAction`),
+    which hands back the Undo only when the server's own amount reached
+    0: on a stale row (another member restocked since it rendered) a
+    typed amount comes off the server's stock instead of zeroing it, and
+    nothing is undoable.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
     bar is a full-width toolbar `fixed` to the top of the bottom bar, two
     rows high: the count, "Select all" (hidden once everything is ticked),

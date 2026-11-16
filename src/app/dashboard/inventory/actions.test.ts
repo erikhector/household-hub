@@ -778,6 +778,7 @@ describe("adjustQuantityAction", () => {
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
       data: { quantity: 0, updatedByUserId: "user-1" },
+      select: { updatedAt: true },
     });
   });
 
@@ -790,6 +791,7 @@ describe("adjustQuantityAction", () => {
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
       data: { quantity: 5, everStocked: true, updatedByUserId: "user-1" },
+      select: { updatedAt: true },
     });
   });
 
@@ -802,6 +804,49 @@ describe("adjustQuantityAction", () => {
     await adjustQuantityAction("item-1", 1);
 
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory/items/[id]", "page");
+  });
+
+  // UX-197: the quantity sheet saves through here, so a typed amount on a
+  // stale row comes off the server's stock rather than zeroing it, and the
+  // "marked as empty" Undo comes back only when the server really emptied it.
+  describe("emptying Undo (UX-197)", () => {
+    const updatedAt = new Date("2026-11-16T10:00:00Z");
+
+    it("hands back an Undo snapshot, with the auto-added row, when the delta empties an in-stock item", async () => {
+      findFirstMock.mockResolvedValue({ id: "item-1", quantity: 5, lowStockThreshold: 1 });
+      updateMock.mockResolvedValue({ updatedAt });
+      const autoAdded = { shoppingListItemId: "row-1", listId: "default-list", listName: "Next shop", itemName: "Milk" };
+      addToDefaultListOnLowStockMock.mockResolvedValue(autoAdded);
+
+      const result = await adjustQuantityAction("item-1", -5);
+
+      expect(result).toEqual({
+        autoAdded: [autoAdded],
+        undo: { previousQuantity: 5, emptiedAt: updatedAt, shoppingListItemId: "row-1" },
+      });
+    });
+
+    it("applies the delta to the server's amount on a stale row and offers no Undo", async () => {
+      // The row showed 5; another member bought 4 more since.
+      findFirstMock.mockResolvedValue({ id: "item-1", quantity: 9, lowStockThreshold: 1 });
+      updateMock.mockResolvedValue({ updatedAt });
+      addToDefaultListOnLowStockMock.mockResolvedValue(null);
+
+      const result = await adjustQuantityAction("item-1", -5);
+
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { quantity: 4, everStocked: true, updatedByUserId: "user-1" } }),
+      );
+      expect(result).toEqual({});
+    });
+
+    it("offers no Undo when the item was already at 0", async () => {
+      findFirstMock.mockResolvedValue({ id: "item-1", quantity: 0, lowStockThreshold: 1 });
+      updateMock.mockResolvedValue({ updatedAt });
+      addToDefaultListOnLowStockMock.mockResolvedValue(null);
+
+      expect(await adjustQuantityAction("item-1", -1)).toEqual({});
+    });
   });
 });
 
