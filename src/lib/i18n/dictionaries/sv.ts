@@ -50,6 +50,7 @@ export const sv = {
     noUseWithinDays: "Varan har inga dagar för hållbarhet efter öppning angivna",
     itemAlreadyFrozen: "Varan är redan fryst",
     noExpiryToExtend: "Varan har inget utgångsdatum att förlänga",
+    emptyUndoStale: "{name} har ändrats sedan dess, så den gamla mängden lades inte tillbaka",
     noItemsSelected: "Inga varor valda",
     tooManyItemsAtOnce: "Du kan uppdatera högst {max} varor åt gången",
     recipeNotFound: "Receptet hittades inte",
@@ -1594,6 +1595,9 @@ export const sv = {
     markEmpty: "Markera som slut",
     markEmptyAndAddToList: "Markera som slut & lägg till i inköpslista",
     markedEmptyAddedToast: 'Markerade {name} som slut och la till den i "{list}"',
+    markedEmptyToast: "{name} markerad som slut",
+    undoMarkEmpty: "Ångra",
+    markEmptyUndoneToast: "{name} har sin gamla mängd igen",
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.

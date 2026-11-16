@@ -1635,7 +1635,8 @@ every lookup the old one did.
     (`deleteMany`, so a double tap is a quiet no-op), and deliberately
     doesn't fire a "list cleared" notification. Mark meal as cooked folds
     its auto-adds into its own existing Undo toast instead of stacking a
-    second one (see "Mark meal as cooked" below). The share-link toggle
+    second one (see "Mark meal as cooked" below), and so does emptying an
+    item (UX-197, below). The share-link toggle
     auto-adds too, but with no toast: an anonymous visitor has no session
     to undo with.
   - **Mark as empty targets the default list.** `markItemEmptyAction`'s old
@@ -1643,7 +1644,21 @@ every lookup the old one did.
     add to shopping list" puts the item on the default list as an explicit,
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
-    decrease and auto-adds (with Undo) when the item was in stock.
+    decrease and auto-adds when the item was in stock.
+  - **Emptying an item can be undone (UX-197).** "Mark as empty" (either
+    entry, from a row or the item page) and a quantity-sheet amount that
+    takes the item to 0 ("All", or a typed amount at least the stock;
+    the stepper's − keeps its own auto-add toast) show one toast, "Olive
+    oil marked as empty", or 'Marked Olive oil as empty and added it to
+    "Next shop"' when the emptying put it on the list (the explicit entry
+    or the auto-add, which folds into this toast instead of its own). Its
+    Undo (`undoMarkItemEmptyAction`) puts the old amount back, dismisses
+    the "Out of stock" alert the emptying raised and deletes the list row
+    that emptying created (never one already pending), all in one
+    transaction. It only applies while the item is still at 0 with the
+    `updatedAt` the emptying stamped; after any later change it refuses
+    with "Olive oil has changed since, so the old amount wasn't put
+    back". The History gets an "adjusted" event for the restore.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
     bar is a full-width toolbar `fixed` to the top of the bottom bar, two
     rows high: the count, "Select all" (hidden once everything is ticked),

@@ -32,6 +32,9 @@ const {
   executeRawMock,
   notificationFindManyMock,
   notificationCreateManyMock,
+  notificationUpdateManyMock,
+  shoppingListItemFindManyMock,
+  shoppingListItemDeleteManyMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   createMock: vi.fn(),
@@ -58,6 +61,9 @@ const {
   executeRawMock: vi.fn(),
   notificationFindManyMock: vi.fn(),
   notificationCreateManyMock: vi.fn(),
+  notificationUpdateManyMock: vi.fn(),
+  shoppingListItemFindManyMock: vi.fn(),
+  shoppingListItemDeleteManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -81,14 +87,17 @@ vi.mock("@/lib/prisma", () => {
       findFirst: shoppingListItemFindFirstMock,
       create: shoppingListItemCreateMock,
       // recordOutOfStockTransition's incoming-stock check
-      // (src/lib/incoming-stock.ts): nothing ticked and waiting here.
-      findMany: vi.fn(async () => []),
+      // (src/lib/incoming-stock.ts): nothing ticked and waiting here
+      // (reset to [] after every test).
+      findMany: shoppingListItemFindManyMock,
+      deleteMany: shoppingListItemDeleteManyMock,
     },
     notification: {
       findFirst: notificationFindFirstMock,
       create: notificationCreateMock,
       findMany: notificationFindManyMock,
       createMany: notificationCreateManyMock,
+      updateMany: notificationUpdateManyMock,
     },
     itemUnitConversion: { count: unitConversionCountMock },
   };
@@ -148,6 +157,7 @@ const {
   undoMarkItemOpenedAction,
   freezeItemAction,
   undoFreezeItemAction,
+  undoMarkItemEmptyAction,
   deleteInventoryItemAction,
   bulkUpdateFieldAction,
   bulkSetInventoryQuantitiesAction,
@@ -166,6 +176,7 @@ afterEach(() => {
   vi.clearAllMocks();
   requireHouseholdMock.mockResolvedValue({ household, userId });
   findManyMock.mockResolvedValue([]);
+  shoppingListItemFindManyMock.mockResolvedValue([]);
   notificationFindFirstMock.mockResolvedValue(null);
   notificationCreateMock.mockResolvedValue({});
   notificationFindManyMock.mockResolvedValue([]);
@@ -174,6 +185,7 @@ afterEach(() => {
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Flour" });
 });
 requireHouseholdMock.mockResolvedValue({ household, userId });
+shoppingListItemFindManyMock.mockResolvedValue([]);
 
 const validItem = {
   name: "Flour",
@@ -794,6 +806,8 @@ describe("adjustQuantityAction", () => {
 });
 
 describe("markItemEmptyAction", () => {
+  const emptiedAt = new Date("2026-11-16T10:00:00Z");
+
   it("returns 'Item not found' for an item belonging to another household (IDOR guard)", async () => {
     findFirstMock.mockResolvedValue(null);
 
@@ -803,10 +817,10 @@ describe("markItemEmptyAction", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it("plain mark-empty leaves the list to the low-stock auto-add and returns what it added", async () => {
+  it("plain mark-empty leaves the list to the low-stock auto-add and hands back an Undo for both (UX-197)", async () => {
     const item = { id: "item-1", name: "Milk", quantity: 3, lowStockThreshold: 2 };
     findFirstMock.mockResolvedValue(item);
-    updateMock.mockResolvedValue({});
+    updateMock.mockResolvedValue({ updatedAt: emptiedAt });
     const autoAdded = { shoppingListItemId: "row-1", listId: "default-list", listName: "Next shop", itemName: "Milk" };
     addToDefaultListOnLowStockMock.mockResolvedValue(autoAdded);
 
@@ -815,26 +829,30 @@ describe("markItemEmptyAction", () => {
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
       data: { quantity: 0, updatedByUserId: "user-1" },
+      select: { updatedAt: true },
     });
     expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "item-1", 3, 0);
     expect(addItemToDefaultListMock).not.toHaveBeenCalled();
-    expect(result).toEqual({ autoAdded: [autoAdded] });
+    expect(result).toEqual({
+      listName: "Next shop",
+      undo: { previousQuantity: 3, emptiedAt, shoppingListItemId: "row-1" },
+    });
   });
 
-  it("plain mark-empty returns nothing to undo when the auto-add didn't add anything", async () => {
+  it("plain mark-empty still hands back an Undo for the amount when nothing was auto-added", async () => {
     findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", quantity: 1, lowStockThreshold: 2 });
-    updateMock.mockResolvedValue({});
+    updateMock.mockResolvedValue({ updatedAt: emptiedAt });
     addToDefaultListOnLowStockMock.mockResolvedValue(null);
 
     const result = await markItemEmptyAction("item-1", false);
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ undo: { previousQuantity: 1, emptiedAt, shoppingListItemId: null } });
   });
 
   it("'& add to shopping list' targets the default list explicitly (AUTO-8), not the latest active list", async () => {
     const item = { id: "item-1", name: "Milk", quantity: 1, lowStockThreshold: 2 };
     findFirstMock.mockResolvedValue(item);
-    updateMock.mockResolvedValue({});
+    updateMock.mockResolvedValue({ updatedAt: emptiedAt });
     addItemToDefaultListMock.mockResolvedValue({
       list: { id: "default-list", name: "Next shop" },
       created: { shoppingListItemId: "row-1" },
@@ -853,17 +871,117 @@ describe("markItemEmptyAction", () => {
     );
     expect(addToDefaultListOnLowStockMock).not.toHaveBeenCalled();
     expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
-    expect(result).toEqual({ listName: "Next shop" });
+    expect(result).toEqual({
+      listName: "Next shop",
+      undo: { previousQuantity: 1, emptiedAt, shoppingListItemId: "row-1" },
+    });
   });
 
-  it("still reports the default list when the item was already pending there (deduped)", async () => {
+  it("still reports the default list when the item was already pending there, but never offers to remove that row", async () => {
     findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", quantity: 0, lowStockThreshold: 2 });
-    updateMock.mockResolvedValue({});
+    updateMock.mockResolvedValue({ updatedAt: emptiedAt });
     addItemToDefaultListMock.mockResolvedValue({ list: { id: "default-list", name: "Next shop" }, created: null });
 
     const result = await markItemEmptyAction("item-1", true);
 
-    expect(result).toEqual({ listName: "Next shop" });
+    expect(result).toEqual({
+      listName: "Next shop",
+      undo: { previousQuantity: 0, emptiedAt, shoppingListItemId: null },
+    });
+  });
+});
+
+describe("undoMarkItemEmptyAction (UX-197)", () => {
+  const emptiedAt = new Date("2026-11-16T10:00:00Z");
+  const snapshot = { previousQuantity: 6, emptiedAt, shoppingListItemId: "row-1" };
+
+  it("puts the amount back, dismisses the out-of-stock alert and removes the row the emptying added", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk" });
+    updateManyMock.mockResolvedValue({ count: 1 });
+    shoppingListItemFindManyMock.mockResolvedValue([{ shoppingListId: "default-list" }]);
+    shoppingListItemDeleteManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await undoMarkItemEmptyAction("item-1", snapshot);
+
+    expect(result).toEqual({});
+    expect(findFirstMock).toHaveBeenCalledWith({
+      where: { id: "item-1", householdId: "household-1" },
+      select: { id: true, name: true },
+    });
+    // Only while the item is exactly as the emptying left it.
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "item-1", householdId: "household-1", quantity: 0, updatedAt: emptiedAt },
+      data: { quantity: 6, everStocked: true, updatedByUserId: "user-1" },
+    });
+    expect(recordStockEventMock).toHaveBeenCalledWith(expect.anything(), {
+      householdId: "household-1",
+      itemId: "item-1",
+      userId: "user-1",
+      previousQuantity: 0,
+      nextQuantity: 6,
+      reason: "adjusted",
+    });
+    expect(notificationUpdateManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", inventoryItemId: "item-1", kind: "OUT_OF_STOCK", dismissedAt: null },
+      data: { dismissedAt: expect.any(Date) },
+    });
+    // Only that one unpurchased row of this item, on one of this household's lists.
+    expect(shoppingListItemDeleteManyMock).toHaveBeenCalledWith({
+      where: {
+        id: "row-1",
+        inventoryItemId: "item-1",
+        purchased: false,
+        shoppingList: { householdId: "household-1" },
+      },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/default-list");
+  });
+
+  it("leaves the list alone when the emptying added no row", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk" });
+    updateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await undoMarkItemEmptyAction("item-1", { ...snapshot, shoppingListItemId: null });
+
+    expect(result).toEqual({});
+    expect(shoppingListItemDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses with a message once the item has changed since, and touches nothing else", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk" });
+    // Restocked, edited or re-emptied since: the guarded update matches nothing.
+    updateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await undoMarkItemEmptyAction("item-1", snapshot);
+
+    expect(result).toEqual({ error: "Milk has changed since, so the old amount wasn't put back" });
+    expect(recordStockEventMock).not.toHaveBeenCalled();
+    expect(notificationUpdateManyMock).not.toHaveBeenCalled();
+    expect(shoppingListItemDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses another household's item (tenancy)", async () => {
+    findFirstMock.mockResolvedValue(null);
+
+    const result = await undoMarkItemEmptyAction("other-household-item", snapshot);
+
+    expect(result).toEqual({ error: "Item not found" });
+    expect(findFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "other-household-item", householdId: "household-1" } }),
+    );
+    expect(updateManyMock).not.toHaveBeenCalled();
+    expect(shoppingListItemDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed snapshot", async () => {
+    const result = await undoMarkItemEmptyAction("item-1", {
+      previousQuantity: -1,
+      emptiedAt: "2026-11-16" as unknown as Date,
+      shoppingListItemId: null,
+    });
+
+    expect(result).toEqual({ error: "Invalid input" });
+    expect(findFirstMock).not.toHaveBeenCalled();
   });
 });
 

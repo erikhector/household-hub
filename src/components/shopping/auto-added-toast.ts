@@ -7,15 +7,16 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { AutoAddedItem } from "@/lib/shopping/default-list";
 
 // The "Added Milk to Next shop · Undo" toast (AUTO-8), shared by every
-// client that calls an action which can auto-add (inventory +/- and mark
-// empty, the edit form, bulk edit, AI shelf scan, un-checking a shopping
+// client that calls an action which can auto-add (inventory +/-, the edit
+// form, bulk edit, AI shelf scan, un-checking a shopping
 // row). Undo over confirm, per BACKLOG.md's Guardrails: the likely thing
 // already happened, and one tap takes back exactly the rows it created —
 // the ids the action returned, never "whatever is on the list".
 //
 // Mark meal as cooked doesn't use this: it folds the auto-adds into its own
 // existing Undo toast instead of stacking a second one (see
-// MarkCookedDialog).
+// MarkCookedDialog), and neither does emptying an item: its own Undo
+// toast puts the amount back too (showMarkedEmptyToast, UX-197).
 export function showAutoAddedToast(autoAdded: AutoAddedItem[] | undefined, dict: Dictionary["inventory"]["autoAdd"]) {
   if (!autoAdded || autoAdded.length === 0) return;
 

@@ -649,12 +649,19 @@ export async function adjustQuantityAction(
 // regardless of the household's auto-add setting or whether the item was
 // already low, and the row isn't flagged `addedAutomatically` (a person
 // asked for it). Plain "Mark as empty" behaves like any other decrease — an
-// in-stock item crossing to 0 is auto-added (with Undo) when the setting is
-// on, and nothing is added otherwise.
+// in-stock item crossing to 0 is auto-added when the setting is on, and
+// nothing is added otherwise.
+//
+// UX-197: either way the client shows one toast whose Undo
+// (undoMarkItemEmptyAction) puts the old amount back and takes off the list
+// row this click created, so `undo` carries both, plus the `updatedAt` this
+// write stamped so a stale Undo can tell the item has moved on. `listName`
+// is set whenever a row was added (or, on the explicit path, was already
+// pending), for the toast to name the list.
 export async function markItemEmptyAction(
   itemId: string,
   addToShoppingList: boolean,
-): Promise<{ listName?: string; autoAdded?: AutoAddedItem[]; error?: string }> {
+): Promise<{ listName?: string; undo?: EmptyUndoSnapshot; error?: string }> {
   const { household, userId } = await requireHousehold();
 
   const item = await prisma.inventoryItem.findFirst({
@@ -663,11 +670,13 @@ export async function markItemEmptyAction(
   if (!item) return await fail("itemNotFound");
 
   let autoAdded: AutoAddedItem | null = null;
+  let emptiedAt: Date;
   try {
-    await prisma.inventoryItem.update({
+    ({ updatedAt: emptiedAt } = await prisma.inventoryItem.update({
       where: { id: item.id },
       data: { quantity: 0, updatedByUserId: userId },
-    });
+      select: { updatedAt: true },
+    }));
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, 0, userId);
     await recordStockEvent(prisma, {
       householdId: household.id,
@@ -688,21 +697,123 @@ export async function markItemEmptyAction(
   revalidatePath("/dashboard/inventory/items/[id]", "page");
   revalidatePath("/dashboard");
 
+  const undo = (shoppingListItemId: string | null): EmptyUndoSnapshot => ({
+    previousQuantity: item.quantity,
+    emptiedAt,
+    shoppingListItemId,
+  });
+
   if (!addToShoppingList) {
     revalidateAutoAdded([autoAdded]);
-    return autoAdded ? { autoAdded: [autoAdded] } : {};
+    return autoAdded
+      ? { listName: autoAdded.listName, undo: undo(autoAdded.shoppingListItemId) }
+      : { undo: undo(null) };
   }
 
   try {
-    const { list } = await addItemToDefaultList(prisma, household.id, { ...item, quantity: 0 }, false);
+    const { list, created } = await addItemToDefaultList(prisma, household.id, { ...item, quantity: 0 }, false);
 
     revalidatePath(`/dashboard/shopping-list/${list.id}`);
     revalidatePath("/dashboard/shopping-list");
 
-    return { listName: list.name };
+    return { listName: list.name, undo: undo(created?.shoppingListItemId ?? null) };
   } catch (error) {
     return toFriendlyError(error);
   }
+}
+
+// UX-197: what "Mark as empty" (or the quantity sheet's "All") overwrote and
+// added, for the toast's Undo. `shoppingListItemId` is the row that click
+// created, never one that was already pending, so Undo can't take off a row
+// a person added by hand.
+export type EmptyUndoSnapshot = {
+  previousQuantity: number;
+  emptiedAt: Date;
+  shoppingListItemId: string | null;
+};
+
+const emptyUndoSchema = z.object({
+  previousQuantity: z.number().finite().min(0),
+  emptiedAt: z.date(),
+  shoppingListItemId: z.string().min(1).nullable(),
+});
+
+// The Undo on the "marked as empty" toast. Puts the amount back and removes
+// the list row that emptying added, but only while the item is exactly as
+// that click left it: at 0 with the `updatedAt` it stamped. Anything since
+// (a restock, a −/+ tap, an edit, another member's change) refuses with a
+// message rather than overwriting it. Unlike undoMarkItemOpenedAction's
+// quiet no-op, the user hears about it: they think the amount is back, and
+// putting an old amount over a newer one would lose data. The guarded
+// updateMany makes that check atomic with the write.
+//
+// The snapshot comes from the client, but it only sets the quantity of an
+// item in the caller's own household (which the item form can set
+// directly) and only deletes an unpurchased row of that item on one of the
+// household's lists, so taking it from the client grants nothing new.
+export async function undoMarkItemEmptyAction(itemId: string, snapshot: EmptyUndoSnapshot): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const parsed = emptyUndoSchema.safeParse(snapshot);
+  if (!parsed.success) return await fail("invalidInput");
+  const { previousQuantity, emptiedAt, shoppingListItemId } = parsed.data;
+  const restored = Math.round(previousQuantity * 100) / 100;
+
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: itemId, householdId: household.id },
+    select: { id: true, name: true },
+  });
+  if (!item) return await fail("itemNotFound");
+
+  let listIds: string[] = [];
+  try {
+    const undone = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.inventoryItem.updateMany({
+        where: { id: item.id, householdId: household.id, quantity: 0, updatedAt: emptiedAt },
+        data: { quantity: restored, ...(restored > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
+      });
+      if (count === 0) return false;
+
+      await recordStockEvent(tx, {
+        householdId: household.id,
+        itemId: item.id,
+        userId,
+        previousQuantity: 0,
+        nextQuantity: restored,
+        reason: "adjusted",
+      });
+      // The emptying raised an "Out of stock" in the bell; with the stock
+      // back it's just noise.
+      if (restored > 0) {
+        await tx.notification.updateMany({
+          where: { householdId: household.id, inventoryItemId: item.id, kind: "OUT_OF_STOCK", dismissedAt: null },
+          data: { dismissedAt: new Date() },
+        });
+      }
+      if (shoppingListItemId) {
+        const where = {
+          id: shoppingListItemId,
+          inventoryItemId: item.id,
+          purchased: false,
+          shoppingList: { householdId: household.id },
+        };
+        const rows = await tx.shoppingListItem.findMany({ where, select: { shoppingListId: true } });
+        listIds = rows.map((row) => row.shoppingListId);
+        await tx.shoppingListItem.deleteMany({ where });
+      }
+      return true;
+    }, INTERACTIVE_TX_OPTIONS);
+    if (!undone) return await fail("emptyUndoStale", { name: item.name });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items/[id]", "page");
+  revalidatePath("/dashboard");
+  for (const listId of listIds) revalidatePath(`/dashboard/shopping-list/${listId}`);
+  if (listIds.length > 0) revalidatePath("/dashboard/shopping-list");
+  return {};
 }
 
 const addToListSchema = z.array(z.string().min(1)).min(1).max(200);

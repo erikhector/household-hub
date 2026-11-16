@@ -56,6 +56,7 @@ export const en = {
     noUseWithinDays: "Item has no use-within days set",
     itemAlreadyFrozen: "Item is already frozen",
     noExpiryToExtend: "Item has no expiry date to extend",
+    emptyUndoStale: "{name} has changed since, so the old amount wasn't put back",
     noItemsSelected: "No items selected",
     tooManyItemsAtOnce: "You can update at most {max} items at once",
     recipeNotFound: "Recipe not found",
@@ -1697,6 +1698,9 @@ export const en = {
     markEmpty: "Mark as empty",
     markEmptyAndAddToList: "Mark as empty & add to shopping list",
     markedEmptyAddedToast: 'Marked {name} as empty and added it to "{list}"',
+    markedEmptyToast: "{name} marked as empty",
+    undoMarkEmpty: "Undo",
+    markEmptyUndoneToast: "{name} is back to its old amount",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
