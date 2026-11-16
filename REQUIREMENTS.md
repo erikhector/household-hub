@@ -8573,6 +8573,17 @@ components directly.
   its way (a sheet handing over to its confirm) waits for that back to land
   before pushing its entry; pushing sooner made the back land below both
   entries and the repairing `forward()` pop the new dialog (MAINT-23).
+  When the app *pushed* a page before the back landed (the command palette
+  closes, then `router.push`es the command's page), the closed dialog's
+  entry is still there between the page and the new one, and one
+  `forward()` only reaches it: the palette closed and the app stayed where
+  it was. So the repair steps forward once more from that entry, and the
+  back counts as pending (new dialogs wait, `<html>` stays marked) until
+  the repair has landed (MAINT-103). Normally the back lands some 15 ms
+  after it is called and the router pushes about 100 ms after Enter, so
+  this only showed on a loaded machine; `command-palette.spec.ts` holds
+  the palette's `back()` until the router's push to get that order every
+  time.
   `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
@@ -10820,6 +10831,19 @@ UX-14's rapid ticks and the rollback toast.
   land between that check and the press, which then closed it:
   `toBeVisible` passed on the sheet sliding out, the arrow keys and the
   `fill` still worked, and "No matching commands." never came (MAINT-99).
+  `clickListSetting` waits for each menu's 100 ms open animation to end
+  before it clicks in it. `click()` waits for a moving target by
+  retrying, and from its third attempt Playwright scrolls the target
+  into view by force. An open menu stops the user scrolling, not a
+  script, so on a screen shorter than the page (`landscape`) that
+  scrolled the window under the menu, which followed its button away
+  from the pointer. The "List settings" submenu opens on hover for a
+  mouse, so it never opened, or closed again under the click on
+  "Add item" (MAINT-105). The same item's second finding:
+  `form-control-sizes.mobile.spec.ts` measures a dialog's fields with
+  `evaluateAll`, which doesn't wait, so it first asserts the dialog is
+  visible (the recurring-item dialog had not mounted yet and measured
+  no fields).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured

@@ -450,8 +450,30 @@ export async function expectOnePrimaryAction(page: Page) {
  * rest behind its "List settings" submenu. With the menu already open, opens
  * the submenu and picks `item` from it. */
 export async function clickListSetting(page: Page, item: string, listSettings = "List settings") {
-  await page.getByRole("menuitem", { name: listSettings, exact: true }).click();
-  await page.getByRole("menuitem", { name: item, exact: true }).click();
+  const submenuTrigger = page.getByRole("menuitem", { name: listSettings, exact: true });
+  await expectMenuSettled(submenuTrigger);
+  await submenuTrigger.click();
+  const menuItem = page.getByRole("menuitem", { name: item, exact: true });
+  await expectMenuSettled(menuItem);
+  await menuItem.click();
+}
+
+/** Waits until the menu holding `item` has finished its 100 ms open
+ * animation. click() would wait for that itself, but by retrying: each
+ * "element is not stable" is a failed attempt, and from its third attempt on
+ * Playwright scrolls the target into view by force (to the bottom, the middle,
+ * the top of the screen in turn) instead of only when it is off screen. A
+ * menu locks scrolling for the user, not for a script, so on a page taller
+ * than the screen that scrolls the window under the open menu, the menu
+ * follows its button, and the pointer is left where the item used to be. The
+ * "List settings" submenu opens on hover for a mouse (Base UI ignores the
+ * mouse press itself), so it then never opens, or opens and closes again
+ * with the item being clicked in it (MAINT-105: "not stable" twice, then
+ * covered by the menu's backdrop, then detached, a 30 s timeout on the short
+ * `landscape` screen). Whether a click needs that third attempt depends on
+ * how the animation's frames fall, so wait it out before clicking. */
+async function expectMenuSettled(item: Locator) {
+  await expect.poll(() => item.evaluate((el) => (el.closest("[role=menu]") ?? el).getAnimations().length)).toBe(0);
 }
 
 // UX-158: the button that opens the menu holding "Create household". The
