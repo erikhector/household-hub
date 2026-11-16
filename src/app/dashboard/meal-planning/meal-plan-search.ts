@@ -9,7 +9,7 @@ export const MEAL_SEARCH_LIMIT = 20;
 // A year either side of today: far enough for "last Christmas" and "next
 // Easter", short enough that the date filter keeps the scan small for a
 // household that has planned for years.
-export const MEAL_SEARCH_WINDOW_DAYS = 365;
+const MEAL_SEARCH_WINDOW_DAYS = 365;
 // The field is a free-text box, so cap what reaches the database.
 export const MEAL_SEARCH_MAX_CHARS = 100;
 

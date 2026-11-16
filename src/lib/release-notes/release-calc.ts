@@ -54,7 +54,7 @@ export function parsePrTitle(title: string): ParsedTitle | null {
 }
 
 /** null means "merge without releasing". */
-export function releaseTypeFor(parsed: ParsedTitle): ReleaseType | null {
+function releaseTypeFor(parsed: ParsedTitle): ReleaseType | null {
   if (parsed.breaking) return "major";
   return RELEASING_TYPES[parsed.kind] ?? null;
 }
@@ -114,7 +114,7 @@ export function missingReleaseNotes(body: string | null | undefined): ("English"
 
 // Capitalized description from the PR title — the fallback note when the
 // author left the Release note section empty.
-export function titleFallback(parsed: ParsedTitle): string {
+function titleFallback(parsed: ParsedTitle): string {
   const d = parsed.description;
   return d.charAt(0).toUpperCase() + d.slice(1);
 }
@@ -186,7 +186,7 @@ export function parseTrainLog(log: string): TrainCommit[] {
 
 export type TrainPr = { number: number; title: string; body: string | null | undefined };
 
-export type TrainItem = { pr: number; title: string; type: ReleaseType | null };
+type TrainItem = { pr: number; title: string; type: ReleaseType | null };
 
 export type TrainPlan =
   | { status: "no-release"; items: TrainItem[] }

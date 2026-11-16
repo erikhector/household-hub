@@ -85,6 +85,15 @@ Stop at the first real problem in a hunk, note it, move on.
 - [ ] New env var is in `.env.example`.
 - [ ] REQUIREMENTS.md documents the shipped behaviour; finished BACKLOG.md
       item deleted. `version`/`releases.json` untouched.
+- [ ] Nothing still describes the old behaviour. Grep REQUIREMENTS.md and
+      the code comments for the thing you changed (its name, a count such
+      as "exactly seven", an "every …" claim) and fix each other passage,
+      and don't claim more than the diff does. Stale or overclaiming text
+      cost a review round on #1211, #1383, #1395 and #1429.
+- [ ] A fix for a flaky spec ⇒ grep `e2e/` for the same pattern (the
+      same helper, the same click before `expectHydrated`) and fix the
+      siblings in this PR. One left behind comes back as the next
+      `Flaky:` item (#1435, #1456).
 
 **Simplify**
 - [ ] No unrelated edits, dead code, leftover `console.log`, or

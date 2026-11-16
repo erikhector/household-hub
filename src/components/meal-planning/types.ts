@@ -2,7 +2,7 @@ import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
 import type { RecipeTag } from "@/lib/recipe-tags";
 import type { PickFreshness, Weekday } from "@/lib/week-picks-spread";
 
-export type RecipeIngredientData = {
+type RecipeIngredientData = {
   id: string;
   name: string;
   quantity: number;
@@ -20,7 +20,7 @@ export type RecipeIngredientData = {
 
 // A sub-recipe this recipe includes (e.g. a lasagna's bolognese +
 // béchamel) — see RecipeComponent in schema.prisma.
-export type RecipeComponentData = {
+type RecipeComponentData = {
   id: string;
   componentRecipeId: string;
   componentRecipeName: string;
@@ -72,6 +72,8 @@ export type MealPlanEntryData = {
   freeformName: string | null;
   // GAP-58: a custom meal's ingredient lines as typed (null when none).
   freeformIngredients: string | null;
+  // GAP-81: the meal's one-line reminder (MealPlanEntry.note), or null.
+  note: string | null;
   // How many portions of the linked recipe this slot is for — see
   // MealPlanEntry.portions' doc comment in schema.prisma. Meaningless when
   // recipeId is null (a freeform entry has no recipe to scale).
@@ -153,7 +155,7 @@ export type CookableRecipeData = {
 
 // One "use it up" match backing a suggestion chip — see
 // computeUseItUpSuggestions (src/lib/inventory/use-it-up-calc.ts).
-export type UseItUpMatchData = {
+type UseItUpMatchData = {
   name: string;
   reason: "expiring" | "lowStock";
 };

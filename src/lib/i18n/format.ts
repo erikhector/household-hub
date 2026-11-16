@@ -22,3 +22,16 @@ export function format(template: string, vars: Record<string, string | number>):
 export function datedName(prefix: string, locale: string, date: Date = new Date()): string {
   return `${prefix} — ${new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date)}`;
 }
+
+/**
+ * A computed decimal (a converted amount, a low-stock threshold) in the
+ * viewer's decimal mark: "0,375" in Swedish, "0.375" in English (UX-187).
+ * `String(n)` always gave the English point. Three significant digits by
+ * default, the way the item page restates amounts in another unit; pass
+ * more for a value the user typed, so it reads back as entered. Grouping
+ * is off because these also pre-fill inputs, whose parsers read "1,240"
+ * as 1.24, and the app's quantities are shown ungrouped elsewhere too.
+ */
+export function formatDecimal(value: number, locale: string, significantDigits = 3): string {
+  return new Intl.NumberFormat(locale, { maximumSignificantDigits: significantDigits, useGrouping: false }).format(value);
+}

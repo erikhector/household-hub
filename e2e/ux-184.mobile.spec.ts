@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched, gotoRevealed } from "./ui";
 
 // UX-184 (M9): a long recipe name in the add-meal sheet's recipe picker
 // wraps inside the list instead of running past its border and under the
@@ -31,10 +31,20 @@ async function expectLongNameFits(page: Page, tag: string) {
       name,
     ]);
 
-    await page.goto(`/dashboard/meal-planning?week=${WEEK}`);
+    // MAINT-98: wait for the settled page in steps, each with its own budget.
+    // The planner streams in behind its own Suspense boundary, and React
+    // hydrates such a boundary only after the shell, at its lowest (never
+    // expiring) priority, so on a loaded runner the button is hydrated last.
+    // Polling for it straight after goto() spent one 20 s budget on the
+    // server's stream, the reveal (until then the button sits in a hidden
+    // `S:` div outside main, so the locator has nothing to evaluate), the
+    // shell's hydration and only then the boundary's, and ran out twice in a
+    // locked ci:local run. Revealed, then the router patched (the shell has
+    // hydrated), then the button: the same checks, in the order they settle.
+    await gotoRevealed(page, `/dashboard/meal-planning?week=${WEEK}`);
+    await expectRouterPatched(page);
     const add = page.getByRole("main").getByRole("button", { name: "Add first dinner" });
     await expectHydrated(add);
-    await expectRouterPatched(page);
     await add.click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("combobox", { name: "Recipe" }).fill(tag);

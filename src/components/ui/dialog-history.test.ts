@@ -158,6 +158,61 @@ describe("pushDialogEntry", () => {
     expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
   });
 
+  // MAINT-103: the command palette closes and router.push()es in one go. A
+  // push that beats the palette's back() leaves the closed palette's entry
+  // between the page and the new one, so one forward() only reached that
+  // entry, on the old URL, and the navigation was lost.
+  it("steps forward twice when the app pushed a page before our back() landed", async () => {
+    const browser = fakeBrowser("https://app.test/dashboard");
+    const { pushDialogEntry } = await load();
+    const close = vi.fn();
+    const release = pushDialogEntry(close);
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    release();
+    expect(back).toHaveBeenCalledOnce();
+    browser.navigate("https://app.test/dashboard/tasks?add=1");
+    back.mockRestore();
+    const forward = vi.spyOn(window.history, "forward");
+
+    // The browser takes the back from the dialog's entry, where history
+    // stood when it was called: it lands on the page under it.
+    realBack();
+    realBack();
+    expect(browser.index()).toBe(0);
+    // Both the back and the forward onto the closed dialog's entry are
+    // kept from the router, and each is followed by a forward.
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(1);
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(2);
+    // The last one lands on the page the app went to: the router's.
+    expect(browser.pop()).not.toHaveBeenCalled();
+
+    expect(forward).toHaveBeenCalledTimes(2);
+    expect(window.location.href).toBe("https://app.test/dashboard/tasks?add=1");
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("holds a new dialog's entry until the repairing forward has landed", async () => {
+    const browser = fakeBrowser("https://app.test/dashboard/inventory/items/merged");
+    const { pushDialogEntry } = await load();
+    const release = pushDialogEntry(vi.fn());
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    release();
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/inventory/items/kept");
+    back.mockRestore();
+    browser.back();
+    expect(browser.index()).toBe(1);
+
+    // The forward is on its way; a push now would cut it short.
+    pushDialogEntry(vi.fn());
+    expect(browser.entries()).toBe(2);
+    browser.pop();
+    expect(browser.entries()).toBe(3);
+    expect(browser.index()).toBe(2);
+  });
+
   // MAINT-23: a sheet hands over to a confirm in one render, so the confirm
   // asks to push while the sheet's back() is still on its way. Pushing then
   // made the back land below both entries, and the repairing forward() popped
@@ -223,6 +278,26 @@ describe("pushDialogEntry", () => {
     expect(browser.back()).toHaveBeenCalled();
     expect(forward).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
+  });
+
+  it("keeps a registered key through the router's same-URL state replaces", async () => {
+    fakeBrowser();
+    const { keepHistoryStateKey } = await load();
+    keepHistoryStateKey("__squirrelScroll");
+    window.history.replaceState({ __NA: true, __squirrelScroll: 420 }, "");
+
+    // The router's commit: its own state only, URL unchanged.
+    window.history.replaceState({ __NA: true, tree: "new" }, "", window.location.href);
+    expect(window.history.state).toEqual({ __NA: true, tree: "new", __squirrelScroll: 420 });
+
+    // A newer value in the replace wins, and a key nobody registered goes.
+    window.history.replaceState({ __NA: true, __squirrelScroll: 12, other: 1 }, "");
+    window.history.replaceState({ __NA: true }, "");
+    expect(window.history.state).toEqual({ __NA: true, __squirrelScroll: 12 });
+
+    // Another URL is another page: it starts without the key.
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+    expect(window.history.state).toEqual({ __NA: true });
   });
 
   it("lets the router handle a back that leaves the page the dialog was opened on", async () => {

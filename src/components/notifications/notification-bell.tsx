@@ -120,12 +120,18 @@ function BellIcon({ count }: { count: number }) {
 // dismissing and navigating away were the same action, with no way to do
 // just the former). `closeOnClick={false}` on the dismiss item keeps the
 // dropdown open so several notifications can be cleared in one sitting.
+//
+// On a phone (and any touch screen) the ✕ is a full 44 px wide and sits 8 px
+// from the row's link (DESIGN.md M3, UX-189): at 26 px wide and 4 px away, a
+// slip opened the notification's page instead of clearing it. The variants
+// are the ones DropdownMenuItem's own 44 px height uses, so the denser
+// mouse-sized row in the desktop sidebar is unchanged.
 function NotificationRow({ item, dict }: { item: NotificationItem; dict: Dictionary["notifications"] }) {
   const isGoodNews = GOOD_NEWS_KINDS.has(item.kind);
   const [isDismissing, startDismissing] = useTransition();
 
   return (
-    <div className="flex items-stretch gap-1">
+    <div className="flex items-stretch gap-1 max-sm:gap-2 pointer-coarse:gap-2">
       <DropdownMenuItem
         onClick={() => dismissNotificationAction(item.id)}
         render={<Link href={notificationHref(item)} />}
@@ -152,7 +158,7 @@ function NotificationRow({ item, dict }: { item: NotificationItem; dict: Diction
         }
         aria-label={dict.dismiss}
         title={dict.dismiss}
-        className="shrink-0 justify-center px-1.5 text-muted-foreground"
+        className="shrink-0 justify-center px-1.5 text-muted-foreground max-sm:min-w-11 pointer-coarse:min-w-11"
       >
         <X className="size-3.5" />
       </DropdownMenuItem>
@@ -278,8 +284,16 @@ export function NotificationMenuItem({
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
-        <BellIcon count={items.length} />
+        {/* The count sits after the label here, not on the bell as in the
+            sidebar (UX-189): this row's 16 px bell disappeared under the
+            18 px badge, so the row read as a red number with no icon. The
+            row has the room the sidebar's icon-only button doesn't.
+            `text-white!` because the trigger recolours every descendant to
+            the accent foreground while it's focused or its submenu is open,
+            which left a dark number on the red badge. */}
+        <Bell className="size-4" />
         {dict.title}
+        <NotificationCountBadge count={items.length} className="static h-4.5 min-w-4.5 px-1 text-xs text-white!" />
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-64">
         <NotificationEntries items={items} dict={dict} />

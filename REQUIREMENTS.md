@@ -198,7 +198,10 @@ easy for AI coding agents to work in correctly:
   mounts the real menu with `defaultOpen`. The dashboard layout wraps the
   shell in `LazyDialogErrorMessage`. `e2e/shell-lazy-popups.spec.ts` and
   `e2e/shell-lazy-more-menu.mobile.spec.ts` cover the first press or tap
-  and the failed-load retry. UX-165 (M2): the menu opens upward, so "Log out"
+  and the failed-load retry. The ⌘K listener attaches in a passive effect,
+  after React already owns the shell's elements, so the spec presses the
+  shortcut again until the palette or the load error shows rather than
+  pressing once after `expectHydrated` (MAINT-95). UX-165 (M2): the menu opens upward, so "Log out"
   is its top row, farthest from the thumb, never the last.
 - **Server-side errors go through `reportError` (MAINT-11).** Caught
   failures in cron routes, `/api/health`, the digest unsubscribe route,
@@ -315,6 +318,17 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   "if an account exists" confirmations, which stay identical whether or not
   the account exists) and the profile actions
   (`dashboard/profile/actions.ts`: name, email, password, delete account).
+  The personal budget's actions (`dashboard/personal-budget/actions.ts`:
+  categories, transactions, recurring items and the month start day) are
+  converted as well, which leaves the household budget's `actions.ts` as the
+  only file on `PENDING` (it waits for BUDGET-6). The monthly-limit and
+  savings-goal fields both budgets share take their messages as a parameter
+  meanwhile (`monthlyLimitFieldWith` in `budget-category-limit.ts`,
+  `goalAmountFieldWith` and `goalDateFieldWith` in `savings-goal-calc.ts`):
+  the personal budget passes `v()` keys, the household budget keeps the
+  English constants, because its actions still return a Zod message as it
+  is and a key would show as text. Converting the household budget turns
+  them back into one constant each.
 - **Database failures in actions (MAINT-6)**: a Server Action that writes
   wraps the risky `prisma.*` call in `try`/`catch` and returns
   `toFriendlyError(error)` (a translated `{ error }`, logged and sent to
@@ -758,6 +772,15 @@ every lookup the old one did.
       dialog with that unit filled in. The recipe name links to
       `/dashboard/meal-planning?tab=recipes&recipe=<id>`, which opens the
       Recipes tab searched down to that recipe.
+    - **Decimals (UX-187)**: every computed or stored decimal on the page
+      (the low-stock threshold, converted amounts, conversion sentences,
+      the conversion dialog's pre-filled amount, "Try it", and Change
+      unit's pre-filled factor and stock/threshold preview) goes through
+      `formatDecimal` (`src/lib/i18n/format.ts`, `Intl.NumberFormat`
+      without grouping), so Swedish reads "lågt lager under 0,5 st" and
+      "= 0,375 st". Converted amounts and hints keep three significant
+      digits; the threshold and saved conversions keep up to ten, so they
+      read back as typed. Both dialogs read a comma or a point.
     - **Also on**: pending list rows ("E2E Groceries (1 pcs)", linking to
       the list) and templates (linking to the shopping lists page).
     - **Recent prices (GAP-47)**: the item's last 10 `PriceHistory` rows,
@@ -860,8 +883,9 @@ every lookup the old one did.
     individual icon buttons stay. Each row keeps Edit visible and moves
     Details, Mark opened, Mark empty and Delete into a row "More actions"
     ⋯ menu (8 px between the two targets, M3). Small fixes: ghost
-    quantity steppers, the bare "last updated" date reads "Last updated
-    4 Oct", the bulk-edit bar sticks to the bottom on phones, and the
+    quantity steppers, the table's Last updated cell shows the bare date
+    (UX-188 dropped a "Last updated 4 Oct" prefix the column header
+    already says), the bulk-edit bar sticks to the bottom on phones, and the
     mobile filter selects have real `Label`s.
   - **Compact inventory rows on phones (UX-45)**: below `sm` the list is
     a bordered `<ul>` (one per group) of two-line rows, about 80 px each, so
@@ -883,6 +907,17 @@ every lookup the old one did.
     opened, Freeze, Add to list, Details, Mark empty, Edit, Delete) fits the
     ~990 px column at 1280 px with no horizontal scroll.
     `e2e/ux-130.desktop.spec.ts` asserts it.
+  - **Desktop inventory header and Last updated column (UX-188)**: from
+    `sm` the toolbar sits under the page title, and only moves beside it
+    once the page is 90rem wide (a container query, so a collapsed
+    sidebar counts). Beside the title at 1280 px it squeezed the subtitle
+    over three lines and wrapped the buttons into three ragged rows.
+    "Add item" is the toolbar's first button (DOM, tab and visual order),
+    ahead of the scan tools, Manage items and Export CSV. The table's Last
+    updated cells show only the date (the column header says the rest;
+    the updater's "by {name}" stays in the cell's popover and
+    `aria-label`), which gives Category room for "Dairy & eggs".
+    `e2e/ux-188.desktop.spec.ts` asserts it in Swedish.
   - **Cards below `lg`, table from `lg` (UX-141)**: the inventory table
     only shows from 1024 px (`lg`). Between `sm` and `lg`, a tablet with
     the sidebar open (810 px), the name column was about three characters
@@ -948,7 +983,13 @@ every lookup the old one did.
     most recipe/list/template/price rows, then the oldest. In each group a
     radio picks the keeper (the suggested one to start with) and a
     checkbox each item to merge (all ticked), each with a visible "Keep" /
-    "Merge" label (UX-131).
+    "Merge" label (UX-131). An item is two lines of a two-column grid,
+    each centred on its control: Keep beside the name, Merge beside the
+    details (stock, recipes, barcode, never stocked), so both controls
+    read as that item's and the details never sit between two items'
+    controls. The keeper's Merge is hidden but keeps its place, with the
+    details beside it. `e2e/ux-196.spec.ts` measures the seeded pair on
+    `desktop`, `mobile` and `tablet`, in both languages (UX-196).
     - **Not duplicates** (`dismissDuplicatesAction`) stores every pair in
       the group as an `InventoryDuplicateDismissal` (`householdId`,
       `itemAId`, `itemBId`, ids sorted, unique, cascading with either item
@@ -2734,7 +2775,11 @@ top of it. No migration was needed.
   your stock.", with a "Match all" button (opens the batch matcher, which is
   mounted for any number of unlinked rows; the ⋯ menu's "Resolve N items"
   keeps its three-row threshold) and a dismiss ×. The dismissal lasts for
-  that visit only (component state, nothing stored in the browser).
+  that visit only (component state, nothing stored in the browser). The
+  note is one row while the sentence keeps at least a 10rem column; at
+  Larger text on a phone (200 %), "Match all" and × wrap onto their own
+  row under the sentence, right-aligned, so the sentence keeps the
+  note's full width (UX-186).
 - Closing the receipt dialogs (`ReceiptScanDialog`, `RegisterReceiptDialog`)
   or the AI shelf scan while their review step is showing asks first
   ("Discard this review?", `DiscardReviewDialog`), whether by Cancel,
@@ -7277,6 +7322,45 @@ Mealime builds plans around a diet set once; Squirrel's recipe tags
 - **Not in scope**: per-member diets, ingredient-name allergen detection,
   auto-swap.
 
+### Meal note (GAP-81)
+
+AnyList and Grocy let a planned meal carry a reminder ("thaw the chicken
+the night before", "Anna cooks", "double it for lunch boxes"). Squirrel's
+entries had only the dish, so households put it in the name or on the
+notes board. `MealPlanEntry.note String?` (migration
+`meal_plan_entry_note`) holds one short line, on a recipe meal and a
+custom one alike.
+
+- **Editing**: the meal form (`MealEntryDialog`) has a "Note (optional)"
+  field under the dish and its portions or ingredients, for a new meal and
+  an edited one. It's hidden until a dish is picked and for a "From meal
+  prep" slot, which `assignInTx` writes without one. A cooked meal has no
+  edit form, so its note stays as it was.
+- **Rules**: `addMealEntryAction` and `updateMealEntryAction` trim it and
+  cap it at `MAX_MEAL_NOTE_LENGTH` (200, `meal-types.ts`; over that is
+  "Note must be 200 characters or fewer" and nothing is written). Empty
+  after trimming is stored as null. On an edit, a form that doesn't post
+  the field leaves the note alone; the dialog always posts it, so emptying
+  the field clears it. Both actions take the household from
+  `requireHousehold()` and find the entry through its plan's household.
+- **Where it shows**: one muted line under the meal's name on the day,
+  cut short with an ellipsis (a note icon, and "Note" for screen readers);
+  in full in the meal's sheet, so the whole text never depends on a hover
+  `title`; and under the title in Cook mode opened from that meal.
+- **Carried or dropped**: "Copy last week" (`copyWeekAction`) carries it,
+  and moving a meal keeps it. Saving a week as a template (GAP-52) and
+  "Back to picks" drop it, since `MealPlanTemplateEntry` and
+  `MealPlanPick` have no note column; so do meals placed from a pick, a
+  template or "Fill empty days". The calendar feed puts it in the event's
+  `DESCRIPTION` (see "Calendar feed").
+- **Not done**: no reminders or push for a note, no note per day, no notes
+  on picks or templates.
+- Tests: `planner-actions.test.ts` ("meal note (GAP-81)": saved, trimmed,
+  capped, household-scoped, carried by the copy), `calendar-feed.test.ts`
+  and the feed route's test (the description), `e2e/meal-note.spec.ts`
+  (en and sv, desktop and mobile: add, reload, see it on the day and in
+  the sheet and form, clear).
+
 ## Household tasks
 
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
@@ -7303,7 +7387,7 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
-- **Notes (GAP-73)**: nullable `HouseholdTask.notes`, plain text, trimmed, CRLF folded to LF and cut at 500 characters (`updateTaskAction` clears it on empty and leaves it alone when the caller sends none). Add/Edit dialog has a 16 px "Notes" textarea (`autoComplete="off"`, counter from 450); the row shows one truncated line under the title, never as links; the full text is in the sheet the title opens. No checklists, attachments or comments. Included in the data export. `task-notes.spec.ts` covers add, reload and the sheet in `en` and `sv`.
+- **Notes (GAP-73)**: nullable `HouseholdTask.notes`, plain text, trimmed, CRLF folded to LF and cut at 500 characters (`updateTaskAction` clears it on empty and leaves it alone when the caller sends none). Add/Edit dialog has a 16 px "Notes" textarea (`autoComplete="off"`, counter from 450); the row shows one truncated line under the title, never as links; the full text is in the sheet the title opens. No checklists, attachments or comments. Included in the data export. `task-notes.spec.ts` covers add, reload and the sheet in `en` and `sv`. It taps a row's title only once React owns the button (`expectHydrated`), after the Add sheet's `history.back()` has landed and, after the reload, the router has patched history (`expectRouterPatched`); tapped before hydration, the edit sheet once failed to show on the phone project (MAINT-94).
 - **Create and edit share one dialog (UX-24)**: both modes of
   `TaskFormDialog` have a title field (so a task can be renamed;
   `updateTaskAction` takes an optional trimmed `title`, 1-120 characters), a
@@ -7632,7 +7716,9 @@ URL and re-fetch on their own; nothing is ever written back.
   - Meal-plan entries, titled "Dinner: Lasagna" (slot label from
     `mealPlanning.mealType*`, then the recipe name, else the freeform name;
     just the slot when a deleted recipe left neither). Ordered breakfast →
-    snack within a day. Capped at 2000 entries per response.
+    snack within a day. Capped at 2000 entries per response. A meal's note
+    (GAP-81, `MealPlanEntry.note`) is the event's `DESCRIPTION`, trimmed
+    and escaped like any TEXT value; an entry without one has none.
   - Active `EXPENSE` recurring templates, titled "Due: Rent", one event per
     due day. Only MONTHLY templates with a `dayOfMonth` have a real due day;
     WEEKLY/YEARLY templates don't (the schema ignores `dayOfMonth` for them),
@@ -7642,9 +7728,11 @@ URL and re-fetch on their own; nothing is ever written back.
     clamps a day past a short month's end to its last day (the 31st becomes
     30 April, 28/29 February). Income and savings templates, and the
     personal budget, aren't included.
-  - **No amounts**, recipes, notes or member names. The link works without
-    a login and gets pasted into third-party calendar services, so the feed
-    carries only what a calendar entry needs.
+  - **No amounts**, recipes, notes-board notes or member names. The link
+    works without a login and gets pasted into third-party calendar
+    services, so the feed carries only what a calendar entry needs. A
+    meal's own note is the one free-text field in it, which is why the
+    card's warning names "the notes on them" next to the planned meals.
 - **UIDs** are stable across fetches so clients update events in place:
   `meal-<entryId>@squirrel-calendar-feed` and
   `bill-<templateId>-<YYYYMMDD>@squirrel-calendar-feed` (changing a bill's
@@ -8120,7 +8208,8 @@ components directly.
   that leaves room for more than a row; elsewhere the document scrolls and
   the table header scrolls away with it (the table is wider than the
   column there and keeps its own horizontal scroll, which a sticky header
-  can't see past). Its header row stays stacked until `lg`.
+  can't see past). Its header row stays stacked until the page itself is
+  90rem wide (UX-188).
   Back-links (`← All shopping lists`, the item catalog's) are
   `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
 - **Home (UX-26, UX-HOME-1..4)**: the first tab is called Home ("Hem"),
@@ -8350,6 +8439,16 @@ components directly.
   the field (`loginPath()` in `src/lib/login-path.ts` builds the URL). The
   signup card's "Log in" link carries the address too. Covered by
   `e2e/ux-61.spec.ts`.
+- **The "account created" view (UX-195)**: the confirmation that replaces
+  the form after `/signup` and after `/join/<token>` (`SignupForm`,
+  `JoinSignupForm`) ends in a stand-alone "Log in", which is a
+  `StatusCardLink` (44 px, M3) to `loginPath(email)` in both, so the
+  address just typed is already in the login form (M4). When the first
+  verification email failed to send, the red warning icon and the
+  "couldn't send … try resending it below" text show only until "Resend
+  verification email" has answered: after that the view shows the mail
+  icon and the resend's message alone, never both. Covered by
+  `e2e/ux-195.spec.ts` (`en` and `sv`).
 - **Signing in from the verification link (UX-135).** ⚠️ Auth. A visitor
   with no session who opens `/verify-email/<token>` is signed in by it and
   lands on `/dashboard?welcome=1`, where `WelcomeToast` shows "Welcome to
@@ -8474,9 +8573,64 @@ components directly.
   its way (a sheet handing over to its confirm) waits for that back to land
   before pushing its entry; pushing sooner made the back land below both
   entries and the repairing `forward()` pop the new dialog (MAINT-23).
+  When the app *pushed* a page before the back landed (the command palette
+  closes, then `router.push`es the command's page), the closed dialog's
+  entry is still there between the page and the new one, and one
+  `forward()` only reaches it: the palette closed and the app stayed where
+  it was. So the repair steps forward once more from that entry, and the
+  back counts as pending (new dialogs wait, `<html>` stays marked) until
+  the repair has landed (MAINT-103). Normally the back lands some 15 ms
+  after it is called and the router pushes about 100 ms after Enter, so
+  this only showed on a loaded machine; `command-palette.spec.ts` holds
+  the palette's `back()` until the router's push to get that order every
+  time.
   `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
+- **Back restores the scroll position (UX-193, DESIGN.md M7)**: Back or
+  Forward to a dashboard page lands where the reader left it, within a
+  pixel, not at the top. The browser can't do this here: on a phone only
+  `main` scrolls, which no browser restores, and on a desktop Back first
+  commits the route's `loading.tsx` skeleton, a screen tall, so the
+  restored document offset is clamped to the top and nothing scrolls
+  again when the page streams in (measured on Profile, but every
+  dashboard page has the shell and a skeleton, so it is fixed for all of
+  them). `ScrollRestoration` (`src/components/dashboard/scroll-restoration.tsx`,
+  rendered once in the dashboard layout) drives
+  `src/components/dashboard/scroll-memory.ts`: the offset of whichever
+  scrolls (`main` or the document) is written to the current entry's
+  `history.state` under `__squirrelScroll`, next to Next's router state,
+  once a scroll has been still for 150 ms and again on any click (a link
+  may be about to push the next entry). It is per history entry, lives
+  only in the tab's session history, and is not a cookie or web storage,
+  so it is not in the storage inventory. The router rewrites the entry's
+  state on every commit, so the key is registered with
+  `keepHistoryStateKey` and `dialog-history.ts`'s `replaceState` wrapper
+  carries it over on same-URL replaces, as it does its own marker (one
+  wrapper, installed before the router's patch, so the router's stays
+  outermost for `expectRouterPatched`).
+  When React commits another page (pathname or search changed; a
+  dialog's entry closing or a hash change is left alone) and its entry
+  remembers an offset, which only an entry the reader came back to does
+  (a link pushes a fresh one), the offset is put back once the skeleton
+  (`data-page-skeleton` on `PageSkeleton` and the dashboard's
+  `loading.tsx`) is gone and the content is tall enough, retrying as
+  content streams in. That covers both ways Back arrives: React renders
+  a page the router still has cached inside the router's own `popstate`
+  listener, and one it has to fetch commits later, skeleton first. It
+  stops when the offset is reached, when the reader scrolls, taps or
+  presses a key, or after 15 s. Scrolls that aren't the reader's (the
+  browser's own attempt between a Back and its commit, the skeleton
+  clamping while the restore waits) aren't remembered, and the offset is
+  read from whichever scrolls, since on a phone the document fires
+  scroll events too while staying at 0. `ScrollToHash` stands down on
+  such a page. Not restored: the first page of a load (a reload is left
+  to the browser, which on a phone restores nothing), and state the page
+  itself forgets, so Back to Profile shows its "About Squirrel"
+  disclosure closed again and a position at the very bottom lands that
+  much higher. Covered by `e2e/ux-193.spec.ts` (Profile, with and
+  without a hash, cached and fetched again behind a held skeleton),
+  `scroll-memory.test.ts` and `dialog-history.test.ts`.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
   `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
   a long form (the recipe form, add/edit item, receipts) instead of
@@ -8710,14 +8864,17 @@ version or the notes by hand.
   dev-tool advisories that wait on upstream (typescript-eslint's
   minimatch, shadcn's deepmerge) don't turn every PR red. Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
-  imports and on unused or unlisted dependencies. Its framework plugins
+  imports, on unused or unlisted dependencies, and on exports, types and
+  duplicate exports no other file imports. Its framework plugins
   find the entry points; the config adds the two they miss
   (`e2e/auth.setup.ts`, matched by a Playwright regex, and
   `prisma7.config.ts`) and ignores `@prisma/client` (imported only by the
   gitignored generated client) and `server-only` (resolved by Next.js).
-  Unused exports and types are not checked yet: the first run found
-  about 120, a cleanup of its own (MAINT-92). `npm run check` runs knip alongside
-  lint, typecheck and tests.
+  The export and type checks came later (MAINT-92): the first run found
+  about 120 exports and types nothing else imported, cleaned up one
+  feature at a time, so a symbol used only in its own file isn't
+  exported and one used nowhere is deleted. `npm run check` runs knip
+  alongside lint, typecheck and tests.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →
@@ -8788,13 +8945,30 @@ needs live in `src/lib/release-notes/cookie.ts`, which doesn't import the
 JSON. `client-bundle.test.ts` fails when any `"use client"` module reaches
 `releases.json` through its imports.
 
-- `/dashboard/whats-new` lists every release, newest first, with version,
+- `/dashboard/whats-new` lists the releases, newest first, with version,
   date and the note in the user's locale. A note wraps at any width
   (`break-words`), so a URL or long Swedish compound in it can't push the
   page sideways on a phone (BUG-4).
   The page opens with a "Back to overview" link, the first focusable
   thing in `main`, so the phone scroll region passes axe's
   `scrollable-region-focusable` (UX-175; `e2e/whats-new-a11y.mobile.spec.ts`).
+  Only the newest 10 releases render (UX-190): with all of them as cards
+  the page was ~138 000 px tall on a phone, and a member arriving from the
+  unread dot wants the last few changes. Below them a "Show older updates"
+  link (outline button style, 44 px on phones) goes to `?all=1`, which
+  renders the whole history, and jumps to the first older release's anchor
+  (`#release-<version>`) so the reader carries on where they were. A link
+  rather than a `<details>` or a client toggle, so the server doesn't send
+  hundreds of unread cards and it works before hydration. The public
+  `/whats-new` does the same. Covered by `e2e/whats-new-older.spec.ts`.
+  After the link's soft navigation the link that had focus is gone, and
+  Next 16 scrolls to the hash target without focusing it, so focus fell
+  to `<body>`. On `?all=1` a small Client Component
+  (`src/components/whats-new/focus-release-anchor.tsx`) moves focus to the
+  release the hash names when nothing else has focus, so a keyboard or
+  screen-reader user carries on from the first older release (UX-192,
+  M10). Each release card is focusable from script only (`tabIndex={-1}`:
+  not a tab stop, and no focus ring since it isn't interactive).
   Also UX-175: `Button` and `Badge` transition explicit properties
   (`color, background-color, border-color, box-shadow, transform`) rather
   than `transition-all`, and the phone inventory bulk bar uses a
@@ -9148,11 +9322,17 @@ dismissing a second out-of-stock alert while already on
   toggle buttons it sits alongside) and `NotificationMenuItem` (a
   `DropdownMenuSub` nested inside the bottom nav's existing "More" dropdown,
   at the same tier as the theme/language toggle items there). Both show a
-  small red count badge (`NotificationCountBadge`) on the bell icon when
-  there's at least one alert; the mobile "More" trigger also shows the same
+  small red count badge (`NotificationCountBadge`) when there's at least one
+  alert: on the bell icon in the sidebar, and after the "Notifications"
+  label in the "More" submenu's row, where the 18 px badge used to cover the
+  16 px bell (UX-189). The mobile "More" trigger also shows the same
   badge on its `MoreHorizontal` icon so the count is visible without opening
   the menu. An empty list shows a "You're all caught up!" message instead of
-  an empty panel.
+  an empty panel. Each row is a link plus an icon-only ✕ "Dismiss" item that
+  clears the alert without leaving the page or closing the menu. On touch
+  screens the ✕ is at least 44 × 44 px and 8 px from the row's link
+  (DESIGN.md M3, UX-189); with a mouse it keeps its denser size. Covered by
+  `e2e/ux-189.spec.ts`.
 - **Clicking an alert navigates**: an out-of-stock alert links to
   `/dashboard/inventory?status=out`; a meal-not-logged alert links to
   `/dashboard/meal-planning?week={weekStartKey}` (the week containing that
@@ -9185,9 +9365,28 @@ clears every currently-active alert in one go. Clicking an individual
 still-unread row dismisses just that one (same as the bell) before letting
 the link navigate; an already-read row is just a link. With no rows at all
 (UX-3) the page says "No notifications yet." plus one sentence naming what
-produces one (an item running out of stock, or about to expire), so a new
-household doesn't read the empty page as broken. Only triggers from the
-list above are named, so it never promises task or invite notifications.
+produces one, so a new household doesn't read the empty page as broken.
+Since UX-191 that sentence names the common always-on triggers from the
+list above (something running out or about to expire, a price jump, a list
+all checked off, shopping to put away). It is not the whole list: "Meal
+not logged" has no setting either, so it is always on, and is left out
+only to keep the sentence short. The opt-in ones (tonight's dinner, tasks
+due today) are left out, since a member who hasn't turned them on would
+never get them, and it never promises invite notifications.
+Under the subtitle a "Notification settings" link (UX-191, 44 px tall on
+phones via `touch-target`) goes to `/dashboard/profile#profile-notifications`,
+the Profile section holding the push, weekly digest, tonight's dinner and
+tasks-due switches, so a member tired of a nudge finds the switch where
+the nudge shows up. Profile renders `ScrollToHash`
+(`src/components/dashboard/scroll-to-hash.tsx`), which scrolls the
+hash's target into view on mount: a client-side link first commits
+Profile's loading skeleton, so Next's own hash scroll finds no heading
+on a slow load and would leave the page at the top. On Back it stands
+down: the reader's own scroll position is put back (UX-193, see "Back
+restores the scroll position" under Navigation & responsive layout),
+and only a Back to an entry with no remembered position falls back to
+the section the hash names. A malformed hash (`#%`) is ignored, never
+an error.
 
 ## PWA install & push notifications
 
@@ -9922,6 +10121,22 @@ approximating them, so the email never disagrees with the app.
   `required` sits in a `noValidate` form that words its own message (UX-59's
   login and signup forms keep their own validation). Covered by
   `e2e/shopping-field-errors.spec.ts`.
+- **Invite and reset-password forms check the password in the browser
+  (UX-194).** `join-signup-form.tsx` and `reset-password-form.tsx` give
+  their `useRequiredFields` rules an `invalid` check (the hook's
+  `findFieldProblems`, run only on a field that isn't empty): a password
+  under 8 characters, a confirmation that differs and, on the invite form,
+  a malformed email (`src/lib/email-pattern.ts`, shared with `/signup`) are
+  worded under their field in the page's language (`auth.join` /
+  `auth.resetPassword` `passwordTooShort`, `passwordsDontMatch`,
+  `emailInvalid`), with `aria-invalid`, `aria-describedby` and focus on the
+  first. The submit is blocked before the Server Action runs, so React
+  never resets the form and both passwords stay as typed. Both forms show
+  "At least 8 characters" under the password field from the start
+  (`passwordHint`), and it describes the field. A blocked submit hides the
+  last server error line. The server still validates everything; a
+  rejection only it can find (a taken email, an expired link) still comes
+  back as the one line above the button. Covered by `e2e/ux-194.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
@@ -10021,9 +10236,8 @@ approximating them, so the email never disagrees with the app.
   `landscape` and `tablet` projects.
 - Suggestion rows and combobox buttons are 44 px on touch screens (UX-143):
   `AutocompleteItem` has `max-sm:min-h-11 pointer-coarse:min-h-11` like
-  `ComboboxItem`, and `ComboboxTrigger`/`ComboboxClear` set `h-11` there
-  (`h-full` in the `h-11` group measured 42 px after the border; no picker
-  renders `ComboboxClear` yet, so it only keeps the pair matched). Covered by
+  `ComboboxItem`, and `ComboboxTrigger` sets `h-11` there (`h-full` in the
+  `h-11` group measured 42 px after the border). Covered by
   `e2e/suggestion-targets.mobile.spec.ts`: the unit picker's rows and the
   Match item toggle.
 - Combobox options wrap a long name instead of clipping it (UX-184, M9):
@@ -10077,11 +10291,19 @@ check. The household page (MAINT-31) has no Suspense boundaries at all:
 its note, member list and notes board used to stream in behind fallbacks of
 a different height (or none), which under load moved the settings cards
 below them past the budget (0.0647), so it now arrives in one piece behind
-`loading.tsx`. The three remaining `fallback={null}` slots above content
-(inventory `InventoryWellStockedNote`, shopping list
-`RepurchaseSuggestionsSection`, the layout's email-verification banner) stay
-empty on purpose: each renders nothing in the common case (a solo household,
-a stock with something low, no suggestion, an already verified email), so a
+`loading.tsx`. The inventory page (MAINT-102) is the same: its well-stocked
+note, toolbar, manage-items link and table each streamed in behind their own
+fallback, and on a loaded machine the browser painted them one at a time.
+The note (no fallback) pushed the toolbar and table down a line, then the
+real toolbar wrapped onto a second row that its one-row skeleton hadn't held
+open and pushed the already-painted table down 36 px (0.298 on desktop). How
+the toolbar wraps depends on the language and the data, so no skeleton can
+reserve it; the sections all wait on the same cached query anyway, so the
+page arrives whole. `src/app/loading-coverage.test.ts` fails if either page
+gets a `<Suspense>` again. The two remaining `fallback={null}` slots above
+content (shopping list `RepurchaseSuggestionsSection`, the layout's
+email-verification banner) stay empty on purpose: each renders nothing in
+the common case (no suggestion, an already verified email), so a
 fixed-height placeholder would add a gap and a shift to every visit that has
 nothing to show. The delayed-navigation measurement showed no shift from
 them, so none was added; reserve height for one only if a measurement shows
@@ -10210,10 +10432,19 @@ section, and only what's below it moves.
 **List rows: the glide.** `useFlipList` (`src/components/shared/use-flip-list.ts`)
 runs after every commit of a list:
 - It measures each element with `data-flip-key` against its parent (or the
-  viewport if it changed parent) and plays the difference from where it was
+  list if it changed parent) and plays the difference from where it was
   back on the real element with the Web Animations API (FLIP). Keys pair
   across sections, so a ticked row glides into "Purchased" or "Completed",
   and a completed list's card into its section on the overview.
+- It measures in layout pixels, not as drawn (MAINT-100): what
+  `getBoundingClientRect` returns is divided by the list's drawn width over
+  its computed width (`renderedScale`). On a phone the page behind an open
+  sheet is drawn at 0.94 and eases back for 400 ms after the sheet closes
+  (`sheet-indent.tsx`), so a row added through a sheet was measured small,
+  and at the list's next change every row jumped 6% of its offset (37 px
+  for the fourteenth task) and glided back, though nothing had moved. A
+  tap whose press and release straddled that jump was released over
+  another row and ticked nothing.
 - A new row rises in.
 - A removed row's node is put back in its list, absolutely positioned and
   inert, to fade where it was (not table rows, which don't lay out alone).
@@ -10319,6 +10550,11 @@ delay to 0. Every change happens at once.
   times from where it started, for the reason above).
 - Under `reducedMotion: "reduce"` no FLIP plays and view transitions take
   no time.
+
+`e2e/maint-100.spec.ts` (MAINT-100) adds a task through the sheet with
+four tasks above it, then ticks a task below them all: the ticked row
+glides, and none of the rows above it gets a `flip-move`. `renderedScale`
+is unit-tested.
 
 Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
 `withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
@@ -10579,6 +10815,35 @@ UX-14's rapid ticks and the rollback toast.
   when the test only asserts it's there: the planner's "Add first dinner"
   outlasted `toBeVisible`'s default 5 s on a loaded run (MAINT-86, and
   MAINT-94 for the empty-week check in `planner-add-missing.spec.ts`).
+  A control inside a streamed Suspense boundary is hydrated last: React
+  hydrates the shell first and each dehydrated boundary afterwards at its
+  lowest, never-expiring priority. So `ux-184.mobile.spec.ts` waits in the
+  order the page settles, each step with its own budget: `gotoRevealed`,
+  then `expectRouterPatched` (the shell has hydrated), then
+  `expectHydrated` on "Add first dinner". One 20 s poll straight after
+  `goto` covered the stream, the reveal and both hydrations, and ran out
+  twice in a locked `ci:local` run (MAINT-98).
+  A helper that presses a toggle until a dialog shows checks that the
+  dialog is open (`data-open` on the Base UI popup), not just visible. A
+  closing sheet stays visible while it slides out, long enough on a phone
+  for several more steps to pass. `command-palette.spec.ts` pressed ⌘K
+  while the palette wasn't visible, and the palette's lazy chunk could
+  land between that check and the press, which then closed it:
+  `toBeVisible` passed on the sheet sliding out, the arrow keys and the
+  `fill` still worked, and "No matching commands." never came (MAINT-99).
+  `clickListSetting` waits for each menu's 100 ms open animation to end
+  before it clicks in it. `click()` waits for a moving target by
+  retrying, and from its third attempt Playwright scrolls the target
+  into view by force. An open menu stops the user scrolling, not a
+  script, so on a screen shorter than the page (`landscape`) that
+  scrolled the window under the menu, which followed its button away
+  from the pointer. The "List settings" submenu opens on hover for a
+  mouse, so it never opened, or closed again under the click on
+  "Add item" (MAINT-105). The same item's second finding:
+  `form-control-sizes.mobile.spec.ts` measures a dialog's fields with
+  `evaluateAll`, which doesn't wait, so it first asserts the dialog is
+  visible (the recurring-item dialog had not mounted yet and measured
+  no fields).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
@@ -10591,6 +10856,11 @@ UX-14's rapid ticks and the rollback toast.
   claims the page, its fetches skip the route, so a save meant to fail
   went through, and a held language change never reached the route and
   waited out the 30 s test timeout (MAINT-93).
+  A test that goes offline on `/dashboard` or `/dashboard/tasks` first
+  waits for the `time_zone` cookie: without it `TimeZoneCookie` refreshes
+  the page once, and an RSC refresh that fails offline makes Next fall
+  back to a full browser navigation, which destroyed
+  `sw-static-cache.spec.ts`'s offline `evaluate` (MAINT-96).
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec

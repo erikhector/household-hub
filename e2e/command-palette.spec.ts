@@ -8,11 +8,21 @@ const SHORTCUT = "ControlOrMeta+k";
 // The shortcut listener attaches on hydration, which a press right after
 // page.goto can beat. Press again only while the palette isn't up, so a slow
 // hydration doesn't toggle it open and shut.
+//
+// Open, not just visible (MAINT-99). The palette's chunk is lazy (PERF-27),
+// so it can show up between the isVisible() check and the press, and that
+// press then closes it. A closing sheet stays visible while it slides out
+// (about 100 ms on desktop, long enough on a phone for the arrow keys and
+// a fill to pass), so toBeVisible handed back a palette that was on its
+// way out, and the next thing asked of it was never there. Base UI puts
+// `data-open` on the popup only while it's open and swaps it for
+// `data-closed` the moment it starts to close, so a press that closed it
+// fails this check and the loop opens it again.
 async function openPalette(page: Page) {
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(async () => {
     if (!(await palette.isVisible())) await page.keyboard.press(SHORTCUT);
-    await expect(palette).toBeVisible({ timeout: 1000 });
+    await expect(palette).toHaveAttribute("data-open", "", { timeout: 1000 });
   }).toPass();
   return palette;
 }
@@ -57,6 +67,52 @@ test("Add task opens the add-task dialog on the tasks page", async ({ page, cont
   await gotoRevealed(page, "/dashboard");
   const palette = await openPalette(page);
   await palette.getByRole("combobox", { name: "Type a command" }).fill("add task");
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL(/\/dashboard\/tasks$/);
+  await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
+});
+
+// MAINT-103: the palette closes and navigates in one go. Closing takes the
+// dialog's history entry back with history.back(), which only lands a few
+// milliseconds later; the router pushes the new page some 100 ms after
+// Enter. On a loaded machine the push can come first, and then the back
+// lands on the page under the dialog's entry and one forward() from there
+// reaches the closed palette's entry, still on /dashboard, not the page just
+// pushed. Timing can't be asked for, so this holds the palette's back() until
+// the router's next pushState and issues the two in the order a slow
+// traversal gives.
+test("Enter still navigates when the router pushes before the palette's history entry is gone", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await dismissCookieNotice(context, baseURL!);
+  await page.addInitScript(() => {
+    const { history } = window;
+    const back = history.back.bind(history);
+    const pushState = history.pushState.bind(history);
+    const hold = window as unknown as { holdNextBack?: boolean };
+    let held = false;
+    history.back = () => {
+      if (!hold.holdNextBack) return back();
+      hold.holdNextBack = false;
+      held = true;
+    };
+    history.pushState = (...args: Parameters<History["pushState"]>) => {
+      if (held) {
+        held = false;
+        back();
+      }
+      return pushState(...args);
+    };
+  });
+  await gotoRevealed(page, "/dashboard");
+  const palette = await openPalette(page);
+  await palette.getByRole("combobox", { name: "Type a command" }).fill("add task");
+  await page.evaluate(() => {
+    (window as unknown as { holdNextBack?: boolean }).holdNextBack = true;
+  });
   await page.keyboard.press("Enter");
 
   await expect(page).toHaveURL(/\/dashboard\/tasks$/);
