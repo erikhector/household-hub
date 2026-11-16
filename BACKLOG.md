@@ -270,16 +270,20 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
       Further sighting (2026-11-15, builder's locked `ci:local` on abf9c66, PR #1479, MAINT-103: a fix in `dialog-history.ts` for a navigation lost when a dialog closes, which touches neither this spec nor the budget feature): `mobile` project, the same test (`:87`) failed once in the first full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`, a forced click on the `peer sr-only` `categoryId` radio straight after the Add transaction dialog opened), and passed in a second full run on the same commit (1691 passed).
       Further sighting (2026-11-16, reviewer's locked `ci:local` on release PR #1484, f77b161): `mobile` project, the same test (`:87`) failed once in the full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`; 1 failed, 1696 passed) and passed in a rerun of the spec on the same commit (`--project=mobile`, 6 passed). The GitHub e2e job on that commit passed it.
-- [ ] **MAINT-101. Flaky: `router.push("/dashboard/profile")` leaves the page on `/dashboard/tasks` in the cached-page spec on the `iphone` project** (low, S) —
-      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (it runs in the GitHub e2e job). In the GitHub `End-to-end (Playwright)` job on release PR #1425 (138ae29, 2026-11-14, job 132417142477) the first attempt failed and the retry passed, so Playwright marked it `flaky`. The local `ci:local` on the same commit passed this test. Failing assertion at `:71`: `expect(page).toHaveURL(/\/dashboard\/profile/)` → received `http://localhost:3000/dashboard/tasks` for the whole 5 s. The test calls `window.next.router.push` right after the new task's checkbox is visible, so the push may run while the add action's `revalidatePath` refresh is still in flight and get dropped, or before the router is patched. Start from the trace: check whether a navigation request for `/dashboard/profile` was ever sent, and wait for the add to settle (the Server Action's response, or `expectRouterPatched`) before the push.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub e2e job is the evidence).
-      Further sighting (2026-11-16, GitHub `End-to-end (Playwright)` job 133033346476 on release PR #1484, f77b161): `iphone` project, the same test (`:57`) failed its first attempt with the same assertion at `:71` (`toHaveURL(/\/dashboard\/profile/)` received `http://localhost:3000/dashboard/tasks` for the whole 5 s) and passed on the retry, so Playwright marked it `flaky` (1733 passed, 1 flaky).
 - [ ] **MAINT-104. Flaky: the What's new link in Profile's About disclosure isn't found within 20 s in the Back-restores-scroll spec** (low, S) —
       `e2e/ux-193.spec.ts:26`, the `#profile-notifications` variants only: "Back to Profile restores the scroll position, with a hash" on `desktop`, and "…, with a hash, fetched again" on `mobile`. The spec is new in #1453 (UX-193). Three sightings, all on 2026-11-15. (1) The builder's locked `ci:local` on 6faed9d (#1453's branch merged with `next`): "with a hash, fetched again" failed once on `mobile`, and passed in the next full gate. (2) and (3) The GitHub `End-to-end (Playwright)` job on release PR #1455 (908b494, job 132738518572): the `desktop` "with a hash" test and the `mobile` "with a hash, fetched again" test each failed their first attempt (after 21.4 s and 22.1 s) and passed on the retry, so Playwright marked both `flaky`; the reviewer's locked `ci:local` on the same commit passed all eight `ux-193` tests. Failing step, the same each time: `expectHydrated(link)` at `:35` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`). That error alone can't tell "the link is there but not hydrated" from "the link isn't there": `expectHydrated` polls `target.evaluate(…)`, which waits for the element. The builder's failure snapshot (sighting 1) shows the second: the About summary focused and the `<details>` closed again, after the spec clicked the summary straight after `gotoRevealed`, before hydration. What closes the disclosure is not known; that only the hash variants fail points at whatever the hash sets off while the page hydrates (`ScrollToHash`, or the restore). `e2e/notifications-empty-state.spec.ts:74` clicks a summary (Danger zone) the same way.
       Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-106. Flaky: the empty week's "Add first dinner" button isn't hydrated within 20 s on mobile** (low, S) —
+      `e2e/native-sheets.spec.ts:72` ("a flick down on the grabber dismisses the sheet and leaves no back step"), `:87` ("a short, slow pull springs back instead of dismissing"), `:141` ("the page behind scales down while a sheet is open"), `:153` ("under reduced motion the page behind stays put") and `:161` ("a touch open focuses the sheet, not a field, so the keyboard stays down"), plus `e2e/planner-add-missing.spec.ts:94` ("an empty week has no Add missing button"), all on the `mobile` project. One sighting: the reviewer's locked `ci:local` on release commit 04f98b7 (release PR #1489, 2026-11-16, three BACKLOG.md-only PRs, so nobody's change is in it). All six failed in that one run (1691 passed, 6 failed) and all passed when the two specs were re-run on the same commit (`--project=mobile`: 11 passed, 2 skipped). On `desktop` in that run, `planner-add-missing.spec.ts:94` and `native-sheets.spec.ts:181` (which also goes through `openAddMeal`) passed; the five `native-sheets` tests are phone-only (`test.skip(!isMobile)`) and were skipped there. The GitHub e2e job didn't run (docs-only release). Failing step, the same in all six: `expectHydrated` on `getByRole("button", { name: "Add first dinner" })` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`), called from `openAddMeal` (`native-sheets.spec.ts:56`) and from `planner-add-missing.spec.ts:102`. Both open `/dashboard/meal-planning` on an empty far-future week. As MAINT-104 notes, that error can't tell "the button is there but not hydrated" from "the button never rendered", so start from the trace: whether the planner was still behind its `loading.tsx` skeleton, showed day cards instead of the empty-week button (another spec's meal in that week of the worker's household), or rendered the button without React owning it. `native-sheets.spec.ts:98`, which ran between the failures, passed. Six failures at once in two specs that share one page points at the planner being slow or stuck for that worker, not at six separate races.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/native-sheets.spec.ts e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-107. Run `command-palette.spec.ts` on the `iphone` project, so the MAINT-103 repair is tested in WebKit** (med, S) —
+      A navigation issued while a dialog's `history.back()` is still pending is repaired in `src/components/ui/dialog-history.ts` (MAINT-103): the back undoes the push and the helper steps forward onto it again. That repair has never run in WebKit. The one test that forces the ordering, "Enter still navigates when the router pushes before the palette's history entry is gone" (`e2e/command-palette.spec.ts:85`), is not in the `iphone` project, whose `testMatch` in `playwright.config.ts` is `smoke|flows|form-control-sizes.mobile`. Why it matters: MAINT-101 ("an edit still shows after navigating away and back", `e2e/flows.spec.ts`) twice failed its first attempt on `iphone` in the GitHub e2e job with the page still on `/dashboard/tasks` 5 s after `router.push("/dashboard/profile")` (release PR #1425 on 138ae29, 2026-11-14, job 132417142477; release PR #1484 on f77b161, 2026-11-16, job 133033346476), and the second sighting already had the MAINT-103 repair. The inferred cause, never reproduced (no trace was kept and WebKit can't be installed in the build container), is the push falling inside the Add dialog's pending back. #1487 settled the test by waiting with `waitForDialogHistory` before the push, so no test goes through that path in WebKit any more. If the inference is right, the repair doesn't hold on iOS, and someone who taps a nav link straight after adding a task stays on the page.
+      Change: add `command-palette` to the `iphone` project's `testMatch` in `playwright.config.ts`. The spec opens the palette with Ctrl+K and has no `isMobile` branches; if one of its other tests can't pass in WebKit for a reason that has nothing to do with the repair, move the MAINT-103 test to a spec of its own that `iphone` matches and say so in the PR, rather than skipping it there. If the MAINT-103 test fails on `iphone`, that is the finding: fix the repair in `dialog-history.ts` in the same PR, or file the bug with the trace as its own item. Never merge it skipped, loosened or retried.
+      Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here.
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time, with the MAINT-103 test among the tests run (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next release PR is the evidence: it lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt, none `flaky`).
 
 ### UX (2026-09-26 scout)
 
@@ -517,6 +521,85 @@ household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
 WebKit was not run (no browser installed here), and no project in
 either sweep renders the dark theme (`mobile` has no `colorScheme`), so
 dark was not looked at.
+
+### UX (2026-11-16 scout)
+
+Monday area: inventory and item pages. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` truncations (UX-150). The deep dive drove add (empty and with
+a 70-character name), the quantity sheet, Mark as empty, delete and Undo,
+bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
+and `sv`. WebKit was not run (no browser installed here), and dark was
+not looked at (no project renders it).
+
+- [ ] **UX-197. Undo for emptying an inventory item** (impact: med, effort: M) —
+      "Mark as empty" in a row's ⋯ menu, and the "All" chip in the
+      quantity sheet (which applies on one tap), overwrite the amount
+      with 0 and nothing puts it back: a slip on "Olive oil, 0.7 l" loses
+      the 0.7. With auto-add on, the toast that follows reads 'Added
+      Olive oil to "Next shop" · Undo', and that Undo only removes the
+      list row, so the item stays at 0 while the user thinks it was
+      undone; with auto-add off and plain "Mark as empty" there is no
+      toast at all (`src/components/inventory/use-item-handlers.ts:50-60`,
+      `showAutoAddedToast` returns on an empty list). Mark opened and
+      Freeze, in the same menu, already restore a snapshot from their
+      toast. Breaks principle 5 (destructive actions are confirmed or
+      undoable; every action gives a result) and Guardrails' "undo over
+      confirm". Seen on `/dashboard/inventory` on `mobile` and at 320 px,
+      `en` and `sv`; the item page shares the handler. Fix: one toast per
+      emptying ('Olive oil marked as empty · Undo') whose Undo restores
+      the previous quantity and removes the list row that emptying added,
+      refusing with a message if the amount changed since (the
+      `undoMarkItemOpenedAction` shape); the same toast when the quantity
+      sheet takes an item to 0
+      (`src/components/inventory/quantity-sheet.tsx:107`,
+      `inventory-table.tsx:735`). Text in `en.ts` and `sv.ts`.
+      Acceptance: an e2e test on `mobile` and `desktop` marks an item
+      with 6 pcs as empty from the row menu, sees one toast naming the
+      item with Undo, taps it, and after a reload the row shows 6 pcs and
+      the default list has no row for it; the same through the quantity
+      sheet's "All"; a unit test covers the undo action's tenancy check
+      and its refusal after a later change.
+- [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
+      with rows selected on `/dashboard/inventory` at 320 px, the bar's
+      second row is the field select (`w-36`, 144 px), the value input
+      and Apply, and the input gets what is left: 41 × 44 px, showing
+      "t.e…" for its placeholder and about two characters of a typed
+      location or category. The count beside "Markera alla" is cut to
+      "2 varor ma…" in Swedish (81 px for 116 px of text). At 412 px the
+      input is 136 px and reads fine. Breaks M1 ("a field whose value
+      can't be read isn't a field"; a select gets its own row on a
+      phone) and M9 (Swedish strings truncate with the full value
+      reachable). `src/components/inventory/inventory-table.tsx:295`,
+      `:335`, `:354-374`. Fix: let the second row wrap so the value input
+      keeps a readable minimum (`min-w-32`) and the select or Apply moves
+      to its own line when the row is narrower than that, and let the
+      count wrap instead of truncating. Acceptance: an e2e test on
+      `mobile` at a 320 px viewport, in `sv`, selects two rows and
+      expects the value field to be at least 128 px wide, the count's
+      `scrollWidth` to be no more than its `clientWidth`, every target in
+      the bar to pass `expectTouchTargets`, and no horizontal overflow;
+      at 412 px the bar is still two rows.
+- [ ] **UX-199. Inventory filter chips cut off their own value on desktop and tablet** (impact: med, effort: S) —
+      the "Last updated" and "Group by" selects above the inventory table
+      have fixed widths (`w-48`, `w-44`) but show "label: value", so the
+      value is the part that gets cut: "Senast uppdaterad: N…" and
+      "Gruppera efter: Ing…" in Swedish, "Group by: No group…" in
+      English, with 110 px or more free to the right of the row.
+      `src/components/inventory/inventory-client.tsx:421`, `:436`;
+      screenshots `desktop-sv-dashboard-inventory.png`,
+      `tablet-sv-dashboard-inventory.png`,
+      `landscape-en-dashboard-inventory.png`. Breaks principle 3
+      (Hierarchy: the current filter is what the control is for) and M9
+      on `tablet` and `landscape` (truncated with no way to read the
+      rest, since touch shows no `title`). Fix: size both triggers to
+      their content (`w-auto min-w-44`, the row already wraps), keeping
+      the accessible names UX-155 added. Acceptance: an e2e test on
+      `desktop`, `tablet` and `landscape`, in `en` and `sv`, expects
+      neither trigger's value to be clipped (`scrollWidth` no more than
+      `clientWidth`) with the default filters and with the longest option
+      of each selected, and no horizontal overflow.
 
 ### Dependencies
 

@@ -352,7 +352,8 @@ loop".
   `expectRendersCleanly`, `expectNoHorizontalOverflow`, `saveScreenshot`,
   `dismissCookieNotice` for specs where the cookie notice would get in
   the way, `clickRowAction` for a row's Edit/Delete at any width, and
-  `waitForDialogHistory` before a reload that follows a dialog closing).
+  `waitForDialogHistory` before a reload or a scripted navigation that
+  follows a dialog closing).
   Reuse them in new specs rather than re-implementing. Under a loaded
   runner `goto()` returns before React has hydrated, so a click on a
   React-driven control (menu, tab, tick) first needs `expectHydrated`,
