@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.156.4",
+    "date": "2026-11-16",
+    "pr": 1484,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Choosing a command in the command palette (Ctrl+K or ⌘K) now always opens its page. On a slow device the palette could close and leave you where you were.",
+      "sv": "När du väljer ett kommando i kommandopaletten (Ctrl+K eller ⌘K) öppnas nu alltid sidan. På en långsam enhet kunde paletten stängas utan att något hände."
+    }
+  },
+  {
     "version": "0.156.3",
     "date": "2026-11-15",
     "pr": 1477,
