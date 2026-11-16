@@ -41,6 +41,9 @@ export const sv = {
     shoppingListNotFound: "Inköpslistan hittades inte",
     templateNotFound: "Mallen hittades inte, den kan ha tagits bort",
     listNotEditable: "Den här listan kan inte redigeras just nu",
+    moveItemPurchased: "En avbockad vara kan inte flyttas",
+    moveUnitMismatch: "{name} finns redan på {list} i en annan enhet",
+    moveUndoStale: "Listan har ändrats, så flytten kan inte ångras",
     shareLinkNotFound: "Delningslänken hittades inte",
     shareLinkInvalid: "Delningslänken är ogiltig eller har återkallats",
     linkItemToPantryFirst: "Koppla varan till ditt lager först",
@@ -50,6 +53,7 @@ export const sv = {
     noUseWithinDays: "Varan har inga dagar för hållbarhet efter öppning angivna",
     itemAlreadyFrozen: "Varan är redan fryst",
     noExpiryToExtend: "Varan har inget utgångsdatum att förlänga",
+    emptyUndoStale: "{name} har ändrats sedan dess, så den gamla mängden lades inte tillbaka",
     noItemsSelected: "Inga varor valda",
     tooManyItemsAtOnce: "Du kan uppdatera högst {max} varor åt gången",
     recipeNotFound: "Receptet hittades inte",
@@ -848,6 +852,14 @@ export const sv = {
     editItemAriaLabel: "Redigera {name}",
     // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
     rowActionsAriaLabel: "Fler åtgärder för {name}",
+    moveItem: {
+      menuLabel: "Flytta till lista…",
+      title: "Flytta {name} till",
+      description: "Välj en av dina andra öppna listor.",
+      cancel: "Avbryt",
+      movedToast: "Flyttade {name} till {list}",
+      mergedToast: "Slog ihop {name} med raden på {list}",
+    },
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
     estimatedTotal: "≈ {amount} kvar att köpa ({priced} av {total} med pris)",
@@ -1594,6 +1606,9 @@ export const sv = {
     markEmpty: "Markera som slut",
     markEmptyAndAddToList: "Markera som slut & lägg till i inköpslista",
     markedEmptyAddedToast: 'Markerade {name} som slut och la till den i "{list}"',
+    markedEmptyToast: "{name} markerad som slut",
+    undoMarkEmpty: "Ångra",
+    markEmptyUndoneToast: "{name} har sin gamla mängd igen",
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.

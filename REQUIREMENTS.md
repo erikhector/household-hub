@@ -1641,7 +1641,8 @@ every lookup the old one did.
     (`deleteMany`, so a double tap is a quiet no-op), and deliberately
     doesn't fire a "list cleared" notification. Mark meal as cooked folds
     its auto-adds into its own existing Undo toast instead of stacking a
-    second one (see "Mark meal as cooked" below). The share-link toggle
+    second one (see "Mark meal as cooked" below), and so does emptying an
+    item (UX-197, below). The share-link toggle
     auto-adds too, but with no toast: an anonymous visitor has no session
     to undo with.
   - **Mark as empty targets the default list.** `markItemEmptyAction`'s old
@@ -1649,7 +1650,26 @@ every lookup the old one did.
     add to shopping list" puts the item on the default list as an explicit,
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
-    decrease and auto-adds (with Undo) when the item was in stock.
+    decrease and auto-adds when the item was in stock.
+  - **Emptying an item can be undone (UX-197).** "Mark as empty" (either
+    entry, from a row or the item page) and a quantity-sheet amount that
+    takes the item to 0 ("All", or a typed amount at least the stock;
+    the stepper's − keeps its own auto-add toast) show one toast, "Olive
+    oil marked as empty", or 'Marked Olive oil as empty and added it to
+    "Next shop"' when the emptying put it on the list (the explicit entry
+    or the auto-add, which folds into this toast instead of its own). Its
+    Undo (`undoMarkItemEmptyAction`) puts the old amount back, dismisses
+    the "Out of stock" alert the emptying raised and deletes the list row
+    that emptying created (never one already pending), all in one
+    transaction. It only applies while the item is still at 0 with the
+    `updatedAt` the emptying stamped; after any later change it refuses
+    with "Olive oil has changed since, so the old amount wasn't put
+    back". The History gets an "adjusted" event for the restore. The
+    sheet still saves its amount as a change (`adjustQuantityAction`),
+    which hands back the Undo only when the server's own amount reached
+    0: on a stale row (another member restocked since it rendered) a
+    typed amount comes off the server's stock instead of zeroing it, and
+    nothing is undoable.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
     bar is a full-width toolbar `fixed` to the top of the bottom bar, two
     rows high: the count, "Select all" (hidden once everything is ticked),
@@ -2846,6 +2866,50 @@ says "N items moved to {list}", and Undo passes the ids to
 moves back only those still unticked in the household. The checkbox label
 names the target list (page query for the active default). Flow spec:
 `e2e/shopping-finish-carry-over.spec.ts`.
+
+**Moving one row to another list (GAP-82).** An unbought row's ⋯ menu has
+**"Move to list…"** while the household has another `ACTIVE` list (the
+detail page loads the household's active lists once, default first; the
+same query names UX-80's carry-over target). It shows on a phone and, since
+it has no icon of its own, makes the ⋯ visible on a desktop too (see "Swipe
+row actions"). It opens `MoveItemDialog`
+(`src/components/shopping/move-item-dialog.tsx`, lazy like the page's other
+dialogs, a bottom sheet on phones): one button per other active list and a
+Cancel. A tap moves at once through the click action
+`moveShoppingListItemAction(itemId, targetListId)` (`item-actions.ts`).
+It `requireHousehold()`s, finds the row through a list in the household,
+refuses a ticked row ("A ticked-off item can't be moved") and takes only an
+`ACTIVE` target in the household other than the row's own list. Then, in
+one transaction:
+
+- **Plain move** (no inventory link, or that item has no unticked row on
+  the target): only `shoppingListId` changes, so note, price and
+  `addedByUserId` travel with the row. Toast "Moved {name} to {list}"; Undo
+  is the same action back to the source list.
+- **Merge** (the item is already unticked on the target, same unit): the
+  target row gets the quantity added and keeps its own note, price and
+  author; the moved row is deleted. The action returns the target row's id
+  and the deleted row's quantity, note, `estimatedPrice`, `addedByUserId`,
+  `addedAutomatically` and `sample`. Toast "Merged {name} into {list}"; Undo calls
+  `undoMergedShoppingListMoveAction`, which checks the source list is the
+  household's and `ACTIVE` and the target row the household's, Zod-validates
+  the values with the edit dialog's bounds, keeps the author only if still
+  a member, and in one transaction subtracts the quantity (a conditional
+  write: the row must be unticked and hold more than that) and recreates
+  the row on the source list with name, unit and link read from the target
+  row and the deleted row's AUTO-8 and sample flags, so AUTO-8's Undo and
+  "Clear sample data" still find it. Otherwise it changes nothing: "That list has changed, so the move
+  can't be undone".
+- **Different unit**: nothing changes and the sheet stays open with "{name}
+  is already on {list} in another unit".
+
+The writes re-check that the moved row is still unticked on its list, and a
+merge's addition re-checks the target row the same way (a miss throws, so
+the transaction rolls the delete back), so a tick on either row landing
+mid-move changes nothing ("Item not found"). A move records no
+LIST_CLEARED notification even when it empties the source: the shopping
+moved, it isn't done. Unit tests: `item-actions.move.test.ts`; flow spec:
+`e2e/shopping-move-item.spec.ts`.
 
 The "Done shopping after Undo leaves a late pending row" spec (MAINT-47) waits
 for each server action's answer before it inserts the late row, because the
@@ -9787,7 +9851,10 @@ Todoist-style. Built as one shared wrapper,
   (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
-  `sm` up the icons show as before. Task rows have no ⋯ at all (UX-106):
+  `sm` up the icons show as before, and the ⋯ is hidden unless the row
+  also offers "Move to list…" (GAP-82, below), which has no icon of its
+  own: then it shows at every width, between the edit and delete icons, so
+  delete stays last. Task rows have no ⋯ at all (UX-106):
   the edit sheet has a Delete button instead.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the

@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
-import { useItemHandlers } from "@/components/inventory/use-item-handlers";
+import { showMarkedEmptyToast, useItemHandlers } from "@/components/inventory/use-item-handlers";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
@@ -691,6 +691,23 @@ export function QuantityStepper({
     });
   }
 
+  // UX-197: a sheet amount that takes the item to 0 ("All", or a typed
+  // amount at least the stock) is an emptying, so it toasts like "Mark as
+  // empty" and gets the same Undo back to the old amount. It still saves as
+  // a delta, so the server decides: on a stale row (another member
+  // restocked) the amount comes off the server's stock, nothing empties and
+  // there's no `undo`, just the usual auto-add toast. The stepper's own −
+  // keeps its auto-add toast: one step down is put right with one step up.
+  function applyFromSheet(delta: number) {
+    startTransition(async () => {
+      addOptimisticDelta(delta);
+      const result = await settleOptimisticAction(() => adjustQuantityAction(item.id, delta), dict.saveFailedToast);
+      if (!result) return;
+      if (result.undo) showMarkedEmptyToast(item, { listName: result.autoAdded?.[0]?.listName, undo: result.undo }, dict);
+      else showAutoAddedToast(result.autoAdded, dict.autoAdd);
+    });
+  }
+
   const isTable = layout === "table";
   const buttonClass = isTable ? "size-7" : "shrink-0";
   return (
@@ -732,7 +749,7 @@ export function QuantityStepper({
         quantity={quantity}
         unitText={unitLabel(item.unit)}
         unit={item.unit}
-        onApply={adjust}
+        onApply={applyFromSheet}
         dict={dict.quantitySheet}
       />
       <Button
