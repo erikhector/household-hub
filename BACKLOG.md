@@ -278,8 +278,12 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
 - [ ] **MAINT-107. Run `command-palette.spec.ts` on the `iphone` project, so the MAINT-103 repair is tested in WebKit** (med, S) —
       A navigation issued while a dialog's `history.back()` is still pending is repaired in `src/components/ui/dialog-history.ts` (MAINT-103): the back undoes the push and the helper steps forward onto it again. That repair has never run in WebKit. The one test that forces the ordering, "Enter still navigates when the router pushes before the palette's history entry is gone" (`e2e/command-palette.spec.ts:85`), is not in the `iphone` project, whose `testMatch` in `playwright.config.ts` is `smoke|flows|form-control-sizes.mobile`. Why it matters: MAINT-101 ("an edit still shows after navigating away and back", `e2e/flows.spec.ts`) twice failed its first attempt on `iphone` in the GitHub e2e job with the page still on `/dashboard/tasks` 5 s after `router.push("/dashboard/profile")` (release PR #1425 on 138ae29, 2026-11-14, job 132417142477; release PR #1484 on f77b161, 2026-11-16, job 133033346476), and the second sighting already had the MAINT-103 repair. The inferred cause, never reproduced (no trace was kept and WebKit can't be installed in the build container), is the push falling inside the Add dialog's pending back. #1487 settled the test by waiting with `waitForDialogHistory` before the push, so no test goes through that path in WebKit any more. If the inference is right, the repair doesn't hold on iOS, and someone who taps a nav link straight after adding a task stays on the page.
       Change: add `command-palette` to the `iphone` project's `testMatch` in `playwright.config.ts`. The spec opens the palette with Ctrl+K and has no `isMobile` branches; if one of its other tests can't pass in WebKit for a reason that has nothing to do with the repair, move the MAINT-103 test to a spec of its own that `iphone` matches and say so in the PR, rather than skipping it there. If the MAINT-103 test fails on `iphone`, that is the finding: fix the repair in `dialog-history.ts` in the same PR, or file the bug with the trace as its own item. Never merge it skipped, loosened or retried.
-      Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here.
+      Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here. Happened: filed as MAINT-112 (release PR #1506, 2026-11-16).
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time, with the MAINT-103 test among the tests run (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next release PR is the evidence: it lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt, none `flaky`).
+- [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
+      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The earlier two sightings are in MAINT-107. With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; MAINT-107 names the remaining candidate, a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next two release PRs lists `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
 
 ### UX (2026-09-26 scout)
 
@@ -577,25 +581,6 @@ not looked at (no project renders it).
       `scrollWidth` to be no more than its `clientWidth`, every target in
       the bar to pass `expectTouchTargets`, and no horizontal overflow;
       at 412 px the bar is still two rows.
-- [ ] **UX-199. Inventory filter chips cut off their own value on desktop and tablet** (impact: med, effort: S) —
-      the "Last updated" and "Group by" selects above the inventory table
-      have fixed widths (`w-48`, `w-44`) but show "label: value", so the
-      value is the part that gets cut: "Senast uppdaterad: N…" and
-      "Gruppera efter: Ing…" in Swedish, "Group by: No group…" in
-      English, with 110 px or more free to the right of the row.
-      `src/components/inventory/inventory-client.tsx:421`, `:436`;
-      screenshots `desktop-sv-dashboard-inventory.png`,
-      `tablet-sv-dashboard-inventory.png`,
-      `landscape-en-dashboard-inventory.png`. Breaks principle 3
-      (Hierarchy: the current filter is what the control is for) and M9
-      on `tablet` and `landscape` (truncated with no way to read the
-      rest, since touch shows no `title`). Fix: size both triggers to
-      their content (`w-auto min-w-44`, the row already wraps), keeping
-      the accessible names UX-155 added. Acceptance: an e2e test on
-      `desktop`, `tablet` and `landscape`, in `en` and `sv`, expects
-      neither trigger's value to be clipped (`scrollWidth` no more than
-      `clientWidth`) with the default filters and with the longest option
-      of each selected, and no horizontal overflow.
 
 ---
 
