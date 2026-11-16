@@ -585,25 +585,6 @@ not looked at (no project renders it).
       `scrollWidth` to be no more than its `clientWidth`, every target in
       the bar to pass `expectTouchTargets`, and no horizontal overflow;
       at 412 px the bar is still two rows.
-- [ ] **UX-199. Inventory filter chips cut off their own value on desktop and tablet** (impact: med, effort: S) —
-      the "Last updated" and "Group by" selects above the inventory table
-      have fixed widths (`w-48`, `w-44`) but show "label: value", so the
-      value is the part that gets cut: "Senast uppdaterad: N…" and
-      "Gruppera efter: Ing…" in Swedish, "Group by: No group…" in
-      English, with 110 px or more free to the right of the row.
-      `src/components/inventory/inventory-client.tsx:421`, `:436`;
-      screenshots `desktop-sv-dashboard-inventory.png`,
-      `tablet-sv-dashboard-inventory.png`,
-      `landscape-en-dashboard-inventory.png`. Breaks principle 3
-      (Hierarchy: the current filter is what the control is for) and M9
-      on `tablet` and `landscape` (truncated with no way to read the
-      rest, since touch shows no `title`). Fix: size both triggers to
-      their content (`w-auto min-w-44`, the row already wraps), keeping
-      the accessible names UX-155 added. Acceptance: an e2e test on
-      `desktop`, `tablet` and `landscape`, in `en` and `sv`, expects
-      neither trigger's value to be clipped (`scrollWidth` no more than
-      `clientWidth`) with the default filters and with the longest option
-      of each selected, and no horizontal overflow.
 
 ### Dependencies
 

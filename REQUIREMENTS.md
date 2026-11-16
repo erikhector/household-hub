@@ -695,6 +695,12 @@ every lookup the old one did.
   its mobile Filters-dialog twin, and the table's actions column header has
   `sr-only` text, so a screen reader hears what a control is, not just its
   current value.
+  **Whole filter values (UX-199)**: the desktop "Last updated" and "Group
+  by" triggers read "label: value", so they size to their content
+  (`w-auto min-w-44`, capped at the row's width) instead of a fixed width
+  that cut the value off ("Gruppera efter: Ing…"); the row wraps. Every
+  option shows in full on desktop, tablet and landscape, in both languages
+  (`e2e/ux-199.spec.ts`).
   **What needs attention (UX-121)**: above the search row a "Needs
   attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
   "2 expired"), each hidden at zero. Tapping one sets the Status filter to
@@ -10180,6 +10186,8 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+  A trigger that shows a "label: value" pair should size to its content
+  (UX-199) so the ellipsis never eats the value.
 - **200% text size (UX-9)**: with the root font-size doubled (Android "Font
   size", iOS Larger Text in the installed app) no page scrolls sideways on a
   phone. Rows of fixed-width siblings wrap (`flex-wrap`: shopping item
