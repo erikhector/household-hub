@@ -518,6 +518,85 @@ WebKit was not run (no browser installed here), and no project in
 either sweep renders the dark theme (`mobile` has no `colorScheme`), so
 dark was not looked at.
 
+### UX (2026-11-16 scout)
+
+Monday area: inventory and item pages. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` truncations (UX-150). The deep dive drove add (empty and with
+a 70-character name), the quantity sheet, Mark as empty, delete and Undo,
+bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
+and `sv`. WebKit was not run (no browser installed here), and dark was
+not looked at (no project renders it).
+
+- [ ] **UX-197. Undo for emptying an inventory item** (impact: med, effort: M) —
+      "Mark as empty" in a row's ⋯ menu, and the "All" chip in the
+      quantity sheet (which applies on one tap), overwrite the amount
+      with 0 and nothing puts it back: a slip on "Olive oil, 0.7 l" loses
+      the 0.7. With auto-add on, the toast that follows reads 'Added
+      Olive oil to "Next shop" · Undo', and that Undo only removes the
+      list row, so the item stays at 0 while the user thinks it was
+      undone; with auto-add off and plain "Mark as empty" there is no
+      toast at all (`src/components/inventory/use-item-handlers.ts:50-60`,
+      `showAutoAddedToast` returns on an empty list). Mark opened and
+      Freeze, in the same menu, already restore a snapshot from their
+      toast. Breaks principle 5 (destructive actions are confirmed or
+      undoable; every action gives a result) and Guardrails' "undo over
+      confirm". Seen on `/dashboard/inventory` on `mobile` and at 320 px,
+      `en` and `sv`; the item page shares the handler. Fix: one toast per
+      emptying ('Olive oil marked as empty · Undo') whose Undo restores
+      the previous quantity and removes the list row that emptying added,
+      refusing with a message if the amount changed since (the
+      `undoMarkItemOpenedAction` shape); the same toast when the quantity
+      sheet takes an item to 0
+      (`src/components/inventory/quantity-sheet.tsx:107`,
+      `inventory-table.tsx:735`). Text in `en.ts` and `sv.ts`.
+      Acceptance: an e2e test on `mobile` and `desktop` marks an item
+      with 6 pcs as empty from the row menu, sees one toast naming the
+      item with Undo, taps it, and after a reload the row shows 6 pcs and
+      the default list has no row for it; the same through the quantity
+      sheet's "All"; a unit test covers the undo action's tenancy check
+      and its refusal after a later change.
+- [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
+      with rows selected on `/dashboard/inventory` at 320 px, the bar's
+      second row is the field select (`w-36`, 144 px), the value input
+      and Apply, and the input gets what is left: 41 × 44 px, showing
+      "t.e…" for its placeholder and about two characters of a typed
+      location or category. The count beside "Markera alla" is cut to
+      "2 varor ma…" in Swedish (81 px for 116 px of text). At 412 px the
+      input is 136 px and reads fine. Breaks M1 ("a field whose value
+      can't be read isn't a field"; a select gets its own row on a
+      phone) and M9 (Swedish strings truncate with the full value
+      reachable). `src/components/inventory/inventory-table.tsx:295`,
+      `:335`, `:354-374`. Fix: let the second row wrap so the value input
+      keeps a readable minimum (`min-w-32`) and the select or Apply moves
+      to its own line when the row is narrower than that, and let the
+      count wrap instead of truncating. Acceptance: an e2e test on
+      `mobile` at a 320 px viewport, in `sv`, selects two rows and
+      expects the value field to be at least 128 px wide, the count's
+      `scrollWidth` to be no more than its `clientWidth`, every target in
+      the bar to pass `expectTouchTargets`, and no horizontal overflow;
+      at 412 px the bar is still two rows.
+- [ ] **UX-199. Inventory filter chips cut off their own value on desktop and tablet** (impact: med, effort: S) —
+      the "Last updated" and "Group by" selects above the inventory table
+      have fixed widths (`w-48`, `w-44`) but show "label: value", so the
+      value is the part that gets cut: "Senast uppdaterad: N…" and
+      "Gruppera efter: Ing…" in Swedish, "Group by: No group…" in
+      English, with 110 px or more free to the right of the row.
+      `src/components/inventory/inventory-client.tsx:421`, `:436`;
+      screenshots `desktop-sv-dashboard-inventory.png`,
+      `tablet-sv-dashboard-inventory.png`,
+      `landscape-en-dashboard-inventory.png`. Breaks principle 3
+      (Hierarchy: the current filter is what the control is for) and M9
+      on `tablet` and `landscape` (truncated with no way to read the
+      rest, since touch shows no `title`). Fix: size both triggers to
+      their content (`w-auto min-w-44`, the row already wraps), keeping
+      the accessible names UX-155 added. Acceptance: an e2e test on
+      `desktop`, `tablet` and `landscape`, in `en` and `sv`, expects
+      neither trigger's value to be clipped (`scrollWidth` no more than
+      `clientWidth`) with the default filters and with the longest option
+      of each selected, and no horizontal overflow.
+
 ### Dependencies
 
 - [ ] **DEPS-9. Group the in-range patch/minor bumps** (impact: low, effort: S) —
