@@ -1682,6 +1682,14 @@ every lookup the old one did.
     floated mid-list above the Add-item button. From `sm` it's one
     wrapping row above the table with "Clear selection" last. There is
     still no bulk delete.
+  - **Bulk-edit bar on a narrow phone (UX-198).** The value field never
+    shrinks below 128 px (`min-w-32`): when the field select, the value
+    and Apply don't fit on one line (below about 408 px, e.g. 320 px),
+    the row wraps and Apply moves to a line of its own at the right edge,
+    and `<main>` reserves the three rows' height there (`globals.css`,
+    `[data-bulk-bar=""]`). The count ("2 varor markerade") wraps instead
+    of truncating. At 412 px the bar is still two rows.
+    `e2e/ux-198.mobile.spec.ts`.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
     offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):

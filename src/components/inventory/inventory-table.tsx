@@ -287,12 +287,22 @@ export function InventoryTable({
         // last row still scrolls out from under it. From `sm` it's one
         // wrapping row above the table, as before: each row's groups are
         // `sm:contents`, and Clear selection is ordered last.
+        // UX-198: on a 320 px phone the second row can't hold the field
+        // select, a readable value input and Apply side by side; squeezed
+        // onto one line the input shrank to 41 px ("t.e…"). So that row
+        // wraps instead: the input keeps 128 px (M1, a field whose value
+        // can't be read isn't a field) and Apply drops to its own line,
+        // pushed to the right edge where the thumb is (globals.css gives
+        // <main> the third row's height back below 408 px). At 412 px it
+        // all still fits on one line, so the bar stays two rows there. The
+        // count wraps too rather than truncating (M9: the Swedish "2 varor
+        // markerade" was cut to "2 varor ma…").
         <div
           data-bulk-bar=""
           className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] print:hidden"
         >
           <div className="flex items-center gap-2 sm:contents">
-            <span className="text-sm font-medium max-sm:min-w-0 max-sm:flex-1 max-sm:truncate">
+            <span className="text-sm font-medium max-sm:min-w-0 max-sm:flex-1 max-sm:break-words">
               {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
             </span>
             {!allSelected && (
@@ -324,7 +334,7 @@ export function InventoryTable({
               <span className="max-sm:sr-only">{dict.bulkActions.clearSelection}</span>
             </Button>
           </div>
-          <div className="flex items-center gap-2 sm:contents">
+          <div className="flex items-center gap-2 max-sm:flex-wrap sm:contents">
             <Select
               value={bulkField}
               onValueChange={(v) => {
@@ -351,7 +361,7 @@ export function InventoryTable({
                 step="any"
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
-                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-32 max-sm:flex-1"
                 aria-label={dict.bulkActions.valueAriaLabel}
               />
             ) : bulkField === "unit" ? (
@@ -359,7 +369,7 @@ export function InventoryTable({
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
                 maxLength={20}
-                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-32 max-sm:flex-1"
                 aria-label={dict.bulkActions.valueAriaLabel}
               />
             ) : (
@@ -371,7 +381,7 @@ export function InventoryTable({
                   maxLength={bulkField === "category" ? 60 : 120}
                   list={`bulk-${bulkField}-options`}
                   autoComplete="off"
-                  className="h-8 w-48 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                  className="h-8 w-48 max-sm:h-11 max-sm:w-auto max-sm:min-w-32 max-sm:flex-1"
                   aria-label={dict.bulkActions.valueAriaLabel}
                 />
                 <datalist id={`bulk-${bulkField}-options`}>
@@ -383,7 +393,7 @@ export function InventoryTable({
             )}
             <Button
               size="sm"
-              className="h-8 max-sm:h-11 max-sm:shrink-0"
+              className="h-8 max-sm:ml-auto max-sm:h-11 max-sm:shrink-0"
               disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
               onClick={handleBulkApply}
             >

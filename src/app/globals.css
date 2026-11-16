@@ -77,6 +77,17 @@
     padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
     scroll-padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
   }
+  /* UX-198: below about 408 px the inventory bar's field row wraps (the
+     value field keeps 128 px, so Apply drops to a line of its own), making
+     it three rows like the planner's. 25.5rem is where the Swedish row
+     ("Tillämpa") stops fitting; the shorter English one wraps a little
+     narrower, and the extra room it gets in between is harmless. */
+  @media (width < 25.5rem) {
+    [data-app-main]:has([data-bulk-bar=""]) {
+      padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
+      scroll-padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
+    }
+  }
 }
 
 /* UX-139: a Card on a dashboard page is a surface too (the budget pages
