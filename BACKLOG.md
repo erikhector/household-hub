@@ -269,10 +269,12 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
       Further sighting (2026-11-15, builder's locked `ci:local` on abf9c66, PR #1479, MAINT-103: a fix in `dialog-history.ts` for a navigation lost when a dialog closes, which touches neither this spec nor the budget feature): `mobile` project, the same test (`:87`) failed once in the first full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`, a forced click on the `peer sr-only` `categoryId` radio straight after the Add transaction dialog opened), and passed in a second full run on the same commit (1691 passed).
+      Further sighting (2026-11-16, reviewer's locked `ci:local` on release PR #1484, f77b161): `mobile` project, the same test (`:87`) failed once in the full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`; 1 failed, 1696 passed) and passed in a rerun of the spec on the same commit (`--project=mobile`, 6 passed). The GitHub e2e job on that commit passed it.
 - [ ] **MAINT-101. Flaky: `router.push("/dashboard/profile")` leaves the page on `/dashboard/tasks` in the cached-page spec on the `iphone` project** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (it runs in the GitHub e2e job). In the GitHub `End-to-end (Playwright)` job on release PR #1425 (138ae29, 2026-11-14, job 132417142477) the first attempt failed and the retry passed, so Playwright marked it `flaky`. The local `ci:local` on the same commit passed this test. Failing assertion at `:71`: `expect(page).toHaveURL(/\/dashboard\/profile/)` → received `http://localhost:3000/dashboard/tasks` for the whole 5 s. The test calls `window.next.router.push` right after the new task's checkbox is visible, so the push may run while the add action's `revalidatePath` refresh is still in flight and get dropped, or before the router is patched. Start from the trace: check whether a navigation request for `/dashboard/profile` was ever sent, and wait for the add to settle (the Server Action's response, or `expectRouterPatched`) before the push.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub e2e job is the evidence).
+      Further sighting (2026-11-16, GitHub `End-to-end (Playwright)` job 133033346476 on release PR #1484, f77b161): `iphone` project, the same test (`:57`) failed its first attempt with the same assertion at `:71` (`toHaveURL(/\/dashboard\/profile/)` received `http://localhost:3000/dashboard/tasks` for the whole 5 s) and passed on the retry, so Playwright marked it `flaky` (1733 passed, 1 flaky).
 - [ ] **MAINT-104. Flaky: the What's new link in Profile's About disclosure isn't found within 20 s in the Back-restores-scroll spec** (low, S) —
       `e2e/ux-193.spec.ts:26`, the `#profile-notifications` variants only: "Back to Profile restores the scroll position, with a hash" on `desktop`, and "…, with a hash, fetched again" on `mobile`. The spec is new in #1453 (UX-193). Three sightings, all on 2026-11-15. (1) The builder's locked `ci:local` on 6faed9d (#1453's branch merged with `next`): "with a hash, fetched again" failed once on `mobile`, and passed in the next full gate. (2) and (3) The GitHub `End-to-end (Playwright)` job on release PR #1455 (908b494, job 132738518572): the `desktop` "with a hash" test and the `mobile` "with a hash, fetched again" test each failed their first attempt (after 21.4 s and 22.1 s) and passed on the retry, so Playwright marked both `flaky`; the reviewer's locked `ci:local` on the same commit passed all eight `ux-193` tests. Failing step, the same each time: `expectHydrated(link)` at `:35` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`). That error alone can't tell "the link is there but not hydrated" from "the link isn't there": `expectHydrated` polls `target.evaluate(…)`, which waits for the element. The builder's failure snapshot (sighting 1) shows the second: the About summary focused and the `<details>` closed again, after the spec clicked the summary straight after `gotoRevealed`, before hydration. What closes the disclosure is not known; that only the hash variants fail points at whatever the hash sets off while the page hydrates (`ScrollToHash`, or the restore). `e2e/notifications-empty-state.spec.ts:74` clicks a summary (Danger zone) the same way.
       Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
@@ -518,12 +520,32 @@ dark was not looked at.
 
 ### Dependencies
 
-- [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
-      Held back from DEPS-7: 1.65 wants Chromium build 1254 but the
-      pre-installed one is 1243, so the e2e suite can't launch until the
-      environment's browsers move. Bump once `npx playwright install
-      chromium` (or the image) provides 1254. Acceptance: `npm run
-      ci:local` green (desktop and mobile e2e).
+- [ ] **DEPS-9. Group the in-range patch/minor bumps** (impact: low, effort: S) —
+      `package-lock.json` on `next` (e1d7b00) against the registry on
+      2026-11-16: `next` and `eslint-config-next` 16.4.5→16.4.6,
+      `@playwright/test` 1.65.0→1.65.1 and `knip` 6.44.1→6.45.1 (all four
+      pinned exact in `package.json`, so bump the pins, `next` and
+      `eslint-config-next` together), `@sentry/nextjs` 11.11.0→11.12.0,
+      `lucide-react` 1.70.0→1.73.0, `resend` 6.37.0→6.38.1,
+      `@vercel/functions` 3.11.0→3.11.3, `barcode-detector` 3.2.3→3.2.4
+      and `dotenv` 18.0.9→18.0.10. `npm audit --omit=dev` is still clean on
+      that lockfile, so none is a known security fix. Playwright
+      1.65.1 asks for Chromium build 1255 (1.65.0: 1254) and the web
+      sandbox only ships 1243, which doesn't block the bump: CI installs
+      the matching build, and in the sandbox `fallbackChromium()` in
+      `playwright.config.ts` (DEPS-4) launches the installed Chromium
+      instead, as it already does for 1.65.0. Run `npm ci` first: a
+      `node_modules` left over from before a Dependabot merge makes
+      `npm outdated` report the wrong "from" versions. Majors left alone
+      on purpose: `eslint` 10 (MAINT-12), `typescript` 7
+      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` 26
+      (follows the `.nvmrc` Node 22 pin) and `prisma` 8 (only
+      `8.0.0-rc.33`, no stable release). If Dependabot's weekly
+      minor-and-patch PR lands some of these first, drop them from the
+      list (or delete the item if none is left). Acceptance: the listed
+      packages at those versions in `package.json` and the lockfile,
+      `npm audit --omit=dev` clean, `npm run ci:local` green (desktop and
+      mobile e2e).
 
 ---
 
@@ -891,6 +913,88 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
+
+### 2026-11-13 scan
+
+- [ ] **GAP-82. Move a shopping item to another open list** (impact: med, effort: M) —
+      Bring! now lets you move an item from one list to another (its
+      long-requested iOS feature), and Paprika moves rows between pantry
+      and grocery list. Squirrel supports several `ACTIVE` lists (the
+      household default plus e.g. "Hardware store"), but a row can only
+      be deleted and retyped on the other list: the row's ⋯ menu
+      (`RowActionsMenu` in `src/components/shopping/shopping-row.tsx:296`)
+      has Edit, Delete and Add price only, and the one move that exists is
+      UX-80's bulk carry-over on completion
+      (`completeShoppingListAction`, `src/app/dashboard/shopping-list/list-actions.ts:327`).
+      Add a "Move to list…" entry to the ⋯ menu (the tap path on phones
+      too) for an unbought row, shown only when the household has another `ACTIVE` list. It opens a
+      small picker of the other active lists; picking one calls a new
+      click action `moveShoppingListItemAction(itemId, targetListId)` in
+      `item-actions.ts` that `requireHousehold()`s, checks both lists
+      belong to the household and the target is `ACTIVE`, and rejects a
+      purchased row. Two outcomes, both in one transaction:
+      - **Plain move**: the row has no `inventoryItemId`, or that
+        inventory item has no pending (`purchased: false`) row on the
+        target. Update `shoppingListId` only, so note, price and
+        `addedByUserId` travel with the row. Toast "Moved {name} to
+        {list}" with Undo, which calls the same action with the source
+        list as target.
+      - **Merge**: the same inventory item is already pending on the
+        target (the check carry-over makes, but carry-over then leaves
+        its row behind; there is no merge helper to reuse, this is new
+        code). Same unit: add the moved quantity to the target row,
+        which keeps its own note, price and `addedByUserId`, and delete
+        the moved row. Different unit: change nothing and return an
+        error ("{name} is already on {list} in another unit"). The
+        action returns the target row's id and the deleted row's
+        quantity, note, `estimatedPrice` and `addedByUserId`. Toast
+        "Merged {name} into {list}" with Undo, which calls a second
+        click action `undoMergedShoppingListMoveAction` with those
+        values and the source list id. It `requireHousehold()`s, checks
+        both lists belong to the household and the source is `ACTIVE`,
+        Zod-validates the values like `updateShoppingListItemAction`
+        does (and keeps `addedByUserId` only if it is a member of the
+        household, else null), then in one transaction subtracts the
+        quantity from the target row and recreates the row on the
+        source list with name, unit and `inventoryItemId` read from the
+        target row. If the target row is gone, purchased, or holds no
+        more than that quantity, it changes nothing and returns an
+        error ("That list has changed, so the move can't be undone").
+      Labels in `en.ts` and `sv.ts`.
+      Acceptance: action tests for tenancy (foreign target list rejected,
+      in both actions), non-`ACTIVE` target rejected, purchased row
+      rejected, the plain move keeping note and price, the merge summing
+      quantity, the unit mismatch refused, and the merge undo restoring
+      the source row and the target's quantity (and refusing when the
+      target row was bought meanwhile);
+      e2e on `desktop` and `mobile` creates two `unique()` lists, adds a
+      row to the first, moves it via the ⋯ menu, sees it gone from the
+      first list and present on the second after a reload.
+
+- [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
+      Bring! shows suggested details (amount, variant) under a newly
+      added item, learned from what the household usually buys. Squirrel's
+      smart add line already ranks suggestions by last purchase
+      (REQUIREMENTS.md, "Smart add line (AUTO-1)") but a picked suggestion
+      with nothing typed in front always lands as 1 of its usual unit
+      (`rowsForSuggestion`, `src/lib/shopping/smart-add-suggestions.ts:135`),
+      so a household that always buys 12 eggs or 3 l milk retypes the
+      count every trip, which is the in-store typing PRODUCT.md's Direction
+      wants gone. Extend `SmartAddCandidate` with `lastQuantity` (and its
+      unit) from the newest purchased `ShoppingListItem` per inventory
+      item; the `[id]/page.tsx:114` `groupBy` only returns `createdAt`, so
+      replace it with a `distinct: ["inventoryItemId"]` `findMany`
+      ordered by `createdAt desc` (household-scoped, as now). When nothing
+      is typed in front, use the last quantity if its unit matches the
+      item's usual unit, else 1 as today; a typed count/unit always wins.
+      The suggestion row shows the amount it will add ("Eggs · 12 pcs"),
+      so nothing is added silently (Guardrails: suggest, don't mutate),
+      and the row stays editable afterwards. No schema change; any new
+      label in `en.ts` and `sv.ts`.
+      Acceptance: unit tests of `rowsForSuggestion` (last quantity used,
+      typed quantity wins, unit mismatch falls back to 1); e2e on `mobile`
+      buys a `unique()` item as 6 pcs on one list, then on a new list types
+      its prefix, sees "6" in the suggestion and gets a 6 pcs row on pick.
 
 ## Needs a decision before building
 
