@@ -958,7 +958,7 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-11-13 scan
 
-- [ ] **GAP-82. Move a shopping item to another open list** (impact: med, effort: S) —
+- [ ] **GAP-82. Move a shopping item to another open list** (impact: med, effort: M) —
       Bring! now lets you move an item from one list to another (its
       long-requested iOS feature), and Paprika moves rows between pantry
       and grocery list. Squirrel supports several `ACTIVE` lists (the
@@ -967,20 +967,48 @@ out to be a product-scope question rather than a scoped task should move to
       (`RowActionsMenu` in `src/components/shopping/shopping-row.tsx:296`)
       has Edit, Delete and Add price only, and the one move that exists is
       UX-80's bulk carry-over on completion
-      (`completeShoppingListAction`, `src/app/dashboard/shopping-list/list-actions.ts:320`).
+      (`completeShoppingListAction`, `src/app/dashboard/shopping-list/list-actions.ts:327`).
       Add a "Move to list…" entry to the ⋯ menu (the tap path on phones
       too) for an unbought row, shown only when the household has another `ACTIVE` list. It opens a
       small picker of the other active lists; picking one calls a new
       click action `moveShoppingListItemAction(itemId, targetListId)` in
       `item-actions.ts` that `requireHousehold()`s, checks both lists
-      belong to the household and the target is `ACTIVE`, and updates
-      `shoppingListId` (keeping note, price, `addedByUserId`). If the same
-      inventory item is already pending on the target it merges into that
-      row by summing quantity in the same unit (else refuses with an
-      error), the same dedupe carry-over uses. Toast "Moved {name} to
-      {list}" with Undo (moves it back). Labels in `en.ts` and `sv.ts`.
-      Acceptance: action tests for tenancy (foreign target list rejected),
-      non-`ACTIVE` target rejected, purchased row rejected, and the merge;
+      belong to the household and the target is `ACTIVE`, and rejects a
+      purchased row. Two outcomes, both in one transaction:
+      - **Plain move**: the row has no `inventoryItemId`, or that
+        inventory item has no pending (`purchased: false`) row on the
+        target. Update `shoppingListId` only, so note, price and
+        `addedByUserId` travel with the row. Toast "Moved {name} to
+        {list}" with Undo, which calls the same action with the source
+        list as target.
+      - **Merge**: the same inventory item is already pending on the
+        target (the check carry-over makes, but carry-over then leaves
+        its row behind; there is no merge helper to reuse, this is new
+        code). Same unit: add the moved quantity to the target row,
+        which keeps its own note, price and `addedByUserId`, and delete
+        the moved row. Different unit: change nothing and return an
+        error ("{name} is already on {list} in another unit"). The
+        action returns the target row's id and the deleted row's
+        quantity, note, `estimatedPrice` and `addedByUserId`. Toast
+        "Merged {name} into {list}" with Undo, which calls a second
+        click action `undoMergedShoppingListMoveAction` with those
+        values and the source list id. It `requireHousehold()`s, checks
+        both lists belong to the household and the source is `ACTIVE`,
+        Zod-validates the values like `updateShoppingListItemAction`
+        does (and keeps `addedByUserId` only if it is a member of the
+        household, else null), then in one transaction subtracts the
+        quantity from the target row and recreates the row on the
+        source list with name, unit and `inventoryItemId` read from the
+        target row. If the target row is gone, purchased, or holds no
+        more than that quantity, it changes nothing and returns an
+        error ("That list has changed, so the move can't be undone").
+      Labels in `en.ts` and `sv.ts`.
+      Acceptance: action tests for tenancy (foreign target list rejected,
+      in both actions), non-`ACTIVE` target rejected, purchased row
+      rejected, the plain move keeping note and price, the merge summing
+      quantity, the unit mismatch refused, and the merge undo restoring
+      the source row and the target's quantity (and refusing when the
+      target row was bought meanwhile);
       e2e on `desktop` and `mobile` creates two `unique()` lists, adds a
       row to the first, moves it via the ⋯ menu, sees it gone from the
       first list and present on the second after a reload.
