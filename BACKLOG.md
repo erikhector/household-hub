@@ -520,12 +520,32 @@ dark was not looked at.
 
 ### Dependencies
 
-- [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
-      Held back from DEPS-7: 1.65 wants Chromium build 1254 but the
-      pre-installed one is 1243, so the e2e suite can't launch until the
-      environment's browsers move. Bump once `npx playwright install
-      chromium` (or the image) provides 1254. Acceptance: `npm run
-      ci:local` green (desktop and mobile e2e).
+- [ ] **DEPS-9. Group the in-range patch/minor bumps** (impact: low, effort: S) —
+      `package-lock.json` on `next` (e1d7b00) against the registry on
+      2026-11-16: `next` and `eslint-config-next` 16.4.5→16.4.6,
+      `@playwright/test` 1.65.0→1.65.1 and `knip` 6.44.1→6.45.1 (all four
+      pinned exact in `package.json`, so bump the pins, `next` and
+      `eslint-config-next` together), `@sentry/nextjs` 11.11.0→11.12.0,
+      `lucide-react` 1.70.0→1.73.0, `resend` 6.37.0→6.38.1,
+      `@vercel/functions` 3.11.0→3.11.3, `barcode-detector` 3.2.3→3.2.4
+      and `dotenv` 18.0.9→18.0.10. `npm audit --omit=dev` is still clean on
+      that lockfile, so none is a known security fix. Playwright
+      1.65.1 asks for Chromium build 1255 (1.65.0: 1254) and the web
+      sandbox only ships 1243, which doesn't block the bump: CI installs
+      the matching build, and in the sandbox `fallbackChromium()` in
+      `playwright.config.ts` (DEPS-4) launches the installed Chromium
+      instead, as it already does for 1.65.0. Run `npm ci` first: a
+      `node_modules` left over from before a Dependabot merge makes
+      `npm outdated` report the wrong "from" versions. Majors left alone
+      on purpose: `eslint` 10 (MAINT-12), `typescript` 7
+      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` 26
+      (follows the `.nvmrc` Node 22 pin) and `prisma` 8 (only
+      `8.0.0-rc.33`, no stable release). If Dependabot's weekly
+      minor-and-patch PR lands some of these first, drop them from the
+      list (or delete the item if none is left). Acceptance: the listed
+      packages at those versions in `package.json` and the lockfile,
+      `npm audit --omit=dev` clean, `npm run ci:local` green (desktop and
+      mobile e2e).
 
 ---
 
