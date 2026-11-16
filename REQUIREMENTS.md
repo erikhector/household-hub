@@ -1672,7 +1672,7 @@ every lookup the old one did.
     nothing is undoable.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
     bar is a full-width toolbar `fixed` to the top of the bottom bar, two
-    rows high: the count, "Select all" (hidden once everything is ticked),
+    rows high (three on a narrow phone, see UX-198 below): the count, "Select all" (hidden once everything is ticked),
     an icon-only cart for "Add to shopping list" and an ✕ for "Clear
     selection" (both keep their labels as accessible names), then the
     field select, the value and Apply. While it's up the Add-item button
