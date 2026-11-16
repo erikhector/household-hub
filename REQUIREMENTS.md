@@ -10831,6 +10831,19 @@ UX-14's rapid ticks and the rollback toast.
   land between that check and the press, which then closed it:
   `toBeVisible` passed on the sheet sliding out, the arrow keys and the
   `fill` still worked, and "No matching commands." never came (MAINT-99).
+  `clickListSetting` waits for each menu's 100 ms open animation to end
+  before it clicks in it. `click()` waits for a moving target by
+  retrying, and from its third attempt Playwright scrolls the target
+  into view by force. An open menu stops the user scrolling, not a
+  script, so on a screen shorter than the page (`landscape`) that
+  scrolled the window under the menu, which followed its button away
+  from the pointer. The "List settings" submenu opens on hover for a
+  mouse, so it never opened, or closed again under the click on
+  "Add item" (MAINT-105). The same item's second finding:
+  `form-control-sizes.mobile.spec.ts` measures a dialog's fields with
+  `evaluateAll`, which doesn't wait, so it first asserts the dialog is
+  visible (the recurring-item dialog had not mounted yet and measured
+  no fields).
   `expectTouchTargets` and `expectTargetsApart` first wait for
   `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
   page is still scaling back from 0.94, and every 44 px target measured
