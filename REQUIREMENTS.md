@@ -7513,7 +7513,8 @@ co-managers, not kids earning rewards.
   the time of day never matters; `task-due.test.ts` covers the sort and the
   derived date. Open tasks sort overdue (the longest overdue first), then
   due today, then due later (soonest first), then undated, each tier keeping
-  its oldest-first order, on the tasks page and in Home's Today
+  its oldest-first order (tasks made in the same millisecond by id, so a
+  refresh never swaps them, MAINT-114), on the tasks page and in Home's Today
   card (overdue rows are never cut off by its "N more" limit). An overdue
   open row shows `TaskOverdueBadge`, a `warning`-tinted "Overdue · 5 days"
   with an icon, on both; a one-off with a future date also reads "Due 2 Nov"
@@ -10633,8 +10634,11 @@ four tasks above it, then ticks a task below them all: the ticked row
 glides, and none of the rows above it gets a `flip-move`. It checks its
 own rows by their exact labels and deletes the task it added afterwards:
 a leftover from an earlier run, ticked by another spec, sits under
-Completed and rightly glides (MAINT-111). `renderedScale` is
-unit-tested.
+Completed and rightly glides (MAINT-111). Its four fillers share one
+`createdAt`, under twenty older open tasks: over a list that long Postgres
+can return tied rows in a new order on each refresh, which glided two
+fillers past each other on the tick until the page ordered ties by id
+(MAINT-114). `renderedScale` is unit-tested.
 
 Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
 `withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
