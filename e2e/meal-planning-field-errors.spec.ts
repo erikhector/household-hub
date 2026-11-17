@@ -65,8 +65,16 @@ for (const [locale, storageState, t] of [
 
     test("an empty template name is flagged under the field", async ({ page }, testInfo) => {
       // "Save week as template" only shows for a week with meals, so seed one
-      // in a far-future week of its own (a Monday per project and locale).
-      const week = `2032-05-${{ desktop: { en: "03", sv: "10" }, mobile: { en: "17", sv: "24" } }[testInfo.project.name === "mobile" ? "mobile" : "desktop"][locale]}`;
+      // in a week of its own (a Monday per project and locale). MAINT-115:
+      // these used to be four 2032 Mondays week-picks.spec.ts also seeds, and
+      // desktop and mobile share a worker's household while running at the
+      // same time, so one spec's live plan blocked the other's insert on
+      // MealPlan's (householdId, weekStartDate) key. A long-past year keeps
+      // them clear of every other spec's fixed weeks (grep `e2e/` for the
+      // year before changing them) and of the random far-future weeks
+      // plan-leftovers, cook-soon and friends pick, which only count forward
+      // from today. The menu item doesn't care whether the week is over.
+      const week = `2019-04-${{ desktop: { en: "01", sv: "08" }, mobile: { en: "15", sv: "22" } }[testInfo.project.name === "mobile" ? "mobile" : "desktop"][locale]}`;
       const planId = `e2e-ux183b-plan-${E2E_WORKER}-${locale}-${testInfo.project.name}`;
       const client = new Client({ connectionString: process.env.DATABASE_URL });
       await client.connect();

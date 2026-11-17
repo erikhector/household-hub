@@ -10803,7 +10803,14 @@ UX-14's rapid ticks and the rollback toast.
   week's plan after the test (MAINT-106: `ux-19.mobile.spec.ts` left a meal
   in 2031-03-03, the week `native-sheets.spec.ts` and
   `planner-add-missing.spec.ts` open as empty, and both then timed out
-  waiting for an "Add first dinner" that never rendered). That took the suite from 10.1
+  waiting for an "Add first dinner" that never rendered). "No other spec"
+  includes a spec's own other project: desktop and mobile share a worker's
+  household and run at the same time, so a seeded `MealPlan` in a week
+  another spec also seeds can hit the `(householdId, weekStartDate)` key
+  mid-run (MAINT-115: `meal-planning-field-errors.spec.ts` shared four 2032
+  Mondays with `week-picks.spec.ts`, and now seeds 2019 weeks instead,
+  out of reach of the random far-future weeks other specs pick from
+  today). That took the suite from 10.1
   minutes (`workers: 1`) to 5.6 on 4 cores. More workers don't help:
   the single `next start` process is the bottleneck (4 workers: 5.4
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
