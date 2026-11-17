@@ -24,7 +24,44 @@ const plus = (day: Date, days: number) => new Date(day.getTime() + days * DAY_MS
 // dinner" would depend on which ran first. Each test therefore plans on its
 // own days a long way ahead, picked at random in this spec's own band of
 // weeks (far-weeks.ts, MAINT-117) where nothing else is, which keeps the
-// expected suggestion exact.
+// expected suggestion exact. That band is shared by every run of this spec
+// in the worker's household (both projects, every --repeat-each run), so
+// each test also takes its rows away again: a dinner an earlier run left on
+// base + 2 would push the suggestion to base + 3.
+
+// The suffix of each test's seeded rows, for the afterEach below.
+let seeded: string | undefined;
+
+test.afterEach(async () => {
+  if (!seeded) return;
+  const suffix = seeded;
+  seeded = undefined;
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const recipeId = `e2e-recipe-${suffix}`;
+    // Only this household's rows, and only the ones this test made: its
+    // recipe's entries (the cooked dinner and the planned leftovers, whose
+    // ids the app chose), the seeded takeaway, then the recipe (its
+    // leftovers batch cascades with it). The other project's run may be
+    // planning in the same week right now, so the week's plan stays unless
+    // it's one this test made and now empty.
+    await client.query(
+      `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
+       WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1
+         AND (entry."recipeId" = $2 OR entry.id = ANY($3))`,
+      [E2E_HOUSEHOLD.id, recipeId, [`e2e-entry-${suffix}-0`, `e2e-entry-${suffix}-1`]],
+    );
+    await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
+    await client.query(
+      `DELETE FROM "MealPlan" plan WHERE plan."householdId" = $1 AND plan.id = ANY($2)
+         AND NOT EXISTS (SELECT 1 FROM "MealPlanEntry" entry WHERE entry."mealPlanId" = plan.id)`,
+      [E2E_HOUSEHOLD.id, [`e2e-plan-${suffix}-0`, `e2e-plan-${suffix}-1`]],
+    );
+  } finally {
+    await client.end();
+  }
+});
 
 function mondayOf(day: Date) {
   return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
@@ -40,6 +77,7 @@ async function planCookAndDinnerNextDay(recipeName: string, base: Date) {
   try {
     const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const recipeId = `e2e-recipe-${suffix}`;
+    seeded = suffix;
     await client.query(`INSERT INTO "Recipe" (id, "householdId", name) VALUES ($1, $2, $3)`, [
       recipeId,
       E2E_HOUSEHOLD.id,
