@@ -591,23 +591,6 @@ new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
       in the `mobile` and `desktop` projects, tapping Revoke opens an
       `alertdialog`; Cancel leaves the link field visible; confirming shows
       the revoked toast and the share page then reads as revoked.
-- [ ] **UX-202. Show an invalid price next to the field, not in a toast or browser bubble** (impact: med, effort: S) —
-      The inline price edit on a shopping row
-      (`src/components/shopping/shopping-row.tsx:453-455`, `type="number"
-      min={0}` with no `noValidate`) shows the browser's own validation
-      bubble for `-1`. That bubble is in the browser's language, not the
-      app's (English "Value must be greater than or equal to 0" over a
-      Swedish screen), and on a phone it lands under the Next up dock.
-      Anything that gets past it reaches `save()` (:429), which only
-      raises `toast.error(dict.priceInvalid)`, as do server errors (:437).
-      The input never gets `aria-invalid`. Seen on `mobile` and 320 px in
-      `en` and `sv`. Breaks principle 7 (errors next to the field, input
-      kept) and M5. Fix: `noValidate` on the form, keep the message in
-      local state, render it under the field with `aria-invalid` and
-      `aria-describedby`, and drop the toast. Acceptance: in the `mobile`
-      project (sv), typing `-1` and pressing Enter leaves the input showing
-      `-1` with `aria-invalid="true"` and `dict.priceInvalid` visible in
-      that row, and no toast.
 
 ---
 
