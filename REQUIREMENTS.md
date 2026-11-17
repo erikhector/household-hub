@@ -10671,7 +10671,7 @@ history `back()` to land and the page behind it to finish easing back to
 full size (`waitForSheetClosed` in `e2e/ui.ts`), and for the checkbox to
 be hydrated (MAINT-116). On a loaded run a phone tap straddling a frame of
 that ease was released off the checkbox, the first tick never happened,
-and the task stayed open. `tick-moment`, `dismissed-recaps` `motion` and
+and the task stayed open. `tick-moment`, `dismissed-recaps`, `motion` and
 `flows`, which also tick a task they've just added, wait the same way. The
 all-caught-up test closes the household's other open tasks one at a time,
 each save awaited, and counts only those, never its own row.
