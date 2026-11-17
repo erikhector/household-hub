@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.157.1",
+    "date": "2026-11-17",
+    "pr": 1525,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Tasks created at the same moment, such as sample tasks, no longer swap places when you tick another task.",
+      "sv": "Uppgifter som skapades i samma ögonblick, till exempel exempeluppgifter, byter inte längre plats när du bockar av en annan uppgift."
+    }
+  },
+  {
     "version": "0.157.0",
     "date": "2026-11-16",
     "pr": 1518,
