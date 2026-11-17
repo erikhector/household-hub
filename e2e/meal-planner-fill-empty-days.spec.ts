@@ -10,8 +10,12 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // week (the household is shared by the desktop and mobile runs). No other
 // spec may use these weeks either: cleanUp deletes the week's plan by date,
 // and they used to be planner-add-missing.spec.ts's planned weeks, whose
-// seeded meal that delete could wipe mid-test (found with MAINT-115).
-const weekFor = (project: string) => (project === "mobile" ? "2031-08-11" : "2031-08-04");
+// seeded meal that delete could wipe mid-test (found with MAINT-115). Not a
+// past week, since Fill only proposes days that haven't passed, and not one
+// in the 2030s-2080s, which the specs that pick a random far-off week can
+// land on (plan-leftovers reaches ~15 years out, meal-planner-bulk ~63), so
+// that delete could wipe their plan too. 2199 is beyond all of them.
+const weekFor = (project: string) => (project === "mobile" ? "2199-08-12" : "2199-08-05");
 const suffix = Math.random().toString(36).slice(2, 8);
 const recipeId = (i: number) => `e2e-fill-${E2E_WORKER}-${suffix}-${i}`;
 
