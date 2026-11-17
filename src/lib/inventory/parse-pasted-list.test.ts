@@ -13,6 +13,27 @@ describe("parsePastedList", () => {
     ]);
   });
 
+  it("keeps a decimal comma inside one row (UX-200)", () => {
+    expect(parsePastedList("1,5 l mjölk, bröd")).toEqual([
+      { name: "mjölk", quantity: 1.5, unit: "l" },
+      { name: "bröd", quantity: 1, unit: "pcs" },
+    ]);
+    expect(parsePastedList("mjölk 1,5 l")).toEqual([{ name: "mjölk", quantity: 1.5, unit: "l" }]);
+    expect(parsePastedList("havredryck 1,5 liter")).toEqual([
+      { name: "havredryck 1,5 liter", quantity: 1, unit: "pcs" },
+    ]);
+    // Only a comma with a digit directly on both sides is a decimal: a space
+    // on either side still separates items.
+    expect(parsePastedList("ägg 6, 2 l mjölk")).toEqual([
+      { name: "ägg 6", quantity: 1, unit: "pcs" },
+      { name: "mjölk", quantity: 2, unit: "l" },
+    ]);
+    expect(parsePastedList("bröd,2 l mjölk")).toEqual([
+      { name: "bröd", quantity: 1, unit: "pcs" },
+      { name: "mjölk", quantity: 2, unit: "l" },
+    ]);
+  });
+
   it("treats an unclosed bracket as plain text", () => {
     expect(parsePastedList("milk (oat, bread")).toEqual([
       { name: "milk (oat", quantity: 1, unit: "pcs" },

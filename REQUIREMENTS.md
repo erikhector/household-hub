@@ -1936,7 +1936,12 @@ every lookup the old one did.
   unit takes its inventory item's usual unit rather than "pcs". A comma
   inside brackets doesn't split (UX-88): `dishwasher tablets (lemon-free,
   120 st), paper towels` is two rows with the brackets intact (an unclosed
-  bracket doesn't count, so a stray `(` can't swallow the line). The input
+  bracket doesn't count, so a stray `(` can't swallow the line). Nor does
+  a decimal comma (UX-200): a comma with a digit directly on both sides is
+  part of the number, so `1,5 l mjölk, bröd` is two rows, 1.5 l of mjölk
+  and bröd (the same rule applies to the Import list dialog and to the
+  segment autocomplete reads). The row writes the amount in the viewer's
+  locale, so it reads back as `mjölk × 1,5 l` in sv. The input
   clears as soon as it's submitted and keeps focus, so the next item can be
   typed straight away (it's put back if the add fails). Each added row
   highlights for ~2 s and scrolls into view if it was off-screen (the

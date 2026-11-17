@@ -74,6 +74,9 @@ export function ShoppingRow({
   numberFormat: Intl.NumberFormat;
 }) {
   const unitLabel = useUnitLabel();
+  // No locale prop here, but the money format was built for the viewer's
+  // locale, so the amount follows it too: "1,5 l" in sv (UX-200).
+  const itemLabel = formatShoppingItemLabel(item, unitLabel, numberFormat.resolvedOptions().locale);
   const needsMapping = item.inventoryItemId === null;
   const purchased = item.purchased;
   // UX-54: the box fills (with a haptic) before the row moves.
@@ -207,9 +210,9 @@ export function ShoppingRow({
                 large && "text-base max-sm:text-lg pointer-coarse:text-lg",
                 purchased && "text-muted-foreground line-through",
               )}
-              title={formatShoppingItemLabel(item, unitLabel)}
+              title={itemLabel}
             >
-              {formatShoppingItemLabel(item, unitLabel)}
+              {itemLabel}
             </span>
             {item.addedAutomatically && (
               <Badge variant="secondary" className="shrink-0">

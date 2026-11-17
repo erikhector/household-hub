@@ -561,24 +561,6 @@ tick, the row and list menus, share and the share page, and an empty
 new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
 (no browser installed here), and dark was not looked at.
 
-- [ ] **UX-200. Keep a decimal comma inside one smart-add row** (impact: high, effort: S) —
-      Swedish writes `1,5 l`, but `splitOnTopLevelCommas`
-      (`src/lib/inventory/parse-pasted-list.ts:145`, used by
-      `parseSmartAddInput` and the Import list dialog) splits on every
-      top-level comma. `1,5 l mjölk` adds two rows, "1" and "mjölk × 5 l";
-      `havredryck 1,5 liter` adds "havredryck 1" and "liter × 5". Seen on the
-      `mobile` and 320 px phones in `sv` on
-      `/dashboard/shopping-list/[id]`. This breaks principle 4 (the app
-      speaks the user's language and locale): a sv user typing the way
-      they write gets junk rows. Fix: a comma with a digit directly on both
-      sides is a decimal separator, not a list separator, and the quantity
-      parser reads `1,5` as 1.5 (the dialogs already do, REQUIREMENTS.md
-      "Both dialogs read a comma or a point"). Acceptance: unit tests in
-      `parse-pasted-list.test.ts` show `1,5 l mjölk, bröd` →
-      `[{mjölk, 1.5, l}, {bröd}]` and `mjölk 1,5 l` → one row. An e2e
-      test in the `mobile` project (sv) types `1,5 l mjölk` into the add
-      line, presses Enter, and sees exactly one new row reading
-      "mjölk × 1,5 l".
 - [ ] **UX-201. Confirm before revoking a share link, and clear a stale share error** (impact: med, effort: S) —
       In the Share dialog, Revoke
       (`src/components/shopping/share-list-button.tsx:105-111`,
