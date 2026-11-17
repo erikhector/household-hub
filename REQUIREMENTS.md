@@ -1370,6 +1370,13 @@ every lookup the old one did.
       editor. Once there is a price, the ≈ price button stays on the row.
       Rows with a chip or the "Match item" badge keep the stacked second
       line.
+    - *Price errors under the field (UX-202)*: the inline price editor's
+      form is `noValidate`, so a negative or empty price never gets the
+      browser's own bubble (in the browser's language, and under the dock
+      on a phone). `save()` checks it, and that message or the server's
+      refusal shows under the field (`FieldError`, `role="alert"`) with the
+      input kept, `aria-invalid` and `aria-describedby` set; no toast.
+      Typing clears it.
     - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
       row into `ShoppingListClient`, because a ticked row now changes
       section. It's plain state, not `useOptimistic`: React 19 entangles
@@ -1929,7 +1936,12 @@ every lookup the old one did.
   unit takes its inventory item's usual unit rather than "pcs". A comma
   inside brackets doesn't split (UX-88): `dishwasher tablets (lemon-free,
   120 st), paper towels` is two rows with the brackets intact (an unclosed
-  bracket doesn't count, so a stray `(` can't swallow the line). The input
+  bracket doesn't count, so a stray `(` can't swallow the line). Nor does
+  a decimal comma (UX-200): a comma with a digit directly on both sides is
+  part of the number, so `1,5 l mjölk, bröd` is two rows, 1.5 l of mjölk
+  and bröd (the same rule applies to the Import list dialog and to the
+  segment autocomplete reads). The row writes the amount in the viewer's
+  locale, so it reads back as `mjölk × 1,5 l` in sv. The input
   clears as soon as it's submitted and keeps focus, so the next item can be
   typed straight away (it's put back if the add fails). Each added row
   highlights for ~2 s and scrolls into view if it was off-screen (the
