@@ -276,6 +276,22 @@ export async function waitForDialogHistory(page: Page) {
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 }
 
+/** waitForDialogHistory, then waits until the page behind the closed sheet
+ * is back at rest. On a phone it's drawn at 0.94 while a sheet is open
+ * (sheet-indent.tsx) and eases back to full size over 400 ms after. A tap
+ * whose press and release straddle a frame of that ease is released a few
+ * pixels from where it was pressed, so no click reaches the control: a tick
+ * straight after adding a task through the sheet went nowhere on a loaded
+ * run (MAINT-116, as in MAINT-100). Call it before tapping the page after a
+ * sheet closes. At rest the indent has no transform at all; mid-ease it's a
+ * matrix. */
+export async function waitForSheetClosed(page: Page) {
+  await waitForDialogHistory(page);
+  await expect
+    .poll(() => page.locator('[data-slot="sheet-indent"]').evaluate((el) => getComputedStyle(el).transform))
+    .toBe("none");
+}
+
 /** UX-49: a delete that offers Undo only reaches the server once its toast
  * closes. Waits for that toast to show and go, and for the request it sends
  * to finish, so a reload after it sees the row gone. */

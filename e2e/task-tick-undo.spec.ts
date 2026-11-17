@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForDialogHistory } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForSheetClosed } from "./ui";
 
 // UX-104: ticking a task says so and offers Undo (the row leaves for
 // "Completed" below the fold), the weekly recap never appears or grows under
@@ -14,10 +14,9 @@ const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 // drawn at 0.94 (sheet-indent.tsx) and eases back to full size over 400 ms
 // once it closes, and the close takes its history entry off with an async
 // back() (dialog-history.ts). A tap whose press and release straddle a frame
-// of that ease is released a few pixels from where it was pressed, so no
-// click reaches the checkbox (as in MAINT-100), and only a loaded runner is
-// slow enough for that. So the sheet must be fully gone, and the page at
-// rest, before anything is ticked.
+// of that ease is released off the checkbox (waitForSheetClosed in ui.ts),
+// and only a loaded runner is slow enough for that. So the sheet must be
+// fully gone, and the page at rest, before anything is ticked.
 async function addTask(page: Page, title: string) {
   const add = page.getByRole("button", { name: "Add task" });
   // The sheet pushes a history entry as it opens: before hydration the tap
@@ -29,11 +28,7 @@ async function addTask(page: Page, title: string) {
   await page.getByRole("textbox", { name: "Task title" }).fill(title);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
-  await waitForDialogHistory(page);
-  // At rest the indent has no transform at all; mid-ease it's a matrix.
-  await expect
-    .poll(() => page.locator('[data-slot="sheet-indent"]').evaluate((el) => getComputedStyle(el).transform))
-    .toBe("none");
+  await waitForSheetClosed(page);
 }
 
 // A row's checkbox, once React owns it: a tap that lands before hydration is
