@@ -2113,7 +2113,13 @@ every lookup the old one did.
   "Share" button (`ShareListButton`, mirroring `InviteButton`'s show-
   link/copy-button/revoke UX) only while the list is `ACTIVE` — sharing a
   `COMPLETED`/`ARCHIVED` list to let a visitor check off items has no real
-  use once the list is done. The public page itself,
+  use once the list is done. Revoke goes through a `ConfirmDialog`
+  announced as an `alertdialog` (UX-201: it cuts off anyone shopping from
+  the link right now, and sharing again mints a new token, so it can't be
+  undone); a failed revoke toasts and leaves the confirmation open to
+  retry. Each open that has to create a link clears the previous open's
+  create error first, so a stale red error never sits beside a working
+  link. The public page itself,
   `/share/shopping-list/[token]` (top-level, deliberately **not** under
   `/dashboard` so `src/proxy.ts`'s session gate — which only matches
   `/dashboard/*` — never touches it), is a minimal standalone Card with no

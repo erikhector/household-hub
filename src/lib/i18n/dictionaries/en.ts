@@ -1345,6 +1345,10 @@ export const en = {
       activeLabel: "Link is active",
       revoke: "Revoke link",
       revoking: "Revoking…",
+      revokeConfirmTitle: "Revoke this share link?",
+      revokeConfirmDescription:
+        "Anyone shopping from it loses access straight away. Sharing again makes a new link, which you'll have to send again.",
+      revokeConfirmCancel: "Cancel",
       revokedToast: "Share link revoked",
       revokeError: "Could not revoke share link",
     },

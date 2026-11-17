@@ -558,23 +558,6 @@ tick, the row and list menus, share and the share page, and an empty
 new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
 (no browser installed here), and dark was not looked at.
 
-- [ ] **UX-201. Confirm before revoking a share link, and clear a stale share error** (impact: med, effort: S) —
-      In the Share dialog, Revoke
-      (`src/components/shopping/share-list-button.tsx:105-111`,
-      `handleRevoke` at :62) kills the link with a single tap. Anyone
-      shopping from it gets "invalid or revoked" mid-trip, and re-sharing
-      mints a different token, so the action can't be undone. That breaks
-      principle 5 (costly actions are confirmed) and M2. Separately, `error`
-      (:43) is set at :56 but never cleared, so after one failed create,
-      reopening the dialog shows the old red error beside the working link
-      (principle 7, designed states). Fix: route Revoke through the existing
-      `ConfirmDialog` (the pattern `confirmDeleteList` uses) with
-      `shareLink.revokeConfirm*` strings in `en` and `sv`, and call
-      `setError(null)` in `handleOpenChange` before the request. Acceptance:
-      in the `mobile` and `desktop` projects, tapping Revoke opens an
-      `alertdialog`; Cancel leaves the link field visible; confirming shows
-      the revoked toast and the share page then reads as revoked.
-
 ---
 
 ## Phase 2 — schema changes, one at a time
