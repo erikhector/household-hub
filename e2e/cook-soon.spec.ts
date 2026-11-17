@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet, waitForDialogHistory } from "./ui";
@@ -78,7 +79,7 @@ test("toggling Cook soon pins the recipe to the shelf, survives a reload, and to
 });
 
 test("planning a Cook soon recipe takes it off the shelf", async ({ page }) => {
-  const day = new Date(Date.now() + (9500 + Math.floor(Math.random() * 500)) * DAY_MS);
+  const day = farDay("cook-soon");
   await page.goto("/dashboard/meal-planning?tab=recipes");
   const shelf = page.getByRole("region", { name: t.cookSoonTitle, exact: true });
 
@@ -101,9 +102,7 @@ test("marking a Cook soon recipe as cooked takes it off the shelf", async ({ pag
   // A meal in a week of its own years ahead, planned straight in the
   // database along with the queueing: queueing first and planning through
   // the UI would clear the shelf at planning time, before the cook.
-  const today = new Date();
-  const base = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const day = new Date(base + (3000 + Math.floor(Math.random() * 3000)) * DAY_MS);
+  const day = farDay("cook-soon");
   const monday = mondayOf(day);
   const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   await withClient(async (client) => {
