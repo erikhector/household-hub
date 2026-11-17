@@ -10815,8 +10815,12 @@ UX-14's rapid ticks and the rollback toast.
   overflow and with 44 px touch targets (UX-8), every sidebar control
   reachable by scrolling the aside, back-links on one line, 16 px fields).
   A fifth, `iphone` (WebKit, iPhone 15; UX-32), runs `smoke.spec.ts`,
-  `flows.spec.ts` and `form-control-sizes.mobile.spec.ts` (the 16 px
-  field-zoom check iOS needs) to catch iOS Safari differences. It exists
+  `flows.spec.ts`, `form-control-sizes.mobile.spec.ts` (the 16 px
+  field-zoom check iOS needs) and `command-palette.spec.ts` to catch iOS
+  Safari differences. The palette spec is there for its MAINT-103 and
+  MAINT-113 tests, which hold the dialog's `history.back()` until the
+  router has pushed, so the repair in `dialog-history.ts` is exercised in
+  WebKit's history as well as Chromium's (MAINT-107). It exists
   only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
   install --with-deps webkit`, and the `ci:local` gate skips the project
   unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
