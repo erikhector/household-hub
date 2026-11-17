@@ -81,7 +81,9 @@ export function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen} handle={handle}>
       {trigger && <DialogTrigger render={trigger} />}
-      <DialogContent finalFocus={finalFocus} role={alert ? "alertdialog" : undefined}>
+      {/* Spread, not `role={alert ? … : undefined}`: an explicit undefined
+          role overrides the popup's own `dialog` role and leaves it with none. */}
+      <DialogContent finalFocus={finalFocus} {...(alert && { role: "alertdialog" })}>
         <DialogHeader>
           <DialogTitle className="break-words">{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
