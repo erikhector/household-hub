@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.157.3",
+    "date": "2026-11-17",
+    "pr": 1542,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you type an invalid price on a shopping list item, the message now shows right under the price field in your language, and what you typed stays put.\n\nTyping an amount with a decimal comma, like \"1,5 l milk\", in the shopping list's add line now adds one item of 1.5 litres instead of splitting it into two rows.",
+      "sv": "Om du skriver ett ogiltigt pris på en vara i inköpslistan visas meddelandet nu direkt under prisfältet på ditt språk, och det du skrev finns kvar.\n\nSkriver du en mängd med decimalkomma, som \"1,5 l mjölk\", på inköpslistans rad för att lägga till blir det nu en vara på 1,5 liter i stället för två rader."
+    }
+  },
+  {
     "version": "0.157.2",
     "date": "2026-11-17",
     "pr": 1535,
