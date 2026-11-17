@@ -49,6 +49,8 @@ test.afterAll(async () => {
 test("Revoke asks first: Cancel keeps the link, confirming revokes it", async ({ page }) => {
   const listId = `e2e-ux201-${tag()}`;
   await insertList(listId);
+  // A page to go back to, so the back step after revoking can be checked.
+  await page.goto("/dashboard/shopping-list");
   await gotoRevealed(page, `/dashboard/shopping-list/${listId}`);
 
   const share = await openShareDialog(page);
@@ -81,6 +83,14 @@ test("Revoke asks first: Cancel keeps the link, confirming revokes it", async ({
     .click();
   await expect(page.getByText(t.shareLink.revokedToast).first()).toBeVisible();
   await waitForDialogHistory(page);
+
+  // Confirming closes the confirm and the Share dialog together. Both
+  // entries they pushed (dialog-history.ts) must be gone, so one back
+  // (the phone's back gesture, M7) leaves the list page rather than
+  // stepping onto a dead same-URL entry.
+  await expect(page).toHaveURL(new RegExp(`/dashboard/shopping-list/${listId}$`));
+  await page.goBack();
+  await expect(page).toHaveURL(/\/dashboard\/shopping-list$/);
 
   await page.goto(new URL(url).pathname);
   await expect(page.getByRole("heading", { name: en.sharedShoppingList.notFoundTitle })).toBeVisible();

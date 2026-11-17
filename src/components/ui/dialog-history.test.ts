@@ -364,6 +364,37 @@ describe("pushDialogEntry", () => {
     expect(closeConfirm).toHaveBeenCalledOnce();
   });
 
+  it("takes both entries off when a nested pair closes together", async () => {
+    // UX-201: a successful revoke closes the confirm and the Share sheet in
+    // one commit. The confirm's back() is still on its way when the sheet
+    // releases, so history.state still carries the confirm's marker.
+    const browser = fakeBrowser();
+    const { pushDialogEntry } = await load();
+    const closeSheet = vi.fn();
+    const closeConfirm = vi.fn();
+    const releaseSheet = pushDialogEntry(closeSheet);
+    const releaseConfirm = pushDialogEntry(closeConfirm);
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+
+    releaseConfirm();
+    releaseSheet();
+    expect(back).toHaveBeenCalledOnce();
+
+    // The confirm's back lands on the sheet's entry: that goes too.
+    realBack();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(back).toHaveBeenCalledTimes(2);
+
+    // And that one lands on the page itself: swallowed, nothing closes.
+    realBack();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(0);
+    expect(closeSheet).not.toHaveBeenCalled();
+    expect(closeConfirm).not.toHaveBeenCalled();
+    expect(back).toHaveBeenCalledTimes(2);
+  });
+
   it("never pushes an entry for a dialog closed while it was waiting", async () => {
     const browser = fakeBrowser();
     const { pushDialogEntry } = await load();
