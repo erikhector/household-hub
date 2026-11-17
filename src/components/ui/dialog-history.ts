@@ -50,6 +50,33 @@ const deferred: Entry[] = [];
 // restored. Applied where the repair lands, they reach the entry the app
 // meant.
 const heldWrites: (() => void)[] = [];
+// The safety valve for heldWrites. Holding them is only safe while the
+// popstates of our back() and its repair keep arriving, and nothing promises
+// they do: a forward() that finds no entry above (the browser pruned it, or
+// something else rewrote history) fires none, and another popstate listener
+// can stop one before it reaches us. Then the app's writes would wait for
+// the rest of the session, the URL frozen while the router moves on. So if
+// no popstate of ours has come for this long after a write was held, the
+// back is given up on: the writes are applied where the browser is, and
+// ownBack is cleared so later ones go straight through. Each step of the
+// repair re-arms it, so a slow but progressing repair isn't cut short;
+// a back or forward lands in milliseconds, so a second is generous even on
+// a loaded CI runner.
+const HELD_WRITES_TIMEOUT_MS = 1000;
+let heldWritesTimer: ReturnType<typeof setTimeout> | null = null;
+
+function armHeldWritesValve() {
+  if (heldWritesTimer !== null) clearTimeout(heldWritesTimer);
+  heldWritesTimer = setTimeout(releaseHeldWrites, HELD_WRITES_TIMEOUT_MS);
+}
+
+function releaseHeldWrites() {
+  heldWritesTimer = null;
+  if (ownBack === null) return;
+  setOwnBack(null);
+  for (const write of heldWrites.splice(0)) write();
+  flushDeferred();
+}
 
 // Other modules' keys in history.state that must outlive the router's
 // same-URL replaces too (UX-193: the scroll offset scroll-memory.ts keeps
@@ -70,6 +97,10 @@ export const DIALOG_BACK_PENDING_ATTR = "data-dialog-back-pending";
 
 function setOwnBack(value: typeof ownBack) {
   ownBack = value;
+  if (value === null && heldWritesTimer !== null) {
+    clearTimeout(heldWritesTimer);
+    heldWritesTimer = null;
+  }
   if (typeof document !== "undefined") document.documentElement.toggleAttribute(DIALOG_BACK_PENDING_ATTR, value !== null);
 }
 
@@ -86,6 +117,7 @@ function onPopState(event: PopStateEvent) {
       // replaces the URL with the kept item's page), or another dialog
       // opened. The back undid that, so step forward onto it again.
       ownBack.repairing = true;
+      if (heldWritesTimer !== null) armHeldWritesValve();
       event.stopImmediatePropagation();
       window.history.forward();
       return;
@@ -99,6 +131,7 @@ function onPopState(event: PopStateEvent) {
       // the closed dialog's own entry, still on the old URL. The page the
       // app went to is one more step up; stopping here left the palette
       // closed and the app where it was.
+      if (heldWritesTimer !== null) armHeldWritesValve();
       event.stopImmediatePropagation();
       window.history.forward();
       return;
@@ -173,12 +206,16 @@ function install() {
     if (!sameUrl && ownBack !== null) ownBack.overwritten = true;
     return originalReplace(data, unused, url);
   };
+  const hold = (write: () => void) => {
+    heldWrites.push(write);
+    if (heldWritesTimer === null) armHeldWritesValve();
+  };
   history.pushState = (...args: Parameters<History["pushState"]>) => {
-    if (ownBack?.overwritten) heldWrites.push(() => push(...args));
+    if (ownBack?.overwritten) hold(() => push(...args));
     else push(...args);
   };
   history.replaceState = (...args: Parameters<History["replaceState"]>) => {
-    if (ownBack?.overwritten) heldWrites.push(() => replace(...args));
+    if (ownBack?.overwritten) hold(() => replace(...args));
     else replace(...args);
   };
 }
