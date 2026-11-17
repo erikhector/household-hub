@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { Minus, Plus, ShoppingCart, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -127,6 +127,31 @@ export function InventoryTable({
     const visibleIds = new Set(items.map((item) => item.id));
     return new Set([...rawSelected].filter((id) => visibleIds.has(id)));
   }, [rawSelected, items]);
+
+  // UX-198: on a phone <main> reserves the docked bulk bar's height
+  // (globals.css), and that height is two rows or three depending on
+  // whether the field row wraps, which depends on the width, the font, the
+  // text size and the locale. So measure it and publish `--bulk-bar-h`
+  // rather than guess a breakpoint. A layout effect, as in cookie-notice:
+  // measured before paint, the last row never shows covered for a frame;
+  // the ResizeObserver catches later wrapping (rotation, font load, the
+  // count growing a digit). Nothing is stored, it's an inline style that
+  // goes when the selection does.
+  const barRef = useRef<HTMLDivElement>(null);
+  const hasSelection = selected.size > 0;
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--bulk-bar-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--bulk-bar-h");
+    };
+  }, [hasSelection]);
 
   if (items.length === 0 && isHouseholdEmpty) {
     // UX-50: the same empty state as every other section: the mascot, one
@@ -292,12 +317,13 @@ export function InventoryTable({
         // onto one line the input shrank to 41 px ("t.e…"). So that row
         // wraps instead: the input keeps 128 px (M1, a field whose value
         // can't be read isn't a field) and Apply drops to its own line,
-        // pushed to the right edge where the thumb is (globals.css gives
-        // <main> the third row's height back below 408 px). At 412 px it
-        // all still fits on one line, so the bar stays two rows there. The
+        // pushed to the right edge where the thumb is (<main> reserves the
+        // measured height, see barRef above). At 412 px in Chromium it all
+        // still fits on one line, so the bar stays two rows there. The
         // count wraps too rather than truncating (M9: the Swedish "2 varor
         // markerade" was cut to "2 varor ma…").
         <div
+          ref={barRef}
           data-bulk-bar=""
           className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] print:hidden"
         >

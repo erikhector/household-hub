@@ -61,11 +61,17 @@
    reserves the bar's two 44 px rows and padding (7.5rem) on top of
    BottomNav's 3.75rem instead of the button's 4.5rem, so the last row can
    still scroll out from under the bar. Unlayered, so it beats main's own
-   has-[[data-primary-action]] padding utility. */
+   has-[[data-primary-action]] padding utility.
+   UX-198: the inventory bar is two rows at 412 px but three on a narrow
+   phone (its field row wraps so the value field keeps 128 px), and where
+   that happens depends on the font, the text size and the locale. So
+   inventory-table.tsx measures the bar and publishes `--bulk-bar-h`;
+   7.5rem only covers the first paint before that, and the planner's bar
+   below, which doesn't publish it. */
 @media (width < 40rem) {
   [data-app-main]:has([data-bulk-bar]) {
-    padding-bottom: calc(7.5rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
-    scroll-padding-bottom: calc(7.5rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
+    padding-bottom: calc(var(--bulk-bar-h, 7.5rem) + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
+    scroll-padding-bottom: calc(var(--bulk-bar-h, 7.5rem) + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
   }
   [data-app-main]:has([data-bulk-bar]) [data-primary-action] {
     display: none;
@@ -76,17 +82,6 @@
   [data-app-main]:has([data-bulk-bar="meals"]) {
     padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
     scroll-padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
-  }
-  /* UX-198: below about 408 px the inventory bar's field row wraps (the
-     value field keeps 128 px, so Apply drops to a line of its own), making
-     it three rows like the planner's. 25.5rem is where the Swedish row
-     ("Tillämpa") stops fitting; the shorter English one wraps a little
-     narrower, and the extra room it gets in between is harmless. */
-  @media (width < 25.5rem) {
-    [data-app-main]:has([data-bulk-bar=""]) {
-      padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
-      scroll-padding-bottom: calc(11rem + var(--bottom-nav-h) + var(--cookie-notice-h, 0px));
-    }
   }
 }
 

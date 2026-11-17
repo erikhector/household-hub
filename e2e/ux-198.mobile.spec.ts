@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { format, plural } from "../src/lib/i18n/format";
 import { sv } from "../src/lib/i18n/dictionaries/sv";
@@ -10,7 +10,8 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expect
 // value input to 41 px between the field select and Apply ("t.e…"), and
 // the Swedish count was cut to "2 varor ma…". Now that row wraps so the
 // input keeps 128 px, and the count wraps instead of truncating. At 412 px
-// it all still fits in two rows. Rows are written straight to Postgres, in
+// it all still fits in two rows (in Chromium), and however many rows it
+// takes, <main> reserves the bar's measured height. Rows are written straight to Postgres, in
 // Swedish because that's the longer count. The signed-in locale comes from
 // the account, hence the Swedish seeded user (same household).
 const t = sv.inventory.bulkActions;
@@ -70,6 +71,28 @@ async function selectTwo(page: Page) {
   return bar;
 }
 
+// Apply has dropped below the field select: the bar is three rows.
+async function expectThreeRows(bar: Locator) {
+  await expect(async () => {
+    const field = (await bar.getByRole("combobox", { name: t.fieldAriaLabel }).boundingBox())!;
+    const apply = (await bar.getByRole("button", { name: t.apply, exact: true }).boundingBox())!;
+    expect(apply.y).toBeGreaterThanOrEqual(field.y + field.height);
+  }).toPass();
+}
+
+// Scrolled to the very end, the last row clears the bar: <main> reserves
+// the bar's measured height (`--bulk-bar-h`), however many rows it has.
+// Retried, since the ResizeObserver publishes after a re-wrap.
+async function expectLastRowClears(page: Page, bar: Locator) {
+  const last = page.getByRole("checkbox", { name: tag }).filter({ visible: true }).last();
+  await expect(async () => {
+    await page.locator("main").evaluate((main) => main.scrollTo(0, main.scrollHeight));
+    await expect(last).toBeInViewport();
+    const lastBox = (await last.boundingBox())!;
+    expect(lastBox.y + lastBox.height).toBeLessThanOrEqual((await bar.boundingBox())!.y);
+  }).toPass();
+}
+
 test("at 320 px the bulk bar keeps the value field readable and the count whole", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   const bar = await selectTwo(page);
@@ -87,13 +110,9 @@ test("at 320 px the bulk bar keeps the value field readable and the count whole"
   await expectTouchTargets(page);
   await expectNoHorizontalOverflow(page);
 
-  // The bar is three rows here, and <main> reserves all three: scrolled to
-  // the very end, the last row still clears it.
-  const last = page.getByRole("checkbox", { name: tag }).filter({ visible: true }).last();
-  await page.locator("main").evaluate((main) => main.scrollTo(0, main.scrollHeight));
-  await expect(last).toBeInViewport();
-  const lastBox = (await last.boundingBox())!;
-  expect(lastBox.y + lastBox.height).toBeLessThanOrEqual((await bar.boundingBox())!.y);
+  // The bar is three rows here, and <main> reserves all three.
+  await expectThreeRows(bar);
+  await expectLastRowClears(page, bar);
 });
 
 test("at 412 px the bulk bar is still two rows", async ({ page }) => {
@@ -108,4 +127,18 @@ test("at 412 px the bulk bar is still two rows", async ({ page }) => {
   expect(Math.abs(apply.y - field.y)).toBeLessThanOrEqual(1);
   expect(field.y).toBeGreaterThan(clear.y);
   expect(field.y).toBeLessThan(clear.y + clear.height + 16);
+  await expectLastRowClears(page, bar);
+});
+
+// The margin at 412 px is thin, and a wider font (SF Pro on an iPhone, a
+// bigger text size) can wrap the field row there too. Widening Apply's
+// label stands in for that: the bar goes to three rows at 412 px, and
+// <main> follows it instead of keeping a two-row reserve.
+test("at 412 px a field row that wraps still leaves the last row clear", async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 839 });
+  const bar = await selectTwo(page);
+  await page.addStyleTag({ content: "[data-bulk-bar] > div:last-child > button { letter-spacing: 0.6em; }" });
+  await expectThreeRows(bar);
+  await expectNoHorizontalOverflow(page);
+  await expectLastRowClears(page, bar);
 });
