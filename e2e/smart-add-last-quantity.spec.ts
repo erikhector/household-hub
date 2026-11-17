@@ -37,12 +37,12 @@ test("a picked suggestion adds the quantity last bought", async ({ page, context
   await expect(firstRow).toHaveAccessibleName(sixPcs);
   await expectHydrated(firstRow);
   await firstRow.click();
-  // A ticked row moves into the collapsed "In the cart" group. Reload so
-  // the next list only opens once the tick has reached the server.
-  const cart = page.getByRole("button", { name: /^In the cart/ });
-  await expect(cart).toContainText("1");
+  // With its only row ticked the list offers to put the trip away. Reload
+  // and see it again, so the next list only opens once the tick is saved.
+  const putAway = page.getByRole("button", { name: "Put everything away" });
+  await expect(putAway).toBeVisible();
   await page.reload();
-  await expect(cart).toContainText("1");
+  await expect(putAway).toBeVisible();
 
   // Next trip, on a new list: typing the start of the name suggests it with
   // the 6 it will add, and picking it adds 6, not 1.
