@@ -8667,7 +8667,18 @@ components directly.
   after it is called and the router pushes about 100 ms after Enter, so
   this only showed on a loaded machine; `command-palette.spec.ts` holds
   the palette's `back()` until the router's push to get that order every
-  time.
+  time. Once the app has navigated under a pending back, its further
+  `pushState`/`replaceState` calls wait until the repair has landed and
+  are applied there, and the router, already on that page, isn't handed
+  the pop: the tasks page strips the palette's `?add=1` with a
+  `router.replace` right away, and on a loaded machine that replace came
+  mid-repair, rewrote the entry under the palette and left the repair to
+  land on, and the router to restore, the `?add=1` entry (MAINT-113;
+  the spec also holds the repair's first `forward()` until that replace).
+  If no popstate of the back or its repair arrives for 1 s after a write
+  is held, the back is given up on: the held writes are applied where the
+  browser is and later ones go straight through, so a lost popstate can't
+  freeze the URL for the rest of the session.
   `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.

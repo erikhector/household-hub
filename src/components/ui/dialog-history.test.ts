@@ -40,6 +40,7 @@ function fakeBrowser(href = "https://app.test/dashboard/inventory") {
   });
   return {
     entries: () => entries.length,
+    hrefs: () => entries.map((entry) => entry.href),
     index: () => index,
     // What the browser does on a back gesture or after history.back(): move,
     // then fire popstate with the landed entry's state.
@@ -192,6 +193,126 @@ describe("pushDialogEntry", () => {
     expect(forward).toHaveBeenCalledTimes(2);
     expect(window.location.href).toBe("https://app.test/dashboard/tasks?add=1");
     expect(close).not.toHaveBeenCalled();
+  });
+
+  // MAINT-113: the page the palette pushed rewrites its own URL straight
+  // away (the tasks page strips `?add=1` with router.replace). When that
+  // replace comes while the repair is still stepping forward, the browser is
+  // on an entry the router has left: the replace rewrote that one, and the
+  // repair then landed on the stale `?add=1` entry, which the router
+  // restored. The replace waits for the repair and is applied where it lands.
+  it("holds the app's history writes until the repair has landed, then applies them there", async () => {
+    const browser = fakeBrowser("https://app.test/dashboard");
+    const { pushDialogEntry } = await load();
+    const release = pushDialogEntry(vi.fn());
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    release();
+    browser.navigate("https://app.test/dashboard/tasks?add=1");
+    back.mockRestore();
+    realBack();
+    realBack();
+    expect(browser.index()).toBe(0);
+
+    // The back has landed under the palette's entry; the replace comes now.
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+    expect(browser.hrefs()).toEqual([
+      "https://app.test/dashboard",
+      "https://app.test/dashboard",
+      "https://app.test/dashboard/tasks?add=1",
+    ]);
+
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(2);
+    // The last step lands where the router is, with its replace applied, so
+    // there's nothing for the router to restore (its tree is `?add=1`'s).
+    expect(browser.pop()).toHaveBeenCalled();
+
+    expect(window.location.href).toBe("https://app.test/dashboard/tasks");
+    expect(browser.hrefs()).toEqual([
+      "https://app.test/dashboard",
+      "https://app.test/dashboard",
+      "https://app.test/dashboard/tasks",
+    ]);
+    // Settled: writes go straight through again.
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks?view=all");
+    expect(window.location.href).toBe("https://app.test/dashboard/tasks?view=all");
+  });
+
+  // The safety valve: if the repair's popstate never comes (a forward() that
+  // finds no entry, or a pop another listener stopped first), the held writes
+  // must not wait for the rest of the session with the URL frozen.
+  it("applies the held writes where the browser is when the repair's popstate never arrives", async () => {
+    vi.useFakeTimers();
+    try {
+      const browser = fakeBrowser("https://app.test/dashboard");
+      const { pushDialogEntry } = await load();
+      const release = pushDialogEntry(vi.fn());
+      const realBack = window.history.back.bind(window.history);
+      const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+      release();
+      browser.navigate("https://app.test/dashboard/tasks?add=1");
+      back.mockRestore();
+      realBack();
+      realBack();
+      // Our back() lands: the repair steps forward, but that step's popstate
+      // is lost.
+      expect(browser.pop()).toHaveBeenCalled();
+      window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+      expect(window.location.href).not.toBe("https://app.test/dashboard/tasks");
+
+      vi.advanceTimersByTime(999);
+      expect(window.location.href).not.toBe("https://app.test/dashboard/tasks");
+      vi.advanceTimersByTime(1);
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks");
+
+      // Released: later writes go straight through, and a dialog pushes its
+      // entry at once.
+      window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks?view=all");
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks?view=all");
+      const index = browser.index();
+      pushDialogEntry(vi.fn());
+      expect(browser.index()).toBe(index + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps holding the writes while the repair's popstates keep arriving", async () => {
+    vi.useFakeTimers();
+    try {
+      const browser = fakeBrowser("https://app.test/dashboard");
+      const { pushDialogEntry } = await load();
+      const release = pushDialogEntry(vi.fn());
+      const realBack = window.history.back.bind(window.history);
+      const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+      release();
+      browser.navigate("https://app.test/dashboard/tasks?add=1");
+      back.mockRestore();
+      realBack();
+      realBack();
+      window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+
+      // Each step comes 600 ms after the last: slow, but within the valve's
+      // window every time, so the writes stay held for the landing entry.
+      vi.advanceTimersByTime(600);
+      browser.pop();
+      vi.advanceTimersByTime(600);
+      browser.pop();
+      vi.advanceTimersByTime(600);
+      expect(browser.index()).toBe(2);
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks?add=1");
+      browser.pop();
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks");
+      expect(browser.hrefs()).toEqual([
+        "https://app.test/dashboard",
+        "https://app.test/dashboard",
+        "https://app.test/dashboard/tasks",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("holds a new dialog's entry until the repairing forward has landed", async () => {

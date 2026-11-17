@@ -119,6 +119,94 @@ test("Enter still navigates when the router pushes before the palette's history 
   await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
 });
 
+// MAINT-113: the tasks page strips the `?add=1` it was pushed with by a
+// router.replace() right after it renders. Under load that replace came
+// while the repair above was still stepping forward, with the browser on
+// /dashboard: it rewrote that entry, the repair went on to the `?add=1`
+// one, and the router restored it. Same hold as above, plus the repair's
+// first forward() is held until the router's replace has been issued, which
+// is the order the loaded run took.
+test("Enter still lands on the stripped URL when the page replaces it during the repair", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await dismissCookieNotice(context, baseURL!);
+  type Holds = { holdNextBack?: boolean; holdNextForward?: boolean; holdNextReplace?: boolean; release?: () => void };
+  await page.addInitScript(() => {
+    const { history } = window;
+    const back = history.back.bind(history);
+    const forward = history.forward.bind(history);
+    const pushState = history.pushState.bind(history);
+    const hold = window as unknown as Holds;
+    let heldBack = false;
+    let heldForward = false;
+    let heldReplace: (() => void) | null = null;
+    // Lets whichever of the forward and the replace comes second go: the
+    // replace first, then the forward.
+    hold.release = () => {
+      if (!heldForward || heldReplace === null) return;
+      heldReplace();
+      heldReplace = null;
+      heldForward = false;
+      forward();
+    };
+    history.back = () => {
+      if (!hold.holdNextBack) return back();
+      hold.holdNextBack = false;
+      heldBack = true;
+    };
+    history.forward = () => {
+      if (!hold.holdNextForward) return forward();
+      hold.holdNextForward = false;
+      heldForward = true;
+      hold.release!();
+    };
+    history.pushState = (...args: Parameters<History["pushState"]>) => {
+      if (heldBack) {
+        heldBack = false;
+        back();
+      }
+      return pushState(...args);
+    };
+    // Called from the outermost replaceState, wrapped after hydration.
+    (hold as unknown as { holdReplace: (go: () => void) => void }).holdReplace = (go) => {
+      heldReplace = go;
+      hold.release!();
+    };
+  });
+  await gotoRevealed(page, "/dashboard");
+  // The router patches replaceState on hydration, so this wraps it from
+  // outside and sees the router's own call, before any patch under it.
+  await page.evaluate(() => {
+    const { history } = window;
+    const replaceState = history.replaceState.bind(history);
+    const hold = window as unknown as Holds & { holdReplace: (go: () => void) => void };
+    history.replaceState = (...args: Parameters<History["replaceState"]>) => {
+      const [, , url] = args;
+      if (hold.holdNextReplace && url != null && new URL(url, location.href).href.endsWith("/dashboard/tasks")) {
+        hold.holdNextReplace = false;
+        hold.holdReplace(() => replaceState(...args));
+        return;
+      }
+      return replaceState(...args);
+    };
+  });
+  const palette = await openPalette(page);
+  await palette.getByRole("combobox", { name: "Type a command" }).fill("add task");
+  await page.evaluate(() => {
+    Object.assign(window, { holdNextBack: true, holdNextForward: true, holdNextReplace: true });
+  });
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL(/\/dashboard\/tasks$/);
+  await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
+  // And Back from the add dialog leaves the URL as it is.
+  await page.goBack();
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/dashboard\/tasks$/);
+});
+
 test("Add to shopping list focuses the add box of the list in use", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await gotoRevealed(page, "/dashboard");
