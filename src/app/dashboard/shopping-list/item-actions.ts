@@ -662,3 +662,234 @@ export async function undoAutoAddedItemsAction(
   if (listIds.length > 0) revalidatePath("/dashboard/shopping-list");
   return { removed };
 }
+
+/** What a merging move (GAP-82) took off the source list, for its Undo. */
+export type MergedMove = {
+  /** The target list's row the moved quantity was added to. */
+  targetItemId: string;
+  quantity: number;
+  note: string | null;
+  estimatedPrice: number | null;
+  addedByUserId: string | null;
+  /** The deleted row's AUTO-8 flag and UX-136 sample batch, so the Undo's
+   *  row is still found by undoAutoAddedItemsAction and "Clear sample data". */
+  addedAutomatically: boolean;
+  sample: string | null;
+};
+
+/** Thrown inside a merging move's transaction to roll its delete back. */
+class MoveRaced extends Error {}
+
+const moveIdsSchema = z.object({ itemId: z.string().min(1), targetListId: z.string().min(1) });
+
+/**
+ * GAP-82: moves an unbought row to another of the household's ACTIVE lists
+ * (the row's ⋯ "Move to list…"). Before this the only way was to delete the
+ * row and retype it on the other list, losing its note, price and author.
+ *
+ * Two outcomes, each in one transaction:
+ * - **Plain move**: only `shoppingListId` changes, so note, price,
+ *   `addedByUserId` and the inventory link travel with the row. Its Undo is
+ *   this same action with the source list as the target.
+ * - **Merge**: the row's inventory item is already pending on the target.
+ *   Two pending rows for one item is what UX-80's carry-over avoids (it
+ *   leaves such a row behind); here the user asked for the move, so in the
+ *   same unit the quantity is added to the target's row, which keeps its own
+ *   note, price and author, and the moved row is deleted. What it carried
+ *   comes back as `merged` for undoMergedShoppingListMoveAction. In another
+ *   unit the quantities can't be summed, so nothing changes and it says so.
+ *
+ * A move never records a LIST_CLEARED transition, even when it takes the
+ * source list's last pending row: the shopping isn't done, it moved (the
+ * same reasoning as undoAutoAddedItemsAction above).
+ */
+export async function moveShoppingListItemAction(
+  itemId: string,
+  targetListId: string,
+): Promise<ActionState & { sourceListId?: string; listName?: string; merged?: MergedMove }> {
+  const { household } = await requireHousehold();
+  if (!moveIdsSchema.safeParse({ itemId, targetListId }).success) return await fail("invalidInput");
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: {
+      id: true,
+      name: true,
+      shoppingListId: true,
+      purchased: true,
+      inventoryItemId: true,
+      quantity: true,
+      unit: true,
+      note: true,
+      estimatedPrice: true,
+      addedByUserId: true,
+      addedAutomatically: true,
+      sample: true,
+    },
+  });
+  if (!item) return await fail("itemNotFound");
+  // A ticked row is part of this trip's cart (and maybe its expense and
+  // put-away), not something still to buy elsewhere.
+  if (item.purchased) return await fail("moveItemPurchased");
+
+  const target = await prisma.shoppingList.findFirst({
+    where: { id: targetListId, householdId: household.id, status: "ACTIVE" },
+    select: { id: true, name: true },
+  });
+  if (!target || target.id === item.shoppingListId) return await fail("listNotEditable");
+
+  let outcome: "moved" | "gone" | "unitMismatch" | MergedMove;
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      const pendingThere = item.inventoryItemId
+        ? await tx.shoppingListItem.findFirst({
+            where: { shoppingListId: target.id, inventoryItemId: item.inventoryItemId, purchased: false },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, unit: true },
+          })
+        : null;
+      if (pendingThere && pendingThere.unit !== item.unit) return "unitMismatch";
+
+      // Each write re-checks that the row is still unticked on its list, so
+      // a tick (or another device's move) between the read above and here
+      // changes nothing instead of moving a row out of someone's cart. The
+      // merge's second write re-checks the target row the same way: if it was
+      // ticked meanwhile, adding to it would put the moved quantity in that
+      // trip's cart and leave the item on neither to-buy list (and its Undo,
+      // which needs the row unticked, would refuse). That miss throws, so the
+      // delete before it rolls back with the transaction.
+      const stillPending = { id: item.id, shoppingListId: item.shoppingListId, purchased: false };
+      if (!pendingThere) {
+        const { count } = await tx.shoppingListItem.updateMany({
+          where: stillPending,
+          data: { shoppingListId: target.id },
+        });
+        return count === 1 ? "moved" : "gone";
+      }
+      const { count } = await tx.shoppingListItem.deleteMany({ where: stillPending });
+      if (count !== 1) return "gone";
+      const { count: added } = await tx.shoppingListItem.updateMany({
+        where: { id: pendingThere.id, shoppingListId: target.id, purchased: false },
+        data: { quantity: { increment: item.quantity } },
+      });
+      if (added !== 1) throw new MoveRaced();
+      return {
+        targetItemId: pendingThere.id,
+        quantity: item.quantity,
+        note: item.note,
+        estimatedPrice: item.estimatedPrice,
+        addedByUserId: item.addedByUserId,
+        addedAutomatically: item.addedAutomatically,
+        sample: item.sample,
+      };
+    }, INTERACTIVE_TX_OPTIONS);
+  } catch (error) {
+    if (error instanceof MoveRaced) return await fail("itemNotFound");
+    return toFriendlyError(error);
+  }
+
+  if (outcome === "gone") return await fail("itemNotFound");
+  if (outcome === "unitMismatch") return await fail("moveUnitMismatch", { name: item.name, list: target.name });
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  revalidatePath(`/dashboard/shopping-list/${target.id}`);
+  revalidatePath("/dashboard/shopping-list");
+  return {
+    sourceListId: item.shoppingListId,
+    listName: target.name,
+    ...(outcome === "moved" ? {} : { merged: outcome }),
+  };
+}
+
+const undoMergedMoveSchema = z.object({
+  targetItemId: z.string().min(1),
+  sourceListId: z.string().min(1),
+  quantity: z.number().min(0.01, v("quantityPositive")),
+  // Same bounds as the edit dialog's (updateItemSchema): these values came
+  // back from the server a moment ago, but the client could send anything.
+  note: z.string().trim().max(SHOPPING_ITEM_NOTE_MAX_LENGTH, v("noteTooLong")).nullable(),
+  estimatedPrice: updateItemPriceSchema.shape.price.nullable(),
+  addedByUserId: z.string().min(1).nullable(),
+  // Echoed back so the recreated row keeps what it was (see MergedMove).
+  // Within the session's own household either value only decides which of
+  // its own clean-ups (AUTO-8's undo, "Clear sample data") the row joins.
+  addedAutomatically: z.boolean(),
+  sample: z.string().min(1).max(100).nullable(),
+});
+
+/**
+ * The Undo on a merging move's toast (GAP-82, see moveShoppingListItemAction):
+ * takes the moved quantity back off the target row and recreates the row on
+ * the source list with what it carried. Name, unit and inventory link are
+ * read from the target row rather than trusted from the client, and the
+ * author is kept only while they're still a member of the household.
+ *
+ * Refuses, changing nothing, when the target row is gone, ticked off, or
+ * holds no more than the moved quantity: someone has changed that list since
+ * (bought it, edited it down), and splitting it again would invent a row.
+ */
+export async function undoMergedShoppingListMoveAction(
+  data: MergedMove & { sourceListId: string },
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = undoMergedMoveSchema.safeParse(data);
+  if (!parsed.success) return await zodFail(parsed.error);
+  const { targetItemId, sourceListId, quantity, note, estimatedPrice, addedByUserId, addedAutomatically, sample } =
+    parsed.data;
+
+  const [source, targetRow, author] = await Promise.all([
+    prisma.shoppingList.findFirst({
+      where: { id: sourceListId, householdId: household.id, status: "ACTIVE" },
+      select: { id: true },
+    }),
+    prisma.shoppingListItem.findFirst({
+      where: { id: targetItemId, shoppingList: { householdId: household.id } },
+      select: { id: true, shoppingListId: true, name: true, unit: true, inventoryItemId: true },
+    }),
+    addedByUserId
+      ? prisma.householdMember.findFirst({
+          where: { householdId: household.id, userId: addedByUserId },
+          select: { userId: true },
+        })
+      : null,
+  ]);
+  if (!source) return await fail("listNotEditable");
+  if (!targetRow) return await fail("moveUndoStale");
+
+  let undone: boolean;
+  try {
+    undone = await prisma.$transaction(async (tx) => {
+      // The staleness check and the subtraction are one conditional write,
+      // so a tick landing in between can't be undercut.
+      const { count } = await tx.shoppingListItem.updateMany({
+        where: { id: targetRow.id, purchased: false, quantity: { gt: quantity } },
+        data: { quantity: { decrement: quantity } },
+      });
+      if (count !== 1) return false;
+      await tx.shoppingListItem.create({
+        data: {
+          shoppingListId: source.id,
+          inventoryItemId: targetRow.inventoryItemId,
+          name: targetRow.name,
+          unit: targetRow.unit,
+          quantity,
+          note: note || null,
+          estimatedPrice,
+          addedByUserId: author?.userId ?? null,
+          addedAutomatically,
+          sample,
+        },
+      });
+      return true;
+    }, INTERACTIVE_TX_OPTIONS);
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+  if (!undone) return await fail("moveUndoStale");
+
+  revalidatePath(`/dashboard/shopping-list/${source.id}`);
+  revalidatePath(`/dashboard/shopping-list/${targetRow.shoppingListId}`);
+  revalidatePath("/dashboard/shopping-list");
+  return {};
+}

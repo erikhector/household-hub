@@ -281,13 +281,13 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here. Happened: filed as MAINT-112 (release PR #1506, 2026-11-16).
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time, with the MAINT-103 test among the tests run (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next release PR is the evidence: it lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt, none `flaky`).
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
-      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The earlier two sightings are in MAINT-107. With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; MAINT-107 names the remaining candidate, a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
+      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The earlier two sightings are in MAINT-107. With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; MAINT-107 names the remaining candidate, a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next two release PRs lists `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-114. Flaky: ticking a task after one is added through the sheet still moves this run's own filler rows on desktop** (low, S) —
-      `e2e/maint-100.spec.ts:58` ("after a task is added through the sheet, ticking another leaves the rows above it where they are"), `desktop` project, local `npm run ci:local` only. First sighting: release PR #1514 on c5dede9, 2026-11-16, failed once and passed on a re-run of the same commit (GitHub's e2e job passed it first time). Failing step: `:129`, `flipMoves()` expected `[]` but returned this run's own rows, "Mark Stay put filler 2 … as done" and "Mark Stay put filler 1 … as done". #1511 (MAINT-111) had just scoped the check to this run's rows, so rows from other runs were not the cause: the run's own fillers above the ticked row moved. Either the list still re-orders the rows above a tick when an add through the sheet and the tick land close together (an app bug against MAINT-100's promise: fix it in the app), or the spec measures the positions before the added row's own insert has settled (wait for the add's toast or for the row count to settle before taking the "before" positions). Start from a `--trace on` run with `--repeat-each=30` on `desktop`.
+- [ ] **MAINT-115. Flaky: an empty template name can't be checked because the seed insert clashes with week-picks' week on desktop** (low, S) —
+      `e2e/meal-planning-field-errors.spec.ts:66` ("meal planning field errors (sv) › an empty template name is flagged under the field"), `desktop` project. First sighting: release PR #1525 on 6bcb66a, 2026-11-17, GitHub `End-to-end (Playwright)` job 133761597395, failed on the first attempt and on retry #1 with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"` at its seed `INSERT` (`:76`). It passed in the reviewer's full local `ci:local` run on the same commit and on a focused re-run of the spec (desktop + mobile, 10 passed), so it depends on which specs share a worker. Cause: the spec seeds `2032-05-03/10/17/24` (one per project and locale), the same four Mondays `e2e/week-picks.spec.ts:33-34` uses for its `pick` and `spread` tests, and it only deletes the old plan by its own id. `E2E_WORKER` is the parallel index (`e2e/seed-data.ts:14`), so the `desktop` and `mobile` projects share a worker's household while running at the same time: week-picks' live `pick.mobile` plan (`2032-05-10`) blocks this spec's desktop sv insert. Same class of bug as MAINT-79. Give the spec weeks no other spec seeds (grep `e2e/` for `2032-` before choosing). Don't delete every `MealPlan` for the household and week before inserting: that would delete week-picks' in-flight plan and move the flake there.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/maint-100.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+      Acceptance: no other spec under `e2e/` seeds the weeks this spec uses, and `npx playwright test e2e/meal-planning-field-errors.spec.ts e2e/week-picks.spec.ts --project=desktop --project=mobile --repeat-each=30` (default workers, so the two projects overlap) passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -537,34 +537,6 @@ bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
 and `sv`. WebKit was not run (no browser installed here), and dark was
 not looked at (no project renders it).
 
-- [ ] **UX-197. Undo for emptying an inventory item** (impact: med, effort: M) —
-      "Mark as empty" in a row's ⋯ menu, and the "All" chip in the
-      quantity sheet (which applies on one tap), overwrite the amount
-      with 0 and nothing puts it back: a slip on "Olive oil, 0.7 l" loses
-      the 0.7. With auto-add on, the toast that follows reads 'Added
-      Olive oil to "Next shop" · Undo', and that Undo only removes the
-      list row, so the item stays at 0 while the user thinks it was
-      undone; with auto-add off and plain "Mark as empty" there is no
-      toast at all (`src/components/inventory/use-item-handlers.ts:50-60`,
-      `showAutoAddedToast` returns on an empty list). Mark opened and
-      Freeze, in the same menu, already restore a snapshot from their
-      toast. Breaks principle 5 (destructive actions are confirmed or
-      undoable; every action gives a result) and Guardrails' "undo over
-      confirm". Seen on `/dashboard/inventory` on `mobile` and at 320 px,
-      `en` and `sv`; the item page shares the handler. Fix: one toast per
-      emptying ('Olive oil marked as empty · Undo') whose Undo restores
-      the previous quantity and removes the list row that emptying added,
-      refusing with a message if the amount changed since (the
-      `undoMarkItemOpenedAction` shape); the same toast when the quantity
-      sheet takes an item to 0
-      (`src/components/inventory/quantity-sheet.tsx:107`,
-      `inventory-table.tsx:735`). Text in `en.ts` and `sv.ts`.
-      Acceptance: an e2e test on `mobile` and `desktop` marks an item
-      with 6 pcs as empty from the row menu, sees one toast naming the
-      item with Undo, taps it, and after a reload the row shows 6 pcs and
-      the default list has no row for it; the same through the quantity
-      sheet's "All"; a unit test covers the undo action's tenancy check
-      and its refusal after a later change.
 - [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
       with rows selected on `/dashboard/inventory` at 320 px, the bar's
       second row is the field select (`w-36`, 144 px), the value input
@@ -954,61 +926,6 @@ out to be a product-scope question rather than a scoped task should move to
       visible to other members and never in logs.
 
 ### 2026-11-13 scan
-
-- [ ] **GAP-82. Move a shopping item to another open list** (impact: med, effort: M) —
-      Bring! now lets you move an item from one list to another (its
-      long-requested iOS feature), and Paprika moves rows between pantry
-      and grocery list. Squirrel supports several `ACTIVE` lists (the
-      household default plus e.g. "Hardware store"), but a row can only
-      be deleted and retyped on the other list: the row's ⋯ menu
-      (`RowActionsMenu` in `src/components/shopping/shopping-row.tsx:296`)
-      has Edit, Delete and Add price only, and the one move that exists is
-      UX-80's bulk carry-over on completion
-      (`completeShoppingListAction`, `src/app/dashboard/shopping-list/list-actions.ts:327`).
-      Add a "Move to list…" entry to the ⋯ menu (the tap path on phones
-      too) for an unbought row, shown only when the household has another `ACTIVE` list. It opens a
-      small picker of the other active lists; picking one calls a new
-      click action `moveShoppingListItemAction(itemId, targetListId)` in
-      `item-actions.ts` that `requireHousehold()`s, checks both lists
-      belong to the household and the target is `ACTIVE`, and rejects a
-      purchased row. Two outcomes, both in one transaction:
-      - **Plain move**: the row has no `inventoryItemId`, or that
-        inventory item has no pending (`purchased: false`) row on the
-        target. Update `shoppingListId` only, so note, price and
-        `addedByUserId` travel with the row. Toast "Moved {name} to
-        {list}" with Undo, which calls the same action with the source
-        list as target.
-      - **Merge**: the same inventory item is already pending on the
-        target (the check carry-over makes, but carry-over then leaves
-        its row behind; there is no merge helper to reuse, this is new
-        code). Same unit: add the moved quantity to the target row,
-        which keeps its own note, price and `addedByUserId`, and delete
-        the moved row. Different unit: change nothing and return an
-        error ("{name} is already on {list} in another unit"). The
-        action returns the target row's id and the deleted row's
-        quantity, note, `estimatedPrice` and `addedByUserId`. Toast
-        "Merged {name} into {list}" with Undo, which calls a second
-        click action `undoMergedShoppingListMoveAction` with those
-        values and the source list id. It `requireHousehold()`s, checks
-        both lists belong to the household and the source is `ACTIVE`,
-        Zod-validates the values like `updateShoppingListItemAction`
-        does (and keeps `addedByUserId` only if it is a member of the
-        household, else null), then in one transaction subtracts the
-        quantity from the target row and recreates the row on the
-        source list with name, unit and `inventoryItemId` read from the
-        target row. If the target row is gone, purchased, or holds no
-        more than that quantity, it changes nothing and returns an
-        error ("That list has changed, so the move can't be undone").
-      Labels in `en.ts` and `sv.ts`.
-      Acceptance: action tests for tenancy (foreign target list rejected,
-      in both actions), non-`ACTIVE` target rejected, purchased row
-      rejected, the plain move keeping note and price, the merge summing
-      quantity, the unit mismatch refused, and the merge undo restoring
-      the source row and the target's quantity (and refusing when the
-      target row was bought meanwhile);
-      e2e on `desktop` and `mobile` creates two `unique()` lists, adds a
-      row to the first, moves it via the ⋯ menu, sees it gone from the
-      first list and present on the second after a reload.
 
 - [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
       Bring! shows suggested details (amount, variant) under a newly

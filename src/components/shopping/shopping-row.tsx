@@ -30,6 +30,7 @@ export function ShoppingRow({
   item,
   onToggle,
   onDelete,
+  onMove,
   leaving = false,
   highlighted = false,
   editable,
@@ -49,6 +50,9 @@ export function ShoppingRow({
   onToggle: () => void;
   /** UX-49: removes the item with an Undo toast, owned by ShoppingListClient. */
   onDelete: (item: ShoppingListItemRow) => void;
+  /** GAP-82: opens the "Move to list…" sheet for this row. Passed only for an
+   * unbought row while the household has another active list. */
+  onMove?: (item: ShoppingListItemRow) => void;
   /** UX-37: just ticked, animating out of its aisle towards "In the cart". */
   leaving?: boolean;
   /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
@@ -276,6 +280,23 @@ export function ShoppingRow({
                     />
                   )}
                 </LazyDialog>
+                {/* On a phone the Edit and Delete icons are hidden (the
+                    row's left swipe shows both) and this ⋯ is their tap
+                    path, clicking those same buttons. With "Move to list…"
+                    (GAP-82) it shows on a desktop too, before the trash so
+                    delete stays last (UX-22). */}
+                <RowActionsMenu
+                  label={format(dict.rowActionsAriaLabel, { name: item.name })}
+                  editLabel={dict.swipe.edit}
+                  deleteLabel={dict.swipe.delete}
+                  // UX-79: an inline row has no room for "Add price" beside
+                  // the name, so the ⋯ carries it (the ≈ price button, once
+                  // there is one, stays on the row to correct it).
+                  priceLabel={inline && item.estimatedPrice == null ? dict.addPriceLabel : undefined}
+                  moveLabel={dict.moveItem.menuLabel}
+                  onMove={onMove && !purchased ? () => onMove(item) : undefined}
+                  disabled={isPending}
+                />
                 {/* UX-49: removes at once with the swipe's Undo toast, not a
                     "can't be undone" confirm for an item that is one tap to
                     add back. */}
@@ -290,19 +311,6 @@ export function ShoppingRow({
                 >
                   <Trash2 className="size-3.5" />
                 </Button>
-                {/* On a phone the Edit and Delete icons above are hidden
-                    (the row's left swipe shows both) and this ⋯ is their
-                    tap path, clicking those same buttons. */}
-                <RowActionsMenu
-                  label={format(dict.rowActionsAriaLabel, { name: item.name })}
-                  editLabel={dict.swipe.edit}
-                  deleteLabel={dict.swipe.delete}
-                  // UX-79: an inline row has no room for "Add price" beside
-                  // the name, so the ⋯ carries it (the ≈ price button, once
-                  // there is one, stays on the row to correct it).
-                  priceLabel={inline && item.estimatedPrice == null ? dict.addPriceLabel : undefined}
-                  disabled={isPending}
-                />
               </>
             )}
           </div>
