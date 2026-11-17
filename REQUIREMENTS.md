@@ -10544,7 +10544,10 @@ runs after every commit of a list:
   and at the list's next change every row jumped 6% of its offset (37 px
   for the fourteenth task) and glided back, though nothing had moved. A
   tap whose press and release straddled that jump was released over
-  another row and ticked nothing.
+  another row and ticked nothing. Only a ratio within 1e-4 of 1 counts as
+  rounding: at 1e-3 the tail of the ease back (0.99934) was taken as no
+  scale, and every row from the seventh down glided over half a pixel at
+  the next tick (MAINT-116).
 - A new row rises in.
 - A removed row's node is put back in its list, absolutely positioned and
   inert, to fade where it was (not table rows, which don't lay out alone).
@@ -10668,8 +10671,8 @@ history `back()` to land and the page behind it to finish easing back to
 full size (`waitForSheetClosed` in `e2e/ui.ts`), and for the checkbox to
 be hydrated (MAINT-116). On a loaded run a phone tap straddling a frame of
 that ease was released off the checkbox, the first tick never happened,
-and the task stayed open. `tick-moment`, `dismissed-recaps` and `motion`,
-which also tick a task they've just added, wait the same way. The
+and the task stayed open. `tick-moment`, `dismissed-recaps` `motion` and
+`flows`, which also tick a task they've just added, wait the same way. The
 all-caught-up test closes the household's other open tasks one at a time,
 each save awaited, and counts only those, never its own row.
 

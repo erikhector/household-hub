@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice, gotoRevealed, waitForDialogHistory } from "./ui";
+import { dismissCookieNotice, expectHydrated, gotoRevealed, waitForDialogHistory, waitForSheetClosed } from "./ui";
 
 // Core write paths through the real UI, server actions and database. Each
 // test creates its own uniquely named data, so reruns against the same
@@ -31,6 +31,10 @@ test("add a task and mark it done", async ({ page, context, baseURL }) => {
 
   const done = page.getByRole("checkbox", { name: `Mark ${title} as done` });
   await expect(done).toBeVisible();
+  // Tap only once the sheet is gone and the page behind it at rest
+  // (MAINT-116), and React owns the checkbox.
+  await waitForSheetClosed(page);
+  await expectHydrated(done);
   // The toggle is optimistic (UX-14): the box and its "not done" label flip
   // on tap, before the save lands. Wait for the Server Action's response
   // (sent once the action has run) before reloading, or the reload can race
