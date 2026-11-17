@@ -10829,8 +10829,18 @@ UX-14's rapid ticks and the rollback toast.
   another spec also seeds can hit the `(householdId, weekStartDate)` key
   mid-run (MAINT-115: `meal-planning-field-errors.spec.ts` shared four 2032
   Mondays with `week-picks.spec.ts`, and now seeds 2019 weeks instead,
-  out of reach of the random far-future weeks other specs pick from
-  today). That took the suite from 10.1
+  out of reach of the random far-future weeks other specs pick). A spec
+  that wants a random far-off week takes it from `farDay()` in
+  `e2e/far-weeks.ts`, never from an offset of its own: each such spec
+  owns a fixed band of 300 weeks (the first starts on 2036-01-07, the
+  last ends in 2093), absolute rather than counted from today, so the
+  bands never overlap each other or drift onto the weeks specs pick by
+  hand, which all sit in 2019, 2030-2034 or 2199 (MAINT-117:
+  `plan-leftovers.spec.ts`'s random 1-14 years ahead put a cooked dinner
+  in `ux-19.mobile.spec.ts`'s 2031-06-02, and ux-19 timed out waiting for
+  "Add first dinner"). A new hand-picked week stays out of 2036-2093, and
+  a new spec that needs a random far-off week adds its name to the list
+  there. That took the suite from 10.1
   minutes (`workers: 1`) to 5.6 on 4 cores. More workers don't help:
   the single `next start` process is the bottleneck (4 workers: 5.4
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
