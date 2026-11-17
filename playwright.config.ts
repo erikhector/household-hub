@@ -135,14 +135,17 @@ export default defineConfig({
     // run above can't catch those. Every page renders (`smoke`), the main
     // user flows (`flows`) and the 16 px field-zoom check
     // (`form-control-sizes`, the zoom only iOS does) run in WebKit with an
-    // iPhone 15. Only these three specs, to keep the extra runtime small.
+    // iPhone 15. MAINT-107: plus `command-palette`, the one spec that forces
+    // a navigation inside a dialog's pending history.back(), so the
+    // MAINT-103 repair in dialog-history.ts runs in WebKit's history too.
+    // Only these four specs, to keep the extra runtime small.
     ...(withWebkit
       ? [
           {
             name: "iphone",
             use: { ...devices["iPhone 15"], storageState: STORAGE_STATE },
             dependencies: ["setup"],
-            testMatch: /(smoke|flows|form-control-sizes\.mobile)\.spec\.ts$/,
+            testMatch: /(smoke|flows|form-control-sizes\.mobile|command-palette)\.spec\.ts$/,
           },
         ]
       : []),

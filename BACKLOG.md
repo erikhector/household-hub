@@ -275,19 +275,26 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-107. Run `command-palette.spec.ts` on the `iphone` project, so the MAINT-103 repair is tested in WebKit** (med, S) —
-      A navigation issued while a dialog's `history.back()` is still pending is repaired in `src/components/ui/dialog-history.ts` (MAINT-103): the back undoes the push and the helper steps forward onto it again. That repair has never run in WebKit. The one test that forces the ordering, "Enter still navigates when the router pushes before the palette's history entry is gone" (`e2e/command-palette.spec.ts:85`), is not in the `iphone` project, whose `testMatch` in `playwright.config.ts` is `smoke|flows|form-control-sizes.mobile`. Why it matters: MAINT-101 ("an edit still shows after navigating away and back", `e2e/flows.spec.ts`) twice failed its first attempt on `iphone` in the GitHub e2e job with the page still on `/dashboard/tasks` 5 s after `router.push("/dashboard/profile")` (release PR #1425 on 138ae29, 2026-11-14, job 132417142477; release PR #1484 on f77b161, 2026-11-16, job 133033346476), and the second sighting already had the MAINT-103 repair. The inferred cause, never reproduced (no trace was kept and WebKit can't be installed in the build container), is the push falling inside the Add dialog's pending back. #1487 settled the test by waiting with `waitForDialogHistory` before the push, so no test goes through that path in WebKit any more. If the inference is right, the repair doesn't hold on iOS, and someone who taps a nav link straight after adding a task stays on the page.
-      Change: add `command-palette` to the `iphone` project's `testMatch` in `playwright.config.ts`. The spec opens the palette with Ctrl+K and has no `isMobile` branches; if one of its other tests can't pass in WebKit for a reason that has nothing to do with the repair, move the MAINT-103 test to a spec of its own that `iphone` matches and say so in the PR, rather than skipping it there. If the MAINT-103 test fails on `iphone`, that is the finding: fix the repair in `dialog-history.ts` in the same PR, or file the bug with the trace as its own item. Never merge it skipped, loosened or retried.
-      Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here. Happened: filed as MAINT-112 (release PR #1506, 2026-11-16).
-      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time, with the MAINT-103 test among the tests run (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next release PR is the evidence: it lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt, none `flaky`).
+- [ ] **MAINT-107. Confirm the MAINT-103 repair passes in WebKit, now that `command-palette.spec.ts` runs on `iphone`** (med, S) —
+      Built: `command-palette` is in the `iphone` project's `testMatch` (`playwright.config.ts`, documented under REQUIREMENTS.md "Testing"), so the MAINT-103 test ("Enter still navigates when the router pushes before the palette's history entry is gone") and the MAINT-113 one now run in WebKit. Not yet proven: WebKit can't be downloaded in the build container, so the spec has never run on `iphone`. Two `iphone` failures of "an edit still shows after navigating away and back" were what raised the question of the repair in WebKit: the page was still on `/dashboard/tasks` 5 s after `router.push("/dashboard/profile")` (release PR #1425 on 138ae29, 2026-11-14, job 132417142477; release PR #1484 on f77b161, 2026-11-16, job 133033346476, already with the repair). #1487 then waited with `waitForDialogHistory` before the push, the test still flaked, and MAINT-112 tracks it with the other candidate, a slow first client navigation in a cold WebKit.
+      What remains: read the GitHub `End-to-end (Playwright)` job on the next release PR. If every `[iphone] › e2e/command-palette.spec.ts` test passed on the first attempt (none `flaky`), delete this item. If the MAINT-103 or MAINT-113 test fails there, that is the finding: fix the repair in `src/components/ui/dialog-history.ts`, or file the bug with the job's trace as its own item. If another palette test fails in WebKit for a reason unrelated to the repair, move the two repair tests to a spec of their own that `iphone` matches. Never skip, loosen or retry them.
+      Acceptance: that release PR's e2e job lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt (or, where WebKit installs, `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time).
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The earlier two sightings are in MAINT-107. With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; MAINT-107 names the remaining candidate, a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next two release PRs lists `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-113. Flaky: Enter in the command palette leaves the page on `/dashboard/tasks?add=1` instead of `/dashboard/tasks` on desktop** (low, S) —
-      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone"), `desktop` project, local `npm run ci:local` only. First sighting: release PR #1514 on c5dede9, 2026-11-16, failed once and passed on a re-run of the same commit (GitHub's `End-to-end (Playwright)` job on the same commit passed it first time). Failing step: `:118`, `expect(page).toHaveURL(/\/dashboard\/tasks$/)`; after 5000 ms the page was on `http://localhost:3000/dashboard/tasks?add=1`, having passed through `/dashboard` with `data-dialog-back-pending` set. This is the test that forces the MAINT-103 ordering (a push while the palette's `history.back()` is still pending, repaired in `src/components/ui/dialog-history.ts`), so the `?add=1` it ended on suggests the repair's forward step landed on the wrong entry or a stale `?add=1` push won the race under load, not a slow page. Start from a `--trace on` run of the spec with `--repeat-each=30` under load (e.g. alongside another worker), and check which history entries the helper sees when it steps forward. If the repair can land on the wrong entry, fix it in `dialog-history.ts`; if the test drives an ordering the app can't produce, fix the test's setup, not its assertion. MAINT-107 adds this spec to `iphone`; keep the two in step.
+- [ ] **MAINT-115. Flaky: an empty template name can't be checked because the seed insert clashes with week-picks' week on desktop** (low, S) —
+      `e2e/meal-planning-field-errors.spec.ts:66` ("meal planning field errors (sv) › an empty template name is flagged under the field"), `desktop` project. First sighting: release PR #1525 on 6bcb66a, 2026-11-17, GitHub `End-to-end (Playwright)` job 133761597395, failed on the first attempt and on retry #1 with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"` at its seed `INSERT` (`:76`). It passed in the reviewer's full local `ci:local` run on the same commit and on a focused re-run of the spec (desktop + mobile, 10 passed), so it depends on which specs share a worker. Cause: the spec seeds `2032-05-03/10/17/24` (one per project and locale), the same four Mondays `e2e/week-picks.spec.ts:33-34` uses for its `pick` and `spread` tests, and it only deletes the old plan by its own id. `E2E_WORKER` is the parallel index (`e2e/seed-data.ts:14`), so the `desktop` and `mobile` projects share a worker's household while running at the same time: week-picks' live `pick.mobile` plan (`2032-05-10`) blocks this spec's desktop sv insert. Same class of bug as MAINT-79. Give the spec weeks no other spec seeds (grep `e2e/` for `2032-` before choosing). Don't delete every `MealPlan` for the household and week before inserting: that would delete week-picks' in-flight plan and move the flake there.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+      Acceptance: no other spec under `e2e/` seeds the weeks this spec uses, and `npx playwright test e2e/meal-planning-field-errors.spec.ts e2e/week-picks.spec.ts --project=desktop --project=mobile --repeat-each=30` (default workers, so the two projects overlap) passes 30/30.
+- [ ] **MAINT-116. Flaky: a task-tick-undo test on mobile sees an extra open task, or a tick that doesn't register** (low, S) —
+      `e2e/task-tick-undo.spec.ts`, `mobile` project, local `npm run ci:local` only. Two sightings on 2026-11-17, both in builders' locked full gates on PRs that don't touch tasks. (1) PR #1528 (GAP-83, shopping smart-add) on ed2f4e9: `:72` ("ticking the last open task shows the all-caught-up moment") expected 3 open tasks and found 4; the same build passed the spec 20/20 run alone (`--repeat-each=3`, desktop and mobile). (2) PR #1519 (MAINT-113, `dialog-history.ts`) on its first gate run before c2d0454: `:17`, the tick click didn't register; a locked re-run of the spec (desktop and mobile, `--repeat-each=5`) passed, and the next full gate was clean. Both fail only under full-suite load, which points at the spec reading the worker household's open-task count or ticking before hydration while other specs' rows come and go. Start from a `--trace on` run alongside `e2e/maint-100.spec.ts` and `e2e/flows.spec.ts`. Scope counts to this test's own rows, and use `expectHydrated` before the tick.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/task-tick-undo.spec.ts e2e/maint-100.spec.ts e2e/flows.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-117. Flaky: ux-19's reserved week can be taken by plan-leftovers' random far-off week** (low, S) —
+      `e2e/ux-19.mobile.spec.ts:41`, `mobile` project, timed out waiting for "Add first dinner" in the builder's locked `ci:local` on PR #1519 (2026-11-17), which touches neither spec. The page snapshot showed plan-leftovers' "Lasagna … Cooked" entry in ux-19's reserved week 2031-06-02. `e2e/plan-leftovers.spec.ts` picks its week with `farOffset()`, a random day 365 to 5365 days out, which can land on a week another spec reserves. This is the same kind of week clash as MAINT-79 and MAINT-115. Fix it by giving each spec's weeks a range no other spec's random offset can reach (e.g. a shared helper that hands out disjoint week ranges per spec and worker), not by retrying.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: no random week offset under `e2e/` can reach a week another spec reserves, and `npx playwright test e2e/ux-19.mobile.spec.ts e2e/plan-leftovers.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -537,26 +544,70 @@ bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
 and `sv`. WebKit was not run (no browser installed here), and dark was
 not looked at (no project renders it).
 
-- [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
-      with rows selected on `/dashboard/inventory` at 320 px, the bar's
-      second row is the field select (`w-36`, 144 px), the value input
-      and Apply, and the input gets what is left: 41 × 44 px, showing
-      "t.e…" for its placeholder and about two characters of a typed
-      location or category. The count beside "Markera alla" is cut to
-      "2 varor ma…" in Swedish (81 px for 116 px of text). At 412 px the
-      input is 136 px and reads fine. Breaks M1 ("a field whose value
-      can't be read isn't a field"; a select gets its own row on a
-      phone) and M9 (Swedish strings truncate with the full value
-      reachable). `src/components/inventory/inventory-table.tsx:295`,
-      `:335`, `:354-374`. Fix: let the second row wrap so the value input
-      keeps a readable minimum (`min-w-32`) and the select or Apply moves
-      to its own line when the row is narrower than that, and let the
-      count wrap instead of truncating. Acceptance: an e2e test on
-      `mobile` at a 320 px viewport, in `sv`, selects two rows and
-      expects the value field to be at least 128 px wide, the count's
-      `scrollWidth` to be no more than its `clientWidth`, every target in
-      the bar to pass `expectTouchTargets`, and no horizontal overflow;
-      at 412 px the bar is still two rows.
+### UX (2026-11-17 scout)
+
+Tuesday area: shopping lists, shopping mode and the share page. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass. The only
+audit hits are the known `text-200` bottom-bar truncations (UX-150) and
+the Next up dock's aisle name ("Baki…") at 200% text, which is too small
+to file on its own. The deep dive drove smart add (with a
+70-character Swedish name), the inline price edit with invalid input,
+tick, the row and list menus, share and the share page, and an empty
+new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
+(no browser installed here), and dark was not looked at.
+
+- [ ] **UX-200. Keep a decimal comma inside one smart-add row** (impact: high, effort: S) —
+      Swedish writes `1,5 l`, but `splitOnTopLevelCommas`
+      (`src/lib/inventory/parse-pasted-list.ts:145`, used by
+      `parseSmartAddInput` and the Import list dialog) splits on every
+      top-level comma. `1,5 l mjölk` adds two rows, "1" and "mjölk × 5 l";
+      `havredryck 1,5 liter` adds "havredryck 1" and "liter × 5". Seen on the
+      `mobile` and 320 px phones in `sv` on
+      `/dashboard/shopping-list/[id]`. This breaks principle 4 (the app
+      speaks the user's language and locale): a sv user typing the way
+      they write gets junk rows. Fix: a comma with a digit directly on both
+      sides is a decimal separator, not a list separator, and the quantity
+      parser reads `1,5` as 1.5 (the dialogs already do, REQUIREMENTS.md
+      "Both dialogs read a comma or a point"). Acceptance: unit tests in
+      `parse-pasted-list.test.ts` show `1,5 l mjölk, bröd` →
+      `[{mjölk, 1.5, l}, {bröd}]` and `mjölk 1,5 l` → one row. An e2e
+      test in the `mobile` project (sv) types `1,5 l mjölk` into the add
+      line, presses Enter, and sees exactly one new row reading
+      "mjölk × 1,5 l".
+- [ ] **UX-201. Confirm before revoking a share link, and clear a stale share error** (impact: med, effort: S) —
+      In the Share dialog, Revoke
+      (`src/components/shopping/share-list-button.tsx:105-111`,
+      `handleRevoke` at :62) kills the link with a single tap. Anyone
+      shopping from it gets "invalid or revoked" mid-trip, and re-sharing
+      mints a different token, so the action can't be undone. That breaks
+      principle 5 (costly actions are confirmed) and M2. Separately, `error`
+      (:43) is set at :56 but never cleared, so after one failed create,
+      reopening the dialog shows the old red error beside the working link
+      (principle 7, designed states). Fix: route Revoke through the existing
+      `ConfirmDialog` (the pattern `confirmDeleteList` uses) with
+      `shareLink.revokeConfirm*` strings in `en` and `sv`, and call
+      `setError(null)` in `handleOpenChange` before the request. Acceptance:
+      in the `mobile` and `desktop` projects, tapping Revoke opens an
+      `alertdialog`; Cancel leaves the link field visible; confirming shows
+      the revoked toast and the share page then reads as revoked.
+- [ ] **UX-202. Show an invalid price next to the field, not in a toast or browser bubble** (impact: med, effort: S) —
+      The inline price edit on a shopping row
+      (`src/components/shopping/shopping-row.tsx:453-455`, `type="number"
+      min={0}` with no `noValidate`) shows the browser's own validation
+      bubble for `-1`. That bubble is in the browser's language, not the
+      app's (English "Value must be greater than or equal to 0" over a
+      Swedish screen), and on a phone it lands under the Next up dock.
+      Anything that gets past it reaches `save()` (:429), which only
+      raises `toast.error(dict.priceInvalid)`, as do server errors (:437).
+      The input never gets `aria-invalid`. Seen on `mobile` and 320 px in
+      `en` and `sv`. Breaks principle 7 (errors next to the field, input
+      kept) and M5. Fix: `noValidate` on the form, keep the message in
+      local state, render it under the field with `aria-invalid` and
+      `aria-describedby`, and drop the toast. Acceptance: in the `mobile`
+      project (sv), typing `-1` and pressing Enter leaves the input showing
+      `-1` with `aria-invalid="true"` and `dict.priceInvalid` visible in
+      that row, and no toast.
 
 ---
 

@@ -1672,8 +1672,8 @@ every lookup the old one did.
     nothing is undoable.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
     bar is a full-width toolbar `fixed` to the top of the bottom bar, two
-    rows high: the count, "Select all" (hidden once everything is ticked),
-    an icon-only cart for "Add to shopping list" and an ✕ for "Clear
+    rows high (three on a narrow phone, see UX-198 below): the count,
+    "Select all" (hidden once everything is ticked), an icon-only cart for "Add to shopping list" and an ✕ for "Clear
     selection" (both keep their labels as accessible names), then the
     field select, the value and Apply. While it's up the Add-item button
     is hidden and `<main>` reserves the bar's height instead
@@ -1682,6 +1682,17 @@ every lookup the old one did.
     floated mid-list above the Add-item button. From `sm` it's one
     wrapping row above the table with "Clear selection" last. There is
     still no bulk delete.
+  - **Bulk-edit bar on a narrow phone (UX-198).** The value field never
+    shrinks below 128 px (`min-w-32`): when the field select, the value
+    and Apply don't fit on one line (e.g. at 320 px), the row wraps and
+    Apply moves to a line of its own at the right edge. Where that happens
+    depends on the font, the text size and the locale, so
+    `inventory-table.tsx` measures the bar with a ResizeObserver and
+    publishes `--bulk-bar-h` on `<html>` (an inline style, nothing
+    stored), which `<main>`'s reserve in `globals.css` uses (7.5rem until
+    it's measured). The count ("2 varor markerade") wraps instead of
+    truncating. At 412 px in Chromium the bar is still two rows.
+    `e2e/ux-198.mobile.spec.ts`.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
     offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):
@@ -8656,7 +8667,18 @@ components directly.
   after it is called and the router pushes about 100 ms after Enter, so
   this only showed on a loaded machine; `command-palette.spec.ts` holds
   the palette's `back()` until the router's push to get that order every
-  time.
+  time. Once the app has navigated under a pending back, its further
+  `pushState`/`replaceState` calls wait until the repair has landed and
+  are applied there, and the router, already on that page, isn't handed
+  the pop: the tasks page strips the palette's `?add=1` with a
+  `router.replace` right away, and on a loaded machine that replace came
+  mid-repair, rewrote the entry under the palette and left the repair to
+  land on, and the router to restore, the `?add=1` entry (MAINT-113;
+  the spec also holds the repair's first `forward()` until that replace).
+  If no popstate of the back or its repair arrives for 1 s after a write
+  is held, the back is given up on: the held writes are applied where the
+  browser is and later ones go straight through, so a lost popstate can't
+  freeze the URL for the rest of the session.
   `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
@@ -10793,8 +10815,12 @@ UX-14's rapid ticks and the rollback toast.
   overflow and with 44 px touch targets (UX-8), every sidebar control
   reachable by scrolling the aside, back-links on one line, 16 px fields).
   A fifth, `iphone` (WebKit, iPhone 15; UX-32), runs `smoke.spec.ts`,
-  `flows.spec.ts` and `form-control-sizes.mobile.spec.ts` (the 16 px
-  field-zoom check iOS needs) to catch iOS Safari differences. It exists
+  `flows.spec.ts`, `form-control-sizes.mobile.spec.ts` (the 16 px
+  field-zoom check iOS needs) and `command-palette.spec.ts` to catch iOS
+  Safari differences. The palette spec is there for its MAINT-103 and
+  MAINT-113 tests, which hold the dialog's `history.back()` until the
+  router has pushed, so the repair in `dialog-history.ts` is exercised in
+  WebKit's history as well as Chromium's (MAINT-107). It exists
   only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
   install --with-deps webkit`, and the `ci:local` gate skips the project
   unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
