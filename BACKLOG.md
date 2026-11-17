@@ -166,11 +166,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       scans and `parse-import-csv.ts` (codes their clients already
       translate), all done, and the shared share-split parser
       (`share-split-form.ts`), and the personal budget
-      (`personal-budget/actions.ts`). Still English: the string-literal
-      `error:` values and Zod messages in the one file left on `PENDING` in
-      `src/lib/actions/error-strings.test.ts`, the household budget's
-      `budget/actions.ts` (35), plus `lib/recipe-import.ts` (MAINT-65 is
-      splitting it). The Zod messages of the limit and goal fields in
+      (`personal-budget/actions.ts`). Recipe import needs nothing: since
+      MAINT-65 the `lib/recipe-import/` modules return only codes
+      (`FetchRecipeError`, `RecipeFileError`), which `recipe-actions.ts`
+      and `recipe-file-actions.ts` map to `dict.mealPlanning` strings, and
+      the photo import answers with `dict` strings too. Still English: the
+      string-literal `error:` values and Zod messages in the one file left
+      on `PENDING` in `src/lib/actions/error-strings.test.ts`, the
+      household budget's `budget/actions.ts` (35). The Zod messages of the limit and goal fields in
       `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
       for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
       `goalDateFieldWith`): the personal budget passes `v()` keys, the
