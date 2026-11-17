@@ -73,6 +73,14 @@ describe("default amount (UX-86)", () => {
     expect(label("Eggs", 2, "pcs")).toBe("Eggs × 2 pcs");
   });
 
+  it("writes the amount with the locale's decimal separator (UX-200)", () => {
+    const label = (quantity: number, locale: string) =>
+      formatShoppingItemLabel({ name: "mjölk", quantity, unit: "l" }, (u) => u, locale);
+    expect(label(1.5, "sv")).toBe("mjölk × 1,5 l");
+    expect(label(1.5, "en")).toBe("mjölk × 1.5 l");
+    expect(label(1000, "sv")).toBe("mjölk × 1000 l");
+  });
+
   it("copies 1 pcs as just the name", () => {
     const group: ShoppingListTextGroup = {
       key: null,
