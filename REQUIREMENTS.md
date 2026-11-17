@@ -10662,6 +10662,15 @@ can return tied rows in a new order on each refresh, which glided two
 fillers past each other on the tick until the page ordered ties by id
 (MAINT-114). `renderedScale` is unit-tested.
 
+`e2e/task-tick-undo.spec.ts` (UX-104) ticks each task straight after adding
+it through the sheet, so it first waits for the sheet to be gone, its
+history `back()` to land and the page behind it to finish easing back to
+full size, and for the checkbox to be hydrated (MAINT-116). On a loaded run
+a phone tap straddling a frame of that ease was released off the
+checkbox, the first tick never happened, and the task stayed open. The
+all-caught-up test closes the household's other open tasks one at a time,
+each save awaited, and counts only those, never its own row.
+
 Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
 `withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
 UX-14's rapid ticks and the rollback toast.
