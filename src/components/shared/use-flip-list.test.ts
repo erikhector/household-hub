@@ -17,6 +17,11 @@ describe("renderedScale", () => {
     expect(renderedScale(380.015625, 380.016)).toBe(1);
   });
 
+  it("still sees the last of the sheet's ease back as a scale (MAINT-116)", () => {
+    // 0.99934 of a 380 px list: 0.66 px off for a row 1,000 px down.
+    expect(renderedScale(379.75, 380)).toBeCloseTo(0.99934, 5);
+  });
+
   it("is 1 when a width is missing, so nothing is divided by zero or NaN", () => {
     expect(renderedScale(0, 380)).toBe(1);
     expect(renderedScale(380, 0)).toBe(1);

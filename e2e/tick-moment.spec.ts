@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, expectHydrated, waitForSheetClosed } from "./ui";
 
 // UX-54: the shared tick moment. Ticking a shopping row, a dock row or a task
 // fills the checkbox (the `tick-pop` spring, flagged as data-ticking while it
@@ -90,7 +90,12 @@ async function addTask(page: Page, title: string) {
   await page.getByRole("button", { name: "Add task" }).click();
   await page.getByRole("textbox", { name: "Task title" }).fill(title);
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
+  const box = page.getByRole("checkbox", { name: `Mark ${title} as done` });
+  await expect(box).toBeVisible();
+  // The tests tick it next: only once the sheet is gone and the page behind
+  // it at rest (MAINT-116), and React owns the checkbox.
+  await waitForSheetClosed(page);
+  await expectHydrated(box);
 }
 
 test("ticking a shopping row buzzes 10 ms, springs, then moves the row to the cart", async ({ page }) => {
