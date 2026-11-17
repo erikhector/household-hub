@@ -1672,8 +1672,8 @@ every lookup the old one did.
     nothing is undoable.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
     bar is a full-width toolbar `fixed` to the top of the bottom bar, two
-    rows high: the count, "Select all" (hidden once everything is ticked),
-    an icon-only cart for "Add to shopping list" and an ✕ for "Clear
+    rows high (three on a narrow phone, see UX-198 below): the count,
+    "Select all" (hidden once everything is ticked), an icon-only cart for "Add to shopping list" and an ✕ for "Clear
     selection" (both keep their labels as accessible names), then the
     field select, the value and Apply. While it's up the Add-item button
     is hidden and `<main>` reserves the bar's height instead
@@ -1682,6 +1682,17 @@ every lookup the old one did.
     floated mid-list above the Add-item button. From `sm` it's one
     wrapping row above the table with "Clear selection" last. There is
     still no bulk delete.
+  - **Bulk-edit bar on a narrow phone (UX-198).** The value field never
+    shrinks below 128 px (`min-w-32`): when the field select, the value
+    and Apply don't fit on one line (e.g. at 320 px), the row wraps and
+    Apply moves to a line of its own at the right edge. Where that happens
+    depends on the font, the text size and the locale, so
+    `inventory-table.tsx` measures the bar with a ResizeObserver and
+    publishes `--bulk-bar-h` on `<html>` (an inline style, nothing
+    stored), which `<main>`'s reserve in `globals.css` uses (7.5rem until
+    it's measured). The count ("2 varor markerade") wraps instead of
+    truncating. At 412 px in Chromium the bar is still two rows.
+    `e2e/ux-198.mobile.spec.ts`.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
     offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):

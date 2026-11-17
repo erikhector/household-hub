@@ -541,27 +541,6 @@ bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
 and `sv`. WebKit was not run (no browser installed here), and dark was
 not looked at (no project renders it).
 
-- [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
-      with rows selected on `/dashboard/inventory` at 320 px, the bar's
-      second row is the field select (`w-36`, 144 px), the value input
-      and Apply, and the input gets what is left: 41 × 44 px, showing
-      "t.e…" for its placeholder and about two characters of a typed
-      location or category. The count beside "Markera alla" is cut to
-      "2 varor ma…" in Swedish (81 px for 116 px of text). At 412 px the
-      input is 136 px and reads fine. Breaks M1 ("a field whose value
-      can't be read isn't a field"; a select gets its own row on a
-      phone) and M9 (Swedish strings truncate with the full value
-      reachable). `src/components/inventory/inventory-table.tsx:295`,
-      `:335`, `:354-374`. Fix: let the second row wrap so the value input
-      keeps a readable minimum (`min-w-32`) and the select or Apply moves
-      to its own line when the row is narrower than that, and let the
-      count wrap instead of truncating. Acceptance: an e2e test on
-      `mobile` at a 320 px viewport, in `sv`, selects two rows and
-      expects the value field to be at least 128 px wide, the count's
-      `scrollWidth` to be no more than its `clientWidth`, every target in
-      the bar to pass `expectTouchTargets`, and no horizontal overflow;
-      at 412 px the bar is still two rows.
-
 ---
 
 ## Phase 2 — schema changes, one at a time
