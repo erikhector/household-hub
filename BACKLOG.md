@@ -254,6 +254,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193, which doesn't touch this spec or inventory): `e2e/never-stocked.spec.ts:18` failed once on `desktop` in the first full run, then passed in a second full run of the same commit and 15/15 in a locked `--repeat-each=15` on that build.
+      Further sighting (2026-11-17, GitHub e2e job on release PR #1542, run 44064248664, commit 00bdaba, which ships #1539/#1540 but touches neither this spec nor inventory): `e2e/never-stocked.spec.ts:18` on `desktop` failed its first attempt and passed on the retry (marked `flaky`). The locked local `ci:local` on the same commit passed it.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -283,14 +284,18 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The earlier two sightings are in MAINT-107. With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; MAINT-107 names the remaining candidate, a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next two release PRs lists `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-115. Flaky: an empty template name can't be checked because the seed insert clashes with week-picks' week on desktop** (low, S) —
-      `e2e/meal-planning-field-errors.spec.ts:66` ("meal planning field errors (sv) › an empty template name is flagged under the field"), `desktop` project. First sighting: release PR #1525 on 6bcb66a, 2026-11-17, GitHub `End-to-end (Playwright)` job 133761597395, failed on the first attempt and on retry #1 with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"` at its seed `INSERT` (`:76`). It passed in the reviewer's full local `ci:local` run on the same commit and on a focused re-run of the spec (desktop + mobile, 10 passed), so it depends on which specs share a worker. Cause: the spec seeds `2032-05-03/10/17/24` (one per project and locale), the same four Mondays `e2e/week-picks.spec.ts:33-34` uses for its `pick` and `spread` tests, and it only deletes the old plan by its own id. `E2E_WORKER` is the parallel index (`e2e/seed-data.ts:14`), so the `desktop` and `mobile` projects share a worker's household while running at the same time: week-picks' live `pick.mobile` plan (`2032-05-10`) blocks this spec's desktop sv insert. Same class of bug as MAINT-79. Give the spec weeks no other spec seeds (grep `e2e/` for `2032-` before choosing). Don't delete every `MealPlan` for the household and week before inserting: that would delete week-picks' in-flight plan and move the flake there.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: no other spec under `e2e/` seeds the weeks this spec uses, and `npx playwright test e2e/meal-planning-field-errors.spec.ts e2e/week-picks.spec.ts --project=desktop --project=mobile --repeat-each=30` (default workers, so the two projects overlap) passes 30/30.
 - [ ] **MAINT-117. Flaky: ux-19's reserved week can be taken by plan-leftovers' random far-off week** (low, S) —
       `e2e/ux-19.mobile.spec.ts:41`, `mobile` project, timed out waiting for "Add first dinner" in the builder's locked `ci:local` on PR #1519 (2026-11-17), which touches neither spec. The page snapshot showed plan-leftovers' "Lasagna … Cooked" entry in ux-19's reserved week 2031-06-02. `e2e/plan-leftovers.spec.ts` picks its week with `farOffset()`, a random day 365 to 5365 days out, which can land on a week another spec reserves. This is the same kind of week clash as MAINT-79 and MAINT-115. Fix it by giving each spec's weeks a range no other spec's random offset can reach (e.g. a shared helper that hands out disjoint week ranges per spec and worker), not by retrying.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: no random week offset under `e2e/` can reach a week another spec reserves, and `npx playwright test e2e/ux-19.mobile.spec.ts e2e/plan-leftovers.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-118. Flaky: the palette's Enter-navigates test lands on `/dashboard/tasks?add=1` on mobile** (low, S) —
+      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone", the MAINT-103 test), `mobile` project (Chromium), local `npm run ci:local` only. First sighting: the builder's locked full gate on af53057 (PR #1536, MAINT-115, which touches only meal-planning specs, 2026-11-17): 1 failed, 1715 passed, the URL assertion expecting `/\/dashboard\/tasks$/` got `/dashboard/tasks?add=1`. The same spec passed 82/82 run alone (`--project=desktop --project=mobile --repeat-each=5`) on that commit, and the next full gate (a4e7c8b) passed it. The `?add=1` is the query MAINT-113 (#1519) has the tasks page strip after the palette's Add task; this test navigates with Enter, so start from whether a slow strip or the MAINT-103 repair's forward() lands on an entry still carrying `?add=1` under load. MAINT-107 covers the same spec on `iphone` only. No trace was kept; rerun under load with `--trace on` first.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-119. Flaky: the recipe-ingredients unit-memory test can't open the Bread row's sheet on mobile** (low, S) —
+      `e2e/recipe-ingredients.spec.ts:314` ("remembering 1 pcs = 2000 g for an item skips the unit question next time, and cooking uses it"), `mobile` project. First sighting: the GitHub e2e job on release PR #1542 (run 44064248664, commit 00bdaba, 2026-11-17, which ships #1539/#1540 and touches neither recipes nor inventory) failed the first attempt and passed on the retry (marked `flaky`). The failure was in `openRowSheet` (`e2e/ui.ts:262`, called from the spec's `:357`): after clicking the row's name in `main`, `getByRole("dialog", { name: "Bread <id>" })` was not visible within 5 s. The locked local `ci:local` on the same commit passed it. The "Bread <id>" row is the recipe's planned meal on `/dashboard/meal-planning`, reached by a plain `page.goto` at `:356` straight after `planForToday`; nothing has been cooked yet. Start from that `goto`: `openRowSheet` taps the row before the page has hydrated (there's no `expectHydrated`/`gotoRevealed`, unlike the spec's `:49`–`:51`), or the plan entry `planForToday` inserted streams in and re-renders under the tap. Check the failing run's trace.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -553,24 +558,6 @@ tick, the row and list menus, share and the share page, and an empty
 new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
 (no browser installed here), and dark was not looked at.
 
-- [ ] **UX-200. Keep a decimal comma inside one smart-add row** (impact: high, effort: S) —
-      Swedish writes `1,5 l`, but `splitOnTopLevelCommas`
-      (`src/lib/inventory/parse-pasted-list.ts:145`, used by
-      `parseSmartAddInput` and the Import list dialog) splits on every
-      top-level comma. `1,5 l mjölk` adds two rows, "1" and "mjölk × 5 l";
-      `havredryck 1,5 liter` adds "havredryck 1" and "liter × 5". Seen on the
-      `mobile` and 320 px phones in `sv` on
-      `/dashboard/shopping-list/[id]`. This breaks principle 4 (the app
-      speaks the user's language and locale): a sv user typing the way
-      they write gets junk rows. Fix: a comma with a digit directly on both
-      sides is a decimal separator, not a list separator, and the quantity
-      parser reads `1,5` as 1.5 (the dialogs already do, REQUIREMENTS.md
-      "Both dialogs read a comma or a point"). Acceptance: unit tests in
-      `parse-pasted-list.test.ts` show `1,5 l mjölk, bröd` →
-      `[{mjölk, 1.5, l}, {bröd}]` and `mjölk 1,5 l` → one row. An e2e
-      test in the `mobile` project (sv) types `1,5 l mjölk` into the add
-      line, presses Enter, and sees exactly one new row reading
-      "mjölk × 1,5 l".
 - [ ] **UX-201. Confirm before revoking a share link, and clear a stale share error** (impact: med, effort: S) —
       In the Share dialog, Revoke
       (`src/components/shopping/share-list-button.tsx:105-111`,
@@ -587,23 +574,6 @@ new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
       in the `mobile` and `desktop` projects, tapping Revoke opens an
       `alertdialog`; Cancel leaves the link field visible; confirming shows
       the revoked toast and the share page then reads as revoked.
-- [ ] **UX-202. Show an invalid price next to the field, not in a toast or browser bubble** (impact: med, effort: S) —
-      The inline price edit on a shopping row
-      (`src/components/shopping/shopping-row.tsx:453-455`, `type="number"
-      min={0}` with no `noValidate`) shows the browser's own validation
-      bubble for `-1`. That bubble is in the browser's language, not the
-      app's (English "Value must be greater than or equal to 0" over a
-      Swedish screen), and on a phone it lands under the Next up dock.
-      Anything that gets past it reaches `save()` (:429), which only
-      raises `toast.error(dict.priceInvalid)`, as do server errors (:437).
-      The input never gets `aria-invalid`. Seen on `mobile` and 320 px in
-      `en` and `sv`. Breaks principle 7 (errors next to the field, input
-      kept) and M5. Fix: `noValidate` on the form, keep the message in
-      local state, render it under the field with `aria-invalid` and
-      `aria-describedby`, and drop the toast. Acceptance: in the `mobile`
-      project (sv), typing `-1` and pressing Enter leaves the input showing
-      `-1` with `aria-invalid="true"` and `dict.priceInvalid` visible in
-      that row, and no toast.
 
 ---
 
