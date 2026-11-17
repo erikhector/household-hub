@@ -8687,6 +8687,13 @@ components directly.
   mid-repair, rewrote the entry under the palette and left the repair to
   land on, and the router to restore, the `?add=1` entry (MAINT-113;
   the spec also holds the repair's first `forward()` until that replace).
+  The router isn't handed the repair's last pop even when nothing was
+  held: it never saw the back, so it's still on that page, and its
+  restore pre-empts the navigation in flight. The tasks page's strip only
+  writes the URL once the server answers, so a repair landing while that
+  request was out had the restore discard it and the page stayed on
+  `?add=1` (MAINT-118; the spec holds the repair's last `forward()` until
+  the strip's request is sent and slows its answer).
   If no popstate of the back or its repair arrives for 1 s after a write
   is held, the back is given up on: the held writes are applied where the
   browser is and later ones go straight through, so a lost popstate can't

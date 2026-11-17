@@ -187,8 +187,11 @@ describe("pushDialogEntry", () => {
     expect(browser.index()).toBe(1);
     expect(browser.pop()).toHaveBeenCalled();
     expect(browser.index()).toBe(2);
-    // The last one lands on the page the app went to: the router's.
-    expect(browser.pop()).not.toHaveBeenCalled();
+    // The last one lands on the page the app went to, where the router
+    // still is, so it's kept from the router too. MAINT-118: the router's
+    // restore would discard a navigation the new page had started meanwhile
+    // (the tasks page's router.replace() stripping `?add=1`).
+    expect(browser.pop()).toHaveBeenCalled();
 
     expect(forward).toHaveBeenCalledTimes(2);
     expect(window.location.href).toBe("https://app.test/dashboard/tasks?add=1");
