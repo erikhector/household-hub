@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, expectHydrated, waitForSheetClosed } from "./ui";
 
 // MAINT-9: the recap cards share one useDismissedLocalStorage hook. This
 // drives the tasks recap through it: dismissing hides it at once and the
@@ -20,6 +20,10 @@ test("the weekly task recap stays dismissed after a reload", async ({ page, cont
   // on a busy machine it was the one this caught, not the tick's.
   const box = page.getByRole("checkbox", { name: `Mark ${title} as done` });
   await expect(box).toBeVisible();
+  // Tap only once the sheet is gone and the page behind it at rest
+  // (MAINT-116), and React owns the checkbox.
+  await waitForSheetClosed(page);
+  await expectHydrated(box);
   await page.waitForLoadState("networkidle");
   const saved = page.waitForResponse(
     (response) => response.request().method() === "POST" && response.url().includes("/dashboard/tasks"),
