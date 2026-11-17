@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.157.2",
+    "date": "2026-11-17",
+    "pr": 1535,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you select items in Inventory on a narrow phone, the bulk-edit bar now leaves enough room to read what you type, and the \"items selected\" count is no longer cut off.\n\nChoosing \"Add task\" from the command palette now reliably opens the new-task form on the Tasks page, even on a busy device.",
+      "sv": "När du markerar varor i Lager på en smal telefon ger verktygsraden för massredigering nu plats att läsa det du skriver, och antalet markerade varor klipps inte längre av.\n\nNär du väljer \"Lägg till uppgift\" i kommandopaletten öppnas formuläret för en ny uppgift på sidan Uppgifter nu alltid, även på en upptagen enhet."
+    }
+  },
+  {
     "version": "0.157.1",
     "date": "2026-11-17",
     "pr": 1525,
