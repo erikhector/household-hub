@@ -541,6 +541,71 @@ bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
 and `sv`. WebKit was not run (no browser installed here), and dark was
 not looked at (no project renders it).
 
+### UX (2026-11-17 scout)
+
+Tuesday area: shopping lists, shopping mode and the share page. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass. The only
+audit hits are the known `text-200` bottom-bar truncations (UX-150) and
+the Next up dock's aisle name ("Baki…") at 200% text, which is too small
+to file on its own. The deep dive drove smart add (with a
+70-character Swedish name), the inline price edit with invalid input,
+tick, the row and list menus, share and the share page, and an empty
+new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
+(no browser installed here), and dark was not looked at.
+
+- [ ] **UX-200. Keep a decimal comma inside one smart-add row** (impact: high, effort: S) —
+      Swedish writes `1,5 l`, but `splitOnTopLevelCommas`
+      (`src/lib/inventory/parse-pasted-list.ts:145`, used by
+      `parseSmartAddInput` and the Import list dialog) splits on every
+      top-level comma. `1,5 l mjölk` adds two rows, "1" and "mjölk × 5 l";
+      `havredryck 1,5 liter` adds "havredryck 1" and "liter × 5". Seen on the
+      `mobile` and 320 px phones in `sv` on
+      `/dashboard/shopping-list/[id]`. This breaks principle 4 (the app
+      speaks the user's language and locale): a sv user typing the way
+      they write gets junk rows. Fix: a comma with a digit directly on both
+      sides is a decimal separator, not a list separator, and the quantity
+      parser reads `1,5` as 1.5 (the dialogs already do, REQUIREMENTS.md
+      "Both dialogs read a comma or a point"). Acceptance: unit tests in
+      `parse-pasted-list.test.ts` show `1,5 l mjölk, bröd` →
+      `[{mjölk, 1.5, l}, {bröd}]` and `mjölk 1,5 l` → one row. An e2e
+      test in the `mobile` project (sv) types `1,5 l mjölk` into the add
+      line, presses Enter, and sees exactly one new row reading
+      "mjölk × 1,5 l".
+- [ ] **UX-201. Confirm before revoking a share link, and clear a stale share error** (impact: med, effort: S) —
+      In the Share dialog, Revoke
+      (`src/components/shopping/share-list-button.tsx:105-111`,
+      `handleRevoke` at :62) kills the link with a single tap. Anyone
+      shopping from it gets "invalid or revoked" mid-trip, and re-sharing
+      mints a different token, so the action can't be undone. That breaks
+      principle 5 (costly actions are confirmed) and M2. Separately, `error`
+      (:43) is set at :56 but never cleared, so after one failed create,
+      reopening the dialog shows the old red error beside the working link
+      (principle 7, designed states). Fix: route Revoke through the existing
+      `ConfirmDialog` (the pattern `confirmDeleteList` uses) with
+      `shareLink.revokeConfirm*` strings in `en` and `sv`, and call
+      `setError(null)` in `handleOpenChange` before the request. Acceptance:
+      in the `mobile` and `desktop` projects, tapping Revoke opens an
+      `alertdialog`; Cancel leaves the link field visible; confirming shows
+      the revoked toast and the share page then reads as revoked.
+- [ ] **UX-202. Show an invalid price next to the field, not in a toast or browser bubble** (impact: med, effort: S) —
+      The inline price edit on a shopping row
+      (`src/components/shopping/shopping-row.tsx:453-455`, `type="number"
+      min={0}` with no `noValidate`) shows the browser's own validation
+      bubble for `-1`. That bubble is in the browser's language, not the
+      app's (English "Value must be greater than or equal to 0" over a
+      Swedish screen), and on a phone it lands under the Next up dock.
+      Anything that gets past it reaches `save()` (:429), which only
+      raises `toast.error(dict.priceInvalid)`, as do server errors (:437).
+      The input never gets `aria-invalid`. Seen on `mobile` and 320 px in
+      `en` and `sv`. Breaks principle 7 (errors next to the field, input
+      kept) and M5. Fix: `noValidate` on the form, keep the message in
+      local state, render it under the field with `aria-invalid` and
+      `aria-describedby`, and drop the toast. Acceptance: in the `mobile`
+      project (sv), typing `-1` and pressing Enter leaves the input showing
+      `-1` with `aria-invalid="true"` and `dict.priceInvalid` visible in
+      that row, and no toast.
+
 ---
 
 ## Phase 2 — schema changes, one at a time
