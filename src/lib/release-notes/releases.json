@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.157.4",
+    "date": "2026-11-17",
+    "pr": 1548,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking a task right after adding one on a phone no longer nudges the rows above it by a pixel.",
+      "sv": "När du bockar av en uppgift direkt efter att du lagt till en i mobilen hoppar inte längre raderna ovanför en pixel."
+    }
+  },
+  {
     "version": "0.157.3",
     "date": "2026-11-17",
     "pr": 1542,
