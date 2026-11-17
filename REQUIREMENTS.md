@@ -1370,6 +1370,13 @@ every lookup the old one did.
       editor. Once there is a price, the ≈ price button stays on the row.
       Rows with a chip or the "Match item" badge keep the stacked second
       line.
+    - *Price errors under the field (UX-202)*: the inline price editor's
+      form is `noValidate`, so a negative or empty price never gets the
+      browser's own bubble (in the browser's language, and under the dock
+      on a phone). `save()` checks it, and that message or the server's
+      refusal shows under the field (`FieldError`, `role="alert"`) with the
+      input kept, `aria-invalid` and `aria-describedby` set; no toast.
+      Typing clears it.
     - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
       row into `ShoppingListClient`, because a ticked row now changes
       section. It's plain state, not `useOptimistic`: React 19 entangles
