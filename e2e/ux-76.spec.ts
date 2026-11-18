@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { en } from "../src/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectRouterPatched, gotoRevealed } from "./ui";
 
 // UX-76: the Profile is four sections (Account, Preferences, Notifications,
 // Data & privacy) with the rare items behind disclosures and Log out at the
@@ -44,7 +44,12 @@ test("rare items sit behind disclosures", async ({ page }) => {
 
   const deleteTrigger = data.getByRole("button", { name: t.deleteAccount.trigger });
   await expect(deleteTrigger).toBeHidden();
-  await data.getByText(t.dangerZoneTitle, { exact: true }).click();
+  // Open the disclosures only once React owns the page: one opened before
+  // hydration was found closed again (MAINT-104, ux-193.spec.ts).
+  const dangerZone = data.getByText(t.dangerZoneTitle, { exact: true });
+  await expectHydrated(dangerZone);
+  await expectRouterPatched(page);
+  await dangerZone.click();
   await expect(deleteTrigger).toBeVisible();
 
   const whatsNew = data.getByRole("link", { name: t.about.whatsNewLink });
