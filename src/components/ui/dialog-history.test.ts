@@ -157,6 +157,13 @@ describe("pushDialogEntry", () => {
     expect(stopped).toHaveBeenCalled();
     expect(forward).toHaveBeenCalledOnce();
     expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
+
+    // The forward lands on the kept item's page, where the router still
+    // is, so it's kept from the router too: MAINT-118, a restore here would
+    // throw away a navigation the page had started meanwhile.
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(forward).toHaveBeenCalledOnce();
+    expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
   });
 
   // MAINT-103: the command palette closes and router.push()es in one go. A
