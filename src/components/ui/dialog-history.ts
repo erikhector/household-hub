@@ -39,6 +39,11 @@ let ownBack: { href: string; closedId: number; overwritten: boolean; repairing: 
 // Dialogs that opened while ownBack was pending, waiting for that back() to
 // land before they push their entry (see pushDialogEntry).
 const deferred: Entry[] = [];
+// Dialogs closed from the UI while ownBack was pending for the dialog
+// stacked on top of them (a sheet and its confirm closing together,
+// UX-201), waiting for that back() to land on their entry so they can take
+// it off too (see pushDialogEntry's release).
+const releasing: Entry[] = [];
 // The app's own pushState/replaceState calls that came after it navigated
 // under a pending back() (ownBack.overwritten), held until the repair has
 // landed. MAINT-113: by then the browser is, or is about to be, on an entry
@@ -74,6 +79,7 @@ function releaseHeldWrites() {
   heldWritesTimer = null;
   if (ownBack === null) return;
   setOwnBack(null);
+  releasing.length = 0;
   for (const write of heldWrites.splice(0)) write();
   flushDeferred();
 }
@@ -149,6 +155,22 @@ function onPopState(event: PopStateEvent) {
     } else if (!repairing) swallow = window.location.href === href;
   }
   const landedOn = markerOf(event.state);
+  if (ownBack === null && releasing.length > 0) {
+    // Our back() has landed. If it's on the entry of a dialog that closed
+    // while it was on its way, that entry is stale too: take it off the
+    // same way, or the next back gesture would step onto it and do nothing.
+    // Anywhere else (the app navigated meanwhile), they're left behind as
+    // harmless same-URL steps, as a release that isn't on top always is.
+    const waiting = releasing.findIndex((entry) => entry.id === landedOn);
+    const entry = waiting === -1 ? undefined : releasing.splice(waiting, 1)[0];
+    if (entry === undefined) releasing.length = 0;
+    else if (window.location.href === entry.href) {
+      event.stopImmediatePropagation();
+      setOwnBack({ href: entry.href, closedId: entry.id, overwritten: false, repairing: false });
+      window.history.back();
+      return;
+    }
+  }
   while (stack.length > 0 && stack[stack.length - 1].id !== landedOn) {
     const entry = stack.pop()!;
     // A long-press back can jump past the page the dialog was opened on;
@@ -259,6 +281,12 @@ export function pushDialogEntry(close: () => void): () => void {
     if (markerOf(window.history.state) === entry.id) {
       setOwnBack({ href: entry.href, closedId: entry.id, overwritten: false, repairing: false });
       window.history.back();
+    } else if (ownBack !== null && !ownBack.overwritten && !ownBack.repairing) {
+      // The dialog on top of this one closed in the same commit (UX-201: a
+      // successful revoke closes its confirm and the Share sheet together)
+      // and its back() hasn't landed yet, so history.state still carries
+      // its marker. Once that back lands on our entry, take ours off too.
+      releasing.push(entry);
     }
   };
 }
