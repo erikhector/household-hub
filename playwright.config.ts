@@ -130,7 +130,8 @@ export default defineConfig({
       // ux-141: the inventory is the card list at this width, not the table.
       // ux-196: a possible-duplicates row has touch-sized controls here.
       // ux-199: the filter row's selects show their whole value.
-      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile|ux-141|ux-196|ux-199)\.spec\.ts$/,
+      // ux-203: a recipe sheet's linked ingredients are 44 px rows.
+      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile|ux-141|ux-196|ux-199|ux-203)\.spec\.ts$/,
     },
     // UX-32: iOS Safari renders and zooms differently from Chromium
     // (16 px field zoom, 100vh, number inputs, safe areas), so the Pixel 7
