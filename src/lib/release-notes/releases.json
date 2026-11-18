@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.157.5",
+    "date": "2026-11-18",
+    "pr": 1583,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Revoking a shopping list's share link now asks you to confirm first, since anyone shopping from the link loses access straight away. An old error no longer shows up next to a working share link.\n\nChoosing \"Add task\" from the command palette no longer occasionally leaves `?add=1` in the address bar on a slow connection or device.\n\nAdding a custom meal without a name now tells you right under the Meal name field, instead of seeming to do nothing.\n\nLinked ingredients in a recipe are now easier to tap on a phone, so you open the item you meant instead of the one below it.",
+      "sv": "När du återkallar en inköpslistas dellänk får du nu bekräfta först, eftersom den som handlar från länken förlorar åtkomsten direkt. Ett gammalt felmeddelande visas inte längre bredvid en fungerande dellänk.\n\nNär du väljer \"Lägg till syssla\" i kommandopaletten blir `?add=1` inte längre ibland kvar i adressfältet på en långsam anslutning eller enhet.\n\nOm du lägger till en egen måltid utan namn får du nu besked direkt under fältet Måltidens namn, i stället för att ingenting verkar hända.\n\nLänkade ingredienser i ett recept är nu lättare att trycka på i mobilen, så du öppnar varan du menade och inte den under."
+    }
+  },
+  {
     "version": "0.157.4",
     "date": "2026-11-17",
     "pr": 1548,
