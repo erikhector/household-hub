@@ -16,8 +16,10 @@ on:
     - cron: "17 2 * * *"
   workflow_dispatch:
 
+# Per ref, so a run dispatched on a release branch (autopilot-review)
+# doesn't cancel the scheduled one on `next`.
 concurrency:
-  group: e2e-nightly
+  group: e2e-nightly-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
