@@ -574,30 +574,6 @@ installed here), and dark was not looked at (no project renders it).
       link with a bounding box at least 44 px tall. It still goes to the
       item page and back to the Recipes tab.
 
-- [ ] **UX-204. Flag an empty custom meal name under the field in Add meal** (impact: med, effort: S) —
-      In the add/edit meal sheet, picking "Custom meal…" and tapping Add
-      with no name posts the form. The server's `chooseRecipeOrMeal`
-      (`src/app/dashboard/meal-planning/planner-actions.ts:113`, :198)
-      comes back as one form-level line under the meal-note field
-      (`src/components/meal-planning/meal-entry-dialog.tsx:402`). On a
-      Pixel 7 that's below the fold of the sheet, so nothing visible
-      happens. Focus drops to `<body>`, the Meal name input
-      (:339-348) gets no `aria-invalid`, and the text ("Choose a recipe or
-      enter a meal name") asks for a recipe the user just declined. That
-      breaks principle 7, errors next to the field (UX-183), and M5
-      (feedback on every touch). It's the one meal-planning form
-      `useRequiredFields` (`src/components/shared/use-required-fields.ts`)
-      never reached. Fix: make the form `noValidate` with
-      `useRequiredFields` on `freeformName` when the custom option is
-      chosen, plus a `customMealNameRequired` string in `en` and `sv`. It
-      shows under the field as a `FieldError` (`role="alert"`), and the
-      field gets `aria-invalid`, `aria-describedby` and focus. Acceptance:
-      in `e2e/meal-planning-field-errors.spec.ts` (`mobile` and
-      `desktop`, en and sv), choosing Custom meal and tapping Add with an
-      empty name shows the alert in view under Meal name, the field is
-      focused and `aria-invalid`, typed ingredients stay, no entry is
-      created, and typing a name clears the alert.
-
 ---
 
 ## Phase 2 — schema changes, one at a time

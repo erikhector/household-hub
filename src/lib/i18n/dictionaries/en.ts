@@ -2245,6 +2245,7 @@ export const en = {
     // The add-meal picker before anything is chosen (M4: pick, don't type).
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
+    customMealNameRequired: "Enter a name for the meal",
     customMealIngredientsLabel: "Ingredients (optional)",
     customMealIngredientsPlaceholder: "2 tortillas\n1 jar salsa",
     customMealIngredientsHint: "One per line. What you are missing goes on the shopping list.",
