@@ -2113,7 +2113,13 @@ every lookup the old one did.
   "Share" button (`ShareListButton`, mirroring `InviteButton`'s show-
   link/copy-button/revoke UX) only while the list is `ACTIVE` — sharing a
   `COMPLETED`/`ARCHIVED` list to let a visitor check off items has no real
-  use once the list is done. The public page itself,
+  use once the list is done. Revoke goes through a `ConfirmDialog`
+  announced as an `alertdialog` (UX-201: it cuts off anyone shopping from
+  the link right now, and sharing again mints a new token, so it can't be
+  undone); a failed revoke toasts and leaves the confirmation open to
+  retry. Each open that has to create a link clears the previous open's
+  create error first, so a stale red error never sits beside a working
+  link. The public page itself,
   `/share/shopping-list/[token]` (top-level, deliberately **not** under
   `/dashboard` so `src/proxy.ts`'s session gate — which only matches
   `/dashboard/*` — never touches it), is a minimal standalone Card with no
@@ -8687,6 +8693,13 @@ components directly.
   mid-repair, rewrote the entry under the palette and left the repair to
   land on, and the router to restore, the `?add=1` entry (MAINT-113;
   the spec also holds the repair's first `forward()` until that replace).
+  The router isn't handed the repair's last pop even when nothing was
+  held: it never saw the back, so it's still on that page, and its
+  restore pre-empts the navigation in flight. The tasks page's strip only
+  writes the URL once the server answers, so a repair landing while that
+  request was out had the restore discard it and the page stayed on
+  `?add=1` (MAINT-118; the spec holds the repair's last `forward()` until
+  the strip's request is sent and slows its answer).
   If no popstate of the back or its repair arrives for 1 s after a write
   is held, the back is given up on: the held writes are applied where the
   browser is and later ones go straight through, so a lost popstate can't
@@ -8737,7 +8750,14 @@ components directly.
   disclosure closed again and a position at the very bottom lands that
   much higher. Covered by `e2e/ux-193.spec.ts` (Profile, with and
   without a hash, cached and fetched again behind a held skeleton),
-  `scroll-memory.test.ts` and `dialog-history.test.ts`.
+  `scroll-memory.test.ts` and `dialog-history.test.ts`. The spec opens
+  the About disclosure only once React owns its summary and the router
+  has patched history: clicked straight after `gotoRevealed`, the
+  `<details>` was found closed again in the hash variants and the What's
+  new link never showed (MAINT-104, fixed in #1456; 240/240 with
+  `--repeat-each=30` on both projects). `ux-76.spec.ts` and
+  `notifications-empty-state.spec.ts` wait the same way before they open
+  Profile's Danger zone.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
   `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
   a long form (the recipe form, add/edit item, receipts) instead of
@@ -8944,7 +8964,16 @@ version or the notes by hand.
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
   typecheck, unit tests and build; PRs into `master` swap the build for
-  the e2e job, which builds once itself. Draft PRs skip e2e. Docs-only
+  the e2e jobs. Those run the `desktop`, `mobile`, `landscape` and
+  `tablet` projects split across three runners (`--shard`, each with its
+  own Postgres and build), since one runner took 32 minutes for the
+  tests while the build is about one. The required `End-to-end
+  (Playwright)` check is a small job that passes only when all three
+  shards did, so the rulesets don't name shards. The `iphone` (WebKit)
+  project isn't in the release gate: `.github/workflows/e2e-nightly.yml`
+  runs the whole suite with WebKit on `next` at 02:17 UTC (and by hand
+  from the Actions tab), and the autopilot reviewer reads its latest
+  result before shipping. Draft PRs skip e2e. Docs-only
   PRs (`*.md`, `docs/`, `.claude/`, `.agents/`) skip both, and a skipped
   job counts as passing for the required checks. A new push cancels the
   PR's running workflow, and nothing runs on push, since every commit
@@ -8969,7 +8998,17 @@ version or the notes by hand.
   The fast CI job also runs `npm audit --omit=dev --audit-level=high`:
   only what ships, and only high or critical advisories, so the moderate
   dev-tool advisories that wait on upstream (typescript-eslint's
-  minimatch, shadcn's deepmerge) don't turn every PR red. Then
+  minimatch, shadcn's deepmerge) don't turn every PR red. It runs through
+  `node scripts/audit.ts`, which reads `npm audit --json` and fails on any
+  such advisory except those in `src/lib/audit-allowlist.ts` (DEPS-10).
+  An entry there is for a high advisory with no patched release to move
+  to, so neither `npm audit fix` nor an `overrides` pin clears it. Each
+  names the GHSA id, why shipping with it is safe, and an expiry date
+  (about three months out) from which CI fails on it again. The first is
+  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), whose latest release 4.0.7 is
+  still affected and whose only production paths are Sentry's build-time
+  Rollup and Vite tooling matching the repo's own globs. The script also
+  prints entries whose advisory is gone, to be deleted. Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
   imports, on unused or unlisted dependencies, and on exports, types and
   duplicate exports no other file imports. Its framework plugins
@@ -10839,10 +10878,11 @@ UX-14's rapid ticks and the rollback toast.
   the single `next start` process is the bottleneck (4 workers: 5.4
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
-  login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
-  with a Postgres service container, running on PRs into `master` (the
+  login callback. `.github/workflows/ci.yml` runs it in three `--shard`
+  jobs, each with a Postgres service container, on PRs into `master` (the
   release PR, see "Releases & What's new"; `ci_gate: github` in
-  AUTOPILOT.md). `npm run ci:local`
+  AUTOPILOT.md), without the `iphone` project; `e2e-nightly.yml` runs
+  all of it, WebKit included, on `next` every night. `npm run ci:local`
   (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
@@ -10870,8 +10910,10 @@ UX-14's rapid ticks and the rollback toast.
   that ran after #1533 added the spec to `iphone`: #1535 (job
   133885965621), #1542 (133973716804), #1548 (134073930596) and #1555
   (134225144476), 32 of 32 on 2026-11-17 (#1553's e2e job was skipped). WebKit still can't be downloaded in the
-  autopilot's build container, so GitHub is where it runs. It exists
-  only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
+  autopilot's build container, so GitHub is where it runs: since
+  November 2026 in the nightly full run (`e2e-nightly.yml`), not the
+  release PR's sharded gate. It exists
+  only when `E2E_WEBKIT=1`: that workflow sets it after `npx playwright
   install --with-deps webkit`, and the `ci:local` gate skips the project
   unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
   config prints a warning once and leaves the project out, so runs without
@@ -10998,6 +11040,13 @@ UX-14's rapid ticks and the rollback toast.
   `expectHydrated` on "Add first dinner". One 20 s poll straight after
   `goto` covered the stream, the reveal and both hydrations, and ran out
   twice in a locked `ci:local` run (MAINT-98).
+  `openRowSheet` (a planner meal's or a recipe's sheet) waits for the
+  row to be hydrated and for `expectRouterPatched` before it taps, since
+  most callers reach it straight after a plain `goto`: on a loaded run
+  the Bread row of `recipe-ingredients.spec.ts`'s unit-memory test,
+  tapped that way on the phone project, never showed its sheet
+  (MAINT-119). That test also waits out the save's `history.back()`
+  (`waitForDialogHistory`) before its `goto` to the planner.
   A helper that presses a toggle until a dialog shows checks that the
   dialog is open (`data-open` on the Base UI popup), not just visible. A
   closing sheet stays visible while it slides out, long enough on a phone
