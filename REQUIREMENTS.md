@@ -8950,7 +8950,16 @@ version or the notes by hand.
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
   typecheck, unit tests and build; PRs into `master` swap the build for
-  the e2e job, which builds once itself. Draft PRs skip e2e. Docs-only
+  the e2e jobs. Those run the `desktop`, `mobile`, `landscape` and
+  `tablet` projects split across three runners (`--shard`, each with its
+  own Postgres and build), since one runner took 32 minutes for the
+  tests while the build is about one. The required `End-to-end
+  (Playwright)` check is a small job that passes only when all three
+  shards did, so the rulesets don't name shards. The `iphone` (WebKit)
+  project isn't in the release gate: `.github/workflows/e2e-nightly.yml`
+  runs the whole suite with WebKit on `next` at 02:17 UTC (and by hand
+  from the Actions tab), and the autopilot reviewer reads its latest
+  result before shipping. Draft PRs skip e2e. Docs-only
   PRs (`*.md`, `docs/`, `.claude/`, `.agents/`) skip both, and a skipped
   job counts as passing for the required checks. A new push cancels the
   PR's running workflow, and nothing runs on push, since every commit
@@ -8975,7 +8984,17 @@ version or the notes by hand.
   The fast CI job also runs `npm audit --omit=dev --audit-level=high`:
   only what ships, and only high or critical advisories, so the moderate
   dev-tool advisories that wait on upstream (typescript-eslint's
-  minimatch, shadcn's deepmerge) don't turn every PR red. Then
+  minimatch, shadcn's deepmerge) don't turn every PR red. It runs through
+  `node scripts/audit.ts`, which reads `npm audit --json` and fails on any
+  such advisory except those in `src/lib/audit-allowlist.ts` (DEPS-10).
+  An entry there is for a high advisory with no patched release to move
+  to, so neither `npm audit fix` nor an `overrides` pin clears it. Each
+  names the GHSA id, why shipping with it is safe, and an expiry date
+  (about three months out) from which CI fails on it again. The first is
+  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), whose latest release 4.0.7 is
+  still affected and whose only production paths are Sentry's build-time
+  Rollup and Vite tooling matching the repo's own globs. The script also
+  prints entries whose advisory is gone, to be deleted. Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
   imports, on unused or unlisted dependencies, and on exports, types and
   duplicate exports no other file imports. Its framework plugins
@@ -10845,10 +10864,11 @@ UX-14's rapid ticks and the rollback toast.
   the single `next start` process is the bottleneck (4 workers: 5.4
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
-  login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
-  with a Postgres service container, running on PRs into `master` (the
+  login callback. `.github/workflows/ci.yml` runs it in three `--shard`
+  jobs, each with a Postgres service container, on PRs into `master` (the
   release PR, see "Releases & What's new"; `ci_gate: github` in
-  AUTOPILOT.md). `npm run ci:local`
+  AUTOPILOT.md), without the `iphone` project; `e2e-nightly.yml` runs
+  all of it, WebKit included, on `next` every night. `npm run ci:local`
   (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
@@ -10869,8 +10889,17 @@ UX-14's rapid ticks and the rollback toast.
   Safari differences. The palette spec is there for its MAINT-103 and
   MAINT-113 tests, which hold the dialog's `history.back()` until the
   router has pushed, so the repair in `dialog-history.ts` is exercised in
-  WebKit's history as well as Chromium's (MAINT-107). It exists
-  only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
+  WebKit's history as well as Chromium's (MAINT-107). Confirmed on
+  GitHub: all eight `[iphone] › e2e/command-palette.spec.ts` tests,
+  the two repair tests among them, passed on the first attempt (none
+  flaky or retried) in every release PR `End-to-end (Playwright)` job
+  that ran after #1533 added the spec to `iphone`: #1535 (job
+  133885965621), #1542 (133973716804), #1548 (134073930596) and #1555
+  (134225144476), 32 of 32 on 2026-11-17 (#1553's e2e job was skipped). WebKit still can't be downloaded in the
+  autopilot's build container, so GitHub is where it runs: since
+  November 2026 in the nightly full run (`e2e-nightly.yml`), not the
+  release PR's sharded gate. It exists
+  only when `E2E_WEBKIT=1`: that workflow sets it after `npx playwright
   install --with-deps webkit`, and the `ci:local` gate skips the project
   unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
   config prints a warning once and leaves the project out, so runs without
