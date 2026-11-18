@@ -591,6 +591,63 @@ new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
       `alertdialog`; Cancel leaves the link field visible; confirming shows
       the revoked toast and the share page then reads as revoked.
 
+### UX (2026-11-18 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar truncations (UX-150) and the hidden "Invite member"
+button. The landscape sidebar and the Next up dock look cut off in the
+full-page shots. Both are documented behaviour: on short screens the
+aside scrolls (UX-7), and the dock is sticky (UX-37). The deep dive drove the add-meal sheet (empty
+submit, Custom meal with an empty name, a 79-character Swedish name), the
+meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
+cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
+installed here), and dark was not looked at (no project renders it).
+
+- [ ] **UX-203. Give the recipe sheet's ingredient links a 44 px row** (impact: med, effort: S) —
+      In a recipe's sheet, an ingredient linked to a pantry item is a bare
+      text link (`src/components/meal-planning/recipe-manager.tsx:803-826`):
+      each `<li>` is one line with `gap-1`, so on Pixel 7 the "Wheat flour"
+      link measures 76 × 19 px, and a recipe with several linked
+      ingredients stacks 19 px targets 4 px apart. A thumb aimed at one
+      ingredient opens the next one's item page. The link is marked
+      `data-running-text`, which exempts it from the smoke target check,
+      but a one-per-line list of links isn't running text (DESIGN.md M3
+      exempts only links inside a sentence). The smoke check also only
+      measures closed pages, so the sheet was never measured. Fix: make a
+      linked `<li>` a `min-h-11` flex row, with the link stretched over it
+      (quantity and prep note still read inline), and with 8 px between
+      rows on touch (`max-sm:gap-2 pointer-coarse:gap-2`). Then drop
+      `data-running-text`. Acceptance: in the `mobile` and `tablet`
+      projects, opening the seeded Pancakes sheet shows the "Wheat flour"
+      link with a bounding box at least 44 px tall. It still goes to the
+      item page and back to the Recipes tab.
+
+- [ ] **UX-204. Flag an empty custom meal name under the field in Add meal** (impact: med, effort: S) —
+      In the add/edit meal sheet, picking "Custom meal…" and tapping Add
+      with no name posts the form. The server's `chooseRecipeOrMeal`
+      (`src/app/dashboard/meal-planning/planner-actions.ts:113`, :198)
+      comes back as one form-level line under the meal-note field
+      (`src/components/meal-planning/meal-entry-dialog.tsx:402`). On a
+      Pixel 7 that's below the fold of the sheet, so nothing visible
+      happens. Focus drops to `<body>`, the Meal name input
+      (:339-348) gets no `aria-invalid`, and the text ("Choose a recipe or
+      enter a meal name") asks for a recipe the user just declined. That
+      breaks principle 7, errors next to the field (UX-183), and M5
+      (feedback on every touch). It's the one meal-planning form
+      `useRequiredFields` (`src/components/shared/use-required-fields.ts`)
+      never reached. Fix: make the form `noValidate` with
+      `useRequiredFields` on `freeformName` when the custom option is
+      chosen, plus a `customMealNameRequired` string in `en` and `sv`. It
+      shows under the field as a `FieldError` (`role="alert"`), and the
+      field gets `aria-invalid`, `aria-describedby` and focus. Acceptance:
+      in `e2e/meal-planning-field-errors.spec.ts` (`mobile` and
+      `desktop`, en and sv), choosing Custom meal and tapping Add with an
+      empty name shows the alert in view under Meal name, the field is
+      focused and `aria-invalid`, typed ingredients stay, no entry is
+      created, and typing a name clears the alert.
+
 ---
 
 ## Phase 2 — schema changes, one at a time
