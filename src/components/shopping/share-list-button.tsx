@@ -5,6 +5,7 @@ import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyLinkButton } from "@/components/ui/copy-link-button";
 import {
   Dialog,
@@ -42,11 +43,13 @@ export function ShareListButton({
   const [shareLinkId, setShareLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isRevoking, startRevokeTransition] = useTransition();
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next && !link) {
+      // UX-201: a failed create's error would otherwise stay on screen
+      // beside the working link this open fetches.
+      setError(null);
       startTransition(async () => {
         const result = await createShareLinkAction(shoppingListId);
         if (result.url && result.shareLinkId) {
@@ -59,19 +62,16 @@ export function ShareListButton({
     }
   }
 
-  function handleRevoke() {
+  // Runs from the ConfirmDialog, which owns the pending state and toasts a
+  // returned error (staying open so the user can retry).
+  async function handleRevoke() {
     if (!shareLinkId) return;
-    startRevokeTransition(async () => {
-      const result = await revokeShareLinkAction(shareLinkId);
-      if (result.error) {
-        toast.error(result.error ?? dict.revokeError);
-        return;
-      }
-      toast.success(dict.revokedToast);
-      setLink(null);
-      setShareLinkId(null);
-      setOpen(false);
-    });
+    const result = await revokeShareLinkAction(shareLinkId);
+    if (result.error) return { error: result.error || dict.revokeError };
+    toast.success(dict.revokedToast);
+    setLink(null);
+    setShareLinkId(null);
+    setOpen(false);
   }
 
   return (
@@ -102,14 +102,19 @@ export function ShareListButton({
             </div>
             <div className="flex items-center justify-between gap-2 border-t pt-4">
               <p className="text-sm text-muted-foreground">{dict.activeLabel}</p>
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={isRevoking}
-                onClick={handleRevoke}
-              >
-                {isRevoking ? dict.revoking : dict.revoke}
-              </Button>
+              {/* UX-201: revoking can't be undone (sharing again mints a new
+                  token) and cuts off anyone shopping from the link right
+                  now, so it's confirmed first (DESIGN.md principle 5). */}
+              <ConfirmDialog
+                alert
+                trigger={<Button type="button" variant="destructive">{dict.revoke}</Button>}
+                title={dict.revokeConfirmTitle}
+                description={dict.revokeConfirmDescription}
+                cancelLabel={dict.revokeConfirmCancel}
+                confirmLabel={dict.revoke}
+                pendingLabel={dict.revoking}
+                onConfirm={handleRevoke}
+              />
             </div>
           </div>
         )}
