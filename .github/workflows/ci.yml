@@ -116,7 +116,7 @@ jobs:
       # src/lib/audit-allowlist.ts: for a high advisory with no patched
       # release at all, where neither fix exists (DEPS-10, picomatch).
       - name: Audit production dependencies
-        run: node scripts/audit.ts
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/audit.ts
 
       # Unused files, unused or unlisted dependencies (knip.jsonc says what
       # it checks and why). Its own step so a failure names itself.

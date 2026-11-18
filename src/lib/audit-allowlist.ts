@@ -43,7 +43,31 @@ export type Advisory = { id: string; title: string; severity: string; url: strin
 // Each vulnerable package's `via` lists either advisory objects (the package
 // itself is affected) or names of other packages (affected through them).
 type AuditVia = string | { title?: string; url?: string; severity?: string };
-type AuditReport = { vulnerabilities?: Record<string, { via?: AuditVia[] }> };
+type AuditReport = {
+  auditReportVersion: 2;
+  vulnerabilities: Record<string, { via?: AuditVia[] }>;
+  metadata?: { vulnerabilities?: Record<string, number> };
+};
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The parsed `npm audit --json` output, checked to be the report shape read
+ * here. Throws on anything else ({}, null, an `error` report, npm 6's v1
+ * `advisories` shape, …): reading those as "no vulnerabilities" would turn
+ * the gate green on an audit that never ran, so it fails closed instead.
+ */
+export function parseAuditReport(json: unknown): AuditReport {
+  if (!isObject(json)) throw new Error("npm audit output is not a JSON object");
+  if ("error" in json) throw new Error("npm audit failed: " + JSON.stringify(json.error));
+  if (json.auditReportVersion !== 2) {
+    throw new Error(`unsupported npm audit report version: ${JSON.stringify(json.auditReportVersion)}`);
+  }
+  if (!isObject(json.vulnerabilities)) throw new Error("npm audit report has no vulnerabilities object");
+  return json as AuditReport;
+}
 
 const FAILING = new Set(["high", "critical"]);
 
@@ -55,7 +79,7 @@ function advisoryId(url: string): string {
 /** Every high or critical advisory in the report, once each, with the packages it's reported on. */
 export function failingAdvisories(report: AuditReport): Advisory[] {
   const byId = new Map<string, Advisory>();
-  for (const [pkg, vuln] of Object.entries(report.vulnerabilities ?? {})) {
+  for (const [pkg, vuln] of Object.entries(report.vulnerabilities)) {
     for (const via of vuln.via ?? []) {
       if (typeof via === "string" || !via.severity || !FAILING.has(via.severity)) continue;
       const url = via.url ?? "";
@@ -83,6 +107,13 @@ export type AuditVerdict = {
 /** Splits the report's failing advisories by the allowlist as of `today` (YYYY-MM-DD). */
 export function judgeAudit(report: AuditReport, allowlist: AllowlistEntry[], today: string): AuditVerdict {
   const advisories = failingAdvisories(report);
+  // npm's own count is a second opinion: if it counts high or critical
+  // packages but no advisory object above was read as one (a severity
+  // spelled differently, a missing field), fail rather than pass.
+  const counts = report.metadata?.vulnerabilities ?? {};
+  if ((counts.high ?? 0) + (counts.critical ?? 0) > 0 && advisories.length === 0) {
+    throw new Error("npm audit counts high or critical vulnerabilities, but none could be read from the report");
+  }
   const current = new Set(allowlist.filter((e) => today < e.expires).map((e) => e.id.toUpperCase()));
   const reported = new Set(advisories.map((a) => a.id.toUpperCase()));
   return {

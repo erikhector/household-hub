@@ -10,26 +10,30 @@
 // (DEPS-10). Exits 1 on any other high or critical advisory, or on an
 // allowlisted one whose entry has expired.
 import { spawnSync } from "node:child_process";
-import { AUDIT_ALLOWLIST, judgeAudit } from "../src/lib/audit-allowlist.ts";
+import { AUDIT_ALLOWLIST, judgeAudit, parseAuditReport } from "../src/lib/audit-allowlist.ts";
 
 // `npm audit` exits 1 whenever it finds anything, so the exit code says
-// nothing here; the JSON on stdout does. No JSON means the audit itself
-// failed (registry down, …), which must fail the step too.
+// nothing here; the JSON on stdout does. Output that isn't a v2 audit
+// report means the audit itself failed (registry down, …), which must fail
+// the step too (parseAuditReport, judgeAudit's count cross-check).
 const run = spawnSync("npm", ["audit", "--omit=dev", "--json"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 let report;
 try {
-  report = JSON.parse(run.stdout);
-} catch {
-  console.error("npm audit produced no JSON report:\n" + run.stderr + run.stdout);
-  process.exit(1);
-}
-if (report.error) {
-  console.error("npm audit failed: " + JSON.stringify(report.error));
+  report = parseAuditReport(JSON.parse(run.stdout));
+} catch (error) {
+  console.error(`${error instanceof Error ? error.message : error}\n${run.stderr}${run.stdout.slice(0, 2000)}`);
   process.exit(1);
 }
 
 const today = new Date().toISOString().slice(0, 10);
-const { blocking, allowed, unused } = judgeAudit(report, AUDIT_ALLOWLIST, today);
+let verdict;
+try {
+  verdict = judgeAudit(report, AUDIT_ALLOWLIST, today);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+}
+const { blocking, allowed, unused } = verdict;
 
 for (const a of allowed) {
   const entry = AUDIT_ALLOWLIST.find((e) => e.id.toUpperCase() === a.id.toUpperCase());

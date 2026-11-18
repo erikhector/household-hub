@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AUDIT_ALLOWLIST, failingAdvisories, judgeAudit } from "@/lib/audit-allowlist";
+import { AUDIT_ALLOWLIST, failingAdvisories, judgeAudit, parseAuditReport } from "@/lib/audit-allowlist";
 
 const PICOMATCH = {
   title: "picomatch vulnerable to ReDoS",
@@ -11,12 +11,15 @@ const PICOMATCH = {
 // (DEPS-10): one advisory, reported on the package itself and on the
 // packages that depend on it (as names, not advisory objects).
 const REPORT = {
+  auditReportVersion: 2 as const,
   vulnerabilities: {
     picomatch: { via: [PICOMATCH] },
     "@rollup/pluginutils": { via: ["picomatch"] },
     vite: { via: ["picomatch", "tinyglobby"] },
   },
 };
+
+const CLEAN = { auditReportVersion: 2 as const, vulnerabilities: {} };
 
 const ALLOW = [{ id: "GHSA-fc5q-39xc-vjpf", expires: "2027-02-18", reason: "test" }];
 
@@ -28,12 +31,13 @@ describe("failingAdvisories", () => {
   });
 
   it("merges an advisory reported on several packages", () => {
-    const report = { vulnerabilities: { a: { via: [PICOMATCH] }, b: { via: [PICOMATCH] } } };
+    const report = { auditReportVersion: 2 as const, vulnerabilities: { a: { via: [PICOMATCH] }, b: { via: [PICOMATCH] } } };
     expect(failingAdvisories(report)[0].packages).toEqual(["a", "b"]);
   });
 
   it("skips low and moderate advisories", () => {
     const report = {
+      auditReportVersion: 2 as const,
       vulnerabilities: {
         minimatch: { via: [{ ...PICOMATCH, url: "https://github.com/advisories/GHSA-aaaa-bbbb-cccc", severity: "moderate" }] },
       },
@@ -42,8 +46,7 @@ describe("failingAdvisories", () => {
   });
 
   it("handles a clean report", () => {
-    expect(failingAdvisories({ vulnerabilities: {} })).toEqual([]);
-    expect(failingAdvisories({})).toEqual([]);
+    expect(failingAdvisories(CLEAN)).toEqual([]);
   });
 });
 
@@ -61,16 +64,47 @@ describe("judgeAudit", () => {
 
   it("blocks a critical advisory that isn't listed, alongside an allowed one", () => {
     const other = { title: "x", url: "https://github.com/advisories/GHSA-1111-2222-3333", severity: "critical" };
-    const report = { vulnerabilities: { ...REPORT.vulnerabilities, next: { via: [other] } } };
+    const report = { ...REPORT, vulnerabilities: { ...REPORT.vulnerabilities, next: { via: [other] } } };
     const verdict = judgeAudit(report, ALLOW, "2026-11-18");
     expect(verdict.blocking.map((a) => a.id)).toEqual(["GHSA-1111-2222-3333"]);
     expect(verdict.allowed.map((a) => a.id)).toEqual(["GHSA-fc5q-39xc-vjpf"]);
   });
 
   it("reports an entry whose advisory is gone so it gets deleted", () => {
-    const verdict = judgeAudit({ vulnerabilities: {} }, ALLOW, "2026-11-18");
+    const verdict = judgeAudit(CLEAN, ALLOW, "2026-11-18");
     expect(verdict.blocking).toEqual([]);
     expect(verdict.unused).toEqual(ALLOW);
+  });
+
+  it("fails closed when npm counts high advisories it couldn't read", () => {
+    const report = { ...CLEAN, metadata: { vulnerabilities: { high: 1, critical: 0 } } };
+    expect(() => judgeAudit(report, ALLOW, "2026-11-18")).toThrow(/none could be read/);
+  });
+
+  it("passes when npm's count agrees with what it read", () => {
+    const report = { ...REPORT, metadata: { vulnerabilities: { high: 3, critical: 0 } } };
+    expect(judgeAudit(report, ALLOW, "2026-11-18").blocking).toEqual([]);
+  });
+});
+
+describe("parseAuditReport", () => {
+  it("accepts a v2 report", () => {
+    expect(parseAuditReport(REPORT)).toBe(REPORT);
+  });
+
+  it.each([
+    ["null", null],
+    ["an array", []],
+    ["an empty object", {}],
+    ["a v1 report", { auditReportVersion: 1, advisories: {} }],
+    ["advisories without a version", { advisories: {} }],
+    ["a v2 report without vulnerabilities", { auditReportVersion: 2 }],
+  ])("rejects %s", (_, json) => {
+    expect(() => parseAuditReport(json)).toThrow();
+  });
+
+  it("rejects npm's error report", () => {
+    expect(() => parseAuditReport({ error: { code: "ENOAUDIT" } })).toThrow(/npm audit failed/);
   });
 });
 
