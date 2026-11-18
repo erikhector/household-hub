@@ -10188,6 +10188,20 @@ approximating them, so the email never disagrees with the app.
   Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
   template dialog; the date fields can't be emptied through a controlled date
   input, so they share the hook untested).
+- **An empty custom meal name is flagged under the field (UX-204).** In the
+  Add and Edit meal sheet (`meal-entry-dialog.tsx`), choosing "Custom meal…"
+  and tapping Add or Save with no name no longer posts: the form is
+  `noValidate` while the custom source is chosen and `useRequiredFields`
+  checks `freeformName`, so `mealPlanning.customMealNameRequired` ("Enter a
+  name for the meal") shows right under Meal name (`FieldError`,
+  `role="alert"`), the field gets `aria-invalid`, `aria-describedby` and
+  focus, and the ingredients and note typed so far stay. Typing a name,
+  switching the dish or closing the sheet clears it. Before, the server's
+  form-level "Choose a recipe or enter a meal name" landed under the note
+  field, below the fold of the sheet on a phone. With a recipe chosen the
+  form keeps the browser's own check of the portions number; submitting with
+  nothing chosen still gets the server's form-level message. Covered by
+  `e2e/meal-planning-field-errors.spec.ts`.
 - **Inventory unit dialog errors sit next to the field (UX-183b, fifth
   slice).** The item page's Change unit dialog (`change-unit-dialog.tsx`:
   new unit and factor) and Add/Edit conversion dialog
