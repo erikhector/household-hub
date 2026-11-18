@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
-import { dismissCookieNotice, expectHydrated, gotoRevealed, openRecipesTab, openRowSheet } from "./ui";
+import { dismissCookieNotice, expectHydrated, gotoRevealed, openRecipesTab, openRowSheet, waitForDialogHistory } from "./ui";
 
 // MATCH-1: saving a recipe no longer creates inventory items behind the
 // user's back. Rows the matcher is sure about save straight away; anything
@@ -348,7 +348,9 @@ test("remembering 1 pcs = 2000 g for an item skips the unit question next time, 
   await fillIngredient(page, itemName, "0.5", "kg");
   await second.getByRole("button", { name: "Create recipe" }).click();
   await expect(page.getByText("Saved · 1 ingredient linked to your pantry").last()).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // The save closed the sheet with a history.back(), which must land before
+  // the goto below or it can step the page off the planner (MAINT-119).
+  await waitForDialogHistory(page);
 
   // Cooking the first recipe proposes 300 g as 0.15 of the 2 kg bag, with
   // no "enter the amount manually" note.

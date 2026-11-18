@@ -4,7 +4,7 @@ import { sv } from "@/lib/i18n/dictionaries/sv";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 
 // UX-183b (meal planning): the recipe form and the save-week-as-template
 // dialog word a missing field under it, in the page's language
@@ -110,6 +110,55 @@ for (const [locale, storageState, t] of [
 
       await name.fill("School week");
       await expect(alert).toHaveCount(0);
+    });
+
+    // UX-204: "Custom meal…" with no name used to post and come back as one
+    // form-level line under the note field, below the fold of the sheet on
+    // a phone, worded as if no recipe had been picked.
+    test("an empty custom meal name is flagged under the field", async ({ page }, testInfo) => {
+      // An empty week of its own per project and locale (same reasoning as
+      // the template test's weeks above), so the sheet opens from the empty
+      // state's one button and nothing planned there gets in the way.
+      const week = `2019-05-${{ desktop: { en: "06", sv: "13" }, mobile: { en: "20", sv: "27" } }[testInfo.project.name === "mobile" ? "mobile" : "desktop"][locale]}`;
+      await page.goto(`/dashboard/meal-planning?week=${week}`);
+      const first = page.getByRole("button", { name: t.addFirstDinner });
+      await expectHydrated(first);
+      await expectRouterPatched(page);
+      await first.click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("combobox", { name: t.recipeLabel }).click();
+      await page.getByRole("option", { name: t.customMealOption }).click();
+      const name = dialog.getByRole("textbox", { name: t.customMealNameLabel });
+      const ingredients = dialog.getByRole("textbox", { name: t.customMealIngredientsLabel });
+      await ingredients.fill("2 tortillas");
+
+      await dialog.getByRole("button", { name: t.add, exact: true }).click();
+      const alert = dialog.getByRole("alert").filter({ hasText: t.customMealNameRequired });
+      await expect(alert).toBeInViewport();
+      await expect(name).toHaveAttribute("aria-invalid", "true");
+      await expect(name).toBeFocused();
+      await expect(ingredients).toHaveValue("2 tortillas");
+      const nameBox = (await name.boundingBox())!;
+      const alertBox = (await alert.boundingBox())!;
+      expect(alertBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height);
+
+      // Nothing posted: the week has no meal.
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      await client.connect();
+      try {
+        const { rowCount } = await client.query(
+          `SELECT 1 FROM "MealPlanEntry" e JOIN "MealPlan" p ON p.id = e."mealPlanId"
+           WHERE p."householdId" = $1 AND p."weekStartDate" = $2`,
+          [E2E_HOUSEHOLD.id, week],
+        );
+        expect(rowCount).toBe(0);
+      } finally {
+        await client.end();
+      }
+
+      await name.fill("Taco night");
+      await expect(alert).toHaveCount(0);
+      await expect(name).not.toHaveAttribute("aria-invalid", "true");
     });
   });
 }

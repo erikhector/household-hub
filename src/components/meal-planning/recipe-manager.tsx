@@ -800,31 +800,53 @@ function RecipeRow({
           {recipe.ingredients.length > 0 && (
             <section className="flex flex-col gap-1">
               <h3 className="font-medium">{dict.ingredientsLabel}</h3>
-              <ul className="flex flex-col gap-1">
-                {recipe.ingredients.map((ingredient) => (
-                  <li key={ingredient.id} className="break-words">
-                    <span className="text-muted-foreground tabular-nums">
+              {/* UX-203: 8 px between rows on touch, so two linked
+                  ingredients' 44 px rows don't sit edge to edge (M3). */}
+              <ul className="flex flex-col gap-1 max-sm:gap-2 pointer-coarse:gap-2">
+                {recipe.ingredients.map((ingredient) => {
+                  const quantity = (
+                    <span className="shrink-0 text-muted-foreground tabular-nums">
                       {formatCookQuantity(ingredient.quantity, 1, locale)}
                       {ingredient.unit ? ` ${unitLabel(ingredient.unit, ingredient.quantity)}` : ""}
-                    </span>{" "}
-                    {/* MATCH-6: a linked ingredient opens its pantry item's
-                        page, whose back arrow comes back to this tab. An
-                        imported row's prep note (MATCH-2) reads after its
-                        name, the way the recipe had it. */}
-                    {ingredient.inventoryItemId ? (
+                    </span>
+                  );
+                  /* MATCH-6: a linked ingredient opens its pantry item's
+                     page, whose back arrow comes back to this tab. An
+                     imported row's prep note (MATCH-2) reads after its
+                     name, the way the recipe had it. */
+                  if (!ingredient.inventoryItemId) {
+                    return (
+                      <li key={ingredient.id} className="break-words">
+                        {quantity} {ingredient.name}
+                        {ingredient.note && <span className="text-muted-foreground"> ({ingredient.note})</span>}
+                      </li>
+                    );
+                  }
+                  /* UX-203: a one-per-line list of links isn't running text,
+                     so each linked row is a 44 px target on touch (M3). The
+                     link stretches to the row's height, and its ::after
+                     spreads over the whole row (the <li> is `relative`), so
+                     a tap on the quantity, the note or the space beside a
+                     short name opens it too. The quantity and the note stay
+                     outside the link, so its accessible name is just the
+                     ingredient's. A flex row drops the spaces between its
+                     children, so `gap-1` stands in for them. */
+                  return (
+                    <li
+                      key={ingredient.id}
+                      className="relative flex items-center gap-1 break-words max-sm:min-h-11 pointer-coarse:min-h-11"
+                    >
+                      {quantity}
                       <Link
                         href={itemPageHref(ingredient.inventoryItemId, { kind: "recipes" })}
-                        data-running-text
-                        className="underline underline-offset-4"
+                        className="flex min-w-0 items-center self-stretch underline underline-offset-4 after:absolute after:inset-0 after:content-['']"
                       >
                         {ingredient.name}
                       </Link>
-                    ) : (
-                      ingredient.name
-                    )}
-                    {ingredient.note && <span className="text-muted-foreground"> ({ingredient.note})</span>}
-                  </li>
-                ))}
+                      {ingredient.note && <span className="min-w-0 text-muted-foreground">({ingredient.note})</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}

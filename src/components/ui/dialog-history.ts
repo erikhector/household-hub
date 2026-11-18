@@ -32,13 +32,25 @@ let nextId = 1;
 let installed = false;
 // Set while a history.back() of ours is on its way (it's async): the URL it
 // lands on, the id of the closed dialog whose entry it takes off, and whether
-// anything pushed or replaced an entry before it did. `repairing` is set once
-// it has landed and we're stepping forward again to undo it; the back counts
-// as pending until that has landed too.
-let ownBack: { href: string; closedId: number; overwritten: boolean; repairing: boolean } | null = null;
+// anything pushed or replaced an entry before it did, and if so the URL the
+// app went to (`appHref`). `repairing` is set once it has landed and we're
+// stepping forward again to undo it; the back counts as pending until that
+// has landed too.
+let ownBack: {
+  href: string;
+  closedId: number;
+  overwritten: boolean;
+  appHref: string | null;
+  repairing: boolean;
+} | null = null;
 // Dialogs that opened while ownBack was pending, waiting for that back() to
 // land before they push their entry (see pushDialogEntry).
 const deferred: Entry[] = [];
+// Dialogs closed from the UI while ownBack was pending for the dialog
+// stacked on top of them (a sheet and its confirm closing together,
+// UX-201), waiting for that back() to land on their entry so they can take
+// it off too (see pushDialogEntry's release).
+const releasing: Entry[] = [];
 // The app's own pushState/replaceState calls that came after it navigated
 // under a pending back() (ownBack.overwritten), held until the repair has
 // landed. MAINT-113: by then the browser is, or is about to be, on an entry
@@ -74,6 +86,7 @@ function releaseHeldWrites() {
   heldWritesTimer = null;
   if (ownBack === null) return;
   setOwnBack(null);
+  releasing.length = 0;
   for (const write of heldWrites.splice(0)) write();
   flushDeferred();
 }
@@ -136,19 +149,46 @@ function onPopState(event: PopStateEvent) {
       window.history.forward();
       return;
     }
-    const { href, repairing } = ownBack;
+    const { href, appHref, repairing } = ownBack;
     setOwnBack(null);
-    // The repair's last step lands on the page the app went to, which the
-    // router restores like any other forward. Unless the app wrote to its
-    // history since: then this entry still holds what the router has moved
-    // on from (the `?add=1` tree it has already replaced), so the writes
-    // are applied here and the router, already on that page, is left alone.
+    // The repair's last step lands on the page the app went to. If the app
+    // wrote to its history since, this entry still holds what the router has
+    // moved on from (the `?add=1` tree it has already replaced), so the
+    // writes are applied here.
+    //
+    // Either way the router is left alone. It never saw the back or the
+    // steps before this one, so it is still on the page it went to: there's
+    // nothing to restore, and a restore isn't harmless. MAINT-118: the
+    // router lets a back/forward pre-empt the navigation in flight, so its
+    // restore here threw away one the page had started meanwhile. The tasks
+    // page the palette pushed calls router.replace() to strip its `?add=1`
+    // as soon as it renders, and the replace only writes the URL once the
+    // server has answered; under load the repair's last step landed while
+    // that request was out, the restore discarded it, and the page stayed
+    // on `?add=1` with nothing left to strip it.
     if (heldWrites.length > 0) {
       for (const write of heldWrites.splice(0)) write();
       swallow = true;
-    } else if (!repairing) swallow = window.location.href === href;
+    } else if (repairing) swallow = window.location.href === appHref;
+    else swallow = window.location.href === href;
   }
   const landedOn = markerOf(event.state);
+  if (ownBack === null && releasing.length > 0) {
+    // Our back() has landed. If it's on the entry of a dialog that closed
+    // while it was on its way, that entry is stale too: take it off the
+    // same way, or the next back gesture would step onto it and do nothing.
+    // Anywhere else (the app navigated meanwhile), they're left behind as
+    // harmless same-URL steps, as a release that isn't on top always is.
+    const waiting = releasing.findIndex((entry) => entry.id === landedOn);
+    const entry = waiting === -1 ? undefined : releasing.splice(waiting, 1)[0];
+    if (entry === undefined) releasing.length = 0;
+    else if (window.location.href === entry.href) {
+      event.stopImmediatePropagation();
+      setOwnBack({ href: entry.href, closedId: entry.id, overwritten: false, appHref: null, repairing: false });
+      window.history.back();
+      return;
+    }
+  }
   while (stack.length > 0 && stack[stack.length - 1].id !== landedOn) {
     const entry = stack.pop()!;
     // A long-press back can jump past the page the dialog was opened on;
@@ -186,8 +226,8 @@ function install() {
   const originalPush = history.pushState.bind(history);
   const originalReplace = history.replaceState.bind(history);
   const push = (...args: Parameters<History["pushState"]>) => {
-    if (ownBack !== null) ownBack.overwritten = true;
-    return originalPush(...args);
+    originalPush(...args);
+    if (ownBack !== null) Object.assign(ownBack, { overwritten: true, appHref: window.location.href });
   };
   const replace = (data: unknown, unused: string, url?: string | URL | null) => {
     const sameUrl = url == null || new URL(url, window.location.href).href === window.location.href;
@@ -203,8 +243,8 @@ function install() {
       }
       data = { ...data, ...kept };
     }
-    if (!sameUrl && ownBack !== null) ownBack.overwritten = true;
-    return originalReplace(data, unused, url);
+    originalReplace(data, unused, url);
+    if (!sameUrl && ownBack !== null) Object.assign(ownBack, { overwritten: true, appHref: window.location.href });
   };
   const hold = (write: () => void) => {
     heldWrites.push(write);
@@ -257,8 +297,14 @@ export function pushDialogEntry(close: () => void): () => void {
     // something else, so the entry is left behind as a harmless same-URL
     // step.
     if (markerOf(window.history.state) === entry.id) {
-      setOwnBack({ href: entry.href, closedId: entry.id, overwritten: false, repairing: false });
+      setOwnBack({ href: entry.href, closedId: entry.id, overwritten: false, appHref: null, repairing: false });
       window.history.back();
+    } else if (ownBack !== null && !ownBack.overwritten && !ownBack.repairing) {
+      // The dialog on top of this one closed in the same commit (UX-201: a
+      // successful revoke closes its confirm and the Share sheet together)
+      // and its back() hasn't landed yet, so history.state still carries
+      // its marker. Once that back lands on our entry, take ours off too.
+      releasing.push(entry);
     }
   };
 }
