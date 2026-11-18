@@ -111,8 +111,12 @@ jobs:
       # `--audit-level=high` so a low or moderate advisory doesn't turn
       # every PR red until upstream ships a fix. When this fails, the fix
       # is usually `npm audit fix` or an `overrides` entry, in its own PR.
+      # scripts/audit.ts runs that same audit but sets aside the advisories
+      # listed, each with its reason and an expiry date, in
+      # src/lib/audit-allowlist.ts: for a high advisory with no patched
+      # release at all, where neither fix exists (DEPS-10, picomatch).
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: node scripts/audit.ts
 
       # Unused files, unused or unlisted dependencies (knip.jsonc says what
       # it checks and why). Its own step so a failure names itself.
