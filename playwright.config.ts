@@ -38,8 +38,10 @@ const launchOptions = executablePath ? { executablePath } : {};
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 // UX-32: the real iPhone engine. WebKit is a separate browser download (and
-// `--with-deps` needs root), so the `iphone` project is opt-in: CI sets
-// E2E_WEBKIT=1 after `npx playwright install --with-deps webkit`; the
+// `--with-deps` needs root), so the `iphone` project is opt-in: the nightly
+// GitHub run (.github/workflows/e2e-nightly.yml) sets E2E_WEBKIT=1 after
+// `npx playwright install --with-deps webkit`, while the release PR's
+// sharded gate leaves it out to stay quick; the
 // `ci:local` gate and local runs skip it unless it's set the same way once
 // WebKit is installed. Without it the project is NOT defined and this says
 // so, rather than the run failing on a missing browser or silently looking
@@ -84,7 +86,7 @@ export default defineConfig({
   // only make sense at one size (e.g. which navigation is showing). Pixel 7
   // is the always-on phone: Chromium is all that's installed by default,
   // and the viewport and touch emulation are what matter for layout. The
-  // `iphone` WebKit project below is opt-in (E2E_WEBKIT=1, set in CI).
+  // `iphone` WebKit project below is opt-in (E2E_WEBKIT=1, set nightly).
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {

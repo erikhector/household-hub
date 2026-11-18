@@ -13,10 +13,12 @@ name: CI
 #   without a browser run, so a day of PRs doesn't spend one e2e run
 #   each, plus another every time a branch is brought up to date.
 # - PRs into `master` (the release PR from a `release/*` branch cut from
-#   `next`, or a rare hotfix) also run the full Playwright suite, once, on
-#   everything about to ship. The release branch is a snapshot, so merges
-#   into `next` meanwhile don't restart it. A draft PR skips e2e until it's
-#   marked ready.
+#   `next`, or a rare hotfix) also run the Playwright suite, once, on
+#   everything about to ship: every Chromium project (desktop, mobile,
+#   landscape, tablet), split across three runners. The `iphone` (WebKit) project
+#   runs in the nightly full run instead (e2e-nightly.yml). The release
+#   branch is a snapshot, so merges into `next` meanwhile don't restart
+#   it. A draft PR skips e2e until it's marked ready.
 # PRs that only touch docs (`*.md`, `docs/`, agent skills) skip both. A
 # skipped job counts as passing for a required status check, so the
 # rulesets need no change.
@@ -224,11 +226,27 @@ jobs:
   # playwright.config.ts and e2e/). A separate job so the fast checks above
   # still report on their own when only this one fails. Only on PRs into
   # `master` (see the top of this file).
-  e2e:
-    name: End-to-end (Playwright)
+  #
+  # Split across three runners with Playwright's `--shard`: run whole on
+  # one runner the tests took 32 minutes (release PR #1555), while the
+  # build each shard repeats takes about one, so three shards bring the
+  # gate to roughly a third. Each shard has its own Postgres and seeds its
+  # own households, exactly as a single run does. Three rather than more
+  # because every shard pays ~3 minutes of install and build in Actions
+  # minutes. The `iphone` (WebKit) project doesn't run here: it runs in
+  # the nightly full run (e2e-nightly.yml), which keeps the release gate
+  # to the Chromium projects.
+  e2e-shard:
+    name: End-to-end shard ${{ matrix.shard }}/3
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'false' }}
     runs-on: ubuntu-latest
+    strategy:
+      # One failing shard shouldn't cancel the others: the release
+      # reviewer needs every failure and flake from the run, not the first.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     services:
       postgres:
         image: postgres:16-alpine
@@ -271,11 +289,11 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium
 
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium webkit
+        run: npx playwright install-deps chromium
 
       - name: Apply migrations
         run: npx prisma migrate deploy
@@ -291,17 +309,31 @@ jobs:
         run: npm run build
 
       - name: Run end-to-end tests
-        # E2E_WEBKIT adds the `iphone` WebKit project (UX-32).
-        env:
-          E2E_WEBKIT: "1"
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
 
       - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
           retention-days: 7
+
+  # The one check the `master` ruleset requires by name (DEPLOYMENT.md),
+  # so the shards can change without touching the rulesets. Green only
+  # when every shard passed. Skipped, and so passing, exactly when the
+  # shards are skipped (PRs into `next`, docs-only PRs, drafts).
+  e2e:
+    name: End-to-end (Playwright)
+    needs: [changes, e2e-shard]
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every shard passed
+        env:
+          RESULT: ${{ needs.e2e-shard.result }}
+        run: |
+          echo "Shards: $RESULT"
+          [ "$RESULT" = "success" ]
