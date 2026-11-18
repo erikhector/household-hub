@@ -194,27 +194,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       declare `eslint` peers up to `^9`, so 10 only installs by overriding
       them. When all three accept 10, bump `eslint` + `eslint-config-next`
       and drop the `eslint` ignore in `.github/dependabot.yml`.
-- [ ] **DEPS-10. Red `next`: `npm audit` fails CI on picomatch (GHSA-fc5q-39xc-vjpf)** (high, S) `[!]` —
-      CI's `npm audit --omit=dev --audit-level=high` step fails every PR
-      into `next` (e.g. #1558) on 7 high findings that are one advisory:
-      a ReDoS in picomatch's repeated extglobs, reported through `fdir`,
-      `tinyglobby`, `vite`, `@rollup/pluginutils`, `@rollup/plugin-commonjs`
-      and `@sentry/nextjs`. **There is no patched release to move to**: the
-      registry lists it as `vulnerable_versions <=4.0.7`, and 4.0.7 is the
-      latest picomatch (2026-11-17), so neither `npm audit fix` nor an
-      `overrides` pin clears it, and `npm audit fix --force` would
-      downgrade `@sentry/nextjs` to 8.38.0. Every production path to it is
-      build-time tooling that only matches globs written in the repo:
-      `@sentry/nextjs` > `@rollup/plugin-commonjs` (Sentry's build plugin)
-      and `@sentry/nextjs` > `@sentry/cloudflare` > `vite` 8. No user
-      input reaches it. **Decision needed (touches `.github/workflows/`,
-      human-only):** either (a) let the audit step skip this one advisory
-      until picomatch ships a fix, e.g. run `npm audit --json` and fail
-      only on high/critical advisories not in a short, dated allowlist
-      with GHSA-fc5q-39xc-vjpf and the reason above, or (b) leave CI red
-      and wait for upstream. When a patched picomatch is published, the
-      fix is `npm audit fix` (or a `picomatch` `overrides` entry), and any
-      allowlist entry goes with it.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -298,15 +277,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next two release PRs lists `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-118. Flaky: the palette's Enter-navigates test lands on `/dashboard/tasks?add=1` on mobile** (low, S) —
-      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone", the MAINT-103 test), `mobile` project (Chromium), local `npm run ci:local` only. First sighting: the builder's locked full gate on af53057 (PR #1536, MAINT-115, which touches only meal-planning specs, 2026-11-17): 1 failed, 1715 passed, the URL assertion expecting `/\/dashboard\/tasks$/` got `/dashboard/tasks?add=1`. The same spec passed 82/82 run alone (`--project=desktop --project=mobile --repeat-each=5`) on that commit, and the next full gate (a4e7c8b) passed it. The `?add=1` is the query MAINT-113 (#1519) has the tasks page strip after the palette's Add task; this test navigates with Enter, so start from whether a slow strip or the MAINT-103 repair's forward() lands on an entry still carrying `?add=1` under load. On `iphone` (WebKit) this test and the rest of the spec passed first time in all four GitHub release e2e runs after it joined that project (MAINT-107, see REQUIREMENTS.md "Testing"). No trace was kept; rerun under load with `--trace on` first.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-119. Flaky: the recipe-ingredients unit-memory test can't open the Bread row's sheet on mobile** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:314` ("remembering 1 pcs = 2000 g for an item skips the unit question next time, and cooking uses it"), `mobile` project. First sighting: the GitHub e2e job on release PR #1542 (run 44064248664, commit 00bdaba, 2026-11-17, which ships #1539/#1540 and touches neither recipes nor inventory) failed the first attempt and passed on the retry (marked `flaky`). The failure was in `openRowSheet` (`e2e/ui.ts:262`, called from the spec's `:357`): after clicking the row's name in `main`, `getByRole("dialog", { name: "Bread <id>" })` was not visible within 5 s. The locked local `ci:local` on the same commit passed it. The "Bread <id>" row is the recipe's planned meal on `/dashboard/meal-planning`, reached by a plain `page.goto` at `:356` straight after `planForToday`; nothing has been cooked yet. Start from that `goto`: `openRowSheet` taps the row before the page has hydrated (there's no `expectHydrated`/`gotoRevealed`, unlike the spec's `:49`–`:51`), or the plan entry `planForToday` inserted streams in and re-renders under the tap. Check the failing run's trace.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
 
 ### UX (2026-09-26 scout)
 
@@ -569,22 +540,62 @@ tick, the row and list menus, share and the share page, and an empty
 new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
 (no browser installed here), and dark was not looked at.
 
-- [ ] **UX-201. Confirm before revoking a share link, and clear a stale share error** (impact: med, effort: S) —
-      In the Share dialog, Revoke
-      (`src/components/shopping/share-list-button.tsx:105-111`,
-      `handleRevoke` at :62) kills the link with a single tap. Anyone
-      shopping from it gets "invalid or revoked" mid-trip, and re-sharing
-      mints a different token, so the action can't be undone. That breaks
-      principle 5 (costly actions are confirmed) and M2. Separately, `error`
-      (:43) is set at :56 but never cleared, so after one failed create,
-      reopening the dialog shows the old red error beside the working link
-      (principle 7, designed states). Fix: route Revoke through the existing
-      `ConfirmDialog` (the pattern `confirmDeleteList` uses) with
-      `shareLink.revokeConfirm*` strings in `en` and `sv`, and call
-      `setError(null)` in `handleOpenChange` before the request. Acceptance:
-      in the `mobile` and `desktop` projects, tapping Revoke opens an
-      `alertdialog`; Cancel leaves the link field visible; confirming shows
-      the revoked toast and the share page then reads as revoked.
+### UX (2026-11-18 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar truncations (UX-150) and the hidden "Invite member"
+button. The landscape sidebar and the Next up dock look cut off in the
+full-page shots. Both are documented behaviour: on short screens the
+aside scrolls (UX-7), and the dock is sticky (UX-37). The deep dive drove the add-meal sheet (empty
+submit, Custom meal with an empty name, a 79-character Swedish name), the
+meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
+cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
+installed here), and dark was not looked at (no project renders it).
+
+- [ ] **UX-203. Give the recipe sheet's ingredient links a 44 px row** (impact: med, effort: S) —
+      In a recipe's sheet, an ingredient linked to a pantry item is a bare
+      text link (`src/components/meal-planning/recipe-manager.tsx:803-826`):
+      each `<li>` is one line with `gap-1`, so on Pixel 7 the "Wheat flour"
+      link measures 76 × 19 px, and a recipe with several linked
+      ingredients stacks 19 px targets 4 px apart. A thumb aimed at one
+      ingredient opens the next one's item page. The link is marked
+      `data-running-text`, which exempts it from the smoke target check,
+      but a one-per-line list of links isn't running text (DESIGN.md M3
+      exempts only links inside a sentence). The smoke check also only
+      measures closed pages, so the sheet was never measured. Fix: make a
+      linked `<li>` a `min-h-11` flex row, with the link stretched over it
+      (quantity and prep note still read inline), and with 8 px between
+      rows on touch (`max-sm:gap-2 pointer-coarse:gap-2`). Then drop
+      `data-running-text`. Acceptance: in the `mobile` and `tablet`
+      projects, opening the seeded Pancakes sheet shows the "Wheat flour"
+      link with a bounding box at least 44 px tall. It still goes to the
+      item page and back to the Recipes tab.
+
+- [ ] **UX-204. Flag an empty custom meal name under the field in Add meal** (impact: med, effort: S) —
+      In the add/edit meal sheet, picking "Custom meal…" and tapping Add
+      with no name posts the form. The server's `chooseRecipeOrMeal`
+      (`src/app/dashboard/meal-planning/planner-actions.ts:113`, :198)
+      comes back as one form-level line under the meal-note field
+      (`src/components/meal-planning/meal-entry-dialog.tsx:402`). On a
+      Pixel 7 that's below the fold of the sheet, so nothing visible
+      happens. Focus drops to `<body>`, the Meal name input
+      (:339-348) gets no `aria-invalid`, and the text ("Choose a recipe or
+      enter a meal name") asks for a recipe the user just declined. That
+      breaks principle 7, errors next to the field (UX-183), and M5
+      (feedback on every touch). It's the one meal-planning form
+      `useRequiredFields` (`src/components/shared/use-required-fields.ts`)
+      never reached. Fix: make the form `noValidate` with
+      `useRequiredFields` on `freeformName` when the custom option is
+      chosen, plus a `customMealNameRequired` string in `en` and `sv`. It
+      shows under the field as a `FieldError` (`role="alert"`), and the
+      field gets `aria-invalid`, `aria-describedby` and focus. Acceptance:
+      in `e2e/meal-planning-field-errors.spec.ts` (`mobile` and
+      `desktop`, en and sv), choosing Custom meal and tapping Add with an
+      empty name shows the alert in view under Meal name, the field is
+      focused and `aria-invalid`, typed ingredients stay, no entry is
+      created, and typing a name clears the alert.
 
 ---
 
