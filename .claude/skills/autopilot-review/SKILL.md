@@ -268,8 +268,16 @@ says `ship_release: false`.
    under the shared lock as the builder does, nothing skipped. Have it
    also report every e2e test that failed and then passed: in its local
    run (re-run a failing spec once on the same commit to tell) and in the
-   GitHub `End-to-end (Playwright)` job, whose one retry marks such tests
-   `flaky` in its log. Those go to step 4c whatever the train's outcome. With
+   GitHub `End-to-end shard N/3` jobs, whose one retry marks such tests
+   `flaky` in their logs. Those go to step 4c whatever the train's outcome.
+   The release gate leaves out the `iphone` (WebKit) project, so also
+   read the latest **Nightly e2e** run (`e2e-nightly.yml`). A `flaky`
+   test there goes to step 4c. If it failed, don't act on that stale
+   result (its commit may already be in `master`, or fixed in `next`
+   since): dispatch the workflow on the release branch (GitHub MCP
+   `actions_run_trigger` with `ref: <release branch>`, or Actions →
+   Nightly e2e → Run workflow) and gate the train on that run as well,
+   so a failure there goes to step 3 like one in the release run. With
    `ci_gate: github`, also wait for both `ci.yml` jobs (`Lint, typecheck,
    test, build` and `End-to-end (Playwright)`) on its head (Monitor
    until-loop, up to 45 minutes). With `ci_gate: local`, cut the release

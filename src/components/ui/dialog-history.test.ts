@@ -157,6 +157,13 @@ describe("pushDialogEntry", () => {
     expect(stopped).toHaveBeenCalled();
     expect(forward).toHaveBeenCalledOnce();
     expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
+
+    // The forward lands on the kept item's page, where the router still
+    // is, so it's kept from the router too: MAINT-118, a restore here would
+    // throw away a navigation the page had started meanwhile.
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(forward).toHaveBeenCalledOnce();
+    expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
   });
 
   // MAINT-103: the command palette closes and router.push()es in one go. A
@@ -187,8 +194,11 @@ describe("pushDialogEntry", () => {
     expect(browser.index()).toBe(1);
     expect(browser.pop()).toHaveBeenCalled();
     expect(browser.index()).toBe(2);
-    // The last one lands on the page the app went to: the router's.
-    expect(browser.pop()).not.toHaveBeenCalled();
+    // The last one lands on the page the app went to, where the router
+    // still is, so it's kept from the router too. MAINT-118: the router's
+    // restore would discard a navigation the new page had started meanwhile
+    // (the tasks page's router.replace() stripping `?add=1`).
+    expect(browser.pop()).toHaveBeenCalled();
 
     expect(forward).toHaveBeenCalledTimes(2);
     expect(window.location.href).toBe("https://app.test/dashboard/tasks?add=1");
@@ -362,6 +372,37 @@ describe("pushDialogEntry", () => {
     back.mockRestore();
     browser.back();
     expect(closeConfirm).toHaveBeenCalledOnce();
+  });
+
+  it("takes both entries off when a nested pair closes together", async () => {
+    // UX-201: a successful revoke closes the confirm and the Share sheet in
+    // one commit. The confirm's back() is still on its way when the sheet
+    // releases, so history.state still carries the confirm's marker.
+    const browser = fakeBrowser();
+    const { pushDialogEntry } = await load();
+    const closeSheet = vi.fn();
+    const closeConfirm = vi.fn();
+    const releaseSheet = pushDialogEntry(closeSheet);
+    const releaseConfirm = pushDialogEntry(closeConfirm);
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+
+    releaseConfirm();
+    releaseSheet();
+    expect(back).toHaveBeenCalledOnce();
+
+    // The confirm's back lands on the sheet's entry: that goes too.
+    realBack();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(back).toHaveBeenCalledTimes(2);
+
+    // And that one lands on the page itself: swallowed, nothing closes.
+    realBack();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(0);
+    expect(closeSheet).not.toHaveBeenCalled();
+    expect(closeConfirm).not.toHaveBeenCalled();
+    expect(back).toHaveBeenCalledTimes(2);
   });
 
   it("never pushes an entry for a dialog closed while it was waiting", async () => {

@@ -25,7 +25,11 @@ in-PR as AUTOPILOT.md describes.
 ## CI failures
 
 CI has two jobs (`.github/workflows/ci.yml`): lint → typegen → tsc → test →
-build, and a separate Playwright `e2e` job against a Postgres service.
+build, and on PRs into `master` the Playwright suite in three
+`End-to-end shard N/3` jobs (each against its own Postgres service),
+gated by one `End-to-end (Playwright)` job that is red when any shard
+is. `e2e-nightly.yml` runs the whole suite, WebKit included, on `next`
+nightly.
 Reproduce locally with the **same step only**, not the whole pipeline:
 
 | Failing step | Reproduce with |
@@ -34,7 +38,7 @@ Reproduce locally with the **same step only**, not the whole pipeline:
 | Typecheck | `npm run typecheck 2>&1 \| grep error \| head -n 30` |
 | Test | `npx vitest run <failing file>` |
 | Build | `npm run build 2>&1 \| tail -n 40` |
-| End-to-end | `npm run build >/dev/null && npx playwright test <failing spec>`; the uploaded `playwright-report` artifact has traces |
+| End-to-end | `npm run build >/dev/null && npx playwright test <failing spec>`; the failing shard's uploaded `playwright-report-shard-N` artifact has traces |
 
 Fetch only the failing job's log tail, not the full log. Fix, re-run that
 step, then `npm run check` once before pushing. One validated push per round.

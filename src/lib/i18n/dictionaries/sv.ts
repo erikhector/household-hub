@@ -1256,6 +1256,10 @@ export const sv = {
       activeLabel: "Länken är aktiv",
       revoke: "Återkalla länk",
       revoking: "Återkallar…",
+      revokeConfirmTitle: "Återkalla dellänken?",
+      revokeConfirmDescription:
+        "Den som handlar från länken förlorar åtkomsten direkt. Delar du igen skapas en ny länk som du måste skicka på nytt.",
+      revokeConfirmCancel: "Avbryt",
       revokedToast: "Dellänken har återkallats",
       revokeError: "Kunde inte återkalla dellänken",
     },

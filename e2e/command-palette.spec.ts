@@ -207,6 +207,84 @@ test("Enter still lands on the stripped URL when the page replaces it during the
   await expect(page).toHaveURL(/\/dashboard\/tasks$/);
 });
 
+// MAINT-118: the tasks page's router.replace() only writes the stripped URL
+// once the server has answered it. Under load the repair's last step landed
+// while that request was still out, and the router, handed that popstate,
+// restored the `?add=1` entry it was already on, which throws away the
+// navigation in flight: the page stayed on `?add=1`. Same hold as the
+// MAINT-103 test, plus the repair's last forward() is held until the strip's
+// request has gone out, and that request is slowed so it's still out when
+// the forward lands.
+test("Enter still lands on the stripped URL when the repair lands while the strip is in flight", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await dismissCookieNotice(context, baseURL!);
+  // The strip: the router's request for the tasks page without `?add=1` (a
+  // navigation's, not a prefetch's).
+  await page.route("**/dashboard/tasks?*", async (route) => {
+    const headers = route.request().headers();
+    const url = new URL(route.request().url());
+    if (!url.searchParams.has("add") && "rsc" in headers && !("next-router-prefetch" in headers)) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    await route.continue();
+  });
+  await page.addInitScript(() => {
+    const { history } = window;
+    const back = history.back.bind(history);
+    const forward = history.forward.bind(history);
+    const pushState = history.pushState.bind(history);
+    const fetch = window.fetch.bind(window);
+    const hold = window as unknown as { holdNextBack?: boolean; forwardsToHold?: number };
+    let heldBack = false;
+    let heldForward = false;
+    let stripSent = false;
+    history.back = () => {
+      if (!hold.holdNextBack) return back();
+      hold.holdNextBack = false;
+      heldBack = true;
+    };
+    // The repair's second forward() is its last: that one waits for the strip.
+    history.forward = () => {
+      if (hold.forwardsToHold === undefined || --hold.forwardsToHold > 0 || stripSent) return forward();
+      hold.forwardsToHold = undefined;
+      heldForward = true;
+    };
+    history.pushState = (...args: Parameters<History["pushState"]>) => {
+      if (heldBack) {
+        heldBack = false;
+        back();
+      }
+      return pushState(...args);
+    };
+    window.fetch = (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      const strip = url.pathname === "/dashboard/tasks" && !url.searchParams.has("add");
+      if (strip && headers.has("rsc") && !headers.has("next-router-prefetch")) {
+        stripSent = true;
+        if (heldForward) {
+          heldForward = false;
+          forward();
+        }
+      }
+      return fetch(input, init);
+    };
+  });
+  await gotoRevealed(page, "/dashboard");
+  const palette = await openPalette(page);
+  await palette.getByRole("combobox", { name: "Type a command" }).fill("add task");
+  await page.evaluate(() => {
+    Object.assign(window, { holdNextBack: true, forwardsToHold: 2 });
+  });
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL(/\/dashboard\/tasks$/);
+  await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
+});
+
 test("Add to shopping list focuses the add box of the list in use", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await gotoRevealed(page, "/dashboard");
