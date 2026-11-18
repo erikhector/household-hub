@@ -10968,7 +10968,12 @@ UX-14's rapid ticks and the rollback toast.
   `router.push` after a dialog closes waits the same way (the cached-page
   test in `flows.spec.ts`, MAINT-101): the back would undo the push and
   leave `dialog-history.ts` to step forward onto it again, which is not
-  what that test is about. A CSS
+  what that test is about. A push to a page that isn't prefetched keeps
+  the old page and URL until that page's server render arrives, which a
+  cold WebKit on a loaded runner can take longer than 5 s to get, so the
+  same test first waits for the push's RSC request (a push that never
+  goes out fails there, by name) and then for the new page's heading
+  with 20 s, and only then checks the URL (MAINT-112). A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing
