@@ -11021,6 +11021,13 @@ UX-14's rapid ticks and the rollback toast.
   `expectHydrated` on "Add first dinner". One 20 s poll straight after
   `goto` covered the stream, the reveal and both hydrations, and ran out
   twice in a locked `ci:local` run (MAINT-98).
+  `openRowSheet` (a planner meal's or a recipe's sheet) waits for the
+  row to be hydrated and for `expectRouterPatched` before it taps, since
+  most callers reach it straight after a plain `goto`: on a loaded run
+  the Bread row of `recipe-ingredients.spec.ts`'s unit-memory test,
+  tapped that way on the phone project, never showed its sheet
+  (MAINT-119). That test also waits out the save's `history.back()`
+  (`waitForDialogHistory`) before its `goto` to the planner.
   A helper that presses a toggle until a dialog shows checks that the
   dialog is open (`data-open` on the Base UI popup), not just visible. A
   closing sheet stays visible while it slides out, long enough on a phone

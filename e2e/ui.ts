@@ -256,8 +256,19 @@ export async function saveScreenshot(page: Page, testInfo: TestInfo, locale: Loc
 // visible row whose name is exactly `name` (the last one, when an earlier
 // row of another spec repeats it) and returns the sheet, which is titled
 // with that name.
+//
+// The row opens its sheet only through React's handler, and the sheet is a
+// Dialog that pushes a history entry as it opens, so wait for both before
+// the tap, as openRecipesTab does: a tap before hydration does nothing, and
+// a sheet opened before the router has patched history.replaceState is
+// closed again by the router's first commit (MAINT-68). Most callers get
+// here straight after a plain goto: on a loaded runner a planner row
+// tapped that way had its sheet never show (MAINT-119).
 export async function openRowSheet(page: Page, name: string) {
-  await page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true }).last().click();
+  const row = page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true }).last();
+  await expectHydrated(row);
+  await expectRouterPatched(page);
+  await row.click();
   const sheet = page.getByRole("dialog", { name, exact: true });
   await expect(sheet).toBeVisible();
   return sheet;
