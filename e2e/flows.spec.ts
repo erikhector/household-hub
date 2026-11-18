@@ -81,11 +81,42 @@ test("an edit still shows after navigating away and back", async ({ page, contex
     page.evaluate((to) => {
       (window as unknown as { next: { router: { push: (p: string) => void } } }).next.router.push(to);
     }, path);
+  // MAINT-112: twice more on the iphone project, with the history settled
+  // first, the URL was still /dashboard/tasks 5 s after the push. On a
+  // phone nothing on screen links to Profile, so it isn't prefetched (the
+  // desktop sidebar's link prefetches at most the loading shell, which is
+  // why the request filter below skips prefetches). Either way the router
+  // keeps the old page and the old URL until Profile's server render has
+  // arrived (see cls.spec.ts), and a cold WebKit on a loaded runner
+  // can take longer than the 5 s default for that, as the meal planner's
+  // week link did (MAINT-70). So first make sure the push really went out
+  // (its RSC request: if it never does, that's a router bug and this fails
+  // here, saying so), then give the render the 20 s expectHydrated gives a
+  // cold page. Waiting longer is not a looser check: the same page still
+  // has to arrive.
+  const NAVIGATION_TIMEOUT = 20_000;
+  const profileRequested = page.waitForRequest(
+    (request) => {
+      const url = new URL(request.url());
+      return (
+        url.pathname === "/dashboard/profile" &&
+        url.searchParams.has("_rsc") &&
+        request.headers()["next-router-prefetch"] === undefined
+      );
+    },
+    { timeout: NAVIGATION_TIMEOUT },
+  );
   await push("/dashboard/profile");
+  await profileRequested;
+  await expect(page.getByRole("heading", { level: 1, name: "Profile" })).toBeVisible({ timeout: NAVIGATION_TIMEOUT });
   await expect(page).toHaveURL(/\/dashboard\/profile/);
   await push("/dashboard/tasks");
+  // Back on Tasks the action's revalidatePath has dropped the cached copy,
+  // so this is a fresh server render too.
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible({
+    timeout: NAVIGATION_TIMEOUT,
+  });
   await expect(page).toHaveURL(/\/dashboard\/tasks$/);
-  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
 });
 
 test("create a shopping list and add items to it", async ({ page, context, baseURL }) => {

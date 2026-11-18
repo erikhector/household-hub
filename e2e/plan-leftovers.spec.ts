@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
+import { farDay } from "./far-weeks";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, openRowSheet } from "./ui";
 
@@ -16,19 +17,51 @@ test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-function utcDay(offset: number) {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + offset * DAY_MS);
-}
+const plus = (day: Date, days: number) => new Date(day.getTime() + days * DAY_MS);
 
 // The desktop and mobile runs share one household and its dinners, and other
 // specs plan dinners for the days around today, so "the next day with no
 // dinner" would depend on which ran first. Each test therefore plans on its
-// own days a long way ahead (1-14 years, picked at random) where nothing else
-// is, which keeps the expected suggestion exact.
-function farOffset() {
-  return 365 + Math.floor(Math.random() * 5000);
-}
+// own days a long way ahead, picked at random in this spec's own band of
+// weeks (far-weeks.ts, MAINT-117) where nothing else is, which keeps the
+// expected suggestion exact. That band is shared by every run of this spec
+// in the worker's household (both projects, every --repeat-each run), so
+// each test also takes its rows away again: a dinner an earlier run left on
+// base + 2 would push the suggestion to base + 3.
+
+// The suffix of each test's seeded rows, for the afterEach below.
+let seeded: string | undefined;
+
+test.afterEach(async () => {
+  if (!seeded) return;
+  const suffix = seeded;
+  seeded = undefined;
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const recipeId = `e2e-recipe-${suffix}`;
+    // Only this household's rows, and only the ones this test made: its
+    // recipe's entries (the cooked dinner and the planned leftovers, whose
+    // ids the app chose), the seeded takeaway, then the recipe (its
+    // leftovers batch cascades with it). The other project's run may be
+    // planning in the same week right now, so the week's plan stays unless
+    // it's one this test made and now empty.
+    await client.query(
+      `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
+       WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1
+         AND (entry."recipeId" = $2 OR entry.id = ANY($3))`,
+      [E2E_HOUSEHOLD.id, recipeId, [`e2e-entry-${suffix}-0`, `e2e-entry-${suffix}-1`]],
+    );
+    await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
+    await client.query(
+      `DELETE FROM "MealPlan" plan WHERE plan."householdId" = $1 AND plan.id = ANY($2)
+         AND NOT EXISTS (SELECT 1 FROM "MealPlanEntry" entry WHERE entry."mealPlanId" = plan.id)`,
+      [E2E_HOUSEHOLD.id, [`e2e-plan-${suffix}-0`, `e2e-plan-${suffix}-1`]],
+    );
+  } finally {
+    await client.end();
+  }
+});
 
 function mondayOf(day: Date) {
   return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
@@ -38,20 +71,21 @@ const key = (day: Date) => day.toISOString().slice(0, 10);
 
 // A recipe to cook on day `base`, plus a dinner already planned the day
 // after, so the suggestion has to skip a day: base + 2.
-async function planCookAndDinnerNextDay(recipeName: string, base: number) {
+async function planCookAndDinnerNextDay(recipeName: string, base: Date) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
     const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const recipeId = `e2e-recipe-${suffix}`;
+    seeded = suffix;
     await client.query(`INSERT INTO "Recipe" (id, "householdId", name) VALUES ($1, $2, $3)`, [
       recipeId,
       E2E_HOUSEHOLD.id,
       recipeName,
     ]);
     const rows = [
-      { day: utcDay(base), recipe: recipeId, freeform: null },
-      { day: utcDay(base + 1), recipe: null, freeform: `Takeaway ${suffix}` },
+      { day: base, recipe: recipeId, freeform: null },
+      { day: plus(base, 1), recipe: null, freeform: `Takeaway ${suffix}` },
     ];
     for (const [i, row] of rows.entries()) {
       const monday = mondayOf(row.day);
@@ -102,8 +136,8 @@ async function expectToastButtonsTappable(page: Page, planLeftovers: Locator) {
 
 // Cooks the recipe's planned entry with 2 servings left over and taps
 // "Plan leftovers" on the toast.
-async function cookWithLeftoversAndPlan(page: Page, recipeName: string, base: number) {
-  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base)))}`);
+async function cookWithLeftoversAndPlan(page: Page, recipeName: string, base: Date) {
+  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(base))}`);
   await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as cooked" }).click();
   const cooked = page.getByRole("dialog", { name: "Mark as cooked" });
   await cooked.getByRole("spinbutton", { name: "Portions left over" }).fill("2");
@@ -121,12 +155,12 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
   page,
 }) => {
   const recipeName = unique("Lasagna");
-  const base = farOffset();
+  const base = farDay("plan-leftovers");
   await planCookAndDinnerNextDay(recipeName, base);
 
   const dialog = await cookWithLeftoversAndPlan(page, recipeName, base);
   // Tomorrow already has a dinner, so the day after is suggested.
-  await expect(dialog.getByLabel("Date")).toHaveValue(key(utcDay(base + 2)));
+  await expect(dialog.getByLabel("Date")).toHaveValue(key(plus(base, 2)));
   await expect(dialog.getByRole("spinbutton", { name: "Portions" })).toHaveValue("2");
   await expect(dialog.getByRole("combobox", { name: "Meal" })).toHaveText(/^Dinner/);
 
@@ -135,8 +169,8 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
 
   // Saved: still there after a reload, on the week that day falls in. That
   // week also holds tonight's cooked entry when both days share a week.
-  const sameWeek = key(mondayOf(utcDay(base))) === key(mondayOf(utcDay(base + 2)));
-  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base + 2)))}`);
+  const sameWeek = key(mondayOf(base)) === key(mondayOf(plus(base, 2)));
+  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(plus(base, 2)))}`);
   await expect(page.getByText(recipeName).filter({ visible: true })).toHaveCount(sameWeek ? 2 : 1);
   // GAP-49: the leftovers are a meal-prep batch, and the new slot eats from
   // it, so it (and not the cooked entry) carries the Prepped badge, which
@@ -152,14 +186,14 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
 
 test("dismissing Plan leftovers adds nothing", async ({ page }) => {
   const recipeName = unique("Chili");
-  const base = farOffset();
+  const base = farDay("plan-leftovers");
   await planCookAndDinnerNextDay(recipeName, base);
 
   const dialog = await cookWithLeftoversAndPlan(page, recipeName, base);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
-  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base + 2)))}`);
-  const sameWeek = key(mondayOf(utcDay(base))) === key(mondayOf(utcDay(base + 2)));
+  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(plus(base, 2)))}`);
+  const sameWeek = key(mondayOf(base)) === key(mondayOf(plus(base, 2)));
   await expect(page.getByText(recipeName).filter({ visible: true })).toHaveCount(sameWeek ? 1 : 0);
 });

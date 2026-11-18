@@ -266,7 +266,9 @@ ci_gate: github          # local | github
 into `next` needs `Lint, typecheck, test, build` green on its head
 commit; the release PR into `master` also needs `End-to-end
 (Playwright)`, which runs only there, once per release (the release
-train, see the `autopilot-review` skill's step 4b). Run the fast local
+train, see the `autopilot-review` skill's step 4b), in three shards
+and without WebKit; the nightly full run (`e2e-nightly.yml`) covers
+WebKit. Run the fast local
 checks (`npm run check`, plus the touched e2e specs for UI work) before
 pushing so CI isn't the first to find a failure. `release.yml` cuts one
 release when the release PR merges, so a PR never bumps its own
