@@ -75,7 +75,7 @@ jobs:
           echo "App code changed: $code. Full e2e: $e2e."
 
   # The name stays "…, build" because the rulesets require it by name. On
-  # a PR into `master` the build happens once, in the e2e job, instead.
+  # a PR into `master` the build happens in each e2e shard instead.
   # The conditions compare against 'false' rather than test for 'true' so
   # that if `changes` itself fails (empty outputs) these still run: a
   # skipped job would count as a pass.
@@ -241,6 +241,9 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'false' }}
     runs-on: ubuntu-latest
+    # A shard's tests take about 11 minutes; a hang shouldn't run to
+    # GitHub's 6-hour default.
+    timeout-minutes: 40
     strategy:
       # One failing shard shouldn't cancel the others: the release
       # reviewer needs every failure and flake from the run, not the first.

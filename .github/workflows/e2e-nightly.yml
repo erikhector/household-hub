@@ -6,7 +6,7 @@ name: Nightly e2e
 # is where WebKit-only regressions show up, within a day of merging. A
 # failure here is read by the autopilot reviewer before it cuts the next
 # release (.claude/skills/autopilot-review/SKILL.md) and, like any failed
-# scheduled run, emailed to the repository's admin by GitHub.
+# scheduled run, emailed by GitHub to whoever last changed the cron line.
 #
 # Scheduled workflows run on the default branch (`next`), which is what
 # the next release will ship. 02:17 UTC: off the hour, and between the
@@ -77,6 +77,17 @@ jobs:
 
       - name: Apply migrations
         run: npx prisma migrate deploy
+
+      # Same key as ci.yml's shards. A release PR's run can only restore
+      # caches saved on `next` (the default branch) or `master`, and ci.yml
+      # never runs on a push to either, so the cache this run saves on
+      # `next` is what warms the release shards' builds.
+      - name: Restore Next.js build cache
+        uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
       - name: Build
         run: npm run build
