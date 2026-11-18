@@ -2113,7 +2113,13 @@ every lookup the old one did.
   "Share" button (`ShareListButton`, mirroring `InviteButton`'s show-
   link/copy-button/revoke UX) only while the list is `ACTIVE` — sharing a
   `COMPLETED`/`ARCHIVED` list to let a visitor check off items has no real
-  use once the list is done. The public page itself,
+  use once the list is done. Revoke goes through a `ConfirmDialog`
+  announced as an `alertdialog` (UX-201: it cuts off anyone shopping from
+  the link right now, and sharing again mints a new token, so it can't be
+  undone); a failed revoke toasts and leaves the confirmation open to
+  retry. Each open that has to create a link clears the previous open's
+  create error first, so a stale red error never sits beside a working
+  link. The public page itself,
   `/share/shopping-list/[token]` (top-level, deliberately **not** under
   `/dashboard` so `src/proxy.ts`'s session gate — which only matches
   `/dashboard/*` — never touches it), is a minimal standalone Card with no
@@ -8695,6 +8701,13 @@ components directly.
   mid-repair, rewrote the entry under the palette and left the repair to
   land on, and the router to restore, the `?add=1` entry (MAINT-113;
   the spec also holds the repair's first `forward()` until that replace).
+  The router isn't handed the repair's last pop even when nothing was
+  held: it never saw the back, so it's still on that page, and its
+  restore pre-empts the navigation in flight. The tasks page's strip only
+  writes the URL once the server answers, so a repair landing while that
+  request was out had the restore discard it and the page stayed on
+  `?add=1` (MAINT-118; the spec holds the repair's last `forward()` until
+  the strip's request is sent and slows its answer).
   If no popstate of the back or its repair arrives for 1 s after a write
   is held, the back is given up on: the held writes are applied where the
   browser is and later ones go straight through, so a lost popstate can't
@@ -8745,7 +8758,14 @@ components directly.
   disclosure closed again and a position at the very bottom lands that
   much higher. Covered by `e2e/ux-193.spec.ts` (Profile, with and
   without a hash, cached and fetched again behind a held skeleton),
-  `scroll-memory.test.ts` and `dialog-history.test.ts`.
+  `scroll-memory.test.ts` and `dialog-history.test.ts`. The spec opens
+  the About disclosure only once React owns its summary and the router
+  has patched history: clicked straight after `gotoRevealed`, the
+  `<details>` was found closed again in the hash variants and the What's
+  new link never showed (MAINT-104, fixed in #1456; 240/240 with
+  `--repeat-each=30` on both projects). `ux-76.spec.ts` and
+  `notifications-empty-state.spec.ts` wait the same way before they open
+  Profile's Danger zone.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
   `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
   a long form (the recipe form, add/edit item, receipts) instead of
@@ -10215,6 +10235,20 @@ approximating them, so the email never disagrees with the app.
   Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
   template dialog; the date fields can't be emptied through a controlled date
   input, so they share the hook untested).
+- **An empty custom meal name is flagged under the field (UX-204).** In the
+  Add and Edit meal sheet (`meal-entry-dialog.tsx`), choosing "Custom meal…"
+  and tapping Add or Save with no name no longer posts: the form is
+  `noValidate` while the custom source is chosen and `useRequiredFields`
+  checks `freeformName`, so `mealPlanning.customMealNameRequired` ("Enter a
+  name for the meal") shows right under Meal name (`FieldError`,
+  `role="alert"`), the field gets `aria-invalid`, `aria-describedby` and
+  focus, and the ingredients and note typed so far stay. Typing a name,
+  switching the dish or closing the sheet clears it. Before, the server's
+  form-level "Choose a recipe or enter a meal name" landed under the note
+  field, below the fold of the sheet on a phone. With a recipe chosen the
+  form keeps the browser's own check of the portions number; submitting with
+  nothing chosen still gets the server's form-level message. Covered by
+  `e2e/meal-planning-field-errors.spec.ts`.
 - **Inventory unit dialog errors sit next to the field (UX-183b, fifth
   slice).** The item page's Change unit dialog (`change-unit-dialog.tsx`:
   new unit and factor) and Add/Edit conversion dialog
@@ -10998,7 +11032,12 @@ UX-14's rapid ticks and the rollback toast.
   `router.push` after a dialog closes waits the same way (the cached-page
   test in `flows.spec.ts`, MAINT-101): the back would undo the push and
   leave `dialog-history.ts` to step forward onto it again, which is not
-  what that test is about. A CSS
+  what that test is about. A push to a page that isn't prefetched keeps
+  the old page and URL until that page's server render arrives, which a
+  cold WebKit on a loaded runner can take longer than 5 s to get, so the
+  same test first waits for the push's RSC request (a push that never
+  goes out fails there, by name) and then for the new page's heading
+  with 20 s, and only then checks the URL (MAINT-112). A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing
@@ -11023,6 +11062,13 @@ UX-14's rapid ticks and the rollback toast.
   `expectHydrated` on "Add first dinner". One 20 s poll straight after
   `goto` covered the stream, the reveal and both hydrations, and ran out
   twice in a locked `ci:local` run (MAINT-98).
+  `openRowSheet` (a planner meal's or a recipe's sheet) waits for the
+  row to be hydrated and for `expectRouterPatched` before it taps, since
+  most callers reach it straight after a plain `goto`: on a loaded run
+  the Bread row of `recipe-ingredients.spec.ts`'s unit-memory test,
+  tapped that way on the phone project, never showed its sheet
+  (MAINT-119). That test also waits out the save's `history.back()`
+  (`waitForDialogHistory`) before its `goto` to the planner.
   A helper that presses a toggle until a dialog shows checks that the
   dialog is open (`data-open` on the Base UI popup), not just visible. A
   closing sheet stays visible while it slides out, long enough on a phone

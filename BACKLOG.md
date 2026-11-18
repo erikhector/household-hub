@@ -274,23 +274,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
       Further sighting (2026-11-15, builder's locked `ci:local` on abf9c66, PR #1479, MAINT-103: a fix in `dialog-history.ts` for a navigation lost when a dialog closes, which touches neither this spec nor the budget feature): `mobile` project, the same test (`:87`) failed once in the first full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`, a forced click on the `peer sr-only` `categoryId` radio straight after the Add transaction dialog opened), and passed in a second full run on the same commit (1691 passed).
       Further sighting (2026-11-16, reviewer's locked `ci:local` on release PR #1484, f77b161): `mobile` project, the same test (`:87`) failed once in the full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`; 1 failed, 1696 passed) and passed in a rerun of the spec on the same commit (`--project=mobile`, 6 passed). The GitHub e2e job on that commit passed it.
-- [ ] **MAINT-104. Flaky: the What's new link in Profile's About disclosure isn't found within 20 s in the Back-restores-scroll spec** (low, S) —
-      `e2e/ux-193.spec.ts:26`, the `#profile-notifications` variants only: "Back to Profile restores the scroll position, with a hash" on `desktop`, and "…, with a hash, fetched again" on `mobile`. The spec is new in #1453 (UX-193). Three sightings, all on 2026-11-15. (1) The builder's locked `ci:local` on 6faed9d (#1453's branch merged with `next`): "with a hash, fetched again" failed once on `mobile`, and passed in the next full gate. (2) and (3) The GitHub `End-to-end (Playwright)` job on release PR #1455 (908b494, job 132738518572): the `desktop` "with a hash" test and the `mobile` "with a hash, fetched again" test each failed their first attempt (after 21.4 s and 22.1 s) and passed on the retry, so Playwright marked both `flaky`; the reviewer's locked `ci:local` on the same commit passed all eight `ux-193` tests. Failing step, the same each time: `expectHydrated(link)` at `:35` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`). That error alone can't tell "the link is there but not hydrated" from "the link isn't there": `expectHydrated` polls `target.evaluate(…)`, which waits for the element. The builder's failure snapshot (sighting 1) shows the second: the About summary focused and the `<details>` closed again, after the spec clicked the summary straight after `gotoRevealed`, before hydration. What closes the disclosure is not known; that only the hash variants fail points at whatever the hash sets off while the page hydrates (`ScrollToHash`, or the restore). `e2e/notifications-empty-state.spec.ts:74` clicks a summary (Danger zone) the same way.
-      Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
+      Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-118. Flaky: the palette's Enter-navigates test lands on `/dashboard/tasks?add=1` on mobile** (low, S) —
-      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone", the MAINT-103 test), `mobile` project (Chromium), local `npm run ci:local` only. First sighting: the builder's locked full gate on af53057 (PR #1536, MAINT-115, which touches only meal-planning specs, 2026-11-17): 1 failed, 1715 passed, the URL assertion expecting `/\/dashboard\/tasks$/` got `/dashboard/tasks?add=1`. The same spec passed 82/82 run alone (`--project=desktop --project=mobile --repeat-each=5`) on that commit, and the next full gate (a4e7c8b) passed it. The `?add=1` is the query MAINT-113 (#1519) has the tasks page strip after the palette's Add task; this test navigates with Enter, so start from whether a slow strip or the MAINT-103 repair's forward() lands on an entry still carrying `?add=1` under load. On `iphone` (WebKit) this test and the rest of the spec passed first time in all four GitHub release e2e runs after it joined that project (MAINT-107, see REQUIREMENTS.md "Testing"). No trace was kept; rerun under load with `--trace on` first.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-119. Flaky: the recipe-ingredients unit-memory test can't open the Bread row's sheet on mobile** (low, S) —
-      `e2e/recipe-ingredients.spec.ts:314` ("remembering 1 pcs = 2000 g for an item skips the unit question next time, and cooking uses it"), `mobile` project. First sighting: the GitHub e2e job on release PR #1542 (run 44064248664, commit 00bdaba, 2026-11-17, which ships #1539/#1540 and touches neither recipes nor inventory) failed the first attempt and passed on the retry (marked `flaky`). The failure was in `openRowSheet` (`e2e/ui.ts:262`, called from the spec's `:357`): after clicking the row's name in `main`, `getByRole("dialog", { name: "Bread <id>" })` was not visible within 5 s. The locked local `ci:local` on the same commit passed it. The "Bread <id>" row is the recipe's planned meal on `/dashboard/meal-planning`, reached by a plain `page.goto` at `:356` straight after `planForToday`; nothing has been cooked yet. Start from that `goto`: `openRowSheet` taps the row before the page has hydrated (there's no `expectHydrated`/`gotoRevealed`, unlike the spec's `:49`–`:51`), or the plan entry `planForToday` inserted streams in and re-renders under the tap. Check the failing run's trace.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-ingredients.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -553,23 +541,6 @@ tick, the row and list menus, share and the share page, and an empty
 new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
 (no browser installed here), and dark was not looked at.
 
-- [ ] **UX-201. Confirm before revoking a share link, and clear a stale share error** (impact: med, effort: S) —
-      In the Share dialog, Revoke
-      (`src/components/shopping/share-list-button.tsx:105-111`,
-      `handleRevoke` at :62) kills the link with a single tap. Anyone
-      shopping from it gets "invalid or revoked" mid-trip, and re-sharing
-      mints a different token, so the action can't be undone. That breaks
-      principle 5 (costly actions are confirmed) and M2. Separately, `error`
-      (:43) is set at :56 but never cleared, so after one failed create,
-      reopening the dialog shows the old red error beside the working link
-      (principle 7, designed states). Fix: route Revoke through the existing
-      `ConfirmDialog` (the pattern `confirmDeleteList` uses) with
-      `shareLink.revokeConfirm*` strings in `en` and `sv`, and call
-      `setError(null)` in `handleOpenChange` before the request. Acceptance:
-      in the `mobile` and `desktop` projects, tapping Revoke opens an
-      `alertdialog`; Cancel leaves the link field visible; confirming shows
-      the revoked toast and the share page then reads as revoked.
-
 ### UX (2026-11-18 scout)
 
 Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
@@ -583,30 +554,6 @@ submit, Custom meal with an empty name, a 79-character Swedish name), the
 meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
 cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
 installed here), and dark was not looked at (no project renders it).
-
-- [ ] **UX-204. Flag an empty custom meal name under the field in Add meal** (impact: med, effort: S) —
-      In the add/edit meal sheet, picking "Custom meal…" and tapping Add
-      with no name posts the form. The server's `chooseRecipeOrMeal`
-      (`src/app/dashboard/meal-planning/planner-actions.ts:113`, :198)
-      comes back as one form-level line under the meal-note field
-      (`src/components/meal-planning/meal-entry-dialog.tsx:402`). On a
-      Pixel 7 that's below the fold of the sheet, so nothing visible
-      happens. Focus drops to `<body>`, the Meal name input
-      (:339-348) gets no `aria-invalid`, and the text ("Choose a recipe or
-      enter a meal name") asks for a recipe the user just declined. That
-      breaks principle 7, errors next to the field (UX-183), and M5
-      (feedback on every touch). It's the one meal-planning form
-      `useRequiredFields` (`src/components/shared/use-required-fields.ts`)
-      never reached. Fix: make the form `noValidate` with
-      `useRequiredFields` on `freeformName` when the custom option is
-      chosen, plus a `customMealNameRequired` string in `en` and `sv`. It
-      shows under the field as a `FieldError` (`role="alert"`), and the
-      field gets `aria-invalid`, `aria-describedby` and focus. Acceptance:
-      in `e2e/meal-planning-field-errors.spec.ts` (`mobile` and
-      `desktop`, en and sv), choosing Custom meal and tapping Add with an
-      empty name shows the alert in view under Meal name, the field is
-      focused and `aria-invalid`, typed ingredients stay, no entry is
-      created, and typing a name clears the alert.
 
 ---
 
