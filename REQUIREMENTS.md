@@ -10870,7 +10870,14 @@ UX-14's rapid ticks and the rollback toast.
   Safari differences. The palette spec is there for its MAINT-103 and
   MAINT-113 tests, which hold the dialog's `history.back()` until the
   router has pushed, so the repair in `dialog-history.ts` is exercised in
-  WebKit's history as well as Chromium's (MAINT-107). It exists
+  WebKit's history as well as Chromium's (MAINT-107). Confirmed on
+  GitHub: all eight `[iphone] › e2e/command-palette.spec.ts` tests,
+  the two repair tests among them, passed on the first attempt (none
+  flaky or retried) in every release PR `End-to-end (Playwright)` job
+  that ran after #1533 added the spec to `iphone`: #1535 (job
+  133885965621), #1542 (133973716804), #1548 (134073930596) and #1555
+  (134225144476), 32 of 32 on 2026-11-17 (#1553's e2e job was skipped). WebKit still can't be downloaded in the
+  autopilot's build container, so GitHub is where it runs. It exists
   only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
   install --with-deps webkit`, and the `ci:local` gate skips the project
   unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
