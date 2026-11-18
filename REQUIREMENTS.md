@@ -8750,7 +8750,14 @@ components directly.
   disclosure closed again and a position at the very bottom lands that
   much higher. Covered by `e2e/ux-193.spec.ts` (Profile, with and
   without a hash, cached and fetched again behind a held skeleton),
-  `scroll-memory.test.ts` and `dialog-history.test.ts`.
+  `scroll-memory.test.ts` and `dialog-history.test.ts`. The spec opens
+  the About disclosure only once React owns its summary and the router
+  has patched history: clicked straight after `gotoRevealed`, the
+  `<details>` was found closed again in the hash variants and the What's
+  new link never showed (MAINT-104, fixed in #1456; 240/240 with
+  `--repeat-each=30` on both projects). `ux-76.spec.ts` and
+  `notifications-empty-state.spec.ts` wait the same way before they open
+  Profile's Danger zone.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
   `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
   a long form (the recipe form, add/edit item, receipts) instead of
