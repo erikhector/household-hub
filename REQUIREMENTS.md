@@ -8978,7 +8978,17 @@ version or the notes by hand.
   The fast CI job also runs `npm audit --omit=dev --audit-level=high`:
   only what ships, and only high or critical advisories, so the moderate
   dev-tool advisories that wait on upstream (typescript-eslint's
-  minimatch, shadcn's deepmerge) don't turn every PR red. Then
+  minimatch, shadcn's deepmerge) don't turn every PR red. It runs through
+  `node scripts/audit.ts`, which reads `npm audit --json` and fails on any
+  such advisory except those in `src/lib/audit-allowlist.ts` (DEPS-10).
+  An entry there is for a high advisory with no patched release to move
+  to, so neither `npm audit fix` nor an `overrides` pin clears it. Each
+  names the GHSA id, why shipping with it is safe, and an expiry date
+  (about three months out) from which CI fails on it again. The first is
+  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), whose latest release 4.0.7 is
+  still affected and whose only production paths are Sentry's build-time
+  Rollup and Vite tooling matching the repo's own globs. The script also
+  prints entries whose advisory is gone, to be deleted. Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
   imports, on unused or unlisted dependencies, and on exports, types and
   duplicate exports no other file imports. Its framework plugins

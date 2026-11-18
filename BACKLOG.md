@@ -194,27 +194,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       declare `eslint` peers up to `^9`, so 10 only installs by overriding
       them. When all three accept 10, bump `eslint` + `eslint-config-next`
       and drop the `eslint` ignore in `.github/dependabot.yml`.
-- [ ] **DEPS-10. Red `next`: `npm audit` fails CI on picomatch (GHSA-fc5q-39xc-vjpf)** (high, S) `[!]` —
-      CI's `npm audit --omit=dev --audit-level=high` step fails every PR
-      into `next` (e.g. #1558) on 7 high findings that are one advisory:
-      a ReDoS in picomatch's repeated extglobs, reported through `fdir`,
-      `tinyglobby`, `vite`, `@rollup/pluginutils`, `@rollup/plugin-commonjs`
-      and `@sentry/nextjs`. **There is no patched release to move to**: the
-      registry lists it as `vulnerable_versions <=4.0.7`, and 4.0.7 is the
-      latest picomatch (2026-11-17), so neither `npm audit fix` nor an
-      `overrides` pin clears it, and `npm audit fix --force` would
-      downgrade `@sentry/nextjs` to 8.38.0. Every production path to it is
-      build-time tooling that only matches globs written in the repo:
-      `@sentry/nextjs` > `@rollup/plugin-commonjs` (Sentry's build plugin)
-      and `@sentry/nextjs` > `@sentry/cloudflare` > `vite` 8. No user
-      input reaches it. **Decision needed (touches `.github/workflows/`,
-      human-only):** either (a) let the audit step skip this one advisory
-      until picomatch ships a fix, e.g. run `npm audit --json` and fail
-      only on high/critical advisories not in a short, dated allowlist
-      with GHSA-fc5q-39xc-vjpf and the reason above, or (b) leave CI red
-      and wait for upstream. When a patched picomatch is published, the
-      fix is `npm audit fix` (or a `picomatch` `overrides` entry), and any
-      allowlist entry goes with it.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
