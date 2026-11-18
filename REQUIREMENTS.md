@@ -7129,6 +7129,14 @@ answers "what's for dinner?" without opening Cook or Edit.
   row. The Planner tab's week is passed in as `plannerWeekStartKey`, so a
   date in another week gets the "View that week" toast. Covered by
   `e2e/recipe-sheet-plan.spec.ts`.
+- **Linked ingredients (UX-203)**: an ingredient linked to a pantry item
+  is a link to its item page (MATCH-6). A one-per-line list of links isn't
+  running text, so on touch (`max-sm`, `pointer-coarse`) a linked row is a
+  44 px flex row with 8 px between rows (DESIGN.md M3). The link stretches
+  to the row's height and its `::after` covers the whole row, so a tap on
+  the quantity or prep note opens it too, while the link's accessible name
+  stays the ingredient's own. Covered by `e2e/ux-203.spec.ts` (also on the
+  `tablet` project), which measures the open sheet's touch targets.
 
 ### Cook mode (GAP-42)
 
