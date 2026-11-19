@@ -7761,6 +7761,19 @@ from a pure list/calendar app; this is the minimal version of it.
   kept), the author's display name (or "Former member") and the date, with
   the year only when it isn't the current one. Add, pin and delete — no
   edit or rich text.
+- **Dropped requests** (UX-205, M8): a request that never arrives (offline,
+  a flaky mobile connection) is caught on Add note, Pin and Delete and
+  shown as the `notes.saveFailed` toast instead of reaching the dashboard
+  error boundary. The board stays on screen, the typed note stays in the
+  field and the field isn't marked invalid; Delete's confirm dialog stays
+  open for a retry. More generally, the shared `ConfirmDialog` catches a
+  throwing `onConfirm` itself: it toasts the text the dashboard layout
+  gives it through `ConfirmDialogFailedMessage` (`errors.requestFailed`,
+  "That didn't go through…") and stays open, so all of its call sites are
+  covered. A call site that already turns a throw into an `{ error }` (as
+  the notes board and `settleDelete` do) gets only its own toast. A
+  redirect or not-found signal is re-thrown (`unstable_rethrow`) so the
+  router still handles an expired session. `e2e/ux-205.spec.ts`.
 - **Pinning** (GAP-61): `HouseholdNote.pinnedAt DateTime?` (migration
   `20261030090000_household_note_pinned_at`), null = not pinned. A lasting
   fact (the wifi code, "allergic to nuts") shouldn't sink under daily
