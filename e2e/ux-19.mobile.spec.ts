@@ -11,13 +11,36 @@ import { dismissCookieNotice, expectTargetsApart, expectTouchTargets, expectTouc
 // uniquely and the meal goes in a far-future week of its own.
 const suffix = () => Date.now().toString(36);
 
+// MAINT-106: this week is this spec's alone, and the meal goes with the test.
+// It used to be 2031-03-03, the week native-sheets.spec.ts and
+// planner-add-missing.spec.ts open as an *empty* week, and the meal outlived
+// the test: either spec, run later by the same worker (so in the same
+// household), found day cards where "Add first dinner" should be and timed
+// out in expectHydrated waiting for a button that never rendered.
+const MEAL_WEEK = "2031-06-02";
+
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
+test.afterEach(async () => {
+  // By week, not by id: the app made the week's MealPlan, and its entries
+  // cascade with it. Only this worker's household.
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = $2`, [
+      E2E_HOUSEHOLD.id,
+      MEAL_WEEK,
+    ]);
+  } finally {
+    await client.end();
+  }
+});
+
 test("a meal row and its sheet's actions are 44 px and 8 px apart", async ({ page }) => {
   const name = `Soup ${suffix()}`;
-  await page.goto("/dashboard/meal-planning?week=2031-03-03");
+  await page.goto(`/dashboard/meal-planning?week=${MEAL_WEEK}`);
   await page.getByRole("button", { name: "Add first dinner" }).click();
   const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
   await dialog.getByRole("combobox", { name: "Meal" }).click();

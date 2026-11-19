@@ -40,6 +40,7 @@ function fakeBrowser(href = "https://app.test/dashboard/inventory") {
   });
   return {
     entries: () => entries.length,
+    hrefs: () => entries.map((entry) => entry.href),
     index: () => index,
     // What the browser does on a back gesture or after history.back(): move,
     // then fire popstate with the landed entry's state.
@@ -156,6 +157,191 @@ describe("pushDialogEntry", () => {
     expect(stopped).toHaveBeenCalled();
     expect(forward).toHaveBeenCalledOnce();
     expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
+
+    // The forward lands on the kept item's page, where the router still
+    // is, so it's kept from the router too: MAINT-118, a restore here would
+    // throw away a navigation the page had started meanwhile.
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(forward).toHaveBeenCalledOnce();
+    expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
+  });
+
+  // MAINT-103: the command palette closes and router.push()es in one go. A
+  // push that beats the palette's back() leaves the closed palette's entry
+  // between the page and the new one, so one forward() only reached that
+  // entry, on the old URL, and the navigation was lost.
+  it("steps forward twice when the app pushed a page before our back() landed", async () => {
+    const browser = fakeBrowser("https://app.test/dashboard");
+    const { pushDialogEntry } = await load();
+    const close = vi.fn();
+    const release = pushDialogEntry(close);
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    release();
+    expect(back).toHaveBeenCalledOnce();
+    browser.navigate("https://app.test/dashboard/tasks?add=1");
+    back.mockRestore();
+    const forward = vi.spyOn(window.history, "forward");
+
+    // The browser takes the back from the dialog's entry, where history
+    // stood when it was called: it lands on the page under it.
+    realBack();
+    realBack();
+    expect(browser.index()).toBe(0);
+    // Both the back and the forward onto the closed dialog's entry are
+    // kept from the router, and each is followed by a forward.
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(1);
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(2);
+    // The last one lands on the page the app went to, where the router
+    // still is, so it's kept from the router too. MAINT-118: the router's
+    // restore would discard a navigation the new page had started meanwhile
+    // (the tasks page's router.replace() stripping `?add=1`).
+    expect(browser.pop()).toHaveBeenCalled();
+
+    expect(forward).toHaveBeenCalledTimes(2);
+    expect(window.location.href).toBe("https://app.test/dashboard/tasks?add=1");
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  // MAINT-113: the page the palette pushed rewrites its own URL straight
+  // away (the tasks page strips `?add=1` with router.replace). When that
+  // replace comes while the repair is still stepping forward, the browser is
+  // on an entry the router has left: the replace rewrote that one, and the
+  // repair then landed on the stale `?add=1` entry, which the router
+  // restored. The replace waits for the repair and is applied where it lands.
+  it("holds the app's history writes until the repair has landed, then applies them there", async () => {
+    const browser = fakeBrowser("https://app.test/dashboard");
+    const { pushDialogEntry } = await load();
+    const release = pushDialogEntry(vi.fn());
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    release();
+    browser.navigate("https://app.test/dashboard/tasks?add=1");
+    back.mockRestore();
+    realBack();
+    realBack();
+    expect(browser.index()).toBe(0);
+
+    // The back has landed under the palette's entry; the replace comes now.
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+    expect(browser.hrefs()).toEqual([
+      "https://app.test/dashboard",
+      "https://app.test/dashboard",
+      "https://app.test/dashboard/tasks?add=1",
+    ]);
+
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(2);
+    // The last step lands where the router is, with its replace applied, so
+    // there's nothing for the router to restore (its tree is `?add=1`'s).
+    expect(browser.pop()).toHaveBeenCalled();
+
+    expect(window.location.href).toBe("https://app.test/dashboard/tasks");
+    expect(browser.hrefs()).toEqual([
+      "https://app.test/dashboard",
+      "https://app.test/dashboard",
+      "https://app.test/dashboard/tasks",
+    ]);
+    // Settled: writes go straight through again.
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks?view=all");
+    expect(window.location.href).toBe("https://app.test/dashboard/tasks?view=all");
+  });
+
+  // The safety valve: if the repair's popstate never comes (a forward() that
+  // finds no entry, or a pop another listener stopped first), the held writes
+  // must not wait for the rest of the session with the URL frozen.
+  it("applies the held writes where the browser is when the repair's popstate never arrives", async () => {
+    vi.useFakeTimers();
+    try {
+      const browser = fakeBrowser("https://app.test/dashboard");
+      const { pushDialogEntry } = await load();
+      const release = pushDialogEntry(vi.fn());
+      const realBack = window.history.back.bind(window.history);
+      const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+      release();
+      browser.navigate("https://app.test/dashboard/tasks?add=1");
+      back.mockRestore();
+      realBack();
+      realBack();
+      // Our back() lands: the repair steps forward, but that step's popstate
+      // is lost.
+      expect(browser.pop()).toHaveBeenCalled();
+      window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+      expect(window.location.href).not.toBe("https://app.test/dashboard/tasks");
+
+      vi.advanceTimersByTime(999);
+      expect(window.location.href).not.toBe("https://app.test/dashboard/tasks");
+      vi.advanceTimersByTime(1);
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks");
+
+      // Released: later writes go straight through, and a dialog pushes its
+      // entry at once.
+      window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks?view=all");
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks?view=all");
+      const index = browser.index();
+      pushDialogEntry(vi.fn());
+      expect(browser.index()).toBe(index + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps holding the writes while the repair's popstates keep arriving", async () => {
+    vi.useFakeTimers();
+    try {
+      const browser = fakeBrowser("https://app.test/dashboard");
+      const { pushDialogEntry } = await load();
+      const release = pushDialogEntry(vi.fn());
+      const realBack = window.history.back.bind(window.history);
+      const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+      release();
+      browser.navigate("https://app.test/dashboard/tasks?add=1");
+      back.mockRestore();
+      realBack();
+      realBack();
+      window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+
+      // Each step comes 600 ms after the last: slow, but within the valve's
+      // window every time, so the writes stay held for the landing entry.
+      vi.advanceTimersByTime(600);
+      browser.pop();
+      vi.advanceTimersByTime(600);
+      browser.pop();
+      vi.advanceTimersByTime(600);
+      expect(browser.index()).toBe(2);
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks?add=1");
+      browser.pop();
+      expect(window.location.href).toBe("https://app.test/dashboard/tasks");
+      expect(browser.hrefs()).toEqual([
+        "https://app.test/dashboard",
+        "https://app.test/dashboard",
+        "https://app.test/dashboard/tasks",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("holds a new dialog's entry until the repairing forward has landed", async () => {
+    const browser = fakeBrowser("https://app.test/dashboard/inventory/items/merged");
+    const { pushDialogEntry } = await load();
+    const release = pushDialogEntry(vi.fn());
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    release();
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/inventory/items/kept");
+    back.mockRestore();
+    browser.back();
+    expect(browser.index()).toBe(1);
+
+    // The forward is on its way; a push now would cut it short.
+    pushDialogEntry(vi.fn());
+    expect(browser.entries()).toBe(2);
+    browser.pop();
+    expect(browser.entries()).toBe(3);
+    expect(browser.index()).toBe(2);
   });
 
   // MAINT-23: a sheet hands over to a confirm in one render, so the confirm
@@ -186,6 +372,37 @@ describe("pushDialogEntry", () => {
     back.mockRestore();
     browser.back();
     expect(closeConfirm).toHaveBeenCalledOnce();
+  });
+
+  it("takes both entries off when a nested pair closes together", async () => {
+    // UX-201: a successful revoke closes the confirm and the Share sheet in
+    // one commit. The confirm's back() is still on its way when the sheet
+    // releases, so history.state still carries the confirm's marker.
+    const browser = fakeBrowser();
+    const { pushDialogEntry } = await load();
+    const closeSheet = vi.fn();
+    const closeConfirm = vi.fn();
+    const releaseSheet = pushDialogEntry(closeSheet);
+    const releaseConfirm = pushDialogEntry(closeConfirm);
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+
+    releaseConfirm();
+    releaseSheet();
+    expect(back).toHaveBeenCalledOnce();
+
+    // The confirm's back lands on the sheet's entry: that goes too.
+    realBack();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(back).toHaveBeenCalledTimes(2);
+
+    // And that one lands on the page itself: swallowed, nothing closes.
+    realBack();
+    expect(browser.pop()).toHaveBeenCalled();
+    expect(browser.index()).toBe(0);
+    expect(closeSheet).not.toHaveBeenCalled();
+    expect(closeConfirm).not.toHaveBeenCalled();
+    expect(back).toHaveBeenCalledTimes(2);
   });
 
   it("never pushes an entry for a dialog closed while it was waiting", async () => {
@@ -223,6 +440,26 @@ describe("pushDialogEntry", () => {
     expect(browser.back()).toHaveBeenCalled();
     expect(forward).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
+  });
+
+  it("keeps a registered key through the router's same-URL state replaces", async () => {
+    fakeBrowser();
+    const { keepHistoryStateKey } = await load();
+    keepHistoryStateKey("__squirrelScroll");
+    window.history.replaceState({ __NA: true, __squirrelScroll: 420 }, "");
+
+    // The router's commit: its own state only, URL unchanged.
+    window.history.replaceState({ __NA: true, tree: "new" }, "", window.location.href);
+    expect(window.history.state).toEqual({ __NA: true, tree: "new", __squirrelScroll: 420 });
+
+    // A newer value in the replace wins, and a key nobody registered goes.
+    window.history.replaceState({ __NA: true, __squirrelScroll: 12, other: 1 }, "");
+    window.history.replaceState({ __NA: true }, "");
+    expect(window.history.state).toEqual({ __NA: true, __squirrelScroll: 12 });
+
+    // Another URL is another page: it starts without the key.
+    window.history.replaceState({ __NA: true }, "", "https://app.test/dashboard/tasks");
+    expect(window.history.state).toEqual({ __NA: true });
   });
 
   it("lets the router handle a back that leaves the page the dialog was opened on", async () => {

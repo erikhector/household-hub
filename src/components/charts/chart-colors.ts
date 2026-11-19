@@ -3,7 +3,7 @@
 // never text. Literal class names (not `bg-chart-${n}`) so Tailwind's
 // scanner generates every one of them.
 
-export const CHART_FILL = [
+const CHART_FILL = [
   "bg-chart-1",
   "bg-chart-2",
   "bg-chart-3",

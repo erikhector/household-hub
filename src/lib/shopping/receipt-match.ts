@@ -64,7 +64,7 @@ export type ReceiptLineInput = { name: string; barcode?: string | null };
  * - `suggested`: a best guess is pre-selected, but the line needs review.
  * - `none`: nothing close enough; the line needs review with no guess.
  */
-export type ReceiptMatchConfidence = "barcode" | "confident" | "suggested" | "none";
+type ReceiptMatchConfidence = "barcode" | "confident" | "suggested" | "none";
 
 export type ReceiptLineMatch = { matchId: string | null; confidence: ReceiptMatchConfidence };
 

@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_ITEM } from "./seed-data";
-import { clickRowAction, dismissCookieNotice, expectHydrated, holdServerActions } from "./ui";
+import { clickRowAction, dismissCookieNotice, expectHydrated, holdServerActions, waitForSheetClosed } from "./ui";
 
 // UX-33: the motion system. Two kinds of motion, two recorders:
 //
@@ -260,6 +260,8 @@ test("a completed task moves to Completed at tap time", async ({ page }) => {
   const box = page.getByRole("checkbox", { name: `Mark ${title} as done` });
   await expect(box).toBeVisible();
 
+  // The page behind the closed sheet at rest first (MAINT-116).
+  await waitForSheetClosed(page);
   await resetRecording(page);
   // The tick waits TICK_MS (a timer) before the row moves, and the move only
   // counts as "at tap time" if that timer fires inside the 500 ms the browser

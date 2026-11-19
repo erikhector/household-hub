@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findMissingFields, type RequiredRule } from "@/components/shared/use-required-fields";
+import { findFieldProblems, findMissingFields, type RequiredRule } from "@/components/shared/use-required-fields";
 
 const rules: RequiredRule[] = [
   { name: "name", id: "f-name", message: "Enter a name" },
@@ -28,5 +28,50 @@ describe("findMissingFields", () => {
 
   it("treats a non-numeric value in a numeric field as missing, but not in a text field", () => {
     expect(findMissingFields(form({ name: "abc", amount: "abc" }), rules).map((rule) => rule.name)).toEqual(["amount"]);
+  });
+});
+
+describe("findFieldProblems", () => {
+  const passwordRules: RequiredRule[] = [
+    {
+      name: "password",
+      id: "f-password",
+      message: "Enter a password",
+      invalid: (value) => (value.length < 8 ? "Too short" : undefined),
+    },
+    {
+      name: "confirm",
+      id: "f-confirm",
+      message: "Confirm it",
+      invalid: (value, data) => (value !== data.get("password") ? "No match" : undefined),
+    },
+  ];
+
+  it("returns nothing when every field is filled and valid", () => {
+    expect(findFieldProblems(form({ password: "long-enough", confirm: "long-enough" }), passwordRules)).toEqual([]);
+  });
+
+  it("words an empty field with the rule's own message, without running its check", () => {
+    expect(findFieldProblems(form({ password: "", confirm: "" }), passwordRules)).toEqual([
+      { name: "password", id: "f-password", message: "Enter a password" },
+      { name: "confirm", id: "f-confirm", message: "Confirm it" },
+    ]);
+  });
+
+  it("words a filled field that fails its check with the check's message, in rule order", () => {
+    expect(findFieldProblems(form({ password: "short", confirm: "other" }), passwordRules)).toEqual([
+      { name: "password", id: "f-password", message: "Too short" },
+      { name: "confirm", id: "f-confirm", message: "No match" },
+    ]);
+  });
+
+  it("gives the check the value as typed, so spaces count towards a password's length", () => {
+    expect(findFieldProblems(form({ password: " pass wd ", confirm: " pass wd " }), passwordRules)).toEqual([]);
+  });
+
+  it("leaves rules without a check as plain required fields", () => {
+    expect(findFieldProblems(form({ name: "Rent", amount: "x" }), rules)).toEqual([
+      { name: "amount", id: "f-amount", message: "Enter an amount" },
+    ]);
   });
 });

@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { isLocale, LOCALE_COOKIE, negotiateLocale, type Locale } from "@/lib/i18n/locales";
-import { dictionaries, getDictionaryForLocale, type Dictionary } from "@/lib/i18n/dictionaries";
+import { dictionaries, type Dictionary } from "@/lib/i18n/dictionaries";
 import { getUserPreferences } from "@/lib/preferences";
 
 // Cached per-request: every Server Component that needs translations calls
@@ -35,5 +35,4 @@ export const getDictionary = cache(async (): Promise<Dictionary> => {
   return dictionaries[locale];
 });
 
-export { getDictionaryForLocale };
 export type { Dictionary, Locale };

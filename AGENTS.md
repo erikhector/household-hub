@@ -109,7 +109,9 @@ npm run ci:local            # the full gate: check + build + e2e
 **CI runs on GitHub.** `.github/workflows/ci.yml` runs lint → typecheck →
 unit tests → build on every PR into `next`, and adds the e2e job only on
 PRs into `master` (the release PR), so the browser suite runs once per
-release instead of once per PR. Docs-only PRs skip both. A PR merges only
+release instead of once per PR. That run is split across three shards
+and skips the `iphone` (WebKit) project; `e2e-nightly.yml` runs the whole
+suite, WebKit included, on `next` every night. Docs-only PRs skip both. A PR merges only
 with its checks green on its head commit (see `ci_gate` in AUTOPILOT.md). Don't make CI the first to find a failure:
 run `npm run check` (plus the e2e specs you touched, or the whole
 `npm run ci:local` for UI work) before you push. In Claude Code on the web,
@@ -352,7 +354,8 @@ loop".
   `expectRendersCleanly`, `expectNoHorizontalOverflow`, `saveScreenshot`,
   `dismissCookieNotice` for specs where the cookie notice would get in
   the way, `clickRowAction` for a row's Edit/Delete at any width, and
-  `waitForDialogHistory` before a reload that follows a dialog closing).
+  `waitForDialogHistory` before a reload or a scripted navigation that
+  follows a dialog closing).
   Reuse them in new specs rather than re-implementing. Under a loaded
   runner `goto()` returns before React has hydrated, so a click on a
   React-driven control (menu, tab, tick) first needs `expectHydrated`,

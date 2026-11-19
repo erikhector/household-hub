@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox"
 import { cn } from "cn"
-import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon } from "lucide-react"
 
 // A filterable alternative to `Select` (see select.tsx) for pickers with a
 // long option list. Base UI's own guidance is to prefer Combobox over
@@ -63,21 +63,6 @@ function ComboboxTrigger({
     >
       {children ?? <ChevronDownIcon />}
     </ComboboxPrimitive.Trigger>
-  )
-}
-
-function ComboboxClear({ className, children, ...props }: ComboboxPrimitive.Clear.Props) {
-  return (
-    <ComboboxPrimitive.Clear
-      data-slot="combobox-clear"
-      className={cn(
-        "flex h-full max-sm:h-11 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-md px-1 max-sm:min-w-11 pointer-coarse:min-w-11 text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      {children ?? <XIcon />}
-    </ComboboxPrimitive.Clear>
   )
 }
 
@@ -171,7 +156,10 @@ function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.
       )}
       {...props}
     >
-      <span className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">{children}</span>
+      {/* M9 + UX-184: a long name wraps rather than running past the list
+          and under the check (`pr-8` keeps it clear). No line clamp: the
+          list scrolls, and the ending is often what tells two recipes apart. */}
+      <span className="flex min-w-0 flex-1 gap-2 break-words">{children}</span>
       <ComboboxPrimitive.ItemIndicator
         render={
           <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
@@ -185,7 +173,6 @@ function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.
 
 export {
   Combobox,
-  ComboboxClear,
   ComboboxContent,
   ComboboxInlineList,
   ComboboxInput,

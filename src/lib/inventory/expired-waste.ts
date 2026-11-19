@@ -53,7 +53,7 @@ export type ExpiredWasteCandidate = {
   updatedAt: Date;
 };
 
-export type ExpiredWasteItem = {
+type ExpiredWasteItem = {
   id: string;
   name: string;
   expiresAt: Date;

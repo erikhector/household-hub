@@ -16,6 +16,8 @@ import {
   type SignupState,
   type ResendVerificationForLoginState,
 } from "@/lib/actions/auth";
+import { StatusCardLink } from "@/components/auth/status-card";
+import { EMAIL_PATTERN } from "@/lib/email-pattern";
 import { loginPath } from "@/lib/login-path";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -29,7 +31,6 @@ type FieldErrors = Partial<Record<Field, string>>;
 
 // Top to bottom, so focus lands on the first field that needs fixing.
 const FIELD_ORDER: Field[] = ["displayName", "householdName", "email", "password", "confirmPassword"];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // UX-59: checked in the browser before the action runs, so a mistake is
 // worded in the page's language (the server's messages are English-only,
@@ -272,6 +273,10 @@ export function SignupForm({
     : state.emailError
       ? dict.accountCreatedTitle
       : dict.checkInboxTitle;
+  // UX-195: once a resend has answered, the "couldn't send, try resending
+  // below" warning is out of date (the button it points at is gone), so it
+  // and its red icon make way for the resend's own message.
+  const sendFailed = Boolean(state.emailError) && !resendState.message;
 
   return (
     <Card className="w-full max-w-sm">
@@ -281,16 +286,18 @@ export function SignupForm({
       <CardContent>
         {sent ? (
           <div className="flex flex-col items-center gap-4 py-2 text-center">
-            {state.emailError ? (
+            {sendFailed ? (
               <AlertTriangle className="size-10 text-destructive" />
             ) : (
               <MailCheck className="size-10 text-muted-foreground" />
             )}
-            <p className="text-sm text-muted-foreground">
-              {state.emailError
-                ? dict.verificationSendFailedDescription
-                : format(dict.verificationSentDescription, { email: state.email ?? "" })}
-            </p>
+            {(sendFailed || !state.emailError) && (
+              <p className="text-sm text-muted-foreground">
+                {sendFailed
+                  ? dict.verificationSendFailedDescription
+                  : format(dict.verificationSentDescription, { email: state.email ?? "" })}
+              </p>
+            )}
             {resendState.message ? (
               <p className="text-sm text-muted-foreground">{resendState.message}</p>
             ) : (
@@ -301,12 +308,9 @@ export function SignupForm({
                 </Button>
               </form>
             )}
-            <Link
-              href={loginPath(state.email)}
-              className="text-sm font-medium text-primary underline underline-offset-4"
-            >
-              {dict.logIn}
-            </Link>
+            {/* UX-195: the view's only way on stands alone, so it gets the
+                44 px target the other status cards' links have (M3). */}
+            <StatusCardLink href={loginPath(state.email)}>{dict.logIn}</StatusCardLink>
           </div>
         ) : (
           signupForm

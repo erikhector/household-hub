@@ -1,5 +1,225 @@
 [
   {
+    "version": "0.157.5",
+    "date": "2026-11-18",
+    "pr": 1583,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Revoking a shopping list's share link now asks you to confirm first, since anyone shopping from the link loses access straight away. An old error no longer shows up next to a working share link.\n\nChoosing \"Add task\" from the command palette no longer occasionally leaves `?add=1` in the address bar on a slow connection or device.\n\nAdding a custom meal without a name now tells you right under the Meal name field, instead of seeming to do nothing.\n\nLinked ingredients in a recipe are now easier to tap on a phone, so you open the item you meant instead of the one below it.",
+      "sv": "När du återkallar en inköpslistas dellänk får du nu bekräfta först, eftersom den som handlar från länken förlorar åtkomsten direkt. Ett gammalt felmeddelande visas inte längre bredvid en fungerande dellänk.\n\nNär du väljer \"Lägg till syssla\" i kommandopaletten blir `?add=1` inte längre ibland kvar i adressfältet på en långsam anslutning eller enhet.\n\nOm du lägger till en egen måltid utan namn får du nu besked direkt under fältet Måltidens namn, i stället för att ingenting verkar hända.\n\nLänkade ingredienser i ett recept är nu lättare att trycka på i mobilen, så du öppnar varan du menade och inte den under."
+    }
+  },
+  {
+    "version": "0.157.4",
+    "date": "2026-11-17",
+    "pr": 1548,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking a task right after adding one on a phone no longer nudges the rows above it by a pixel.",
+      "sv": "När du bockar av en uppgift direkt efter att du lagt till en i mobilen hoppar inte längre raderna ovanför en pixel."
+    }
+  },
+  {
+    "version": "0.157.3",
+    "date": "2026-11-17",
+    "pr": 1542,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you type an invalid price on a shopping list item, the message now shows right under the price field in your language, and what you typed stays put.\n\nTyping an amount with a decimal comma, like \"1,5 l milk\", in the shopping list's add line now adds one item of 1.5 litres instead of splitting it into two rows.",
+      "sv": "Om du skriver ett ogiltigt pris på en vara i inköpslistan visas meddelandet nu direkt under prisfältet på ditt språk, och det du skrev finns kvar.\n\nSkriver du en mängd med decimalkomma, som \"1,5 l mjölk\", på inköpslistans rad för att lägga till blir det nu en vara på 1,5 liter i stället för två rader."
+    }
+  },
+  {
+    "version": "0.157.2",
+    "date": "2026-11-17",
+    "pr": 1535,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you select items in Inventory on a narrow phone, the bulk-edit bar now leaves enough room to read what you type, and the \"items selected\" count is no longer cut off.\n\nChoosing \"Add task\" from the command palette now reliably opens the new-task form on the Tasks page, even on a busy device.",
+      "sv": "När du markerar varor i Lager på en smal telefon ger verktygsraden för massredigering nu plats att läsa det du skriver, och antalet markerade varor klipps inte längre av.\n\nNär du väljer \"Lägg till uppgift\" i kommandopaletten öppnas formuläret för en ny uppgift på sidan Uppgifter nu alltid, även på en upptagen enhet."
+    }
+  },
+  {
+    "version": "0.157.1",
+    "date": "2026-11-17",
+    "pr": 1525,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Tasks created at the same moment, such as sample tasks, no longer swap places when you tick another task.",
+      "sv": "Uppgifter som skapades i samma ögonblick, till exempel exempeluppgifter, byter inte längre plats när du bockar av en annan uppgift."
+    }
+  },
+  {
+    "version": "0.157.0",
+    "date": "2026-11-16",
+    "pr": 1518,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now move an item to another open shopping list from its ⋯ menu. If the item is already on that list, the amounts are added together, and Undo puts it back.\n\nMarking an item as empty now shows a confirmation with Undo, which puts the old amount back and takes the item off the shopping list again. The same works when you use \"All\" in the quantity sheet.",
+      "sv": "Nu kan du flytta en vara till en annan öppen inköpslista från dess ⋯-meny. Finns varan redan på den listan läggs mängderna ihop, och Ångra flyttar tillbaka den.\n\nNär du markerar en vara som slut visas nu en bekräftelse med Ångra, som lägger tillbaka den gamla mängden och tar bort varan från inköpslistan igen. Samma sak gäller när du väljer \"Allt\" i mängdpanelen."
+    }
+  },
+  {
+    "version": "0.156.5",
+    "date": "2026-11-16",
+    "pr": 1514,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Last updated\" and \"Group by\" filters above your inventory now show the whole choice instead of cutting it off.",
+      "sv": "Filtren \"Senast uppdaterad\" och \"Gruppera efter\" ovanför lagret visar nu hela valet i stället för att klippa av det."
+    }
+  },
+  {
+    "version": "0.156.4",
+    "date": "2026-11-16",
+    "pr": 1484,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Choosing a command in the command palette (Ctrl+K or ⌘K) now always opens its page. On a slow device the palette could close and leave you where you were.",
+      "sv": "När du väljer ett kommando i kommandopaletten (Ctrl+K eller ⌘K) öppnas nu alltid sidan. På en långsam enhet kunde paletten stängas utan att något hände."
+    }
+  },
+  {
+    "version": "0.156.3",
+    "date": "2026-11-15",
+    "pr": 1477,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On a phone, the rows of a list no longer jump and slide back the first time the list changes after you close a sheet, for example when you tick a task right after adding one.\n\nMessages from your personal budget, such as a category name that's already taken, now appear in the language you use Squirrel in.",
+      "sv": "På mobilen hoppar raderna i en lista inte längre till och glider tillbaka första gången listan ändras efter att du stängt ett blad, till exempel när du bockar av en uppgift direkt efter att du lagt till en.\n\nMeddelanden från din personliga budget, till exempel att ett kategorinamn redan finns, visas nu på det språk du använder Squirrel på."
+    }
+  },
+  {
+    "version": "0.156.2",
+    "date": "2026-11-15",
+    "pr": 1471,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "A password that's too short, or two that don't match, is now pointed out right under the field when you join a household by invite or reset your password, and you no longer have to type both passwords again.\n\nIn the possible-duplicates view, each item's name now lines up with its Keep choice and its details with its Merge tick, so it's clear which item each control belongs to.\n\nAfter you create an account or join a household, the \"Log in\" link is now easy to tap and opens the login page with your email already filled in. If the verification email couldn't be sent and you resend it, you now see only the result of the resend.",
+      "sv": "Ett för kort lösenord, eller två som inte matchar, visas nu direkt under fältet när du går med i ett hushåll via inbjudan eller återställer ditt lösenord, och du behöver inte längre skriva båda lösenorden igen.\n\nI vyn för möjliga dubbletter står varje varas namn nu i linje med dess Behåll-val och dess detaljer i linje med Slå ihop-rutan, så att det syns tydligt vilken vara varje val hör till.\n\nNär du har skapat ett konto eller gått med i ett hushåll är länken \"Logga in\" nu lätt att trycka på och öppnar inloggningen med din e-postadress redan ifylld. Om verifieringsmejlet inte kunde skickas och du skickar det igen ser du nu bara resultatet av det nya försöket."
+    }
+  },
+  {
+    "version": "0.156.1",
+    "date": "2026-11-15",
+    "pr": 1455,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Going back to a page now returns you to where you were on it, not to the top. On phones this works on every page, including long ones like Profile.",
+      "sv": "När du går tillbaka till en sida hamnar du nu där du var, inte högst upp. På mobilen gäller det alla sidor, även långa som Profil."
+    }
+  },
+  {
+    "version": "0.156.0",
+    "date": "2026-11-15",
+    "pr": 1449,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now add a short note to a planned meal, like \"thaw the chicken the night before\". It shows on the day, in the meal's details and while you cook, and follows along when you copy last week.\n\nThe inventory page no longer jumps while it loads on a slow connection.",
+      "sv": "Nu kan du lägga till en kort anteckning på en planerad måltid, till exempel \"tina kycklingen kvällen innan\". Den visas på dagen, i måltidens detaljer och när du lagar maten, och följer med när du kopierar förra veckan.\n\nLagersidan hoppar inte längre till medan den laddas på en långsam anslutning."
+    }
+  },
+  {
+    "version": "0.155.0",
+    "date": "2026-11-14",
+    "pr": 1436,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "After choosing \"Show older updates\" on What's new, keyboard and screen-reader users now carry on from the first older release instead of being sent back to the top of the page.\n\nThe Notifications page now links straight to your notification settings, and when it's empty it lists what will show up there.\n\nOn phones, the ✕ that dismisses a notification is now bigger and sits further from the notification itself, so it's harder to open one by mistake. The bell icon in the More menu is no longer hidden behind the unread count.",
+      "sv": "När du väljer \"Visa äldre uppdateringar\" under Nyheter fortsätter du som använder tangentbord eller skärmläsare nu från den första äldre versionen i stället för att hamna högst upp på sidan igen.\n\nSidan Aviseringar länkar nu direkt till dina aviseringsinställningar, och när den är tom står det vad som kommer att dyka upp där.\n\nPå mobilen är krysset som avfärdar en avisering nu större och sitter längre från själva aviseringen, så det är svårare att öppna en av misstag. Klockikonen i Mer-menyn döljs inte längre av antalet olästa."
+    }
+  },
+  {
+    "version": "0.154.0",
+    "date": "2026-11-14",
+    "pr": 1425,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "What's new now shows the ten latest updates, so the page opens quickly. Tap \"Show older updates\" to see the rest.",
+      "sv": "Nyheter visar nu de tio senaste uppdateringarna, så sidan öppnas snabbt. Tryck på \"Visa äldre uppdateringar\" för att se resten."
+    }
+  },
+  {
+    "version": "0.153.0",
+    "date": "2026-11-13",
+    "pr": 1403,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On a computer, Inventory now leads with \"Add item\", puts its tools on a full-width row under the title, and shows just the date in the Last updated column so categories fit.",
+      "sv": "På datorn börjar Lager nu med \"Lägg till vara\", verktygen ligger på en bred rad under rubriken och kolumnen Senast uppdaterad visar bara datumet så att kategorierna får plats."
+    }
+  },
+  {
+    "version": "0.152.2",
+    "date": "2026-11-13",
+    "pr": 1392,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The item page now shows decimals the way your language writes them, for example \"0,5\" instead of \"0.5\" in Swedish.",
+      "sv": "Varusidan visar nu decimaler som ditt språk skriver dem, till exempel \"0,5\" i stället för \"0.5\" på svenska."
+    }
+  },
+  {
+    "version": "0.152.1",
+    "date": "2026-11-13",
+    "pr": 1388,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "On phones set to larger text, the shopping list's \"items aren't in your pantry yet\" note is readable again: \"Match all\" and the close button now move below the text instead of squeezing it.",
+      "sv": "På telefoner med större text går det åter att läsa inköpslistans notis om varor som inte finns i skafferiet: \"Koppla alla\" och stängknappen hamnar nu under texten i stället för att trycka ihop den."
+    }
+  },
+  {
+    "version": "0.152.0",
+    "date": "2026-11-13",
+    "pr": 1376,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now sort your recipes by longest since cooked, most cooked or newest, to spot what has dropped out of rotation or what you make most.",
+      "sv": "Nu kan du sortera recepten efter längst sedan lagad, mest lagad eller nyast, så ser du lätt vad som fallit bort ur rotationen eller vad ni lagar oftast."
+    }
+  },
+  {
+    "version": "0.151.1",
+    "date": "2026-11-13",
+    "pr": 1360,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "When you plan portions of a prepped dish, the meals already in each slot are now shown in full on phones instead of being cut off.",
+      "sv": "När du planerar portioner av en förberedd rätt visas rätterna som redan är planerade vid varje måltid nu i sin helhet på mobilen i stället för att kapas."
+    }
+  },
+  {
+    "version": "0.151.0",
+    "date": "2026-11-12",
+    "pr": 1352,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed the tab bar sometimes opening scrolled to its last tab on a narrow screen or with large text.\n\nTurn on \"Tasks due today\" in your profile to get a morning reminder naming your own tasks that are due today or overdue. Your household also sees one daily entry in the notification bell listing what's due and who has it.\n\nThe morning \"Tasks due today\" reminder now follows your local day, so a chore you ticked off just after midnight no longer shows up in that morning's reminder.\n\nLong recipe and item names in pick lists now wrap onto a second line instead of being cut off, so you can tell similar names apart.",
+      "sv": "Åtgärdade att flikraden ibland öppnades skrollad till sista fliken på en smal skärm eller med stor text.\n\nSlå på \"Sysslor att göra idag\" i din profil för att få en morgonpåminnelse med dina egna sysslor som ska göras idag eller är försenade. Hushållet ser också en daglig avisering i klockan med vad som ska göras och vem som har det.\n\nMorgonpåminnelsen \"Sysslor att göra idag\" följer nu din lokala dag, så en syssla du bockade av strax efter midnatt kommer inte längre med i påminnelsen samma morgon.\n\nLånga namn på recept och varor i vallistor radbryts nu i stället för att klippas av, så att du kan skilja liknande namn åt."
+    }
+  },
+  {
     "version": "0.150.3",
     "date": "2026-11-10",
     "pr": 1303,

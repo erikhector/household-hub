@@ -20,7 +20,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // guess responsibly (a can of beans and a bag of chips are both "pantry"),
 // so those keys are left out on purpose and never get an estimate unless the
 // item has its own `shelfLifeDays` override.
-export const SHELF_LIFE_CATEGORY_DEFAULTS: Partial<Record<AutoCategoryKey, number>> = {
+const SHELF_LIFE_CATEGORY_DEFAULTS: Partial<Record<AutoCategoryKey, number>> = {
   produce: 5,
   bakery: 4,
   dairy: 7,

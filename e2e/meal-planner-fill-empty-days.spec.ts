@@ -7,8 +7,15 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // GAP-45: "Fill empty days" proposes one favorite dinner per empty day as a
 // preview, writes nothing until accepted, and offers Undo. Favorites are
 // written straight to Postgres, and each project plans in its own far-future
-// week (the household is shared by the desktop and mobile runs).
-const weekFor = (project: string) => (project === "mobile" ? "2031-03-17" : "2031-03-10");
+// week (the household is shared by the desktop and mobile runs). No other
+// spec may use these weeks either: cleanUp deletes the week's plan by date,
+// and they used to be planner-add-missing.spec.ts's planned weeks, whose
+// seeded meal that delete could wipe mid-test (found with MAINT-115). Not a
+// past week, since Fill only proposes days that haven't passed, and not one
+// in 2036-2093, where far-weeks.ts hands out the random far-off weeks other
+// specs plan in, so that delete could wipe their plan too. 2199 is beyond
+// all of them.
+const weekFor = (project: string) => (project === "mobile" ? "2199-08-12" : "2199-08-05");
 const suffix = Math.random().toString(36).slice(2, 8);
 const recipeId = (i: number) => `e2e-fill-${E2E_WORKER}-${suffix}-${i}`;
 

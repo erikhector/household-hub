@@ -80,7 +80,7 @@ export default async function ShoppingListDetailPage(
   //
   // The repurchase chips (AUTO-10), the heaviest read here, don't gate the
   // page at all any more — see RepurchaseSuggestionsSection above.
-  const [list, items, inventoryItems, lastPurchased, aliases, activeDefault, members] = await Promise.all([
+  const [list, items, inventoryItems, lastPurchased, aliases, activeLists, members] = await Promise.all([
     prisma.shoppingList.findFirst({ where: { id, householdId: household.id } }),
     prisma.shoppingListItem.findMany({
       where: { shoppingListId: id, shoppingList: { householdId: household.id } },
@@ -123,11 +123,15 @@ export default async function ShoppingListDetailPage(
       where: { householdId: household.id, inventoryItemId: { not: null } },
       select: { normalizedName: true, inventoryItemId: true },
     }),
-    // UX-80: where the unbought rows go when this list is completed, so the
-    // checkbox can name it. Same list completeShoppingListAction picks.
-    prisma.shoppingList.findFirst({
-      where: { householdId: household.id, isDefault: true, status: "ACTIVE" },
-      select: { id: true, name: true },
+    // The household's ACTIVE lists, default first as on the index page. The
+    // default is where UX-80 carries the unbought rows when this list is
+    // completed, so the checkbox can name it (the same list
+    // completeShoppingListAction picks); the others besides this one are
+    // where a row's "Move to list…" (GAP-82) can send it.
+    prisma.shoppingList.findMany({
+      where: { householdId: household.id, status: "ACTIVE" },
+      select: { id: true, name: true, isDefault: true },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     }),
     prisma.householdMember.findMany({
       where: { householdId: household.id },
@@ -135,6 +139,7 @@ export default async function ShoppingListDetailPage(
     }),
   ]);
   if (!list) notFound();
+  const activeDefault = activeLists.find((other) => other.isDefault);
 
   const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
   const lastPurchasedById = new Map(
@@ -212,6 +217,7 @@ export default async function ShoppingListDetailPage(
         activeDefault && activeDefault.id !== list.id ? activeDefault.name : dict.shoppingList.defaultListName
       }
       nextListId={activeDefault && activeDefault.id !== list.id ? activeDefault.id : null}
+      moveTargets={activeLists.flatMap((other) => (other.id === list.id ? [] : [{ id: other.id, name: other.name }]))}
     />
     </LazyDialogErrorMessage>
   );

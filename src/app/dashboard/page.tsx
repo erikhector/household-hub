@@ -107,7 +107,8 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
         dueDate: true,
         createdAt: true,
       },
-      orderBy: { createdAt: "asc" },
+      // MAINT-114: the tasks page's order, ties and all (see its query).
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     }),
     // The columns the stock and expiry summaries read, plus what the "Add
     // to list" dialog offers as names and units — not every inventory

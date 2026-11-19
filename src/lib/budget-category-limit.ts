@@ -18,18 +18,29 @@ import type { CategoryEnvelope } from "@/lib/safe-to-spend-calc";
  * existing limit on edit. Anything else must be a positive number: a limit
  * of 0 would read as "permanently over budget" rather than "no limit", so
  * it's rejected instead of silently treated as either.
+ *
+ * The messages are a parameter while MAINT-7 is half done: the personal
+ * budget's actions pass `errors` keys (`v()`) and answer through
+ * `zodFail()`, but the household budget's still return a Zod message as it
+ * is, where a key would show as text. Once those are converted too, this
+ * goes back to one constant with the keys in it.
  */
-export const monthlyLimitField = z.preprocess(
-  (value) => {
-    if (value === null || value === undefined) return null;
-    const trimmed = String(value).trim();
-    return trimmed === "" ? null : Number(trimmed);
-  },
-  z
-    .number({ error: "Monthly limit must be a number" })
-    .positive("Monthly limit must be greater than 0")
-    .nullable(),
-);
+export function monthlyLimitFieldWith(messages: { number: string; positive: string }) {
+  return z.preprocess(
+    (value) => {
+      if (value === null || value === undefined) return null;
+      const trimmed = String(value).trim();
+      return trimmed === "" ? null : Number(trimmed);
+    },
+    z.number({ error: messages.number }).positive(messages.positive).nullable(),
+  );
+}
+
+/** The household budget's field, with the English messages its actions still return. */
+export const monthlyLimitField = monthlyLimitFieldWith({
+  number: "Monthly limit must be a number",
+  positive: "Monthly limit must be greater than 0",
+});
 
 /**
  * Only EXPENSE categories can carry a cap ("spending" limit). Income and
@@ -123,7 +134,7 @@ export function withCategoryLimits(
 }
 
 /** UX-108: a category counts as "near its limit" from this share of it. */
-export const NEAR_LIMIT_PERCENT = 90;
+const NEAR_LIMIT_PERCENT = 90;
 
 export type LimitAlert = {
   id: string;

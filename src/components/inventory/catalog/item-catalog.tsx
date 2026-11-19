@@ -259,44 +259,51 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
       <h2 id={headingId} className="font-heading font-semibold break-words">
         {keeper.name}
       </h2>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-3">
         {group.members.map((member) => {
           const isKeeper = member.id === keeperId;
           return (
-            <li key={member.id} className="flex min-w-0 items-start gap-2 text-sm">
+            // UX-196: an item is two lines of a two-column grid, each line
+            // centred on its control: Keep beside the name, Merge beside
+            // the details. As two stacked columns the name (a 44 px link on
+            // a phone) hung 12 px below Keep, and the details fell between
+            // this item's controls and the next one's, so Merge read as
+            // belonging to neither. The lines are 4 px apart with a mouse,
+            // which keeps the radio and the tick 8 px apart; on a touch
+            // screen the 44 px name line already does (M3).
+            <li
+              key={member.id}
+              className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-sm max-sm:gap-y-0 pointer-coarse:gap-y-0"
+            >
               {/* UX-131: each control says what it does. The radio and the
                   checkbox keep their full aria-labels (they name the item);
                   the visible word starts the same way. The keeper's Merge
                   is hidden but keeps its width, so the columns line up. */}
-              <div className="flex shrink-0 flex-col gap-2">
-                <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                  <Radio
-                    name={radioName}
-                    checked={isKeeper}
-                    onChange={() => setKeeperId(member.id)}
-                    aria-label={format(dict.keepLabel, { name: member.name })}
-                  />
-                  {dict.keep}
-                </label>
-                <label className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", isKeeper && "invisible")}>
-                  <Checkbox
-                    checked={!isKeeper && !unticked.has(member.id)}
-                    disabled={isKeeper}
-                    onChange={(event) => toggle(member.id, event.target.checked)}
-                    aria-label={format(dict.mergeLabel, { name: member.name })}
-                  />
-                  {dict.merge}
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Radio
+                  name={radioName}
+                  checked={isKeeper}
+                  onChange={() => setKeeperId(member.id)}
+                  aria-label={format(dict.keepLabel, { name: member.name })}
+                />
+                {dict.keep}
               </label>
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <Link
-                  href={itemPageHref(member.id, { kind: "catalog", filter: "duplicates" })}
-                  className="touch-target font-medium break-words underline-offset-4 hover:underline"
-                >
-                  {member.name}
-                </Link>
-                <span className="text-muted-foreground">{memberDetails(member, dict, unitLabel)}</span>
-              </div>
+              <Link
+                href={itemPageHref(member.id, { kind: "catalog", filter: "duplicates" })}
+                className="touch-target font-medium break-words underline-offset-4 hover:underline"
+              >
+                {member.name}
+              </Link>
+              <label className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", isKeeper && "invisible")}>
+                <Checkbox
+                  checked={!isKeeper && !unticked.has(member.id)}
+                  disabled={isKeeper}
+                  onChange={(event) => toggle(member.id, event.target.checked)}
+                  aria-label={format(dict.mergeLabel, { name: member.name })}
+                />
+                {dict.merge}
+              </label>
+              <span className="text-muted-foreground">{memberDetails(member, dict, unitLabel)}</span>
             </li>
           );
         })}

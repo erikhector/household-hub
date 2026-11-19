@@ -68,7 +68,7 @@ export function awaitsReceiptPrice(row: PutAwayState & { priceRecordedAt?: Date 
 // a reminder can go out, not the exact moment.
 export const PUT_AWAY_REMINDER_DELAY_HOURS = 3;
 
-export type ReminderRow = {
+type ReminderRow = {
   checkedOffAt: Date | null;
   /** A receipt applied in put-away mode marks rows bought without a tick;
    * this is then when that happened (see incomingSince). */

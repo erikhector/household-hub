@@ -60,6 +60,7 @@ import { itemPageHref } from "@/lib/inventory/item-page-origin";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 import { splitCookSoon } from "@/app/dashboard/meal-planning/cook-soon";
+import { RECIPE_SORTS, isRecipeSort, sortRecipes, type RecipeSort } from "@/app/dashboard/meal-planning/recipe-sort";
 import { COOK_PARAM } from "@/app/dashboard/meal-planning/meal-types";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -74,6 +75,13 @@ const mealTypeDictKey = {
   DINNER: "mealTypeDinner",
   SNACK: "mealTypeSnack",
 } as const;
+
+const recipeSortDictKey = {
+  name: "recipeSortName",
+  lastCooked: "recipeSortLastCooked",
+  mostCooked: "recipeSortMostCooked",
+  newest: "recipeSortNewest",
+} as const satisfies Record<RecipeSort, keyof MealPlanningDict>;
 
 function isMealType(value: string): value is MealType {
   return (MEAL_TYPES as readonly string[]).includes(value);
@@ -145,6 +153,9 @@ export function RecipeManager({
   const [tagFilter, setTagFilter] = useState<string>(ALL);
   // GAP-72: "all / one course", next to the tag filter.
   const [mealTypeFilter, setMealTypeFilter] = useState<string>(ALL);
+  // GAP-80: per-visit only (nothing stored), and not a filter, so it never
+  // changes the "no matches" copy.
+  const [sort, setSort] = useState<RecipeSort>("name");
   // GAP-48: the id of a just-duplicated recipe. Its row opens the edit
   // dialog once it exists in the refreshed list, then clears this.
   const [editNewId, setEditNewId] = useState<string | null>(null);
@@ -168,14 +179,20 @@ export function RecipeManager({
   const numberFormat = useMemo(() => createMoneyFormat(locale, currencyCode), [locale, currencyCode]);
   const filteredRecipes = useMemo(
     () =>
-      recipes.filter(
-        (recipe) =>
-          matchesQuery(recipe, query) && (!isRecipeTag(tagFilter) || recipeMatchesTag(recipe.tags, tagFilter)) &&
-          (!isMealType(mealTypeFilter) || recipe.mealTypes.includes(mealTypeFilter)),
+      sortRecipes(
+        recipes.filter(
+          (recipe) =>
+            matchesQuery(recipe, query) && (!isRecipeTag(tagFilter) || recipeMatchesTag(recipe.tags, tagFilter)) &&
+            (!isMealType(mealTypeFilter) || recipe.mealTypes.includes(mealTypeFilter)),
+        ),
+        sort,
+        recipeCooked,
       ),
-    [recipes, query, tagFilter, mealTypeFilter],
+    [recipes, query, tagFilter, mealTypeFilter, sort, recipeCooked],
   );
-  // GAP-51: queued recipes pin to a "Cook soon" shelf above the list.
+  // GAP-51: queued recipes pin to a "Cook soon" shelf above the list. The
+  // shelf keeps its own oldest-queued-first order whatever the sort; only
+  // the list below it follows the sort.
   const { shelf, rest } = useMemo(() => splitCookSoon(filteredRecipes), [filteredRecipes]);
   const renderRow = (recipe: RecipeData) => (
     <RecipeRow
@@ -393,10 +410,12 @@ export function RecipeManager({
         </MascotEmptyState>
       ) : (
         <>
-          {/* Search + tag filter in one row, the same "all / one value"
-              Select the inventory page uses for category and location. Only
-              one row's worth of controls, so unlike inventory there's no
-              folded mobile "Filters" dialog — both fit side by side. */}
+          {/* Search, the tag and course filters and the sort (GAP-80) in one
+              wrapping row, the filters being the same "all / one value"
+              Select the inventory page uses for category and location. Few
+              enough controls that unlike inventory there's no folded mobile
+              "Filters" dialog: on a phone the search takes the first row and
+              the three Selects share the second. */}
           <div className="flex flex-wrap items-center gap-2">
             <SearchInput
               value={query}
@@ -432,6 +451,18 @@ export function RecipeManager({
                 {MEAL_TYPES.map((type) => (
                   <SelectItem key={type} value={type}>
                     {dict[mealTypeDictKey[type]]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sort} onValueChange={(v) => setSort(v !== null && isRecipeSort(v) ? v : "name")}>
+              <SelectTrigger className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label={dict.recipeSortLabel}>
+                <SelectValue>{(v: string) => dict[recipeSortDictKey[isRecipeSort(v) ? v : "name"]]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {RECIPE_SORTS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {dict[recipeSortDictKey[option]]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -769,31 +800,53 @@ function RecipeRow({
           {recipe.ingredients.length > 0 && (
             <section className="flex flex-col gap-1">
               <h3 className="font-medium">{dict.ingredientsLabel}</h3>
-              <ul className="flex flex-col gap-1">
-                {recipe.ingredients.map((ingredient) => (
-                  <li key={ingredient.id} className="break-words">
-                    <span className="text-muted-foreground tabular-nums">
+              {/* UX-203: 8 px between rows on touch, so two linked
+                  ingredients' 44 px rows don't sit edge to edge (M3). */}
+              <ul className="flex flex-col gap-1 max-sm:gap-2 pointer-coarse:gap-2">
+                {recipe.ingredients.map((ingredient) => {
+                  const quantity = (
+                    <span className="shrink-0 text-muted-foreground tabular-nums">
                       {formatCookQuantity(ingredient.quantity, 1, locale)}
                       {ingredient.unit ? ` ${unitLabel(ingredient.unit, ingredient.quantity)}` : ""}
-                    </span>{" "}
-                    {/* MATCH-6: a linked ingredient opens its pantry item's
-                        page, whose back arrow comes back to this tab. An
-                        imported row's prep note (MATCH-2) reads after its
-                        name, the way the recipe had it. */}
-                    {ingredient.inventoryItemId ? (
+                    </span>
+                  );
+                  /* MATCH-6: a linked ingredient opens its pantry item's
+                     page, whose back arrow comes back to this tab. An
+                     imported row's prep note (MATCH-2) reads after its
+                     name, the way the recipe had it. */
+                  if (!ingredient.inventoryItemId) {
+                    return (
+                      <li key={ingredient.id} className="break-words">
+                        {quantity} {ingredient.name}
+                        {ingredient.note && <span className="text-muted-foreground"> ({ingredient.note})</span>}
+                      </li>
+                    );
+                  }
+                  /* UX-203: a one-per-line list of links isn't running text,
+                     so each linked row is a 44 px target on touch (M3). The
+                     link stretches to the row's height, and its ::after
+                     spreads over the whole row (the <li> is `relative`), so
+                     a tap on the quantity, the note or the space beside a
+                     short name opens it too. The quantity and the note stay
+                     outside the link, so its accessible name is just the
+                     ingredient's. A flex row drops the spaces between its
+                     children, so `gap-1` stands in for them. */
+                  return (
+                    <li
+                      key={ingredient.id}
+                      className="relative flex items-center gap-1 break-words max-sm:min-h-11 pointer-coarse:min-h-11"
+                    >
+                      {quantity}
                       <Link
                         href={itemPageHref(ingredient.inventoryItemId, { kind: "recipes" })}
-                        data-running-text
-                        className="underline underline-offset-4"
+                        className="flex min-w-0 items-center self-stretch underline underline-offset-4 after:absolute after:inset-0 after:content-['']"
                       >
                         {ingredient.name}
                       </Link>
-                    ) : (
-                      ingredient.name
-                    )}
-                    {ingredient.note && <span className="text-muted-foreground"> ({ingredient.note})</span>}
-                  </li>
-                ))}
+                      {ingredient.note && <span className="min-w-0 text-muted-foreground">({ingredient.note})</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}

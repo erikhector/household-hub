@@ -18,8 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // alive and what changed lately. Same list as /dashboard/whats-new, minus
 // the "seen" cookie: that only clears a member's unread dot, and a visitor
 // has no dot. Open to everyone, logged in or not, like /privacy.
-export default async function PublicWhatsNewPage() {
-  const [dict, locale] = await Promise.all([getDictionary(), getLocale()]);
+export default async function PublicWhatsNewPage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
+  const [dict, locale, { all }] = await Promise.all([getDictionary(), getLocale(), searchParams]);
   const t = dict.whatsNew;
 
   return (
@@ -39,7 +39,7 @@ export default async function PublicWhatsNewPage() {
             {format(t.latestVersion, { version: CURRENT_VERSION })}
           </p>
         </header>
-        <ReleaseList dict={t} locale={locale} />
+        <ReleaseList dict={t} locale={locale} showAll={all === "1"} path="/whats-new" />
       </div>
       <LegalFooter dict={dict.legal} />
     </div>

@@ -24,15 +24,17 @@
 import { useLayoutEffect, useRef } from "react";
 
 // Where a row was: against its parent (what a move inside one list is
-// measured in, unaffected by the page or a table scrolling) and in the
-// viewport (for the rare move to another parent).
+// measured in, unaffected by the page or a table scrolling) and against
+// the list (for the rare move to another parent). All in layout pixels,
+// the unit `translate` and an absolutely placed copy are in: see
+// renderedScale.
 type Box = {
   el: HTMLElement;
   parent: HTMLElement | null;
   left: number;
   top: number;
-  viewportLeft: number;
-  viewportTop: number;
+  listLeft: number;
+  listTop: number;
   width: number;
 };
 
@@ -49,6 +51,33 @@ function tokenMs(name: string, fallback: number): number {
   const n = Number.parseFloat(value);
   if (!Number.isFinite(n)) return fallback;
   return value.endsWith("ms") ? n : n * 1000;
+}
+
+/**
+ * How much smaller or larger than laid out the list is drawn: 1 unless an
+ * ancestor is transformed. On a phone the page behind an open sheet is
+ * scaled to 0.94 and eases back over 400 ms once the sheet closes
+ * (sheet-indent.tsx), and getBoundingClientRect measures what is drawn.
+ * A list that got its new row from a sheet's Add was measured small, so
+ * at its next commit every row had "moved" by 6% of its offset and glided
+ * back from there: 37 px for the fourteenth task, under the thumb (M5),
+ * and far enough for a tap to be released off its checkbox (MAINT-100). Dividing
+ * what is measured by this gives layout pixels, which a scale doesn't
+ * change. A ratio within 1e-4 of 1 is the two widths' rounding, not a
+ * scale: the box is exact to 1/64 px, the computed width to 1/1000, so on
+ * a phone-wide list they differ by under 5e-5.
+ *
+ * MAINT-116: the cut-off was 1e-3, and the tail of the ease back fell
+ * under it. A row added at scale 0.99934 was measured as drawn, and every
+ * row was 0.066% of its offset off: over half a pixel from the seventh
+ * row of a long list down, so at the next tick they all glided that far.
+ * At 1e-4 the leftover is under 0.2 px even 1,500 px down the list, below
+ * the half pixel a row must move by to glide.
+ */
+export function renderedScale(renderedWidth: number, layoutWidth: number): number {
+  if (!(renderedWidth > 0) || !(layoutWidth > 0)) return 1;
+  const scale = renderedWidth / layoutWidth;
+  return Math.abs(scale - 1) < 1e-4 ? 1 : scale;
 }
 
 function play(el: HTMLElement, keyframes: Keyframe[], options: KeyframeAnimationOptions): Animation {
@@ -85,6 +114,11 @@ export function useFlipList<T extends HTMLElement>(view?: string) {
       if (animation.id.startsWith("flip-")) animation.cancel();
     }
 
+    // The computed width is the laid-out one whatever is transformed above
+    // (the border box, as every element here is `box-sizing: border-box`).
+    const listRect = container.getBoundingClientRect();
+    const scale = renderedScale(listRect.width, Number.parseFloat(getComputedStyle(container).width));
+
     const current = new Map<string, Box>();
     for (const el of container.querySelectorAll<HTMLElement>("[data-flip-key]")) {
       const rect = el.getBoundingClientRect();
@@ -97,11 +131,11 @@ export function useFlipList<T extends HTMLElement>(view?: string) {
         parent,
         // Relative to the parent's padding box, which is also where an
         // absolutely positioned copy of the row would go.
-        left: rect.left - (origin?.left ?? 0) - (parent?.clientLeft ?? 0),
-        top: rect.top - (origin?.top ?? 0) - (parent?.clientTop ?? 0),
-        viewportLeft: rect.left,
-        viewportTop: rect.top,
-        width: rect.width,
+        left: (rect.left - (origin?.left ?? 0)) / scale - (parent?.clientLeft ?? 0),
+        top: (rect.top - (origin?.top ?? 0)) / scale - (parent?.clientTop ?? 0),
+        listLeft: (rect.left - listRect.left) / scale,
+        listTop: (rect.top - listRect.top) / scale,
+        width: rect.width / scale,
       });
     }
 
@@ -136,8 +170,8 @@ export function useFlipList<T extends HTMLElement>(view?: string) {
         continue;
       }
       const sameParent = was.parent === now.parent;
-      const dx = sameParent ? was.left - now.left : was.viewportLeft - now.viewportLeft;
-      const dy = sameParent ? was.top - now.top : was.viewportTop - now.viewportTop;
+      const dx = sameParent ? was.left - now.left : was.listLeft - now.listLeft;
+      const dy = sameParent ? was.top - now.top : was.listTop - now.listTop;
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
       play(now.el, [{ translate: `${dx}px ${dy}px` }, { translate: "0 0" }], {
         id: "flip-move",

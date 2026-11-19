@@ -13,7 +13,7 @@
 // landlord, the shop …), not to another member. On top of that,
 // MemberSettlement rows record members paying each other back.
 
-export type SplitShare = {
+type SplitShare = {
   householdMemberId: string;
   amountOwed: number;
   amountPaid: number;

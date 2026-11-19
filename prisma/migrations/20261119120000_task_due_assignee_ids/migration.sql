@@ -11,11 +11,13 @@ ALTER TABLE "Notification" ADD COLUMN     "taskAssigneeIds" TEXT[] DEFAULT ARRAY
 -- since the old rows never recorded who the name belonged to. A title that
 -- really ended in a bracket ("Call the vet (Rex)") loses it in these old
 -- entries only; the task itself is untouched, and a once-a-day nudge row is
--- not worth keeping a former member's name for.
+-- not worth keeping a former member's name for. The pattern also takes a
+-- name with one bracket of its own ("Mum (Anna (mamma))"), which a flat
+-- `[^()]*` would leave whole, name included.
 UPDATE "Notification"
 SET
   "taskLines" = ARRAY(
-    SELECT regexp_replace(line, ' \([^()]*\)$', '')
+    SELECT regexp_replace(line, ' \((?:[^()]|\([^()]*\))*\)$', '')
     FROM unnest("taskLines") WITH ORDINALITY AS t(line, position)
     ORDER BY position
   ),

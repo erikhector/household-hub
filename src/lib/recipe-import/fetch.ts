@@ -4,7 +4,7 @@ import https from "node:https";
 import net from "node:net";
 
 
-export type UrlValidationError = "invalidUrl" | "blockedHost";
+type UrlValidationError = "invalidUrl" | "blockedHost";
 export type UrlValidationResult = { ok: true; url: URL } | { ok: false; error: UrlValidationError };
 
 function ipv4ToInt(ip: string): number | null {
