@@ -228,6 +228,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Further sighting (2026-11-14, UX-191 builder run on 47d2ee9, PR #1429): line 89 failed once in the full locked `ci:local` run with the same `dialog has at least one combobox` error. It passed `--repeat-each=10` (52 passed) on clean `next` d52d120 and in the next full gate on the same commit.
       Further sighting (2026-11-15, release PR #1449 on 57e93f4, carrying #1446 and #1447, neither of which touches the shopping list or this spec): line 89 failed once in the reviewer's locked `ci:local` run with the same `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30). It passed in a re-run of the spec on the same commit (`npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile`, 7 passed) and in the GitHub e2e job.
+      Further sighting (2026-11-18, PR #1581 (UX-203) on 58d2867, which touches neither the shopping list nor this spec): line 89 failed once on `mobile` in the builder's locked `ci:local` (the shopping edit dialog had 0 comboboxes). It passed when re-run alone, and a second full `ci:local` on the same commit was clean.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
@@ -251,13 +252,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-83. Flaky: the never-stocked Napkins checkbox isn't visible on desktop** (low, S) `[!]` —
+- [ ] **MAINT-83. Flaky: the never-stocked Napkins checkbox isn't visible on desktop** (low, S) —
       `e2e/never-stocked.spec.ts:18`, `desktop` project (spec added by #1059). In the GitHub e2e job on release PR #1061 (commit 059436759a9e, 2026-11-02) the first attempt failed because `getByRole("checkbox", { name: /^Napkins <id>\b/ })` was not visible within 5 s; it passed on the retry. Likely the list is asserted before the row has rendered or hydrated, or the seeded row is not yet in the list the page loaded. Start from the failing run's trace.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193, which doesn't touch this spec or inventory): `e2e/never-stocked.spec.ts:18` failed once on `desktop` in the first full run, then passed in a second full run of the same commit and 15/15 in a locked `--repeat-each=15` on that build.
       Further sighting (2026-11-17, GitHub e2e job on release PR #1542, run 44064248664, commit 00bdaba, which ships #1539/#1540 but touches neither this spec nor inventory): `e2e/never-stocked.spec.ts:18` on `desktop` failed its first attempt and passed on the retry (marked `flaky`). The locked local `ci:local` on the same commit passed it.
+      Further sighting, with a likely cause (2026-11-18, builder's locked `ci:local` on 6a11153, PR #1563, MAINT-118, which touches only `dialog-history.ts` and the palette spec): `e2e/never-stocked.spec.ts:18` failed once on `mobile`, and a second full run on the same commit passed. The saved row read "Napkins mwlgiydh × 58 pcs": the spec's `unique()` (`:8`) ends in three random base36 characters, here `x58`, and smart-add parsed that suffix as a quantity, so the row named `Napkins <id>` never appeared. That fits every sighting (random, rare, either project). `e2e/smart-add-decimal-comma.spec.ts:12` already avoids it by ending the suffix in a letter (`z`). Fix: make `unique()` end in a non-quantity character, then check the acceptance line. `[!]` removed, since the cause is now known.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -267,18 +269,27 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-15, release PR #1449 on 57e93f4, GitHub run 43676498568, job 132697723956): `e2e/recipe-photo-import.spec.ts:59` again, `mobile` project. The first attempt failed at `openRecipesTab` (`e2e/ui.ts:367`, called from spec line 89): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s. It passed on the retry, and the local `ci:local` on the same commit passed this test.
       Further sighting (2026-11-15, builder's locked `ci:local` on 6faed9d, PR #1453's branch merged with `next`), another test in `e2e/recipe-discover.spec.ts` with a different symptom: `:185` ("save a catalog recipe through the form"), `mobile` project. The New recipe dialog's Name field never got its value and the test timed out. It passed in the next full gate (b9fb3e1) and 20/20 in a loaded `--repeat-each=10` on that build. Not ruled out: #1453 (now on `next`) changed `src/components/ui/dialog-history.ts`, which this dialog goes through, and no run on a clean checkout from before it was made, so compare against 46ed05c before treating it as the same flake.
       Further sighting (2026-11-15, release PR #1477 on ac3cfae, GitHub run 43769100329, job 132980784373), a fourth test in the same spec: `e2e/recipe-discover.spec.ts:383` ("preview offline shows the inline retry and keeps the sheet"), `mobile` project. The first attempt failed at `openRecipesTab` (`e2e/ui.ts:367`, via `openTabAndDiscover` at `:106`, called from spec line 398): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s, after `expectHydrated` and `expectRouterPatched` had both passed. It passed on the retry, and the local `ci:local` on the same commit passed with no failure (1695 passed). Same symptom as the 2026-11-12 and 2026-11-14 sightings, so the tab click is still being lost on `mobile`.
-- [ ] **MAINT-97. Flaky: a forced check on the category radio doesn't select it in the Add transaction dialog on mobile** (low, S) —
-      `e2e/transaction-repeats.spec.ts:87` ("without the Repeats switch no recurring item is added"), `mobile` project. Failed once in the builder's locked `ci:local` run on 393b7e0 (PR #1404, a knip refactor that doesn't touch this spec or the budget feature, 2026-11-13), then passed in the full rerun of the same commit. Failing assertion at `:98`: `dialog.getByRole("radio", { name: category }).check({ force: true })` → `locator.check: Clicking the checkbox did not change its state`. The radio is a `peer sr-only` `<input name="categoryId">`, so the forced click lands on a visually hidden input. It may run before the dialog's category picker is hydrated, or a re-render may reset the selection. Start from the trace. Clicking the visible label after `expectHydrated` is likely the honest fix; look for the same pattern in other transaction-dialog specs.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-      Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
-      Further sighting (2026-11-15, builder's locked `ci:local` on abf9c66, PR #1479, MAINT-103: a fix in `dialog-history.ts` for a navigation lost when a dialog closes, which touches neither this spec nor the budget feature): `mobile` project, the same test (`:87`) failed once in the first full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`, a forced click on the `peer sr-only` `categoryId` radio straight after the Add transaction dialog opened), and passed in a second full run on the same commit (1691 passed).
-      Further sighting (2026-11-16, reviewer's locked `ci:local` on release PR #1484, f77b161): `mobile` project, the same test (`:87`) failed once in the full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`; 1 failed, 1696 passed) and passed in a rerun of the spec on the same commit (`--project=mobile`, 6 passed). The GitHub e2e job on that commit passed it.
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
       Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
+- [ ] **MAINT-108. One shared e2e database helper instead of a copy in every spec** (impact: med, effort: M) —
+      120 of the 232 `e2e/*.spec.ts` files open their own `new Client({ connectionString: process.env.DATABASE_URL })`, and 43 of them define the same connect/try/finally wrapper locally, under two names: `withClient` in 31 files (e.g. `e2e/task-skip.spec.ts:29`, `e2e/cook-soon.spec.ts:21`) and `withDb` in 12 (e.g. `e2e/ux-55.spec.ts:17`, `e2e/planned-income.spec.ts:24`). The rest is copied the same way: `mondayOf` is the same one-liner in 7 specs (`e2e/cook-soon.spec.ts:16`, `e2e/recipe-sort.spec.ts:22`, …), and the name/id helpers `unique` (23 files) and `suffix` (20) exist in at least eight variants. Some of those are only `Date.now().toString(36)` (`e2e/flows.spec.ts:7`, `e2e/shopping-expense-category.spec.ts:14`), some only random (`e2e/task-skip.spec.ts:13`), and only some carry `E2E_WORKER`, which AGENTS.md ("Parallel workers") asks of every inserted id. Every new spec copies whichever neighbour it started from, so a fix to the pattern (a statement timeout, a safer suffix) has to be made 40 times, and the weaker variants keep spreading.
+      Change: add `e2e/db.ts` exporting `withDb` (the connect/try/finally wrapper), `unique(label)` and `uniqueId(prefix)` (both with `E2E_WORKER`, a timestamp and a random part) and `mondayOf`; replace the local copies with imports, a feature area per commit so a failure is easy to place. No test's assertions change. Add a guard beside `src/app/page-coverage.test.ts` (or a `no-restricted-syntax` rule scoped to `e2e/**/*.spec.ts` in `eslint.config.mjs`) that fails on `new Client(` in a spec file, and list `e2e/db.ts` among the shared helpers in AGENTS.md's "UI tests".
+      Acceptance: `grep -rlE 'new Client\(' e2e --include='*.spec.ts'` prints nothing; no spec defines `withClient`, `withDb`, `mondayOf`, `unique` or `suffix` itself; the guard fails when a spec opens its own client; `npm run test:e2e` passes on desktop and mobile with the same number of tests as before.
+- [ ] **MAINT-109. Split `week-planner.tsx`: the 920-line `WeekPlanner` component and its row** (impact: med, effort: M) —
+      `src/components/meal-planning/week-planner.tsx` is 1,488 lines, the largest component file in the app. `WeekPlanner` itself runs from `:150` to `:1069` (920 lines, 15 hook calls), followed by `MealEntryRow` (`:1070`, 350 lines) and `AddMealSlot` (`:1418`). Most meal-planning `UX-`/`GAP-` items edit this one file, so two of them in flight conflict, and a change to one concern means reading all of them.
+      Change, with no behaviour or markup change: move `MealEntryRow` and `AddMealSlot` to their own files in `src/components/meal-planning/`, move `copyLastWeek` (`:118`) and the other pure helpers to a module with a colocated test, and pull each self-contained cluster of state out of `WeekPlanner` into a hook or a child component (read the file with pstack's `how` first to find the seams). `src/components/meal-planning/recipe-form-dialog.tsx` (1,232 lines, `RecipeFormDialog` from `:221` to the end) has the same shape; leave it for its own item.
+      Acceptance: `week-planner.tsx` is under 600 lines and no file it was split into is over 500; the pure helpers have unit tests; the existing meal-planning specs (`e2e/meal-planner-*.spec.ts`, `week-picks*.spec.ts`, `plan-leftovers.spec.ts`, `meal-note.spec.ts`, `cook-soon.spec.ts`) pass unedited on desktop and mobile.
+- [ ] **MAINT-110. Split `budget/actions.ts` by concern, as MAINT-3 did for the shopping list** (impact: low, effort: M) —
+      `src/app/dashboard/budget/actions.ts` is 1,177 lines holding 17 Server Actions for four separate things: categories (`:25`–`:265`), transactions and their split parsing (`:266`–`:770`), recurring templates and their period acknowledgements (`:771`–`:1097`), and settlements (`:1098`–end). Its test, `actions.test.ts`, is 1,643 lines. The pattern is already next to it: `planned-expense-actions.ts` with its own test. This is a human-only area (money), and a reviewer reading a transaction change has to find it among 1,100 lines of unrelated actions.
+      Change, moving code only: `category-actions.ts`, `transaction-actions.ts`, `recurring-actions.ts` and `settlement-actions.ts` (each `"use server"`, each with its part of the test file), with what more than one of them needs (`revalidateBudgetPages`, `:455`, and any shared schema) in a module that is not `"use server"`, so helpers don't become callable actions. Update the importers. No logic, validation or query changes: the diff should read as moves, and the PR says so under "⚠️ Needs careful review". This doesn't decide BUDGET-6 (a shared layer for both budgets), which stays `[!]`. `src/app/dashboard/inventory/actions.ts` (1,073 lines) and `personal-budget/actions.ts` (821) can follow in their own items.
+      Acceptance: no non-test file in `src/app/dashboard/budget/` is over 500 lines; `npx vitest run src/app/dashboard/budget` runs the same number of test cases as before, none edited beyond imports and mock paths; `npm run check && npm run build` and the budget e2e specs pass.
+- [ ] **MAINT-120. Flaky: "In the cart" isn't there 5 s after pressing x on the highlighted shopping row on desktop** (low, S) —
+      `e2e/keyboard-shortcuts.desktop.spec.ts:110` ("x ticks the highlighted shopping row into \"In the cart\""), `desktop` project. First sighting: the **Nightly e2e** run dispatched on release PR #1583 (run 44318496212, commit c13111b, 2026-11-18), which ships no change to shopping or keyboard shortcuts. The first attempt failed at `:142`: `expect(getByRole('button', { name: /^In the cart/ })).toContainText("1")` found no element within 5 s, right after `expectHydrated` on the active row's checkbox and `page.keyboard.press("x")`. It passed on the retry (marked `flaky`), and the release's three `End-to-end shard N/3` jobs and the reviewer's locked `ci:local` on the same commit passed it first time. Likely the `x` keypress lands before the shortcut handler has the highlighted row (hydrated checkbox isn't proof the keydown listener is attached), or the tick's optimistic move into "In the cart" waits on the server round-trip under load. Start from the run's trace.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/keyboard-shortcuts.desktop.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -554,6 +565,62 @@ submit, Custom meal with an empty name, a 79-character Swedish name), the
 meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
 cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
 installed here), and dark was not looked at (no project renders it).
+
+### UX (2026-11-19 scout)
+
+Thursday area: tasks, household, members and invites. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and
+both dialog sweeps; all 290 + 132 tests pass, and the only audit hits are
+the known `text-200` bottom-bar truncations (UX-150), the hidden "Invite
+member" button and the sheet grabber. The deep dive drove the add-task
+sheet (empty submit, an 89-character Swedish title), the edit sheet, tick
+and Undo, a tick while offline, the three Household tabs, adding and
+pinning a note (online and offline), the invite dialog and closing a
+pending invite, on Pixel 7 and at 320 px. Tasks hold up: errors sit by
+the field, Save stays reachable and an offline tick rolls back with a
+toast. The household notes board and the pending-invites list don't.
+WebKit was not run (no browser installed here), and the audit config
+still needs an uncommitted `executablePath` copy to launch Chromium.
+
+- [ ] **UX-205. Keep the notes board on screen when a request drops** (impact: high, effort: S) —
+      On `/dashboard/household?tab=notes` at 320 px and on Pixel 7,
+      going offline and tapping Pin, or typing a note and tapping Add
+      note, replaces the whole page with the dashboard error boundary
+      ("You're offline"). The typed note is gone after Try again
+      (`s320-offline-note-add.png`). `togglePin`
+      (`household-notes.tsx:51`) and the `useActionState` handler
+      (`household-notes.tsx:57`) await the action with no `try/catch`,
+      and the shared `ConfirmDialog.handleConfirm`
+      (`ui/confirm-dialog.tsx:70`), which the note's Delete goes
+      through, doesn't catch either. Breaks M8 (an interruption loses
+      nothing) and M5, and it's the gap UX-182 closed for the member
+      actions and the invite email. Catch a thrown action in all three
+      and toast a new `notes.saveFailed` (en + sv). In `ConfirmDialog`,
+      toast a generic failure and keep the dialog open, which fixes
+      every one of its 14 callers. Keep the typed body.
+      Acceptance: an e2e spec (`mobile` and `desktop`) types a note,
+      goes offline with `context.setOffline(true)` and taps Add note,
+      then Pin on an existing note, then Delete and confirm. After each
+      step the Notes heading is still visible, an error toast shows and
+      the textarea still holds the typed text.
+- [ ] **UX-206. Ask before closing a pending invite, and show which one is closing** (impact: med, effort: S) —
+      In the Members tab's "Pending invites" (Pixel 7 and 320 px), one
+      tap on "Close invite" deletes the invitation at once, with no
+      confirm and no Undo (`s320-close-invite-click.png`: the toast
+      already says "Invite closed"). A link someone was about to open
+      stops working and can't be got back. Only a new invite fixes it,
+      and that has to be re-sent. Shopping's "Revoke link" asks first
+      (UX-201, `share-list-button.tsx:111`), so this breaks Consistency
+      and User control. While it runs, every row's button just goes
+      disabled (`pending-invites.tsx:69`), with no pending label on the
+      one tapped (M5). Route the click through `ConfirmDialog`
+      ("Close this invite?", saying the link stops working for whoever
+      has it) with `pendingLabel`, keep the success toast, and add the
+      strings in en + sv.
+      Acceptance: in `pending-invites.spec.ts` (`mobile` and `desktop`),
+      tapping "Close invite" opens a dialog and the invite is still
+      listed after Cancel. Confirm shows the pending label, then the
+      row disappears and stays gone after a reload.
 
 ---
 
@@ -922,32 +989,59 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-13 scan
+### 2026-11-16 scan
 
-- [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
-      Bring! shows suggested details (amount, variant) under a newly
-      added item, learned from what the household usually buys. Squirrel's
-      smart add line already ranks suggestions by last purchase
-      (REQUIREMENTS.md, "Smart add line (AUTO-1)") but a picked suggestion
-      with nothing typed in front always lands as 1 of its usual unit
-      (`rowsForSuggestion`, `src/lib/shopping/smart-add-suggestions.ts:135`),
-      so a household that always buys 12 eggs or 3 l milk retypes the
-      count every trip, which is the in-store typing PRODUCT.md's Direction
-      wants gone. Extend `SmartAddCandidate` with `lastQuantity` (and its
-      unit) from the newest purchased `ShoppingListItem` per inventory
-      item; the `[id]/page.tsx:114` `groupBy` only returns `createdAt`, so
-      replace it with a `distinct: ["inventoryItemId"]` `findMany`
-      ordered by `createdAt desc` (household-scoped, as now). When nothing
-      is typed in front, use the last quantity if its unit matches the
-      item's usual unit, else 1 as today; a typed count/unit always wins.
-      The suggestion row shows the amount it will add ("Eggs · 12 pcs"),
-      so nothing is added silently (Guardrails: suggest, don't mutate),
-      and the row stays editable afterwards. No schema change; any new
-      label in `en.ts` and `sv.ts`.
-      Acceptance: unit tests of `rowsForSuggestion` (last quantity used,
-      typed quantity wins, unit mismatch falls back to 1); e2e on `mobile`
-      buys a `unique()` item as 6 pcs on one list, then on a new list types
-      its prefix, sees "6" in the suggestion and gets a 6 pcs row on pick.
+- [ ] **GAP-84. Repeat a task every two weeks, month, quarter or year** (impact: med, effort: S) —
+      Grocy's chores repeat daily, weekly, monthly or yearly, and Cozi's
+      to-dos the same, so a household keeps "change the smoke alarm
+      battery" or "descale the coffee machine" there. Squirrel's task
+      dialog offers every 1, 2, 3 or 7 days only
+      (`RECURRENCE_OPTION_DAYS`, `src/components/tasks/task-form-dialog.tsx:78`)
+      and the action refuses anything over 90 days
+      (`recurrenceIntervalDaysSchema`, `src/app/dashboard/tasks/actions.ts:25`),
+      so the fortnightly bins, the monthly filter and every yearly job
+      can't be a repeating task at all. No schema change:
+      `recurrenceIntervalDays` stays the whole model (REQUIREMENTS.md,
+      "Household tasks", Recurrence). Add 14, 30, 90, 182 and 365 to the
+      select and raise the cap to 366. The model counts days, not
+      calendar months, so say that honestly in the label: name the long
+      presets ("Every 2 weeks", "Every 30 days", "Every 3 months (90
+      days)", "Every 6 months (182 days)", "Every year (365 days)") in
+      the option and in the row's badge (`recurrenceBadge`,
+      `tasks-client.tsx:349`) rather than "Repeats every 365 days", and
+      update the `repeatMax` message. Check the readers of the interval
+      still behave at 365: `isTaskOpen`/`getNextDueDate`/`skippedUntilFor`
+      (`recurrence.ts`), `task-due.ts`, `older-completed.ts`, the
+      tasks-due-today sync in `src/lib/notifications.ts`, and taking
+      turns (`src/lib/task-rotation.ts`). Labels in `en.ts` and `sv.ts`.
+      Acceptance: action tests accept 365 and refuse 367; a
+      `recurrence.ts` test that a yearly task completed today is closed
+      tomorrow and open again after 365 days; e2e on `desktop` and
+      `mobile` creates a `unique()` task with "Every year", completes it
+      and, after a reload, sees it completed with a next-due date a year
+      out.
+
+- [ ] **GAP-85. Jump to any week in the meal planner** (impact: low, effort: S) —
+      AnyList's December 2025 meal-plan update added jumping to a month
+      or year from the calendar header. Squirrel's planner moves one
+      week per tap of the `PeriodSwitcher` arrows
+      (`src/components/period-switcher.tsx:27`, used by
+      `src/components/meal-planning/week-planner.tsx`), so putting the
+      Christmas dinner on the plan in November, or looking back at what
+      was cooked in March, is a tap and a page load per week. Meal-plan
+      search (GAP-59) only reaches a week that already has the meal.
+      Make the planner's range label a button ("Choose week", with the
+      range as its visible text) that opens a native date field; picking
+      any date navigates to the week containing it (the page already
+      takes the week from the URL). Planner only: the budgets' month
+      switcher keeps its plain label. The button meets DESIGN.md's M
+      rules for touch targets and the date field is at least 16 px on
+      phones; "This week" stays as the way back. Labels in `en.ts` and
+      `sv.ts`.
+      Acceptance: e2e on `desktop` and `mobile` opens the planner,
+      activates "Choose week", fills a date ten weeks ahead, and sees
+      the range label show that week and its seven day cards; "This
+      week" returns to today's week.
 
 ## Needs a decision before building
 

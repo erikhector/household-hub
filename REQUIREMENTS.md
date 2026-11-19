@@ -1963,7 +1963,18 @@ every lookup the old one did.
     from the detail page's existing `inventoryItems` query, extended with
     quantity/threshold (→ `getStockStatus`) and the item's newest purchased
     `ShoppingListItem`. There's no `purchasedAt`, so that row's `createdAt`
-    stands in for "last bought".
+    stands in for "last bought". That row is one raw `DISTINCT ON
+    ("inventoryItemId")` query (Prisma's own `distinct` dedupes in memory,
+    which would fetch every purchased row the household ever had).
+  - **Last bought amount (GAP-83)** — the amount a pick adds
+    (`smartAddSuggestionAmount`, unit-tested with `rowsForSuggestion`):
+    a count/unit typed in front always wins, an explicit `1` included;
+    with nothing typed, the quantity of that newest purchased row, as
+    long as its unit is still the item's usual unit (else 1, as a
+    different unit would be the wrong amount). So a household that always
+    buys 12 eggs gets 12 by typing "äg" and picking. Each suggestion shows
+    the amount it will add ("12 pcs", `smartAdd.suggestionAmount`) before
+    it's picked, and the row stays editable afterwards.
   - **Commit path**: one batch Server Action,
     `smartAddShoppingListItemsAction(listId, rows)`
     (`src/app/dashboard/shopping-list/smart-add-actions.ts`), up to 50 rows,
@@ -4110,7 +4121,10 @@ Insights, three Add panels on Manage). No data model changed.
   the household item. Not offered on an edit, on a payment logged from a
   recurring item or planned bill, or on a shared expense logged from the
   sheet. A saved repeat shows no Undo, since Undo would remove only the row
-  and leave the item Due. Covered by `e2e/transaction-repeats.spec.ts`.
+  and leave the item Due. Covered by `e2e/transaction-repeats.spec.ts`. It
+  picks a category by tapping the visible chip, which waits for the phone
+  sheet to stop sliding and resizing; a forced `check()` on the hidden radio
+  skipped that wait and sometimes left it unchecked (MAINT-97).
 
 #### Personal starter categories (BUDGET-5)
 
@@ -9360,8 +9374,19 @@ Exactly eight triggers exist — nothing else creates a notification:
   candidate filter looks one day past the UTC date for dated tasks, since
   a zone east of UTC can already be on the next day. Once a day is the `Notification` unique on
   `(householdId, taskDueDate)` (the create is the claim; a repeat run or a
-  dismissed entry sends nothing more). The task lines are snapshotted on
-  the row (`taskLines`). Tasks are visible to every member, so the bell
+  dismissed entry sends nothing more). The task titles are snapshotted on
+  the row (`taskLines`), but the assignee is stored only as a user id
+  (`taskAssigneeIds`, parallel to `taskLines`, `""` for unassigned), never
+  as a name: notification rows are never deleted, so a stored name would
+  stay in everyone's history after the member left the household or
+  deleted their account. `resolveTaskDueAssignees` looks the names up when
+  the bell or the history page reads the rows, among the household's
+  current members only (one `householdMember.findMany` scoped by
+  `householdId`), so a renamed member shows their new name and someone
+  who has left or deleted their account shows as "former member"
+  (`notifications.taskDueFormerMember`). Entries filed before the ids were
+  stored had the bracketed name stripped by the migration's backfill and
+  show those tasks as unassigned. Tasks are visible to every member, so the bell
   entry is household-wide; only the push is per member: each opted-in
   member with at least one listed task assigned to them gets one naming
   only their own tasks (`sendPushToHouseholdMembers`, quiet hours apply).
