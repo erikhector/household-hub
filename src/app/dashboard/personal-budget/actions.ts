@@ -265,10 +265,10 @@ const transactionSchema = z.object({
   isRecurring: z.boolean(),
   recurrenceFrequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).optional(),
   // Mirrors the household budget's recurringTemplateId — see
-  // src/app/dashboard/budget/actions.ts's transactionSchema doc comment.
+  // src/app/dashboard/budget/transaction-actions.ts's transactionSchema doc comment.
   recurringTemplateId: z.string().optional(),
   // Set when logging a payment against a personal planned bill. Only read
-  // on create, like the household's (src/app/dashboard/budget/actions.ts).
+  // on create, like the household's (src/app/dashboard/budget/transaction-actions.ts).
   plannedExpenseId: z.string().optional(),
   // UX-179: the "Repeats" switch — also creates a monthly recurring item
   // from a plain new transaction. See the household budget's schema.
@@ -535,7 +535,7 @@ export async function deletePersonalTransactionAction(transactionId: string): Pr
 }
 
 // --- Recurring templates --------------------------------------------------
-// Mirrors src/app/dashboard/budget/actions.ts's recurring-template actions
+// Mirrors src/app/dashboard/budget/recurring-actions.ts's recurring-template actions
 // for PersonalRecurringTemplate/PersonalRecurringTemplateAck — see
 // prisma/schema.prisma's doc comments for the "accounted for" model.
 
@@ -683,7 +683,7 @@ export async function deletePersonalRecurringTemplateAction(
 
 /**
  * One-click "log it as-is" — mirrors logRecurringTemplateAction in
- * src/app/dashboard/budget/actions.ts for PersonalTransaction/
+ * src/app/dashboard/budget/recurring-actions.ts for PersonalTransaction/
  * PersonalRecurringTemplate. Creates a PersonalTransaction straight from the
  * template's own amount/category/frequency (today's date, no dialog), which
  * is already sufficient for computeTemplateStatuses to see this period as
