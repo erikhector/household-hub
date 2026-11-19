@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import {
@@ -35,12 +36,7 @@ async function withClient<T>(fn: (client: Client) => Promise<T>) {
 }
 
 // A Wednesday years ahead, in a week of its own per test run.
-function farWednesday() {
-  const today = new Date();
-  const base = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const monday = base - ((new Date(base).getUTCDay() + 6) % 7) * DAY_MS;
-  return new Date(monday + (7 * (300 + Math.floor(Math.random() * 3000)) + 2) * DAY_MS);
-}
+const farWednesday = () => farDay("meal-planner-bulk", 2);
 
 async function seed(names: { a: string; b: string; cooked: string }, wednesday: Date) {
   const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

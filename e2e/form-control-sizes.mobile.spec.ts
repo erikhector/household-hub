@@ -2,7 +2,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, E2E_SHOPPING_LIST } from "./seed-data";
-import { addBillOrIncome, clickRowAction, dismissCookieNotice, expectHydrated, clickListSetting } from "./ui";
+import { addBillOrIncome, clickRowAction, dismissCookieNotice, expectHydrated, expectRouterPatched, clickListSetting } from "./ui";
 
 // UX-10 (DESIGN.md M4): a focused field under 16 px makes iOS zoom the page,
 // and a unit field too narrow for its own buttons shows "p" for "pcs". Every
@@ -43,7 +43,11 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
   await dismissCookieNotice(context, baseURL!);
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
 
-  await page.getByRole("button", { name: "More list actions" }).click();
+  const more = page.getByRole("button", { name: "More list actions" });
+  await expectHydrated(more);
+  // The dialog pushes a history entry as it opens (see expectRouterPatched).
+  await expectRouterPatched(page);
+  await more.click();
   await clickListSetting(page, "Add item");
   const add = page.getByRole("dialog", { name: "Add an item" });
   // The dialog is a lazy chunk (PERF-25): evaluateAll doesn't wait for it.
@@ -91,7 +95,11 @@ test("budget transaction and recurring dialogs use 16px fields", async ({ page, 
 
     await page.getByRole("button", { name: "All bills & income" }).click();
     await addBillOrIncome(page, "Repeats every month or year");
-    await expectFieldsAtLeast16px(page.getByRole("dialog"));
+    // As above: the dialog mounts a moment after its menu item is picked, and
+    // evaluateAll doesn't wait for it (MAINT-105: it measured no fields).
+    const recurring = page.getByRole("dialog", { name: "Add recurring item" });
+    await expect(recurring).toBeVisible();
+    await expectFieldsAtLeast16px(recurring);
   } finally {
     await client.query(`DELETE FROM "BudgetCategory" WHERE id = $1`, [categoryId]);
     await client.end();

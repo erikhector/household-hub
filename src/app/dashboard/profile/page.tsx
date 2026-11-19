@@ -10,6 +10,7 @@ import { SwishNumberForm } from "@/components/profile/swish-number-form";
 import { PasswordForm } from "@/components/profile/password-form";
 import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
 import { InstallAppCard } from "@/components/profile/install-app-card";
+import { ScrollToHash } from "@/components/dashboard/scroll-to-hash";
 import { PushNotificationsCard } from "@/components/profile/push-notifications-card";
 import { WeeklyDigestSetting } from "@/components/profile/weekly-digest-setting";
 import { TaskDueSetting } from "@/components/profile/task-due-setting";
@@ -47,6 +48,8 @@ export default async function ProfilePage({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* UX-191: other pages link to a section here by hash. */}
+      <ScrollToHash />
       <div className="flex items-center gap-4">
         <UserAvatar displayName={user.displayName} seed={user.id} />
         <div>

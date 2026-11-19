@@ -38,8 +38,10 @@ const launchOptions = executablePath ? { executablePath } : {};
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 // UX-32: the real iPhone engine. WebKit is a separate browser download (and
-// `--with-deps` needs root), so the `iphone` project is opt-in: CI sets
-// E2E_WEBKIT=1 after `npx playwright install --with-deps webkit`; the
+// `--with-deps` needs root), so the `iphone` project is opt-in: the nightly
+// GitHub run (.github/workflows/e2e-nightly.yml) sets E2E_WEBKIT=1 after
+// `npx playwright install --with-deps webkit`, while the release PR's
+// sharded gate leaves it out to stay quick; the
 // `ci:local` gate and local runs skip it unless it's set the same way once
 // WebKit is installed. Without it the project is NOT defined and this says
 // so, rather than the run failing on a missing browser or silently looking
@@ -84,7 +86,7 @@ export default defineConfig({
   // only make sense at one size (e.g. which navigation is showing). Pixel 7
   // is the always-on phone: Chromium is all that's installed by default,
   // and the viewport and touch emulation are what matter for layout. The
-  // `iphone` WebKit project below is opt-in (E2E_WEBKIT=1, set in CI).
+  // `iphone` WebKit project below is opt-in (E2E_WEBKIT=1, set nightly).
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
@@ -112,7 +114,8 @@ export default defineConfig({
       name: "landscape",
       use: { ...devices["Pixel 7"], viewport: { width: 863, height: 393 }, storageState: STORAGE_STATE },
       dependencies: ["setup"],
-      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile)\.spec\.ts$/,
+      // ux-199: the unfolded filter row's selects show their whole value.
+      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile|ux-199)\.spec\.ts$/,
     },
     {
       name: "tablet",
@@ -125,21 +128,27 @@ export default defineConfig({
       },
       dependencies: ["setup"],
       // ux-141: the inventory is the card list at this width, not the table.
-      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile|ux-141)\.spec\.ts$/,
+      // ux-196: a possible-duplicates row has touch-sized controls here.
+      // ux-199: the filter row's selects show their whole value.
+      // ux-203: a recipe sheet's linked ingredients are 44 px rows.
+      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile|ux-141|ux-196|ux-199|ux-203)\.spec\.ts$/,
     },
     // UX-32: iOS Safari renders and zooms differently from Chromium
     // (16 px field zoom, 100vh, number inputs, safe areas), so the Pixel 7
     // run above can't catch those. Every page renders (`smoke`), the main
     // user flows (`flows`) and the 16 px field-zoom check
     // (`form-control-sizes`, the zoom only iOS does) run in WebKit with an
-    // iPhone 15. Only these three specs, to keep the extra runtime small.
+    // iPhone 15. MAINT-107: plus `command-palette`, the one spec that forces
+    // a navigation inside a dialog's pending history.back(), so the
+    // MAINT-103 repair in dialog-history.ts runs in WebKit's history too.
+    // Only these four specs, to keep the extra runtime small.
     ...(withWebkit
       ? [
           {
             name: "iphone",
             use: { ...devices["iPhone 15"], storageState: STORAGE_STATE },
             dependencies: ["setup"],
-            testMatch: /(smoke|flows|form-control-sizes\.mobile)\.spec\.ts$/,
+            testMatch: /(smoke|flows|form-control-sizes\.mobile|command-palette)\.spec\.ts$/,
           },
         ]
       : []),

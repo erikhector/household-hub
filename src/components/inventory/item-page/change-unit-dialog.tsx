@@ -18,7 +18,7 @@ import { changeItemUnitAction } from "@/app/dashboard/inventory/items/actions";
 import { planUnitChange, suggestedUnitChangeFactor, type UnitChangeItem } from "@/lib/inventory/item-units";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { format } from "@/lib/i18n/format";
+import { format, formatDecimal } from "@/lib/i18n/format";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
@@ -33,12 +33,16 @@ type ItemPageDict = Dictionary["inventory"]["itemPage"];
 export function ChangeUnitDialog({
   item,
   units,
+  locale,
   dict,
   comboDict,
   handle,
 }: {
   item: UnitChangeItem & { id: string };
   units: string[];
+  // The before/after preview reads in the viewer's decimal mark (UX-187):
+  // "0,5 st → 1000 g" in Swedish.
+  locale: string;
   dict: ItemPageDict;
   comboDict: ComboFieldDict;
   // Opened by the item page's "Change unit…" button (LazyChangeUnit), which
@@ -79,7 +83,9 @@ export function ChangeUnitDialog({
     setUnit(next);
     if (factorSuggested) {
       const suggested = suggestedUnitChangeFactor(item.unit, next, item.conversions);
-      setFactor(suggested === null ? "" : String(suggested));
+      // In the viewer's decimal mark too; the field and the action read a
+      // comma or a point.
+      setFactor(suggested === null ? "" : formatDecimal(suggested, locale, 10));
     }
   };
 
@@ -160,14 +166,14 @@ export function ChangeUnitDialog({
             <ul className="flex flex-col gap-1 rounded-md bg-muted/50 p-3 text-sm" aria-live="polite">
               <li>
                 {format(copy.stock, {
-                  before: `${item.quantity} ${unitLabel(item.unit)}`,
-                  after: `${plan.quantity} ${unitLabel(plan.unit)}`,
+                  before: `${formatDecimal(item.quantity, locale, 10)} ${unitLabel(item.unit)}`,
+                  after: `${formatDecimal(plan.quantity, locale, 10)} ${unitLabel(plan.unit)}`,
                 })}
               </li>
               <li>
                 {format(copy.threshold, {
-                  before: `${item.lowStockThreshold} ${unitLabel(item.unit)}`,
-                  after: `${plan.lowStockThreshold} ${unitLabel(plan.unit)}`,
+                  before: `${formatDecimal(item.lowStockThreshold, locale, 10)} ${unitLabel(item.unit)}`,
+                  after: `${formatDecimal(plan.lowStockThreshold, locale, 10)} ${unitLabel(plan.unit)}`,
                 })}
               </li>
             </ul>

@@ -17,13 +17,13 @@ import { useSyncExternalStore } from "react";
 import { TriangleAlert } from "lucide-react";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-/** The CSS features the app's design tokens require. Exported for tests. */
-export const REQUIRED_CSS_FEATURES = [
+/** The CSS features the app's design tokens require. */
+const REQUIRED_CSS_FEATURES = [
   "oklch(0.5 0.1 200)",
   "color-mix(in oklab, red 50%, blue)",
 ] as const;
 
-export function supportsBrowserFloor(): boolean {
+function supportsBrowserFloor(): boolean {
   if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return false;
   return REQUIRED_CSS_FEATURES.every((color) => CSS.supports("color", color));
 }

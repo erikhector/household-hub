@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +11,7 @@ import { LazyDialog } from "@/components/ui/lazy-dialog";
 import { ShoppingItemEditTriggers } from "@/components/shopping/shopping-item-edit-triggers";
 import { loadShoppingItemFormDialog } from "@/components/shopping/lazy-dialogs";
 import { CategoryChip } from "@/components/shopping/category-chip";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { updateShoppingListItemPriceAction } from "@/app/dashboard/shopping-list/item-actions";
 import { format } from "@/lib/i18n/format";
 import { useTickFeedback } from "@/lib/tick-feedback";
@@ -30,6 +30,7 @@ export function ShoppingRow({
   item,
   onToggle,
   onDelete,
+  onMove,
   leaving = false,
   highlighted = false,
   editable,
@@ -49,6 +50,9 @@ export function ShoppingRow({
   onToggle: () => void;
   /** UX-49: removes the item with an Undo toast, owned by ShoppingListClient. */
   onDelete: (item: ShoppingListItemRow) => void;
+  /** GAP-82: opens the "Move to list…" sheet for this row. Passed only for an
+   * unbought row while the household has another active list. */
+  onMove?: (item: ShoppingListItemRow) => void;
   /** UX-37: just ticked, animating out of its aisle towards "In the cart". */
   leaving?: boolean;
   /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
@@ -70,6 +74,9 @@ export function ShoppingRow({
   numberFormat: Intl.NumberFormat;
 }) {
   const unitLabel = useUnitLabel();
+  // No locale prop here, but the money format was built for the viewer's
+  // locale, so the amount follows it too: "1,5 l" in sv (UX-200).
+  const itemLabel = formatShoppingItemLabel(item, unitLabel, numberFormat.resolvedOptions().locale);
   const needsMapping = item.inventoryItemId === null;
   const purchased = item.purchased;
   // UX-54: the box fills (with a haptic) before the row moves.
@@ -203,9 +210,9 @@ export function ShoppingRow({
                 large && "text-base max-sm:text-lg pointer-coarse:text-lg",
                 purchased && "text-muted-foreground line-through",
               )}
-              title={formatShoppingItemLabel(item, unitLabel)}
+              title={itemLabel}
             >
-              {formatShoppingItemLabel(item, unitLabel)}
+              {itemLabel}
             </span>
             {item.addedAutomatically && (
               <Badge variant="secondary" className="shrink-0">
@@ -276,6 +283,23 @@ export function ShoppingRow({
                     />
                   )}
                 </LazyDialog>
+                {/* On a phone the Edit and Delete icons are hidden (the
+                    row's left swipe shows both) and this ⋯ is their tap
+                    path, clicking those same buttons. With "Move to list…"
+                    (GAP-82) it shows on a desktop too, before the trash so
+                    delete stays last (UX-22). */}
+                <RowActionsMenu
+                  label={format(dict.rowActionsAriaLabel, { name: item.name })}
+                  editLabel={dict.swipe.edit}
+                  deleteLabel={dict.swipe.delete}
+                  // UX-79: an inline row has no room for "Add price" beside
+                  // the name, so the ⋯ carries it (the ≈ price button, once
+                  // there is one, stays on the row to correct it).
+                  priceLabel={inline && item.estimatedPrice == null ? dict.addPriceLabel : undefined}
+                  moveLabel={dict.moveItem.menuLabel}
+                  onMove={onMove && !purchased ? () => onMove(item) : undefined}
+                  disabled={isPending}
+                />
                 {/* UX-49: removes at once with the swipe's Undo toast, not a
                     "can't be undone" confirm for an item that is one tap to
                     add back. */}
@@ -290,19 +314,6 @@ export function ShoppingRow({
                 >
                   <Trash2 className="size-3.5" />
                 </Button>
-                {/* On a phone the Edit and Delete icons above are hidden
-                    (the row's left swipe shows both) and this ⋯ is their
-                    tap path, clicking those same buttons. */}
-                <RowActionsMenu
-                  label={format(dict.rowActionsAriaLabel, { name: item.name })}
-                  editLabel={dict.swipe.edit}
-                  deleteLabel={dict.swipe.delete}
-                  // UX-79: an inline row has no room for "Add price" beside
-                  // the name, so the ⋯ carries it (the ≈ price button, once
-                  // there is one, stays on the row to correct it).
-                  priceLabel={inline && item.estimatedPrice == null ? dict.addPriceLabel : undefined}
-                  disabled={isPending}
-                />
               </>
             )}
           </div>
@@ -381,6 +392,11 @@ function PriceTag({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => (item.estimatedPrice != null ? String(item.estimatedPrice) : ""));
+  // UX-202: a bad price (or the server's refusal) shows under the field,
+  // in the app's language, with the typed value kept — not as a toast that
+  // lands behind the Next up dock on a phone, nor the browser's own bubble.
+  const [error, setError] = useState<string | null>(null);
+  const fieldId = `price-${useId()}`;
 
   if (!editable) {
     return item.estimatedPrice != null ? (
@@ -405,6 +421,7 @@ function PriceTag({
         disabled={isPending}
         onClick={() => {
           setDraft(item.estimatedPrice != null ? String(item.estimatedPrice) : "");
+          setError(null);
           setEditing(true);
         }}
         aria-label={
@@ -421,13 +438,13 @@ function PriceTag({
   function save() {
     const price = Number(draft.replace(",", "."));
     if (draft.trim() === "" || !Number.isFinite(price) || price < 0) {
-      toast.error(dict.priceInvalid);
+      setError(dict.priceInvalid);
       return;
     }
     startTransition(async () => {
       const result = await updateShoppingListItemPriceAction(item.id, price);
       if (result.error) {
-        toast.error(result.error);
+        setError(result.error);
         return;
       }
       setEditing(false);
@@ -435,49 +452,65 @@ function PriceTag({
   }
 
   return (
+    // `noValidate`: the browser's min={0} bubble speaks the browser's
+    // language, not the app's, so save() does the checking (UX-202).
     <form
-      className="flex shrink-0 items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2"
+      noValidate
+      className="flex shrink-0 flex-col gap-1"
       onSubmit={(e) => {
         e.preventDefault();
         save();
       }}
     >
-      <Input
-        type="number"
-        min={0}
-        step="any"
-        inputMode="decimal"
-        autoFocus
-        value={draft}
-        disabled={isPending}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setEditing(false);
-        }}
-        className="w-24 px-2"
-        aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
-      />
-      <Button
-        type="submit"
-        size="icon"
-        variant="ghost"
-        className="size-7"
-        disabled={isPending}
-        aria-label={dict.savePriceAriaLabel}
-      >
-        <Check className="size-3.5" />
-      </Button>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className="size-7 text-muted-foreground"
-        disabled={isPending}
-        onClick={() => setEditing(false)}
-        aria-label={dict.cancelPriceAriaLabel}
-      >
-        <X className="size-3.5" />
-      </Button>
+      <div className="flex items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2">
+        <Input
+          id={fieldId}
+          type="number"
+          min={0}
+          step="any"
+          inputMode="decimal"
+          autoFocus
+          value={draft}
+          disabled={isPending}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="w-24 px-2"
+          aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? fieldErrorId(fieldId) : undefined}
+        />
+        <Button
+          type="submit"
+          size="icon"
+          variant="ghost"
+          className="size-7"
+          disabled={isPending}
+          aria-label={dict.savePriceAriaLabel}
+        >
+          <Check className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="size-7 text-muted-foreground"
+          disabled={isPending}
+          onClick={() => setEditing(false)}
+          aria-label={dict.cancelPriceAriaLabel}
+        >
+          <X className="size-3.5" />
+        </Button>
+      </div>
+      {/* `w-0 min-w-full`: the message wraps inside the editor's width
+          instead of widening it, so a 320 px row doesn't overflow. */}
+      <div className="w-0 min-w-full">
+        <FieldError fieldId={fieldId}>{error}</FieldError>
+      </div>
     </form>
   );
 }

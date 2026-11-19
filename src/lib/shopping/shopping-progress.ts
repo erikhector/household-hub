@@ -9,7 +9,7 @@ import type { ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
 /** How many of the current aisle's items the dock shows at once. Three
  * full-height rows plus the ring fit the lower third of a 412 px phone
  * without hiding most of the list behind the dock. */
-export const NEXT_UP_LIMIT = 3;
+const NEXT_UP_LIMIT = 3;
 
 export type ShoppingProgress = { done: number; total: number; fraction: number };
 

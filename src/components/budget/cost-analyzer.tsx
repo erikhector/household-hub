@@ -52,7 +52,7 @@ import { BarChart } from "@/components/charts/bar-chart";
 import { Sparkline } from "@/components/charts/sparkline";
 
 export type MonthlySpendPoint = { month: string; total: number };
-export type PricePoint = { date: Date; price: number };
+type PricePoint = { date: Date; price: number };
 export type ItemPriceTrend = {
   id: string;
   name: string;

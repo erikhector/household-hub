@@ -74,7 +74,7 @@ export function createLazyDialogLoader<C extends Component>(
  * Runs `task` when the browser is idle. Safari has no requestIdleCallback, so
  * a short timeout stands in for it. Returns the cancel function.
  */
-export function scheduleIdle(task: () => void): () => void {
+function scheduleIdle(task: () => void): () => void {
   if (typeof window === "undefined") return () => {}
   if (typeof window.requestIdleCallback === "function") {
     const id = window.requestIdleCallback(task, { timeout: 4000 })

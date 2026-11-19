@@ -21,7 +21,14 @@ export type RequiredRule = {
   message: string;
   /** A number input counts as missing when it isn't a finite number. */
   numeric?: boolean;
+  /** UX-194: a format rule for a field that isn't empty (a password under
+   * 8 characters, a confirmation that differs). Gets the value as typed and
+   * the whole form, and returns the message to show, or undefined when the
+   * value is fine. */
+  invalid?: (value: string, data: FormData) => string | undefined;
 };
+
+export type FieldProblem = { name: string; id: string; message: string };
 
 /** The rules whose field is empty (or, for `numeric`, not a number), in
  * rule order. Pure so it can be unit-tested without a DOM. */
@@ -30,6 +37,16 @@ export function findMissingFields(data: FormData, rules: readonly RequiredRule[]
     const value = String(data.get(rule.name) ?? "").trim();
     if (value === "") return true;
     return rule.numeric ? !Number.isFinite(Number(value)) : false;
+  });
+}
+
+/** Every rule's field that is missing (the rule's `message`) or, when
+ * filled, fails its `invalid` check (that check's message), in rule order. */
+export function findFieldProblems(data: FormData, rules: readonly RequiredRule[]): FieldProblem[] {
+  const missing = new Set(findMissingFields(data, rules));
+  return rules.flatMap((rule) => {
+    const message = missing.has(rule) ? rule.message : rule.invalid?.(String(data.get(rule.name) ?? ""), data);
+    return message ? [{ name: rule.name, id: rule.id, message }] : [];
   });
 }
 
@@ -46,11 +63,11 @@ export function useRequiredFields() {
     messageFor: (name: string) => errors[name],
     /** Call first in `onSubmit`. Returns true when the submit was blocked. */
     check(event: FormEvent<HTMLFormElement>, rules: readonly RequiredRule[]): boolean {
-      const missing = findMissingFields(new FormData(event.currentTarget), rules);
-      setErrors(Object.fromEntries(missing.map((rule) => [rule.name, rule.message])));
-      if (missing.length === 0) return false;
+      const problems = findFieldProblems(new FormData(event.currentTarget), rules);
+      setErrors(Object.fromEntries(problems.map((problem) => [problem.name, problem.message])));
+      if (problems.length === 0) return false;
       event.preventDefault();
-      document.getElementById(missing[0].id)?.focus();
+      document.getElementById(problems[0].id)?.focus();
       return true;
     },
     /** Put on the `<form>`: editing a field clears its message. */

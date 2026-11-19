@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { Minus, Plus, ShoppingCart, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
-import { useItemHandlers } from "@/components/inventory/use-item-handlers";
+import { showMarkedEmptyToast, useItemHandlers } from "@/components/inventory/use-item-handlers";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
@@ -127,6 +127,31 @@ export function InventoryTable({
     const visibleIds = new Set(items.map((item) => item.id));
     return new Set([...rawSelected].filter((id) => visibleIds.has(id)));
   }, [rawSelected, items]);
+
+  // UX-198: on a phone <main> reserves the docked bulk bar's height
+  // (globals.css), and that height is two rows or three depending on
+  // whether the field row wraps, which depends on the width, the font, the
+  // text size and the locale. So measure it and publish `--bulk-bar-h`
+  // rather than guess a breakpoint. A layout effect, as in cookie-notice:
+  // measured before paint, the last row never shows covered for a frame;
+  // the ResizeObserver catches later wrapping (rotation, font load, the
+  // count growing a digit). Nothing is stored, it's an inline style that
+  // goes when the selection does.
+  const barRef = useRef<HTMLDivElement>(null);
+  const hasSelection = selected.size > 0;
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--bulk-bar-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--bulk-bar-h");
+    };
+  }, [hasSelection]);
 
   if (items.length === 0 && isHouseholdEmpty) {
     // UX-50: the same empty state as every other section: the mascot, one
@@ -287,12 +312,23 @@ export function InventoryTable({
         // last row still scrolls out from under it. From `sm` it's one
         // wrapping row above the table, as before: each row's groups are
         // `sm:contents`, and Clear selection is ordered last.
+        // UX-198: on a 320 px phone the second row can't hold the field
+        // select, a readable value input and Apply side by side; squeezed
+        // onto one line the input shrank to 41 px ("t.e…"). So that row
+        // wraps instead: the input keeps 128 px (M1, a field whose value
+        // can't be read isn't a field) and Apply drops to its own line,
+        // pushed to the right edge where the thumb is (<main> reserves the
+        // measured height, see barRef above). At 412 px in Chromium it all
+        // still fits on one line, so the bar stays two rows there. The
+        // count wraps too rather than truncating (M9: the Swedish "2 varor
+        // markerade" was cut to "2 varor ma…").
         <div
+          ref={barRef}
           data-bulk-bar=""
           className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(var(--bottom-nav-h)+var(--cookie-notice-h,0px))] max-sm:z-30 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:bg-background max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))] print:hidden"
         >
           <div className="flex items-center gap-2 sm:contents">
-            <span className="text-sm font-medium max-sm:min-w-0 max-sm:flex-1 max-sm:truncate">
+            <span className="text-sm font-medium max-sm:min-w-0 max-sm:flex-1 max-sm:break-words">
               {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
             </span>
             {!allSelected && (
@@ -324,7 +360,7 @@ export function InventoryTable({
               <span className="max-sm:sr-only">{dict.bulkActions.clearSelection}</span>
             </Button>
           </div>
-          <div className="flex items-center gap-2 sm:contents">
+          <div className="flex items-center gap-2 max-sm:flex-wrap sm:contents">
             <Select
               value={bulkField}
               onValueChange={(v) => {
@@ -351,7 +387,7 @@ export function InventoryTable({
                 step="any"
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
-                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-32 max-sm:flex-1"
                 aria-label={dict.bulkActions.valueAriaLabel}
               />
             ) : bulkField === "unit" ? (
@@ -359,7 +395,7 @@ export function InventoryTable({
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
                 maxLength={20}
-                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-32 max-sm:flex-1"
                 aria-label={dict.bulkActions.valueAriaLabel}
               />
             ) : (
@@ -371,7 +407,7 @@ export function InventoryTable({
                   maxLength={bulkField === "category" ? 60 : 120}
                   list={`bulk-${bulkField}-options`}
                   autoComplete="off"
-                  className="h-8 w-48 max-sm:h-11 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
+                  className="h-8 w-48 max-sm:h-11 max-sm:w-auto max-sm:min-w-32 max-sm:flex-1"
                   aria-label={dict.bulkActions.valueAriaLabel}
                 />
                 <datalist id={`bulk-${bulkField}-options`}>
@@ -383,7 +419,7 @@ export function InventoryTable({
             )}
             <Button
               size="sm"
-              className="h-8 max-sm:h-11 max-sm:shrink-0"
+              className="h-8 max-sm:ml-auto max-sm:h-11 max-sm:shrink-0"
               disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
               onClick={handleBulkApply}
             >
@@ -691,6 +727,23 @@ export function QuantityStepper({
     });
   }
 
+  // UX-197: a sheet amount that takes the item to 0 ("All", or a typed
+  // amount at least the stock) is an emptying, so it toasts like "Mark as
+  // empty" and gets the same Undo back to the old amount. It still saves as
+  // a delta, so the server decides: on a stale row (another member
+  // restocked) the amount comes off the server's stock, nothing empties and
+  // there's no `undo`, just the usual auto-add toast. The stepper's own −
+  // keeps its auto-add toast: one step down is put right with one step up.
+  function applyFromSheet(delta: number) {
+    startTransition(async () => {
+      addOptimisticDelta(delta);
+      const result = await settleOptimisticAction(() => adjustQuantityAction(item.id, delta), dict.saveFailedToast);
+      if (!result) return;
+      if (result.undo) showMarkedEmptyToast(item, { listName: result.autoAdded?.[0]?.listName, undo: result.undo }, dict);
+      else showAutoAddedToast(result.autoAdded, dict.autoAdd);
+    });
+  }
+
   const isTable = layout === "table";
   const buttonClass = isTable ? "size-7" : "shrink-0";
   return (
@@ -732,7 +785,7 @@ export function QuantityStepper({
         quantity={quantity}
         unitText={unitLabel(item.unit)}
         unit={item.unit}
-        onApply={adjust}
+        onApply={applyFromSheet}
         dict={dict.quantitySheet}
       />
       <Button

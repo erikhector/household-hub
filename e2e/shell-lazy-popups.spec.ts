@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { createHouseholdMenuTrigger, dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
 
@@ -17,15 +17,21 @@ test.beforeEach(async ({ context, baseURL, page }) => {
   });
 });
 
-// The listener attaches on hydration, which a press right after goto can
-// beat; press again only while the palette isn't up so a slow hydration
-// doesn't toggle it open and shut.
+// The shortcut listener attaches in a passive effect after hydration, which
+// a press right after goto can beat: React already owns the elements (so
+// expectHydrated on any of them passes) but the effect hasn't run yet, and
+// the press does nothing (MAINT-95). Press again only while `answer` isn't
+// up, so a slow hydration doesn't toggle the palette open and shut.
+async function pressShortcutUntil(page: Page, answer: Locator) {
+  await expect(async () => {
+    if (!(await answer.isVisible())) await page.keyboard.press(SHORTCUT);
+    await expect(answer).toBeVisible({ timeout: 1000 });
+  }).toPass();
+}
+
 async function openPalette(page: Page) {
   const palette = page.getByRole("dialog", { name: en.commandPalette.title });
-  await expect(async () => {
-    if (!(await palette.isVisible())) await page.keyboard.press(SHORTCUT);
-    await expect(palette).toBeVisible({ timeout: 1000 });
-  }).toPass();
+  await pressShortcutUntil(page, palette);
   return palette;
 }
 
@@ -73,9 +79,16 @@ test.describe("a failed chunk load", () => {
     await expectHydrated(switcherButton(page, isMobile));
     let offline = true;
     await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
-    await page.keyboard.press(SHORTCUT);
-    await expect(page.getByText(en.errors.generic)).toBeVisible();
-    await expect(page.getByRole("dialog", { name: en.commandPalette.title })).toBeHidden();
+    const palette = page.getByRole("dialog", { name: en.commandPalette.title });
+    const error = page.getByText(en.errors.generic);
+    // Wait for either answer, so a press the listener missed is pressed
+    // again. A palette that opens anyway (its chunk was never refused) still
+    // fails the error check below, and a second press that lands while the
+    // first load is failing only closes the request: the failure still says
+    // so.
+    await pressShortcutUntil(page, palette.or(error).first());
+    await expect(error).toBeVisible();
+    await expect(palette).toBeHidden();
 
     offline = false;
     await openPalette(page);

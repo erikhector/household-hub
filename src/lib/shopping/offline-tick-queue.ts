@@ -12,7 +12,7 @@
 // The pure half lives here so it can be unit tested without a browser; the
 // storage half is offline-tick-queue-store.ts.
 
-export type QueuedTick = {
+type QueuedTick = {
   itemId: string;
   /** What the person wanted the row to be: ticked (true) or not. */
   purchased: boolean;

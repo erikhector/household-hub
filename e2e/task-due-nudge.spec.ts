@@ -9,7 +9,9 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from 
 // files one household entry for the open tasks due today or overdue, and it
 // shows up in the notification centre linking to Tasks. The sync runs through
 // /api/cron/sync-notifications, authenticated with the CRON_SECRET
-// playwright.config.ts gives the server. "Today" there is the UTC date.
+// playwright.config.ts gives the server. "Today" is the household's local
+// date, taken from its members' push subscriptions; the seeded members have
+// none, so here it falls back to the UTC date.
 const CRON_SECRET = process.env.CRON_SECRET || "e2e-cron-secret";
 
 const words = {
@@ -70,7 +72,7 @@ for (const locale of ["en", "sv"] as const) {
 
       try {
         await reset();
-        // Due today (the UTC date, like the sync), assigned to this member.
+        // Due today (the UTC date, the sync's fallback zone), assigned to this member.
         await client.query(
           `INSERT INTO "HouseholdTask" (id, "householdId", title, "dueDate", "assignedToMemberId", "createdAt")
            VALUES ($1, $2, $3, (now() AT TIME ZONE 'UTC')::date, $4, now())`,

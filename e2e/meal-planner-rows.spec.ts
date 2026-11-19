@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
+import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTouchTargets, openRowSheet, waitForUndoableDelete } from "./ui";
@@ -85,16 +86,11 @@ async function cleanup(recipeId: string) {
 }
 
 // A Wednesday years ahead, in a week of its own per test run.
-function farDay() {
-  const today = new Date();
-  const base = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const monday = base - ((new Date(base).getUTCDay() + 6) % 7) * DAY_MS;
-  return new Date(monday + (7 * (300 + Math.floor(Math.random() * 3000)) + 2) * DAY_MS);
-}
+const farWednesday = () => farDay("meal-planner-rows", 2);
 
 test("a planned meal is one row whose sheet holds its labelled actions, delete set apart", async ({ page }, testInfo) => {
   const recipeName = unique("Dal");
-  const day = farDay();
+  const day = farWednesday();
   const recipeId = await seed(recipeName, day);
   try {
     await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
@@ -142,7 +138,7 @@ test("a planned meal is one row whose sheet holds its labelled actions, delete s
 
 test("adding a meal starts on the picker, not on typing a name", async ({ page }) => {
   const recipeName = unique("Chili");
-  const day = farDay();
+  const day = farWednesday();
   const recipeId = await seed(recipeName);
   try {
     await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(day))}`);
@@ -266,7 +262,7 @@ test("a long recipe's Cook stays on screen in its sheet, above the scrolling ing
 });
 
 test("the add-meal sheet names the day, filters recipes as you type and lists favourites and recently cooked first", async ({ page }) => {
-  const day = farDay();
+  const day = farWednesday();
   const names = Array.from({ length: 6 }, (_, i) => unique(`Pick${i}`));
   const ids: string[] = [];
   try {

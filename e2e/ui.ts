@@ -256,8 +256,19 @@ export async function saveScreenshot(page: Page, testInfo: TestInfo, locale: Loc
 // visible row whose name is exactly `name` (the last one, when an earlier
 // row of another spec repeats it) and returns the sheet, which is titled
 // with that name.
+//
+// The row opens its sheet only through React's handler, and the sheet is a
+// Dialog that pushes a history entry as it opens, so wait for both before
+// the tap, as openRecipesTab does: a tap before hydration does nothing, and
+// a sheet opened before the router has patched history.replaceState is
+// closed again by the router's first commit (MAINT-68). Most callers get
+// here straight after a plain goto: on a loaded runner a planner row
+// tapped that way had its sheet never show (MAINT-119).
 export async function openRowSheet(page: Page, name: string) {
-  await page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true }).last().click();
+  const row = page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true }).last();
+  await expectHydrated(row);
+  await expectRouterPatched(page);
+  await row.click();
   const sheet = page.getByRole("dialog", { name, exact: true });
   await expect(sheet).toBeVisible();
   return sheet;
@@ -268,10 +279,28 @@ export async function openRowSheet(page: Page, name: string) {
  * submit, Undo removing the row it edits) does that back() asynchronously
  * (src/components/ui/dialog-history.ts, which marks <html> until it
  * lands): a page.reload() issued before then races it and comes back
- * net::ERR_ABORTED. Call it before a reload that follows a dialog closing. */
+ * net::ERR_ABORTED, and a router.push() issued before then is undone by it
+ * and has to be stepped forward onto again (MAINT-101). Call it before a
+ * reload or a scripted navigation that follows a dialog closing. */
 export async function waitForDialogHistory(page: Page) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
+}
+
+/** waitForDialogHistory, then waits until the page behind the closed sheet
+ * is back at rest. On a phone it's drawn at 0.94 while a sheet is open
+ * (sheet-indent.tsx) and eases back to full size over 400 ms after. A tap
+ * whose press and release straddle a frame of that ease is released a few
+ * pixels from where it was pressed, so no click reaches the control: a tick
+ * straight after adding a task through the sheet went nowhere on a loaded
+ * run (MAINT-116, as in MAINT-100). Call it before tapping the page after a
+ * sheet closes. At rest the indent has no transform at all; mid-ease it's a
+ * matrix. */
+export async function waitForSheetClosed(page: Page) {
+  await waitForDialogHistory(page);
+  await expect
+    .poll(() => page.locator('[data-slot="sheet-indent"]').evaluate((el) => getComputedStyle(el).transform))
+    .toBe("none");
 }
 
 /** UX-49: a delete that offers Undo only reaches the server once its toast
@@ -450,8 +479,30 @@ export async function expectOnePrimaryAction(page: Page) {
  * rest behind its "List settings" submenu. With the menu already open, opens
  * the submenu and picks `item` from it. */
 export async function clickListSetting(page: Page, item: string, listSettings = "List settings") {
-  await page.getByRole("menuitem", { name: listSettings, exact: true }).click();
-  await page.getByRole("menuitem", { name: item, exact: true }).click();
+  const submenuTrigger = page.getByRole("menuitem", { name: listSettings, exact: true });
+  await expectMenuSettled(submenuTrigger);
+  await submenuTrigger.click();
+  const menuItem = page.getByRole("menuitem", { name: item, exact: true });
+  await expectMenuSettled(menuItem);
+  await menuItem.click();
+}
+
+/** Waits until the menu holding `item` has finished its 100 ms open
+ * animation. click() would wait for that itself, but by retrying: each
+ * "element is not stable" is a failed attempt, and from its third attempt on
+ * Playwright scrolls the target into view by force (to the bottom, the middle,
+ * the top of the screen in turn) instead of only when it is off screen. A
+ * menu locks scrolling for the user, not for a script, so on a page taller
+ * than the screen that scrolls the window under the open menu, the menu
+ * follows its button, and the pointer is left where the item used to be. The
+ * "List settings" submenu opens on hover for a mouse (Base UI ignores the
+ * mouse press itself), so it then never opens, or opens and closes again
+ * with the item being clicked in it (MAINT-105: "not stable" twice, then
+ * covered by the menu's backdrop, then detached, a 30 s timeout on the short
+ * `landscape` screen). Whether a click needs that third attempt depends on
+ * how the animation's frames fall, so wait it out before clicking. */
+async function expectMenuSettled(item: Locator) {
+  await expect.poll(() => item.evaluate((el) => (el.closest("[role=menu]") ?? el).getAnimations().length)).toBe(0);
 }
 
 // UX-158: the button that opens the menu holding "Create household". The

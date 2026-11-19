@@ -107,7 +107,7 @@ export function computeCheapestStoreComparisons(rows: PriceHistoryStoreRow[]): S
   return comparisons.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export type BasketStoreTotal = {
+type BasketStoreTotal = {
   store: string;
   // Sum of this store's last recorded price for the `pricedCount` basket
   // items it has one for — *only* those items. When pricedCount is below
@@ -129,7 +129,7 @@ export type BasketComparison = {
 // Fewer qualifying items than this and there's no "basket" to speak of —
 // a single item is already covered, better, by the per-item "Cheapest
 // store" list right above it.
-export const MIN_BASKET_ITEMS = 2;
+const MIN_BASKET_ITEMS = 2;
 
 /**
  * GAP-34: the whole-basket counterpart to computeCheapestStoreComparisons —

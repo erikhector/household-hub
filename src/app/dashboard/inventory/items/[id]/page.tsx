@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
-import { format } from "@/lib/i18n/format";
+import { format, formatDecimal } from "@/lib/i18n/format";
 import { STOCK_HISTORY_CAP } from "@/lib/inventory/stock-history";
 import { usedInRows } from "@/lib/inventory/item-units";
 import { canonicalUnit, unitLabel, withCommonUnits } from "@/lib/units";
@@ -19,11 +19,6 @@ import { ItemHistory } from "@/components/inventory/item-page/item-history";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
 import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page-origin";
 import { PageTitle } from "@/components/dashboard/page-title";
-
-// Amounts restated in another unit get three significant digits ("0.009
-// pcs", "0.375 pcs"), the way the design shows them; stock and typed
-// amounts are shown as stored.
-const short = (value: number) => String(Number(value.toPrecision(3)));
 
 // MATCH-6 (design §6.1): one inventory item, where it's used and its units.
 // Everything comes from nine household-scoped queries run together, never
@@ -185,7 +180,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
             bestBeforeLabel={bestBefore}
           >
             <span className="text-sm text-muted-foreground">
-              {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${unitLabel(item.unit, fullDict.units)}` })}
+              {format(dict.lowStockAt, { amount: `${formatDecimal(item.lowStockThreshold, locale, 10)} ${unitLabel(item.unit, fullDict.units)}` })}
             </span>
             <LazyChangeUnit
               item={{
@@ -196,6 +191,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
                 conversions: conversions.map(({ fromUnit, factor }) => ({ fromUnit, factor })),
               }}
               units={units}
+              locale={locale}
               dict={dict}
               comboDict={fullDict.inventory}
             />
@@ -207,8 +203,12 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
       <ItemUnitsAndUsage
         item={{ id: item.id, name: item.name, unit: item.unit }}
         conversions={conversions}
-        rows={rows.map((row) => ({ ...row, convertedLabel: row.converted === null ? null : short(row.converted) }))}
+        // Amounts restated in another unit get three significant digits
+        // ("0.009 pcs", "0,375 st"), the way the design shows them, in the
+        // viewer's decimal mark (UX-187).
+        rows={rows.map((row) => ({ ...row, convertedLabel: row.converted === null ? null : formatDecimal(row.converted, locale) }))}
         units={units}
+        locale={locale}
         dict={dict}
         comboDict={fullDict.inventory}
       />

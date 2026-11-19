@@ -29,12 +29,12 @@ export type FlaggedInventoryItem = {
   stockStatus: StockStatus;
 };
 
-export type UseItUpReason = "expiring" | "lowStock";
+type UseItUpReason = "expiring" | "lowStock";
 
 // One ingredient match backing a suggestion, named for the UI's "uses N
 // things expiring soon" chip text rather than for a shopping-list-style
 // diff.
-export type UseItUpMatch = {
+type UseItUpMatch = {
   name: string;
   reason: UseItUpReason;
 };
@@ -47,7 +47,7 @@ export type UseItUpSuggestion = {
   matches: UseItUpMatch[];
 };
 
-export type RecipeIngredientRef = {
+type RecipeIngredientRef = {
   name: string;
   // The linked InventoryItem's id, when the ingredient row has one — see
   // RecipeIngredient.inventoryItemId in schema.prisma. Null falls back to a

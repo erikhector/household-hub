@@ -6,7 +6,7 @@ export type ShortcutAction = "new" | "search" | "next" | "previous" | "tick" | "
 
 // The list pages the shortcuts belong to. Every key is ignored elsewhere, so
 // a stray `n` on the budget page never does anything.
-export const SHORTCUT_PATH_PREFIXES = ["/dashboard/shopping-list", "/dashboard/inventory", "/dashboard/tasks"];
+const SHORTCUT_PATH_PREFIXES = ["/dashboard/shopping-list", "/dashboard/inventory", "/dashboard/tasks"];
 
 export function isShortcutPath(pathname: string): boolean {
   return SHORTCUT_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

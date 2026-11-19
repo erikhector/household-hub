@@ -55,7 +55,7 @@ export const FUZZY_MIN_SCORE = 0.8;
 // its worst case is still quadratic, so a household beyond this many items
 // gets the exact, plural and alias rules only. Very long names are
 // skipped for the same reason; they're pasted notes rather than item names.
-export const FUZZY_MAX_ITEMS = 3000;
+const FUZZY_MAX_ITEMS = 3000;
 const FUZZY_MAX_NAME_LENGTH = 60;
 
 /** Quantity 0 and never in stock, never bought on a list and no recorded

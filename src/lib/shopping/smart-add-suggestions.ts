@@ -143,7 +143,7 @@ export function rowsForSuggestion(input: string, suggestion: SmartAddCandidate):
 // actions.ts): the smart add line never leaves a row unlinked, so a fuzzy
 // match accepted here is a silent link rather than a suggestion the user
 // confirms. 0.8 is the bar AUTO-2's household memory uses (auto-category.ts).
-export const SMART_ADD_FUZZY_MIN_SCORE = 0.8;
+const SMART_ADD_FUZZY_MIN_SCORE = 0.8;
 
 /**
  * Which existing inventory item a typed smart-add name means, or null to

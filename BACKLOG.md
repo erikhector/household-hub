@@ -165,14 +165,24 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       auth and profile, the invite email, and checked the receipt and shelf
       scans and `parse-import-csv.ts` (codes their clients already
       translate), all done, and the shared share-split parser
-      (`share-split-form.ts`). Still English: the string-literal `error:`
-      values and Zod messages in the files on `PENDING` in
-      `src/lib/actions/error-strings.test.ts` (budget 35, personal budget
-      19), plus `lib/recipe-import.ts` (MAINT-65 is splitting it) and the
-      Zod messages in `savings-goal-calc.ts` and `budget-category-limit.ts`,
-      which only the two budget action files use, so convert them with
-      those (`v()` keys plus `zodFail()`, otherwise the key itself would
-      show). Convert a feature at a time, add its keys to `dict.errors` (or
+      (`share-split-form.ts`), and the personal budget
+      (`personal-budget/actions.ts`). Recipe import needs nothing: since
+      MAINT-65 the `lib/recipe-import/` modules return only codes
+      (`FetchRecipeError`, `RecipeFileError`), which `recipe-actions.ts`
+      and `recipe-file-actions.ts` map to `dict.mealPlanning` strings, and
+      the photo import answers with `dict` strings too. Still English: the
+      string-literal `error:` values and Zod messages in the one file left
+      on `PENDING` in `src/lib/actions/error-strings.test.ts`, the
+      household budget's `budget/actions.ts` (35). The Zod messages of the limit and goal fields in
+      `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
+      for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
+      `goalDateFieldWith`): the personal budget passes `v()` keys, the
+      household budget still gets the English constants. When converting
+      the household budget, switch its actions to `zodFail()`, put the keys
+      (`monthlyLimitNumber`, `monthlyLimitPositive`, `savingsGoalNumber`,
+      `savingsGoalPositive`, `goalDateInvalid`, already in `dict.errors`)
+      straight into the constants and delete the `…With` functions and the
+      personal budget's local copies. Add any new keys to `dict.errors` (or
       a feature namespace, as `template-actions.ts` does), and delete the
       file from `PENDING`: the test fails if a clean file stays listed.
       Leave budget until BUDGET-6 is decided.
@@ -184,18 +194,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       declare `eslint` peers up to `^9`, so 10 only installs by overriding
       them. When all three accept 10, bump `eslint` + `eslint-config-next`
       and drop the `eslint` ignore in `.github/dependabot.yml`.
-- [ ] **MAINT-92. Unused exports and types (knip)** (low, M, several small PRs) —
-      `knip.jsonc` excludes `exports`, `types` and `duplicates` because
-      the first run (MAINT-12) found about 120 exports and types no other
-      file imports, plus `InventoryHeaderActionsClient` exported both
-      named and as `default` in
-      `src/components/inventory/inventory-header-actions.tsx`. List them
-      with `npx knip --include exports,types,duplicates`. Clean up one
-      feature at a time, one small PR each: drop `export` from what's only
-      used in its own file and delete what's used nowhere, without
-      changing behaviour. The last PR deletes the `exclude` line from
-      `knip.jsonc`.
-      Acceptance: `knip.jsonc` has no `exclude`, and `npm run knip` passes.
 - [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
       `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
       `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
@@ -228,6 +226,8 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
 - [ ] **MAINT-74. Flaky: a phone dialog's comboboxes aren't there yet when `form-field-room` measures them** (low, S) `[!]` —
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Further sighting (2026-11-14, UX-191 builder run on 47d2ee9, PR #1429): line 89 failed once in the full locked `ci:local` run with the same `dialog has at least one combobox` error. It passed `--repeat-each=10` (52 passed) on clean `next` d52d120 and in the next full gate on the same commit.
+      Further sighting (2026-11-15, release PR #1449 on 57e93f4, carrying #1446 and #1447, neither of which touches the shopping list or this spec): line 89 failed once in the reviewer's locked `ci:local` run with the same `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30). It passed in a re-run of the spec on the same commit (`npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile`, 7 passed) and in the GitHub e2e job.
       Acceptance: `npx playwright test e2e/form-field-room.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-77. Flaky: the chunk-retry tap doesn't open Add inventory item on desktop** (low, S) `[!]` —
       `e2e/inventory-lazy-dialogs.spec.ts:52` ("a failed chunk load › says so, and the next tap retries"), `desktop` project. In the GitHub e2e job on release commit b13ba5e (2026-11-01) it failed on both attempts (the retry limit, 7.7 s and 8.6 s) at line 95: `getByRole("dialog", { name: "Add inventory item" })` not visible within 5 s after the retry tap. It passed on a local re-run of the same commit. This is a new shape: MAINT-66 hardened this spec for `mobile` (merged in the same release as #968, which pre-fetches the chunks the abort refused), and MAINT-69 and MAINT-71 covered the history race and the route harness. Desktop still fails, so look at what differs there: chunks the retry needs that the abort never refused (so they are not warmed), or the dialog opening and being closed again by a history rewrite. Start from the failing run's trace.
@@ -240,6 +240,13 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/inventory-lazy-dialogs.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the GAP-79 head (7e3afdc) and once on the UX-178 head (9137847), each passing on the re-run; 32/32 and 38/38 in isolation.
       Further sighting (2026-11-11, release PR #1315 on 86ae1b0): `mobile` project, failed once in the full local `ci:local` run (dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job didn't run (docs-only release).
+      Further sighting (2026-11-12, release PR #1352 on 1599687): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a `--project=mobile` re-run of the same commit; the GitHub e2e job was green.
+      Further sighting (2026-11-12, UX-184 builder run on d39f82f): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible in time) and passed on a focused re-run and on a second full run of the same commit.
+      Further sighting (2026-11-13, release PR #1382 on 80cc114): `desktop` project again, in the GitHub e2e job (run 43409406202): the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on the retry in 3.7 s. The full local `ci:local` run of the same commit was green.
+      Further sighting (2026-11-13, release PR #1392 on 3fd5a0e, GitHub run 43461814529, job 132010436927): `desktop` project again, in the GitHub e2e job: the first attempt failed at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on its retry, so the job was green. That is two release runs in a row on 2026-11-13 where `desktop` failed its first attempt, so desktop is not fixed.
+      Further sighting (2026-11-13, MAINT-92 builder run on 3b2fb5b, PR #1390): `mobile` project, failed once in the full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a second full run of the same commit.
+      Further sighting (2026-11-13, release PR #1399 on ccaa00e): `mobile` project, failed once in the reviewer's full local `ci:local` run at line 95 (`Add inventory item` dialog not visible within 5 s) and passed on a focused re-run of the spec on the same commit; the GitHub e2e job was green.
+      Further sighting (2026-11-14, MAINT-97 builder run on a5fc3e8, PR #1418): `mobile` project, failed once in the second full local `ci:local` run (`Add inventory item` dialog not visible within 5 s) and passed on a locked `--project=mobile --repeat-each=10` rerun of the spec on the same commit (32 passed).
 - [ ] **MAINT-79. Flaky: a saved week can't be stamped because the seed insert clashes on desktop** (low, S) `[!]` —
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -249,10 +256,29 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
+      Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193, which doesn't touch this spec or inventory): `e2e/never-stocked.spec.ts:18` failed once on `desktop` in the first full run, then passed in a second full run of the same commit and 15/15 in a locked `--repeat-each=15` on that build.
+      Further sighting (2026-11-17, GitHub e2e job on release PR #1542, run 44064248664, commit 00bdaba, which ships #1539/#1540 but touches neither this spec nor inventory): `e2e/never-stocked.spec.ts:18` on `desktop` failed its first attempt and passed on the retry (marked `flaky`). The locked local `ci:local` on the same commit passed it.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
+      Further sighting (2026-11-14, release PR #1408 on 0522167), two more tests in the same spec: `e2e/recipe-discover.spec.ts:146` ("rows never say the pantry has none of a recipe") and `:298` ("ask for ideas lists AI ideas and previews one without pantry markers"), `mobile` project. In the GitHub e2e job (job 132278197181) both first attempts failed at `openRecipesTab` (`e2e/ui.ts:367`, via `openTabAndDiscover` at `recipe-discover.spec.ts:106`): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s, after `expectRouterPatched` had passed. Both passed on the retry, and the local `ci:local` on the same commit was clean. Same cause as above, so the one fix covers all three call sites.
+      Further sighting (2026-11-15, release PR #1449 on 57e93f4, GitHub run 43676498568, job 132697723956): `e2e/recipe-photo-import.spec.ts:59` again, `mobile` project. The first attempt failed at `openRecipesTab` (`e2e/ui.ts:367`, called from spec line 89): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s. It passed on the retry, and the local `ci:local` on the same commit passed this test.
+      Further sighting (2026-11-15, builder's locked `ci:local` on 6faed9d, PR #1453's branch merged with `next`), another test in `e2e/recipe-discover.spec.ts` with a different symptom: `:185` ("save a catalog recipe through the form"), `mobile` project. The New recipe dialog's Name field never got its value and the test timed out. It passed in the next full gate (b9fb3e1) and 20/20 in a loaded `--repeat-each=10` on that build. Not ruled out: #1453 (now on `next`) changed `src/components/ui/dialog-history.ts`, which this dialog goes through, and no run on a clean checkout from before it was made, so compare against 46ed05c before treating it as the same flake.
+      Further sighting (2026-11-15, release PR #1477 on ac3cfae, GitHub run 43769100329, job 132980784373), a fourth test in the same spec: `e2e/recipe-discover.spec.ts:383` ("preview offline shows the inline retry and keeps the sheet"), `mobile` project. The first attempt failed at `openRecipesTab` (`e2e/ui.ts:367`, via `openTabAndDiscover` at `:106`, called from spec line 398): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s, after `expectHydrated` and `expectRouterPatched` had both passed. It passed on the retry, and the local `ci:local` on the same commit passed with no failure (1695 passed). Same symptom as the 2026-11-12 and 2026-11-14 sightings, so the tab click is still being lost on `mobile`.
+- [ ] **MAINT-97. Flaky: a forced check on the category radio doesn't select it in the Add transaction dialog on mobile** (low, S) —
+      `e2e/transaction-repeats.spec.ts:87` ("without the Repeats switch no recurring item is added"), `mobile` project. Failed once in the builder's locked `ci:local` run on 393b7e0 (PR #1404, a knip refactor that doesn't touch this spec or the budget feature, 2026-11-13), then passed in the full rerun of the same commit. Failing assertion at `:98`: `dialog.getByRole("radio", { name: category }).check({ force: true })` → `locator.check: Clicking the checkbox did not change its state`. The radio is a `peer sr-only` `<input name="categoryId">`, so the forced click lands on a visually hidden input. It may run before the dialog's category picker is hydrated, or a re-render may reset the selection. Start from the trace. Clicking the visible label after `expectHydrated` is likely the honest fix; look for the same pattern in other transaction-dialog specs.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/transaction-repeats.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+      Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
+      Further sighting (2026-11-15, builder's locked `ci:local` on abf9c66, PR #1479, MAINT-103: a fix in `dialog-history.ts` for a navigation lost when a dialog closes, which touches neither this spec nor the budget feature): `mobile` project, the same test (`:87`) failed once in the first full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`, a forced click on the `peer sr-only` `categoryId` radio straight after the Add transaction dialog opened), and passed in a second full run on the same commit (1691 passed).
+      Further sighting (2026-11-16, reviewer's locked `ci:local` on release PR #1484, f77b161): `mobile` project, the same test (`:87`) failed once in the full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`; 1 failed, 1696 passed) and passed in a rerun of the spec on the same commit (`--project=mobile`, 6 passed). The GitHub e2e job on that commit passed it.
+- [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
+      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
+      Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
 
 ### UX (2026-09-26 scout)
 
@@ -451,53 +477,83 @@ viewport), the recipe sheet and the add-meal sheet on Pixel 7 (en, sv) and
 at 320 px; Save stays pinned above the keyboard and errors sit by the
 field. WebKit was not run (no browser installed here).
 
-- [ ] **UX-184. Wrap long names in combobox options instead of clipping
-      them** (impact: med, effort: S) — `ComboboxItem` wraps its label in
-      `whitespace-nowrap shrink-0` (`src/components/ui/combobox.tsx:174`),
-      so a long recipe name in the add-meal sheet's recipe picker
-      (`meal-entry-dialog.tsx:281`) runs past the list's border, is cut
-      mid-word with no ellipsis, and slides under the check indicator.
-      Two recipes that differ only at the end ("Grandmother's
-      slow-braised Västerbotten & …") look identical, so people pick the
-      wrong one. Seen at 320 px and on Pixel 7 in the add-dinner sheet.
-      The same primitive is used by the inventory item combobox and three
-      budget dialogs. Breaks M9 (long names wrap or truncate with the full
-      value reachable, never overflow) and section 4's "long names without
-      clipping". Fix: `min-w-0 break-words` in place of `whitespace-nowrap
-      shrink-0`, with no line clamp (the option list already scrolls, and a
-      clamp would hide the ending that tells two such recipes apart),
-      keeping `pr-8` clear for the check.
-      Acceptance: an e2e test in the `mobile` project, also run at a
-      320 px viewport, creates a recipe with an 80-character name, opens
-      "Add first dinner", and asserts the option's text is fully inside
-      the list: its `scrollWidth` ≤ `clientWidth`, its `scrollHeight` ≤
-      `clientHeight`, and its right edge ≤ the list's right edge.
-- [ ] **UX-185. Show a meal slot's full dish names in the plan-portions
-      sheet** (impact: low, effort: S) — `plan-portions-dialog.tsx:267`
-      shows the dishes already in a slot as one `truncate` line with the
-      full list only in `title`, which a phone can't hover. With two or
-      three planned dishes the joined names outgrow one line on a phone,
-      and the rest is unreachable (confirmed in code, not driven). Breaks
-      M9 (long names wrap or truncate with the full value reachable) and
-      the no-hover-only rule. Fix: drop `truncate` and the `title` and let
-      the dish line wrap (`break-words`, no clamp); it is a short secondary
-      line inside a sheet, so it can grow. Don't copy
-      `cooked-ingredients-checklist.tsx:42`, whose `line-clamp-2` keeps the
-      full text only in `title` too.
-      Acceptance: an e2e test in the `mobile` project plans three dishes
-      with long names into one slot, opens the plan-portions sheet, and
-      asserts the slot's dish line is not clipped: its `scrollHeight` ≤
-      `clientHeight` and `scrollWidth` ≤ `clientWidth`, and the last
-      dish's name is inside the line's bounding box.
+### UX (2026-11-13 scout)
 
-### Dependencies
+Friday area: household and personal budgets. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The deep dive drove the starter set, the
+add-transaction sheet (empty submit, negative amount, a 75-character
+Swedish description, Undo toast) and the Activity, Setup and Insights tabs
+on Pixel 7 and at 320 px. No small targets, no console errors, and errors
+sit by the field, so nothing filed for budgets. One gap: the seeded
+households have no budget categories, so every sweep only photographs the
+budget onboarding card. Safe to spend going red on the first expense with
+no income is the documented UX-154 behaviour. WebKit was not run (no
+browser installed here).
 
-- [ ] **DEPS-8. Bump `@playwright/test` 1.64.1→1.65.0** (impact: low, effort: S) —
-      Held back from DEPS-7: 1.65 wants Chromium build 1254 but the
-      pre-installed one is 1243, so the e2e suite can't launch until the
-      environment's browsers move. Bump once `npx playwright install
-      chromium` (or the image) provides 1254. Acceptance: `npm run
-      ci:local` green (desktop and mobile e2e).
+### UX (2026-11-14 scout)
+
+Saturday area: overview, navigation shell, profile, notifications, what's
+new. Swept `desktop`, `mobile`, `landscape`, `tablet`, `small-phone`,
+`light`, `text-200` and both dialog sweeps; all 290 + 132 tests pass, and
+the only audit hits are the known `text-200` bottom-bar ellipsis (UX-150).
+The deep dive drove the More menu, the notification submenu (four seeded
+notifications: dismiss one, dismiss all) and the notification centre on
+Pixel 7 and at 320 px, and measured the landscape sidebar (it scrolls as
+UX-7 documents, so it isn't filed). WebKit was not run (no browser
+installed here).
+
+### UX (2026-11-15 scout)
+
+Sunday area: public, auth and legal pages, and the first-run flow. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass, and the
+only audit hits are the known `text-200` truncations (UX-150); the
+screenshot review found UX-196. The deep
+dive drove login, forgot and reset password, signup (to the confirmation
+view and a resend), a valid invite, the no-household page and a new
+household's first run on Pixel 7 and at 320 px, in `en` and `sv`.
+WebKit was not run (no browser installed here), and no project in
+either sweep renders the dark theme (`mobile` has no `colorScheme`), so
+dark was not looked at.
+
+### UX (2026-11-16 scout)
+
+Monday area: inventory and item pages. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` truncations (UX-150). The deep dive drove add (empty and with
+a 70-character name), the quantity sheet, Mark as empty, delete and Undo,
+bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
+and `sv`. WebKit was not run (no browser installed here), and dark was
+not looked at (no project renders it).
+
+### UX (2026-11-17 scout)
+
+Tuesday area: shopping lists, shopping mode and the share page. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass. The only
+audit hits are the known `text-200` bottom-bar truncations (UX-150) and
+the Next up dock's aisle name ("Baki…") at 200% text, which is too small
+to file on its own. The deep dive drove smart add (with a
+70-character Swedish name), the inline price edit with invalid input,
+tick, the row and list menus, share and the share page, and an empty
+new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
+(no browser installed here), and dark was not looked at.
+
+### UX (2026-11-18 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar truncations (UX-150) and the hidden "Invite member"
+button. The landscape sidebar and the Next up dock look cut off in the
+full-page shots. Both are documented behaviour: on short screens the
+aside scrolls (UX-7), and the dock is sticky (UX-37). The deep dive drove the add-meal sheet (empty
+submit, Custom meal with an empty name, a 79-character Swedish name), the
+meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
+cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
+installed here), and dark was not looked at (no project renders it).
 
 ---
 
@@ -866,58 +922,32 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-11 scan
+### 2026-11-13 scan
 
-- [ ] **GAP-80. Sort recipes by last cooked, most cooked or newest** (impact: med, effort: S) —
-      AnyList's 2026 recipe beta adds sorting a collection by date
-      prepared and by how many times a recipe was made, the quickest way
-      to find what has dropped out of rotation or what the household
-      actually eats. Squirrel already computes both per recipe
-      (`getRecipeCookedStats`, `src/app/dashboard/meal-planning/recipe-cooked-stats.ts`;
-      REQUIREMENTS.md, "Recipe last cooked") and shows them on each row,
-      but the Recipes tab is always alphabetical (the recipes query in
-      `src/app/dashboard/meal-planning/page.tsx` orders by `name`), and
-      GAP-46 left sorting out of scope. Add a sort `Select` to the
-      wrapping row that holds the tag and course filters in
-      `src/components/meal-planning/recipe-manager.tsx`. The tab has no
-      folded mobile "Filters" dialog, so on phones the sort shares the
-      second row with the two filters (search keeps the full first row),
-      with no horizontal overflow at 412 px. Options: A–Z (default), last
-      cooked (oldest first, never-cooked first), most cooked, newest.
-      Sort client-side in the existing `filteredRecipes` memo, from the
-      `recipeCooked` stats prop plus `createdAt`, which `recipeRows` in
-      `page.tsx` doesn't pass yet and needs adding (ISO string) to it and
-      the client recipe type. The Cook soon shelf stays on top. The sort
-      is per-visit component state: nothing in cookies or storage, and
-      it isn't a filter, so it doesn't change the "no matches" copy. No
-      schema change; labels in `en.ts` and `sv.ts`.
-      Acceptance: unit test of the comparator (ties fall back to name,
-      never-cooked placement); e2e on `desktop` and `mobile` creates two
-      `unique()` recipes, cooks A twice and B once, and sees A above B
-      under "Most cooked" and B above A under "Last cooked" (relative
-      order only, since other specs cook recipes in the same household).
-
-- [ ] **GAP-81. A short note on a planned meal** (impact: med, effort: M) `[schema]` —
-      AnyList's January 2026 meal-plan update adds notes on meal-plan
-      entries, and Grocy's planner has notes per day: "thaw the chicken
-      the night before", "Anna cooks", "double it for lunch boxes".
-      Squirrel's `MealPlanEntry` (`prisma/schema.prisma`) has only a
-      recipe or a free-form name plus `freeformIngredients`, so a
-      recipe meal has nowhere to carry a reminder and households put it
-      in the name or on the notes board. Add a nullable
-      `MealPlanEntry.note` (≤ 200 chars, Zod-trimmed, empty → null),
-      edited in `src/components/meal-planning/meal-entry-dialog.tsx`
-      under the recipe/name field, shown as one muted truncated line on
-      the planner cell in `week-planner.tsx` (full text in the entry
-      dialog, not only in `title`) and in cook mode's header. Copy last
-      week (`copyWeekAction`) carries the note. Saving as a template
-      (GAP-52) and "Back to picks" drop it: no note column on
-      `MealPlanTemplateEntry` or `MealPlanPick`. The calendar feed puts
-      it in the event `DESCRIPTION`. No reminders or push. One migration.
-      Acceptance: action test that the note is saved, trimmed, capped and
-      household-scoped; e2e on `mobile` adds a note to a planned dinner,
-      reloads and sees it on the day and in the entry dialog, then clears
-      it, in `en` and `sv`.
+- [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
+      Bring! shows suggested details (amount, variant) under a newly
+      added item, learned from what the household usually buys. Squirrel's
+      smart add line already ranks suggestions by last purchase
+      (REQUIREMENTS.md, "Smart add line (AUTO-1)") but a picked suggestion
+      with nothing typed in front always lands as 1 of its usual unit
+      (`rowsForSuggestion`, `src/lib/shopping/smart-add-suggestions.ts:135`),
+      so a household that always buys 12 eggs or 3 l milk retypes the
+      count every trip, which is the in-store typing PRODUCT.md's Direction
+      wants gone. Extend `SmartAddCandidate` with `lastQuantity` (and its
+      unit) from the newest purchased `ShoppingListItem` per inventory
+      item; the `[id]/page.tsx:114` `groupBy` only returns `createdAt`, so
+      replace it with a `distinct: ["inventoryItemId"]` `findMany`
+      ordered by `createdAt desc` (household-scoped, as now). When nothing
+      is typed in front, use the last quantity if its unit matches the
+      item's usual unit, else 1 as today; a typed count/unit always wins.
+      The suggestion row shows the amount it will add ("Eggs · 12 pcs"),
+      so nothing is added silently (Guardrails: suggest, don't mutate),
+      and the row stays editable afterwards. No schema change; any new
+      label in `en.ts` and `sv.ts`.
+      Acceptance: unit tests of `rowsForSuggestion` (last quantity used,
+      typed quantity wins, unit mismatch falls back to 1); e2e on `mobile`
+      buys a `unique()` item as 6 pcs on one list, then on a new list types
+      its prefix, sees "6" in the suggestion and gets a 6 pcs row on pick.
 
 ## Needs a decision before building
 

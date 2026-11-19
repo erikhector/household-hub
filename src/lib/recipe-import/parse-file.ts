@@ -37,8 +37,8 @@ const MAX_TOTAL_INFLATED_BYTES = 64 * 1024 * 1024;
 // Mirror recipe-actions.ts's recipeSchema and ingredient row bounds, so a
 // recipe that came out of here always passes the same limits a hand-typed one
 // does (the import action re-checks nothing it can't trust the parser for).
-export const RECIPE_FILE_NAME_MAX = 120;
-export const RECIPE_FILE_INSTRUCTIONS_MAX = 4000;
+const RECIPE_FILE_NAME_MAX = 120;
+const RECIPE_FILE_INSTRUCTIONS_MAX = 4000;
 const MAX_INGREDIENT_ROWS = 100;
 const MAX_INGREDIENT_NAME_LENGTH = 120;
 const MAX_INGREDIENT_UNIT_LENGTH = 20;
@@ -212,7 +212,7 @@ function isRecipeNode(node: JsonObject): boolean {
 }
 
 /** One Paprika entry (`ingredients` is a single newline-separated string). */
-export function mapPaprikaRecipe(entry: JsonObject): FileRecipe | null {
+function mapPaprikaRecipe(entry: JsonObject): FileRecipe | null {
   const ingredients = str(entry.ingredients)
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -235,7 +235,7 @@ export function mapPaprikaRecipe(entry: JsonObject): FileRecipe | null {
 }
 
 /** One schema.org Recipe object. */
-export function mapSchemaRecipe(node: JsonObject): FileRecipe | null {
+function mapSchemaRecipe(node: JsonObject): FileRecipe | null {
   const mapped = mapJsonLdToRecipe(node);
   return finish(
     mapped.name,
