@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
+import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
@@ -174,7 +175,9 @@ test("Next step ticks the current step and moves the highlight on; ingredients t
 test("after the last step a planned meal offers Done and opens the mark-as-cooked review", async ({ page }) => {
   const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const name = `Cook-done ${suffix}`;
-  const day = new Date(Date.UTC(2031, 2, 3) + Math.floor(Math.random() * 300) * 7 * 86_400_000);
+  // A Monday in this spec's own far-off weeks (MAINT-117: 2031 onwards
+  // reached the empty weeks native-sheets and planner-add-missing open).
+  const day = farDay("cook-mode", 0);
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {

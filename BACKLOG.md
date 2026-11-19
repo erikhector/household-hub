@@ -166,11 +166,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       scans and `parse-import-csv.ts` (codes their clients already
       translate), all done, and the shared share-split parser
       (`share-split-form.ts`), and the personal budget
-      (`personal-budget/actions.ts`). Still English: the string-literal
-      `error:` values and Zod messages in the one file left on `PENDING` in
-      `src/lib/actions/error-strings.test.ts`, the household budget's
-      `budget/actions.ts` (35), plus `lib/recipe-import.ts` (MAINT-65 is
-      splitting it). The Zod messages of the limit and goal fields in
+      (`personal-budget/actions.ts`). Recipe import needs nothing: since
+      MAINT-65 the `lib/recipe-import/` modules return only codes
+      (`FetchRecipeError`, `RecipeFileError`), which `recipe-actions.ts`
+      and `recipe-file-actions.ts` map to `dict.mealPlanning` strings, and
+      the photo import answers with `dict` strings too. Still English: the
+      string-literal `error:` values and Zod messages in the one file left
+      on `PENDING` in `src/lib/actions/error-strings.test.ts`, the
+      household budget's `budget/actions.ts` (35). The Zod messages of the limit and goal fields in
       `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
       for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
       `goalDateFieldWith`): the personal budget passes `v()` keys, the
@@ -254,6 +257,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193, which doesn't touch this spec or inventory): `e2e/never-stocked.spec.ts:18` failed once on `desktop` in the first full run, then passed in a second full run of the same commit and 15/15 in a locked `--repeat-each=15` on that build.
+      Further sighting (2026-11-17, GitHub e2e job on release PR #1542, run 44064248664, commit 00bdaba, which ships #1539/#1540 but touches neither this spec nor inventory): `e2e/never-stocked.spec.ts:18` on `desktop` failed its first attempt and passed on the retry (marked `flaky`). The locked local `ci:local` on the same commit passed it.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -270,20 +274,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
       Further sighting (2026-11-15, builder's locked `ci:local` on abf9c66, PR #1479, MAINT-103: a fix in `dialog-history.ts` for a navigation lost when a dialog closes, which touches neither this spec nor the budget feature): `mobile` project, the same test (`:87`) failed once in the first full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`, a forced click on the `peer sr-only` `categoryId` radio straight after the Add transaction dialog opened), and passed in a second full run on the same commit (1691 passed).
       Further sighting (2026-11-16, reviewer's locked `ci:local` on release PR #1484, f77b161): `mobile` project, the same test (`:87`) failed once in the full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`; 1 failed, 1696 passed) and passed in a rerun of the spec on the same commit (`--project=mobile`, 6 passed). The GitHub e2e job on that commit passed it.
-- [ ] **MAINT-104. Flaky: the What's new link in Profile's About disclosure isn't found within 20 s in the Back-restores-scroll spec** (low, S) —
-      `e2e/ux-193.spec.ts:26`, the `#profile-notifications` variants only: "Back to Profile restores the scroll position, with a hash" on `desktop`, and "…, with a hash, fetched again" on `mobile`. The spec is new in #1453 (UX-193). Three sightings, all on 2026-11-15. (1) The builder's locked `ci:local` on 6faed9d (#1453's branch merged with `next`): "with a hash, fetched again" failed once on `mobile`, and passed in the next full gate. (2) and (3) The GitHub `End-to-end (Playwright)` job on release PR #1455 (908b494, job 132738518572): the `desktop` "with a hash" test and the `mobile` "with a hash, fetched again" test each failed their first attempt (after 21.4 s and 22.1 s) and passed on the retry, so Playwright marked both `flaky`; the reviewer's locked `ci:local` on the same commit passed all eight `ux-193` tests. Failing step, the same each time: `expectHydrated(link)` at `:35` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`). That error alone can't tell "the link is there but not hydrated" from "the link isn't there": `expectHydrated` polls `target.evaluate(…)`, which waits for the element. The builder's failure snapshot (sighting 1) shows the second: the About summary focused and the `<details>` closed again, after the spec clicked the summary straight after `gotoRevealed`, before hydration. What closes the disclosure is not known; that only the hash variants fail points at whatever the hash sets off while the page hydrates (`ScrollToHash`, or the restore). `e2e/notifications-empty-state.spec.ts:74` clicks a summary (Danger zone) the same way.
-      Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
+- [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
+      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
+      Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-106. Flaky: the empty week's "Add first dinner" button isn't hydrated within 20 s on mobile** (low, S) —
-      `e2e/native-sheets.spec.ts:72` ("a flick down on the grabber dismisses the sheet and leaves no back step"), `:87` ("a short, slow pull springs back instead of dismissing"), `:141` ("the page behind scales down while a sheet is open"), `:153` ("under reduced motion the page behind stays put") and `:161` ("a touch open focuses the sheet, not a field, so the keyboard stays down"), plus `e2e/planner-add-missing.spec.ts:94` ("an empty week has no Add missing button"), all on the `mobile` project. One sighting: the reviewer's locked `ci:local` on release commit 04f98b7 (release PR #1489, 2026-11-16, three BACKLOG.md-only PRs, so nobody's change is in it). All six failed in that one run (1691 passed, 6 failed) and all passed when the two specs were re-run on the same commit (`--project=mobile`: 11 passed, 2 skipped). On `desktop` in that run, `planner-add-missing.spec.ts:94` and `native-sheets.spec.ts:181` (which also goes through `openAddMeal`) passed; the five `native-sheets` tests are phone-only (`test.skip(!isMobile)`) and were skipped there. The GitHub e2e job didn't run (docs-only release). Failing step, the same in all six: `expectHydrated` on `getByRole("button", { name: "Add first dinner" })` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`), called from `openAddMeal` (`native-sheets.spec.ts:56`) and from `planner-add-missing.spec.ts:102`. Both open `/dashboard/meal-planning` on an empty far-future week. As MAINT-104 notes, that error can't tell "the button is there but not hydrated" from "the button never rendered", so start from the trace: whether the planner was still behind its `loading.tsx` skeleton, showed day cards instead of the empty-week button (another spec's meal in that week of the worker's household), or rendered the button without React owning it. `native-sheets.spec.ts:98`, which ran between the failures, passed. Six failures at once in two specs that share one page points at the planner being slow or stuck for that worker, not at six separate races.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/native-sheets.spec.ts e2e/planner-add-missing.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-107. Run `command-palette.spec.ts` on the `iphone` project, so the MAINT-103 repair is tested in WebKit** (med, S) —
-      A navigation issued while a dialog's `history.back()` is still pending is repaired in `src/components/ui/dialog-history.ts` (MAINT-103): the back undoes the push and the helper steps forward onto it again. That repair has never run in WebKit. The one test that forces the ordering, "Enter still navigates when the router pushes before the palette's history entry is gone" (`e2e/command-palette.spec.ts:85`), is not in the `iphone` project, whose `testMatch` in `playwright.config.ts` is `smoke|flows|form-control-sizes.mobile`. Why it matters: MAINT-101 ("an edit still shows after navigating away and back", `e2e/flows.spec.ts`) twice failed its first attempt on `iphone` in the GitHub e2e job with the page still on `/dashboard/tasks` 5 s after `router.push("/dashboard/profile")` (release PR #1425 on 138ae29, 2026-11-14, job 132417142477; release PR #1484 on f77b161, 2026-11-16, job 133033346476), and the second sighting already had the MAINT-103 repair. The inferred cause, never reproduced (no trace was kept and WebKit can't be installed in the build container), is the push falling inside the Add dialog's pending back. #1487 settled the test by waiting with `waitForDialogHistory` before the push, so no test goes through that path in WebKit any more. If the inference is right, the repair doesn't hold on iOS, and someone who taps a nav link straight after adding a task stays on the page.
-      Change: add `command-palette` to the `iphone` project's `testMatch` in `playwright.config.ts`. The spec opens the palette with Ctrl+K and has no `isMobile` branches; if one of its other tests can't pass in WebKit for a reason that has nothing to do with the repair, move the MAINT-103 test to a spec of its own that `iphone` matches and say so in the PR, rather than skipping it there. If the MAINT-103 test fails on `iphone`, that is the finding: fix the repair in `dialog-history.ts` in the same PR, or file the bug with the trace as its own item. Never merge it skipped, loosened or retried.
-      Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here.
-      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time, with the MAINT-103 test among the tests run (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next release PR is the evidence: it lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt, none `flaky`).
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
 - [ ] **MAINT-108. One shared e2e database helper instead of a copy in every spec** (impact: med, effort: M) —
       120 of the 232 `e2e/*.spec.ts` files open their own `new Client({ connectionString: process.env.DATABASE_URL })`, and 43 of them define the same connect/try/finally wrapper locally, under two names: `withClient` in 31 files (e.g. `e2e/task-skip.spec.ts:29`, `e2e/cook-soon.spec.ts:21`) and `withDb` in 12 (e.g. `e2e/ux-55.spec.ts:17`, `e2e/planned-income.spec.ts:24`). The rest is copied the same way: `mondayOf` is the same one-liner in 7 specs (`e2e/cook-soon.spec.ts:16`, `e2e/recipe-sort.spec.ts:22`, …), and the name/id helpers `unique` (23 files) and `suffix` (20) exist in at least eight variants. Some of those are only `Date.now().toString(36)` (`e2e/flows.spec.ts:7`, `e2e/shopping-expense-category.spec.ts:14`), some only random (`e2e/task-skip.spec.ts:13`), and only some carry `E2E_WORKER`, which AGENTS.md ("Parallel workers") asks of every inserted id. Every new spec copies whichever neighbour it started from, so a fix to the pattern (a statement timeout, a safer suffix) has to be made 40 times, and the weaker variants keep spreading.
       Change: add `e2e/db.ts` exporting `withDb` (the connect/try/finally wrapper), `unique(label)` and `uniqueId(prefix)` (both with `E2E_WORKER`, a timestamp and a random part) and `mondayOf`; replace the local copies with imports, a feature area per commit so a failure is easy to place. No test's assertions change. Add a guard beside `src/app/page-coverage.test.ts` (or a `no-restricted-syntax` rule scoped to `e2e/**/*.spec.ts` in `eslint.config.mjs`) that fails on `new Client(` in a spec file, and list `e2e/db.ts` among the shared helpers in AGENTS.md's "UI tests".
@@ -545,102 +540,32 @@ bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
 and `sv`. WebKit was not run (no browser installed here), and dark was
 not looked at (no project renders it).
 
-- [ ] **UX-197. Undo for emptying an inventory item** (impact: med, effort: M) —
-      "Mark as empty" in a row's ⋯ menu, and the "All" chip in the
-      quantity sheet (which applies on one tap), overwrite the amount
-      with 0 and nothing puts it back: a slip on "Olive oil, 0.7 l" loses
-      the 0.7. With auto-add on, the toast that follows reads 'Added
-      Olive oil to "Next shop" · Undo', and that Undo only removes the
-      list row, so the item stays at 0 while the user thinks it was
-      undone; with auto-add off and plain "Mark as empty" there is no
-      toast at all (`src/components/inventory/use-item-handlers.ts:50-60`,
-      `showAutoAddedToast` returns on an empty list). Mark opened and
-      Freeze, in the same menu, already restore a snapshot from their
-      toast. Breaks principle 5 (destructive actions are confirmed or
-      undoable; every action gives a result) and Guardrails' "undo over
-      confirm". Seen on `/dashboard/inventory` on `mobile` and at 320 px,
-      `en` and `sv`; the item page shares the handler. Fix: one toast per
-      emptying ('Olive oil marked as empty · Undo') whose Undo restores
-      the previous quantity and removes the list row that emptying added,
-      refusing with a message if the amount changed since (the
-      `undoMarkItemOpenedAction` shape); the same toast when the quantity
-      sheet takes an item to 0
-      (`src/components/inventory/quantity-sheet.tsx:107`,
-      `inventory-table.tsx:735`). Text in `en.ts` and `sv.ts`.
-      Acceptance: an e2e test on `mobile` and `desktop` marks an item
-      with 6 pcs as empty from the row menu, sees one toast naming the
-      item with Undo, taps it, and after a reload the row shows 6 pcs and
-      the default list has no row for it; the same through the quantity
-      sheet's "All"; a unit test covers the undo action's tenancy check
-      and its refusal after a later change.
-- [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
-      with rows selected on `/dashboard/inventory` at 320 px, the bar's
-      second row is the field select (`w-36`, 144 px), the value input
-      and Apply, and the input gets what is left: 41 × 44 px, showing
-      "t.e…" for its placeholder and about two characters of a typed
-      location or category. The count beside "Markera alla" is cut to
-      "2 varor ma…" in Swedish (81 px for 116 px of text). At 412 px the
-      input is 136 px and reads fine. Breaks M1 ("a field whose value
-      can't be read isn't a field"; a select gets its own row on a
-      phone) and M9 (Swedish strings truncate with the full value
-      reachable). `src/components/inventory/inventory-table.tsx:295`,
-      `:335`, `:354-374`. Fix: let the second row wrap so the value input
-      keeps a readable minimum (`min-w-32`) and the select or Apply moves
-      to its own line when the row is narrower than that, and let the
-      count wrap instead of truncating. Acceptance: an e2e test on
-      `mobile` at a 320 px viewport, in `sv`, selects two rows and
-      expects the value field to be at least 128 px wide, the count's
-      `scrollWidth` to be no more than its `clientWidth`, every target in
-      the bar to pass `expectTouchTargets`, and no horizontal overflow;
-      at 412 px the bar is still two rows.
-- [ ] **UX-199. Inventory filter chips cut off their own value on desktop and tablet** (impact: med, effort: S) —
-      the "Last updated" and "Group by" selects above the inventory table
-      have fixed widths (`w-48`, `w-44`) but show "label: value", so the
-      value is the part that gets cut: "Senast uppdaterad: N…" and
-      "Gruppera efter: Ing…" in Swedish, "Group by: No group…" in
-      English, with 110 px or more free to the right of the row.
-      `src/components/inventory/inventory-client.tsx:421`, `:436`;
-      screenshots `desktop-sv-dashboard-inventory.png`,
-      `tablet-sv-dashboard-inventory.png`,
-      `landscape-en-dashboard-inventory.png`. Breaks principle 3
-      (Hierarchy: the current filter is what the control is for) and M9
-      on `tablet` and `landscape` (truncated with no way to read the
-      rest, since touch shows no `title`). Fix: size both triggers to
-      their content (`w-auto min-w-44`, the row already wraps), keeping
-      the accessible names UX-155 added. Acceptance: an e2e test on
-      `desktop`, `tablet` and `landscape`, in `en` and `sv`, expects
-      neither trigger's value to be clipped (`scrollWidth` no more than
-      `clientWidth`) with the default filters and with the longest option
-      of each selected, and no horizontal overflow.
+### UX (2026-11-17 scout)
 
-### Dependencies
+Tuesday area: shopping lists, shopping mode and the share page. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass. The only
+audit hits are the known `text-200` bottom-bar truncations (UX-150) and
+the Next up dock's aisle name ("Baki…") at 200% text, which is too small
+to file on its own. The deep dive drove smart add (with a
+70-character Swedish name), the inline price edit with invalid input,
+tick, the row and list menus, share and the share page, and an empty
+new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
+(no browser installed here), and dark was not looked at.
 
-- [ ] **DEPS-9. Group the in-range patch/minor bumps** (impact: low, effort: S) —
-      `package-lock.json` on `next` (e1d7b00) against the registry on
-      2026-11-16: `next` and `eslint-config-next` 16.4.5→16.4.6,
-      `@playwright/test` 1.65.0→1.65.1 and `knip` 6.44.1→6.45.1 (all four
-      pinned exact in `package.json`, so bump the pins, `next` and
-      `eslint-config-next` together), `@sentry/nextjs` 11.11.0→11.12.0,
-      `lucide-react` 1.70.0→1.73.0, `resend` 6.37.0→6.38.1,
-      `@vercel/functions` 3.11.0→3.11.3, `barcode-detector` 3.2.3→3.2.4
-      and `dotenv` 18.0.9→18.0.10. `npm audit --omit=dev` is still clean on
-      that lockfile, so none is a known security fix. Playwright
-      1.65.1 asks for Chromium build 1255 (1.65.0: 1254) and the web
-      sandbox only ships 1243, which doesn't block the bump: CI installs
-      the matching build, and in the sandbox `fallbackChromium()` in
-      `playwright.config.ts` (DEPS-4) launches the installed Chromium
-      instead, as it already does for 1.65.0. Run `npm ci` first: a
-      `node_modules` left over from before a Dependabot merge makes
-      `npm outdated` report the wrong "from" versions. Majors left alone
-      on purpose: `eslint` 10 (MAINT-12), `typescript` 7
-      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` 26
-      (follows the `.nvmrc` Node 22 pin) and `prisma` 8 (only
-      `8.0.0-rc.33`, no stable release). If Dependabot's weekly
-      minor-and-patch PR lands some of these first, drop them from the
-      list (or delete the item if none is left). Acceptance: the listed
-      packages at those versions in `package.json` and the lockfile,
-      `npm audit --omit=dev` clean, `npm run ci:local` green (desktop and
-      mobile e2e).
+### UX (2026-11-18 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar truncations (UX-150) and the hidden "Invite member"
+button. The landscape sidebar and the Next up dock look cut off in the
+full-page shots. Both are documented behaviour: on short screens the
+aside scrolls (UX-7), and the dock is sticky (UX-37). The deep dive drove the add-meal sheet (empty
+submit, Custom meal with an empty name, a 79-character Swedish name), the
+meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
+cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
+installed here), and dark was not looked at (no project renders it).
 
 ---
 
@@ -1010,61 +935,6 @@ out to be a product-scope question rather than a scoped task should move to
       visible to other members and never in logs.
 
 ### 2026-11-13 scan
-
-- [ ] **GAP-82. Move a shopping item to another open list** (impact: med, effort: M) —
-      Bring! now lets you move an item from one list to another (its
-      long-requested iOS feature), and Paprika moves rows between pantry
-      and grocery list. Squirrel supports several `ACTIVE` lists (the
-      household default plus e.g. "Hardware store"), but a row can only
-      be deleted and retyped on the other list: the row's ⋯ menu
-      (`RowActionsMenu` in `src/components/shopping/shopping-row.tsx:296`)
-      has Edit, Delete and Add price only, and the one move that exists is
-      UX-80's bulk carry-over on completion
-      (`completeShoppingListAction`, `src/app/dashboard/shopping-list/list-actions.ts:327`).
-      Add a "Move to list…" entry to the ⋯ menu (the tap path on phones
-      too) for an unbought row, shown only when the household has another `ACTIVE` list. It opens a
-      small picker of the other active lists; picking one calls a new
-      click action `moveShoppingListItemAction(itemId, targetListId)` in
-      `item-actions.ts` that `requireHousehold()`s, checks both lists
-      belong to the household and the target is `ACTIVE`, and rejects a
-      purchased row. Two outcomes, both in one transaction:
-      - **Plain move**: the row has no `inventoryItemId`, or that
-        inventory item has no pending (`purchased: false`) row on the
-        target. Update `shoppingListId` only, so note, price and
-        `addedByUserId` travel with the row. Toast "Moved {name} to
-        {list}" with Undo, which calls the same action with the source
-        list as target.
-      - **Merge**: the same inventory item is already pending on the
-        target (the check carry-over makes, but carry-over then leaves
-        its row behind; there is no merge helper to reuse, this is new
-        code). Same unit: add the moved quantity to the target row,
-        which keeps its own note, price and `addedByUserId`, and delete
-        the moved row. Different unit: change nothing and return an
-        error ("{name} is already on {list} in another unit"). The
-        action returns the target row's id and the deleted row's
-        quantity, note, `estimatedPrice` and `addedByUserId`. Toast
-        "Merged {name} into {list}" with Undo, which calls a second
-        click action `undoMergedShoppingListMoveAction` with those
-        values and the source list id. It `requireHousehold()`s, checks
-        both lists belong to the household and the source is `ACTIVE`,
-        Zod-validates the values like `updateShoppingListItemAction`
-        does (and keeps `addedByUserId` only if it is a member of the
-        household, else null), then in one transaction subtracts the
-        quantity from the target row and recreates the row on the
-        source list with name, unit and `inventoryItemId` read from the
-        target row. If the target row is gone, purchased, or holds no
-        more than that quantity, it changes nothing and returns an
-        error ("That list has changed, so the move can't be undone").
-      Labels in `en.ts` and `sv.ts`.
-      Acceptance: action tests for tenancy (foreign target list rejected,
-      in both actions), non-`ACTIVE` target rejected, purchased row
-      rejected, the plain move keeping note and price, the merge summing
-      quantity, the unit mismatch refused, and the merge undo restoring
-      the source row and the target's quantity (and refusing when the
-      target row was bought meanwhile);
-      e2e on `desktop` and `mobile` creates two `unique()` lists, adds a
-      row to the first, moves it via the ⋯ menu, sees it gone from the
-      first list and present on the second after a reload.
 
 - [ ] **GAP-83. Picking a smart-add suggestion uses the quantity last bought** (impact: med, effort: S) —
       Bring! shows suggested details (amount, variant) under a newly

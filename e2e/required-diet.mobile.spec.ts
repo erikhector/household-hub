@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
+import { farDay } from "./far-weeks";
 import { STORAGE_STATE, STORAGE_STATE_SV, E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import {
@@ -71,7 +72,7 @@ for (const [locale, storageState, dict, badge] of [
 
     test("requiring Vegetarian flags a planned untagged recipe in words", async ({ page }) => {
       const mp = dict.mealPlanning;
-      const day = new Date(Date.now() + (12000 + Math.floor(Math.random() * 500)) * DAY_MS);
+      const day = farDay("required-diet");
       const dialogName = mp.addToPlanDialogTitle.replace("{recipe}", name);
 
       // Without a requirement nothing is flagged.

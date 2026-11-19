@@ -47,6 +47,10 @@ export const en = {
     shoppingListNotFound: "Shopping list not found",
     templateNotFound: "That template couldn't be found, it may have been deleted",
     listNotEditable: "This list can't be edited right now",
+    // GAP-82: moving a row to another list.
+    moveItemPurchased: "A ticked-off item can't be moved",
+    moveUnitMismatch: "{name} is already on {list} in another unit",
+    moveUndoStale: "That list has changed, so the move can't be undone",
     shareLinkNotFound: "Share link not found",
     shareLinkInvalid: "This share link is invalid or has been revoked",
     linkItemToPantryFirst: "Link this item to your pantry first",
@@ -56,6 +60,7 @@ export const en = {
     noUseWithinDays: "Item has no use-within days set",
     itemAlreadyFrozen: "Item is already frozen",
     noExpiryToExtend: "Item has no expiry date to extend",
+    emptyUndoStale: "{name} has changed since, so the old amount wasn't put back",
     noItemsSelected: "No items selected",
     tooManyItemsAtOnce: "You can update at most {max} items at once",
     recipeNotFound: "Recipe not found",
@@ -902,8 +907,18 @@ export const en = {
       undo: "Undo",
     },
     editItemAriaLabel: "Edit {name}",
-    // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
+    // The row's Edit and Delete behind one ⋯ (RowActionsMenu): phone only,
+    // unless the row also offers "Move to list…" (GAP-82).
     rowActionsAriaLabel: "More actions for {name}",
+    // GAP-82: the row's ⋯ "Move to list…" and the sheet it opens.
+    moveItem: {
+      menuLabel: "Move to list…",
+      title: "Move {name} to",
+      description: "Pick one of your other open lists.",
+      cancel: "Cancel",
+      movedToast: "Moved {name} to {list}",
+      mergedToast: "Merged {name} into {list}",
+    },
     // AUTO-4: the header's running estimate and each row's tappable "≈
     // price" / inline correction input.
     estimatedTotal: "≈ {amount} still to buy ({priced} of {total} priced)",
@@ -1330,6 +1345,10 @@ export const en = {
       activeLabel: "Link is active",
       revoke: "Revoke link",
       revoking: "Revoking…",
+      revokeConfirmTitle: "Revoke this share link?",
+      revokeConfirmDescription:
+        "Anyone shopping from it loses access straight away. Sharing again makes a new link, which you'll have to send again.",
+      revokeConfirmCancel: "Cancel",
       revokedToast: "Share link revoked",
       revokeError: "Could not revoke share link",
     },
@@ -1697,6 +1716,9 @@ export const en = {
     markEmpty: "Mark as empty",
     markEmptyAndAddToList: "Mark as empty & add to shopping list",
     markedEmptyAddedToast: 'Marked {name} as empty and added it to "{list}"',
+    markedEmptyToast: "{name} marked as empty",
+    undoMarkEmpty: "Undo",
+    markEmptyUndoneToast: "{name} is back to its old amount",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
@@ -2223,6 +2245,7 @@ export const en = {
     // The add-meal picker before anything is chosen (M4: pick, don't type).
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
+    customMealNameRequired: "Enter a name for the meal",
     customMealIngredientsLabel: "Ingredients (optional)",
     customMealIngredientsPlaceholder: "2 tortillas\n1 jar salsa",
     customMealIngredientsHint: "One per line. What you are missing goes on the shopping list.",

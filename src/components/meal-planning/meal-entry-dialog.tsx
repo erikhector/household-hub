@@ -46,6 +46,8 @@ import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { MAX_FREEFORM_INGREDIENTS_LENGTH } from "@/app/dashboard/meal-planning/custom-meal-ingredients";
+import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { useRequiredFields } from "@/components/shared/use-required-fields";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -132,6 +134,11 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   const [mealType, setMealType] = useState<MealType>(isEdit ? props.entry.mealType : props.mealType);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [prepPortions, setPrepPortions] = useState(1);
+  // UX-204: an empty "Custom meal…" name is worded under the Meal name
+  // field before anything posts. The server's form-level "Choose a recipe
+  // or enter a meal name" landed under the note field, below the fold of
+  // the sheet on a phone, so tapping Add seemed to do nothing.
+  const req = useRequiredFields();
 
   // Only when adding: editing a meal into a batch slot isn't a thing
   // updateMealEntryAction does (Plan portions on the Prep tab is). The batch
@@ -183,6 +190,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   // editable, e.g. down to 2 when only cooking half a batch for one slot.
   const handleRecipeChoiceChange = (value: string) => {
     setRecipeChoice(value);
+    req.clear();
     const recipe = recipes.find((r) => r.id === value);
     if (recipe) setPortions(String(recipe.servings));
   };
@@ -193,6 +201,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
       onOpenChange={(next) => {
         setOpen(next);
         setRecipeQuery("");
+        req.clear();
       }}
       handle={props.handle}>
       <DialogContent
@@ -208,7 +217,18 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
                 })}
           </DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        {/* Only the custom-meal source has a field to check here, so the
+            browser keeps validating the portions number for a recipe. */}
+        <form
+          action={formAction}
+          onSubmit={(event) => {
+            if (choice !== CUSTOM_RECIPE_SENTINEL) return;
+            req.check(event, [{ name: "freeformName", id: "freeformName", message: dict.customMealNameRequired }]);
+          }}
+          onInput={req.onInput}
+          noValidate={choice === CUSTOM_RECIPE_SENTINEL}
+          className="flex flex-col gap-4"
+        >
           {isEdit ? (
             <input type="hidden" name="entryId" value={props.entry.id} />
           ) : (
@@ -344,8 +364,12 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
                 name="freeformName"
                 placeholder={dict.customMealNamePlaceholder}
                 maxLength={120}
+                required
+                aria-invalid={req.messageFor("freeformName") ? true : undefined}
+                aria-describedby={req.messageFor("freeformName") ? fieldErrorId("freeformName") : undefined}
                 defaultValue={isEdit ? (props.entry.freeformName ?? "") : undefined}
               />
+              <FieldError fieldId="freeformName">{req.messageFor("freeformName")}</FieldError>
               <Label htmlFor="freeformIngredients" className="mt-2">
                 {dict.customMealIngredientsLabel}
               </Label>

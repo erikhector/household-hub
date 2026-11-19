@@ -372,7 +372,10 @@ export function InventoryClient({
         {/* Desktop/tablet only — wraps onto as many rows as needed rather
             than scrolling sideways; each select is a fixed, modest width so
             2-3 fit per row. Phones get the folded "Filters" button above
-            instead. */}
+            instead. "Last updated" and "Group by" show "label: value", so a
+            fixed width cut off the value, the part the control is for
+            (UX-199): they size to their content instead, capped at the
+            row's width so the ellipsis still catches anything wider. */}
         <div className="hidden flex-wrap gap-2 sm:flex">
           <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>
             <SelectTrigger aria-label={dict.categoryLabel} className="w-40 shrink-0">
@@ -419,7 +422,7 @@ export function InventoryClient({
             </SelectContent>
           </Select>
           <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter(isUpdatedFilter(v) ? v : "all")}>
-            <SelectTrigger aria-label={dict.updatedFilterLabel} className="w-48 shrink-0">
+            <SelectTrigger aria-label={dict.updatedFilterLabel} className="w-auto max-w-full min-w-44 shrink-0">
               <SelectValue>
                 {(v: string) => `${dict.updatedFilterLabel}: ${(isUpdatedFilter(v) ? updatedFilterLabels[v] : "")}`}
               </SelectValue>
@@ -433,7 +436,7 @@ export function InventoryClient({
             </SelectContent>
           </Select>
           <Select value={groupBy} onValueChange={(v) => setGroupBy(isGroupBy(v) ? v : "none")}>
-            <SelectTrigger aria-label={dict.groupByLabel} className="w-44 shrink-0">
+            <SelectTrigger aria-label={dict.groupByLabel} className="w-auto max-w-full min-w-44 shrink-0">
               <SelectValue>{(v: string) => `${dict.groupByLabel}: ${(isGroupBy(v) ? groupByLabels[v] : "")}`}</SelectValue>
             </SelectTrigger>
             <SelectContent>

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
+import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, openRecipesTab, openRowSheet } from "./ui";
@@ -57,13 +58,10 @@ test("a planned recipe lists its next dates, each linking to its week, and an un
 }) => {
   const plannedName = unique("Lentil stew");
   const idleName = unique("Leek tart");
-  const today = new Date();
-  // Far ahead, where no other spec plans anything, and in two different
-  // weeks so the links differ. Four days: the fourth must not show.
-  const first = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) +
-      (400 + Math.floor(Math.random() * 5000)) * DAY_MS,
-  );
+  // Far ahead, in this spec's own weeks where no other spec plans anything,
+  // and in two different weeks so the links differ. Four days: the fourth
+  // must not show.
+  const first = farDay("recipe-planned-dates");
   const days = [0, 1, 8, 9].map((offset) => new Date(first.getTime() + offset * DAY_MS));
   await seed(plannedName, idleName, days);
 

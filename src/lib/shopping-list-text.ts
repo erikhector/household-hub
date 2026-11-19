@@ -4,6 +4,7 @@
 // is shared through the app. Mirrors src/lib/recipe-text.ts (GAP-43).
 
 import { formatCookQuantity } from "@/lib/cook-mode-calc";
+import { formatDecimal } from "@/lib/i18n/format";
 
 // UX-86 — "1 pcs" is what every item gets when nobody typed an amount, so
 // showing it on most rows is noise that buries the name. Quantity 1 of the
@@ -13,13 +14,20 @@ export function isDefaultAmount(quantity: number, unit: string): boolean {
   return quantity === 1 && unit === "pcs";
 }
 
-/** "Milk × 2 l", or just "Bananas" for the default 1 pcs. */
+/**
+ * "Milk × 2 l", or just "Bananas" for the default 1 pcs. With a `locale`
+ * the amount uses its decimal separator, so a Swedish row reads "mjölk ×
+ * 1,5 l" the way it was typed (UX-200). Ungrouped, like the item page's
+ * amounts, so "1000 g" stays as entered.
+ */
 export function formatShoppingItemLabel(
   item: { name: string; quantity: number; unit: string },
   unitLabel: (unit: string) => string,
+  locale?: string,
 ): string {
   if (isDefaultAmount(item.quantity, item.unit)) return item.name;
-  return `${item.name} × ${item.quantity} ${unitLabel(item.unit)}`;
+  const amount = locale ? formatDecimal(item.quantity, locale, 10) : item.quantity;
+  return `${item.name} × ${amount} ${unitLabel(item.unit)}`;
 }
 
 export type ShoppingListTextGroup = {

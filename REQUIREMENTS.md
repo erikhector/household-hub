@@ -695,6 +695,12 @@ every lookup the old one did.
   its mobile Filters-dialog twin, and the table's actions column header has
   `sr-only` text, so a screen reader hears what a control is, not just its
   current value.
+  **Whole filter values (UX-199)**: the desktop "Last updated" and "Group
+  by" triggers read "label: value", so they size to their content
+  (`w-auto min-w-44`, capped at the row's width) instead of a fixed width
+  that cut the value off ("Gruppera efter: Ing…"); the row wraps. Every
+  option shows in full on desktop, tablet and landscape, in both languages
+  (`e2e/ux-199.spec.ts`).
   **What needs attention (UX-121)**: above the search row a "Needs
   attention" group shows tappable counts ("4 out", "1 low", "4 expiring",
   "2 expired"), each hidden at zero. Tapping one sets the Status filter to
@@ -1364,6 +1370,13 @@ every lookup the old one did.
       editor. Once there is a price, the ≈ price button stays on the row.
       Rows with a chip or the "Match item" badge keep the stacked second
       line.
+    - *Price errors under the field (UX-202)*: the inline price editor's
+      form is `noValidate`, so a negative or empty price never gets the
+      browser's own bubble (in the browser's language, and under the dock
+      on a phone). `save()` checks it, and that message or the server's
+      refusal shows under the field (`FieldError`, `role="alert"`) with the
+      input kept, `aria-invalid` and `aria-describedby` set; no toast.
+      Typing clears it.
     - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
       row into `ShoppingListClient`, because a ticked row now changes
       section. It's plain state, not `useOptimistic`: React 19 entangles
@@ -1635,7 +1648,8 @@ every lookup the old one did.
     (`deleteMany`, so a double tap is a quiet no-op), and deliberately
     doesn't fire a "list cleared" notification. Mark meal as cooked folds
     its auto-adds into its own existing Undo toast instead of stacking a
-    second one (see "Mark meal as cooked" below). The share-link toggle
+    second one (see "Mark meal as cooked" below), and so does emptying an
+    item (UX-197, below). The share-link toggle
     auto-adds too, but with no toast: an anonymous visitor has no session
     to undo with.
   - **Mark as empty targets the default list.** `markItemEmptyAction`'s old
@@ -1643,11 +1657,30 @@ every lookup the old one did.
     add to shopping list" puts the item on the default list as an explicit,
     person-added row (not flagged `addedAutomatically`, and regardless of
     the setting below); plain "Mark as empty" behaves like any other
-    decrease and auto-adds (with Undo) when the item was in stock.
+    decrease and auto-adds when the item was in stock.
+  - **Emptying an item can be undone (UX-197).** "Mark as empty" (either
+    entry, from a row or the item page) and a quantity-sheet amount that
+    takes the item to 0 ("All", or a typed amount at least the stock;
+    the stepper's − keeps its own auto-add toast) show one toast, "Olive
+    oil marked as empty", or 'Marked Olive oil as empty and added it to
+    "Next shop"' when the emptying put it on the list (the explicit entry
+    or the auto-add, which folds into this toast instead of its own). Its
+    Undo (`undoMarkItemEmptyAction`) puts the old amount back, dismisses
+    the "Out of stock" alert the emptying raised and deletes the list row
+    that emptying created (never one already pending), all in one
+    transaction. It only applies while the item is still at 0 with the
+    `updatedAt` the emptying stamped; after any later change it refuses
+    with "Olive oil has changed since, so the old amount wasn't put
+    back". The History gets an "adjusted" event for the restore. The
+    sheet still saves its amount as a change (`adjustQuantityAction`),
+    which hands back the Undo only when the server's own amount reached
+    0: on a stale row (another member restocked since it rendered) a
+    typed amount comes off the server's stock instead of zeroing it, and
+    nothing is undoable.
   - **Bulk-edit bar stays on screen on phones (UX-123).** Below `sm` the
     bar is a full-width toolbar `fixed` to the top of the bottom bar, two
-    rows high: the count, "Select all" (hidden once everything is ticked),
-    an icon-only cart for "Add to shopping list" and an ✕ for "Clear
+    rows high (three on a narrow phone, see UX-198 below): the count,
+    "Select all" (hidden once everything is ticked), an icon-only cart for "Add to shopping list" and an ✕ for "Clear
     selection" (both keep their labels as accessible names), then the
     field select, the value and Apply. While it's up the Add-item button
     is hidden and `<main>` reserves the bar's height instead
@@ -1656,6 +1689,17 @@ every lookup the old one did.
     floated mid-list above the Add-item button. From `sm` it's one
     wrapping row above the table with "Clear selection" last. There is
     still no bulk delete.
+  - **Bulk-edit bar on a narrow phone (UX-198).** The value field never
+    shrinks below 128 px (`min-w-32`): when the field select, the value
+    and Apply don't fit on one line (e.g. at 320 px), the row wraps and
+    Apply moves to a line of its own at the right edge. Where that happens
+    depends on the font, the text size and the locale, so
+    `inventory-table.tsx` measures the bar with a ResizeObserver and
+    publishes `--bulk-bar-h` on `<html>` (an inline style, nothing
+    stored), which `<main>`'s reserve in `globals.css` uses (7.5rem until
+    it's measured). The count ("2 varor markerade") wraps instead of
+    truncating. At 412 px in Chromium the bar is still two rows.
+    `e2e/ux-198.mobile.spec.ts`.
   - **Add to shopping list keeps the stock (UX-122).** The inventory row
     (a cart button on desktop, a menu entry on phones) and the bulk bar
     offer "Add to shopping list" (`addInventoryItemsToShoppingListAction`):
@@ -1892,7 +1936,12 @@ every lookup the old one did.
   unit takes its inventory item's usual unit rather than "pcs". A comma
   inside brackets doesn't split (UX-88): `dishwasher tablets (lemon-free,
   120 st), paper towels` is two rows with the brackets intact (an unclosed
-  bracket doesn't count, so a stray `(` can't swallow the line). The input
+  bracket doesn't count, so a stray `(` can't swallow the line). Nor does
+  a decimal comma (UX-200): a comma with a digit directly on both sides is
+  part of the number, so `1,5 l mjölk, bröd` is two rows, 1.5 l of mjölk
+  and bröd (the same rule applies to the Import list dialog and to the
+  segment autocomplete reads). The row writes the amount in the viewer's
+  locale, so it reads back as `mjölk × 1,5 l` in sv. The input
   clears as soon as it's submitted and keeps focus, so the next item can be
   typed straight away (it's put back if the add fails). Each added row
   highlights for ~2 s and scrolls into view if it was off-screen (the
@@ -2064,7 +2113,13 @@ every lookup the old one did.
   "Share" button (`ShareListButton`, mirroring `InviteButton`'s show-
   link/copy-button/revoke UX) only while the list is `ACTIVE` — sharing a
   `COMPLETED`/`ARCHIVED` list to let a visitor check off items has no real
-  use once the list is done. The public page itself,
+  use once the list is done. Revoke goes through a `ConfirmDialog`
+  announced as an `alertdialog` (UX-201: it cuts off anyone shopping from
+  the link right now, and sharing again mints a new token, so it can't be
+  undone); a failed revoke toasts and leaves the confirmation open to
+  retry. Each open that has to create a link clears the previous open's
+  create error first, so a stale red error never sits beside a working
+  link. The public page itself,
   `/share/shopping-list/[token]` (top-level, deliberately **not** under
   `/dashboard` so `src/proxy.ts`'s session gate — which only matches
   `/dashboard/*` — never touches it), is a minimal standalone Card with no
@@ -2840,6 +2895,50 @@ says "N items moved to {list}", and Undo passes the ids to
 moves back only those still unticked in the household. The checkbox label
 names the target list (page query for the active default). Flow spec:
 `e2e/shopping-finish-carry-over.spec.ts`.
+
+**Moving one row to another list (GAP-82).** An unbought row's ⋯ menu has
+**"Move to list…"** while the household has another `ACTIVE` list (the
+detail page loads the household's active lists once, default first; the
+same query names UX-80's carry-over target). It shows on a phone and, since
+it has no icon of its own, makes the ⋯ visible on a desktop too (see "Swipe
+row actions"). It opens `MoveItemDialog`
+(`src/components/shopping/move-item-dialog.tsx`, lazy like the page's other
+dialogs, a bottom sheet on phones): one button per other active list and a
+Cancel. A tap moves at once through the click action
+`moveShoppingListItemAction(itemId, targetListId)` (`item-actions.ts`).
+It `requireHousehold()`s, finds the row through a list in the household,
+refuses a ticked row ("A ticked-off item can't be moved") and takes only an
+`ACTIVE` target in the household other than the row's own list. Then, in
+one transaction:
+
+- **Plain move** (no inventory link, or that item has no unticked row on
+  the target): only `shoppingListId` changes, so note, price and
+  `addedByUserId` travel with the row. Toast "Moved {name} to {list}"; Undo
+  is the same action back to the source list.
+- **Merge** (the item is already unticked on the target, same unit): the
+  target row gets the quantity added and keeps its own note, price and
+  author; the moved row is deleted. The action returns the target row's id
+  and the deleted row's quantity, note, `estimatedPrice`, `addedByUserId`,
+  `addedAutomatically` and `sample`. Toast "Merged {name} into {list}"; Undo calls
+  `undoMergedShoppingListMoveAction`, which checks the source list is the
+  household's and `ACTIVE` and the target row the household's, Zod-validates
+  the values with the edit dialog's bounds, keeps the author only if still
+  a member, and in one transaction subtracts the quantity (a conditional
+  write: the row must be unticked and hold more than that) and recreates
+  the row on the source list with name, unit and link read from the target
+  row and the deleted row's AUTO-8 and sample flags, so AUTO-8's Undo and
+  "Clear sample data" still find it. Otherwise it changes nothing: "That list has changed, so the move
+  can't be undone".
+- **Different unit**: nothing changes and the sheet stays open with "{name}
+  is already on {list} in another unit".
+
+The writes re-check that the moved row is still unticked on its list, and a
+merge's addition re-checks the target row the same way (a miss throws, so
+the transaction rolls the delete back), so a tick on either row landing
+mid-move changes nothing ("Item not found"). A move records no
+LIST_CLEARED notification even when it empties the source: the shopping
+moved, it isn't done. Unit tests: `item-actions.move.test.ts`; flow spec:
+`e2e/shopping-move-item.spec.ts`.
 
 The "Done shopping after Undo leaves a late pending row" spec (MAINT-47) waits
 for each server action's answer before it inserts the late row, because the
@@ -7036,6 +7135,14 @@ answers "what's for dinner?" without opening Cook or Edit.
   row. The Planner tab's week is passed in as `plannerWeekStartKey`, so a
   date in another week gets the "View that week" toast. Covered by
   `e2e/recipe-sheet-plan.spec.ts`.
+- **Linked ingredients (UX-203)**: an ingredient linked to a pantry item
+  is a link to its item page (MATCH-6). A one-per-line list of links isn't
+  running text, so on touch (`max-sm`, `pointer-coarse`) a linked row is a
+  44 px flex row with 8 px between rows (DESIGN.md M3). The link stretches
+  to the row's height and its `::after` covers the whole row, so a tap on
+  the quantity or prep note opens it too, while the link's accessible name
+  stays the ingredient's own. Covered by `e2e/ux-203.spec.ts` (also on the
+  `tablet` project), which measures the open sheet's touch targets.
 
 ### Cook mode (GAP-42)
 
@@ -7443,7 +7550,8 @@ co-managers, not kids earning rewards.
   the time of day never matters; `task-due.test.ts` covers the sort and the
   derived date. Open tasks sort overdue (the longest overdue first), then
   due today, then due later (soonest first), then undated, each tier keeping
-  its oldest-first order, on the tasks page and in Home's Today
+  its oldest-first order (tasks made in the same millisecond by id, so a
+  refresh never swaps them, MAINT-114), on the tasks page and in Home's Today
   card (overdue rows are never cut off by its "N more" limit). An overdue
   open row shows `TaskOverdueBadge`, a `warning`-tinted "Overdue · 5 days"
   with an icon, on both; a one-off with a future date also reads "Due 2 Nov"
@@ -8095,8 +8203,10 @@ needs a pin rather than a fix: `@vercel/cli-config` (under
 `@vercel/functions` > `@vercel/oidc`) pins `zod` to 4.1.11, so
 `package.json` has an `overrides` entry that makes it use the app's `zod`.
 Drop the override once `@vercel/cli-config` ships a patched `zod`. Re-run the
-audit on dependency bumps. `next-auth` is still `5.0.0-beta.32`; there is no
-stable v5, so watch its advisories through MAINT-12's Dependabot config.
+audit on dependency bumps: it was still clean after DEPS-9's grouped
+patch/minor bumps (`next` 16.4.6, `@playwright/test` 1.65.1, `@sentry/nextjs`
+11.12.0 and others), none of which was a security fix. `next-auth` is still
+`5.0.0-beta.32`; there is no stable v5, so watch its advisories through MAINT-12's Dependabot config.
 
 ## Navigation & responsive layout
 
@@ -8583,7 +8693,25 @@ components directly.
   after it is called and the router pushes about 100 ms after Enter, so
   this only showed on a loaded machine; `command-palette.spec.ts` holds
   the palette's `back()` until the router's push to get that order every
-  time.
+  time. Once the app has navigated under a pending back, its further
+  `pushState`/`replaceState` calls wait until the repair has landed and
+  are applied there, and the router, already on that page, isn't handed
+  the pop: the tasks page strips the palette's `?add=1` with a
+  `router.replace` right away, and on a loaded machine that replace came
+  mid-repair, rewrote the entry under the palette and left the repair to
+  land on, and the router to restore, the `?add=1` entry (MAINT-113;
+  the spec also holds the repair's first `forward()` until that replace).
+  The router isn't handed the repair's last pop even when nothing was
+  held: it never saw the back, so it's still on that page, and its
+  restore pre-empts the navigation in flight. The tasks page's strip only
+  writes the URL once the server answers, so a repair landing while that
+  request was out had the restore discard it and the page stayed on
+  `?add=1` (MAINT-118; the spec holds the repair's last `forward()` until
+  the strip's request is sent and slows its answer).
+  If no popstate of the back or its repair arrives for 1 s after a write
+  is held, the back is given up on: the held writes are applied where the
+  browser is and later ones go straight through, so a lost popstate can't
+  freeze the URL for the rest of the session.
   `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
@@ -8630,7 +8758,14 @@ components directly.
   disclosure closed again and a position at the very bottom lands that
   much higher. Covered by `e2e/ux-193.spec.ts` (Profile, with and
   without a hash, cached and fetched again behind a held skeleton),
-  `scroll-memory.test.ts` and `dialog-history.test.ts`.
+  `scroll-memory.test.ts` and `dialog-history.test.ts`. The spec opens
+  the About disclosure only once React owns its summary and the router
+  has patched history: clicked straight after `gotoRevealed`, the
+  `<details>` was found closed again in the hash variants and the What's
+  new link never showed (MAINT-104, fixed in #1456; 240/240 with
+  `--repeat-each=30` on both projects). `ux-76.spec.ts` and
+  `notifications-empty-state.spec.ts` wait the same way before they open
+  Profile's Danger zone.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
   `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
   a long form (the recipe form, add/edit item, receipts) instead of
@@ -8837,7 +8972,16 @@ version or the notes by hand.
   still releases on its own, as below.
 - **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
   typecheck, unit tests and build; PRs into `master` swap the build for
-  the e2e job, which builds once itself. Draft PRs skip e2e. Docs-only
+  the e2e jobs. Those run the `desktop`, `mobile`, `landscape` and
+  `tablet` projects split across three runners (`--shard`, each with its
+  own Postgres and build), since one runner took 32 minutes for the
+  tests while the build is about one. The required `End-to-end
+  (Playwright)` check is a small job that passes only when all three
+  shards did, so the rulesets don't name shards. The `iphone` (WebKit)
+  project isn't in the release gate: `.github/workflows/e2e-nightly.yml`
+  runs the whole suite with WebKit on `next` at 02:17 UTC (and by hand
+  from the Actions tab), and the autopilot reviewer reads its latest
+  result before shipping. Draft PRs skip e2e. Docs-only
   PRs (`*.md`, `docs/`, `.claude/`, `.agents/`) skip both, and a skipped
   job counts as passing for the required checks. A new push cancels the
   PR's running workflow, and nothing runs on push, since every commit
@@ -8862,7 +9006,17 @@ version or the notes by hand.
   The fast CI job also runs `npm audit --omit=dev --audit-level=high`:
   only what ships, and only high or critical advisories, so the moderate
   dev-tool advisories that wait on upstream (typescript-eslint's
-  minimatch, shadcn's deepmerge) don't turn every PR red. Then
+  minimatch, shadcn's deepmerge) don't turn every PR red. It runs through
+  `node scripts/audit.ts`, which reads `npm audit --json` and fails on any
+  such advisory except those in `src/lib/audit-allowlist.ts` (DEPS-10).
+  An entry there is for a high advisory with no patched release to move
+  to, so neither `npm audit fix` nor an `overrides` pin clears it. Each
+  names the GHSA id, why shipping with it is safe, and an expiry date
+  (about three months out) from which CI fails on it again. The first is
+  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), whose latest release 4.0.7 is
+  still affected and whose only production paths are Sentry's build-time
+  Rollup and Vite tooling matching the repo's own globs. The script also
+  prints entries whose advisory is gone, to be deleted. Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
   imports, on unused or unlisted dependencies, and on exports, types and
   duplicate exports no other file imports. Its framework plugins
@@ -9779,7 +9933,10 @@ Todoist-style. Built as one shared wrapper,
   (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
-  `sm` up the icons show as before. Task rows have no ⋯ at all (UX-106):
+  `sm` up the icons show as before, and the ⋯ is hidden unless the row
+  also offers "Move to list…" (GAP-82, below), which has no icon of its
+  own: then it shows at every width, between the edit and delete icons, so
+  delete stays last. Task rows have no ⋯ at all (UX-106):
   the edit sheet has a Delete button instead.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
@@ -10078,6 +10235,20 @@ approximating them, so the email never disagrees with the app.
   Covered by `e2e/meal-planning-field-errors.spec.ts` (recipe form and
   template dialog; the date fields can't be emptied through a controlled date
   input, so they share the hook untested).
+- **An empty custom meal name is flagged under the field (UX-204).** In the
+  Add and Edit meal sheet (`meal-entry-dialog.tsx`), choosing "Custom meal…"
+  and tapping Add or Save with no name no longer posts: the form is
+  `noValidate` while the custom source is chosen and `useRequiredFields`
+  checks `freeformName`, so `mealPlanning.customMealNameRequired` ("Enter a
+  name for the meal") shows right under Meal name (`FieldError`,
+  `role="alert"`), the field gets `aria-invalid`, `aria-describedby` and
+  focus, and the ingredients and note typed so far stay. Typing a name,
+  switching the dish or closing the sheet clears it. Before, the server's
+  form-level "Choose a recipe or enter a meal name" landed under the note
+  field, below the fold of the sheet on a phone. With a recipe chosen the
+  form keeps the browser's own check of the portions number; submitting with
+  nothing chosen still gets the server's form-level message. Covered by
+  `e2e/meal-planning-field-errors.spec.ts`.
 - **Inventory unit dialog errors sit next to the field (UX-183b, fifth
   slice).** The item page's Change unit dialog (`change-unit-dialog.tsx`:
   new unit and factor) and Add/Edit conversion dialog
@@ -10180,6 +10351,8 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+  A trigger that shows a "label: value" pair should size to its content
+  (UX-199) so the ellipsis never eats the value.
 - **200% text size (UX-9)**: with the root font-size doubled (Android "Font
   size", iOS Larger Text in the installed app) no page scrolls sideways on a
   phone. Rows of fixed-width siblings wrap (`flex-wrap`: shopping item
@@ -10444,7 +10617,10 @@ runs after every commit of a list:
   and at the list's next change every row jumped 6% of its offset (37 px
   for the fourteenth task) and glided back, though nothing had moved. A
   tap whose press and release straddled that jump was released over
-  another row and ticked nothing.
+  another row and ticked nothing. Only a ratio within 1e-4 of 1 counts as
+  rounding: at 1e-3 the tail of the ease back (0.99934) was taken as no
+  scale, and every row from the seventh down glided over half a pixel at
+  the next tick (MAINT-116).
 - A new row rises in.
 - A removed row's node is put back in its list, absolutely positioned and
   inert, to fade where it was (not table rows, which don't lay out alone).
@@ -10553,8 +10729,25 @@ delay to 0. Every change happens at once.
 
 `e2e/maint-100.spec.ts` (MAINT-100) adds a task through the sheet with
 four tasks above it, then ticks a task below them all: the ticked row
-glides, and none of the rows above it gets a `flip-move`. `renderedScale`
-is unit-tested.
+glides, and none of the rows above it gets a `flip-move`. It checks its
+own rows by their exact labels and deletes the task it added afterwards:
+a leftover from an earlier run, ticked by another spec, sits under
+Completed and rightly glides (MAINT-111). Its four fillers share one
+`createdAt`, under twenty older open tasks: over a list that long Postgres
+can return tied rows in a new order on each refresh, which glided two
+fillers past each other on the tick until the page ordered ties by id
+(MAINT-114). `renderedScale` is unit-tested.
+
+`e2e/task-tick-undo.spec.ts` (UX-104) ticks each task straight after adding
+it through the sheet, so it first waits for the sheet to be gone, its
+history `back()` to land and the page behind it to finish easing back to
+full size (`waitForSheetClosed` in `e2e/ui.ts`), and for the checkbox to
+be hydrated (MAINT-116). On a loaded run a phone tap straddling a frame of
+that ease was released off the checkbox, the first tick never happened,
+and the task stayed open. `tick-moment`, `dismissed-recaps`, `motion` and
+`flows`, which also tick a task they've just added, wait the same way. The
+all-caught-up test closes the household's other open tasks one at a time,
+each save awaited, and counts only those, never its own row.
 
 Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
 `withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
@@ -10679,15 +10872,39 @@ UX-14's rapid ticks and the rollback toast.
   with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
   one file can now run at the same time; and it sets up what it needs
   rather than counting on another spec having run first, and cleans up
-  only inside its own `E2E_HOUSEHOLD`. That took the suite from 10.1
+  only inside its own `E2E_HOUSEHOLD`. Every later spec on a worker sees
+  what an earlier one left in that household, so a spec that plans a meal
+  in a far-future week takes a week no other spec opens and deletes that
+  week's plan after the test (MAINT-106: `ux-19.mobile.spec.ts` left a meal
+  in 2031-03-03, the week `native-sheets.spec.ts` and
+  `planner-add-missing.spec.ts` open as empty, and both then timed out
+  waiting for an "Add first dinner" that never rendered). "No other spec"
+  includes a spec's own other project: desktop and mobile share a worker's
+  household and run at the same time, so a seeded `MealPlan` in a week
+  another spec also seeds can hit the `(householdId, weekStartDate)` key
+  mid-run (MAINT-115: `meal-planning-field-errors.spec.ts` shared four 2032
+  Mondays with `week-picks.spec.ts`, and now seeds 2019 weeks instead,
+  out of reach of the random far-future weeks other specs pick). A spec
+  that wants a random far-off week takes it from `farDay()` in
+  `e2e/far-weeks.ts`, never from an offset of its own: each such spec
+  owns a fixed band of 300 weeks (the first starts on 2036-01-07, the
+  last ends in 2093), absolute rather than counted from today, so the
+  bands never overlap each other or drift onto the weeks specs pick by
+  hand, which all sit in 2019, 2030-2034 or 2199 (MAINT-117:
+  `plan-leftovers.spec.ts`'s random 1-14 years ahead put a cooked dinner
+  in `ux-19.mobile.spec.ts`'s 2031-06-02, and ux-19 timed out waiting for
+  "Add first dinner"). A new hand-picked week stays out of 2036-2093, and
+  a new spec that needs a random far-off week adds its name to the list
+  there. That took the suite from 10.1
   minutes (`workers: 1`) to 5.6 on 4 cores. More workers don't help:
   the single `next start` process is the bottleneck (4 workers: 5.4
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
-  login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
-  with a Postgres service container, running on PRs into `master` (the
+  login callback. `.github/workflows/ci.yml` runs it in three `--shard`
+  jobs, each with a Postgres service container, on PRs into `master` (the
   release PR, see "Releases & What's new"; `ci_gate: github` in
-  AUTOPILOT.md). `npm run ci:local`
+  AUTOPILOT.md), without the `iphone` project; `e2e-nightly.yml` runs
+  all of it, WebKit included, on `next` every night. `npm run ci:local`
   (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
@@ -10703,9 +10920,22 @@ UX-14's rapid ticks and the rollback toast.
   overflow and with 44 px touch targets (UX-8), every sidebar control
   reachable by scrolling the aside, back-links on one line, 16 px fields).
   A fifth, `iphone` (WebKit, iPhone 15; UX-32), runs `smoke.spec.ts`,
-  `flows.spec.ts` and `form-control-sizes.mobile.spec.ts` (the 16 px
-  field-zoom check iOS needs) to catch iOS Safari differences. It exists
-  only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
+  `flows.spec.ts`, `form-control-sizes.mobile.spec.ts` (the 16 px
+  field-zoom check iOS needs) and `command-palette.spec.ts` to catch iOS
+  Safari differences. The palette spec is there for its MAINT-103 and
+  MAINT-113 tests, which hold the dialog's `history.back()` until the
+  router has pushed, so the repair in `dialog-history.ts` is exercised in
+  WebKit's history as well as Chromium's (MAINT-107). Confirmed on
+  GitHub: all eight `[iphone] › e2e/command-palette.spec.ts` tests,
+  the two repair tests among them, passed on the first attempt (none
+  flaky or retried) in every release PR `End-to-end (Playwright)` job
+  that ran after #1533 added the spec to `iphone`: #1535 (job
+  133885965621), #1542 (133973716804), #1548 (134073930596) and #1555
+  (134225144476), 32 of 32 on 2026-11-17 (#1553's e2e job was skipped). WebKit still can't be downloaded in the
+  autopilot's build container, so GitHub is where it runs: since
+  November 2026 in the nightly full run (`e2e-nightly.yml`), not the
+  release PR's sharded gate. It exists
+  only when `E2E_WEBKIT=1`: that workflow sets it after `npx playwright
   install --with-deps webkit`, and the `ci:local` gate skips the project
   unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
   config prints a warning once and leaves the project out, so runs without
@@ -10802,7 +11032,12 @@ UX-14's rapid ticks and the rollback toast.
   `router.push` after a dialog closes waits the same way (the cached-page
   test in `flows.spec.ts`, MAINT-101): the back would undo the push and
   leave `dialog-history.ts` to step forward onto it again, which is not
-  what that test is about. A CSS
+  what that test is about. A push to a page that isn't prefetched keeps
+  the old page and URL until that page's server render arrives, which a
+  cold WebKit on a loaded runner can take longer than 5 s to get, so the
+  same test first waits for the push's RSC request (a push that never
+  goes out fails there, by name) and then for the new page's heading
+  with 20 s, and only then checks the URL (MAINT-112). A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing
@@ -10827,6 +11062,13 @@ UX-14's rapid ticks and the rollback toast.
   `expectHydrated` on "Add first dinner". One 20 s poll straight after
   `goto` covered the stream, the reveal and both hydrations, and ran out
   twice in a locked `ci:local` run (MAINT-98).
+  `openRowSheet` (a planner meal's or a recipe's sheet) waits for the
+  row to be hydrated and for `expectRouterPatched` before it taps, since
+  most callers reach it straight after a plain `goto`: on a loaded run
+  the Bread row of `recipe-ingredients.spec.ts`'s unit-memory test,
+  tapped that way on the phone project, never showed its sheet
+  (MAINT-119). That test also waits out the save's `history.back()`
+  (`waitForDialogHistory`) before its `goto` to the planner.
   A helper that presses a toggle until a dialog shows checks that the
   dialog is open (`data-open` on the Base UI popup), not just visible. A
   closing sheet stays visible while it slides out, long enough on a phone
