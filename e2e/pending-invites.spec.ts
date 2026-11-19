@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import {
   dismissCookieNotice,
@@ -101,4 +101,51 @@ test("a pending invite is listed and closing it stops the link working", async (
 
   await page.goto(`/join/${INVITE_ID}-token`);
   await expect(page.getByText(/invalid or has expired/)).toBeVisible();
+});
+
+// UX-206 in Swedish: the confirm dialog's title, description, Cancel and
+// pending label come from sv.ts, so a key missing or left in English there
+// fails here. The page's language follows the signed-in user, not only the
+// cookie, so this runs as the worker's Swedish member.
+test.describe("sv", () => {
+  test.use({ storageState: STORAGE_STATE_SV });
+
+  test("closing a pending invite asks first, in Swedish", async ({ page }) => {
+    const inviter = await withDb((c) => c.query(`SELECT "displayName" FROM "User" WHERE id = $1`, [E2E_USER.id]));
+    const inviterName: string = inviter.rows[0].displayName;
+    await gotoRevealed(page, "/dashboard/household");
+    await expect(page.getByRole("heading", { name: "Väntande inbjudningar" })).toBeVisible();
+
+    const closeButtons = page.getByRole("button", { name: `Stäng inbjudan skapad av ${inviterName}` });
+    const close = closeButtons.first();
+    await expectHydrated(close);
+    await expectRouterPatched(page);
+    const listed = await closeButtons.count();
+
+    const dialog = page.getByRole("alertdialog", { name: "Stänga inbjudan?" });
+    await close.click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText(`Inbjudan skapad av ${inviterName}`);
+    await expect(dialog).toContainText("slutar fungera för den som har länken");
+    await expectNoHorizontalOverflow(page);
+    await dialog.getByRole("button", { name: "Avbryt" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(closeButtons).toHaveCount(listed);
+    await waitForDialogHistory(page);
+
+    await close.click();
+    await expect(dialog).toBeVisible();
+    const held = await holdServerActions(page, "/dashboard/household");
+    await dialog.getByRole("button", { name: "Stäng inbjudan" }).click();
+    await expect(dialog.getByRole("button", { name: "Stänger…" })).toBeDisabled();
+    held.release();
+    await expect(page.getByText("Inbjudan stängd")).toBeVisible();
+    await expect(closeButtons).toHaveCount(listed - 1);
+
+    await waitForDialogHistory(page);
+    await gotoRevealed(page, "/dashboard/household");
+    await expect(closeButtons).toHaveCount(listed - 1);
+    const rows = await withDb((c) => c.query(`SELECT 1 FROM "Invitation" WHERE id = $1`, [INVITE_ID]));
+    expect(rows.rowCount).toBe(0);
+  });
 });
