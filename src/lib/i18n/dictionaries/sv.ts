@@ -358,6 +358,11 @@ export const sv = {
       revokeAriaLabel: "Stäng inbjudan skapad av {name}",
       revoked: "Inbjudan stängd",
       revokeFailed: "Det gick inte att stänga inbjudan",
+      revoking: "Stänger…",
+      revokeConfirmTitle: "Stänga inbjudan?",
+      revokeConfirmDescription:
+        "Inbjudan skapad av {name}, som går ut {date}, slutar fungera för den som har länken. Vill du bjuda in personen senare måste du skicka en ny.",
+      revokeConfirmCancel: "Avbryt",
       unknownInviter: "en tidigare medlem",
     },
     title: "Hushåll",

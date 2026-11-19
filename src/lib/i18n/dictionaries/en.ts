@@ -397,6 +397,11 @@ export const en = {
       revokeAriaLabel: "Close invite created by {name}",
       revoked: "Invite closed",
       revokeFailed: "Could not close the invite",
+      revoking: "Closing…",
+      revokeConfirmTitle: "Close this invite?",
+      revokeConfirmDescription:
+        "The invite created by {name}, expiring {date}, stops working for whoever has the link. To invite them later you'll need to send a new one.",
+      revokeConfirmCancel: "Cancel",
       unknownInviter: "a former member",
     },
     title: "Household",

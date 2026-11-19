@@ -2,7 +2,15 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
+import {
+  dismissCookieNotice,
+  expectHydrated,
+  expectNoHorizontalOverflow,
+  expectRouterPatched,
+  gotoRevealed,
+  holdServerActions,
+  waitForDialogHistory,
+} from "./ui";
 
 // SEC-4: the Household page lists unused invites and a member can close one.
 // The row is inserted directly (the invite dialog already has its own specs)
@@ -43,7 +51,10 @@ test("a pending invite is listed and closing it stops the link working", async (
   await gotoRevealed(page, "/dashboard/household");
   await expect(page.getByRole("heading", { name: "Pending invites" })).toBeVisible();
 
-  const close = page.getByRole("button", { name: `Close invite created by ${inviterName}` }).first();
+  // Other specs in this worker can leave invites by the same member, so the
+  // rows are checked by count. Ours is the newest, so it's listed first.
+  const closeButtons = page.getByRole("button", { name: `Close invite created by ${inviterName}` });
+  const close = closeButtons.first();
   await expectHydrated(close);
   await expectNoHorizontalOverflow(page);
 
@@ -54,11 +65,37 @@ test("a pending invite is listed and closing it stops the link working", async (
   await expect(page.getByText(/invalid or has expired/)).toHaveCount(0);
   await gotoRevealed(page, "/dashboard/household");
   await expectHydrated(close);
+  await expectRouterPatched(page);
 
+  const listed = await closeButtons.count();
+
+  // UX-206: the tap asks first, naming the invite, and Cancel keeps it.
+  const dialog = page.getByRole("alertdialog", { name: "Close this invite?" });
   await close.click();
-  await expect(page.getByText("Invite closed")).toBeVisible();
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(`created by ${inviterName}`);
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(closeButtons).toHaveCount(listed);
+  // Let the closed dialog's history entry settle before reopening it.
+  await waitForDialogHistory(page);
 
-  await page.reload();
+  // Confirm shows the pending label while the action is held, then the row
+  // goes and stays gone after a reload.
+  await close.click();
+  await expect(dialog).toBeVisible();
+  const held = await holdServerActions(page, "/dashboard/household");
+  await dialog.getByRole("button", { name: "Close invite" }).click();
+  await expect(dialog.getByRole("button", { name: "Closing…" })).toBeDisabled();
+  held.release();
+  await expect(page.getByText("Invite closed")).toBeVisible();
+  await expect(closeButtons).toHaveCount(listed - 1);
+
+  await waitForDialogHistory(page);
+  // A fresh load, revealed in full, so a missing row isn't just one still
+  // streaming in.
+  await gotoRevealed(page, "/dashboard/household");
+  await expect(closeButtons).toHaveCount(listed - 1);
   const rows = await withDb((c) => c.query(`SELECT 1 FROM "Invitation" WHERE id = $1`, [INVITE_ID]));
   expect(rows.rowCount).toBe(0);
 
