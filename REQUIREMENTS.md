@@ -5387,6 +5387,18 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
 - **Weekly planner**: a Monday-start week grid (one card per day, one slot
   per `MealType`) addressed by a `?week=yyyy-mm-dd` search param on
   `/dashboard/meal-planning` (default: the Monday of the current week).
+  **Code layout (MAINT-109).** `WeekPlanner` (`week-planner.tsx`) wires
+  the planner together and owns the week bar, its ⋯ menu and the dialogs
+  that menu opens. Beside it in `src/components/meal-planning/`:
+  `week-planner-helpers.ts` (the week's days, what's planned on them,
+  empty days, free dinners, a day's open slot, the week range label and
+  `copyLastWeek`, unit tested in `week-planner-helpers.test.ts`),
+  `use-week-picks.ts` (the tray's state and its place, spread, remove,
+  cook, back-to-picks, move and drag actions) with `week-picks-dialogs.tsx`,
+  `use-meal-selection.ts` (Select mode), `use-pending-removals.ts` (the
+  deletes waiting out an Undo window), `week-day-card.tsx` (one day),
+  `meal-entry-row.tsx` (a planned meal and its sheet) and
+  `add-meal-slot.tsx` (a day's "+ Add meal").
   Every date — the param, `MealPlan.weekStartDate`, and `MealPlanEntry.date`
   — is normalized to UTC midnight (`src/app/dashboard/meal-planning/date-utils.ts`)
   so it round-trips through the URL and Postgres without local-timezone
@@ -5446,7 +5458,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   snacks), matching the schema.
 - **Copy last week** (BACKLOG GAP-23): an empty week's planner ⋯ menu
   shows a "Copy last week" item (`copyLastWeek` in
-  `week-planner.tsx`) that calls `copyWeekAction(fromWeekStart,
+  `week-planner-helpers.ts`) that calls `copyWeekAction(fromWeekStart,
   toWeekStart)` in `planner-actions.ts` as a click action. Both keys are
   Zod-validated as `yyyy-mm-dd` Mondays and must differ; the household
   comes from `requireHousehold()` as always. The action reads the source
@@ -7776,6 +7788,19 @@ from a pure list/calendar app; this is the minimal version of it.
   kept), the author's display name (or "Former member") and the date, with
   the year only when it isn't the current one. Add, pin and delete — no
   edit or rich text.
+- **Dropped requests** (UX-205, M8): a request that never arrives (offline,
+  a flaky mobile connection) is caught on Add note, Pin and Delete and
+  shown as the `notes.saveFailed` toast instead of reaching the dashboard
+  error boundary. The board stays on screen, the typed note stays in the
+  field and the field isn't marked invalid; Delete's confirm dialog stays
+  open for a retry. More generally, the shared `ConfirmDialog` catches a
+  throwing `onConfirm` itself: it toasts the text the dashboard layout
+  gives it through `ConfirmDialogFailedMessage` (`errors.requestFailed`,
+  "That didn't go through…") and stays open, so all of its call sites are
+  covered. A call site that already turns a throw into an `{ error }` (as
+  the notes board and `settleDelete` do) gets only its own toast. A
+  redirect or not-found signal is re-thrown (`unstable_rethrow`) so the
+  router still handles an expired session. `e2e/ux-205.spec.ts`.
 - **Pinning** (GAP-61): `HouseholdNote.pinnedAt DateTime?` (migration
   `20261030090000_household_note_pinned_at`), null = not pinned. A lasting
   fact (the wifi code, "allergic to nuts") shouldn't sink under daily
@@ -10908,7 +10933,11 @@ UX-14's rapid ticks and the rollback toast.
   and get their worker's. Outside a worker those resolve to worker 0, so
   a test title never contains one (`smoke.spec.ts` titles pages by route
   pattern, and screenshots are named by pattern too). Tests inside a
-  file still run in order. A spec names the rows it creates uniquely,
+  file still run in order. A spec names the rows it creates uniquely
+  (a name typed into smart-add ends its random suffix in a letter, since
+  smart-add reads a trailing `x58` as a quantity; MAINT-83: the
+  never-stocked spec's `Napkins <id>` row now and then saved as
+  `Napkins … × 58 pcs` and its checkbox never showed),
   with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
   one file can now run at the same time; and it sets up what it needs
   rather than counting on another spec having run first, and cleans up

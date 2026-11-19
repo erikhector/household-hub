@@ -28,6 +28,8 @@ export const en = {
   // keys, resolved through zodFail() in lib/actions/errors.ts, so each language is chosen per request.
   errors: {
     generic: "Something went wrong. Please try again.",
+    // UX-205: a confirmed action whose request dropped (ConfirmDialog).
+    requestFailed: "That didn't go through. Check your connection and try again.",
     invalidInput: "Invalid input",
     invalidValue: "Invalid value",
     invalidField: "Invalid field",
@@ -550,6 +552,8 @@ export const en = {
       add: "Add note",
       adding: "Adding…",
       addedToast: "Note added",
+      // UX-205: a dropped add, pin or delete request.
+      saveFailed: "Couldn't save that. Check your connection and try again.",
       emptyState: "No notes yet.",
       formerMember: "Former member",
       byline: "{name} · {date}",

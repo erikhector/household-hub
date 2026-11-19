@@ -157,7 +157,7 @@ export function PlanPortionsDialog({
   }
 
   const weekStart = parseDateKey(weekStartKey);
-  // Formatted in UTC like the planner's own week range (week-planner.tsx,
+  // Formatted in UTC like the planner's own week range (week-planner-helpers.ts,
   // UX-15/UX-32): date keys are UTC midnights, and Node and Safari disagree
   // on the spaces around the dash.
   const weekRange = new Intl.DateTimeFormat(locale, {

@@ -8,7 +8,16 @@
 // call site only needs to swap its existing instant-delete button for
 // `trigger` and move the actual delete call into `onConfirm`.
 
-import { useState, useTransition, type ReactElement, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useTransition,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +31,18 @@ import {
   type DialogHandle,
 } from "@/components/ui/dialog";
 import { PendingLabel } from "@/components/ui/pending-label";
+
+/**
+ * What to toast when `onConfirm` throws instead of returning (UX-205: a
+ * dropped request, offline or on a flaky mobile connection). The dashboard
+ * layout passes its generic "something went wrong" string once, so none of
+ * the call sites needs a copy of its own and the primitive no hardcoded
+ * text. Without a provider a throw propagates as before.
+ */
+const FailedMessageContext = createContext<string | null>(null);
+export function ConfirmDialogFailedMessage({ message, children }: { message: string; children: ReactNode }) {
+  return <FailedMessageContext.Provider value={message}>{children}</FailedMessageContext.Provider>;
+}
 
 export function ConfirmDialog({
   trigger,
@@ -61,15 +82,29 @@ export function ConfirmDialog({
   children?: ReactNode;
   /** May return an `{ error?: string }`-shaped result (this app's usual
    * server action return type) — a truthy `error` is toasted and the
-   * dialog stays open so the user can retry; anything else closes it. */
+   * dialog stays open so the user can retry; anything else closes it. A
+   * throw (a dropped request) is treated like an error: the
+   * ConfirmDialogFailedMessage text is toasted and the dialog stays open. */
   onConfirm: () => Promise<{ error?: string } | void> | void;
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const failedMessage = useContext(FailedMessageContext);
 
   function handleConfirm() {
     startTransition(async () => {
-      const result = await onConfirm();
+      let result: { error?: string } | void;
+      try {
+        result = await onConfirm();
+      } catch (error) {
+        // A redirect (expired session) or notFound still goes to the router;
+        // with no message to show, the throw reaches the error boundary as
+        // it always did.
+        unstable_rethrow(error);
+        if (failedMessage === null) throw error;
+        toast.error(failedMessage);
+        return;
+      }
       if (result?.error) {
         toast.error(result.error);
         return;
