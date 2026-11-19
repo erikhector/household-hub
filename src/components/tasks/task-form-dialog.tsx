@@ -44,7 +44,8 @@ import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 import { createTaskAction, updateTaskAction } from "@/app/dashboard/tasks/actions";
 import type { ActionState } from "@/lib/actions/auth";
 import { MIN_ROTATION_MEMBERS } from "@/lib/task-rotation";
-import { format, plural } from "@/lib/i18n/format";
+import { format } from "@/lib/i18n/format";
+import { RECURRENCE_OPTION_DAYS, recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MemberOption = { id: string; displayName: string };
@@ -75,7 +76,6 @@ const NOTES_MAX_LENGTH = 500;
 const NOTES_COUNTER_FROM = 450;
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_REPEAT_VALUE = "__no_repeat__";
-const RECURRENCE_OPTION_DAYS = [1, 2, 3, 7] as const;
 
 export function TaskFormDialog({
   mode,
@@ -338,7 +338,7 @@ export function TaskFormDialog({
                   {(v: string) =>
                     v === NO_REPEAT_VALUE || v === ""
                       ? dict.noRepeatOption
-                      : format(plural(Number(v), dict.recurrenceOption), { count: Number(v) })
+                      : recurrenceText(Number(v), dict.recurrenceOption, dict.recurrenceNamedOption)
                   }
                 </SelectValue>
               </SelectTrigger>
@@ -346,7 +346,7 @@ export function TaskFormDialog({
                 <SelectItem value={NO_REPEAT_VALUE}>{dict.noRepeatOption}</SelectItem>
                 {RECURRENCE_OPTION_DAYS.map((days) => (
                   <SelectItem key={days} value={String(days)}>
-                    {format(plural(days, dict.recurrenceOption), { count: days })}
+                    {recurrenceText(days, dict.recurrenceOption, dict.recurrenceNamedOption)}
                   </SelectItem>
                 ))}
               </SelectContent>
