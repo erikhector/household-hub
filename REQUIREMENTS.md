@@ -10893,7 +10893,11 @@ UX-14's rapid ticks and the rollback toast.
   and get their worker's. Outside a worker those resolve to worker 0, so
   a test title never contains one (`smoke.spec.ts` titles pages by route
   pattern, and screenshots are named by pattern too). Tests inside a
-  file still run in order. A spec names the rows it creates uniquely,
+  file still run in order. A spec names the rows it creates uniquely
+  (a name typed into smart-add ends its random suffix in a letter, since
+  smart-add reads a trailing `x58` as a quantity; MAINT-83: the
+  never-stocked spec's `Napkins <id>` row now and then saved as
+  `Napkins … × 58 pcs` and its checkbox never showed),
   with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
   one file can now run at the same time; and it sets up what it needs
   rather than counting on another spec having run first, and cleans up
