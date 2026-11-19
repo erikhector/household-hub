@@ -561,6 +561,62 @@ meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
 cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
 installed here), and dark was not looked at (no project renders it).
 
+### UX (2026-11-19 scout)
+
+Thursday area: tasks, household, members and invites. Swept `desktop`,
+`mobile`, `landscape`, `tablet`, `small-phone`, `light`, `text-200` and
+both dialog sweeps; all 290 + 132 tests pass, and the only audit hits are
+the known `text-200` bottom-bar truncations (UX-150), the hidden "Invite
+member" button and the sheet grabber. The deep dive drove the add-task
+sheet (empty submit, an 89-character Swedish title), the edit sheet, tick
+and Undo, a tick while offline, the three Household tabs, adding and
+pinning a note (online and offline), the invite dialog and closing a
+pending invite, on Pixel 7 and at 320 px. Tasks hold up: errors sit by
+the field, Save stays reachable and an offline tick rolls back with a
+toast. The household notes board and the pending-invites list don't.
+WebKit was not run (no browser installed here), and the audit config
+still needs an uncommitted `executablePath` copy to launch Chromium.
+
+- [ ] **UX-205. Keep the notes board on screen when a request drops** (impact: high, effort: S) —
+      On `/dashboard/household?tab=notes` at 320 px and on Pixel 7,
+      going offline and tapping Pin, or typing a note and tapping Add
+      note, replaces the whole page with the dashboard error boundary
+      ("You're offline"). The typed note is gone after Try again
+      (`s320-offline-note-add.png`). `togglePin`
+      (`household-notes.tsx:51`) and the `useActionState` handler
+      (`household-notes.tsx:57`) await the action with no `try/catch`,
+      and the shared `ConfirmDialog.handleConfirm`
+      (`ui/confirm-dialog.tsx:70`), which the note's Delete goes
+      through, doesn't catch either. Breaks M8 (an interruption loses
+      nothing) and M5, and it's the gap UX-182 closed for the member
+      actions and the invite email. Catch a thrown action in all three
+      and toast a new `notes.saveFailed` (en + sv). In `ConfirmDialog`,
+      toast a generic failure and keep the dialog open, which fixes
+      every one of its 14 callers. Keep the typed body.
+      Acceptance: an e2e spec (`mobile` and `desktop`) types a note,
+      goes offline with `context.setOffline(true)` and taps Add note,
+      then Pin on an existing note, then Delete and confirm. After each
+      step the Notes heading is still visible, an error toast shows and
+      the textarea still holds the typed text.
+- [ ] **UX-206. Ask before closing a pending invite, and show which one is closing** (impact: med, effort: S) —
+      In the Members tab's "Pending invites" (Pixel 7 and 320 px), one
+      tap on "Close invite" deletes the invitation at once, with no
+      confirm and no Undo (`s320-close-invite-click.png`: the toast
+      already says "Invite closed"). A link someone was about to open
+      stops working and can't be got back. Only a new invite fixes it,
+      and that has to be re-sent. Shopping's "Revoke link" asks first
+      (UX-201, `share-list-button.tsx:111`), so this breaks Consistency
+      and User control. While it runs, every row's button just goes
+      disabled (`pending-invites.tsx:69`), with no pending label on the
+      one tapped (M5). Route the click through `ConfirmDialog`
+      ("Close this invite?", saying the link stops working for whoever
+      has it) with `pendingLabel`, keep the success toast, and add the
+      strings in en + sv.
+      Acceptance: in `pending-invites.spec.ts` (`mobile` and `desktop`),
+      tapping "Close invite" opens a dialog and the invite is still
+      listed after Cancel. Confirm shows the pending label, then the
+      row disappears and stays gone after a reload.
+
 ---
 
 ## Phase 2 — schema changes, one at a time
