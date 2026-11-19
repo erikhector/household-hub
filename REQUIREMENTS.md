@@ -5372,6 +5372,18 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
 - **Weekly planner**: a Monday-start week grid (one card per day, one slot
   per `MealType`) addressed by a `?week=yyyy-mm-dd` search param on
   `/dashboard/meal-planning` (default: the Monday of the current week).
+  **Code layout (MAINT-109).** `WeekPlanner` (`week-planner.tsx`) wires
+  the planner together and owns the week bar, its ⋯ menu and the dialogs
+  that menu opens. Beside it in `src/components/meal-planning/`:
+  `week-planner-helpers.ts` (the week's days, what's planned on them,
+  empty days, free dinners, a day's open slot, the week range label and
+  `copyLastWeek`, unit tested in `week-planner-helpers.test.ts`),
+  `use-week-picks.ts` (the tray's state and its place, spread, remove,
+  cook, back-to-picks, move and drag actions) with `week-picks-dialogs.tsx`,
+  `use-meal-selection.ts` (Select mode), `use-pending-removals.ts` (the
+  deletes waiting out an Undo window), `week-day-card.tsx` (one day),
+  `meal-entry-row.tsx` (a planned meal and its sheet) and
+  `add-meal-slot.tsx` (a day's "+ Add meal").
   Every date — the param, `MealPlan.weekStartDate`, and `MealPlanEntry.date`
   — is normalized to UTC midnight (`src/app/dashboard/meal-planning/date-utils.ts`)
   so it round-trips through the URL and Postgres without local-timezone
@@ -5431,7 +5443,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   snacks), matching the schema.
 - **Copy last week** (BACKLOG GAP-23): an empty week's planner ⋯ menu
   shows a "Copy last week" item (`copyLastWeek` in
-  `week-planner.tsx`) that calls `copyWeekAction(fromWeekStart,
+  `week-planner-helpers.ts`) that calls `copyWeekAction(fromWeekStart,
   toWeekStart)` in `planner-actions.ts` as a click action. Both keys are
   Zod-validated as `yyyy-mm-dd` Mondays and must differ; the household
   comes from `requireHousehold()` as always. The action reads the source

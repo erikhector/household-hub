@@ -1,30 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
-import { unstable_rethrow } from "next/navigation";
-import { toast } from "sonner";
-import { ArrowRightLeft, BookmarkPlus, CalendarPlus, ChefHat, CheckCircle2, ChevronRight, Copy, CookingPot, LayoutTemplate, ListChecks, ListPlus, Loader2, MoreHorizontal, Pencil, Plus, StickyNote, Trash2, Undo2, Unlink, Utensils } from "lucide-react";
-import { cn } from "cn";
-import { Badge } from "@/components/ui/badge";
-import { MissingDietBadges } from "@/components/meal-planning/missing-diet-badges";
+import { useEffect, useState, useTransition } from "react";
+import { BookmarkPlus, CalendarPlus, Copy, LayoutTemplate, ListChecks, ListPlus, MoreHorizontal } from "lucide-react";
 import type { RecipeTag } from "@/lib/recipe-tags";
 import { Button } from "@/components/ui/button";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
-import { createDeferredDelete, type DeferredDelete } from "@/components/shared/deferred-delete";
-import { Checkbox } from "@/components/ui/checkbox";
-import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
-import {
-  createDialogHandle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  type DialogHandle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,44 +13,34 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PeriodSwitcher } from "@/components/period-switcher";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
-import { LazyDialog, openLazyDialog, preloadOnIntent } from "@/components/ui/lazy-dialog";
+import { LazyDialog } from "@/components/ui/lazy-dialog";
 import {
   loadAddToPlanDialog,
-  loadCookModeDialog,
   loadFillEmptyDaysDialog,
   loadSaveWeekTemplateDialog,
   loadPlanFromTemplateDialog,
-  loadMarkCookedDialog,
-  loadMealEntryDialog,
   loadMissingIngredientsDialog,
-  loadMoveMealDialog,
-  loadPickMealsDialog,
-  loadPlacePickDialog,
-  loadSpreadPicksDialog,
 } from "@/components/meal-planning/lazy-dialogs";
-import { usePointerPlanning, WeekPicksTray } from "@/components/meal-planning/week-picks-tray";
-import {
-  placePickAction,
-  placePicksAction,
-  removePickAction,
-  unplaceEntriesAction,
-} from "@/app/dashboard/meal-planning/pick-actions";
-import type { Weekday } from "@/lib/week-picks-spread";
+import { WeekPicksTray } from "@/components/meal-planning/week-picks-tray";
 import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
 import type { PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
 import { MealPlanSearch } from "@/components/meal-planning/meal-plan-search";
 import { BulkMealBar } from "@/components/meal-planning/bulk-meal-bar";
-import { bulkEditMealEntriesAction } from "@/app/dashboard/meal-planning/bulk-meal-actions";
+import { AddMealSlot } from "@/components/meal-planning/add-meal-slot";
+import { WeekDayCard } from "@/components/meal-planning/week-day-card";
+import { WeekPicksDialogs } from "@/components/meal-planning/week-picks-dialogs";
+import { useMealSelection } from "@/components/meal-planning/use-meal-selection";
+import { usePendingRemovals } from "@/components/meal-planning/use-pending-removals";
+import { useWeekPicks } from "@/components/meal-planning/use-week-picks";
 import {
-  copyWeekAction,
-  deleteMealEntryAction,
-  moveMealEntryAction,
-  undoCopyWeekAction,
-} from "@/app/dashboard/meal-planning/planner-actions";
-import { unassignBatchPortionAction } from "@/app/dashboard/meal-planning/prep-actions";
-import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
+  buildWeek,
+  copyLastWeek,
+  formatWeekRange,
+  TODAY_CARD_ID,
+  type MealPlanningDict,
+} from "@/components/meal-planning/week-planner-helpers";
 import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { format, plural } from "@/lib/i18n/format";
+import { format } from "@/lib/i18n/format";
 import type {
   ActiveShoppingListOption,
   MealPlanEntryData,
@@ -79,74 +49,14 @@ import type {
   RecipeData,
   WeekPickData,
 } from "@/components/meal-planning/types";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 
-type MealPlanningDict = Dictionary["mealPlanning"];
-
-const weekdayKeys = [
-  "weekdayMon",
-  "weekdayTue",
-  "weekdayWed",
-  "weekdayThu",
-  "weekdayFri",
-  "weekdaySat",
-  "weekdaySun",
-] as const satisfies readonly (keyof MealPlanningDict)[];
-
-type MealTypeLabelKey = "mealTypeBreakfast" | "mealTypeLunch" | "mealTypeDinner" | "mealTypeSnack";
-
-const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
-  BREAKFAST: "mealTypeBreakfast",
-  LUNCH: "mealTypeLunch",
-  DINNER: "mealTypeDinner",
-  SNACK: "mealTypeSnack",
-};
-
-// The desktop grid (`auto-fit,minmax(16rem,1fr)`) shows every day side by
-// side, but on a phone-width viewport the same grid stacks into one column,
-// so today's card used to be several screens below the fold (D8 in
-// docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md). UX-21 replaced the "Jump to
-// today" button with scrolling there on load.
-const TODAY_CARD_ID = "meal-planner-today-card";
-
-// GAP-23: only offered on an empty week, which is exactly when a household
-// sitting down to plan would reach for it. On a partly filled week the
-// action would still work (it skips filled slots), but a menu item that
-// silently copies "around" existing meals is harder to predict. The Undo
-// takes back exactly the entries this copy wrote, by id.
-function copyLastWeek(
-  dict: MealPlanningDict,
-  weekStartKey: string,
-  prevWeekKey: string,
-  startTransition: (callback: () => Promise<void>) => void,
-) {
-  startTransition(async () => {
-    const result = await copyWeekAction(prevWeekKey, weekStartKey);
-    if (result.error) {
-      toast.error(result.error);
-      return;
-    }
-    const entryIds = result.entryIds ?? [];
-    if (entryIds.length === 0) {
-      toast(dict.copyLastWeekNothingToast);
-      return;
-    }
-    toast.success(format(plural(entryIds.length, dict.copyLastWeekToast), { count: entryIds.length }), {
-      duration: 8000,
-      action: {
-        label: dict.copyLastWeekUndo,
-        onClick: () => {
-          void undoCopyWeekAction(entryIds).then((undoResult) => {
-            if (undoResult.error) toast.error(undoResult.error);
-            else toast.success(dict.copyLastWeekUndoneToast);
-          });
-        },
-      },
-    });
-  });
-}
-
+// MAINT-109: the planner's parts live beside it. week-planner-helpers.ts
+// has the week's pure maths, use-week-picks.ts the tray's state and its
+// place/move/drag actions (with week-picks-dialogs.tsx), use-meal-selection.ts
+// Select mode, week-day-card.tsx one day, and meal-entry-row.tsx and
+// add-meal-slot.tsx the rows inside it. This file wires them together and
+// owns the week bar, its ⋯ menu and the dialogs that menu opens.
 export function WeekPlanner({
   dict,
   locale,
@@ -194,34 +104,13 @@ export function WeekPlanner({
   // cooked row, because that row stops rendering MarkCookedDialog the moment
   // the meal counts as cooked.
   const [leftoversPlan, setLeftoversPlan] = useState<PlanLeftoversRequest | null>(null);
-  // GAP-56: Select mode. The selection is ids, resolved against what's on
-  // screen below, so a week change or a meal cooked elsewhere can't leave a
-  // stale row selected. A bulk Remove hides its rows at once (hiddenIds) and
-  // sends the delete when its Undo toast closes, like a single Remove meal.
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
-  const pendingRemovals = useRef<DeferredDelete[]>([]);
-  const entries = allEntries.filter((entry) => !hiddenIds.has(entry.id));
-  const selectedEntries = entries.filter((entry) => selectedIds.has(entry.id) && !entry.consumedAt);
+  // A bulk Remove's and a removed pick's deletes, sent when their Undo
+  // window closes or the page is left.
+  const pendingRemovals = usePendingRemovals();
+  const selection = useMealSelection(dict, allEntries, pendingRemovals);
+  const { entries, selectMode, selectedIds, selectedEntries, exitSelectMode } = selection;
   const weekStart = parseDateKey(weekStartKey);
-  const weekEnd = addDays(weekStart, 6);
-  // UX-15: "28 sep.–4 okt. 2026" in sv, "Sep 28 – Oct 4, 2026" in en —
-  // formatRange drops the repeated month/year itself. parseDateKey gives UTC
-  // midnight, so formatting in UTC names the same days on the server and in
-  // every browser (no hydration mismatch, no off-by-one west of Greenwich).
-  // The spacing around the dash is engine-specific: Node's ICU writes thin
-  // spaces ("Oct 12\u2009–\u200918") where Safari writes plain ones, which
-  // made every English planner load a hydration mismatch on iPhones (caught
-  // by the WebKit `iphone` e2e project, UX-32). Plain spaces on both sides.
-  const weekRange = new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  })
-    .formatRange(weekStart, weekEnd)
-    .replace(/[\u2009\u202f]/g, " ");
+  const weekRange = formatWeekRange(locale, weekStart);
   const todayKey = toDateKey(new Date());
 
   const prevWeekKey = toDateKey(addDays(weekStart, -7));
@@ -237,366 +126,22 @@ export function WeekPlanner({
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [pickTemplateOpen, setPickTemplateOpen] = useState(false);
 
-  // Week picks. A pick being placed or removed leaves the tray at tap time
-  // (hiddenPickIds), before the server answers, and comes back if it says
-  // no (M5). On a desktop a chip can be lifted (click-to-lift) or dragged,
-  // and planned meals dragged between days and back to the tray.
+  const planning = useWeekPicks({
+    dict,
+    locale,
+    weekStartKey,
+    allPicks,
+    carriedCount,
+    isCurrentWeek,
+    todayKey,
+    hideEntry: selection.hideEntry,
+    pendingRemovals,
+  });
+  const { picks, pointer, lifted, setLifted, drag, dropTarget } = planning;
   const wp = dict.weekPicks;
-  const [hiddenPickIds, setHiddenPickIds] = useState<ReadonlySet<string>>(new Set());
-  const picks = allPicks.filter((pick) => !hiddenPickIds.has(pick.id));
-  const pointer = usePointerPlanning();
-  const [lifted, setLifted] = useState<WeekPickData | null>(null);
-  const [drag, setDrag] = useState<{ kind: "pick"; pick: WeekPickData } | { kind: "entry"; entry: MealPlanEntryData } | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [spreadOpen, setSpreadOpen] = useState(false);
-  const [placeSheet, setPlaceSheet] = useState<WeekPickData | null>(null);
-  // "Mark as cooked today" on a pick: placed on today's dinner, then the
-  // usual Mark as cooked review runs on the new entry, which may sit in a
-  // week other than the one on screen, so the review lives here.
-  const [cookingEntry, setCookingEntry] = useState<MealPlanEntryData | null>(null);
-  const [cookingPick, setCookingPick] = useState<WeekPickData | null>(null);
-  const [cookHandle] = useState(() => createDialogHandle());
-  const [, startPicking] = useTransition();
   // A week that's over takes no new picks and sends nothing back to the
   // tray (pick-actions.ts refuses both); its leftovers already moved on.
   const isPastWeek = weekStartKey < toDateKey(getWeekStart(new Date()));
-  // "Every pick is on a day." is only said when it's true: this week had
-  // picks while the planner was open and they've all been placed. After a
-  // reload, or for a household that never picked, the tray invites instead.
-  const [pickedWeek, setPickedWeek] = useState<string | null>(allPicks.length > 0 ? weekStartKey : null);
-  if (allPicks.length > 0 && pickedWeek !== weekStartKey) setPickedWeek(weekStartKey);
-
-  useEffect(() => {
-    if (cookingEntry) openLazyDialog(cookHandle);
-  }, [cookingEntry, cookHandle]);
-
-  // Carry-over's one-off note. The id keeps a re-run effect from stacking a
-  // second toast.
-  useEffect(() => {
-    // Only on the week the picks moved into, where the dashed chips are.
-    if (carriedCount > 0 && isCurrentWeek) {
-      toast(format(plural(carriedCount, wp.carriedToast), { count: carriedCount }), { id: "week-picks-carried" });
-    }
-  }, [carriedCount, isCurrentWeek, wp]);
-
-  // Escape puts a lifted pick down again.
-  useEffect(() => {
-    if (!lifted) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setLifted(null);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [lifted]);
-
-  function hidePicks(ids: string[]) {
-    setHiddenPickIds((prev) => new Set([...prev, ...ids]));
-  }
-  function showPicks(ids: string[]) {
-    setHiddenPickIds((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => next.delete(id));
-      return next;
-    });
-  }
-  function hideEntry(id: string, hide: boolean) {
-    setHiddenIds((prev) => {
-      const next = new Set(prev);
-      if (hide) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  // What a place's Undo hands back so the pick returns as it was.
-  const originOf = (pick: WeekPickData, entryId: string) => ({
-    entryId,
-    createdByUserId: pick.createdByUserId,
-    carriedFromWeek: pick.carriedFromWeek,
-    // The tray only shows the visible week's picks.
-    weekStartDate: weekStartKey,
-  });
-
-  function placePick(pick: WeekPickData, dateKey: string, mealType: MealType, dayLabel: string) {
-    setLifted(null);
-    setPlaceSheet(null);
-    hidePicks([pick.id]);
-    startPicking(async () => {
-      const result = await settleOptimisticAction(
-        () => placePickAction(pick.id, dateKey, mealType),
-        dict.prepConnectionError,
-      );
-      if (!result?.entryId) {
-        showPicks([pick.id]);
-        return;
-      }
-      const entryId = result.entryId;
-      toast.success(
-        format(wp.placedToast, { slot: dict[mealTypeDictKey[mealType]].toLocaleLowerCase(locale), day: dayLabel }),
-        {
-          duration: 8000,
-          action: {
-            label: wp.undo,
-            onClick: () => {
-              void settleOptimisticAction(
-                () => unplaceEntriesAction([entryId], [originOf(pick, entryId)]),
-                dict.prepConnectionError,
-              );
-            },
-          },
-        },
-      );
-    });
-  }
-
-  function placeAll(rows: { pickId: string; dateKey: string }[]) {
-    setSpreadOpen(false);
-    const ids = rows.map((row) => row.pickId);
-    hidePicks(ids);
-    startPicking(async () => {
-      const result = await settleOptimisticAction(
-        () => placePicksAction(rows.map((row) => ({ pickId: row.pickId, date: row.dateKey }))),
-        dict.prepConnectionError,
-      );
-      if (!result?.placed) {
-        showPicks(ids);
-        return;
-      }
-      const placed = result.placed;
-      const skipped = result.skipped ?? 0;
-      // A dinner planned since the preview kept its pick in the tray.
-      const placedIds = new Set(placed.map((row) => row.pickId));
-      showPicks(ids.filter((id) => !placedIds.has(id)));
-      if (skipped > 0) toast.warning(format(plural(skipped, wp.spreadSkippedToast), { count: skipped }));
-      if (placed.length === 0) return;
-      const byId = new Map(picks.map((pick) => [pick.id, pick]));
-      const entryIds = placed.map((row) => row.entryId);
-      const origins = placed.flatMap((row) => {
-        const pick = byId.get(row.pickId);
-        return pick ? [originOf(pick, row.entryId)] : [];
-      });
-      toast.success(format(plural(placed.length, wp.spreadToast), { count: placed.length }), {
-        duration: 8000,
-        action: {
-          label: wp.undo,
-          onClick: () => {
-            void settleOptimisticAction(() => unplaceEntriesAction(entryIds, origins), dict.prepConnectionError);
-          },
-        },
-      });
-    });
-  }
-
-  function removePick(pick: WeekPickData) {
-    setPlaceSheet(null);
-    setLifted(null);
-    hidePicks([pick.id]);
-    const deferred = createDeferredDelete({
-      run: async () =>
-        (await settleOptimisticAction(() => removePickAction(pick.id), dict.prepConnectionError)) !== null,
-      restore: () => showPicks([pick.id]),
-    });
-    pendingRemovals.current.push(deferred);
-    toast(format(wp.removedToast, { name: pick.name }), {
-      duration: 5000,
-      action: { label: wp.undo, onClick: deferred.undo },
-      onAutoClose: deferred.commit,
-      onDismiss: deferred.commit,
-    });
-  }
-
-  function markPickCooked(pick: WeekPickData) {
-    setPlaceSheet(null);
-    hidePicks([pick.id]);
-    startPicking(async () => {
-      const result = await settleOptimisticAction(
-        () => placePickAction(pick.id, todayKey, "DINNER"),
-        dict.prepConnectionError,
-      );
-      if (!result?.entryId) {
-        showPicks([pick.id]);
-        return;
-      }
-      setCookingPick(pick);
-      setCookingEntry({
-        id: result.entryId,
-        date: todayKey,
-        mealType: "DINNER",
-        recipeId: pick.recipeId,
-        recipeName: pick.name,
-        freeformName: null,
-        freeformIngredients: null,
-        note: null,
-        portions: pick.portions,
-        consumedAt: null,
-        preparedBatchId: null,
-      });
-    });
-  }
-
-  // The owner's call: a pick can be cooked without placing it. Closing the
-  // review without cooking takes it back off today, as it was.
-  function cookDismissed(entry: MealPlanEntryData) {
-    const pick = cookingPick;
-    setCookingPick(null);
-    void settleOptimisticAction(
-      () =>
-        unplaceEntriesAction(
-          [entry.id],
-          pick ? [originOf(pick, entry.id)] : undefined,
-        ),
-      dict.prepConnectionError,
-    );
-  }
-
-  // "Back to picks" on a planned meal (its sheet, or a drag onto the tray).
-  function backToPicks(entry: MealPlanEntryData, label: string) {
-    hideEntry(entry.id, true);
-    startPicking(async () => {
-      const result = await settleOptimisticAction(() => unplaceEntriesAction([entry.id]), dict.prepConnectionError);
-      if (!result) {
-        hideEntry(entry.id, false);
-        return;
-      }
-      const pickId = result.pickIds?.[0];
-      toast.success(
-        format(wp.backToPicksToast, { name: label }),
-        pickId
-          ? {
-              duration: 8000,
-              action: {
-                label: wp.undo,
-                onClick: () => {
-                  void settleOptimisticAction(
-                    () => placePickAction(pickId, entry.date, entry.mealType),
-                    dict.prepConnectionError,
-                  );
-                },
-              },
-            }
-          : undefined,
-      );
-    });
-  }
-
-  // A planned meal dragged onto another day: the same move as its Move
-  // dialog, keeping its slot.
-  function moveEntry(entry: MealPlanEntryData, dateKey: string, dayLabel: string) {
-    const move = (date: string) => {
-      const formData = new FormData();
-      formData.set("entryId", entry.id);
-      formData.set("date", date);
-      formData.set("mealType", entry.mealType);
-      return settleOptimisticAction(() => moveMealEntryAction({}, formData), dict.prepConnectionError);
-    };
-    startPicking(async () => {
-      if (!(await move(dateKey))) return;
-      toast.success(format(wp.movedToast, { name: entry.recipeName ?? entry.freeformName ?? "", day: dayLabel }), {
-        duration: 8000,
-        action: { label: wp.undo, onClick: () => void move(entry.date) },
-      });
-    });
-  }
-
-  function onPickClick(pick: WeekPickData) {
-    if (pointer) setLifted((current) => (current?.id === pick.id ? null : pick));
-    else setPlaceSheet(pick);
-  }
-
-  function startDrag(event: DragEvent<HTMLElement>, next: NonNullable<typeof drag>, label: string) {
-    event.dataTransfer.effectAllowed = "move";
-    // Some browsers only start a drag that carries data.
-    event.dataTransfer.setData("text/plain", label);
-    setLifted(null);
-    setDrag(next);
-  }
-  function endDrag() {
-    setDrag(null);
-    setDropTarget(null);
-  }
-  // Drop handlers for a target ("tray", or a day's key). `accepts` says
-  // whether what's being dragged can land there.
-  function dropZone(target: string, accepts: boolean, onDrop: () => void) {
-    if (!pointer) return {};
-    return {
-      onDragOver: (event: DragEvent<HTMLElement>) => {
-        if (!drag || !accepts) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        if (dropTarget !== target) setDropTarget(target);
-      },
-      onDragLeave: (event: DragEvent<HTMLElement>) => {
-        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-        setDropTarget((current) => (current === target ? null : current));
-      },
-      onDrop: (event: DragEvent<HTMLElement>) => {
-        if (!drag || !accepts) return;
-        event.preventDefault();
-        endDrag();
-        onDrop();
-      },
-    };
-  }
-
-  // Leaving the page ends a bulk Remove's Undo window: send the delete now
-  // rather than lose it (same as useUndoableDelete).
-  useEffect(() => {
-    // The array is only ever pushed to, never replaced, so this is the one
-    // the cleanup needs too.
-    const pending = pendingRemovals.current;
-    const flush = () => {
-      if (document.visibilityState === "hidden") pending.forEach((d) => d.commit());
-    };
-    document.addEventListener("visibilitychange", flush);
-    return () => {
-      document.removeEventListener("visibilitychange", flush);
-      pending.forEach((d) => d.commit());
-    };
-  }, []);
-
-  function exitSelectMode() {
-    setSelectMode(false);
-    setSelectedIds(new Set());
-  }
-
-  function toggleSelected(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function removeSelected() {
-    const ids = selectedEntries.map((entry) => entry.id);
-    if (ids.length === 0) return;
-    setHiddenIds((prev) => new Set([...prev, ...ids]));
-    exitSelectMode();
-    const deferred = createDeferredDelete({
-      run: async () => {
-        const result = await settleOptimisticAction(
-          () => bulkEditMealEntriesAction({ op: "remove", entryIds: ids }),
-          dict.prepConnectionError,
-        );
-        return result !== null;
-      },
-      restore: () =>
-        setHiddenIds((prev) => {
-          const next = new Set(prev);
-          ids.forEach((id) => next.delete(id));
-          return next;
-        }),
-    });
-    pendingRemovals.current.push(deferred);
-    toast(format(plural(ids.length, dict.bulkRemovedToast), { count: ids.length }), {
-      duration: 5000,
-      action: { label: dict.undoDelete, onClick: deferred.undo },
-      onAutoClose: deferred.commit,
-      onDismiss: deferred.commit,
-    });
-  }
 
   // UX-21: on a phone the week is one column and today can be several
   // screens down, so bring it into view on load. Only when it isn't already
@@ -613,49 +158,14 @@ export function WeekPlanner({
     if (rect.top < 0 || rect.bottom > window.innerHeight) card.scrollIntoView({ block: "start" });
   }, [weekStartKey]);
 
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(weekStart, i);
-    const dateKey = toDateKey(date);
-    return {
-      dateKey,
-      dayOfMonth: date.getUTCDate(),
-      weekdayLabel: dict[weekdayKeys[i]],
-      isToday: dateKey === todayKey,
-    };
-  });
-
-  const entriesByDay = new Map<string, MealPlanEntryData[]>();
-  for (const entry of entries) {
-    const list = entriesByDay.get(entry.date) ?? [];
-    list.push(entry);
-    entriesByDay.set(entry.date, list);
-  }
-
-  // GAP-45: days with nothing planned that haven't passed yet (filling
-  // Monday on a Thursday would plan a dinner nobody can cook), and the
-  // recipes already on the plan so a proposal never repeats one.
-  const emptyDays = days
-    .filter((day) => !entriesByDay.has(day.dateKey) && day.dateKey >= todayKey)
-    .map((day) => ({ dateKey: day.dateKey, label: `${day.weekdayLabel} ${day.dayOfMonth}` }));
-  // UX-50: where an empty week's "Add first dinner" lands: today, or
-  // the next day this week, or Monday of a week already over.
-  const firstOpenDay = days.find((day) => day.dateKey >= todayKey) ?? days[0];
-  const plannedRecipeIds = [...new Set(entries.flatMap((e) => (e.recipeId ? [e.recipeId] : [])))];
-
-  // Week picks: where Spread may put a pick (free dinners from today on, like
-  // Fill empty days), and what a pick's place sheet lists per day.
-  const freeDinners = days.flatMap((day, i) =>
-    day.dateKey >= todayKey && !(entriesByDay.get(day.dateKey) ?? []).some((e) => e.mealType === "DINNER")
-      ? [{ weekday: i as Weekday, dateKey: day.dateKey, label: `${day.weekdayLabel} ${day.dayOfMonth}` }]
-      : [],
+  const { days, entriesByDay, emptyDays, firstOpenDay, plannedRecipeIds, freeDinners, placeDays } = buildWeek(
+    dict,
+    weekStart,
+    todayKey,
+    entries,
   );
-  const placeDays = days.map((day) => ({
-    dateKey: day.dateKey,
-    label: `${day.weekdayLabel} ${day.dayOfMonth}`,
-    entries: entriesByDay.get(day.dateKey) ?? [],
-  }));
-  const trayDrop = dropZone("tray", drag?.kind === "entry" && !isPastWeek, () => {
-    if (drag?.kind === "entry") backToPicks(drag.entry, drag.entry.recipeName ?? drag.entry.freeformName ?? "");
+  const trayDrop = planning.dropZone("tray", drag?.kind === "entry" && !isPastWeek, () => {
+    if (drag?.kind === "entry") planning.backToPicks(drag.entry, drag.entry.recipeName ?? drag.entry.freeformName ?? "");
   });
 
   return (
@@ -721,7 +231,7 @@ export function WeekPlanner({
               <DropdownMenuItem
                 onClick={() => {
                   setLifted(null);
-                  setSelectMode(true);
+                  selection.setSelectMode(true);
                 }}
               >
                 <ListChecks className="size-4" />
@@ -739,21 +249,21 @@ export function WeekPlanner({
         dict={wp}
         picks={picks}
         weekHasMeals={entries.length > 0}
-        allPlaced={pickedWeek === weekStartKey}
+        allPlaced={planning.allPlaced}
         canPick={!isPastWeek}
         canSpread={freeDinners.length > 0}
         pointer={pointer}
         lifted={lifted}
         draggingEntry={drag?.kind === "entry"}
         dropActive={dropTarget === "tray"}
-        onPickClick={onPickClick}
-        onPickDragStart={(pick, event) => startDrag(event, { kind: "pick", pick }, pick.name)}
-        onDragEnd={endDrag}
-        onOpenPicker={() => setPickerOpen(true)}
-        onOpenSpread={() => setSpreadOpen(true)}
+        onPickClick={planning.onPickClick}
+        onPickDragStart={(pick, event) => planning.startDrag(event, { kind: "pick", pick }, pick.name)}
+        onDragEnd={planning.endDrag}
+        onOpenPicker={() => planning.setPickerOpen(true)}
+        onOpenSpread={() => planning.setSpreadOpen(true)}
         onMoreOptions={(pick) => {
           setLifted(null);
-          setPlaceSheet(pick);
+          planning.setPlaceSheet(pick);
         }}
         onCancelLift={() => setLifted(null)}
         onTrayDragOver={trayDrop.onDragOver ?? (() => {})}
@@ -761,64 +271,17 @@ export function WeekPlanner({
         onTrayDrop={trayDrop.onDrop ?? (() => {})}
       />
       )}
-      <LazyDialog loader={loadPickMealsDialog} open={pickerOpen} onLoadError={() => setPickerOpen(false)}>
-        {(PickMeals) =>
-          pickerOpen && (
-            <PickMeals
-              dict={dict}
-              weekLabel={weekRange}
-              weekStartKey={weekStartKey}
-              recipes={recipes}
-              recipeCooked={recipeCooked}
-              pickedRecipeIds={new Set(picks.flatMap((p) => (p.recipeId ? [p.recipeId] : [])))}
-              onClose={() => setPickerOpen(false)}
-            />
-          )
-        }
-      </LazyDialog>
-      <LazyDialog loader={loadPlacePickDialog} open={placeSheet !== null} onLoadError={() => setPlaceSheet(null)}>
-        {(PlacePick) =>
-          placeSheet && (
-            <PlacePick
-              key={placeSheet.id}
-              dict={dict}
-              pick={placeSheet}
-              days={placeDays}
-              onPlace={(dateKey, mealType, dayLabel) => placePick(placeSheet, dateKey, mealType, dayLabel)}
-              onMarkCooked={() => markPickCooked(placeSheet)}
-              onRemove={() => removePick(placeSheet)}
-              onClose={() => setPlaceSheet(null)}
-            />
-          )
-        }
-      </LazyDialog>
-      <LazyDialog loader={loadSpreadPicksDialog} open={spreadOpen} onLoadError={() => setSpreadOpen(false)}>
-        {(SpreadPicks) =>
-          spreadOpen && (
-            <SpreadPicks
-              dict={dict}
-              picks={picks}
-              freeDinners={freeDinners}
-              onPlaceAll={placeAll}
-              onClose={() => setSpreadOpen(false)}
-            />
-          )
-        }
-      </LazyDialog>
-      <LazyDialog loader={loadMarkCookedDialog} handle={cookHandle}>
-        {(MarkCooked) =>
-          cookingEntry && (
-            <MarkCooked
-              key={cookingEntry.id}
-              dict={dict}
-              entry={cookingEntry}
-              onPlanLeftovers={setLeftoversPlan}
-              handle={cookHandle}
-              onDismissed={() => cookDismissed(cookingEntry)}
-            />
-          )
-        }
-      </LazyDialog>
+      <WeekPicksDialogs
+        dict={dict}
+        weekRange={weekRange}
+        weekStartKey={weekStartKey}
+        recipes={recipes}
+        recipeCooked={recipeCooked}
+        placeDays={placeDays}
+        freeDinners={freeDinners}
+        planning={planning}
+        onPlanLeftovers={setLeftoversPlan}
+      />
       {/* PERF-26: both dialogs load on first use. They stay mounted only
           while open (the proposal and the preview are made fresh each time). */}
       <LazyDialog loader={loadFillEmptyDaysDialog} open={fillOpen} onLoadError={() => setFillOpen(false)}>
@@ -893,7 +356,7 @@ export function WeekPlanner({
               dict={dict}
               weekStartKey={weekStartKey}
               dateKey={firstOpenDay.dateKey}
-              dayLabel={`${firstOpenDay.weekdayLabel} ${firstOpenDay.dayOfMonth}`}
+              dayLabel={firstOpenDay.label}
               mealType="DINNER"
               recipes={recipes}
               recipeCooked={recipeCooked}
@@ -917,98 +380,26 @@ export function WeekPlanner({
         </MascotEmptyState>
       ) : (
       <div className="list-bleed grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
-        {days.map((day) => {
-          // A day lists only what's planned, slot by slot, then one
-          // "+ Add meal" that asks for the slot (UX-21's empty-day row, now
-          // on every day). Four slot headers per day, three of them "Add
-          // meal", made a phone week four screens long (DESIGN.md M6).
-          const dayEntries = [...(entriesByDay.get(day.dateKey) ?? [])].sort(
-            (a, b) => MEAL_TYPES.indexOf(a.mealType) - MEAL_TYPES.indexOf(b.mealType),
-          );
-          // The add dialog preselects dinner, or the first slot still empty
-          // once dinner is planned.
-          const openSlot = dayEntries.some((e) => e.mealType === "DINNER")
-            ? (MEAL_TYPES.find((type) => !dayEntries.some((e) => e.mealType === type)) ?? "DINNER")
-            : "DINNER";
-          const dayLabel = `${day.weekdayLabel} ${day.dayOfMonth}`;
-          return (
-            <Card
-              key={day.dateKey}
-              id={day.isToday ? TODAY_CARD_ID : undefined}
-              aria-current={day.isToday ? "date" : undefined}
-              className={cn(
-                "transition-shadow",
-                day.isToday && "scroll-mt-2 ring-2 ring-primary/50 max-sm:scroll-mt-18",
-                dropTarget === day.dateKey && "ring-2 ring-primary",
-              )}
-              {...dropZone(day.dateKey, drag?.kind === "pick" || (drag?.kind === "entry" && drag.entry.date !== day.dateKey), () => {
-                if (drag?.kind === "pick") placePick(drag.pick, day.dateKey, openSlot, dayLabel);
-                else if (drag?.kind === "entry") moveEntry(drag.entry, day.dateKey, dayLabel);
-              })}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-baseline justify-between">
-                  <span>{day.weekdayLabel}</span>
-                  <span className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
-                    {/* UX-99: today is said in words, not only by the ring
-                        (DESIGN.md Accessibility: never colour alone). */}
-                    {day.isToday && <Badge>{dict.todayBadge}</Badge>}
-                    {day.dayOfMonth}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {dayEntries.map((entry) => (
-                  <MealEntryRow
-                    key={entry.id}
-                    dict={dict}
-                    locale={locale}
-                    entry={entry}
-                    dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
-                    recipes={recipes}
-                    requiredTags={requiredTags}
-                    weekStartKey={weekStartKey}
-                    onPlanLeftovers={setLeftoversPlan}
-                    selectMode={selectMode}
-                    selected={selectedIds.has(entry.id)}
-                    onToggleSelected={toggleSelected}
-                    onBackToPicks={isPastWeek ? undefined : backToPicks}
-                    draggable={pointer}
-                    onDragStart={(event) =>
-                      startDrag(event, { kind: "entry", entry }, entry.recipeName ?? entry.freeformName ?? "")
-                    }
-                    onDragEnd={endDrag}
-                  />
-                ))}
-                {lifted && !selectMode && (
-                  <button
-                    type="button"
-                    aria-label={format(wp.placeHereLabel, { name: lifted.name, day: dayLabel })}
-                    onClick={() => placePick(lifted, day.dateKey, openSlot, dayLabel)}
-                    className="min-h-11 rounded-lg border-[1.5px] border-dashed border-primary/55 bg-primary/5 text-sm font-semibold text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    {wp.placeHere}
-                  </button>
-                )}
-                {!selectMode && (
-                  <AddMealSlot
-                    key={openSlot}
-                    dict={dict}
-                    weekStartKey={weekStartKey}
-                    dateKey={day.dateKey}
-                    dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
-                    mealType={openSlot}
-                    recipes={recipes}
-                    recipeCooked={recipeCooked}
-                    batches={batches}
-                    picks={picks}
-                    onPlacePick={(pick, mealType) => placePick(pick, day.dateKey, mealType, dayLabel)}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+        {days.map((day) => (
+          <WeekDayCard
+            key={day.dateKey}
+            dict={dict}
+            locale={locale}
+            day={day}
+            entries={entriesByDay.get(day.dateKey) ?? []}
+            recipes={recipes}
+            recipeCooked={recipeCooked}
+            batches={batches}
+            requiredTags={requiredTags}
+            weekStartKey={weekStartKey}
+            isPastWeek={isPastWeek}
+            selectMode={selectMode}
+            selectedIds={selectedIds}
+            onToggleSelected={selection.toggleSelected}
+            onPlanLeftovers={setLeftoversPlan}
+            planning={planning}
+          />
+        ))}
       </div>
       )}
       {/* UX-91: turning the week into a shopping list is the planner's
@@ -1030,7 +421,7 @@ export function WeekPlanner({
           dict={dict}
           selected={selectedEntries}
           onDone={exitSelectMode}
-          onRemove={removeSelected}
+          onRemove={selection.removeSelected}
           onChanged={exitSelectMode}
         />
       )}
@@ -1058,431 +449,5 @@ export function WeekPlanner({
         }
       </LazyDialog>
     </div>
-  );
-}
-
-// One planned meal: a single tappable row (slot, name, portions, status)
-// that opens a sheet of labelled actions. It used to carry five unlabelled
-// 44 px icon buttons on a second line, delete right beside "mark cooked"
-// (DESIGN.md M2, M6). The sheet hands off to each action's own dialog
-// through a handle, the same way the shopping list's ⋯ menu does, so those
-// dialogs live beside the sheet rather than inside it.
-function MealEntryRow({
-  dict,
-  locale,
-  entry,
-  dayLabel,
-  recipes,
-  requiredTags,
-  weekStartKey,
-  onPlanLeftovers,
-  selectMode,
-  selected,
-  onToggleSelected,
-  onBackToPicks,
-  draggable,
-  onDragStart,
-  onDragEnd,
-}: {
-  dict: MealPlanningDict;
-  locale: Locale;
-  entry: MealPlanEntryData;
-  dayLabel: string;
-  recipes: RecipeData[];
-  requiredTags: RecipeTag[];
-  weekStartKey: string;
-  onPlanLeftovers: (request: PlanLeftoversRequest) => void;
-  // GAP-56: in Select mode the row is a checkbox instead of a sheet opener.
-  selectMode: boolean;
-  selected: boolean;
-  onToggleSelected: (id: string) => void;
-  // Week picks: "Back to picks" in the row's sheet, and (desktop) dragging
-  // the row to another day or back to the tray.
-  // Absent on a week that's over.
-  onBackToPicks?: (entry: MealPlanEntryData, label: string) => void;
-  draggable: boolean;
-  onDragStart: (event: DragEvent<HTMLElement>) => void;
-  onDragEnd: () => void;
-}) {
-  const label = entry.recipeName ?? entry.freeformName ?? "";
-  const slotLabel = dict[mealTypeDictKey[entry.mealType]];
-  const linkedRecipe = entry.recipeId ? recipes.find((recipe) => recipe.id === entry.recipeId) : undefined;
-  const cookRecipe = linkedRecipe?.instructions?.trim() ? linkedRecipe : null;
-  // Portions only mean something next to a linked recipe — a freeform entry
-  // has nothing to scale (see MealPlanEntryData.portions' doc comment).
-  const portionsLabel = entry.recipeId
-    ? format(plural(entry.portions, dict.entryPortionsCount), { count: entry.portions })
-    : null;
-  const cooked = entry.consumedAt !== null;
-  const prepped = entry.preparedBatchId !== null;
-  const [unassignPending, startUnassign] = useTransition();
-  const [sheetOpen, setSheetOpen] = useState(false);
-  // UX-49: Remove meal hides the row at once with an Undo toast (the delete
-  // goes out when it closes), not a "can't be undone" confirm.
-  const { hidden, remove } = useUndoableDelete({
-    run: async () =>
-      (await settleOptimisticAction(() => deleteMealEntryAction(entry.id), dict.prepConnectionError)) !== null,
-    message: format(dict.mealRemovedToast, { meal: label }),
-    undoLabel: dict.undoDelete,
-  });
-  const [dialogs] = useState(() => ({
-    cook: createDialogHandle(),
-    markCooked: createDialogHandle(),
-    edit: createDialogHandle(),
-    move: createDialogHandle(),
-  }));
-
-  // The sheet closes as the chosen action's dialog opens over the page, so
-  // closing that dialog lands back on the planner, not on a stale sheet.
-  function openFromSheet(handle: DialogHandle) {
-    setSheetOpen(false);
-    openLazyDialog(handle);
-  }
-
-  // GAP-49: "Don't use prep" gives the slot's portions back to its batch and
-  // keeps the meal planned, to cook fresh.
-  function unassign() {
-    startUnassign(async () => {
-      let result;
-      try {
-        result = await unassignBatchPortionAction(entry.id);
-      } catch (error) {
-        // A dropped connection rejects the call; say so rather than hitting
-        // the error boundary (M8), as the Plan portions dialog does.
-        unstable_rethrow(error);
-        toast.error(dict.prepConnectionError);
-        return;
-      }
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(dict.prepUnassignedToast);
-      setSheetOpen(false);
-      // No router.refresh(): the action revalidated the page and its
-      // response already carries the re-render.
-    });
-  }
-
-  if (hidden) return null;
-
-  const rowBody = (
-    <>
-    <span className="flex min-w-0 flex-1 flex-col">
-      <span className="text-xs font-medium uppercase text-muted-foreground">{slotLabel}</span>{" "}
-      <span className="break-words">
-        <span>{label}</span>
-        {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
-      </span>
-      {/* GAP-71: a warning in words, wrapping under the name; never blocks. */}
-      {linkedRecipe && requiredTags.length > 0 && (
-        <span className="flex flex-wrap gap-1 pt-0.5">
-          <MissingDietBadges dict={dict} recipeTags={linkedRecipe.tags} requiredTags={requiredTags} />
-        </span>
-      )}
-      {/* GAP-81: one muted line, cut short here; the row's sheet has it in
-          full (M9), so nothing depends on a hover `title`. */}
-      {entry.note && (
-        <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
-          <StickyNote className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="sr-only">{dict.mealNoteHeading}</span>
-          <span className="truncate">{entry.note}</span>
-        </span>
-      )}
-    </span>
-    {/* Words, not just a colour or an icon, so the state reads the
-        same to everyone (GAP-49's badge, the cooked tick). */}
-    {prepped && (
-      <Badge variant="outline" className="shrink-0">
-        {dict.prepPreppedBadge}
-      </Badge>
-    )}
-    {/* A prepped meal was cooked at prep time, so what this records is
-        that it was eaten (as its "Mark as eaten" button says). */}
-    {cooked && (
-      <span className="flex shrink-0 items-center gap-1 text-xs text-success">
-        <CheckCircle2 className="size-3.5" aria-hidden="true" />
-        {prepped ? dict.mealEatenBadgeLabel : dict.mealCookedBadgeLabel}
-      </span>
-    )}
-    </>
-  );
-
-  if (selectMode) {
-    if (cooked) {
-      // Cooked meals aren't selectable: their day, slot and portions record
-      // what was eaten (see bulk-meal-actions.ts). Said in words, not only
-      // by being dimmed.
-      return (
-        <div className="flex min-h-11 w-full items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-sm text-muted-foreground">
-          {rowBody}
-          <span className="sr-only">{prepped ? dict.bulkEatenLocked : dict.bulkCookedLocked}</span>
-        </div>
-      );
-    }
-    return (
-      <label className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md bg-muted px-2 py-1.5 text-sm transition-colors has-[:checked]:bg-accent has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
-        <Checkbox checked={selected} onChange={() => onToggleSelected(entry.id)} />
-        {rowBody}
-      </label>
-    );
-  }
-
-  return (
-    <>
-      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-        <DialogTrigger
-          render={
-            <button
-              type="button"
-              // A cooked meal stays put (its day is a record), as in Move.
-              draggable={draggable && !cooked ? true : undefined}
-              onDragStart={draggable && !cooked ? onDragStart : undefined}
-              onDragEnd={draggable && !cooked ? onDragEnd : undefined}
-              className={cn(
-                "flex min-h-11 w-full items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-left text-sm transition-[background-color,scale] outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98]",
-                draggable && !cooked && "cursor-grab active:cursor-grabbing",
-              )}
-            />
-          }
-        >
-          {rowBody}
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="break-words">{label}</DialogTitle>
-            <DialogDescription>
-              {[slotLabel, dayLabel, portionsLabel].filter(Boolean).join(" · ")}
-            </DialogDescription>
-          </DialogHeader>
-          {/* GAP-81: the whole note, wrapped. */}
-          {entry.note && (
-            <p className="rounded-md bg-muted px-3 py-2 text-sm break-words">
-              <span className="block text-xs font-medium uppercase text-muted-foreground">
-                {dict.mealNoteHeading}
-              </span>
-              {entry.note}
-            </p>
-          )}
-          <div className="flex flex-col gap-2">
-            {/* Cooking it is what a planned meal is waiting for, so it's the
-                sheet's one primary action. Custom (non-recipe) meals have no
-                ingredients to take off, so they say why instead (D4 in
-                docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md). */}
-            {!cooked && entry.recipeId && (
-              <Button type="button" className="justify-start" onClick={() => openFromSheet(dialogs.markCooked)}>
-                {prepped ? <Utensils className="size-4" /> : <ChefHat className="size-4" />}
-                {prepped ? dict.prepEatenAction : dict.markCookedAriaLabel}
-              </Button>
-            )}
-            {/* GAP-42: the cook view scaled to this entry's portions. Not
-                gated on cooked: reading a recipe again is harmless. */}
-            {cookRecipe && (
-              <Button
-                type="button"
-                variant="outline"
-                className="justify-start"
-                onClick={() => openFromSheet(dialogs.cook)}
-              >
-                <CookingPot className="size-4" />
-                {dict.cookModeButton}
-              </Button>
-            )}
-            {/* GAP-30: hidden once cooked. A cooked entry's day and slot
-                record when it was actually eaten, so moveMealEntryAction
-                refuses to move it (see its doc comment). */}
-            {!cooked && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="justify-start"
-                  onClick={() => openFromSheet(dialogs.edit)}
-                >
-                  <Pencil className="size-4" />
-                  {dict.editMealAriaLabel}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="justify-start"
-                  onClick={() => openFromSheet(dialogs.move)}
-                >
-                  <ArrowRightLeft className="size-4" />
-                  {dict.moveMealAriaLabel}
-                </Button>
-              </>
-            )}
-            {/* Week picks: back to the tray rather than deleted, for a busy
-                evening. Not for a cooked meal (a record) or a prepped one
-                (it holds batch portions a pick can't keep). */}
-            {onBackToPicks && !cooked && !prepped && (entry.recipeId || entry.freeformName) && (
-              <Button
-                type="button"
-                variant="outline"
-                className="justify-start"
-                onClick={() => {
-                  setSheetOpen(false);
-                  requestAnimationFrame(() => onBackToPicks?.(entry, label));
-                }}
-              >
-                <Undo2 className="size-4" />
-                {dict.weekPicks.backToPicks}
-              </Button>
-            )}
-            {prepped && !cooked && (
-              <Button
-                type="button"
-                variant="outline"
-                className="justify-start"
-                disabled={unassignPending}
-                onClick={unassign}
-              >
-                {unassignPending ? <Loader2 className="size-4 animate-spin" /> : <Unlink className="size-4" />}
-                {dict.prepUnassignAction}
-              </Button>
-            )}
-            {!entry.recipeId && (
-              <p className="text-sm text-muted-foreground">{dict.markCookedUnavailableForCustomMeal}</p>
-            )}
-          </div>
-          {/* M2: the destructive action sits apart, under a rule, never
-              next to the primary one. */}
-          <div className="border-t pt-4">
-            <Button
-              type="button"
-              variant="destructive"
-              className="w-full justify-start"
-              onClick={() => {
-                setSheetOpen(false);
-                // After the sheet has closed, so it unmounts shut.
-                requestAnimationFrame(remove);
-              }}
-            >
-              <Trash2 className="size-4" />
-              {dict.removeMealAriaLabel}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* PERF-26: each row's dialogs load on first use. */}
-      {cookRecipe && (
-        <LazyDialog loader={loadCookModeDialog} handle={dialogs.cook}>
-          {(CookMode) => (
-            <CookMode
-              dict={dict}
-              locale={locale}
-              recipe={cookRecipe}
-              portions={entry.portions}
-              note={entry.note}
-              handle={dialogs.cook}
-              onDone={!cooked && entry.recipeId ? () => openLazyDialog(dialogs.markCooked) : undefined}
-            />
-          )}
-        </LazyDialog>
-      )}
-      {!cooked && entry.recipeId && (
-        <LazyDialog loader={loadMarkCookedDialog} handle={dialogs.markCooked}>
-          {(MarkCooked) => (
-            <MarkCooked dict={dict} entry={entry} onPlanLeftovers={onPlanLeftovers} handle={dialogs.markCooked} />
-          )}
-        </LazyDialog>
-      )}
-      {!cooked && (
-        <>
-          <LazyDialog loader={loadMealEntryDialog} handle={dialogs.edit}>
-            {(MealEntry) => <MealEntry dict={dict} recipes={recipes} mode="edit" entry={entry} handle={dialogs.edit} />}
-          </LazyDialog>
-          <LazyDialog loader={loadMoveMealDialog} handle={dialogs.move}>
-            {(MoveMeal) => (
-              <MoveMeal
-                dict={dict}
-                entry={entry}
-                label={label}
-                plannerWeekStartKey={weekStartKey}
-                handle={dialogs.move}
-              />
-            )}
-          </LazyDialog>
-        </>
-      )}
-    </>
-  );
-}
-
-// PERF-26: a day's "+ Add meal" (or an empty week's "Add first dinner")
-// and the meal form behind it. The button stays in the planner's own chunk;
-// the form loads on first use, warmed on pointer-enter or focus.
-function AddMealSlot({
-  dict,
-  weekStartKey,
-  dateKey,
-  dayLabel,
-  mealType,
-  recipes,
-  recipeCooked,
-  batches,
-  picks,
-  onPlacePick,
-  firstDinner = false,
-}: {
-  dict: MealPlanningDict;
-  weekStartKey: string;
-  dateKey: string;
-  dayLabel: string;
-  mealType: MealType;
-  recipes: RecipeData[];
-  recipeCooked: Record<string, RecipeCookedStats>;
-  batches: PreparedBatchData[];
-  /** Week picks offered first in the sheet ("From this week's picks"). */
-  picks?: WeekPickData[];
-  onPlacePick?: (pick: WeekPickData, mealType: MealType) => void;
-  /** The empty week's one next step: a primary button, not the day's row. */
-  firstDinner?: boolean;
-}) {
-  const [handle] = useState(() => createDialogHandle());
-  const open = () => openLazyDialog(handle);
-  const intent = preloadOnIntent(loadMealEntryDialog);
-  return (
-    <>
-      {firstDinner ? (
-        <Button type="button" aria-haspopup="dialog" onClick={open} {...intent}>
-          <Plus className="size-4" />
-          {dict.addFirstDinner}
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          aria-label={format(dict.addMealAriaLabel, { day: dayLabel })}
-          aria-haspopup="dialog"
-          className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11"
-          onClick={open}
-          {...intent}
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-          {dict.addMeal}
-        </Button>
-      )}
-      <LazyDialog loader={loadMealEntryDialog} handle={handle}>
-        {(MealEntry) => (
-          <MealEntry
-            dict={dict}
-            weekStartKey={weekStartKey}
-            dateKey={dateKey}
-            dayLabel={dayLabel}
-            mealType={mealType}
-            recipes={recipes}
-            recipeCooked={recipeCooked}
-            batches={batches}
-            picks={picks}
-            onPlacePick={onPlacePick}
-            handle={handle}
-          />
-        )}
-      </LazyDialog>
-    </>
   );
 }
