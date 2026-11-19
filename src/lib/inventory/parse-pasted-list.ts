@@ -84,8 +84,13 @@ const LEADING_COUNT = /^(\d+(?:[.,]\d+)?)\s*(?:x|×)?\s+(.+)$/i;
 const TRAILING_COUNT = /^(.+?)\s*(?:x|×)\s*(\d+(?:[.,]\d+)?)$/i;
 const TRAILING_COUNT_UNIT = /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*([^\s\d,]+)$/;
 
+/** A line as parseLine reads it: trimmed, with any bullet/checkbox removed. */
+export function stripListMarker(raw: string): string {
+  return raw.trim().replace(LEADING_MARKER, "").trim();
+}
+
 function parseLine(raw: string): ParsedItem | null {
-  const line = raw.trim().replace(LEADING_MARKER, "").trim();
+  const line = stripListMarker(raw);
   if (!line) return null;
 
   const trailing = line.match(TRAILING_COUNT);

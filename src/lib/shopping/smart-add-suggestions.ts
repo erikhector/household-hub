@@ -6,7 +6,7 @@
 // unit-tested without a DOM — and so voice input (AUTO-12) feeds
 // its transcript through exactly the same parse → rows path.
 
-import { parsePastedList, topLevelCommaIndexes, type ParsedItem } from "@/lib/inventory/parse-pasted-list";
+import { parsePastedList, stripListMarker, topLevelCommaIndexes, type ParsedItem } from "@/lib/inventory/parse-pasted-list";
 import { createAliasLookup, type ItemAliasLike } from "@/lib/item-alias";
 import { findInventoryMatches, normalizeItemName, type InventoryMatchCandidate } from "@/lib/item-matching";
 import type { StockStatus } from "@/lib/stock-status";
@@ -19,6 +19,11 @@ export type SmartAddCandidate = {
   /** When this item was last bought off any of the household's lists (ms
    * since epoch), or null if it never has been. */
   lastPurchasedAt: number | null;
+  /** The quantity and unit of that newest purchased row (GAP-83), so
+   * picking the suggestion can add what the household usually buys ("12
+   * pcs" of eggs) instead of 1. Null when it was never bought. */
+  lastQuantity: number | null;
+  lastUnit: string | null;
 };
 
 // The three tiers from the AUTO-1 brief, in the order they're shown: what
@@ -111,31 +116,60 @@ export function parseSmartAddInput(input: string): SmartAddRow[] {
  * "mj" and picking a suggestion keeps the "2 l".
  */
 export function splitSmartAddInput(input: string): { head: string; current: ParsedItem | null } {
+  const { head, segment } = cutAtCurrentSegment(input);
+  return { head, current: parsePastedList(segment)[0] ?? null };
+}
+
+function cutAtCurrentSegment(input: string): { head: string; segment: string } {
   const lastNewline = input.lastIndexOf("\n");
   const lastComma = topLevelCommaIndexes(input.slice(lastNewline + 1)).pop();
   const cut = lastComma === undefined ? lastNewline : lastNewline + 1 + lastComma;
-  const head = cut === -1 ? "" : input.slice(0, cut);
-  const current = parsePastedList(input.slice(cut + 1))[0] ?? null;
-  return { head, current };
+  return { head: cut === -1 ? "" : input.slice(0, cut), segment: input.slice(cut + 1) };
+}
+
+/**
+ * The amount picking `suggestion` while typing `input` adds, most specific
+ * first:
+ *
+ *   1. whatever count/unit was typed in front of it ("2 dl mj"), an
+ *      explicit "1" included: the user said how many;
+ *   2. else the amount last bought (GAP-83: a household that always buys
+ *      12 eggs shouldn't retype "12" every trip), but only while that row's
+ *      unit is still the item's usual unit. "3 l" of something now counted
+ *      in pcs would be the wrong amount, not just a different one;
+ *   3. else 1 of its usual unit.
+ *
+ * The bar shows this on each suggestion before it's picked, so nothing is
+ * added silently, and the added row stays editable.
+ */
+export function smartAddSuggestionAmount(
+  input: string,
+  suggestion: SmartAddCandidate,
+): { quantity: number; unit: string } {
+  const { segment } = cutAtCurrentSegment(input);
+  const current = parsePastedList(segment)[0];
+  // parseLine's no-count fallback keeps the whole (marker-stripped) line as
+  // the name, so a name that differs from it means a count was parsed off.
+  if (current && current.name !== stripListMarker(segment)) {
+    const typed = toRow(current);
+    return { quantity: typed.quantity, unit: typed.unit ?? suggestion.unit };
+  }
+  if (suggestion.lastQuantity !== null && suggestion.lastUnit === suggestion.unit) {
+    return { quantity: suggestion.lastQuantity, unit: suggestion.unit };
+  }
+  return { quantity: 1, unit: suggestion.unit };
 }
 
 /**
  * The rows for picking `suggestion` while typing `input`: every finished
- * item before the current segment, plus the suggestion itself linked by id
- * and carrying whatever quantity/unit was typed in front of it (else 1 of
- * its usual unit).
+ * item before the current segment, plus the suggestion itself linked by id,
+ * in the amount smartAddSuggestionAmount shows on it.
  */
 export function rowsForSuggestion(input: string, suggestion: SmartAddCandidate): SmartAddRow[] {
-  const { head, current } = splitSmartAddInput(input);
-  const typed = current ? toRow(current) : null;
+  const { head } = cutAtCurrentSegment(input);
   return [
     ...parseSmartAddInput(head),
-    {
-      name: suggestion.name,
-      quantity: typed?.quantity ?? 1,
-      unit: typed?.unit ?? suggestion.unit,
-      inventoryItemId: suggestion.id,
-    },
+    { name: suggestion.name, ...smartAddSuggestionAmount(input, suggestion), inventoryItemId: suggestion.id },
   ];
 }
 
