@@ -5,7 +5,13 @@ import { clickRowAction, dismissCookieNotice, waitForUndoableDelete } from "./ui
 // was never stocked. It isn't "out" (nothing was ever in), and deleting the
 // row that made it takes the item with it. The household holds other specs'
 // rows, so the test names its own item and checks only that one.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+//
+// MAINT-83: the item name goes through smart-add, which reads a trailing
+// "x58" as a quantity. The random base36 suffix ended that way now and then,
+// the row was saved as "Napkins mwlgiydh × 58 pcs" (the "x58" gone from the
+// name) and the checkbox named after the full name never showed. Ending the suffix in a letter (as
+// smart-add-decimal-comma.spec.ts does) leaves nothing for it to parse.
+const unique = (label: string) => `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}z`;
 
 async function inventoryRow(page: Page, url: string, name: string) {
   await page.goto(url);
