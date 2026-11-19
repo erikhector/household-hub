@@ -82,7 +82,7 @@ export function copyLastWeek(
 // midnight, so formatting in UTC names the same days on the server and in
 // every browser (no hydration mismatch, no off-by-one west of Greenwich).
 // The spacing around the dash is engine-specific: Node's ICU writes thin
-// spaces ("Oct 12 – 18") where Safari writes plain ones, which
+// spaces ("Oct 12\u2009–\u200918") where Safari writes plain ones, which
 // made every English planner load a hydration mismatch on iPhones (caught
 // by the WebKit `iphone` e2e project, UX-32). Plain spaces on both sides.
 export function formatWeekRange(locale: Locale, weekStart: Date): string {
@@ -93,7 +93,7 @@ export function formatWeekRange(locale: Locale, weekStart: Date): string {
     timeZone: "UTC",
   })
     .formatRange(weekStart, addDays(weekStart, 6))
-    .replace(/[  ]/g, " ");
+    .replace(/[\u2009\u202f]/g, " ");
 }
 
 export type PlannerDay = {

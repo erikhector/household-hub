@@ -80,7 +80,7 @@ describe("formatWeekRange", () => {
   it("names the week in UTC with plain spaces around the dash", () => {
     const range = formatWeekRange("en", parseDateKey("2031-03-10"));
     expect(range).toMatch(/^Mar 10 – 16, 2031$/);
-    expect(range).not.toMatch(/[  ]/);
+    expect(range).not.toMatch(/[\u2009\u202f]/);
   });
 
   it("spans two months and drops the repeated year", () => {
