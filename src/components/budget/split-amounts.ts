@@ -22,7 +22,7 @@ export function evenSplitAmounts(totalAmount: number, memberCount: number): numb
 }
 
 // Same tolerance the actions use (SPLIT_SUM_TOLERANCE in
-// src/app/dashboard/budget/actions.ts) — floating-point noise, not a real
+// src/app/dashboard/budget/transaction-actions.ts) — floating-point noise, not a real
 // mismatch.
 const TOLERANCE = 0.01;
 

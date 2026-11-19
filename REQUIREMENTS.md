@@ -320,8 +320,12 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   (`dashboard/profile/actions.ts`: name, email, password, delete account).
   The personal budget's actions (`dashboard/personal-budget/actions.ts`:
   categories, transactions, recurring items and the month start day) are
-  converted as well, which leaves the household budget's `actions.ts` as the
-  only file on `PENDING` (it waits for BUDGET-6). The monthly-limit and
+  converted as well, which leaves the household budget's action files
+  (`category-actions.ts`, `transaction-actions.ts`, `recurring-actions.ts`,
+  `settlement-actions.ts`, split from one `actions.ts` by MAINT-110) as the
+  only files on `PENDING` (they wait for BUDGET-6). The guard scans only
+  action files, so the one English `error:` in their shared
+  `budget/action-helpers.ts` (the duplicate-period check) isn't on it. The monthly-limit and
   savings-goal fields both budgets share take their messages as a parameter
   meanwhile (`monthlyLimitFieldWith` in `budget-category-limit.ts`,
   `goalAmountFieldWith` and `goalDateFieldWith` in `savings-goal-calc.ts`):
@@ -2156,8 +2160,19 @@ every lookup the old one did.
   `recurrenceFrequency`). UI lives at `/dashboard/budget`
   (`src/app/dashboard/budget/page.tsx`, a Server Component that fetches and
   aggregates, composing Client Components from `src/components/budget/` —
-  same split as the household page), with actions in
-  `src/app/dashboard/budget/actions.ts`.
+  same split as the household page), with actions split by concern
+  (MAINT-110, as MAINT-3 did for the shopping list), each with a colocated
+  `*.test.ts`: `category-actions.ts` (create, starter set, update, delete),
+  `transaction-actions.ts` (create, update, delete, the split parsing, and
+  the shared expense logged from Personal Budget), `recurring-actions.ts`
+  (recurring items, their period acknowledgements and one-click logging),
+  `settlement-actions.ts` (record and delete a "Clear debt" repayment) and
+  the existing `planned-expense-actions.ts`. What more than one of them
+  needs (`revalidateBudgetPages`, `assertNoDuplicateTemplatePeriod`, the
+  `ParsedSplit` type) lives in the plain module `action-helpers.ts`, since
+  every export of a `"use server"` file is a client-callable endpoint.
+  There is no `actions.ts` barrel: callers import from the file that owns
+  the action.
 - **Categories**: managed from a card on the budget page (`CategoryManager`)
   — add (name + income/expense type) and delete. `Transaction.type` is
   **not** a separately user-chosen field even though the schema has one on
@@ -3444,7 +3459,7 @@ cent, and `ShareRemainderNote` in
 share grids use too). Submit stays disabled while the shares don't (yet)
 sum to the transaction total or the payments add up to more than it
 (`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
-`updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
+`updateTransactionAction` (`src/app/dashboard/budget/transaction-actions.ts`)
 re-validate the same invariants server-side (`parseSplitFormData`, ±0.01
 floating-point tolerance) plus that every referenced member id actually
 belongs to the caller's household, the same "never trust a client-supplied
@@ -3731,7 +3746,7 @@ Everything stays editable, so the transaction may differ from the plan and
 one payment closes the bill at whatever amount was logged. In Personal
 Budget, `SharedDueRow` gained `householdId` and an optional `logPrefill`,
 left unset for planned bills. `createTransactionAction`
-(`src/app/dashboard/budget/actions.ts`) sets the link only on creation
+(`src/app/dashboard/budget/transaction-actions.ts`) sets the link only on creation
 (editing a transaction leaves it alone) and rejects a bill from another
 household, one already paid, or a payment in a non-`EXPENSE` category, with
 localised errors (`fail()`). A race between two payments hits the unique
@@ -3928,7 +3943,7 @@ intentional duplication (see `PersonalRecurringTemplate`'s doc comment in
   and are only ever populated by the personal budget page; the household
   page never passes them, so that UI never renders there.
 - **Server Actions are injected as props, not imported by the shared
-  component.** Since the two `actions.ts` files stay separate, each
+  component.** Since the two budgets' action files stay separate, each
   component that used to `import { createTransactionAction, ... } from
   ".../budget/actions"` directly now takes `createAction`/`updateAction` (or
   `onDelete`/`onAcknowledge`/`onTogglePause`/etc. for click actions) as

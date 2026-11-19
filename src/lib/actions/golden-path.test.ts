@@ -341,9 +341,8 @@ const { signupAction, loginAction, verifyEmailAction } = await import("@/lib/act
 const { createInventoryItemAction } = await import("@/app/dashboard/inventory/actions");
 const { createShoppingListAction } = await import("@/app/dashboard/shopping-list/list-actions");
 const { addAdHocItemAction } = await import("@/app/dashboard/shopping-list/item-actions");
-const { createCategoryAction, createTransactionAction } = await import(
-  "@/app/dashboard/budget/actions"
-);
+const { createCategoryAction } = await import("@/app/dashboard/budget/category-actions");
+const { createTransactionAction } = await import("@/app/dashboard/budget/transaction-actions");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
 function formData(fields: Record<string, string>) {
