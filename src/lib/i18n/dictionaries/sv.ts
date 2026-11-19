@@ -1257,6 +1257,10 @@ export const sv = {
       activeLabel: "Länken är aktiv",
       revoke: "Återkalla länk",
       revoking: "Återkallar…",
+      revokeConfirmTitle: "Återkalla dellänken?",
+      revokeConfirmDescription:
+        "Den som handlar från länken förlorar åtkomsten direkt. Delar du igen skapas en ny länk som du måste skicka på nytt.",
+      revokeConfirmCancel: "Avbryt",
       revokedToast: "Dellänken har återkallats",
       revokeError: "Kunde inte återkalla dellänken",
     },
@@ -2116,6 +2120,7 @@ export const sv = {
     customMealOption: "Egen måltid…",
     customMealNameLabel: "Måltidens namn",
     customMealNamePlaceholder: "t.ex. Tacokväll",
+    customMealNameRequired: "Ange ett namn på måltiden",
     customMealIngredientsLabel: "Ingredienser (valfritt)",
     customMealIngredientsPlaceholder: "2 tortillas\n1 burk salsa",
     customMealIngredientsHint: "En per rad. Det du saknar hamnar på inköpslistan.",

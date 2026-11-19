@@ -1347,6 +1347,10 @@ export const en = {
       activeLabel: "Link is active",
       revoke: "Revoke link",
       revoking: "Revoking…",
+      revokeConfirmTitle: "Revoke this share link?",
+      revokeConfirmDescription:
+        "Anyone shopping from it loses access straight away. Sharing again makes a new link, which you'll have to send again.",
+      revokeConfirmCancel: "Cancel",
       revokedToast: "Share link revoked",
       revokeError: "Could not revoke share link",
     },
@@ -2243,6 +2247,7 @@ export const en = {
     // The add-meal picker before anything is chosen (M4: pick, don't type).
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
+    customMealNameRequired: "Enter a name for the meal",
     customMealIngredientsLabel: "Ingredients (optional)",
     customMealIngredientsPlaceholder: "2 tortillas\n1 jar salsa",
     customMealIngredientsHint: "One per line. What you are missing goes on the shopping list.",

@@ -121,6 +121,13 @@ describe("splitSmartAddInput", () => {
     });
   });
 
+  it("doesn't cut the current segment at a decimal comma (UX-200)", () => {
+    expect(splitSmartAddInput("bröd, 1,5 l mj")).toEqual({
+      head: "bröd",
+      current: { name: "mj", quantity: 1.5, unit: "l" },
+    });
+  });
+
   it("has no current segment right after a comma", () => {
     expect(splitSmartAddInput("bröd, ")).toEqual({ head: "bröd", current: null });
   });

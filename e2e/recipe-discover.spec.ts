@@ -5,6 +5,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
 import { normalizeForSearch } from "@/lib/recipe-catalog/rank";
 import { RECIPE_TAGS } from "@/lib/recipe-tags";
+import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
 import {
   dismissCookieNotice,
@@ -218,7 +219,7 @@ test("add to plan saves then opens the plan dialog", async ({ page }) => {
   // ahead, so no other spec's "this week" sees it before the cleanup.
   const plan = page.getByRole("dialog", { name: format(t.addToPlanDialogTitle, { recipe: NAME_B }) });
   await expect(plan).toBeVisible();
-  const day = new Date(Date.now() + (9500 + Math.floor(Math.random() * 2000)) * 24 * 60 * 60 * 1000);
+  const day = farDay("recipe-discover");
   await plan.getByLabel(t.dateLabel).fill(day.toISOString().slice(0, 10));
   await plan.getByRole("button", { name: t.addToPlanSubmit, exact: true }).click();
   await expect(plan).toHaveCount(0);

@@ -128,11 +128,21 @@ function parseLine(raw: string): ParsedItem | null {
   return { name: line, quantity: 1, unit: "pcs" };
 }
 
+const DIGIT = /\d/;
+
+function isDecimalComma(line: string, i: number): boolean {
+  return DIGIT.test(line[i - 1] ?? "") && DIGIT.test(line[i + 1] ?? "");
+}
+
 /**
  * Index of every comma in `line` that separates items, i.e. one outside a
  * bracket pair: "tablets (lemon-free, 120 st), towels" has one, not two. A
  * bracket that is never closed doesn't count as open, so a stray "(" can't
- * swallow the rest of the line.
+ * swallow the rest of the line. A comma with a digit directly on both sides
+ * is a decimal comma, not a separator (UX-200): Swedish writes "1,5 l
+ * mjölk", which is one item that the count patterns above read as 1.5. A
+ * list typed without spaces ("bröd,2 l mjölk") still splits, since the
+ * comma has a letter on one side.
  */
 export function topLevelCommaIndexes(line: string): number[] {
   const closes: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
@@ -142,7 +152,7 @@ export function topLevelCommaIndexes(line: string): number[] {
     const ch = line[i];
     if (closes[ch] && line.indexOf(closes[ch], i + 1) !== -1) open.push(closes[ch]);
     else if (open.length > 0 && ch === open[open.length - 1]) open.pop();
-    else if (ch === "," && open.length === 0) indexes.push(i);
+    else if (ch === "," && open.length === 0 && !isDecimalComma(line, i)) indexes.push(i);
   }
   return indexes;
 }

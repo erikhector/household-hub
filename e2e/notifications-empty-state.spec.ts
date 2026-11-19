@@ -74,7 +74,12 @@ test("the notification centre links to the notification settings", async ({ page
 test("a malformed hash doesn't take Profile down", async ({ page }) => {
   await gotoRevealed(page, "/dashboard/profile#%");
   const main = page.getByRole("main");
-  await main.getByText(en.profile.dangerZoneTitle, { exact: true }).click();
+  // Open the disclosure only once React owns its summary: one opened before
+  // hydration, with a hash, was found closed again (MAINT-104, ux-193.spec.ts).
+  const dangerZone = main.getByText(en.profile.dangerZoneTitle, { exact: true });
+  await expectHydrated(dangerZone);
+  await expectRouterPatched(page);
+  await dangerZone.click();
   const trigger = main.getByRole("button", { name: en.profile.deleteAccount.trigger });
   await expectHydrated(trigger);
   await expectRouterPatched(page);

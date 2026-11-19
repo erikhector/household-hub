@@ -31,6 +31,7 @@ export function ConfirmDialog({
   confirmLabel,
   pendingLabel,
   variant = "destructive",
+  alert = false,
   onConfirm,
   handle,
   finalFocus,
@@ -51,6 +52,10 @@ export function ConfirmDialog({
   confirmLabel: string;
   pendingLabel: string;
   variant?: "destructive" | "default";
+  /** Announce it as an `alertdialog` (an interruption that needs an answer)
+   * rather than a plain `dialog`. Opt-in per call site, so existing ones and
+   * the specs that find them by the `dialog` role keep working. */
+  alert?: boolean;
   /** Extra controls between the description and the buttons (a checkbox
    * that changes what confirming does). */
   children?: ReactNode;
@@ -76,7 +81,9 @@ export function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen} handle={handle}>
       {trigger && <DialogTrigger render={trigger} />}
-      <DialogContent finalFocus={finalFocus}>
+      {/* Spread, not `role={alert ? … : undefined}`: an explicit undefined
+          role overrides the popup's own `dialog` role and leaves it with none. */}
+      <DialogContent finalFocus={finalFocus} {...(alert && { role: "alertdialog" })}>
         <DialogHeader>
           <DialogTitle className="break-words">{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

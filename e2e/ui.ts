@@ -256,8 +256,19 @@ export async function saveScreenshot(page: Page, testInfo: TestInfo, locale: Loc
 // visible row whose name is exactly `name` (the last one, when an earlier
 // row of another spec repeats it) and returns the sheet, which is titled
 // with that name.
+//
+// The row opens its sheet only through React's handler, and the sheet is a
+// Dialog that pushes a history entry as it opens, so wait for both before
+// the tap, as openRecipesTab does: a tap before hydration does nothing, and
+// a sheet opened before the router has patched history.replaceState is
+// closed again by the router's first commit (MAINT-68). Most callers get
+// here straight after a plain goto: on a loaded runner a planner row
+// tapped that way had its sheet never show (MAINT-119).
 export async function openRowSheet(page: Page, name: string) {
-  await page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true }).last().click();
+  const row = page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true }).last();
+  await expectHydrated(row);
+  await expectRouterPatched(page);
+  await row.click();
   const sheet = page.getByRole("dialog", { name, exact: true });
   await expect(sheet).toBeVisible();
   return sheet;
@@ -274,6 +285,22 @@ export async function openRowSheet(page: Page, name: string) {
 export async function waitForDialogHistory(page: Page) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
+}
+
+/** waitForDialogHistory, then waits until the page behind the closed sheet
+ * is back at rest. On a phone it's drawn at 0.94 while a sheet is open
+ * (sheet-indent.tsx) and eases back to full size over 400 ms after. A tap
+ * whose press and release straddle a frame of that ease is released a few
+ * pixels from where it was pressed, so no click reaches the control: a tick
+ * straight after adding a task through the sheet went nowhere on a loaded
+ * run (MAINT-116, as in MAINT-100). Call it before tapping the page after a
+ * sheet closes. At rest the indent has no transform at all; mid-ease it's a
+ * matrix. */
+export async function waitForSheetClosed(page: Page) {
+  await waitForDialogHistory(page);
+  await expect
+    .poll(() => page.locator('[data-slot="sheet-indent"]').evaluate((el) => getComputedStyle(el).transform))
+    .toBe("none");
 }
 
 /** UX-49: a delete that offers Undo only reaches the server once its toast

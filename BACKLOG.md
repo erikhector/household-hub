@@ -166,11 +166,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       scans and `parse-import-csv.ts` (codes their clients already
       translate), all done, and the shared share-split parser
       (`share-split-form.ts`), and the personal budget
-      (`personal-budget/actions.ts`). Still English: the string-literal
-      `error:` values and Zod messages in the one file left on `PENDING` in
-      `src/lib/actions/error-strings.test.ts`, the household budget's
-      `budget/actions.ts` (35), plus `lib/recipe-import.ts` (MAINT-65 is
-      splitting it). The Zod messages of the limit and goal fields in
+      (`personal-budget/actions.ts`). Recipe import needs nothing: since
+      MAINT-65 the `lib/recipe-import/` modules return only codes
+      (`FetchRecipeError`, `RecipeFileError`), which `recipe-actions.ts`
+      and `recipe-file-actions.ts` map to `dict.mealPlanning` strings, and
+      the photo import answers with `dict` strings too. Still English: the
+      string-literal `error:` values and Zod messages in the one file left
+      on `PENDING` in `src/lib/actions/error-strings.test.ts`, the
+      household budget's `budget/actions.ts` (35). The Zod messages of the limit and goal fields in
       `savings-goal-calc.ts` and `budget-category-limit.ts` are a parameter
       for now (`monthlyLimitFieldWith`, `goalAmountFieldWith`,
       `goalDateFieldWith`): the personal budget passes `v()` keys, the
@@ -254,6 +257,7 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Acceptance: `npx playwright test e2e/never-stocked.spec.ts --project=desktop --repeat-each=30` passes 30/30.
       Further sighting (2026-11-08, builder run): `mobile` project too. Failed once in a full `ci:local` on the MAINT-91 head (4f0e266) at line 33 (the added row not visible in time), and passed on the re-run and 30/30 in isolation.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193, which doesn't touch this spec or inventory): `e2e/never-stocked.spec.ts:18` failed once on `desktop` in the first full run, then passed in a second full run of the same commit and 15/15 in a locked `--repeat-each=15` on that build.
+      Further sighting (2026-11-17, GitHub e2e job on release PR #1542, run 44064248664, commit 00bdaba, which ships #1539/#1540 but touches neither this spec nor inventory): `e2e/never-stocked.spec.ts:18` on `desktop` failed its first attempt and passed on the retry (marked `flaky`). The locked local `ci:local` on the same commit passed it.
 - [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
       `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -270,28 +274,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Further sighting (2026-11-15, builder's locked `ci:local` on 11ea0b3, PR #1453, UX-193), now on the `desktop` project: the same test (`:87`) failed once in the first full run, passed in the next three full gates, and failed 2 of 6 in a `--repeat-each=6` while other worktrees were building, then passed 15/15 on a quiet machine with and without #1453's change. So it isn't mobile-only; the acceptance should also pass 30/30 on `--project=desktop`.
       Further sighting (2026-11-15, builder's locked `ci:local` on abf9c66, PR #1479, MAINT-103: a fix in `dialog-history.ts` for a navigation lost when a dialog closes, which touches neither this spec nor the budget feature): `mobile` project, the same test (`:87`) failed once in the first full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`, a forced click on the `peer sr-only` `categoryId` radio straight after the Add transaction dialog opened), and passed in a second full run on the same commit (1691 passed).
       Further sighting (2026-11-16, reviewer's locked `ci:local` on release PR #1484, f77b161): `mobile` project, the same test (`:87`) failed once in the full run with the same error at `:98` (`locator.check: Clicking the checkbox did not change its state`; 1 failed, 1696 passed) and passed in a rerun of the spec on the same commit (`--project=mobile`, 6 passed). The GitHub e2e job on that commit passed it.
-- [ ] **MAINT-104. Flaky: the What's new link in Profile's About disclosure isn't found within 20 s in the Back-restores-scroll spec** (low, S) —
-      `e2e/ux-193.spec.ts:26`, the `#profile-notifications` variants only: "Back to Profile restores the scroll position, with a hash" on `desktop`, and "…, with a hash, fetched again" on `mobile`. The spec is new in #1453 (UX-193). Three sightings, all on 2026-11-15. (1) The builder's locked `ci:local` on 6faed9d (#1453's branch merged with `next`): "with a hash, fetched again" failed once on `mobile`, and passed in the next full gate. (2) and (3) The GitHub `End-to-end (Playwright)` job on release PR #1455 (908b494, job 132738518572): the `desktop` "with a hash" test and the `mobile` "with a hash, fetched again" test each failed their first attempt (after 21.4 s and 22.1 s) and passed on the retry, so Playwright marked both `flaky`; the reviewer's locked `ci:local` on the same commit passed all eight `ux-193` tests. Failing step, the same each time: `expectHydrated(link)` at `:35` → `Timeout 20000ms exceeded while waiting on the predicate` (`e2e/ui.ts:325`). That error alone can't tell "the link is there but not hydrated" from "the link isn't there": `expectHydrated` polls `target.evaluate(…)`, which waits for the element. The builder's failure snapshot (sighting 1) shows the second: the About summary focused and the `<details>` closed again, after the spec clicked the summary straight after `gotoRevealed`, before hydration. What closes the disclosure is not known; that only the hash variants fail points at whatever the hash sets off while the page hydrates (`ScrollToHash`, or the restore). `e2e/notifications-empty-state.spec.ts:74` clicks a summary (Danger zone) the same way.
-      Fix in flight: #1456 waits for the summary to be hydrated and for the router's patch before clicking it, then asserts the link is visible. Don't build this a second time. The item is done when the acceptance line passes on a `next` that has #1456; if it still fails there, find what closes the disclosure.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/ux-193.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-107. Run `command-palette.spec.ts` on the `iphone` project, so the MAINT-103 repair is tested in WebKit** (med, S) —
-      A navigation issued while a dialog's `history.back()` is still pending is repaired in `src/components/ui/dialog-history.ts` (MAINT-103): the back undoes the push and the helper steps forward onto it again. That repair has never run in WebKit. The one test that forces the ordering, "Enter still navigates when the router pushes before the palette's history entry is gone" (`e2e/command-palette.spec.ts:85`), is not in the `iphone` project, whose `testMatch` in `playwright.config.ts` is `smoke|flows|form-control-sizes.mobile`. Why it matters: MAINT-101 ("an edit still shows after navigating away and back", `e2e/flows.spec.ts`) twice failed its first attempt on `iphone` in the GitHub e2e job with the page still on `/dashboard/tasks` 5 s after `router.push("/dashboard/profile")` (release PR #1425 on 138ae29, 2026-11-14, job 132417142477; release PR #1484 on f77b161, 2026-11-16, job 133033346476), and the second sighting already had the MAINT-103 repair. The inferred cause, never reproduced (no trace was kept and WebKit can't be installed in the build container), is the push falling inside the Add dialog's pending back. #1487 settled the test by waiting with `waitForDialogHistory` before the push, so no test goes through that path in WebKit any more. If the inference is right, the repair doesn't hold on iOS, and someone who taps a nav link straight after adding a task stays on the page.
-      Change: add `command-palette` to the `iphone` project's `testMatch` in `playwright.config.ts`. The spec opens the palette with Ctrl+K and has no `isMobile` branches; if one of its other tests can't pass in WebKit for a reason that has nothing to do with the repair, move the MAINT-103 test to a spec of its own that `iphone` matches and say so in the PR, rather than skipping it there. If the MAINT-103 test fails on `iphone`, that is the finding: fix the repair in `dialog-history.ts` in the same PR, or file the bug with the trace as its own item. Never merge it skipped, loosened or retried.
-      Fallback from #1487: if "an edit still shows after navigating away and back" flakes on `iphone` again with the `waitForDialogHistory` wait in place, the dialog's back was not the cause. The other candidate is a slow first client navigation in a cold WebKit; file that as a new `Flaky:` item with the sighting and note it here. Happened: filed as MAINT-112 (release PR #1506, 2026-11-16).
-      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=10` passes every time, with the MAINT-103 test among the tests run (the `iphone` project is opt-in locally; where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next release PR is the evidence: it lists the `[iphone] › e2e/command-palette.spec.ts` tests as passed on the first attempt, none `flaky`).
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
-      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The earlier two sightings are in MAINT-107. With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; MAINT-107 names the remaining candidate, a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
+      `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
+      Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the GitHub `End-to-end (Playwright)` job on the next two release PRs lists `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-113. Flaky: Enter in the command palette leaves the page on `/dashboard/tasks?add=1` instead of `/dashboard/tasks` on desktop** (low, S) —
-      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone"), `desktop` project, local `npm run ci:local` only. First sighting: release PR #1514 on c5dede9, 2026-11-16, failed once and passed on a re-run of the same commit (GitHub's `End-to-end (Playwright)` job on the same commit passed it first time). Failing step: `:118`, `expect(page).toHaveURL(/\/dashboard\/tasks$/)`; after 5000 ms the page was on `http://localhost:3000/dashboard/tasks?add=1`, having passed through `/dashboard` with `data-dialog-back-pending` set. This is the test that forces the MAINT-103 ordering (a push while the palette's `history.back()` is still pending, repaired in `src/components/ui/dialog-history.ts`), so the `?add=1` it ended on suggests the repair's forward step landed on the wrong entry or a stale `?add=1` push won the race under load, not a slow page. Start from a `--trace on` run of the spec with `--repeat-each=30` under load (e.g. alongside another worker), and check which history entries the helper sees when it steps forward. If the repair can land on the wrong entry, fix it in `dialog-history.ts`; if the test drives an ordering the app can't produce, fix the test's setup, not its assertion. MAINT-107 adds this spec to `iphone`; keep the two in step.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-115. Flaky: an empty template name can't be checked because the seed insert clashes with week-picks' week on desktop** (low, S) —
-      `e2e/meal-planning-field-errors.spec.ts:66` ("meal planning field errors (sv) › an empty template name is flagged under the field"), `desktop` project. First sighting: release PR #1525 on 6bcb66a, 2026-11-17, GitHub `End-to-end (Playwright)` job 133761597395, failed on the first attempt and on retry #1 with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"` at its seed `INSERT` (`:76`). It passed in the reviewer's full local `ci:local` run on the same commit and on a focused re-run of the spec (desktop + mobile, 10 passed), so it depends on which specs share a worker. Cause: the spec seeds `2032-05-03/10/17/24` (one per project and locale), the same four Mondays `e2e/week-picks.spec.ts:33-34` uses for its `pick` and `spread` tests, and it only deletes the old plan by its own id. `E2E_WORKER` is the parallel index (`e2e/seed-data.ts:14`), so the `desktop` and `mobile` projects share a worker's household while running at the same time: week-picks' live `pick.mobile` plan (`2032-05-10`) blocks this spec's desktop sv insert. Same class of bug as MAINT-79. Give the spec weeks no other spec seeds (grep `e2e/` for `2032-` before choosing). Don't delete every `MealPlan` for the household and week before inserting: that would delete week-picks' in-flight plan and move the flake there.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: no other spec under `e2e/` seeds the weeks this spec uses, and `npx playwright test e2e/meal-planning-field-errors.spec.ts e2e/week-picks.spec.ts --project=desktop --project=mobile --repeat-each=30` (default workers, so the two projects overlap) passes 30/30.
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
 
 ### UX (2026-09-26 scout)
 
@@ -541,26 +528,32 @@ bulk select, search and the item page on Pixel 7 and at 320 px, in `en`
 and `sv`. WebKit was not run (no browser installed here), and dark was
 not looked at (no project renders it).
 
-- [ ] **UX-198. Bulk edit bar at 320 px leaves a 41 px value field** (impact: low, effort: S) —
-      with rows selected on `/dashboard/inventory` at 320 px, the bar's
-      second row is the field select (`w-36`, 144 px), the value input
-      and Apply, and the input gets what is left: 41 × 44 px, showing
-      "t.e…" for its placeholder and about two characters of a typed
-      location or category. The count beside "Markera alla" is cut to
-      "2 varor ma…" in Swedish (81 px for 116 px of text). At 412 px the
-      input is 136 px and reads fine. Breaks M1 ("a field whose value
-      can't be read isn't a field"; a select gets its own row on a
-      phone) and M9 (Swedish strings truncate with the full value
-      reachable). `src/components/inventory/inventory-table.tsx:295`,
-      `:335`, `:354-374`. Fix: let the second row wrap so the value input
-      keeps a readable minimum (`min-w-32`) and the select or Apply moves
-      to its own line when the row is narrower than that, and let the
-      count wrap instead of truncating. Acceptance: an e2e test on
-      `mobile` at a 320 px viewport, in `sv`, selects two rows and
-      expects the value field to be at least 128 px wide, the count's
-      `scrollWidth` to be no more than its `clientWidth`, every target in
-      the bar to pass `expectTouchTargets`, and no horizontal overflow;
-      at 412 px the bar is still two rows.
+### UX (2026-11-17 scout)
+
+Tuesday area: shopping lists, shopping mode and the share page. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps; all 290 + 132 tests pass. The only
+audit hits are the known `text-200` bottom-bar truncations (UX-150) and
+the Next up dock's aisle name ("Baki…") at 200% text, which is too small
+to file on its own. The deep dive drove smart add (with a
+70-character Swedish name), the inline price edit with invalid input,
+tick, the row and list menus, share and the share page, and an empty
+new list on Pixel 7 and at 320 px, in `en` and `sv`. WebKit was not run
+(no browser installed here), and dark was not looked at.
+
+### UX (2026-11-18 scout)
+
+Wednesday area: meal planning and recipes. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass. The only audit hits are the known
+`text-200` bottom-bar truncations (UX-150) and the hidden "Invite member"
+button. The landscape sidebar and the Next up dock look cut off in the
+full-page shots. Both are documented behaviour: on short screens the
+aside scrolls (UX-7), and the dock is sticky (UX-37). The deep dive drove the add-meal sheet (empty
+submit, Custom meal with an empty name, a 79-character Swedish name), the
+meal row sheet, Fill empty days, Cook now, Meal prep, the recipe sheet and
+cook mode on Pixel 7 and at 320 px. WebKit was not run (no browser
+installed here), and dark was not looked at (no project renders it).
 
 ---
 

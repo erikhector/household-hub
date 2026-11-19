@@ -63,12 +63,21 @@ function tokenMs(name: string, fallback: number): number {
  * back from there: 37 px for the fourteenth task, under the thumb (M5),
  * and far enough for a tap to be released off its checkbox (MAINT-100). Dividing
  * what is measured by this gives layout pixels, which a scale doesn't
- * change. A ratio this close to 1 is the two widths' rounding, not a scale.
+ * change. A ratio within 1e-4 of 1 is the two widths' rounding, not a
+ * scale: the box is exact to 1/64 px, the computed width to 1/1000, so on
+ * a phone-wide list they differ by under 5e-5.
+ *
+ * MAINT-116: the cut-off was 1e-3, and the tail of the ease back fell
+ * under it. A row added at scale 0.99934 was measured as drawn, and every
+ * row was 0.066% of its offset off: over half a pixel from the seventh
+ * row of a long list down, so at the next tick they all glided that far.
+ * At 1e-4 the leftover is under 0.2 px even 1,500 px down the list, below
+ * the half pixel a row must move by to glide.
  */
 export function renderedScale(renderedWidth: number, layoutWidth: number): number {
   if (!(renderedWidth > 0) || !(layoutWidth > 0)) return 1;
   const scale = renderedWidth / layoutWidth;
-  return Math.abs(scale - 1) < 0.001 ? 1 : scale;
+  return Math.abs(scale - 1) < 1e-4 ? 1 : scale;
 }
 
 function play(el: HTMLElement, keyframes: Keyframe[], options: KeyframeAnimationOptions): Animation {

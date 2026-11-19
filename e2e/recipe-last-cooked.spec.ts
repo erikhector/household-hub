@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
+import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, openRecipesTab, openRowSheet } from "./ui";
@@ -62,11 +63,7 @@ test("a recipe shows how often it was cooked and when last, and a never-cooked o
 }) => {
   const cookedName = unique("Pasta bake");
   const neverName = unique("Fish pie");
-  const today = new Date();
-  const plannedDay = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) +
-      (365 + Math.floor(Math.random() * 5000)) * DAY_MS,
-  );
+  const plannedDay = farDay("recipe-last-cooked");
   await seed(cookedName, neverName, plannedDay);
 
   // Cook the planned entry through the UI: the third time, last today.
