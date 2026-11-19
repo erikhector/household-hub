@@ -68,8 +68,10 @@ export async function PageSkeleton({
 }) {
   const dict = await getDictionary();
   const title = <div className="h-8 w-48 rounded-md bg-muted" />;
+  // data-page-skeleton: scroll-memory.ts (UX-193) puts a Back's scroll
+  // position back only once this has made way for the page.
   return (
-    <div className="flex animate-pulse flex-col gap-6" role="status" aria-label={dict.common.loading}>
+    <div data-page-skeleton className="flex animate-pulse flex-col gap-6" role="status" aria-label={dict.common.loading}>
       <div className="flex flex-col gap-1">
         {back && <div className="h-5 w-24 rounded-md bg-muted/60" />}
         {morph ? <MorphTitleSkeleton kind={morph}>{title}</MorphTitleSkeleton> : title}

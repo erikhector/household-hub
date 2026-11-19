@@ -7,11 +7,45 @@ import {
   markItemEmptyAction,
   markItemOpenedAction,
   undoFreezeItemAction,
+  undoMarkItemEmptyAction,
   undoMarkItemOpenedAction,
+  type EmptyUndoSnapshot,
 } from "@/app/dashboard/inventory/actions";
-import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+
+// UX-197: the one toast for emptying an item, from a row's menu, the item
+// page or the quantity sheet's "All". It names the list when the emptying
+// put the item on one (the explicit "& add to shopping list" or the
+// low-stock auto-add, which no longer shows its own toast here), and its
+// Undo puts the old amount back and takes that row off again, or says why
+// it couldn't (the item changed since).
+export function showMarkedEmptyToast(
+  item: { id: string; name: string },
+  result: { listName?: string; undo?: EmptyUndoSnapshot },
+  dict: Dictionary["inventory"],
+) {
+  const message = result.listName
+    ? format(dict.markedEmptyAddedToast, { name: item.name, list: result.listName })
+    : format(dict.markedEmptyToast, { name: item.name });
+  const { undo } = result;
+  if (!undo) {
+    toast.success(message);
+    return;
+  }
+  toast.success(message, {
+    duration: 8000,
+    action: {
+      label: dict.undoMarkEmpty,
+      onClick: () => {
+        void undoMarkItemEmptyAction(item.id, undo).then((undoResult) => {
+          if (undoResult.error) toast.error(undoResult.error);
+          else toast.success(format(dict.markEmptyUndoneToast, { name: item.name }));
+        });
+      },
+    },
+  });
+}
 
 // The mark-empty, mark-opened and freeze clicks of ItemActions, shared by the
 // inventory list and the item page (UX-124) so a row and the page it opens
@@ -50,13 +84,8 @@ export function useItemHandlers({
   function handleMarkEmpty(item: { id: string; name: string }, addToShoppingList: boolean) {
     run(async () => {
       const result = await markItemEmptyAction(item.id, addToShoppingList);
-      if (result.error) {
-        toast.error(result.error);
-      } else if (result.listName) {
-        toast.success(format(dict.markedEmptyAddedToast, { name: item.name, list: result.listName }));
-      } else {
-        showAutoAddedToast(result.autoAdded, dict.autoAdd);
-      }
+      if (result.error) toast.error(result.error);
+      else showMarkedEmptyToast(item, result, dict);
     });
   }
 

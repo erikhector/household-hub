@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { StatusCardLink } from "@/components/auth/status-card";
+import { loginPath } from "@/lib/login-path";
 import { PasswordInput } from "@/components/auth/password-input";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { EMAIL_PATTERN } from "@/lib/email-pattern";
 import { joinViaInviteSignupAction } from "@/lib/actions/household";
 import { resendVerificationEmailForLoginAction, type ResendVerificationForLoginState } from "@/lib/actions/auth";
 import type { SignupState } from "@/lib/actions/auth";
@@ -40,21 +43,42 @@ export function JoinSignupForm({
   // UX-13, as in SignupForm: an error keeps the name and email.
   const kept = useKeptFormValues(["displayName", "email"]);
   // UX-183b: a missing name, email or password is worded under its field in
-  // the page's language (`noValidate`), not by the browser's own bubble. The
-  // server still owns the format rules (email shape, length, match).
+  // the page's language (`noValidate`), not by the browser's own bubble.
+  // UX-194: so are a malformed email, a password under 8 characters and a
+  // confirmation that differs, as on /signup (UX-59). Those used to go to the
+  // server, and React's reset after the action then emptied both password
+  // fields. The server still validates everything (joinSignupSchema).
   const req = useRequiredFields();
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     const blocked = req.check(event, [
       { name: "displayName", id: "displayName", message: dict.nameRequired },
-      { name: "email", id: "email", message: dict.emailRequired },
-      { name: "password", id: "password", message: dict.passwordRequired },
-      { name: "confirmPassword", id: "confirmPassword", message: dict.confirmPasswordRequired },
+      {
+        name: "email",
+        id: "email",
+        message: dict.emailRequired,
+        invalid: (value) => (EMAIL_PATTERN.test(value.trim()) ? undefined : dict.emailInvalid),
+      },
+      {
+        name: "password",
+        id: "password",
+        message: dict.passwordRequired,
+        invalid: (value) => (value.length < 8 ? dict.passwordTooShort : undefined),
+      },
+      {
+        name: "confirmPassword",
+        id: "confirmPassword",
+        message: dict.confirmPasswordRequired,
+        invalid: (value, data) => (value !== data.get("password") ? dict.passwordsDontMatch : undefined),
+      },
     ]);
     if (!blocked) kept.onSubmit(event);
   }
-  const invalid = (name: string, id: string) => ({
+  // `hintId` is the field's always-visible hint, which describes it with or
+  // without an error.
+  const invalid = (name: string, id: string, hintId?: string) => ({
     "aria-invalid": req.messageFor(name) ? (true as const) : undefined,
-    "aria-describedby": req.messageFor(name) ? fieldErrorId(id) : undefined,
+    "aria-describedby":
+      [hintId, req.messageFor(name) ? fieldErrorId(id) : undefined].filter(Boolean).join(" ") || undefined,
   });
 
   // Carries the invite forward through login (A5's redirect-back param) so
@@ -69,21 +93,27 @@ export function JoinSignupForm({
   // signup-form.tsx): the account exists but can't sign in until its email
   // is verified (see joinViaInviteSignupAction's doc comment).
   if (state.status === "verification-sent") {
+    // UX-195, as in SignupForm: once a resend has answered, the "couldn't
+    // send, try resending below" warning and its red icon are out of date,
+    // so only the resend's own message shows.
+    const sendFailed = Boolean(state.emailError) && !resendState.message;
     return (
       <div className="flex flex-col items-center gap-4 py-2 text-center">
-        {state.emailError ? (
+        {sendFailed ? (
           <AlertTriangle className="size-10 text-destructive" />
         ) : (
           <MailCheck className="size-10 text-muted-foreground" />
         )}
-        <p className="text-sm text-muted-foreground">
-          {state.emailError
-            ? format(dict.verificationSendFailedDescription, { household: state.householdName ?? "" })
-            : format(dict.verificationSentDescription, {
-                household: state.householdName ?? "",
-                email: state.email ?? "",
-              })}
-        </p>
+        {(sendFailed || !state.emailError) && (
+          <p className="text-sm text-muted-foreground">
+            {sendFailed
+              ? format(dict.verificationSendFailedDescription, { household: state.householdName ?? "" })
+              : format(dict.verificationSentDescription, {
+                  household: state.householdName ?? "",
+                  email: state.email ?? "",
+                })}
+          </p>
+        )}
         {resendState.message ? (
           <p className="text-sm text-muted-foreground">{resendState.message}</p>
         ) : (
@@ -94,9 +124,10 @@ export function JoinSignupForm({
             </Button>
           </form>
         )}
-        <Link href="/login" className="text-sm font-medium text-primary underline underline-offset-4">
-          {dict.logIn}
-        </Link>
+        {/* UX-195: a 44 px target (M3) that carries the address just typed
+            to /login, so it isn't typed twice (M4). Not `loginHref` above:
+            the invite is used up, so there's nothing to come back to. */}
+        <StatusCardLink href={loginPath(state.email)}>{dict.logIn}</StatusCardLink>
       </div>
     );
   }
@@ -152,8 +183,11 @@ export function JoinSignupForm({
           autoComplete="new-password"
           showLabel={dict.showPassword}
           hideLabel={dict.hidePassword}
-          {...invalid("password", "password")}
+          {...invalid("password", "password", "password-hint")}
         />
+        <p id="password-hint" className="text-sm text-muted-foreground">
+          {dict.passwordHint}
+        </p>
         <FieldError fieldId="password">{req.messageFor("password")}</FieldError>
       </div>
       <div className="flex flex-col gap-2">
@@ -173,7 +207,10 @@ export function JoinSignupForm({
         />
         <FieldError fieldId="confirmPassword">{req.messageFor("confirmPassword")}</FieldError>
       </div>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {/* A blocked submit shows only its own errors, not the last server verdict. */}
+      {state.error && Object.keys(req.errors).length === 0 && (
+        <p className="text-sm text-destructive">{state.error}</p>
+      )}
       <p className="text-center text-sm text-muted-foreground">
         {legalDict.signupConsentPrefix}{" "}
         <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">

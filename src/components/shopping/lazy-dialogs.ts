@@ -29,6 +29,9 @@ export const loadRenameListDialog = createLazyDialogLoader(() =>
 export const loadSaveTemplateDialog = createLazyDialogLoader(() =>
   import("@/components/shopping/list-templates").then((m) => m.SaveTemplateDialog),
 );
+export const loadMoveItemDialog = createLazyDialogLoader(() =>
+  import("@/components/shopping/move-item-dialog").then((m) => m.MoveItemDialog),
+);
 export const loadPartialPriceDialog = createLazyDialogLoader(() =>
   import("@/components/shopping/partial-price-dialog").then((m) => m.PartialPriceDialog),
 );

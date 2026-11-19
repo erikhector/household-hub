@@ -78,7 +78,14 @@ export async function GET(request: Request, ctx: RouteContext<"/api/calendar/[to
   const [meals, bills] = await Promise.all([
     prisma.mealPlanEntry.findMany({
       where: { mealPlan: { householdId: household.id }, date: { gte: from, lte: to } },
-      select: { id: true, date: true, mealType: true, freeformName: true, recipe: { select: { name: true } } },
+      select: {
+        id: true,
+        date: true,
+        mealType: true,
+        freeformName: true,
+        note: true,
+        recipe: { select: { name: true } },
+      },
       orderBy: [{ date: "asc" }, { id: "asc" }],
       take: MAX_MEAL_ENTRIES,
     }),
@@ -106,6 +113,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/calendar/[to
       mealType: m.mealType,
       recipeName: m.recipe?.name ?? null,
       freeformName: m.freeformName,
+      note: m.note,
     })),
     bills,
     from,

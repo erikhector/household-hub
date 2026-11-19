@@ -5,6 +5,18 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // A leading underscore marks a parameter that is there on purpose but
+    // unused: a `vi.fn(async (_args: unknown) => …)` mock needs it so
+    // `mock.calls` is typed. Without this each one is a warning, and they
+    // were most of the count the weekly retro tracks, hiding the real ones.
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_" },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

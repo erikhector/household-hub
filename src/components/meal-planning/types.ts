@@ -72,6 +72,8 @@ export type MealPlanEntryData = {
   freeformName: string | null;
   // GAP-58: a custom meal's ingredient lines as typed (null when none).
   freeformIngredients: string | null;
+  // GAP-81: the meal's one-line reminder (MealPlanEntry.note), or null.
+  note: string | null;
   // How many portions of the linked recipe this slot is for — see
   // MealPlanEntry.portions' doc comment in schema.prisma. Meaningless when
   // recipeId is null (a freeform entry has no recipe to scale).

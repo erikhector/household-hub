@@ -22,7 +22,11 @@ const getTasksData = cache(async (householdId: string) => {
   const [tasks, householdMembers] = await Promise.all([
     prisma.householdTask.findMany({
       where: { householdId },
-      orderBy: { createdAt: "asc" },
+      // MAINT-114: id breaks createdAt ties (the column keeps milliseconds,
+      // so tasks made together share one). Without it Postgres may return
+      // tied rows in a different order on every refresh, and the list
+      // glides them past each other on a tick that never touched them.
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     }),
     prisma.householdMember.findMany({
       where: { householdId },
