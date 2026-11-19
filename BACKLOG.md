@@ -955,6 +955,60 @@ out to be a product-scope question rather than a scoped task should move to
       buys a `unique()` item as 6 pcs on one list, then on a new list types
       its prefix, sees "6" in the suggestion and gets a 6 pcs row on pick.
 
+### 2026-11-16 scan
+
+- [ ] **GAP-84. Repeat a task every two weeks, month, quarter or year** (impact: med, effort: S) —
+      Grocy's chores repeat daily, weekly, monthly or yearly, and Cozi's
+      to-dos the same, so a household keeps "change the smoke alarm
+      battery" or "descale the coffee machine" there. Squirrel's task
+      dialog offers every 1, 2, 3 or 7 days only
+      (`RECURRENCE_OPTION_DAYS`, `src/components/tasks/task-form-dialog.tsx:78`)
+      and the action refuses anything over 90 days
+      (`recurrenceIntervalDaysSchema`, `src/app/dashboard/tasks/actions.ts:25`),
+      so the fortnightly bins, the monthly filter and every yearly job
+      can't be a repeating task at all. No schema change:
+      `recurrenceIntervalDays` stays the whole model (REQUIREMENTS.md,
+      "Household tasks", Recurrence). Add 14, 30, 90, 182 and 365 to the
+      select and raise the cap to 366. The model counts days, not
+      calendar months, so say that honestly in the label: name the long
+      presets ("Every 2 weeks", "Every 30 days", "Every 3 months (90
+      days)", "Every 6 months (182 days)", "Every year (365 days)") in
+      the option and in the row's badge (`recurrenceBadge`,
+      `tasks-client.tsx:349`) rather than "Repeats every 365 days", and
+      update the `repeatMax` message. Check the readers of the interval
+      still behave at 365: `isTaskOpen`/`getNextDueDate`/`skippedUntilFor`
+      (`recurrence.ts`), `task-due.ts`, `older-completed.ts`, the
+      tasks-due-today sync in `src/lib/notifications.ts`, and taking
+      turns (`src/lib/task-rotation.ts`). Labels in `en.ts` and `sv.ts`.
+      Acceptance: action tests accept 365 and refuse 367; a
+      `recurrence.ts` test that a yearly task completed today is closed
+      tomorrow and open again after 365 days; e2e on `desktop` and
+      `mobile` creates a `unique()` task with "Every year", completes it
+      and, after a reload, sees it completed with a next-due date a year
+      out.
+
+- [ ] **GAP-85. Jump to any week in the meal planner** (impact: low, effort: S) —
+      AnyList's December 2025 meal-plan update added jumping to a month
+      or year from the calendar header. Squirrel's planner moves one
+      week per tap of the `PeriodSwitcher` arrows
+      (`src/components/period-switcher.tsx:27`, used by
+      `src/components/meal-planning/week-planner.tsx`), so putting the
+      Christmas dinner on the plan in November, or looking back at what
+      was cooked in March, is a tap and a page load per week. Meal-plan
+      search (GAP-59) only reaches a week that already has the meal.
+      Make the planner's range label a button ("Choose week", with the
+      range as its visible text) that opens a native date field; picking
+      any date navigates to the week containing it (the page already
+      takes the week from the URL). Planner only: the budgets' month
+      switcher keeps its plain label. The button meets DESIGN.md's M
+      rules for touch targets and the date field is at least 16 px on
+      phones; "This week" stays as the way back. Labels in `en.ts` and
+      `sv.ts`.
+      Acceptance: e2e on `desktop` and `mobile` opens the planner,
+      activates "Choose week", fills a date ten weeks ahead, and sees
+      the range label show that week and its seven day cards; "This
+      week" returns to today's week.
+
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
