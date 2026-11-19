@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.158.0",
+    "date": "2026-11-19",
+    "pr": 1600,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The \"tasks due today\" notification no longer keeps the names of people who have left your household or deleted their account. Their tasks now show \"former member\".\n\nWhen you pick a suggestion in the add box, Squirrel now adds the amount you bought last time (say 12 eggs) instead of 1, and shows that amount on the suggestion. Type a number first to add a different amount.",
+      "sv": "Aviseringen om sysslor att göra idag sparar inte längre namnen på personer som har lämnat hushållet eller tagit bort sitt konto. Deras sysslor visas nu med \"tidigare medlem\".\n\nNär du väljer ett förslag i lägg till-rutan lägger Squirrel nu till samma mängd som du köpte förra gången (till exempel 12 ägg) i stället för 1, och visar mängden i förslaget. Skriv ett antal först om du vill ha en annan mängd."
+    }
+  },
+  {
     "version": "0.157.5",
     "date": "2026-11-18",
     "pr": 1583,
