@@ -27,6 +27,23 @@ import { hashToken } from "@/lib/token-hash";
 class AuthError extends Error {}
 vi.mock("next-auth", () => ({ AuthError }));
 
+// Real bcryptjs, but hashed at the minimum cost factor. signupAction hashes
+// at cost 12 and signInMock below runs three real compares against that
+// hash. bcryptjs is pure JS, so that's ~350 ms of CPU each, ~1.4 s of the
+// test's ~1.5 s, and on a loaded machine (parallel `npm run check`) it
+// stretched past vitest's 5 s timeout. The cost factor is stored in the hash
+// itself and compare reads it from there, so lowering it here keeps the real
+// hash -> compare round trip this test exists to prove; only the work factor
+// (a production-tuning number nothing here asserts) changes.
+vi.mock("bcryptjs", async (importOriginal) => {
+  const actual = (await importOriginal<typeof import("bcryptjs")>()).default;
+  const fast = {
+    ...actual,
+    hash: (password: string) => actual.hash(password, 4),
+  };
+  return { default: fast, ...fast };
+});
+
 // Mirrors src/lib/auth.ts's real EmailNotVerifiedSignin (see the identical
 // stand-in in auth.test.ts) — signInMock's real implementation below throws
 // this the same way the real `authorize` callback does, so this golden path

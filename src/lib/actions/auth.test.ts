@@ -17,6 +17,22 @@ import { CURRENT_VERSION } from "@/lib/release-notes";
 class AuthError extends Error {}
 vi.mock("next-auth", () => ({ AuthError }));
 
+// Real bcryptjs at the minimum cost factor. signupAction and
+// resetPasswordAction hash at cost 12, which in pure-JS bcryptjs is ~350 ms
+// of CPU per call. Thirteen tests here pay it once each, and on a loaded
+// machine (parallel `npm run check`) one of them blew past vitest's 5 s
+// timeout. Nothing here asserts on the hash beyond it being a string, so only
+// the work factor changes (same fix as golden-path.test.ts). The mock still
+// records the cost the action asked for, so the signup and reset happy paths
+// below pin production's 12 and catch it being lowered by accident.
+const { bcryptHashMock } = vi.hoisted(() => ({ bcryptHashMock: vi.fn() }));
+vi.mock("bcryptjs", async (importOriginal) => {
+  const actual = (await importOriginal<typeof import("bcryptjs")>()).default;
+  bcryptHashMock.mockImplementation((password: string, _cost: number) => actual.hash(password, 4));
+  const fast = { ...actual, hash: bcryptHashMock };
+  return { default: fast, ...fast };
+});
+
 // Real src/lib/auth.ts's EmailNotVerifiedSignin (see its doc comment there)
 // is itself an AuthError subclass — mirrored the same way as the AuthError
 // stand-in above so `error instanceof EmailNotVerifiedSignin` in loginAction
@@ -274,6 +290,7 @@ describe("signupAction behavior", () => {
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(signInMock).not.toHaveBeenCalled();
     expect(result).toEqual({ status: "verification-sent", email: validSignup.email });
+    expect(bcryptHashMock).toHaveBeenCalledWith(validSignup.password, 12);
   });
 
   // UX-74: no unread "What's new" dot for an account that has only ever
@@ -735,6 +752,7 @@ describe("resetPasswordAction behavior", () => {
     );
 
     expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(bcryptHashMock).toHaveBeenCalledWith(validReset.newPassword, 12);
   });
 
   // SCALE-H: the reset must also bump passwordChangedAt in the same update,
