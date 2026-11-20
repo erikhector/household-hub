@@ -11180,7 +11180,12 @@ UX-14's rapid ticks and the rollback toast.
   cold WebKit on a loaded runner can take longer than 5 s to get, so the
   same test first waits for the push's RSC request (a push that never
   goes out fails there, by name) and then for the new page's heading
-  with 20 s, and only then checks the URL (MAINT-112). A CSS
+  with 20 s, and only then checks the URL (MAINT-112). A page that
+  strips a hand-off query (the palette's `?add=1`) does it with
+  `router.replace()`, which also writes the URL only once that server
+  render arrives, so the palette's "Add to shopping list" test waits for
+  the add box's focus, then for the replace's RSC request, then for the
+  stripped URL with the same 20 s (MAINT-124). A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing
