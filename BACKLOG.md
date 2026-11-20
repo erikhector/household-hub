@@ -965,6 +965,35 @@ out to be a product-scope question rather than a scoped task should move to
       the range label show that week and its seven day cards; "This
       week" returns to today's week.
 
+### 2026-11-20 scan
+
+- [ ] **GAP-86. Mark a shopping-list item urgent** (impact: med, effort: M) —
+      Bring!'s item labels let a member flag an item as urgent, so
+      whoever is at the store sees "we need this today" before the
+      rest. NerdWallet's 2026 roundup names Bring! the best overall
+      list app. Squirrel's rows carry only a free-text note (GAP-5,
+      `src/components/shopping/shopping-row.tsx:328`), which has no
+      visual weight and doesn't change the order, so "nappies, today"
+      sits mid-list between the week's staples in shopping mode
+      (`src/components/shopping/shopping-mode.tsx`). Add
+      `ShoppingListItem.urgent Boolean @default(false)` (Phase 2
+      migration). The edit form (`shopping-item-form-dialog.tsx`) gets
+      an "Urgent" switch next to the note, and the row's actions get a
+      "Mark urgent"/"Not urgent" toggle. Both are click actions scoped
+      by `requireHousehold()` through the item's list. An unticked
+      urgent item shows a small labelled badge ("Urgent", not colour
+      alone) and sorts first within its section in the list and in
+      shopping mode. Ticking it off clears the flag, so a re-add starts
+      normal. It is carried by "Move to list" and kept out of templates.
+      The public share page shows the badge read-only. No
+      notification: Guardrails keep the bell for real problems. Labels
+      in `en.ts` and `sv.ts`.
+      Acceptance: e2e on `desktop` and `mobile` adds two items to a
+      section, marks the second urgent, reloads, and sees it first in
+      that section with the "Urgent" badge, both on the list and in
+      shopping mode; ticking it removes the badge, and unticking shows
+      the item without it.
+
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
