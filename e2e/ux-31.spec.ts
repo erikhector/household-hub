@@ -26,7 +26,7 @@ test("an unread notification says 'Unread' in text, not only with a dot", async 
   } finally {
     // An unread row adds a count badge to the nav ("1 More"), which would
     // break specs that look the nav up by its label.
-    await withDb((client) => client.query(`DELETE FROM "Notification" WHERE id = 'ux31-unread'`));
+    await withDb((client) => client.query(`DELETE FROM "Notification" WHERE id = $1`, [`ux31-unread-${E2E_WORKER}`]));
   }
 });
 

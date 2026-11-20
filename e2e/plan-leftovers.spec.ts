@@ -32,7 +32,7 @@ let seeded: string | undefined;
 
 test.afterEach(async () => {
   if (!seeded) return;
-  const tag = uniqueTag();
+  const tag = seeded;
   seeded = undefined;
   await withDb(async (client) => {
     const recipeId = `e2e-recipe-${tag}`;
