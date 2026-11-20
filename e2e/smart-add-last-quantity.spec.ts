@@ -36,11 +36,21 @@ test("a picked suggestion adds the quantity last bought", async ({ page, context
   const firstRow = rowOf(page, item);
   await expect(firstRow).toHaveAccessibleName(sixPcs);
   await expectHydrated(firstRow);
+  // The tick is optimistic (UX-14): the row moves and the put-away button
+  // shows on tap, before the save lands, so a reload straight after could
+  // beat the request and come back with the row unticked (MAINT-123). Wait
+  // for the tick's Server Action to answer (it does once the action has run)
+  // before reloading. The add above has already answered: its row only shows
+  // once smart add's action returns.
+  const tickSaved = page.waitForResponse(
+    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
+  );
   await firstRow.click();
   // With its only row ticked the list offers to put the trip away. Reload
   // and see it again, so the next list only opens once the tick is saved.
   const putAway = page.getByRole("button", { name: "Put everything away" });
   await expect(putAway).toBeVisible();
+  await tickSaved;
   await page.reload();
   await expect(putAway).toBeVisible();
 
