@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectRendersCleanly, expectTouchTargets, LOCALES, saveScreenshot, setLocaleCookie } from "./ui";
@@ -13,16 +13,6 @@ test.use({ storageState: { cookies: [], origins: [] } });
 const stamp = `${E2E_WORKER}-${Date.now().toString(36)}`;
 const namedToken = `ux62-named-${stamp}`;
 const legacyToken = `ux62-legacy-${stamp}`;
-
-async function withDb<T>(fn: (c: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
 
 async function cleanup() {
   await withDb((c) => c.query(`DELETE FROM "Invitation" WHERE "token" = ANY($1)`, [[namedToken, legacyToken]]));

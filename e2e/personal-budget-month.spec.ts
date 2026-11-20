@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { budgetTag, insertPersonalCategory, withDb } from "./budget-seed";
+import { budgetTag, insertPersonalCategory } from "./budget-seed";
+import { withDb } from "./db";
 import { E2E_USER } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow, waitForDialogHistory } from "./ui";
 

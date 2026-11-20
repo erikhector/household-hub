@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_USER, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import {
@@ -16,16 +16,6 @@ import {
 // The row is inserted directly (the invite dialog already has its own specs)
 // and removed afterwards, only within this worker's household.
 const INVITE_ID = `e2e-invite-sec4-w${E2E_WORKER}`;
-
-async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

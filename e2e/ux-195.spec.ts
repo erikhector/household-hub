@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { format } from "@/lib/i18n/format";
@@ -20,16 +20,6 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 const dicts = { en, sv };
 const stamp = `${E2E_WORKER}-${Date.now().toString(36)}`.toLowerCase();
-
-async function withDb<T>(fn: (c: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
 
 // The warning icon is decorative (no role or name), so the icon's own class
 // is the only handle on it.

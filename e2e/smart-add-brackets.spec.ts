@@ -1,12 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { unique } from "./db";
 import { dismissCookieNotice } from "./ui";
 
 // UX-88: a comma inside brackets belongs to the item. "<tablets> (lemon-free,
 // 120 st), <towels>" is two rows, not a "(lemon-free" row plus a junk
-// "st)" row. Own list, so the seeded one is untouched. The closing letter
-// keeps the generated suffix from ever ending in digits (a trailing "x29"
-// would read as a quantity).
-const unique = (label: string) => `${label} ${Date.now().toString(36)}z`;
+// "st)" row. Own list, so the seeded one is untouched.
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

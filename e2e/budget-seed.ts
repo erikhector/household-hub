@@ -1,4 +1,4 @@
-import { Client } from "pg";
+import type { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 
@@ -17,16 +17,6 @@ export function budgetTag() {
 export function todayUtc(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-}
-
-export async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
 }
 
 export async function insertHouseholdCategory(

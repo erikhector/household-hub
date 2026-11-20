@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
@@ -10,10 +10,6 @@ import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 // three long names outgrow one line.
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function mondayOf(day: Date) {
-  return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
-}
-
 // The dialog names each day's group like this (plan-portions-dialog.tsx), in UTC.
 const dayGroupName = (day: Date) =>
   new Intl.DateTimeFormat("en", {
@@ -22,16 +18,6 @@ const dayGroupName = (day: Date) =>
     month: "short",
     timeZone: "UTC",
   }).format(day);
-
-async function withClient<T>(run: (client: Client) => Promise<T>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
 
 test("a slot's planned dishes wrap in full in the plan-portions sheet", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -50,7 +36,7 @@ test("a slot's planned dishes wrap in full in the plan-portions sheet", async ({
   const day = new Date(nextMonday.getTime() + Math.floor(Math.random() * 7) * DAY_MS);
   const entryIds = dishes.map((_, i) => `e2e-ux185-entry-${id}-${i}`);
 
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`INSERT INTO "Recipe" (id, "householdId", name, servings) VALUES ($1, $2, $3, 2)`, [
       recipeId,
       E2E_HOUSEHOLD.id,
@@ -133,7 +119,7 @@ test("a slot's planned dishes wrap in full in the plan-portions sheet", async ({
     // The last dish (and the others) sit inside the line, not clipped past it.
     expect(fit.inside).toEqual([true, true, true]);
   } finally {
-    await withClient(async (client) => {
+    await withDb(async (client) => {
       await client.query(
         `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
          WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry.id = ANY($2)`,

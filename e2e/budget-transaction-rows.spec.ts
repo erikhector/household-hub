@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets, waitForDialogHistory, waitForUndoableDelete } from "./ui";
 
 // Phone pass (Oct 2026), P2: transactions on a phone are compact rows under

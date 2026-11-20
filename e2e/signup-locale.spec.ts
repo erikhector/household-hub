@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { E2E_PASSWORD, E2E_WORKER } from "./seed-data";
@@ -32,9 +32,7 @@ test("signing up in Swedish gives a Swedish dashboard on first login", async ({
   // mail, so wait for the account row itself rather than for the panel.
   // Sign-in is gated on a verified email, so verify the row directly and
   // check what was stored.
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await expect
       .poll(async () => (await client.query(`SELECT 1 FROM "User" WHERE email = $1`, [email])).rowCount)
       .toBe(1);
@@ -43,9 +41,7 @@ test("signing up in Swedish gives a Swedish dashboard on first login", async ({
       [email],
     );
     expect(res.rows[0]?.locale).toBe("sv");
-  } finally {
-    await client.end();
-  }
+  });
 
   // Drop the cookie so only the account's locale can make this Swedish.
   await context.clearCookies({ name: "locale" });

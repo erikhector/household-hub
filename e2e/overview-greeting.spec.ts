@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import bcrypt from "bcryptjs";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { dismissCookieNotice } from "./ui";
 
 // UX-72: the overview greets by the clock in the user's own time zone, with
@@ -25,31 +25,30 @@ async function withUser(
   const householdId = `e2e-gr-household-${tag}`;
   const email = `e2e-gr-${tag}@squirrel.test`;
   const password = "e2e-password-123";
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
-       VALUES ($1, $2, $3, 'Åsa Lindström', now(), 'en')`,
-      [userId, email, await bcrypt.hash(password, 10)],
-    );
-    await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Greeting household')`, [householdId]);
-    await client.query(
-      `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
-      [`e2e-gr-member-${tag}`, householdId, userId],
-    );
-    await run(async (page) => {
-      await page.goto("/login");
-      await page.getByLabel("Email").fill(email);
-      await page.getByLabel("Password", { exact: true }).fill(password);
-      await page.getByRole("button", { name: "Log in" }).click();
-      await expect(page).toHaveURL(/\/dashboard$/);
-    });
-  } finally {
-    await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
-    await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
-    await client.end();
-  }
+  await withDb(async (client) => {
+    try {
+      await client.query(
+        `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+         VALUES ($1, $2, $3, 'Åsa Lindström', now(), 'en')`,
+        [userId, email, await bcrypt.hash(password, 10)],
+      );
+      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Greeting household')`, [householdId]);
+      await client.query(
+        `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+        [`e2e-gr-member-${tag}`, householdId, userId],
+      );
+      await run(async (page) => {
+        await page.goto("/login");
+        await page.getByLabel("Email").fill(email);
+        await page.getByLabel("Password", { exact: true }).fill(password);
+        await page.getByRole("button", { name: "Log in" }).click();
+        await expect(page).toHaveURL(/\/dashboard$/);
+      });
+    } finally {
+      await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+      await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
+    }
+  });
 }
 
 const heading = (page: import("@playwright/test").Page, name: string) =>

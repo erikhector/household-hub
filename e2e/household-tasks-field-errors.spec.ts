@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { E2E_HOUSEHOLD, E2E_USER, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
@@ -92,15 +92,6 @@ for (const locale of ["en", "sv"] as const) {
     test.use({ storageState: { cookies: [], origins: [] } });
     const token = `fe-join-${E2E_WORKER}-${locale}-${Date.now().toString(36)}`;
 
-    async function withDb(fn: (c: Client) => Promise<unknown>) {
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      await client.connect();
-      try {
-        await fn(client);
-      } finally {
-        await client.end();
-      }
-    }
     test.beforeAll(() =>
       withDb((c) =>
         c.query(

@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { unique } from "./db";
 import { dismissCookieNotice, expectHydrated, gotoRevealed, waitForDialogHistory, waitForSheetClosed } from "./ui";
 
 // Core write paths through the real UI, server actions and database. Each
 // test creates its own uniquely named data, so reruns against the same
 // seeded household don't trip over rows an earlier run left behind.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 // UX-4: the page's one primary action must carry visible words at every
 // width. It used to collapse to a lone "+" below `sm`. Runs on both

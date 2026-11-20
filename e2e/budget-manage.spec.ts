@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, insertHouseholdTemplate, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTemplate } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
 
 // Phone pass (Oct 2026), P5: on Setup, a recurring item is one line with

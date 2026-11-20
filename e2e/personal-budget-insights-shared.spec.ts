@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV, E2E_USER } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, openAllCategories } from "./ui";
 
 // BUDGET-7: Personal Budget's Insights tab counts the user's share of a
@@ -14,19 +13,16 @@ import { dismissCookieNotice, expectNoHorizontalOverflow, openAllCategories } fr
 // and named uniquely since the desktop and mobile runs share the worker's
 // household (which also collects other specs' shared bills, so amounts are
 // checked on this bill's own rows, never on a household-wide total).
-const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
 async function seedSharedRent(): Promise<{ category: string; template: string }> {
-  const tag = suffix();
+  const tag = uniqueTag();
   const category = `Rent ${tag}`;
   const template = `Shared rent ${tag}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     // Personal Budget needs one personal category, or it shows onboarding.
     await client.query(
       `INSERT INTO "PersonalBudgetCategory" (id, "userId", name, type)
@@ -53,9 +49,7 @@ async function seedSharedRent(): Promise<{ category: string; template: string }>
        VALUES ($1, $3, $4, 6000, 12000), ($2, $3, $5, 6000, 0)`,
       [`e2e-split-a-${tag}`, `e2e-split-b-${tag}`, `e2e-tx-${tag}`, E2E_MEMBER, E2E_MEMBER_SV],
     );
-  } finally {
-    await client.end();
-  }
+  });
   return { category, template };
 }
 

@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_USER } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, openAllCategories } from "./ui";
 
 // UX-39: the budget charts are tappable, say their values without hover,
@@ -10,7 +9,6 @@ import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow, expectT
 // month. Run on Personal Budget, whose rows belong to the seeded user, so
 // the setup is a few direct inserts (as personal-budget-income.spec.ts
 // does). Names are unique per run: desktop and mobile share the user.
-const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -23,15 +21,13 @@ function dayIn(monthsAgo: number, day: number): Date {
 }
 
 async function seedSpending(): Promise<string> {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Groceries ${tag}`;
   const categoryId = `e2e-personal-cat-${tag}`;
   const billCategoryId = `e2e-personal-bill-cat-${tag}`;
   const templateId = `e2e-personal-tpl-${tag}`;
   const today = new Date();
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "PersonalBudgetCategory" (id, "userId", name, type) VALUES
          ($1, $2, $3, 'EXPENSE'), ($4, $2, $5, 'EXPENSE')`,
@@ -65,9 +61,7 @@ async function seedSpending(): Promise<string> {
         templateId,
       ],
     );
-  } finally {
-    await client.end();
-  }
+  });
   return name;
 }
 

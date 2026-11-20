@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { unique } from "./db";
 import { STORAGE_STATE_SV } from "./seed";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 
@@ -6,10 +7,7 @@ import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 // decimal, not a list separator, so "1,5 l mjölk" is one row of 1.5 litres,
 // not a "1" row plus a "mjölk × 5 l" row, and the row reads the amount back
 // with the decimal comma it was typed with. As the Swedish member, on an own
-// list so the seeded one is untouched. The closing letter keeps the
-// generated suffix from ever ending in digits (a trailing "x29" would read
-// as a quantity).
-const unique = (label: string) => `${label} ${Date.now().toString(36)}z`;
+// list so the seeded one is untouched.
 
 test.use({ storageState: STORAGE_STATE_SV });
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { unique, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import {
   dismissCookieNotice,
@@ -16,7 +16,6 @@ import {
 const ZONE = "Europe/Stockholm";
 test.use({ timezoneId: ZONE });
 
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 let title = "";
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -26,20 +25,10 @@ test.beforeEach(async ({ context, baseURL }) => {
 // Only this household's row, by its unique title.
 test.afterEach(async () => {
   if (!title) return;
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND title = $2`, [E2E_HOUSEHOLD.id, title]),
   );
 });
-
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
 
 // The day `offsetDays` after the local day `from` falls on, as the app labels
 // a date in another year. Counts calendar days in the zone, like the app.
@@ -103,7 +92,7 @@ test("a task set to repeat every year is next due a year after it is done", asyn
   // Count from the anchor the server stored, not the clock now, so a run
   // across local midnight still expects the label the server rendered.
   // Prisma's columns are zoneless UTC, hence AT TIME ZONE.
-  const anchorAt = await withClient(async (client) => {
+  const anchorAt = await withDb(async (client) => {
     const { rows } = await client.query(
       `SELECT "recurrenceAnchorAt" AT TIME ZONE 'UTC' AS "anchorAt" FROM "HouseholdTask"
        WHERE "householdId" = $1 AND title = $2`,

@@ -1,12 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
-  budgetTag,
-  insertHouseholdCategory,
-  insertHouseholdTransaction,
-  insertPersonalCategory,
-  insertPersonalTransaction,
-  withDb,
-} from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, insertPersonalCategory, insertPersonalTransaction } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
 
 // UX-109: logging an expense on a phone in three taps. The Add transaction

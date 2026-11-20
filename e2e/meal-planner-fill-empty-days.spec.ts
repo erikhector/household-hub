@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -16,27 +16,17 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // specs plan in, so that delete could wipe their plan too. 2199 is beyond
 // all of them.
 const weekFor = (project: string) => (project === "mobile" ? "2199-08-12" : "2199-08-05");
-const suffix = Math.random().toString(36).slice(2, 8);
-const recipeId = (i: number) => `e2e-fill-${E2E_WORKER}-${suffix}-${i}`;
-
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
+const tag = uniqueTag();
+const recipeId = (i: number) => `e2e-fill-${E2E_WORKER}-${tag}-${i}`;
 
 // Only this household's rows: the week's plan (its entries cascade) and the
 // recipes this spec made.
 async function cleanUp(week: string) {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = $2`, [E2E_HOUSEHOLD.id, week]);
     await client.query(`DELETE FROM "Recipe" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
-      `e2e-fill-${E2E_WORKER}-${suffix}-%`,
+      `e2e-fill-${E2E_WORKER}-${tag}-%`,
     ]);
   });
 }
@@ -44,12 +34,12 @@ async function cleanUp(week: string) {
 test.beforeEach(async ({ context, baseURL }, testInfo) => {
   await dismissCookieNotice(context, baseURL!);
   await cleanUp(weekFor(testInfo.project.name));
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     for (let i = 0; i < 8; i++) {
       await client.query(`INSERT INTO "Recipe" (id, "householdId", name, "isFavorite") VALUES ($1, $2, $3, true)`, [
         recipeId(i),
         E2E_HOUSEHOLD.id,
-        `Fav dinner ${suffix} ${i}`,
+        `Fav dinner ${tag} ${i}`,
       ]);
     }
   });
@@ -120,10 +110,10 @@ test("Undo on the toast removes exactly the dinners that were added", async ({ p
 // a week is full whenever the household has enough recipes at all.
 test("with only two favorites, the other empty days are filled from non-favorite recipes", async ({ page }, testInfo) => {
   const week = weekFor(testInfo.project.name);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`UPDATE "Recipe" SET "isFavorite" = false WHERE "householdId" = $1 AND id LIKE $2 AND id NOT IN ($3, $4)`, [
       E2E_HOUSEHOLD.id,
-      `e2e-fill-${E2E_WORKER}-${suffix}-%`,
+      `e2e-fill-${E2E_WORKER}-${tag}-%`,
       recipeId(0),
       recipeId(1),
     ]);
@@ -138,8 +128,8 @@ test("with only two favorites, the other empty days are filled from non-favorite
   const names = await proposedNames(rows);
   expect(new Set(names).size).toBe(7);
   // Both favorites are proposed, ahead of the non-favorites that fill the rest.
-  expect(names).toContain(`Fav dinner ${suffix} 0`);
-  expect(names).toContain(`Fav dinner ${suffix} 1`);
+  expect(names).toContain(`Fav dinner ${tag} 0`);
+  expect(names).toContain(`Fav dinner ${tag} 1`);
 
   await dialog.getByRole("button", { name: "Add dinners" }).click();
   await expect(page.getByText("Planned 7 dinners")).toBeVisible();

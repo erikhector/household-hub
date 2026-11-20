@@ -340,7 +340,7 @@ loop".
 - **Locators**: by role and accessible name (`getByRole("button", { name:
   "Add task" })`), not CSS classes or test ids. If you can't find an
   element that way, it probably needs a label for screen readers too.
-  Name rows you create uniquely (`unique()` in `flows.spec.ts`), since
+  Name rows you create uniquely (`unique()` from `e2e/db.ts`), since
   a worker's household collects the rows of every spec it runs.
 - **Parallel workers**: spec files run in parallel, each Playwright
   worker in its own seeded household (`e2e/seed-data.ts`). Import the
@@ -362,6 +362,13 @@ loop".
   a layout measurement needs `gotoRevealed`, and a reload after an
   Undo-able delete needs `waitForUndoableDelete`. Twelve of the last
   fourteen `test:` PRs were fixes for specs that skipped one of these.
+- **Database and names** come from `e2e/db.ts`: `withDb` opens and
+  always closes a connection for seeding or cleanup, `unique(label)`
+  names a visible row (letters only, so smart add never reads a
+  quantity in it), `uniqueTag()` is one tag for several rows that go
+  together, `uniqueId(prefix)` makes an id with `E2E_WORKER` in it, and
+  `mondayOf` finds a week's start. A spec never opens its own `new
+  Client(` or defines its own copy of these: an ESLint rule fails it.
 - **Screenshots**: `npm run test:e2e:screenshots` (or
   `E2E_SCREENSHOT_DIR=<dir> npx playwright test smoke public`) saves
   `<desktop|mobile>-<en|sv>-<route>.png` for every page. The UX scout

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, insertHouseholdTemplate, insertHouseholdTransaction, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTemplate, insertHouseholdTransaction } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, openAllCategories } from "./ui";
 
 // Phone pass (Oct 2026), P4, and the budget redesign (Oct 2026): Overview

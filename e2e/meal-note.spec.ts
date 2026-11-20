@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import {
@@ -27,23 +27,13 @@ const WEEKS = {
 // Long enough to need cutting on a 412 px day card, and with Swedish letters.
 const NOTE = "Thaw the chicken the night before, Åsa cooks, and double it so there is enough for the lunch boxes";
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
 test.afterEach(async ({}, testInfo) => {
   const like = `e2e-gap81-plan-${E2E_WORKER}-%-${testInfo.project.name}`;
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
        WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND plan.id LIKE $2`,
@@ -71,7 +61,7 @@ for (const [locale, storageState, t] of [
       // The Wednesday of that week.
       const day = new Date(new Date(`${week}T00:00:00.000Z`).getTime() + 2 * 24 * 60 * 60 * 1000);
 
-      await withClient(async (client) => {
+      await withDb(async (client) => {
         await client.query(`DELETE FROM "MealPlanEntry" WHERE "mealPlanId" = $1`, [planId]);
         await client.query(`DELETE FROM "MealPlan" WHERE id = $1 AND "householdId" = $2`, [planId, E2E_HOUSEHOLD.id]);
         await client.query(`INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)`, [
@@ -86,7 +76,7 @@ for (const [locale, storageState, t] of [
         );
       });
       const storedNote = () =>
-        withClient(async (client) => {
+        withDb(async (client) => {
           const { rows } = await client.query(`SELECT note FROM "MealPlanEntry" WHERE id = $1`, [entryId]);
           return rows[0].note as string | null;
         });

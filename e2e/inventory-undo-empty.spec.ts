@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, waitForDialogHistory } from "./ui";
@@ -10,7 +10,6 @@ import { dismissCookieNotice, expectHydrated, waitForDialogHistory } from "./ui"
 // "Next shop". Items are written straight to Postgres (like ux-122.spec.ts)
 // with 6 pcs and a threshold of 1, so emptying crosses into low stock and the
 // household's auto-add (on by default) adds a row.
-const suffix = () => `${E2E_WORKER}${Math.random().toString(36).slice(2, 9)}`;
 const idPrefix = `e2e-ux197-${E2E_WORKER}-`;
 const isMobile = () => test.info().project.name === "mobile";
 
@@ -21,7 +20,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 // Only this household's rows: the list rows first, since deleting the item
 // would just unlink them.
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "ShoppingListItem" WHERE "inventoryItemId" LIKE $1`, [`${idPrefix}%`]);
     await client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
@@ -30,18 +29,8 @@ test.afterEach(async () => {
   });
 });
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 async function seedItem(name: string, id: string) {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`UPDATE "Household" SET "autoAddLowStockToList" = true WHERE id = $1`, [E2E_HOUSEHOLD.id]);
     await client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
@@ -53,7 +42,7 @@ async function seedItem(name: string, id: string) {
 
 // Rows for the item still waiting on the household's default list.
 const pendingOnDefaultList = (id: string) =>
-  withClient(async (client) => {
+  withDb(async (client) => {
     const { rows } = await client.query(
       `SELECT count(*)::int AS n FROM "ShoppingListItem" i JOIN "ShoppingList" l ON l.id = i."shoppingListId"
        WHERE i."inventoryItemId" = $1 AND i.purchased = false AND l."isDefault" AND l."householdId" = $2`,
@@ -86,7 +75,7 @@ async function undoTheEmptying(page: Page, name: string) {
 }
 
 test("Undo on the mark-as-empty toast puts the amount back and takes the item off the list", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Olive oil ${tag}`;
   const id = `${idPrefix}${tag}`;
   await seedItem(name, id);
@@ -110,7 +99,7 @@ test("Undo on the mark-as-empty toast puts the amount back and takes the item of
 });
 
 test("Undo after the quantity sheet's All puts the amount back and takes the item off the list", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Lentils ${tag}`;
   const id = `${idPrefix}${tag}`;
   await seedItem(name, id);

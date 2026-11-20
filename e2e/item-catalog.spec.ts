@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow, openItemUnits } from "./ui";
 
@@ -11,7 +11,6 @@ import { dismissCookieNotice, expectNoHorizontalOverflow, openItemUnits } from "
 // first so the plural fold, which looks at the last word, still applies,
 // and it's random rather than time-based so two runs' names aren't similar
 // enough for the fuzzy rule to group them together.
-const suffix = () => `t${Math.random().toString(36).slice(2, 10)}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -20,9 +19,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 type SeedItem = { id: string; name: string; quantity: number; unit: string };
 
 async function seedItems(items: SeedItem[], recipe?: { id: string; name: string; itemId: string; ingredient: string }) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     for (const item of items) {
       await client.query(
         `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
@@ -42,15 +39,13 @@ async function seedItems(items: SeedItem[], recipe?: { id: string; name: string;
         [`${recipe.id}-ing`, recipe.id, recipe.itemId, recipe.ingredient],
       );
     }
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 const group = (page: Page, keeperName: string) => page.getByRole("listitem", { name: keeperName, exact: true });
 
 test("a duplicate pair found from the inventory page merges into the item with stock", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const keeper = { id: `${tag}-egg`, name: `${tag} egg`, quantity: 6, unit: "pcs" };
   const merged = { id: `${tag}-eggs`, name: `${tag} eggs`, quantity: 0, unit: "pcs" };
   const recipe = { id: `${tag}-omelette`, name: `Omelette ${tag}`, itemId: merged.id, ingredient: "eggs" };
@@ -100,7 +95,7 @@ test("a duplicate pair found from the inventory page merges into the item with s
 });
 
 test("“Not duplicates” hides a group for good", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const leek = { id: `${tag}-leek`, name: `${tag} leek`, quantity: 1, unit: "pcs" };
   const leeks = { id: `${tag}-leeks`, name: `${tag} leeks`, quantity: 0, unit: "pcs" };
   await seedItems([leek, leeks]);
@@ -120,7 +115,7 @@ test("“Not duplicates” hides a group for good", async ({ page }) => {
 });
 
 test("“Merge into another item…” shows Cancel and Merge before a pick, and closes on Escape", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const jar = { id: `${tag}-jar`, name: `${tag} honey jar`, quantity: 1, unit: "pcs" };
   await seedItems([jar]);
 
@@ -144,7 +139,7 @@ test("“Merge into another item…” shows Cancel and Merge before a pick, and
 });
 
 test("“Merge into another item…” on the item page asks for a factor when the units don't convert", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const pot = { id: `${tag}-pot`, name: `${tag} cream pot`, quantity: 2, unit: "pcs" };
   const loose = { id: `${tag}-loose`, name: `${tag} loose cream`, quantity: 1, unit: "dl" };
   await seedItems([pot, loose]);
@@ -175,7 +170,7 @@ test("“Merge into another item…” on the item page asks for a factor when t
 // UX-131: "All" is a searchable list of compact rows in the inventory's order,
 // each with a stock badge and a chevron on phones.
 test("the catalog's All list is searchable, compact and in the inventory's order", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const names = [`${tag} Ägg`, `${tag} Banana`, `${tag} Apple`];
   await seedItems(names.map((name, index) => ({ id: `${tag}-${index}`, name, quantity: index === 0 ? 0 : 3, unit: "pcs" })));
 
@@ -210,7 +205,7 @@ test("the catalog's All list is searchable, compact and in the inventory's order
 });
 
 test("duplicate rows label the keep radio and the merge checkbox", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const a = { id: `${tag}-pea`, name: `${tag} pea`, quantity: 2, unit: "pcs" };
   const b = { id: `${tag}-peas`, name: `${tag} peas`, quantity: 0, unit: "pcs" };
   await seedItems([a, b]);

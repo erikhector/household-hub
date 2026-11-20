@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_USER } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // A recurring income (a salary) must count in the months it hasn't been
@@ -10,18 +9,15 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // for them. Rows are written straight to Postgres, like
 // personal-budget-shared.spec.ts does, and named uniquely since the desktop
 // and mobile runs share the seeded user.
-const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
 async function seedRecurringSalary(): Promise<string> {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Salary ${tag}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "PersonalBudgetCategory" (id, "userId", name, type) VALUES ($1, $2, $3, 'INCOME')`,
       [`e2e-personal-cat-${tag}`, E2E_USER.id, name],
@@ -31,9 +27,7 @@ async function seedRecurringSalary(): Promise<string> {
        VALUES ($1, $2, $3, $4, 45678, 'INCOME', 'MONTHLY')`,
       [`e2e-personal-tpl-${tag}`, E2E_USER.id, `e2e-personal-cat-${tag}`, name],
     );
-  } finally {
-    await client.end();
-  }
+  });
   return name;
 }
 

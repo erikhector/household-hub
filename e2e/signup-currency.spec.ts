@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { E2E_PASSWORD, E2E_WORKER } from "./seed-data";
@@ -31,9 +31,7 @@ async function signUp(
 // Sign-in is gated on a verified email; verify the row directly (the mail
 // may not be sendable here) and return the household's stored currency.
 async function verifyAndReadCurrency(email: string): Promise<string | null> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  return withDb(async (client) => {
     await expect
       .poll(async () => (await client.query(`SELECT 1 FROM "User" WHERE email = $1`, [email])).rowCount)
       .toBe(1);
@@ -46,24 +44,18 @@ async function verifyAndReadCurrency(email: string): Promise<string | null> {
       [email],
     );
     return res.rows[0]?.currencyCode ?? null;
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 async function cleanUp(email: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `DELETE FROM "Household" WHERE id IN (
          SELECT m."householdId" FROM "HouseholdMember" m JOIN "User" u ON u.id = m."userId" WHERE u.email = $1)`,
       [email],
     );
     await client.query(`DELETE FROM "User" WHERE email = $1`, [email]);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 test("a Swedish signup starts in SEK and the budget card changes it in one tap", async ({

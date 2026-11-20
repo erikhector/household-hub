@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, uniqueTag, withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { farDay } from "./far-weeks";
@@ -20,19 +20,7 @@ import {
 // check is the entry row's room at 412 px. The household's tags are reset and
 // the recipe removed afterwards, so the other specs in this worker see no
 // requirement (and so no badges).
-const DAY_MS = 24 * 60 * 60 * 1000;
 const key = (day: Date) => day.toISOString().slice(0, 10);
-const mondayOf = (day: Date) => new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
-
-async function withClient<T>(fn: (client: Client) => Promise<T>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
 
 for (const [locale, storageState, dict, badge] of [
   ["en", STORAGE_STATE, en, "Not vegetarian"],
@@ -46,10 +34,10 @@ for (const [locale, storageState, dict, badge] of [
 
     test.beforeEach(async ({ context, baseURL }) => {
       await dismissCookieNotice(context, baseURL!);
-      const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-      name = `Nusskaka ${suffix}`;
-      recipeId = `e2e-recipe-diet-${E2E_WORKER}-${locale}-${suffix}`;
-      await withClient((client) =>
+      const tag = uniqueTag();
+      name = `Nusskaka ${tag}`;
+      recipeId = `e2e-recipe-diet-${E2E_WORKER}-${locale}-${tag}`;
+      await withDb((client) =>
         client.query(`INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ($1, $2, $3, 'Bake')`, [
           recipeId,
           E2E_HOUSEHOLD.id,
@@ -59,7 +47,7 @@ for (const [locale, storageState, dict, badge] of [
     });
 
     test.afterEach(async () => {
-      await withClient(async (client) => {
+      await withDb(async (client) => {
         await client.query(`UPDATE "Household" SET "requiredTags" = '{}' WHERE id = $1`, [E2E_HOUSEHOLD.id]);
         await client.query(
           `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
