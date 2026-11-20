@@ -87,7 +87,7 @@ import type {
 } from "@/lib/safe-to-spend-calc";
 import type { DailyAllowance, MonthProjection } from "@/lib/chart-calc";
 import type { ActionState } from "@/lib/actions/auth";
-import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/budget/actions";
+import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/budget/transaction-actions";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { BudgetStartDayProvider } from "@/components/budget/budget-period-context";

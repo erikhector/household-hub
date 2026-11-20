@@ -51,7 +51,7 @@ export type CategoryRow = {
 };
 
 // Shared by both createCategoryAction/updateCategoryAction/deleteCategoryAction
-// (household, src/app/dashboard/budget/actions.ts) and
+// (household, src/app/dashboard/budget/category-actions.ts) and
 // createPersonalCategoryAction/updatePersonalCategoryAction/
 // deletePersonalCategoryAction (personal, src/app/dashboard/personal-budget/actions.ts).
 // Injected as props (BUDGET-3) rather than imported directly, since the two
