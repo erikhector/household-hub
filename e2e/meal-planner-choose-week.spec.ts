@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, unique, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import {
   dismissCookieNotice,
   expectHydrated,
@@ -74,7 +73,7 @@ test("Choose week jumps to the week of any date, and This week comes back", asyn
 
   // An empty week shows one "Add first dinner" instead of seven empty days
   // (M6), so plan a meal there to see the week's day cards.
-  const name = `Julbord ${E2E_WORKER}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  const name = unique("Julbord");
   try {
     const addFirst = main.getByRole("button", { name: "Add first dinner" });
     await expectHydrated(addFirst);
@@ -112,18 +111,55 @@ test("Choose week jumps to the week of any date, and This week comes back", asyn
   } finally {
     // Ten weeks out is near enough to today that other specs page through
     // it, so the meal doesn't outlive the test.
-    const client = new Client({ connectionString: process.env.DATABASE_URL });
-    await client.connect();
-    try {
-      await client.query(
+    await withDb((client) =>
+      client.query(
         `DELETE FROM "MealPlanEntry" WHERE "freeformName" = $1
            AND "mealPlanId" IN (SELECT id FROM "MealPlan" WHERE "householdId" = $2)`,
         [name, E2E_HOUSEHOLD.id],
-      );
-    } finally {
-      await client.end();
-    }
+      ),
+    );
   }
+});
+
+test("a date typed into the field waits for Enter", async ({ page, browserName }, testInfo) => {
+  // The keys below drive Chromium's segmented date field (month, day, year
+  // for en-US), which both the desktop and mobile projects use. WebKit's
+  // field takes typing differently, so the nightly iphone run leaves it out.
+  test.skip(browserName !== "chromium", "Chromium's segmented date field");
+  await page.goto("/dashboard/meal-planning");
+  const main = page.getByRole("main");
+  const chooseWeek = main.getByRole("button", { name: /^Choose week/ });
+  await expectHydrated(chooseWeek);
+  await expectRouterPatched(page);
+  await chooseWeek.click();
+  const field = main.getByLabel("Show the week of");
+  await expect(field).toBeFocused();
+  const start = await field.inputValue();
+  if (testInfo.project.name === "mobile") {
+    // The platform's picker opened over the field (useful on a phone);
+    // a tap on the month part closes it and leaves that part focused, as
+    // for someone with a keyboard attached to a tablet.
+    await field.click({ position: { x: 16, y: 10 } });
+  }
+
+  // Arrowing a segment changes the value but doesn't leave the week or
+  // close the field.
+  await field.press("ArrowUp");
+  await expect(field).not.toHaveValue(start);
+  await expect(field).toBeVisible();
+  await expect(page).not.toHaveURL(/[?&]week=/);
+  // Nor does typing, which used to go on the "1" of "12" (January).
+  await field.pressSequentially("12252027");
+  await expect(field).toHaveValue("2027-12-25");
+  await expect(field).toBeVisible();
+  await expect(page).not.toHaveURL(/[?&]week=/);
+
+  // Enter goes to the week of the typed date.
+  await field.press("Enter");
+  const monday = mondayOf(new Date(Date.UTC(2027, 11, 25)));
+  await expect(page).toHaveURL(new RegExp(`[?&]week=${key(monday)}`));
+  await expect(chooseWeek).toHaveAccessibleName(`Choose week: ${range(monday)}`);
+  await expect(main.getByLabel("Show the week of")).toHaveCount(0);
 });
 
 test("the date field closes again without leaving the week", async ({ page }, testInfo) => {

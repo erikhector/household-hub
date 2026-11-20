@@ -5455,9 +5455,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   range; on a touch screen the platform's picker opens straight away
   (`showPicker`). Picking any date navigates to `?week=<its Monday>`
   (`weekKeyForPickedDate` in `date-utils.ts`), with a spinner on the
-  button until the week renders, and closes the field. A year under 1000
-  is ignored, because desktop Chrome fires `change` on each digit typed
-  into the year (2 → year 0002). Escape or the button again closes the
+  button until the week renders, and closes the field. A date typed or
+  arrowed in with the keyboard waits for Enter (or for focus leaving the
+  field): the field starts on a whole date, so desktop Chrome fires
+  `change` on every segment edit, and going on the first would jump to
+  January on the "1" of "12". A `change` with no editing key before it
+  (the picker, Alt+↓'s popup) still goes at once. A year under 1000 is
+  ignored too (2 → year 0002). Escape or the button again closes the
   field without moving; "This week" stays the way back. Planner only
   (`PeriodSwitcher`'s optional `labelControl`): the budgets' month
   label stays plain text. The button is at least 44 px tall on phones

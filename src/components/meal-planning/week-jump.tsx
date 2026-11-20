@@ -19,6 +19,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { weekKeyForPickedDate } from "@/app/dashboard/meal-planning/date-utils";
 
+// Keys that move focus (out of the field, or between its day, month and
+// year) or are only held down with another: none of them edits the date.
+const MOVE_KEYS = new Set(["Tab", "ArrowLeft", "ArrowRight", "Shift", "Control", "Meta", "Alt"]);
+
 export function WeekJump({
   label,
   weekStartKey,
@@ -55,14 +59,31 @@ export function WeekJump({
     }
   }, [open]);
 
+  // A picked date goes at once, but a typed one waits for Enter (or for
+  // focus leaving the field). The field starts on a whole date, so desktop
+  // Chrome fires a change for every segment typed or arrowed: going on the
+  // first one jumped to January while the user was still typing the "2" of
+  // "12", and closed the field under them. A change with no editing key
+  // before it is the platform's picker (or the popup calendar), which is
+  // one deliberate choice.
+  const typedRef = useRef(false);
+
   function close() {
+    // Escape discards a half-typed date, so the blur it causes doesn't go.
+    typedRef.current = false;
     setOpen(false);
     buttonRef.current?.focus();
   }
 
   function onChange(value: string) {
+    if (typedRef.current) return;
+    go(value);
+  }
+
+  function go(value: string) {
     const key = weekKeyForPickedDate(value);
     if (!key) return;
+    typedRef.current = false;
     setOpen(false);
     if (key === weekStartKey) return;
     // In a transition, so the button shows it's working until the new week
@@ -113,7 +134,24 @@ export function WeekJump({
               if (event.key === "Escape") {
                 event.preventDefault();
                 close();
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                go(event.currentTarget.value);
+              } else if (!MOVE_KEYS.has(event.key) && !event.altKey) {
+                // Alt+ArrowDown opens the popup calendar: a pick, not typing.
+                typedRef.current = true;
               }
+            }}
+            onBlur={(event) => {
+              // Tabbing or clicking away goes to what was typed, the same as
+              // Enter. Not when focus moves to the "Choose week" button: that
+              // click closes the field, and going too would reopen it on the
+              // new week.
+              if (!typedRef.current || event.relatedTarget === buttonRef.current) {
+                typedRef.current = false;
+                return;
+              }
+              go(event.currentTarget.value);
             }}
           />
         </div>
