@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
@@ -19,18 +19,8 @@ const names = {
   fine: `${prefix} fine`,
 };
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeAll(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "expiresAt", "updatedAt")
        VALUES ($1, $6, $7, 'Pantry', 0, 'pcs', 2, NULL, now()),
@@ -63,7 +53,7 @@ test.beforeAll(async () => {
 // Only this household's rows: a cleanup by id prefix alone could delete
 // another worker's rows mid-test.
 test.afterAll(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${idPrefix}%`]),
   );
 });
@@ -71,7 +61,7 @@ test.afterAll(async () => {
 // The Status filter is saved on the user, so even a failed run must not
 // leave one behind for the specs that list the inventory after this one.
 test.afterEach(async () => {
-  await withClient((client) => client.query(`UPDATE "User" SET "inventoryViewPrefs" = NULL WHERE id = $1`, [E2E_USER.id]));
+  await withDb((client) => client.query(`UPDATE "User" SET "inventoryViewPrefs" = NULL WHERE id = $1`, [E2E_USER.id]));
 });
 
 // The list is a table on desktop and a list of cards on a phone.

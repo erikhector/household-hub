@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRevealed, LOCALES } from "./ui";
@@ -14,29 +14,19 @@ const copy = {
   sv: { trigger: "Kontrollera lager", next: "Stämmer, nästa", summary: "2 kontrollerade, 1 rättade", done: "Klar" },
 } as const;
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 for (const locale of LOCALES) {
   test.describe(`stock check (${locale})`, () => {
     test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
     const c = copy[locale];
-    const suffix = `${E2E_WORKER}${Math.random().toString(36).slice(2, 7)}`;
+    const tag = uniqueTag();
     const idPrefix = `e2e-gap69-${locale}-${E2E_WORKER}-`;
-    const location = `Check shelf ${suffix}`;
-    const alpha = `Alpha lentils ${suffix}`;
-    const beta = `Beta rice ${suffix}`;
+    const location = `Check shelf ${tag}`;
+    const alpha = `Alpha lentils ${tag}`;
+    const beta = `Beta rice ${tag}`;
 
     test.beforeEach(async ({ context, baseURL }) => {
       await dismissCookieNotice(context, baseURL!);
-      await withClient(async (client) => {
+      await withDb(async (client) => {
         await client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${idPrefix}%`]);
         for (const [key, name, quantity, unit] of [
           ["alpha", alpha, 4, "pcs"],
@@ -52,7 +42,7 @@ for (const locale of LOCALES) {
     });
 
     test.afterEach(async () => {
-      await withClient((client) =>
+      await withDb((client) =>
         client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${idPrefix}%`]),
       );
     });
@@ -98,7 +88,7 @@ for (const locale of LOCALES) {
       await expect(dialog).toBeHidden();
 
       // Saved: only the corrected one changed.
-      const rows = await withClient((client) =>
+      const rows = await withDb((client) =>
         client.query<{ id: string; quantity: number }>(
           `SELECT id, quantity FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2 ORDER BY id`,
           [E2E_HOUSEHOLD.id, `${idPrefix}%`],

@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { clickRowAction, dismissCookieNotice } from "./ui";
 
 // UX-128: the edit form no longer offers a unit change the action will
@@ -10,33 +9,22 @@ import { clickRowAction, dismissCookieNotice } from "./ui";
 // its refusal appears under that field, in view, rather than at the foot of
 // the scrolling form. Items are written straight to Postgres, one per test.
 const PREFIX = "e2e-ux128-";
-const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 // Only this household's rows; conversions go with their item (cascade).
 test.afterEach(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${PREFIX}%`]),
   );
 });
 
 async function seedItem(quantity: number, withConversion: boolean) {
-  const tag = suffix();
+  const tag = uniqueTag();
   const item = { id: `${PREFIX}${tag}`, name: `Butter ${tag}` };
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
        VALUES ($1, $2, $3, 'Dairy', $4, 'g', now())`,
