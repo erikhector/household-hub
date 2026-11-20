@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.160.0",
+    "date": "2026-11-20",
+    "pr": 1653,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can jump straight to any week in the meal planner: tap the week's dates at the top and pick a day, for example to plan Christmas dinner in November.\n\nYou can now mark a shopping-list item as urgent from its ⋯ menu or its edit window. It gets an \"Urgent\" label and goes to the top of its aisle, so whoever is at the store sees it first. Ticking it off clears the flag.",
+      "sv": "Du kan hoppa direkt till vilken vecka som helst i måltidsplaneringen: tryck på veckans datum högst upp och välj en dag, till exempel för att planera julmiddagen redan i november.\n\nNu kan du markera en vara på inköpslistan som brådskande via dess ⋯-meny eller redigeringsfönster. Den får etiketten \"Brådskande\" och hamnar först i sin gång, så att den som handlar ser den direkt. När du bockar av den försvinner markeringen."
+    }
+  },
+  {
     "version": "0.159.0",
     "date": "2026-11-20",
     "pr": 1622,
