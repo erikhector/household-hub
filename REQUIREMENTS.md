@@ -10969,10 +10969,10 @@ UX-14's rapid ticks and the rollback toast.
   a test title never contains one (`smoke.spec.ts` titles pages by route
   pattern, and screenshots are named by pattern too). Tests inside a
   file still run in order. A spec names the rows it creates uniquely
-  (a name typed into smart-add ends its random suffix in a letter, since
-  smart-add reads a trailing `x58` as a quantity; MAINT-83: the
-  never-stocked spec's `Napkins <id>` row now and then saved as
-  `Napkins … × 58 pcs` and its checkbox never showed),
+  (a name typed into smart-add carries no digit, since smart-add reads a
+  trailing `x58` as a quantity; MAINT-83: the never-stocked spec's
+  `Napkins <id>` row now and then saved as `Napkins … × 58 pcs` and its
+  checkbox never showed),
   with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
   one file can now run at the same time; and it sets up what it needs
   rather than counting on another spec having run first, and cleans up
@@ -11012,6 +11012,24 @@ UX-14's rapid ticks and the rollback toast.
   (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
+- **One database and naming helper (MAINT-108)**: `e2e/db.ts` is the
+  only way a spec reaches Postgres and names its rows. `withDb(run)` opens
+  a connection, runs `run` and always closes it. `unique(label)` is
+  `label` plus a `uniqueTag()`: the worker as a letter and nine random
+  letters. Letters only, so smart add never reads a quantity in a name,
+  and random rather than time-based, because smart add and the
+  inventory's duplicate check fold names that share enough letter pairs
+  and two runs' timestamps differ only in their last letters.
+  `uniqueId(prefix)` is `prefix-w<worker>-<time><random>`, so a cleanup
+  can match one worker's rows with `LIKE`. `mondayOf(day)` is the week
+  start `getWeekStart` picks. These used to be copied into each spec
+  (125 specs opened their own `pg` client, 47 with a local
+  `withClient`/`withDb`, and `unique`/`suffix` in eight variants, only
+  some with `E2E_WORKER`), so a fix to the pattern had to be made forty
+  times. A `no-restricted-syntax` rule in `eslint.config.mjs`, scoped to
+  `e2e/**/*.spec.ts`, fails a spec that calls `new Client(` or defines
+  its own `withClient`, `withDb`, `mondayOf`, `unique`, `uniqueId`,
+  `uniqueTag` or `suffix`.
 - **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
   every spec in two projects, `desktop` (Desktop Chrome, 1280×720) and
   `mobile` (Pixel 7, 412 px wide with touch; the always-on phone, since
