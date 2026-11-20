@@ -16,6 +16,7 @@ import { useTickFeedback } from "@/lib/tick-feedback";
 import { Badge } from "@/components/ui/badge";
 import { deleteTaskAction, skipTaskAction, toggleTaskCompletedAction, unskipTaskAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate, withLocalSkip } from "@/app/dashboard/tasks/recurrence";
+import { recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
 import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
@@ -31,7 +32,7 @@ import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/compon
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
 import { withLocalCompletion } from "@/lib/task-rotation";
-import { format, plural } from "@/lib/i18n/format";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { MascotEmptyState, MascotMark } from "@/components/brand/mascot-empty-state";
 
@@ -347,16 +348,28 @@ function TaskItemRow({
     ? memberNameById.get(task.nextInRotationMemberId)
     : undefined;
   const recurrenceLabel = task.recurrenceIntervalDays
-    ? format(plural(task.recurrenceIntervalDays, dict.recurrenceBadge), { count: task.recurrenceIntervalDays })
+    ? recurrenceText(task.recurrenceIntervalDays, dict.recurrenceBadge, dict.recurrenceNamedBadge)
     : null;
   // Only meaningful while the task is still shown completed — a recurring
   // task's `completedAt` also sticks around once it's auto-reopened past its
   // interval (see recurrence.ts), at which point "next due" would be a date
   // in the past, which isn't worth surfacing.
   const nextDueAt = task.completed ? getNextDueDate(task, timeZone) : null;
+  // GAP-84: a yearly chore's next due falls on today's date next year, so a
+  // date in another year than today's names the year; "Next due 19 Nov"
+  // would read as today.
+  const nextDueInOtherYear =
+    nextDueAt !== null &&
+    Number(new Intl.DateTimeFormat("en-US", { year: "numeric", timeZone }).format(nextDueAt)) !==
+      new Date(today * 24 * 60 * 60 * 1000).getUTCFullYear();
   const nextDueLabel = nextDueAt
     ? format(dict.nextDueLabel, {
-        date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone }).format(nextDueAt),
+        date: new Intl.DateTimeFormat(locale, {
+          day: "numeric",
+          month: "short",
+          ...(nextDueInOtherYear && { year: "numeric" }),
+          timeZone,
+        }).format(nextDueAt),
       })
     : null;
 

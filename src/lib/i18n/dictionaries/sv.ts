@@ -22,6 +22,8 @@ export const sv = {
   // keys, resolved through zodFail() in lib/actions/errors.ts, so each language is chosen per request.
   errors: {
     generic: "Något gick fel. Försök igen.",
+    // UX-205: a confirmed action whose request dropped (ConfirmDialog).
+    requestFailed: "Det gick inte igenom. Kontrollera anslutningen och försök igen.",
     invalidInput: "Ogiltig inmatning",
     invalidValue: "Ogiltigt värde",
     invalidField: "Ogiltigt fält",
@@ -103,7 +105,7 @@ export const sv = {
     titleTooLong: "Titeln får vara högst 120 tecken",
     repeatWhole: "Upprepningen måste vara ett helt antal dagar",
     repeatMin: "Upprepningen måste vara minst 1 dag",
-    repeatMax: "Upprepningen får vara högst 90 dagar",
+    repeatMax: "Upprepningen får vara högst 366 dagar",
     dueDateInvalid: "Förfallodatumet måste vara ett riktigt datum",
     eachPersonOnce: "Varje person kan bara turas om en gång",
     plannedBillNotFound: "Planerad räkning hittades inte",
@@ -505,6 +507,8 @@ export const sv = {
       add: "Lägg till anteckning",
       adding: "Lägger till…",
       addedToast: "Anteckningen har lagts till",
+      // UX-205: a dropped add, pin or delete request.
+      saveFailed: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
       emptyState: "Inga anteckningar än.",
       formerMember: "Tidigare medlem",
       byline: "{name} · {date}",
@@ -2734,6 +2738,18 @@ export const sv = {
     recurrenceBadge: {
       one: "Upprepas dagligen",
       other: "Upprepas var {count}:e dag",
+    },
+    recurrenceNamedOption: {
+      twoWeeks: "Varannan vecka",
+      threeMonths: "Var tredje månad (90 dagar)",
+      sixMonths: "Var sjätte månad (182 dagar)",
+      year: "Varje år (365 dagar)",
+    },
+    recurrenceNamedBadge: {
+      twoWeeks: "Upprepas varannan vecka",
+      threeMonths: "Upprepas var tredje månad (90 dagar)",
+      sixMonths: "Upprepas var sjätte månad (182 dagar)",
+      year: "Upprepas varje år (365 dagar)",
     },
     rotationLabel: "Turas om",
     rotationHint: "Lägg till två eller fler personer i ordning. Varje gång den är klar går den vidare till nästa.",
