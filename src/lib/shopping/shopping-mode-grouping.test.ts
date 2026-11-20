@@ -52,6 +52,23 @@ describe("groupPendingItemsByCategory", () => {
     expect(produce?.items.map((i) => i.id)).toEqual(["a", "c"]);
   });
 
+  it("puts urgent items first within their own group, in list order (GAP-86)", () => {
+    const groups = groupPendingItemsByCategory(
+      [
+        { id: "a", category: "Produce" },
+        { id: "b", category: "Produce", urgent: true },
+        { id: "c", category: "Dairy & eggs", urgent: true },
+        { id: "d", category: "Produce" },
+        { id: "e", category: "Produce", urgent: true },
+      ],
+      "Other",
+    );
+    // Urgency reorders inside an aisle, never the aisles themselves.
+    expect(groups.map((g) => g.label)).toEqual(["Produce", "Dairy & eggs"]);
+    expect(groups[0].items.map((i) => i.id)).toEqual(["b", "e", "a", "d"]);
+    expect(groups[1].items.map((i) => i.id)).toEqual(["c"]);
+  });
+
   it("puts a household's own custom category after the known ones, alphabetically", () => {
     const groups = groupPendingItemsByCategory(
       [item("1", "Zephyr shelf"), item("2", "Produce"), item("3", "Basement stash")],

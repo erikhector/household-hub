@@ -1592,6 +1592,34 @@ every lookup the old one did.
   also shows on the public share page (`getShoppingListByShareToken` returns
   it, since the person the list is shared with is often the one shopping)
   and is the last column of the list's CSV export (see "Data export (CSV)").
+- **Urgent items (GAP-86)** — `ShoppingListItem.urgent` (`Boolean`,
+  default `false`, migration `20261120175219_shopping_item_urgent`) flags
+  "we need this today", so whoever is at the store sees it before the
+  week's staples. Two ways to set it, both click actions household-scoped
+  through the item's list: the row's ⋯ menu ("Mark urgent" / "Not
+  urgent", `setShoppingListItemUrgentAction`), and an "Urgent" checkbox
+  under the note in the row's edit dialog (`updateShoppingListItemAction`'s
+  optional `urgent`; left out keeps the flag). Only an unticked row can be
+  marked: the action's write re-checks `purchased: false` and otherwise
+  answers "A ticked-off item can't be marked urgent", the edit dialog hides
+  the box on a ticked row, and the ⋯ doesn't offer it there. Because the ⋯
+  now always has this action, it shows on every unbought row at every
+  width (see "Swipe row actions"). An unticked urgent row shows an
+  "Urgent" badge (`attention` tint, the word itself, never colour alone)
+  inside its label, so a screen reader hears it with the name, and sorts
+  first within its aisle: `groupPendingItemsByCategory` stable-sorts urgent
+  rows to the top of each group without moving the group, so the list, the
+  Next up dock (whose button then reads "{item}, urgent, into the cart"),
+  the printed list and the share page all follow. Every way a row gets
+  bought clears the flag in the same write: a tick (member or share link)
+  and a receipt marking it purchased, so an un-tick or a later re-add
+  starts normal. "Move to list…" carries it (a plain move changes only the
+  list; a merge makes the target row urgent and its Undo takes that back),
+  as does completing a list with carry-over. Templates and "Start from"
+  copies don't (`ShoppingListTemplateItem` has no such column), since a
+  template is a standing list, not today's. The public share page shows
+  the badge read-only (`getShoppingListByShareToken` returns `urgent`). No
+  notification: the bell is for real problems.
 - **Always-on default list (AUTO-8)** — every household has one
   `ACTIVE` list flagged `ShoppingList.isDefault`, named "Next shop" /
   "Att handla" in the locale of whoever caused it to exist, and restocking
@@ -10061,9 +10089,9 @@ Todoist-style. Built as one shared wrapper,
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
   `sm` up the icons show as before, and the ⋯ is hidden unless the row
-  also offers "Move to list…" (GAP-82, below), which has no icon of its
-  own: then it shows at every width, between the edit and delete icons, so
-  delete stays last. Task rows have no ⋯ at all (UX-106):
+  also offers "Move to list…" (GAP-82, below) or "Mark urgent" (GAP-86, on
+  every unbought row), which have no icon of their own: then it shows at
+  every width, between the edit and delete icons, so delete stays last. Task rows have no ⋯ at all (UX-106):
   the edit sheet has a Delete button instead.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the

@@ -424,9 +424,11 @@ describe("togglePurchasedAction", () => {
       // AUTO-9: the tick is timestamped for store-order learning, and
       // attributed for the put-away reminder. ON_CHECK (the household
       // fixture predates inventorySyncMode): the tick is the arrival, so the
-      // row is put away and its price recorded in the same write.
+      // row is put away and its price recorded in the same write. GAP-86:
+      // the tick clears the urgent flag, so an un-tick starts normal.
       data: {
         purchased: true,
+        urgent: false,
         checkedOffAt: expect.any(Date),
         checkedOffByUserId: "user-1",
         putAwayAt: expect.any(Date),
@@ -739,7 +741,13 @@ describe("togglePurchasedAction — put-away mode (ON_PUT_AWAY)", () => {
       where: { id: "item-1" },
       // putAwayAt: null is a defensive reset — a row never enters the cart
       // already looking put away.
-      data: { purchased: true, checkedOffAt: expect.any(Date), checkedOffByUserId: "user-1", putAwayAt: null },
+      data: {
+        purchased: true,
+        urgent: false,
+        checkedOffAt: expect.any(Date),
+        checkedOffByUserId: "user-1",
+        putAwayAt: null,
+      },
     });
     expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
     expect(priceHistoryCreateMock).not.toHaveBeenCalled();

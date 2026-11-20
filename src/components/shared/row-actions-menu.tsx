@@ -21,7 +21,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 // GAP-82: a row can also offer an action that has no icon of its own ("Move
 // to list…" on a shopping row). Then the ⋯ shows at every width, since on a
 // desktop it is that action's only way in, and keeps Edit and Delete beside
-// it so the menu reads the same everywhere.
+// it so the menu reads the same everywhere. GAP-86's "Mark urgent" / "Not
+// urgent" is another such action.
 export function RowActionsMenu({
   label,
   editLabel,
@@ -29,6 +30,8 @@ export function RowActionsMenu({
   priceLabel,
   moveLabel,
   onMove,
+  urgentLabel,
+  onToggleUrgent,
   disabled = false,
   className,
 }: {
@@ -42,10 +45,14 @@ export function RowActionsMenu({
   /** GAP-82: "Move to list…", shown with `onMove`. */
   moveLabel?: string;
   onMove?: () => void;
+  /** GAP-86: "Mark urgent" or "Not urgent", shown with `onToggleUrgent`. */
+  urgentLabel?: string;
+  onToggleUrgent?: () => void;
   disabled?: boolean;
   className?: string;
 }) {
   const canMove = moveLabel !== undefined && onMove !== undefined;
+  const canToggleUrgent = urgentLabel !== undefined && onToggleUrgent !== undefined;
   const triggerRef = useRef<HTMLButtonElement>(null);
   function clickMarked(selector: string) {
     triggerRef.current?.closest("[data-swipe-row]")?.querySelector<HTMLElement>(selector)?.click();
@@ -58,7 +65,7 @@ export function RowActionsMenu({
             ref={triggerRef}
             variant="ghost"
             size="icon"
-            className={cn("shrink-0 text-muted-foreground", !canMove && "sm:hidden", className)}
+            className={cn("shrink-0 text-muted-foreground", !canMove && !canToggleUrgent && "sm:hidden", className)}
             disabled={disabled}
             aria-label={label}
           >
@@ -75,6 +82,7 @@ export function RowActionsMenu({
             {priceLabel}
           </DropdownMenuItem>
         )}
+        {canToggleUrgent && <DropdownMenuItem onClick={onToggleUrgent}>{urgentLabel}</DropdownMenuItem>}
         {canMove && <DropdownMenuItem onClick={onMove}>{moveLabel}</DropdownMenuItem>}
         <DropdownMenuItem variant="destructive" onClick={() => clickMarked("[data-row-delete]")}>
           {deleteLabel}

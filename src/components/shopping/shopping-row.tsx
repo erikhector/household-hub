@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,10 @@ import { ShoppingItemEditTriggers } from "@/components/shopping/shopping-item-ed
 import { loadShoppingItemFormDialog } from "@/components/shopping/lazy-dialogs";
 import { CategoryChip } from "@/components/shopping/category-chip";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
-import { updateShoppingListItemPriceAction } from "@/app/dashboard/shopping-list/item-actions";
+import {
+  setShoppingListItemUrgentAction,
+  updateShoppingListItemPriceAction,
+} from "@/app/dashboard/shopping-list/item-actions";
 import { format } from "@/lib/i18n/format";
 import { useTickFeedback } from "@/lib/tick-feedback";
 import { SwipeRow } from "@/components/shared/swipe-row";
@@ -95,6 +99,15 @@ export function ShoppingRow({
   // "Match item", the ⋯ menu's Edit and the swipe) reach it through this
   // row's own handle instead of sharing a Dialog root with it.
   const [editHandle] = useState(() => createDialogHandle());
+  // GAP-86: only an unticked row is ever urgent (the tick clears it), so a
+  // cart row neither shows the badge nor offers the toggle.
+  const urgent = item.urgent && !purchased;
+  function toggleUrgent() {
+    startTransition(async () => {
+      const result = await setShoppingListItemUrgentAction(item.id, !urgent);
+      if (result.error) toast.error(result.error);
+    });
+  }
 
   // A just-added row scrolls into view if the list is long enough to have
   // hidden it ("nearest" leaves it alone if it's already on screen). New
@@ -214,6 +227,13 @@ export function ShoppingRow({
             >
               {itemLabel}
             </span>
+            {/* GAP-86: a word, not colour alone, so it reads in any theme
+                and to a screen reader as part of the row's label. */}
+            {urgent && (
+              <Badge variant="attention" className="shrink-0">
+                {dict.urgentBadge}
+              </Badge>
+            )}
             {item.addedAutomatically && (
               <Badge variant="secondary" className="shrink-0">
                 {dict.lowStockBadge}
@@ -286,8 +306,9 @@ export function ShoppingRow({
                 {/* On a phone the Edit and Delete icons are hidden (the
                     row's left swipe shows both) and this ⋯ is their tap
                     path, clicking those same buttons. With "Move to list…"
-                    (GAP-82) it shows on a desktop too, before the trash so
-                    delete stays last (UX-22). */}
+                    (GAP-82) or "Mark urgent" (GAP-86, every unbought row)
+                    it shows on a desktop too, before the trash so delete
+                    stays last (UX-22). */}
                 <RowActionsMenu
                   label={format(dict.rowActionsAriaLabel, { name: item.name })}
                   editLabel={dict.swipe.edit}
@@ -298,6 +319,8 @@ export function ShoppingRow({
                   priceLabel={inline && item.estimatedPrice == null ? dict.addPriceLabel : undefined}
                   moveLabel={dict.moveItem.menuLabel}
                   onMove={onMove && !purchased ? () => onMove(item) : undefined}
+                  urgentLabel={urgent ? dict.unmarkUrgent : dict.markUrgent}
+                  onToggleUrgent={purchased ? undefined : toggleUrgent}
                   disabled={isPending}
                 />
                 {/* UX-49: removes at once with the swipe's Undo toast, not a

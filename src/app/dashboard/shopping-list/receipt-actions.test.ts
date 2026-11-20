@@ -945,10 +945,11 @@ describe("applyReceiptScanAction — put-away mode (ON_PUT_AWAY)", () => {
         shoppingListId: "list-1",
         OR: [{ purchased: false }, { putAwayAt: null, priceRecordedAt: null }],
       },
-      data: { estimatedPrice: 10, purchased: true, checkedOffByUserId: "user-1" },
+      // GAP-86: bought, so no longer urgent.
+      data: { estimatedPrice: 10, purchased: true, urgent: false, checkedOffByUserId: "user-1" },
     });
     expect(txShoppingListItemUpdateManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { estimatedPrice: 30, purchased: true } }),
+      expect.objectContaining({ data: { estimatedPrice: 30, purchased: true, urgent: false } }),
     );
     expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "sli-1" },

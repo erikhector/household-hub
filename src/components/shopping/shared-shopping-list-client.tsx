@@ -8,6 +8,7 @@ import { toggleItemViaShareTokenAction } from "@/app/share/shopping-list/actions
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { ProgressRing } from "@/components/shopping/shopping-mode";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { SharedShoppingList } from "@/app/share/shopping-list/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -63,7 +64,9 @@ export function SharedShoppingListClient({
   // row's optimistic value hands over to this one without a flicker.
   function handleToggled(itemId: string) {
     setItems((prev) =>
-      prev.map((item) => (item.id === itemId ? { ...item, purchased: !item.purchased } : item)),
+      // GAP-86: a tick clears the urgent flag on the server, and an un-tick
+      // never brings it back, so either way the row is no longer urgent.
+      prev.map((item) => (item.id === itemId ? { ...item, purchased: !item.purchased, urgent: false } : item)),
     );
   }
 
@@ -73,7 +76,14 @@ export function SharedShoppingListClient({
   const progress = shoppingProgress(items);
   const allDone = items.length > 0 && pendingItems.length === 0;
   const renderRow = (item: SharedShoppingList["items"][number]) => (
-    <SharedRow key={item.id} token={token} item={item} saveFailed={dict.saveFailedToast} onToggled={handleToggled} />
+    <SharedRow
+      key={item.id}
+      token={token}
+      item={item}
+      saveFailed={dict.saveFailedToast}
+      urgentLabel={dict.urgentBadge}
+      onToggled={handleToggled}
+    />
   );
 
   return (
@@ -160,11 +170,13 @@ function SharedRow({
   token,
   item,
   saveFailed,
+  urgentLabel,
   onToggled,
 }: {
   token: string;
   item: SharedShoppingList["items"][number];
   saveFailed: string;
+  urgentLabel: string;
   onToggled: (itemId: string) => void;
 }) {
   const unitLabel = useUnitLabel();
@@ -194,6 +206,13 @@ function SharedRow({
           <span className="text-xs break-words whitespace-pre-line text-muted-foreground">{item.note}</span>
         )}
       </span>
+      {/* GAP-86: read-only here (the link holder can tick, not flag), and
+          gone as soon as the row is ticked, as in the member view. */}
+      {item.urgent && !purchased && (
+        <Badge variant="attention" className="shrink-0">
+          {urgentLabel}
+        </Badge>
+      )}
     </label>
   );
 }

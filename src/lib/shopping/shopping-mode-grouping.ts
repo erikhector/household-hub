@@ -87,14 +87,16 @@ export type ShoppingModeGroup<T> = { key: string | null; label: string; items: T
  * alphabetically, until anything's been learned about them), then
  * `otherLabel` last, for items with no category at all or still sitting in
  * the "Uncategorized" placeholder. A category stored in either locale (e.g.
- * "Dairy & eggs" and "Mejeri & ägg") merges into the same group. Items keep
- * their incoming relative order within a group (list insertion order). Only
+ * "Dairy & eggs" and "Mejeri & ägg") merges into the same group. Within a
+ * group, urgent items (GAP-86) come first; otherwise items keep their
+ * incoming relative order (list insertion order), among the urgent ones
+ * too. Only
  * categories actually present produce a group — there's no empty "Frozen"
  * header just because the key exists. With no `order` (or an empty one)
  * this is exactly AUTO-3's fixed order. A known category's label comes from
  * `locale`'s category labels when given (UX-83).
  */
-export function groupPendingItemsByCategory<T extends { category: string | null }>(
+export function groupPendingItemsByCategory<T extends { category: string | null; urgent?: boolean }>(
   items: readonly T[],
   otherLabel: string,
   order: StoreOrder = EMPTY_STORE_ORDER,
@@ -117,6 +119,11 @@ export function groupPendingItemsByCategory<T extends { category: string | null 
     }
     group.items.push(item);
   }
+  // GAP-86: "we need this today" leads its aisle, so it's the first thing
+  // read there and the first row the Next up dock offers. Urgency never
+  // pulls an item out of its aisle: the store walk still decides the route.
+  // The sort is stable, so everything else keeps list order.
+  for (const group of groups.values()) group.items.sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent));
 
   return [...groups.values()].sort((a, b) => {
     if (a.key === null || b.key === null) return Number(a.key === null) - Number(b.key === null);

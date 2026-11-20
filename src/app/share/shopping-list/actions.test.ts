@@ -178,8 +178,8 @@ describe("getShoppingListByShareToken", () => {
       householdId: "hh-1",
       household: { name: "The Smiths", categoryOrderLearned: { "auto:dairy": 0.2, bad: "x" }, categoryOrderManual: ["auto:produce"] },
       items: [
-        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null, inventoryItemId: "inv-1" },
-        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones", inventoryItemId: null },
+        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null, urgent: false, inventoryItemId: "inv-1" },
+        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones", urgent: true, inventoryItemId: null },
       ],
     });
     inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-1", category: "Dairy & eggs" }]);
@@ -193,9 +193,18 @@ describe("getShoppingListByShareToken", () => {
       householdName: "The Smiths",
       storeOrder: { learned: { "auto:dairy": 0.2 }, manual: ["auto:produce"] },
       items: [
-        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null, category: "Dairy & eggs" },
-        // GAP-5: the note reaches link holders too.
-        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones", category: null },
+        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null, urgent: false, category: "Dairy & eggs" },
+        // GAP-5: the note reaches link holders too, and GAP-86's urgent flag.
+        {
+          id: "item-2",
+          name: "Avocado",
+          quantity: 3,
+          unit: "pcs",
+          purchased: false,
+          note: "Ripe ones",
+          urgent: true,
+          category: null,
+        },
       ],
     });
     // The category lookup is scoped to the list's own household.
@@ -279,9 +288,11 @@ describe("toggleItemViaShareTokenAction", () => {
       // AUTO-9: share-link ticks teach the store order too. ON_CHECK (the
       // list's household has no inventorySyncMode set here): the tick is the
       // arrival, so the row is put away in the same write. No
-      // checkedOffByUserId — a link holder has no account.
+      // checkedOffByUserId — a link holder has no account. GAP-86: the tick
+      // clears the urgent flag here too.
       data: {
         purchased: true,
+        urgent: false,
         checkedOffAt: expect.any(Date),
         putAwayAt: expect.any(Date),
         priceRecordedAt: expect.any(Date),
@@ -397,7 +408,7 @@ describe("toggleItemViaShareTokenAction", () => {
       expect(result).toEqual({});
       expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
         where: { id: "item-1" },
-        data: { purchased: true, checkedOffAt: expect.any(Date), putAwayAt: null },
+        data: { purchased: true, urgent: false, checkedOffAt: expect.any(Date), putAwayAt: null },
       });
       expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
       expect(priceHistoryCreateMock).not.toHaveBeenCalled();

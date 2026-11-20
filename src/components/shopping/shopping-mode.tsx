@@ -7,6 +7,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Circle, CircleCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -95,7 +96,7 @@ export function ProgressRing({
 // moves up (UX-78); longer than a double tap's gap (400 ms).
 const SETTLE_MS = TICK_MS + 450;
 
-type DockItem = { id: string; name: string; quantity: number; unit: string };
+type DockItem = { id: string; name: string; quantity: number; unit: string; urgent?: boolean };
 
 /**
  * The thumb-zone dock: pinned to the bottom of a phone's screen (above the
@@ -117,12 +118,15 @@ export function NextUpDock<T extends DockItem>({
   next,
   progress,
   dict,
+  urgentLabel,
   onTick,
   finish,
 }: {
   next: NextUp<T> | null;
   progress: ShoppingProgress;
   dict: ShoppingModeDict;
+  /** GAP-86: the list row's "Urgent" badge text, repeated on the dock row. */
+  urgentLabel: string;
   onTick: (item: T) => void;
   /** What the button runs. `quiet` steps it down to outline so the view keeps one primary (DESIGN.md hierarchy). */
   finish?: { onFinish: () => void; disabled: boolean; quiet?: boolean };
@@ -264,6 +268,8 @@ export function NextUpDock<T extends DockItem>({
         <ul className={cn("flex flex-col gap-2 short:[&>li:nth-child(n+2)]:hidden", collapsed && !finish && "max-sm:hidden")}>
           {rows.map(({ item, ticked }, index) => {
             const text = formatShoppingItemLabel(item, unitLabel);
+            // GAP-86: a dock row is only ever pending, so the flag is current.
+            const urgent = !!item.urgent;
             return (
               // Keyed by row, so the item that slides up into a freed slot
               // eases in rather than the slot just changing its text.
@@ -272,7 +278,7 @@ export function NextUpDock<T extends DockItem>({
                   type="button"
                   onClick={() => tick(item, index)}
                   disabled={settling !== null}
-                  aria-label={ticked ? text : format(dict.tickAriaLabel, { item: text })}
+                  aria-label={ticked ? text : format(urgent ? dict.tickUrgentAriaLabel : dict.tickAriaLabel, { item: text })}
                   className="flex min-h-12 w-full items-center gap-3 rounded-lg bg-muted px-3 py-2 text-left text-lg font-medium transition-[transform,background-color] hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none active:scale-[0.98] disabled:opacity-100"
                 >
                   {ticked ? (
@@ -284,6 +290,11 @@ export function NextUpDock<T extends DockItem>({
                     <Circle aria-hidden className="size-6 shrink-0 text-muted-foreground" />
                   )}
                   <span className="min-w-0 flex-1 break-words">{text}</span>
+                  {urgent && !ticked && (
+                    <Badge variant="attention" className="shrink-0">
+                      {urgentLabel}
+                    </Badge>
+                  )}
                 </button>
               </li>
             );

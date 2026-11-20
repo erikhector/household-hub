@@ -25,6 +25,7 @@ const {
   shoppingListItemCreateMock,
   shoppingListItemCreateManyMock,
   shoppingListItemUpdateMock,
+  shoppingListItemUpdateManyMock,
   shoppingListItemDeleteMock,
   shoppingListItemCountMock,
   shoppingListFindUniqueMock,
@@ -72,6 +73,7 @@ const {
   shoppingListItemCreateMock: vi.fn(),
   shoppingListItemCreateManyMock: vi.fn(),
   shoppingListItemUpdateMock: vi.fn(),
+  shoppingListItemUpdateManyMock: vi.fn(async () => ({ count: 1 })),
   shoppingListItemDeleteMock: vi.fn(),
   shoppingListItemCountMock: vi.fn(async () => 0),
   shoppingListFindUniqueMock: vi.fn(),
@@ -188,6 +190,7 @@ vi.mock("@/lib/prisma", () => ({
       create: shoppingListItemCreateMock,
       createMany: shoppingListItemCreateManyMock,
       update: shoppingListItemUpdateMock,
+      updateMany: shoppingListItemUpdateManyMock,
       delete: shoppingListItemDeleteMock,
       deleteMany: shoppingListItemDeleteManyMock,
     },
@@ -255,6 +258,7 @@ const {
   createInventoryItemFromShoppingListItemAction,
   updateShoppingListItemAction,
   updateShoppingListItemPriceAction,
+  setShoppingListItemUrgentAction,
   unlinkShoppingListItemAction,
   setShoppingListItemCategoryAction,
   deleteShoppingListItemAction,
@@ -806,6 +810,82 @@ describe("updateShoppingListItemAction", () => {
 
     expect(result.error).toBe("Note must be 200 characters or fewer");
     expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("saves the urgent box on an unticked row (GAP-86)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1", purchased: false });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    await updateShoppingListItemAction("item-1", { name: "Nappies", quantity: 1, unit: "pcs", urgent: true });
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { name: "Nappies", quantity: 1, unit: "pcs", urgent: true },
+    });
+  });
+
+  it("never makes a ticked row urgent, and leaves the flag alone when it isn't sent (GAP-86)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1", purchased: true });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    await updateShoppingListItemAction("item-1", { name: "Nappies", quantity: 1, unit: "pcs", urgent: true });
+    await updateShoppingListItemAction("item-1", { name: "Nappies", quantity: 1, unit: "pcs" });
+
+    expect(shoppingListItemUpdateMock.mock.calls[0][0].data.urgent).toBe(false);
+    expect(shoppingListItemUpdateMock.mock.calls[1][0].data).not.toHaveProperty("urgent");
+  });
+});
+
+describe("setShoppingListItemUrgentAction (GAP-86)", () => {
+  it("scopes the row to the caller's household and refuses one outside it", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await setShoppingListItemUrgentAction("someone-elses-item", true);
+
+    expect(result.error).toBe("Item not found");
+    expect(shoppingListItemFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "someone-elses-item", shoppingList: { householdId: "household-1" } } }),
+    );
+    expect(shoppingListItemUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("marks an unticked row urgent, only while it is still unticked", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+
+    const result = await setShoppingListItemUrgentAction("item-1", true);
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "item-1", purchased: false },
+      data: { urgent: true },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/list-1");
+  });
+
+  it("refuses to mark a ticked-off row", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateManyMock.mockResolvedValueOnce({ count: 0 });
+
+    const result = await setShoppingListItemUrgentAction("item-1", true);
+
+    expect(result.error).toBe("A ticked-off item can't be marked urgent");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("clears the flag whatever the row's state", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+
+    const result = await setShoppingListItemUrgentAction("item-1", false);
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateManyMock).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { urgent: false } });
+  });
+
+  it("rejects a non-boolean flag from the client", async () => {
+    const result = await setShoppingListItemUrgentAction("item-1", "yes" as unknown as boolean);
+
+    expect(result.error).toBe("Invalid input");
+    expect(shoppingListItemFindFirstMock).not.toHaveBeenCalled();
   });
 });
 
