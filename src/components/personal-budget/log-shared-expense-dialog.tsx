@@ -2,7 +2,7 @@
 
 // Register a shared household expense straight from Personal Budget — see
 // docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md and createSharedExpenseFromPersonalBudgetAction's
-// doc comment (src/app/dashboard/budget/actions.ts) for why this creates a
+// doc comment (src/app/dashboard/budget/transaction-actions.ts) for why this creates a
 // real household Transaction (with a mandatory split) rather than a
 // PersonalTransaction: the household budget stays the one ledger of record,
 // this is just an alternate place to write to it. Only rendered (see
@@ -39,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/budget/actions";
+import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/budget/transaction-actions";
 import { checkSplitForm, evenSplitAmounts } from "@/components/budget/split-amounts";
 import { SplitEditor } from "@/components/budget/split-editor";
 import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";

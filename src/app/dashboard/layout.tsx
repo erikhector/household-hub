@@ -13,6 +13,7 @@ import { LazyDialogErrorMessage } from "@/components/ui/lazy-dialog";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { KeyboardShortcuts } from "@/components/dashboard/keyboard-shortcuts";
 import { UnitsProvider } from "@/components/units-provider";
+import { ConfirmDialogFailedMessage } from "@/components/ui/confirm-dialog";
 import { requireHousehold } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -217,7 +218,10 @@ async function DashboardShell({ children }: { children: React.ReactNode }) {
           {/* UX-193: Back lands where the reader left, on every page. */}
           <ScrollRestoration />
           <TimeZoneCookie current={cookieStore.get(TIME_ZONE_COOKIE)?.value ?? null} />
-          <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>{children}</UnitsProvider>
+          {/* UX-205: what every ConfirmDialog toasts when its request drops. */}
+          <ConfirmDialogFailedMessage message={dict.errors.requestFailed}>
+            <UnitsProvider labels={dict.units} plurals={dict.unitsPlural}>{children}</UnitsProvider>
+          </ConfirmDialogFailedMessage>
         </main>
       </div>
       <CommandPalette dict={dict.commandPalette} nav={dict.nav} />

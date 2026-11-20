@@ -136,7 +136,8 @@ test("x ticks the highlighted shopping row into \"In the cart\"", async ({ page,
     // list's own client component; they hydrate separately, so the highlight
     // appearing doesn't mean the row's onChange is attached. An x that clicks
     // a not-yet-hydrated checkbox only flips the native input and nothing
-    // moves to "In the cart" (MAINT-90). Wait until React owns the checkbox.
+    // moves to "In the cart" (MAINT-90). Wait until React owns the checkbox,
+    // with its hydration committed rather than just rendered (MAINT-120).
     await expectHydrated(active.getByRole("checkbox"));
     await page.keyboard.press("x");
     await expect(page.getByRole("button", { name: /^In the cart/ })).toContainText("1");

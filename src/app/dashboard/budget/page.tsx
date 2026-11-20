@@ -51,19 +51,20 @@ import {
 } from "@/app/dashboard/budget/planned-expense-actions";
 import { getPlannedExpenseStatus, isPlannedItemCounted, plannedItemType } from "@/lib/planned-expense-calc";
 import {
+  createTransactionAction,
+  deleteTransactionAction,
+  updateTransactionAction,
+} from "@/app/dashboard/budget/transaction-actions";
+import {
   acknowledgeTemplatePeriodAction,
   createRecurringTemplateAction,
-  createTransactionAction,
   deleteRecurringTemplateAction,
-  deleteSettlementAction,
-  deleteTransactionAction,
   logRecurringTemplateAction,
-  recordSettlementAction,
   setRecurringTemplateActiveAction,
   unacknowledgeTemplatePeriodAction,
   updateRecurringTemplateAction,
-  updateTransactionAction,
-} from "@/app/dashboard/budget/actions";
+} from "@/app/dashboard/budget/recurring-actions";
+import { deleteSettlementAction, recordSettlementAction } from "@/app/dashboard/budget/settlement-actions";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import { dailyAllowance, projectMonthEnd, SPEND_HISTORY_MONTHS, withSpendHistory } from "@/lib/chart-calc";
 import { resolveBudgetHouseholdView } from "@/lib/budget-household-view";
@@ -94,7 +95,7 @@ import {
   createStarterCategoriesAction,
   deleteCategoryAction,
   updateCategoryAction,
-} from "./actions";
+} from "./category-actions";
 import { PageTitle } from "@/components/dashboard/page-title";
 
 // An item needs at least this many recorded prices before its trend is
