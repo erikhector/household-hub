@@ -588,25 +588,6 @@ toast. The household notes board and the pending-invites list don't.
 WebKit was not run (no browser installed here), and the audit config
 still needs an uncommitted `executablePath` copy to launch Chromium.
 
-- [ ] **UX-206. Ask before closing a pending invite, and show which one is closing** (impact: med, effort: S) —
-      In the Members tab's "Pending invites" (Pixel 7 and 320 px), one
-      tap on "Close invite" deletes the invitation at once, with no
-      confirm and no Undo (`s320-close-invite-click.png`: the toast
-      already says "Invite closed"). A link someone was about to open
-      stops working and can't be got back. Only a new invite fixes it,
-      and that has to be re-sent. Shopping's "Revoke link" asks first
-      (UX-201, `share-list-button.tsx:111`), so this breaks Consistency
-      and User control. While it runs, every row's button just goes
-      disabled (`pending-invites.tsx:69`), with no pending label on the
-      one tapped (M5). Route the click through `ConfirmDialog`
-      ("Close this invite?", saying the link stops working for whoever
-      has it) with `pendingLabel`, keep the success toast, and add the
-      strings in en + sv.
-      Acceptance: in `pending-invites.spec.ts` (`mobile` and `desktop`),
-      tapping "Close invite" opens a dialog and the invite is still
-      listed after Cancel. Confirm shows the pending label, then the
-      row disappears and stays gone after a reload.
-
 ---
 
 ## Phase 2 — schema changes, one at a time

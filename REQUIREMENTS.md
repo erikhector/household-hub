@@ -450,7 +450,14 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   - `revokeInviteAction(invitationId)` — closes an unused invite. Owner:
     any in the household; contributor: only their own. The Household page
     lists unexpired, unused invites ("Pending invites", `PendingInvites`)
-    to every member with the inviter and expiry, never the token.
+    to every member with the inviter and expiry, never the token. Its
+    "Close invite" goes through a `ConfirmDialog` announced as an
+    `alertdialog` (UX-206, as shopping's "Revoke link" in UX-201): the
+    link stops working for whoever holds it and only a new, re-sent
+    invite replaces it. The dialog names the inviter and expiry so it's
+    clear which invite is closing, shows "Closing…" on its confirm
+    button while the action runs, and on a failure toasts and stays open
+    to retry.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
