@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { hashToken } from "@/lib/token-hash";
@@ -15,16 +15,6 @@ import { dismissCookieNotice, expectHydrated, saveScreenshot, setLocaleCookie } 
 // the form and both passwords stay as typed. Before this the mistake went to
 // the server and came back with both fields emptied.
 const DICTS = { en, sv } as const;
-
-async function withDb(fn: (c: Client) => Promise<unknown>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await fn(client);
-  } finally {
-    await client.end();
-  }
-}
 
 /** Counts the Server Action POSTs the page sends from here on. */
 function countServerActions(page: Page) {

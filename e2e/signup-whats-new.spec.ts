@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { CURRENT_VERSION } from "@/lib/release-notes";
 import { E2E_PASSWORD, E2E_WORKER } from "./seed-data";
@@ -29,16 +29,12 @@ test("signing up marks the latest release as seen, so the new user sees no updat
 
   // Sign-in is gated on a verified email, so verify the row directly (the
   // confirmation panel differs with whether the e2e environment can send mail).
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await expect
       .poll(async () => (await client.query(`SELECT 1 FROM "User" WHERE email = $1`, [email])).rowCount)
       .toBe(1);
     await client.query(`UPDATE "User" SET "emailVerifiedAt" = now() WHERE email = $1`, [email]);
-  } finally {
-    await client.end();
-  }
+  });
 
   await expect
     .poll(async () => (await context.cookies()).find((c) => c.name === "last_seen_release")?.value)

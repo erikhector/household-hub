@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_ITEM, E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
@@ -7,17 +7,13 @@ import { dismissCookieNotice } from "./ui";
 // UX-31: screen-reader and small-screen semantics.
 
 test("an unread notification says 'Unread' in text, not only with a dot", async ({ page }) => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "Notification" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
     await client.query(
       `INSERT INTO "Notification" (id, "householdId", kind, "inventoryItemId") VALUES ($1, $2, 'EXPIRING_SOON', $3)`,
       [`ux31-unread-${E2E_WORKER}`, E2E_HOUSEHOLD.id, E2E_ITEM.id],
     );
-  } finally {
-    await client.end();
-  }
+  });
 
   await page.goto("/dashboard/notifications");
   // The word is part of the link's accessible name, so a screen reader reads it.
@@ -30,10 +26,7 @@ test("an unread notification says 'Unread' in text, not only with a dot", async 
   } finally {
     // An unread row adds a count badge to the nav ("1 More"), which would
     // break specs that look the nav up by its label.
-    const cleanup = new Client({ connectionString: process.env.DATABASE_URL });
-    await cleanup.connect();
-    await cleanup.query(`DELETE FROM "Notification" WHERE id = 'ux31-unread'`);
-    await cleanup.end();
+    await withDb((client) => client.query(`DELETE FROM "Notification" WHERE id = 'ux31-unread'`));
   }
 });
 
@@ -67,34 +60,33 @@ test("new list name does not autofill", async ({ page, context, baseURL }) => {
 test("delete household: confirm field is exact-match, has a Cancel and no autocorrect", async ({ page, context, baseURL }) => {
   // Deleting is blocked for someone's only household, so give the user a
   // second one for the duration of the test.
-  const db = new Client({ connectionString: process.env.DATABASE_URL });
-  await db.connect();
-  // Ids carry the worker: workers share one database, so a fixed id collides
-  // when two of them (or two repeats) run this test at once.
-  const secondId = `ux31-second-${E2E_WORKER}`;
-  await db.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'UX31 Second')`, [secondId]);
-  await db.query(
-    `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
-    [`${secondId}-member`, secondId, E2E_USER.id],
-  );
-  try {
-    await dismissCookieNotice(context, baseURL!);
-    await page.goto("/dashboard/household?tab=settings");
-    await page.getByRole("button", { name: "Delete household" }).click();
-    const field = page.getByRole("textbox", { name: /Type .* to confirm/ });
-    await expect(field).toHaveAttribute("autocapitalize", "off");
-    await expect(field).toHaveAttribute("autocorrect", "off");
-    const confirm = page.getByRole("dialog").getByRole("button", { name: "Delete household" });
-    await expect(confirm).toBeDisabled();
-    // Surrounding whitespace (a keyboard's trailing space) still matches.
-    await field.fill(`  ${E2E_HOUSEHOLD.name} `);
-    await expect(confirm).toBeEnabled();
-    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-  } finally {
-    await db.query(`DELETE FROM "Household" WHERE id = $1`, [secondId]);
-    await db.end();
-  }
+  await withDb(async (client) => {
+    // Ids carry the worker: workers share one database, so a fixed id collides
+    // when two of them (or two repeats) run this test at once.
+    const secondId = `ux31-second-${E2E_WORKER}`;
+    await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'UX31 Second')`, [secondId]);
+    await client.query(
+      `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+      [`${secondId}-member`, secondId, E2E_USER.id],
+    );
+    try {
+      await dismissCookieNotice(context, baseURL!);
+      await page.goto("/dashboard/household?tab=settings");
+      await page.getByRole("button", { name: "Delete household" }).click();
+      const field = page.getByRole("textbox", { name: /Type .* to confirm/ });
+      await expect(field).toHaveAttribute("autocapitalize", "off");
+      await expect(field).toHaveAttribute("autocorrect", "off");
+      const confirm = page.getByRole("dialog").getByRole("button", { name: "Delete household" });
+      await expect(confirm).toBeDisabled();
+      // Surrounding whitespace (a keyboard's trailing space) still matches.
+      await field.fill(`  ${E2E_HOUSEHOLD.name} `);
+      await expect(confirm).toBeEnabled();
+      await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    } finally {
+      await client.query(`DELETE FROM "Household" WHERE id = $1`, [secondId]);
+    }
+  });
 });
 
 test("invite email is a form, so Enter submits it", async ({ page, context, baseURL }) => {

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
@@ -11,13 +11,9 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterEach(async () => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`UPDATE "Household" SET name = $1 WHERE id = $2`, [E2E_HOUSEHOLD.name, E2E_HOUSEHOLD.id]);
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 test("an owner renames the household and the new name survives a reload", async ({ page }) => {
