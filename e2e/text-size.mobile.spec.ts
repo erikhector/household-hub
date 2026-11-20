@@ -110,7 +110,8 @@ for (const locale of LOCALES) {
       await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
       await page.waitForLoadState("networkidle");
       const links = page.locator("main a[href*='meal-planning?week=']");
-      const label = page.locator("main p.font-heading").first();
+      // GAP-85: the week label is the "Choose week" button.
+      const label = page.getByRole("main").getByRole("button", { name: locale === "sv" ? /^Välj vecka/ : /^Choose week/ });
       const [a, b, l] = await Promise.all([
         links.first().boundingBox(),
         links.nth(1).boundingBox(),

@@ -84,7 +84,10 @@ export function WeekJump({
         aria-controls={open ? fieldId : undefined}
         disabled={pending}
         onClick={() => setOpen((was) => !was)}
-        className="h-auto min-h-11 gap-2 whitespace-normal px-2 py-1 text-center font-heading text-lg font-semibold text-balance"
+        // h-auto on phones too: the button's fixed 44 px height would leave
+        // a range wrapped onto three lines at 200% text spilling over the
+        // bar above and the day cards below. min-h-11 keeps M3's target.
+        className="h-auto min-h-11 gap-2 whitespace-normal px-2 py-1 text-center font-heading text-lg font-semibold text-balance max-sm:h-auto pointer-coarse:h-auto"
       >
         {pending ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />
