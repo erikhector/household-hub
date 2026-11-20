@@ -1,4 +1,4 @@
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 
@@ -13,23 +13,22 @@ export async function withCurrentWeekMeal(tag: string, run: () => Promise<void>)
   const monday = new Date(today);
   monday.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
 
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
-       ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-      [`e2e-curweek-plan-${E2E_WORKER}-${tag}`, E2E_HOUSEHOLD.id, monday],
-    );
-    await client.query(
-      `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "freeformName", portions)
-       SELECT $1, plan.id, $2, 'DINNER', 'Planned for today', 2
-       FROM "MealPlan" plan WHERE plan."householdId" = $3 AND plan."weekStartDate" = $4`,
-      [entryId, today, E2E_HOUSEHOLD.id, monday],
-    );
-    await run();
-  } finally {
-    await client.query(`DELETE FROM "MealPlanEntry" WHERE id = $1`, [entryId]);
-    await client.end();
-  }
+  await withDb(async (client) => {
+    try {
+      await client.query(
+        `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
+         ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
+        [`e2e-curweek-plan-${E2E_WORKER}-${tag}`, E2E_HOUSEHOLD.id, monday],
+      );
+      await client.query(
+        `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "freeformName", portions)
+         SELECT $1, plan.id, $2, 'DINNER', 'Planned for today', 2
+         FROM "MealPlan" plan WHERE plan."householdId" = $3 AND plan."weekStartDate" = $4`,
+        [entryId, today, E2E_HOUSEHOLD.id, monday],
+      );
+      await run();
+    } finally {
+      await client.query(`DELETE FROM "MealPlanEntry" WHERE id = $1`, [entryId]);
+    }
+  });
 }
