@@ -450,7 +450,14 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   - `revokeInviteAction(invitationId)` — closes an unused invite. Owner:
     any in the household; contributor: only their own. The Household page
     lists unexpired, unused invites ("Pending invites", `PendingInvites`)
-    to every member with the inviter and expiry, never the token.
+    to every member with the inviter and expiry, never the token. Its
+    "Close invite" goes through a `ConfirmDialog` announced as an
+    `alertdialog` (UX-206, as shopping's "Revoke link" in UX-201): the
+    link stops working for whoever holds it and only a new, re-sent
+    invite replaces it. The dialog names the inviter and expiry so it's
+    clear which invite is closing, shows "Closing…" on its confirm
+    button while the action runs, and on a failure toasts and stays open
+    to retry.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
@@ -5372,6 +5379,18 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
 - **Weekly planner**: a Monday-start week grid (one card per day, one slot
   per `MealType`) addressed by a `?week=yyyy-mm-dd` search param on
   `/dashboard/meal-planning` (default: the Monday of the current week).
+  **Code layout (MAINT-109).** `WeekPlanner` (`week-planner.tsx`) wires
+  the planner together and owns the week bar, its ⋯ menu and the dialogs
+  that menu opens. Beside it in `src/components/meal-planning/`:
+  `week-planner-helpers.ts` (the week's days, what's planned on them,
+  empty days, free dinners, a day's open slot, the week range label and
+  `copyLastWeek`, unit tested in `week-planner-helpers.test.ts`),
+  `use-week-picks.ts` (the tray's state and its place, spread, remove,
+  cook, back-to-picks, move and drag actions) with `week-picks-dialogs.tsx`,
+  `use-meal-selection.ts` (Select mode), `use-pending-removals.ts` (the
+  deletes waiting out an Undo window), `week-day-card.tsx` (one day),
+  `meal-entry-row.tsx` (a planned meal and its sheet) and
+  `add-meal-slot.tsx` (a day's "+ Add meal").
   Every date — the param, `MealPlan.weekStartDate`, and `MealPlanEntry.date`
   — is normalized to UTC midnight (`src/app/dashboard/meal-planning/date-utils.ts`)
   so it round-trips through the URL and Postgres without local-timezone
@@ -5431,7 +5450,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   snacks), matching the schema.
 - **Copy last week** (BACKLOG GAP-23): an empty week's planner ⋯ menu
   shows a "Copy last week" item (`copyLastWeek` in
-  `week-planner.tsx`) that calls `copyWeekAction(fromWeekStart,
+  `week-planner-helpers.ts`) that calls `copyWeekAction(fromWeekStart,
   toWeekStart)` in `planner-actions.ts` as a click action. Both keys are
   Zod-validated as `yyyy-mm-dd` Mondays and must differ; the household
   comes from `requireHousehold()` as always. The action reads the source
@@ -7517,8 +7536,8 @@ co-managers, not kids earning rewards.
   label. It used to collapse to a lone "+" below `sm`, leaving the page's one
   primary action with no visible words on phones. `flows.spec.ts` asserts the
   visible text on the mobile project.
-- **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
-  1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
+- **Recurrence**: `recurrenceIntervalDays` (1–366, the dialog offers every
+  1, 2, 3, 7, 14, 30, 90, 182 or 365 days; null = one-off) is the whole model — no rrule or
   weekday schedule. Nothing is written when a task reopens:
   `isTaskOpen` (`src/app/dashboard/tasks/recurrence.ts`) derives
   open/completed from `completedAt` and the interval at read time, and
@@ -7527,7 +7546,21 @@ co-managers, not kids earning rewards.
   `completedAt`, so there's no completion-history table (the earlier
   `completedAt` still counts for the week it happened in, e.g. in the
   weekly recap). While a recurring task is shown completed the row reads
-  "Next due <date>" (`getNextDueDate`).
+  "Next due <date>" (`getNextDueDate`), with the year added when that date
+  falls in another year than today.
+- **Long repeats (GAP-84)**: the fortnightly bins, the monthly filter and the
+  yearly smoke alarm battery repeat too. Because the model counts days, not
+  calendar months, the long presets say both
+  (`src/app/dashboard/tasks/recurrence-label.ts`), in the Repeat select and
+  on the row's badge: "Every 2 weeks", "Every 30 days", "Every 3 months (90
+  days)", "Every 6 months (182 days)" and "Every year (365 days)" ("Repeats
+  every year (365 days)" on the badge). Any other interval reads as days.
+  The cap is 366 so a leap year fits. Every reader of the interval
+  (`recurrence.ts`, `task-due.ts`, `older-completed.ts`, the tasks-due-today
+  push, taking turns) is interval-agnostic; a 7-day-or-longer repeat keeps
+  its anchor day (UX-137), so a yearly chore comes round on the day it was
+  made. `task-yearly-repeat.spec.ts` covers making one, ticking it and the
+  next year's "Next due".
 - **Rescheduling runs on the local day (UX-137)**: the next due moment is
   always a local midnight, never "the tick plus 24 h". An interval under 7
   days counts from the start of the local day it was ticked on, so a daily
@@ -7761,6 +7794,19 @@ from a pure list/calendar app; this is the minimal version of it.
   kept), the author's display name (or "Former member") and the date, with
   the year only when it isn't the current one. Add, pin and delete — no
   edit or rich text.
+- **Dropped requests** (UX-205, M8): a request that never arrives (offline,
+  a flaky mobile connection) is caught on Add note, Pin and Delete and
+  shown as the `notes.saveFailed` toast instead of reaching the dashboard
+  error boundary. The board stays on screen, the typed note stays in the
+  field and the field isn't marked invalid; Delete's confirm dialog stays
+  open for a retry. More generally, the shared `ConfirmDialog` catches a
+  throwing `onConfirm` itself: it toasts the text the dashboard layout
+  gives it through `ConfirmDialogFailedMessage` (`errors.requestFailed`,
+  "That didn't go through…") and stays open, so all of its call sites are
+  covered. A call site that already turns a throw into an `{ error }` (as
+  the notes board and `settleDelete` do) gets only its own toast. A
+  redirect or not-found signal is re-thrown (`unstable_rethrow`) so the
+  router still handles an expired session. `e2e/ux-205.spec.ts`.
 - **Pinning** (GAP-61): `HouseholdNote.pinnedAt DateTime?` (migration
   `20261030090000_household_note_pinned_at`), null = not pinned. A lasting
   fact (the wifi code, "allergic to nuts") shouldn't sink under daily
@@ -9035,11 +9081,16 @@ version or the notes by hand.
   An entry there is for a high advisory with no patched release to move
   to, so neither `npm audit fix` nor an `overrides` pin clears it. Each
   names the GHSA id, why shipping with it is safe, and an expiry date
-  (about three months out) from which CI fails on it again. The first is
-  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), whose latest release 4.0.7 is
-  still affected and whose only production paths are Sentry's build-time
-  Rollup and Vite tooling matching the repo's own globs. The script also
-  prints entries whose advisory is gone, to be deleted. Then
+  (about three months out) from which CI fails on it again. The first,
+  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), was deleted once npm audit
+  stopped reporting it, so the list is empty for now. The script also
+  prints entries whose advisory is gone, to be deleted. Effect's
+  `Schema.TemplateLiteral` ReDoS (GHSA-7589-6fvf-x4pw, effect ≤3.22.0)
+  did have a patched release, so it's cleared by an `overrides` entry
+  instead: `@prisma/config` pins effect 3.20.0 exactly and Prisma 7.10.1
+  is the last 7.x release, so the override lifts effect to `^3.22.5`
+  under it. Drop it once a Prisma release depends on a patched effect.
+  Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
   imports, on unused or unlisted dependencies, and on exports, types and
   duplicate exports no other file imports. Its framework plugins

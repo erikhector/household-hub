@@ -1,8 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { revokeInviteAction } from "@/lib/actions/household";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -29,20 +29,19 @@ export function PendingInvites({
   invites: PendingInvite[];
   dict: Dictionary["household"]["pendingInvites"];
 }) {
-  const [isPending, startTransition] = useTransition();
-
   if (invites.length === 0) return null;
 
-  function handleRevoke(id: string) {
-    startTransition(async () => {
-      try {
-        const result = await revokeInviteAction(id);
-        if (result.error) toast.error(result.error);
-        else toast.success(dict.revoked);
-      } catch {
-        toast.error(dict.revokeFailed);
-      }
-    });
+  // Runs from the ConfirmDialog, which owns the pending state (on the one
+  // invite being closed, not every row) and toasts a returned error while
+  // staying open so the user can retry.
+  async function handleRevoke(id: string) {
+    try {
+      const result = await revokeInviteAction(id);
+      if (result.error) return { error: result.error };
+    } catch {
+      return { error: dict.revokeFailed };
+    }
+    toast.success(dict.revoked);
   }
 
   return (
@@ -62,16 +61,27 @@ export function PendingInvites({
                   {format(dict.expires, { date: invite.expiresLabel })}
                 </span>
               </div>
+              {/* UX-206: closing can't be undone (only a new invite, sent
+                  again, replaces it) and the link stops working for whoever
+                  holds it right now, so it's confirmed first, like
+                  shopping's "Revoke link" (DESIGN.md principle 5). The
+                  description names the inviter and expiry so it's clear
+                  which of several invites is closing. */}
               {invite.canRevoke && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isPending}
-                  aria-label={format(dict.revokeAriaLabel, { name })}
-                  onClick={() => handleRevoke(invite.id)}
-                >
-                  {dict.revoke}
-                </Button>
+                <ConfirmDialog
+                  alert
+                  trigger={
+                    <Button type="button" variant="outline" aria-label={format(dict.revokeAriaLabel, { name })}>
+                      {dict.revoke}
+                    </Button>
+                  }
+                  title={dict.revokeConfirmTitle}
+                  description={format(dict.revokeConfirmDescription, { name, date: invite.expiresLabel })}
+                  cancelLabel={dict.revokeConfirmCancel}
+                  confirmLabel={dict.revoke}
+                  pendingLabel={dict.revoking}
+                  onConfirm={() => handleRevoke(invite.id)}
+                />
               )}
             </li>
           );

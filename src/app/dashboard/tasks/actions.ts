@@ -22,11 +22,13 @@ import {
   nextAssigneeInRotation,
 } from "@/lib/task-rotation";
 
+// GAP-84: up to a year. 366 rather than 365 leaves room for a leap year,
+// though the dialog's longest preset is 365 (recurrence-label.ts).
 const recurrenceIntervalDaysSchema = z.coerce
   .number()
   .int(v("repeatWhole"))
   .min(1, v("repeatMin"))
-  .max(90, v("repeatMax"))
+  .max(366, v("repeatMax"))
   .nullable()
   .optional();
 

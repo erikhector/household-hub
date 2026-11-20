@@ -7,6 +7,7 @@
 // ConfirmDialog like every other removal in the app.
 
 import { useActionState, useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
 import { Pin, PinOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,14 +49,33 @@ export function HouseholdNotes({
   // throw away what the user typed. Clearing it only on success keeps it.
   const [body, setBody] = useState("");
   const [pinPending, startPin] = useTransition();
+  // UX-205: a dropped request (offline, a flaky mobile connection) rejects
+  // the action's promise. Uncaught, that throws to the dashboard error
+  // boundary and takes the board, and the note being typed, with it (M8).
+  // Add, pin and delete each catch it and toast instead; unstable_rethrow
+  // still lets an expired session's redirect through to the router.
   function togglePin(note: HouseholdNoteRow) {
     startPin(async () => {
-      const result = await setNotePinnedAction(note.id, !note.pinned);
-      if (result.error) toast.error(result.error);
+      try {
+        const result = await setNotePinnedAction(note.id, !note.pinned);
+        if (result.error) toast.error(result.error);
+      } catch (error) {
+        unstable_rethrow(error);
+        toast.error(dict.saveFailed);
+      }
     });
   }
   const [state, formAction, pending] = useActionState(async (prevState: ActionState, formData: FormData) => {
-    const result = await createNoteAction(prevState, formData);
+    let result: ActionState;
+    try {
+      result = await createNoteAction(prevState, formData);
+    } catch (error) {
+      unstable_rethrow(error);
+      toast.error(dict.saveFailed);
+      // The previous state, not an error one: nothing about the note is
+      // invalid, so the field shouldn't turn red. `body` is untouched.
+      return prevState;
+    }
     if (result.error) {
       toast.error(result.error);
     } else {
@@ -158,7 +178,16 @@ export function HouseholdNotes({
                   cancelLabel={dict.confirmDelete.cancel}
                   confirmLabel={dict.confirmDelete.confirm}
                   pendingLabel={dict.confirmDelete.confirming}
-                  onConfirm={() => deleteNoteAction(note.id)}
+                  onConfirm={async () => {
+                    // Returned as an error so ConfirmDialog toasts it once
+                    // and stays open for a retry.
+                    try {
+                      return await deleteNoteAction(note.id);
+                    } catch (error) {
+                      unstable_rethrow(error);
+                      return { error: dict.saveFailed };
+                    }
+                  }}
                 />
               </li>
             );
