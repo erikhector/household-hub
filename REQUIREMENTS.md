@@ -454,7 +454,14 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   - `revokeInviteAction(invitationId)` — closes an unused invite. Owner:
     any in the household; contributor: only their own. The Household page
     lists unexpired, unused invites ("Pending invites", `PendingInvites`)
-    to every member with the inviter and expiry, never the token.
+    to every member with the inviter and expiry, never the token. Its
+    "Close invite" goes through a `ConfirmDialog` announced as an
+    `alertdialog` (UX-206, as shopping's "Revoke link" in UX-201): the
+    link stops working for whoever holds it and only a new, re-sent
+    invite replaces it. The dialog names the inviter and expiry so it's
+    clear which invite is closing, shows "Closing…" on its confirm
+    button while the action runs, and on a failure toasts and stays open
+    to retry.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
@@ -7544,8 +7551,8 @@ co-managers, not kids earning rewards.
   label. It used to collapse to a lone "+" below `sm`, leaving the page's one
   primary action with no visible words on phones. `flows.spec.ts` asserts the
   visible text on the mobile project.
-- **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
-  1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
+- **Recurrence**: `recurrenceIntervalDays` (1–366, the dialog offers every
+  1, 2, 3, 7, 14, 30, 90, 182 or 365 days; null = one-off) is the whole model — no rrule or
   weekday schedule. Nothing is written when a task reopens:
   `isTaskOpen` (`src/app/dashboard/tasks/recurrence.ts`) derives
   open/completed from `completedAt` and the interval at read time, and
@@ -7554,7 +7561,21 @@ co-managers, not kids earning rewards.
   `completedAt`, so there's no completion-history table (the earlier
   `completedAt` still counts for the week it happened in, e.g. in the
   weekly recap). While a recurring task is shown completed the row reads
-  "Next due <date>" (`getNextDueDate`).
+  "Next due <date>" (`getNextDueDate`), with the year added when that date
+  falls in another year than today.
+- **Long repeats (GAP-84)**: the fortnightly bins, the monthly filter and the
+  yearly smoke alarm battery repeat too. Because the model counts days, not
+  calendar months, the long presets say both
+  (`src/app/dashboard/tasks/recurrence-label.ts`), in the Repeat select and
+  on the row's badge: "Every 2 weeks", "Every 30 days", "Every 3 months (90
+  days)", "Every 6 months (182 days)" and "Every year (365 days)" ("Repeats
+  every year (365 days)" on the badge). Any other interval reads as days.
+  The cap is 366 so a leap year fits. Every reader of the interval
+  (`recurrence.ts`, `task-due.ts`, `older-completed.ts`, the tasks-due-today
+  push, taking turns) is interval-agnostic; a 7-day-or-longer repeat keeps
+  its anchor day (UX-137), so a yearly chore comes round on the day it was
+  made. `task-yearly-repeat.spec.ts` covers making one, ticking it and the
+  next year's "Next due".
 - **Rescheduling runs on the local day (UX-137)**: the next due moment is
   always a local midnight, never "the tick plus 24 h". An interval under 7
   days counts from the start of the local day it was ticked on, so a daily
@@ -8994,7 +9015,16 @@ in the page's own client component, and the two hydrate separately: the
 highlight can appear before the row's `onChange` is attached, and an `x`
 that clicks the checkbox then flips only the native input (MAINT-90, the
 shopping spec). The spec therefore waits for `expectHydrated` on the
-highlighted row's checkbox before pressing `x`.
+highlighted row's checkbox before pressing `x`. `expectHydrated` waits for
+the hydration to be committed, not only rendered: React sets an element's
+`__reactProps$…` key while it renders a hydration, and the shopping page
+hydrates as its own Suspense boundary (its `loading.tsx`) in slices, so
+on a loaded run the key was there while the boundary was still
+uncommitted and React dropped the click (MAINT-120, reproduced at 8×
+CPU throttling). The helper also requires the element's fiber to be
+mounted by the same test React's event system uses
+(`getNearestMountedFiber`: no uncommitted ancestor still flagged
+Placement or Hydrating, and a path up to the HostRoot).
 
 
 ## Releases & What's new
@@ -9066,11 +9096,16 @@ version or the notes by hand.
   An entry there is for a high advisory with no patched release to move
   to, so neither `npm audit fix` nor an `overrides` pin clears it. Each
   names the GHSA id, why shipping with it is safe, and an expiry date
-  (about three months out) from which CI fails on it again. The first is
-  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), whose latest release 4.0.7 is
-  still affected and whose only production paths are Sentry's build-time
-  Rollup and Vite tooling matching the repo's own globs. The script also
-  prints entries whose advisory is gone, to be deleted. Then
+  (about three months out) from which CI fails on it again. The first,
+  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), was deleted once npm audit
+  stopped reporting it, so the list is empty for now. The script also
+  prints entries whose advisory is gone, to be deleted. Effect's
+  `Schema.TemplateLiteral` ReDoS (GHSA-7589-6fvf-x4pw, effect ≤3.22.0)
+  did have a patched release, so it's cleared by an `overrides` entry
+  instead: `@prisma/config` pins effect 3.20.0 exactly and Prisma 7.10.1
+  is the last 7.x release, so the override lifts effect to `^3.22.5`
+  under it. Drop it once a Prisma release depends on a patched effect.
+  Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
   imports, on unused or unlisted dependencies, and on exports, types and
   duplicate exports no other file imports. Its framework plugins

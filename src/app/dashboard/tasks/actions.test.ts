@@ -195,7 +195,34 @@ describe("createTaskAction", () => {
     });
   });
 
-  it("rejects a recurrence interval outside the 1-90 day range", async () => {
+  it("accepts a yearly repeat (GAP-84)", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+    householdTaskCreateMock.mockResolvedValue({ id: "task-1" });
+
+    const result = await createTaskAction(
+      {},
+      formData({ title: "Change the smoke alarm battery", recurrenceIntervalDays: "365" }),
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(householdTaskCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ recurrenceIntervalDays: 365, recurrenceAnchorAt: expect.any(Date) }),
+    });
+  });
+
+  it("refuses a repeat longer than 366 days (GAP-84)", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+
+    const result = await createTaskAction(
+      {},
+      formData({ title: "Change the smoke alarm battery", recurrenceIntervalDays: "367" }),
+    );
+
+    expect(result.error).toBe("Repeat interval must be 366 days or fewer");
+    expect(householdTaskCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a recurrence interval below 1 day", async () => {
     requireHouseholdMock.mockResolvedValue({ household });
 
     const result = await createTaskAction(

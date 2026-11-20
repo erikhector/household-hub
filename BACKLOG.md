@@ -274,10 +274,24 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       120 of the 232 `e2e/*.spec.ts` files open their own `new Client({ connectionString: process.env.DATABASE_URL })`, and 43 of them define the same connect/try/finally wrapper locally, under two names: `withClient` in 31 files (e.g. `e2e/task-skip.spec.ts:29`, `e2e/cook-soon.spec.ts:21`) and `withDb` in 12 (e.g. `e2e/ux-55.spec.ts:17`, `e2e/planned-income.spec.ts:24`). The rest is copied the same way: `mondayOf` is the same one-liner in 7 specs (`e2e/cook-soon.spec.ts:16`, `e2e/recipe-sort.spec.ts:22`, …), and the name/id helpers `unique` (23 files) and `suffix` (20) exist in at least eight variants. Some of those are only `Date.now().toString(36)` (`e2e/flows.spec.ts:7`, `e2e/shopping-expense-category.spec.ts:14`), some only random (`e2e/task-skip.spec.ts:13`), and only some carry `E2E_WORKER`, which AGENTS.md ("Parallel workers") asks of every inserted id. Every new spec copies whichever neighbour it started from, so a fix to the pattern (a statement timeout, a safer suffix) has to be made 40 times, and the weaker variants keep spreading.
       Change: add `e2e/db.ts` exporting `withDb` (the connect/try/finally wrapper), `unique(label)` and `uniqueId(prefix)` (both with `E2E_WORKER`, a timestamp and a random part) and `mondayOf`; replace the local copies with imports, a feature area per commit so a failure is easy to place. No test's assertions change. Add a guard beside `src/app/page-coverage.test.ts` (or a `no-restricted-syntax` rule scoped to `e2e/**/*.spec.ts` in `eslint.config.mjs`) that fails on `new Client(` in a spec file, and list `e2e/db.ts` among the shared helpers in AGENTS.md's "UI tests".
       Acceptance: `grep -rlE 'new Client\(' e2e --include='*.spec.ts'` prints nothing; no spec defines `withClient`, `withDb`, `mondayOf`, `unique` or `suffix` itself; the guard fails when a spec opens its own client; `npm run test:e2e` passes on desktop and mobile with the same number of tests as before.
-- [ ] **MAINT-120. Flaky: "In the cart" isn't there 5 s after pressing x on the highlighted shopping row on desktop** (low, S) —
-      `e2e/keyboard-shortcuts.desktop.spec.ts:110` ("x ticks the highlighted shopping row into \"In the cart\""), `desktop` project. First sighting: the **Nightly e2e** run dispatched on release PR #1583 (run 44318496212, commit c13111b, 2026-11-18), which ships no change to shopping or keyboard shortcuts. The first attempt failed at `:142`: `expect(getByRole('button', { name: /^In the cart/ })).toContainText("1")` found no element within 5 s, right after `expectHydrated` on the active row's checkbox and `page.keyboard.press("x")`. It passed on the retry (marked `flaky`), and the release's three `End-to-end shard N/3` jobs and the reviewer's locked `ci:local` on the same commit passed it first time. Likely the `x` keypress lands before the shortcut handler has the highlighted row (hydrated checkbox isn't proof the keydown listener is attached), or the tick's optimistic move into "In the cart" waits on the server round-trip under load. Start from the run's trace.
+- [ ] **MAINT-121. Flaky: the morning task reminder names "Width …" instead of the assignee** (low, S) —
+      `e2e/task-due-nudge.spec.ts:47` ("turning on the morning task reminder files one entry linking to Tasks"), `mobile` and `desktop` projects. The test fails at `:109`, `expect(entry).toHaveAccessibleName(new RegExp(`${title} \\(${w.user.displayName}\\)`))`, which received `"Tasks due today: Nudge task en … (Width 1795108945418) … Unread"`. `e2e/pending-button-width.spec.ts:16` fills the worker's seeded Display name with `Width ${Date.now()}`, saves it, and never restores it. So task-due-nudge fails whenever it runs after that spec in the same worker. It depends on test order: it is the same shared-seed leak as #1183.
+      Sightings (builder run 2026-11-19, all locked `ci:local`):
+      - Failed on `mobile` on 952fd86 (PR #1604, MAINT-109).
+      - Failed on `mobile` on clean `origin/next` 907e860.
+      - Failed on `desktop` and `mobile` on ade0968 (PR #1609, MAINT-110).
+      - Passed the same day in the full runs on 83da1ac (PR #1603) and 8495648 (PR #1607).
+      Fix: leave the seeded user as it was. Either restore the display name at the end of `pending-button-width.spec.ts`, or give that spec a user of its own. Don't loosen the assertion in task-due-nudge.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/keyboard-shortcuts.desktop.spec.ts --project=desktop --repeat-each=30` passes 30/30.
+      Acceptance: `npx playwright test e2e/pending-button-width.spec.ts e2e/task-due-nudge.spec.ts --project=desktop --project=mobile --workers=1 --repeat-each=30` passes 30/30. One worker forces the order that leaks.
+- [ ] **MAINT-122. Flaky: the shopping list's "Take photo" item isn't there after the retry tap on mobile** (low, S) —
+      `e2e/shopping-lazy-dialogs.spec.ts:58` ("a failed chunk load says so, and the next tap retries"), `mobile` project. In the builder's first locked `ci:local` on 952fd86 (PR #1604, MAINT-109, which doesn't touch shopping, 2026-11-19), it failed at `:76`: `expect(page.getByRole("menuitem", { name: t.receiptScan.takePhoto })).toBeVisible()` found no element within 5000 ms after `offline = false; await scan.click()`. It passed in a second full run on the same commit and 3/3 on its own. Likely cause: the retry tap lands before the failed chunk's state is reset, or the menu opens only after the re-fetched chunk loads, which can take longer than 5 s under load. Start from a trace.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/shopping-lazy-dialogs.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-123. Flaky: "Put everything away" is gone after the reload in the smart-add last-quantity spec on desktop** (low, S) —
+      `e2e/smart-add-last-quantity.spec.ts:25` ("a picked suggestion adds the quantity last bought"), `desktop` project. In the builder's first locked `ci:local` on ade0968 (PR #1609, MAINT-110, which doesn't touch shopping, 2026-11-19), it failed at `:45`: `await expect(putAway).toBeVisible()` right after `page.reload()` found no element within 5000 ms. The same assertion before the reload (`:43`) had passed. It passed in a second full run on the same commit. Likely cause: the button shows as soon as the row is ticked, optimistically, before the server has saved the tick, so the reload can land before the save. Wait on the tick's save (its server action response) before reloading, or fix the app if the tick can be lost.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/smart-add-last-quantity.spec.ts --project=desktop --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -569,25 +583,6 @@ the field, Save stays reachable and an offline tick rolls back with a
 toast. The household notes board and the pending-invites list don't.
 WebKit was not run (no browser installed here), and the audit config
 still needs an uncommitted `executablePath` copy to launch Chromium.
-
-- [ ] **UX-206. Ask before closing a pending invite, and show which one is closing** (impact: med, effort: S) —
-      In the Members tab's "Pending invites" (Pixel 7 and 320 px), one
-      tap on "Close invite" deletes the invitation at once, with no
-      confirm and no Undo (`s320-close-invite-click.png`: the toast
-      already says "Invite closed"). A link someone was about to open
-      stops working and can't be got back. Only a new invite fixes it,
-      and that has to be re-sent. Shopping's "Revoke link" asks first
-      (UX-201, `share-list-button.tsx:111`), so this breaks Consistency
-      and User control. While it runs, every row's button just goes
-      disabled (`pending-invites.tsx:69`), with no pending label on the
-      one tapped (M5). Route the click through `ConfirmDialog`
-      ("Close this invite?", saying the link stops working for whoever
-      has it) with `pendingLabel`, keep the success toast, and add the
-      strings in en + sv.
-      Acceptance: in `pending-invites.spec.ts` (`mobile` and `desktop`),
-      tapping "Close invite" opens a dialog and the invite is still
-      listed after Cancel. Confirm shows the pending label, then the
-      row disappears and stays gone after a reload.
 
 ---
 
@@ -957,36 +952,6 @@ out to be a product-scope question rather than a scoped task should move to
       visible to other members and never in logs.
 
 ### 2026-11-16 scan
-
-- [ ] **GAP-84. Repeat a task every two weeks, month, quarter or year** (impact: med, effort: S) —
-      Grocy's chores repeat daily, weekly, monthly or yearly, and Cozi's
-      to-dos the same, so a household keeps "change the smoke alarm
-      battery" or "descale the coffee machine" there. Squirrel's task
-      dialog offers every 1, 2, 3 or 7 days only
-      (`RECURRENCE_OPTION_DAYS`, `src/components/tasks/task-form-dialog.tsx:78`)
-      and the action refuses anything over 90 days
-      (`recurrenceIntervalDaysSchema`, `src/app/dashboard/tasks/actions.ts:25`),
-      so the fortnightly bins, the monthly filter and every yearly job
-      can't be a repeating task at all. No schema change:
-      `recurrenceIntervalDays` stays the whole model (REQUIREMENTS.md,
-      "Household tasks", Recurrence). Add 14, 30, 90, 182 and 365 to the
-      select and raise the cap to 366. The model counts days, not
-      calendar months, so say that honestly in the label: name the long
-      presets ("Every 2 weeks", "Every 30 days", "Every 3 months (90
-      days)", "Every 6 months (182 days)", "Every year (365 days)") in
-      the option and in the row's badge (`recurrenceBadge`,
-      `tasks-client.tsx:349`) rather than "Repeats every 365 days", and
-      update the `repeatMax` message. Check the readers of the interval
-      still behave at 365: `isTaskOpen`/`getNextDueDate`/`skippedUntilFor`
-      (`recurrence.ts`), `task-due.ts`, `older-completed.ts`, the
-      tasks-due-today sync in `src/lib/notifications.ts`, and taking
-      turns (`src/lib/task-rotation.ts`). Labels in `en.ts` and `sv.ts`.
-      Acceptance: action tests accept 365 and refuse 367; a
-      `recurrence.ts` test that a yearly task completed today is closed
-      tomorrow and open again after 365 days; e2e on `desktop` and
-      `mobile` creates a `unique()` task with "Every year", completes it
-      and, after a reload, sees it completed with a next-due date a year
-      out.
 
 - [ ] **GAP-85. Jump to any week in the meal planner** (impact: low, effort: S) —
       AnyList's December 2025 meal-plan update added jumping to a month

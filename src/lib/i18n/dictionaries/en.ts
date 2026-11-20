@@ -112,7 +112,7 @@ export const en = {
     titleTooLong: "Title must be 120 characters or fewer",
     repeatWhole: "Repeat interval must be a whole number of days",
     repeatMin: "Repeat interval must be at least 1 day",
-    repeatMax: "Repeat interval must be 90 days or fewer",
+    repeatMax: "Repeat interval must be 366 days or fewer",
     dueDateInvalid: "Due date must be a real date",
     eachPersonOnce: "Each person can only take turns once",
     plannedBillNotFound: "Planned bill not found",
@@ -399,6 +399,11 @@ export const en = {
       revokeAriaLabel: "Close invite created by {name}",
       revoked: "Invite closed",
       revokeFailed: "Could not close the invite",
+      revoking: "Closing…",
+      revokeConfirmTitle: "Close this invite?",
+      revokeConfirmDescription:
+        "The invite created by {name}, expiring {date}, stops working for whoever has the link. To invite them later you'll need to send a new one.",
+      revokeConfirmCancel: "Cancel",
       unknownInviter: "a former member",
     },
     title: "Household",
@@ -2883,6 +2888,20 @@ export const en = {
     recurrenceBadge: {
       one: "Repeats daily",
       other: "Repeats every {count} days",
+    },
+    // GAP-84: the long presets by name, with their day count, since the
+    // repeat counts days rather than calendar months.
+    recurrenceNamedOption: {
+      twoWeeks: "Every 2 weeks",
+      threeMonths: "Every 3 months (90 days)",
+      sixMonths: "Every 6 months (182 days)",
+      year: "Every year (365 days)",
+    },
+    recurrenceNamedBadge: {
+      twoWeeks: "Repeats every 2 weeks",
+      threeMonths: "Repeats every 3 months (90 days)",
+      sixMonths: "Repeats every 6 months (182 days)",
+      year: "Repeats every year (365 days)",
     },
     rotationLabel: "Take turns",
     rotationHint: "Add two or more people in order. Each time it's done, it passes to the next one.",
