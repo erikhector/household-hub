@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice } from "./ui";
 
 // UX-113: "This repeats" on a new transaction created no recurring item, yet

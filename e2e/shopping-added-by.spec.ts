@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { uniqueTag } from "./db";
 import { STORAGE_STATE_SV } from "./seed";
 import { E2E_SHOPPING_LIST } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
@@ -16,12 +17,8 @@ const LIST_URL = `/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`;
 // was already on the list, so the action answered alreadyOnList and added
 // nothing). Earlier runs leave their items behind, so a name that only
 // differs from them in a short suffix is swallowed about one run in three.
-// A name made of a single random token shares no word and few letters with
-// the others, so it always creates a fresh line.
-const unique = (prefix: string) => {
-  const token = Array.from({ length: 10 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
-  return `${prefix}${token}`;
-};
+// A name made of a single random token (a uniqueTag(), e2e/db.ts) shares no
+// word and few letters with the others, so it always creates a fresh line.
 
 const lineCheckbox = (page: Page, name: string) => page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
 // The row (swipe wrapper) that holds a given line, so a label is asserted on
@@ -55,8 +52,8 @@ async function asSwedishUser(browser: Browser, baseURL: string, page: Page) {
 }
 
 test("a shared list says who added each line, never on your own", async ({ page, browser, baseURL }) => {
-  const byEnglish = unique("e");
-  const bySwedish = unique("s");
+  const byEnglish = `e${uniqueTag()}`;
+  const bySwedish = `s${uniqueTag()}`;
 
   await dismissCookieNotice(page.context(), baseURL!);
   await addLine(page, byEnglish);

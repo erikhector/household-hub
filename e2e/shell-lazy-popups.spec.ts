@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { createHouseholdMenuTrigger, dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
+import { createHouseholdMenuTrigger, dismissCookieNotice, expectHydrated, failChunkLoads, gotoRevealed } from "./ui";
 
 // PERF-27: the dashboard shell's popups (command palette, household switcher
 // menu and create form) are separate chunks, mounted the first time they're
@@ -77,8 +77,7 @@ test.describe("a failed chunk load", () => {
   test("the palette says so, and the next press retries", async ({ page, isMobile }) => {
     await gotoRevealed(page, "/dashboard");
     await expectHydrated(switcherButton(page, isMobile));
-    let offline = true;
-    await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+    const chunks = await failChunkLoads(page);
     const palette = page.getByRole("dialog", { name: en.commandPalette.title });
     const error = page.getByText(en.errors.generic);
     // Wait for either answer, so a press the listener missed is pressed
@@ -90,7 +89,7 @@ test.describe("a failed chunk load", () => {
     await expect(error).toBeVisible();
     await expect(palette).toBeHidden();
 
-    offline = false;
+    await chunks.goOnline();
     await openPalette(page);
   });
 
@@ -98,14 +97,13 @@ test.describe("a failed chunk load", () => {
     await page.goto("/dashboard");
     const trigger = switcherButton(page, isMobile);
     await expectHydrated(trigger);
-    let offline = true;
-    await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+    const chunks = await failChunkLoads(page);
     await trigger.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
     await expect(trigger).toBeVisible();
     await expect(page.getByRole("menuitem", { name: switcher.createMenuItem })).toBeHidden();
 
-    offline = false;
+    await chunks.goOnline();
     // On a phone the error toast sits over the header's switcher and
     // swallows a real click, so the retry is dispatched to the button.
     await trigger.dispatchEvent("click");

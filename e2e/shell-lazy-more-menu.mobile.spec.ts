@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { dismissCookieNotice, expectHydrated, failChunkLoads } from "./ui";
 
 // PERF-27: the bottom bar's More menu is its own chunk, mounted on the first
 // tap. Phone only, because the bar is.
@@ -31,13 +31,12 @@ test.describe("a failed chunk load", () => {
     await page.goto("/dashboard");
     const more = page.getByRole("navigation").getByRole("button", { name: en.nav.more });
     await expectHydrated(more);
-    let offline = true;
-    await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+    const chunks = await failChunkLoads(page);
     await more.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
     await expect(page.getByRole("menuitem", { name: en.nav.logOut })).toBeHidden();
 
-    offline = false;
+    await chunks.goOnline();
     await more.click();
     await expect(page.getByRole("menuitem", { name: en.nav.logOut })).toBeVisible();
   });

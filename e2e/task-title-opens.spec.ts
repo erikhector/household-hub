@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { unique } from "./db";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForDialogHistory } from "./ui";
 
 // UX-101: tapping a task's title opens its edit dialog and never completes
 // it. Only the checkbox (or the right swipe, covered in swipe-rows) does.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 test("tapping a task's title opens the edit dialog without completing it", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

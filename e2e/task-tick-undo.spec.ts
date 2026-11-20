@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
+import { unique } from "./db";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForSheetClosed } from "./ui";
 
 // UX-104: ticking a task says so and offers Undo (the row leaves for
 // "Completed" below the fold), the weekly recap never appears or grows under
 // the thumb during a tap, and ticking the last open task shows the
 // "all caught up" moment.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 // MAINT-116: each test ticks straight after adding its task, and twice in a
 // full run's locked gate that first tick on the phone went nowhere (the task

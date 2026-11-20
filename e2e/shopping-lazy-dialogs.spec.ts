@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { clickRowAction, dismissCookieNotice, expectHydrated, clickListSetting } from "./ui";
+import { clickRowAction, dismissCookieNotice, expectHydrated, clickListSetting, failChunkLoads } from "./ui";
 
 // PERF-25: the list page's dialogs are separate chunks, mounted the first time
 // they're asked to open. The first tap after a hard load must still open one
@@ -64,14 +64,13 @@ test.describe("a failed chunk load", () => {
     await expectHydrated(scan);
 
     // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
-    let offline = true;
-    await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+    const chunks = await failChunkLoads(page);
     await scan.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
     await expect(scan).toBeVisible();
     await expect(page.getByRole("menuitem", { name: t.receiptScan.takePhoto })).toBeHidden();
 
-    offline = false;
+    await chunks.goOnline();
     await scan.click();
     await expect(page.getByRole("menuitem", { name: t.receiptScan.takePhoto })).toBeVisible();
   });

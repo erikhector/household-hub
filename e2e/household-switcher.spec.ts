@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import bcrypt from "bcryptjs";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import {
   dismissCookieNotice,
@@ -85,49 +85,48 @@ test.describe("several households", () => {
       b: `e2e-hs-b-${tag}`,
     };
     const password = "e2e-password-123";
-    const client = new Client({ connectionString: process.env.DATABASE_URL });
-    await client.connect();
-    try {
-      await client.query(
-        `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
-       VALUES ($1, $2, $3, 'Switcher', now(), 'en')`,
-        [ids.user, ids.email, await bcrypt.hash(password, 10)],
-      );
-      // One at a time so createdAt orders them: Alpha is the first, so active.
-      for (const [id, name] of [
-        [ids.a, "Alpha house"],
-        [ids.b, "Beta house"],
-      ]) {
+    await withDb(async (client) => {
+      try {
         await client.query(
-          `INSERT INTO "Household" (id, name) VALUES ($1, $2)`,
-          [id, name],
+          `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+         VALUES ($1, $2, $3, 'Switcher', now(), 'en')`,
+          [ids.user, ids.email, await bcrypt.hash(password, 10)],
         );
-        await client.query(
-          `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
-          [`${id}-member`, id, ids.user],
-        );
+        // One at a time so createdAt orders them: Alpha is the first, so active.
+        for (const [id, name] of [
+          [ids.a, "Alpha house"],
+          [ids.b, "Beta house"],
+        ]) {
+          await client.query(
+            `INSERT INTO "Household" (id, name) VALUES ($1, $2)`,
+            [id, name],
+          );
+          await client.query(
+            `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+            [`${id}-member`, id, ids.user],
+          );
+        }
+
+        await page.goto("/login");
+        await page.getByLabel("Email").fill(ids.email);
+        await page.getByLabel("Password", { exact: true }).fill(password);
+        await page.getByRole("button", { name: "Log in" }).click();
+        await expect(page).toHaveURL(/\/dashboard$/);
+
+        const row = isMobile
+          ? page.getByRole("banner")
+          : page.getByRole("complementary");
+        // One slim row on a phone (the label is screen-reader only), not ~90 px.
+        if (isMobile) expect((await row.boundingBox())!.height).toBeLessThan(64);
+        await switchTo(page, row, "Alpha house", "Beta house");
+        await switchTo(page, row, "Beta house", "Alpha house");
+      } finally {
+        await client.query(`DELETE FROM "Household" WHERE id = ANY($1)`, [
+          [ids.a, ids.b],
+        ]);
+        await client.query(`DELETE FROM "User" WHERE id = $1`, [ids.user]);
       }
-
-      await page.goto("/login");
-      await page.getByLabel("Email").fill(ids.email);
-      await page.getByLabel("Password", { exact: true }).fill(password);
-      await page.getByRole("button", { name: "Log in" }).click();
-      await expect(page).toHaveURL(/\/dashboard$/);
-
-      const row = isMobile
-        ? page.getByRole("banner")
-        : page.getByRole("complementary");
-      // One slim row on a phone (the label is screen-reader only), not ~90 px.
-      if (isMobile) expect((await row.boundingBox())!.height).toBeLessThan(64);
-      await switchTo(page, row, "Alpha house", "Beta house");
-      await switchTo(page, row, "Beta house", "Alpha house");
-    } finally {
-      await client.query(`DELETE FROM "Household" WHERE id = ANY($1)`, [
-        [ids.a, ids.b],
-      ]);
-      await client.query(`DELETE FROM "User" WHERE id = $1`, [ids.user]);
-      await client.end();
-    }
+    });
   });
 });
 

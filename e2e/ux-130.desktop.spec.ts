@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -12,18 +12,8 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 const id = `e2e-ux130-${E2E_WORKER}`;
 const name = `Wide row ${E2E_WORKER}${Math.random().toString(36).slice(2, 7)} with a really long item name`;
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeAll(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, location, quantity, unit, "expiresAt", "useWithinDaysOpened", "updatedAt")
        VALUES ($1, $2, $3, 'Dairy and refrigerated goods', 'Refrigerator, top shelf', 3, 'pcs', now() + interval '5 days', 3, now() - interval '3 days')`,
@@ -34,7 +24,7 @@ test.beforeAll(async () => {
 
 // Only this household's row: a cleanup by id alone could hit another worker's.
 test.afterAll(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id = $2`, [E2E_HOUSEHOLD.id, id]),
   );
 });

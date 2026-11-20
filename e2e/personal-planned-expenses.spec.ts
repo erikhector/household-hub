@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { addBillOrIncome, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
@@ -17,16 +17,6 @@ let categoryId: string | undefined;
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
-
-async function withDb<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
 
 async function seedCategory(): Promise<{ id: string; name: string }> {
   const t = tag();

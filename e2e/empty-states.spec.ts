@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
-import { Client } from "pg";
+import type { Client } from "pg";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-50: on a new household every section's empty state is the same thing:
@@ -27,31 +28,30 @@ async function withEmptyHousehold(
   const userId = `e2e-es-user-${tag}`;
   const householdId = `e2e-es-household-${tag}`;
   const email = `e2e-es-${tag}@squirrel.test`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
-       VALUES ($1, $2, $3, 'Empty States', now(), 'en')`,
-      [userId, email, await bcrypt.hash(PASSWORD, 10)],
-    );
-    await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Empty states household')`, [householdId]);
-    await client.query(
-      `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
-      [`e2e-es-member-${tag}`, householdId, userId],
-    );
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-    await page.getByRole("button", { name: "Log in" }).click();
-    await expect(page).toHaveURL(/\/dashboard/);
-    await run(client, householdId);
-  } finally {
-    // Household first: its members and rows cascade with it.
-    await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
-    await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
-    await client.end();
-  }
+  await withDb(async (client) => {
+    try {
+      await client.query(
+        `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+         VALUES ($1, $2, $3, 'Empty States', now(), 'en')`,
+        [userId, email, await bcrypt.hash(PASSWORD, 10)],
+      );
+      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Empty states household')`, [householdId]);
+      await client.query(
+        `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+        [`e2e-es-member-${tag}`, householdId, userId],
+      );
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+      await page.getByRole("button", { name: "Log in" }).click();
+      await expect(page).toHaveURL(/\/dashboard/);
+      await run(client, householdId);
+    } finally {
+      // Household first: its members and rows cascade with it.
+      await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+      await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
+    }
+  });
 }
 
 // The section's empty state: the mascot, the one line, and one primary. The

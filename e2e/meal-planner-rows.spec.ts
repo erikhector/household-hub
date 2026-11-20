@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, unique, uniqueTag, withDb } from "./db";
 import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTouchTargets, openRowSheet, waitForUndoableDelete } from "./ui";
 
 // The planner's meals and the Recipes tab's recipes are one tappable row
@@ -10,32 +9,20 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expect
 // M2, M6), instead of a strip of unlabelled icon buttons on every row. Each
 // test seeds its own recipe (and a meal in a far-future week nobody else
 // plans in) and removes them again.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const key = (day: Date) => day.toISOString().slice(0, 10);
-const mondayOf = (day: Date) => new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-async function withClient<T>(fn: (client: Client) => Promise<T>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
-
 // A recipe with steps and two ingredients (plus `extraIngredients` more),
 // and (when `day` is given) a dinner of it planned that day. Returns the
 // recipe id for cleanup.
 async function seed(recipeName: string, day?: Date, extraIngredients = 0) {
-  const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const recipeId = `e2e-recipe-rows-${suffix}`;
-  await withClient(async (client) => {
+  const tag = uniqueTag();
+  const recipeId = `e2e-recipe-rows-${tag}`;
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "Recipe" (id, "householdId", name, instructions, servings, tags) VALUES ($1, $2, $3, $4, 2, $5)`,
       [recipeId, E2E_HOUSEHOLD.id, recipeName, "Chop\nSimmer", ["vegan"]],
@@ -61,13 +48,13 @@ async function seed(recipeName: string, day?: Date, extraIngredients = 0) {
       await client.query(
         `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
          ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-        [`e2e-plan-rows-${suffix}`, E2E_HOUSEHOLD.id, monday],
+        [`e2e-plan-rows-${tag}`, E2E_HOUSEHOLD.id, monday],
       );
       await client.query(
         `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId", portions)
          SELECT $1, plan.id, $2, 'DINNER', $3, 2
          FROM "MealPlan" plan WHERE plan."householdId" = $4 AND plan."weekStartDate" = $5`,
-        [`e2e-entry-rows-${suffix}`, day, recipeId, E2E_HOUSEHOLD.id, monday],
+        [`e2e-entry-rows-${tag}`, day, recipeId, E2E_HOUSEHOLD.id, monday],
       );
     }
   });
@@ -75,7 +62,7 @@ async function seed(recipeName: string, day?: Date, extraIngredients = 0) {
 }
 
 async function cleanup(recipeId: string) {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
        WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry."recipeId" = $2`,
@@ -270,7 +257,7 @@ test("the add-meal sheet names the day, filters recipes as you type and lists fa
     // marked cooked in a past week).
     const cookedDay = new Date(Date.now() - 7 * DAY_MS);
     for (const [i, name] of names.entries()) ids.push(await seed(name, i === 2 ? cookedDay : undefined));
-    await withClient(async (client) => {
+    await withDb(async (client) => {
       await client.query(`UPDATE "Recipe" SET "isFavorite" = true WHERE id = $1`, [ids[4]]);
       await client.query(`UPDATE "MealPlanEntry" SET "consumedAt" = now() WHERE "recipeId" = $1`, [ids[2]]);
     });

@@ -1,13 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { unique } from "./db";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
 
 // UX-205: a dropped request on the notes board (Add note, Pin, Delete) toasts
 // and keeps the board and the typed note on screen, instead of throwing to the
 // dashboard error boundary. Delete goes through the shared ConfirmDialog,
 // which stays open so the user can retry.
-const unique = (label: string) =>
-  `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 test("a dropped notes request toasts and keeps the board and the typed note", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

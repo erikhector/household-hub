@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow, LOCALES } from "./ui";
 
@@ -7,7 +7,6 @@ import { dismissCookieNotice, expectNoHorizontalOverflow, LOCALES } from "./ui";
 // ~90 days out, tags it "Frozen", takes it out of "Expiring soon" and offers
 // the same Undo toast as "Mark opened". The item is written straight to
 // Postgres (like item-page.spec.ts) with a date two days away.
-const suffix = () => `t${Math.random().toString(36).slice(2, 10)}`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -18,23 +17,13 @@ test.beforeEach(async ({ context, baseURL }) => {
 // frozen item makes a phone card's badges crowd the next spec's layout
 // checks, so remove what these tests created (only this household's rows).
 test.afterEach(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE 'e2e-freeze-%'`, [E2E_HOUSEHOLD.id]),
   );
 });
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 async function seedExpiringItem(name: string, id: string) {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "expiresAt", "updatedAt")
        VALUES ($1, $2, $3, 'Meat & fish', 2, 'pcs', now() + interval '2 days', now())`,
@@ -44,7 +33,7 @@ async function seedExpiringItem(name: string, id: string) {
 }
 
 const storedExpiry = (id: string) =>
-  withClient(async (client) => {
+  withDb(async (client) => {
     const { rows } = await client.query(`SELECT "expiresAt", "frozenAt" FROM "InventoryItem" WHERE id = $1`, [id]);
     return rows[0] as { expiresAt: Date; frozenAt: Date | null };
   });
@@ -68,7 +57,7 @@ async function clickFreeze(page: Page, name: string) {
 }
 
 test("freezing an expiring item tags it Frozen, pushes the date out and survives a reload", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Mince ${tag}`;
   const id = `e2e-freeze-${tag}`;
   await seedExpiringItem(name, id);
@@ -90,7 +79,7 @@ test("freezing an expiring item tags it Frozen, pushes the date out and survives
 });
 
 test("Undo on the freeze toast puts the original date back", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Bread ${tag}`;
   const id = `e2e-freeze-${tag}`;
   await seedExpiringItem(name, id);
@@ -140,9 +129,9 @@ for (const locale of LOCALES) {
     for (const { label, sql } of WIDE_BADGE_ITEMS) {
       test(label, async ({ page }) => {
         test.skip(test.info().project.name !== "mobile", "the compact row list is the phone layout");
-        const tag = suffix();
+        const tag = uniqueTag();
         const name = `Wide badges ${tag}`;
-        await withClient((client) => client.query(sql, [`e2e-freeze-${tag}`, E2E_HOUSEHOLD.id, name]));
+        await withDb((client) => client.query(sql, [`e2e-freeze-${tag}`, E2E_HOUSEHOLD.id, name]));
 
         await searchInventory(page, name);
         const nameText = page.getByText(name, { exact: true }).filter({ visible: true });

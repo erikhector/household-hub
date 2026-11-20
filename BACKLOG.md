@@ -270,18 +270,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-108. One shared e2e database helper instead of a copy in every spec** (impact: med, effort: M) —
-      120 of the 232 `e2e/*.spec.ts` files open their own `new Client({ connectionString: process.env.DATABASE_URL })`, and 43 of them define the same connect/try/finally wrapper locally, under two names: `withClient` in 31 files (e.g. `e2e/task-skip.spec.ts:29`, `e2e/cook-soon.spec.ts:21`) and `withDb` in 12 (e.g. `e2e/ux-55.spec.ts:17`, `e2e/planned-income.spec.ts:24`). The rest is copied the same way: `mondayOf` is the same one-liner in 7 specs (`e2e/cook-soon.spec.ts:16`, `e2e/recipe-sort.spec.ts:22`, …), and the name/id helpers `unique` (23 files) and `suffix` (20) exist in at least eight variants. Some of those are only `Date.now().toString(36)` (`e2e/flows.spec.ts:7`, `e2e/shopping-expense-category.spec.ts:14`), some only random (`e2e/task-skip.spec.ts:13`), and only some carry `E2E_WORKER`, which AGENTS.md ("Parallel workers") asks of every inserted id. Every new spec copies whichever neighbour it started from, so a fix to the pattern (a statement timeout, a safer suffix) has to be made 40 times, and the weaker variants keep spreading.
-      Change: add `e2e/db.ts` exporting `withDb` (the connect/try/finally wrapper), `unique(label)` and `uniqueId(prefix)` (both with `E2E_WORKER`, a timestamp and a random part) and `mondayOf`; replace the local copies with imports, a feature area per commit so a failure is easy to place. No test's assertions change. Add a guard beside `src/app/page-coverage.test.ts` (or a `no-restricted-syntax` rule scoped to `e2e/**/*.spec.ts` in `eslint.config.mjs`) that fails on `new Client(` in a spec file, and list `e2e/db.ts` among the shared helpers in AGENTS.md's "UI tests".
-      Acceptance: `grep -rlE 'new Client\(' e2e --include='*.spec.ts'` prints nothing; no spec defines `withClient`, `withDb`, `mondayOf`, `unique` or `suffix` itself; the guard fails when a spec opens its own client; `npm run test:e2e` passes on desktop and mobile with the same number of tests as before.
-- [ ] **MAINT-122. Flaky: the shopping list's "Take photo" item isn't there after the retry tap on mobile** (low, S) —
-      `e2e/shopping-lazy-dialogs.spec.ts:58` ("a failed chunk load says so, and the next tap retries"), `mobile` project. In the builder's first locked `ci:local` on 952fd86 (PR #1604, MAINT-109, which doesn't touch shopping, 2026-11-19), it failed at `:76`: `expect(page.getByRole("menuitem", { name: t.receiptScan.takePhoto })).toBeVisible()` found no element within 5000 ms after `offline = false; await scan.click()`. It passed in a second full run on the same commit and 3/3 on its own. Likely cause: the retry tap lands before the failed chunk's state is reset, or the menu opens only after the re-fetched chunk loads, which can take longer than 5 s under load. Start from a trace.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/shopping-lazy-dialogs.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-123. Flaky: "Put everything away" is gone after the reload in the smart-add last-quantity spec on desktop and mobile** (low, S) —
-      `e2e/smart-add-last-quantity.spec.ts:25` ("a picked suggestion adds the quantity last bought"), `desktop` and `mobile` projects. In the builder's first locked `ci:local` on ade0968 (PR #1609, MAINT-110, which doesn't touch shopping, 2026-11-19), it failed at `:45`: `await expect(putAway).toBeVisible()` right after `page.reload()` found no element within 5000 ms. The same assertion before the reload (`:43`) had passed. It passed in a second full run on the same commit. Seen again on `mobile` in the release run for release/2026-11-20-0143 (8b8bd4a, GitHub `End-to-end shard 3/3`, 2026-11-20): the same `:45` assertion after the `:44` reload, passed on its retry. Likely cause: the button shows as soon as the row is ticked, optimistically, before the server has saved the tick, so the reload can land before the save. Wait on the tick's save (its server action response) before reloading, or fix the app if the tick can be lost.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/smart-add-last-quantity.spec.ts --project=desktop --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -964,6 +952,35 @@ out to be a product-scope question rather than a scoped task should move to
       activates "Choose week", fills a date ten weeks ahead, and sees
       the range label show that week and its seven day cards; "This
       week" returns to today's week.
+
+### 2026-11-20 scan
+
+- [ ] **GAP-86. Mark a shopping-list item urgent** (impact: med, effort: M) —
+      Bring!'s item labels let a member flag an item as urgent, so
+      whoever is at the store sees "we need this today" before the
+      rest. NerdWallet's 2026 roundup names Bring! the best overall
+      list app. Squirrel's rows carry only a free-text note (GAP-5,
+      `src/components/shopping/shopping-row.tsx:328`), which has no
+      visual weight and doesn't change the order, so "nappies, today"
+      sits mid-list between the week's staples in shopping mode
+      (`src/components/shopping/shopping-mode.tsx`). Add
+      `ShoppingListItem.urgent Boolean @default(false)` (Phase 2
+      migration). The edit form (`shopping-item-form-dialog.tsx`) gets
+      an "Urgent" switch next to the note, and the row's actions get a
+      "Mark urgent"/"Not urgent" toggle. Both are click actions scoped
+      by `requireHousehold()` through the item's list. An unticked
+      urgent item shows a small labelled badge ("Urgent", not colour
+      alone) and sorts first within its section in the list and in
+      shopping mode. Ticking it off clears the flag, so a re-add starts
+      normal. It is carried by "Move to list" and kept out of templates.
+      The public share page shows the badge read-only. No
+      notification: Guardrails keep the bell for real problems. Labels
+      in `en.ts` and `sv.ts`.
+      Acceptance: e2e on `desktop` and `mobile` adds two items to a
+      section, marks the second urgent, reloads, and sees it first in
+      that section with the "Urgent" badge, both on the list and in
+      shopping mode; ticking it removes the badge, and unticking shows
+      the item without it.
 
 ## Needs a decision before building
 

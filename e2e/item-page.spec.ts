@@ -1,14 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, openItemUnits, openRowSheet } from "./ui";
 
 // MATCH-6: the item page at /dashboard/inventory/items/[id]. Each test
 // writes its own item (straight to Postgres, like recipe-ingredients.spec.ts
 // does for aliases), because the desktop and mobile runs share the seeded
 // household and these tests change the item's units.
-const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -19,16 +17,14 @@ type Seeded = { id: string; name: string; alias: string; recipes: { buns: string
 // Flour counted in bags: "1 pcs = 2000 g" saved, used by one recipe in g
 // (converts) and one in dl (doesn't), with one learned name.
 async function seedFlour(): Promise<Seeded> {
-  const tag = suffix();
+  const tag = uniqueTag();
   const seeded = {
     id: `e2e-item-page-${tag}`,
     name: `Flour ${tag}`,
     alias: `mjöl ${tag}`,
     recipes: { buns: `Buns ${tag}`, pancakes: `Pancakes ${tag}` },
   };
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
        VALUES ($1, $2, $3, 'Baking', 1, 'pcs', 0.5, now())`,
@@ -51,9 +47,7 @@ async function seedFlour(): Promise<Seeded> {
        VALUES ($1, $2, $5, 'flour', 750, 'g'), ($3, $4, $5, 'flour', 3, 'dl')`,
       [`${seeded.id}-ing-buns`, `${seeded.id}-buns`, `${seeded.id}-ing-pancakes`, `${seeded.id}-pancakes`, seeded.id],
     );
-  } finally {
-    await client.end();
-  }
+  });
   return seeded;
 }
 

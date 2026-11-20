@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_USER } from "./seed";
 import { dismissCookieNotice } from "./ui";
 
@@ -15,13 +15,9 @@ let pendingSave: Promise<unknown> | undefined;
 test.afterEach(async () => {
   await pendingSave?.catch(() => {});
   pendingSave = undefined;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`UPDATE "User" SET "displayName" = $1 WHERE id = $2`, [E2E_USER.displayName, E2E_USER.id]);
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 // UX-42: a button that swaps its label to "Saving…" while its action runs

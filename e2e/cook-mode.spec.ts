@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet } from "./ui";
 
@@ -173,50 +172,49 @@ test("Next step ticks the current step and moves the highlight on; ingredients t
 });
 
 test("after the last step a planned meal offers Done and opens the mark-as-cooked review", async ({ page }) => {
-  const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const name = `Cook-done ${suffix}`;
+  const tag = uniqueTag();
+  const name = `Cook-done ${tag}`;
   // A Monday in this spec's own far-off weeks (MAINT-117: 2031 onwards
   // reached the empty weeks native-sheets and planner-add-missing open).
   const day = farDay("cook-mode", 0);
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ($1, $2, $3, E'Chop the onion\nFry the onion')`,
-      [`e2e-recipe-${suffix}`, E2E_HOUSEHOLD.id, name],
-    );
-    await client.query(
-      `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
-       ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-      [`e2e-plan-${suffix}`, E2E_HOUSEHOLD.id, day],
-    );
-    await client.query(
-      `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId")
-       SELECT $1, plan.id, $2, 'DINNER', $3 FROM "MealPlan" plan
-       WHERE plan."householdId" = $4 AND plan."weekStartDate" = $2`,
-      [`e2e-entry-${suffix}`, day, `e2e-recipe-${suffix}`, E2E_HOUSEHOLD.id],
-    );
+  await withDb(async (client) => {
+    try {
+      await client.query(
+        `INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ($1, $2, $3, E'Chop the onion\nFry the onion')`,
+        [`e2e-recipe-${tag}`, E2E_HOUSEHOLD.id, name],
+      );
+      await client.query(
+        `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
+         ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
+        [`e2e-plan-${tag}`, E2E_HOUSEHOLD.id, day],
+      );
+      await client.query(
+        `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId")
+         SELECT $1, plan.id, $2, 'DINNER', $3 FROM "MealPlan" plan
+         WHERE plan."householdId" = $4 AND plan."weekStartDate" = $2`,
+        [`e2e-entry-${tag}`, day, `e2e-recipe-${tag}`, E2E_HOUSEHOLD.id],
+      );
 
-    await page.goto(`/dashboard/meal-planning?week=${day.toISOString().slice(0, 10)}`);
-    await (await openRowSheet(page, name)).getByRole("button", { name: "Cook", exact: true }).click();
-    const cook = page.getByRole("dialog", { name: `Cooking ${name}` });
-    await expect(cook.getByRole("button", { name: "Done — mark as cooked" })).toHaveCount(0);
+      await page.goto(`/dashboard/meal-planning?week=${day.toISOString().slice(0, 10)}`);
+      await (await openRowSheet(page, name)).getByRole("button", { name: "Cook", exact: true }).click();
+      const cook = page.getByRole("dialog", { name: `Cooking ${name}` });
+      await expect(cook.getByRole("button", { name: "Done — mark as cooked" })).toHaveCount(0);
 
-    await cook.getByRole("button", { name: "Next step" }).click();
-    await cook.getByRole("button", { name: "Next step" }).click();
-    await expect(cook.getByRole("button", { name: "Next step" })).toHaveCount(0);
-    await expectNoHorizontalOverflow(page);
-    // Done is deliberate: no "Stop cooking?" even though steps are ticked.
-    await cook.getByRole("button", { name: "Done — mark as cooked" }).click();
+      await cook.getByRole("button", { name: "Next step" }).click();
+      await cook.getByRole("button", { name: "Next step" }).click();
+      await expect(cook.getByRole("button", { name: "Next step" })).toHaveCount(0);
+      await expectNoHorizontalOverflow(page);
+      // Done is deliberate: no "Stop cooking?" even though steps are ticked.
+      await cook.getByRole("button", { name: "Done — mark as cooked" }).click();
 
-    await expect(page.getByRole("dialog", { name: "Stop cooking?" })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "Mark as cooked" })).toBeVisible();
-  } finally {
-    await client.query(`DELETE FROM "MealPlanEntry" WHERE id = $1`, [`e2e-entry-${suffix}`]);
-    await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [
-      `e2e-recipe-${suffix}`,
-      E2E_HOUSEHOLD.id,
-    ]);
-    await client.end();
-  }
+      await expect(page.getByRole("dialog", { name: "Stop cooking?" })).toHaveCount(0);
+      await expect(page.getByRole("dialog", { name: "Mark as cooked" })).toBeVisible();
+    } finally {
+      await client.query(`DELETE FROM "MealPlanEntry" WHERE id = $1`, [`e2e-entry-${tag}`]);
+      await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [
+        `e2e-recipe-${tag}`,
+        E2E_HOUSEHOLD.id,
+      ]);
+    }
+  });
 });

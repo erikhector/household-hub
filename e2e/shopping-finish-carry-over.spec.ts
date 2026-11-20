@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
@@ -14,13 +14,9 @@ import { dismissCookieNotice } from "./ui";
 const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 async function sql<T = never>(text: string, values: unknown[] = []): Promise<T[]> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  return withDb(async (client) => {
     return (await client.query(text, values)).rows as T[];
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 async function seedList(t: string, items: { name: string; purchased: boolean }[]) {

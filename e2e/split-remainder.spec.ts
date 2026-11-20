@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory } from "./budget-seed";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, e2eWorkerData } from "./seed-data";
 import { addBillOrIncome, dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";

@@ -1,14 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, unique, uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { collectErrors, dismissCookieNotice, expectHydrated, expectRendersCleanly, openRowSheet, saveScreenshot, waitForDialogHistory, waitForUndoableDelete } from "./ui";
 
 // GAP-49 meal prep, end to end: record a batch on the Prep tab, spread its
 // portions over the planner, give one back, eat one, discard the rest; and
 // the planner's "From meal prep" source with "Don't use prep", plus the
 // leftovers on Home's Today card.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -30,10 +28,6 @@ function utcDay(offset: number) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + offset * DAY_MS);
 }
 
-function mondayOf(day: Date) {
-  return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
-}
-
 const key = (day: Date) => day.toISOString().slice(0, 10);
 
 // The Monday `weeks` weeks after this one.
@@ -44,17 +38,6 @@ const weekAhead = (weeks: number) => new Date(mondayOf(utcDay(0)).getTime() + we
 const dayGroupName = (day: Date) =>
   new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }).format(day);
 
-async function withClient<T>(run: (client: Client) => Promise<T>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
-const suffix = () => `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 // A two-serving recipe whose one ingredient (100 g) is linked to an
 // inventory item holding 1000 g, so recording a batch takes something off
@@ -62,10 +45,10 @@ const suffix = () => `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().t
 // `lowStockThreshold` above 900 makes a two-portion prep cross the item
 // into low stock, so AUTO-8 puts it on "Next shop".
 async function seedRecipe(recipeName: string, lowStockThreshold = 1) {
-  const id = suffix();
+  const id = uniqueTag();
   const recipeId = `e2e-prep-recipe-${id}`;
   const itemId = `e2e-prep-item-${id}`;
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
        VALUES ($1, $2, $3, 'Pantry', 1000, 'g', $4, now())`,
@@ -86,7 +69,7 @@ async function seedRecipe(recipeName: string, lowStockThreshold = 1) {
 }
 
 const itemQuantity = (itemId: string) =>
-  withClient(async (client) => {
+  withDb(async (client) => {
     const { rows } = await client.query(`SELECT quantity FROM "InventoryItem" WHERE id = $1 AND "householdId" = $2`, [
       itemId,
       E2E_HOUSEHOLD.id,
@@ -97,9 +80,9 @@ const itemQuantity = (itemId: string) =>
 // Another dish already planned in a slot, which the Plan portions dialog
 // names and still lets a portion join.
 async function planFreeformDinner(day: Date, name: string) {
-  const id = suffix();
+  const id = uniqueTag();
   const monday = mondayOf(day);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
        ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
@@ -154,9 +137,9 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   test.slow();
   const recipeName = unique("Prep curry");
   const { recipeId, itemId } = await seedRecipe(recipeName);
-  const takeaway = `Takeaway ${suffix()}`;
+  const takeaway = unique("Takeaway");
   cleanup = () =>
-    withClient(async (client) => {
+    withDb(async (client) => {
       await client.query(
         `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
          WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1
@@ -372,7 +355,7 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
   } finally {
     // The meal and the batch (which cascades from the recipe), so neither
     // the week nor the dashboard card carries them into later tests.
-    await withClient(async (client) => {
+    await withDb(async (client) => {
       await client.query(
         `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
          WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry."recipeId" = $2`,
@@ -390,7 +373,7 @@ test("Undo on the record and discard toasts updates the Prep tab without a reloa
   const recipeName = unique("Prep soup");
   const { recipeId, itemId } = await seedRecipe(recipeName);
   cleanup = () =>
-    withClient(async (client) => {
+    withDb(async (client) => {
       await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
       await client.query(`DELETE FROM "InventoryItem" WHERE id = $1 AND "householdId" = $2`, [itemId, E2E_HOUSEHOLD.id]);
     });
@@ -430,7 +413,7 @@ test("a refused Undo record prep keeps what it put on Next shop", async ({ page 
   const { recipeId, itemId } = await seedRecipe(recipeName, 950);
   const day = weekAhead(70 + Math.floor(Math.random() * 40));
   const pendingRows = () =>
-    withClient(async (client) => {
+    withDb(async (client) => {
       const { rows } = await client.query(
         `SELECT count(*)::int AS n FROM "ShoppingListItem" row
          JOIN "ShoppingList" list ON list.id = row."shoppingListId"
@@ -449,8 +432,8 @@ test("a refused Undo record prep keeps what it put on Next shop", async ({ page 
     expect(await pendingRows()).toBe(1);
 
     // Someone plans both portions while the toast is still up.
-    const id = suffix();
-    await withClient(async (client) => {
+    const id = uniqueTag();
+    await withDb(async (client) => {
       await client.query(
         `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
          ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
@@ -482,7 +465,7 @@ test("a refused Undo record prep keeps what it put on Next shop", async ({ page 
     expect(await itemQuantity(itemId)).toBe(900);
     expect(await pendingRows()).toBe(1);
   } finally {
-    await withClient(async (client) => {
+    await withDb(async (client) => {
       await client.query(
         `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
          WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry."recipeId" = $2`,

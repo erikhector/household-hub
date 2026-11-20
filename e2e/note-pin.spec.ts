@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { unique } from "./db";
 import { expectHydrated } from "./ui";
 
 // GAP-61: a note can be pinned to the top of the household notes board. Two
@@ -6,8 +7,6 @@ import { expectHydrated } from "./ui";
 // reload it must sit above the newer one with a visible "Pinned" label; then
 // it's unpinned and the newest-first order returns. Unpinning at the end also
 // keeps the household under the five-pin cap for later specs.
-const unique = (label: string) =>
-  `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 test("a pinned note stays above a newer one until it is unpinned", async ({ page }) => {
   const older = unique("Wifi code is on the router");

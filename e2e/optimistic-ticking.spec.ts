@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, holdServerActions } from "./ui";
@@ -27,18 +27,10 @@ const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 // interception is to block service workers; nothing here tests them.
 test.use({ serviceWorkers: "block" });
 
-function db() {
-  return new Client({ connectionString: process.env.DATABASE_URL });
-}
-
 async function sql(text: string, values: unknown[] = []) {
-  const client = db();
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(text, values);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 async function seedList(t: string, names: string[]) {

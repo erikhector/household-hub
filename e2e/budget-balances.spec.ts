@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
@@ -10,19 +10,16 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // while fully paid ones (however many) stay out of both. Rows go straight to
 // Postgres, like personal-budget-shared.spec.ts, and are named uniquely
 // since the desktop and mobile runs share the seeded household.
-const suffix = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
 async function seedBills() {
-  const tag = suffix();
+  const tag = uniqueTag();
   const open = `Open bill ${tag}`;
   const settled = `Settled bill ${tag}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Bills', 'EXPENSE')`,
       [`e2e-bal-cat-${tag}`, E2E_HOUSEHOLD.id],
@@ -43,9 +40,7 @@ async function seedBills() {
     await bill(`e2e-bal-open-${tag}`, open, 777, [0, 0]);
     // Settled: both paid their half exactly — must not be listed.
     await bill(`e2e-bal-settled-${tag}`, settled, 500, [250, 250]);
-  } finally {
-    await client.end();
-  }
+  });
   return { open, settled };
 }
 

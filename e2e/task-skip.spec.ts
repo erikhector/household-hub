@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { unique, uniqueId, withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForDialogHistory } from "./ui";
@@ -10,7 +10,6 @@ import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForDialog
 // daily chore is seeded in Postgres with a real completion three days ago,
 // so it is open and has a "Last done by" to keep.
 const ID_PREFIX = `e2e-skip-w${E2E_WORKER}-`;
-const suffix = () => Math.random().toString(36).slice(2, 8);
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -18,7 +17,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 // Only this household's rows, and only the ones this spec made.
 test.afterEach(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
       `${ID_PREFIX}%`,
@@ -26,20 +25,10 @@ test.afterEach(async () => {
   );
 });
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test("skipping a repeating task closes it without a completion, and Undo reopens it", async ({ page }) => {
-  const title = `Water the ferns ${suffix()}`;
-  const id = `${ID_PREFIX}${suffix()}`;
-  await withClient((client) =>
+  const title = unique("Water the ferns");
+  const id = uniqueId("e2e-skip");
+  await withDb((client) =>
     client.query(
       `INSERT INTO "HouseholdTask" (id, "householdId", title, "recurrenceIntervalDays", "completedAt", "completedByMemberId")
        VALUES ($1, $2, $3, 1, now() - interval '3 days', $4)`,
@@ -47,7 +36,7 @@ test("skipping a repeating task closes it without a completion, and Undo reopens
     ),
   );
   const storedCompletion = async () =>
-    withClient(async (client) => {
+    withDb(async (client) => {
       const { rows } = await client.query(
         `SELECT "completedAt", "completedByMemberId", "skippedUntil" FROM "HouseholdTask" WHERE id = $1`,
         [id],
@@ -118,9 +107,9 @@ test("skipping a repeating task closes it without a completion, and Undo reopens
 });
 
 test("Undo on the skip toast brings the task straight back", async ({ page }) => {
-  const title = `Sweep the porch ${suffix()}`;
-  const id = `${ID_PREFIX}${suffix()}`;
-  await withClient((client) =>
+  const title = unique("Sweep the porch");
+  const id = uniqueId("e2e-skip");
+  await withDb((client) =>
     client.query(
       `INSERT INTO "HouseholdTask" (id, "householdId", title, "recurrenceIntervalDays") VALUES ($1, $2, $3, 2)`,
       [id, E2E_HOUSEHOLD.id, title],
@@ -151,7 +140,7 @@ test("Undo on the skip toast brings the task straight back", async ({ page }) =>
 
   await expect
     .poll(async () =>
-      withClient(async (client) => {
+      withDb(async (client) => {
         const { rows } = await client.query(`SELECT "skippedUntil" FROM "HouseholdTask" WHERE id = $1`, [id]);
         return rows[0].skippedUntil;
       }),
@@ -160,9 +149,9 @@ test("Undo on the skip toast brings the task straight back", async ({ page }) =>
 });
 
 test("a one-off task has no skip action", async ({ page }) => {
-  const title = `Post the parcel ${suffix()}`;
-  const id = `${ID_PREFIX}${suffix()}`;
-  await withClient((client) =>
+  const title = unique("Post the parcel");
+  const id = uniqueId("e2e-skip");
+  await withDb((client) =>
     client.query(`INSERT INTO "HouseholdTask" (id, "householdId", title) VALUES ($1, $2, $3)`, [
       id,
       E2E_HOUSEHOLD.id,
@@ -178,14 +167,14 @@ test("a one-off task has no skip action", async ({ page }) => {
 test("a skipped task leaves the overview's Today block", async ({ page }) => {
   // Both are daily chores last done three days ago, so both are overdue (and
   // overdue tasks are never cut off by the block's limit); only one is skipped.
-  const skippedTitle = `Feed the fish ${suffix()}`;
-  const openTitle = `Wipe the hob ${suffix()}`;
-  await withClient((client) =>
+  const skippedTitle = unique("Feed the fish");
+  const openTitle = unique("Wipe the hob");
+  await withDb((client) =>
     client.query(
       `INSERT INTO "HouseholdTask" (id, "householdId", title, "recurrenceIntervalDays", "completedAt", "skippedUntil")
        VALUES ($1, $3, $4, 1, now() - interval '3 days', now() + interval '1 day'),
               ($2, $3, $5, 1, now() - interval '3 days', NULL)`,
-      [`${ID_PREFIX}${suffix()}`, `${ID_PREFIX}${suffix()}`, E2E_HOUSEHOLD.id, skippedTitle, openTitle],
+      [uniqueId("e2e-skip"), uniqueId("e2e-skip"), E2E_HOUSEHOLD.id, skippedTitle, openTitle],
     ),
   );
 

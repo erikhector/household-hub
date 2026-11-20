@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice } from "./ui";
 
@@ -7,7 +7,6 @@ import { dismissCookieNotice } from "./ui";
 // on the list without touching its stock, rows already on a list say so, and
 // with auto-add on the menu offers only one mark-empty entry. Items are
 // written straight to Postgres (like freeze-item.spec.ts).
-const suffix = () => `t${Math.random().toString(36).slice(2, 10)}`;
 const isMobile = () => test.info().project.name === "mobile";
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -17,7 +16,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 // The worker's household is shared with every spec it runs: remove the rows
 // these tests made and put auto-add back to its default (only this household).
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "ShoppingListItem" WHERE "inventoryItemId" LIKE 'e2e-ux122-%'`);
     await client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE 'e2e-ux122-%'`, [
       E2E_HOUSEHOLD.id,
@@ -26,18 +25,8 @@ test.afterEach(async () => {
   });
 });
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 async function seedItem(name: string, id: string) {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
        VALUES ($1, $2, $3, 'Pantry', 3, 'pcs', 1, now())`,
@@ -47,18 +36,18 @@ async function seedItem(name: string, id: string) {
 }
 
 const setAutoAdd = (on: boolean) =>
-  withClient((client) =>
+  withDb((client) =>
     client.query(`UPDATE "Household" SET "autoAddLowStockToList" = $2 WHERE id = $1`, [E2E_HOUSEHOLD.id, on]),
   );
 
 const storedQuantity = (id: string) =>
-  withClient(async (client) => {
+  withDb(async (client) => {
     const { rows } = await client.query(`SELECT quantity FROM "InventoryItem" WHERE id = $1`, [id]);
     return rows[0].quantity as number;
   });
 
 const pendingRows = (id: string) =>
-  withClient(async (client) => {
+  withDb(async (client) => {
     const { rows } = await client.query(
       `SELECT count(*)::int AS n FROM "ShoppingListItem" WHERE "inventoryItemId" = $1 AND purchased = false`,
       [id],
@@ -78,7 +67,7 @@ async function openMoreActions(page: Page) {
 }
 
 test("Add to shopping list from the row keeps the stock and tags the row On list", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Spaghetti ${tag}`;
   const id = `e2e-ux122-${tag}`;
   await seedItem(name, id);
@@ -104,7 +93,7 @@ test("Add to shopping list from the row keeps the stock and tags the row On list
 });
 
 test("the bulk bar adds the selected items to the list without changing stock", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const names = [`Rice ${tag}`, `Lentils ${tag}`];
   const ids = [`e2e-ux122-a-${tag}`, `e2e-ux122-b-${tag}`];
   await seedItem(names[0], ids[0]);
@@ -124,7 +113,7 @@ test("the bulk bar adds the selected items to the list without changing stock", 
 });
 
 test("adding an item that is already on the list says so instead of adding it twice", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Flour ${tag}`;
   const id = `e2e-ux122-${tag}`;
   await seedItem(name, id);
@@ -149,7 +138,7 @@ async function openMarkEmptyMenu(page: Page) {
 }
 
 test("with auto-add on the menu offers one mark-empty entry; with it off, both", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const name = `Oats ${tag}`;
   await seedItem(name, `e2e-ux122-${tag}`);
 

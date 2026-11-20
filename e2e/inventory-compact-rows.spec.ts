@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectTargetsApart, expectTouchTargets } from "./ui";
@@ -13,18 +13,8 @@ const ITEM_COUNT = 10;
 const prefix = `Compact ${E2E_WORKER}${Math.random().toString(36).slice(2, 7)}`;
 const idPrefix = `e2e-ux45-${E2E_WORKER}-`;
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeAll(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     for (let i = 0; i < ITEM_COUNT; i++) {
       await client.query(
         `INSERT INTO "InventoryItem" (id, "householdId", name, category, location, quantity, unit, "updatedAt")
@@ -38,7 +28,7 @@ test.beforeAll(async () => {
 // Only this household's rows: a cleanup by id prefix alone could delete
 // another worker's rows mid-test.
 test.afterAll(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${idPrefix}%`]),
   );
 });
