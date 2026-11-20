@@ -11016,7 +11016,14 @@ UX-14's rapid ticks and the rollback toast.
   in `ux-19.mobile.spec.ts`'s 2031-06-02, and ux-19 timed out waiting for
   "Add first dinner"). A new hand-picked week stays out of 2036-2093, and
   a new spec that needs a random far-off week adds its name to the list
-  there. That took the suite from 10.1
+  there. The same goes for the seeded users themselves: a spec that
+  changes one (a display name saved through the profile, say) puts it
+  back in an `afterEach`, so a failing run restores it too, and waits for
+  any save it held before restoring, or the late save would rename the
+  user again (MAINT-121: `pending-button-width.spec.ts` saved
+  `Width <timestamp>` as the worker's display name and left it, and
+  `task-due-nudge.spec.ts`, run later on that worker, failed on the
+  assignee in its reminder entry). That took the suite from 10.1
   minutes (`workers: 1`) to 5.6 on 4 cores. More workers don't help:
   the single `next start` process is the bottleneck (4 workers: 5.4
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
