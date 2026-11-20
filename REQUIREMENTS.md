@@ -11145,7 +11145,9 @@ UX-14's rapid ticks and the rollback toast.
   (`page.waitForResponse` on a `next-action` POST, registered before the
   click): `smart-add-last-quantity.spec.ts` reloaded on the put-away
   button the tick showed at once and, on a loaded run, came back with the
-  row unticked and no button (MAINT-123). A scripted
+  row unticked and no button (MAINT-123; `shopping-mode.spec.ts`'s dock
+  test counts its four ticks' responses before its reload the same way).
+  A scripted
   `router.push` after a dialog closes waits the same way (the cached-page
   test in `flows.spec.ts`, MAINT-101): the back would undo the push and
   leave `dialog-history.ts` to step forward onto it again, which is not
