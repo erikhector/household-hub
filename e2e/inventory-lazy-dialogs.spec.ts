@@ -1,6 +1,6 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectRouterPatched, failChunkLoads } from "./ui";
 import { E2E_ITEM } from "./seed-data";
 
 // PERF-26: the inventory dialogs (header actions, the row's edit form, the
@@ -62,25 +62,15 @@ test.describe("a failed chunk load", () => {
     await expectRouterPatched(page);
 
     // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
-    // Remember what it refused, to warm the browser's cache for the retry below.
-    const refused = new Set<string>();
-    const offline = (route: Route) => {
-      refused.add(route.request().url());
-      return route.abort();
-    };
-    await page.route("**/_next/static/**/*.js", offline);
+    // It remembers what it refused, to warm the browser's cache for the retry below.
+    const chunks = await failChunkLoads(page);
     await add.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    // Back online: take the route off rather than flipping a flag inside it.
-    // A route that stays (and answers route.continue()) makes the browser
-    // wait on this test process, one round trip per script, for every chunk
-    // the retry fetches. Under a loaded gate that process is as busy as the
-    // server and the browser, and those round trips are what can push the
-    // dialog past the 5 s the tap has to open it (MAINT-71). With the route
-    // gone the retry measures the app's own chunk load, not the harness.
-    await page.unroute("**/_next/static/**/*.js", offline);
+    // Back online, with the route taken off so the retry measures the app's
+    // own chunk load, not the harness (MAINT-71, see failChunkLoads).
+    await chunks.goOnline();
     // The retry has 5 s to fetch, parse and mount the chunk. On a gate that is
     // also building, running other specs and serving them, the fetch alone has
     // missed that (MAINT-66, once on bcfddc1, after MAINT-71 took the harness
@@ -89,7 +79,7 @@ test.describe("a failed chunk load", () => {
     // the tap measuring what it is for: that a failed import is forgotten and
     // the next tap loads it again.
     await page.evaluate((urls) => Promise.all(urls.map((url) => fetch(url).then((response) => response.arrayBuffer()))), [
-      ...refused,
+      ...chunks.refused,
     ]);
     await add.click();
     await expect(page.getByRole("dialog", { name: t.addDialogTitle })).toBeVisible();

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { dismissCookieNotice, expectHydrated, failChunkLoads } from "./ui";
 
 // PERF-26: the meal planning dialogs are separate chunks, mounted the first
 // time they're asked to open (src/components/ui/lazy-dialog.tsx). The first
@@ -66,13 +66,12 @@ test.describe("a failed chunk load", () => {
     await expectHydrated(first);
 
     // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
-    let offline = true;
-    await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+    const chunks = await failChunkLoads(page);
     await first.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    offline = false;
+    await chunks.goOnline();
     await first.click();
     await expect(page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ })).toBeVisible();
   });
