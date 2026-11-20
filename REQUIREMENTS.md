@@ -9000,7 +9000,16 @@ in the page's own client component, and the two hydrate separately: the
 highlight can appear before the row's `onChange` is attached, and an `x`
 that clicks the checkbox then flips only the native input (MAINT-90, the
 shopping spec). The spec therefore waits for `expectHydrated` on the
-highlighted row's checkbox before pressing `x`.
+highlighted row's checkbox before pressing `x`. `expectHydrated` waits for
+the hydration to be committed, not only rendered: React sets an element's
+`__reactProps$…` key while it renders a hydration, and the shopping page
+hydrates as its own Suspense boundary (its `loading.tsx`) in slices, so
+on a loaded run the key was there while the boundary was still
+uncommitted and React dropped the click (MAINT-120, reproduced at 8×
+CPU throttling). The helper also requires the element's fiber to be
+mounted by the same test React's event system uses
+(`getNearestMountedFiber`: no uncommitted ancestor still flagged
+Placement or Hydrating, and a path up to the HostRoot).
 
 
 ## Releases & What's new

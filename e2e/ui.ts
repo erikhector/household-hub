@@ -339,18 +339,49 @@ export async function gotoRevealed(page: Page, url: string) {
 /** Waits until React has hydrated `target`. A click that lands before that
  * does nothing for a control driven by React state (a Base UI menu trigger
  * opens only through its handlers), and under a loaded run goto() can
- * return before hydration. React marks each element it has taken over with
- * a `__reactProps$…` key. Call it before the first click on such a control. */
+ * return before hydration. Call it before the first click on such a control.
+ *
+ * React marks each element it takes over with a `__reactProps$…` key, but it
+ * does that while it renders the hydration, before it commits it. A page
+ * behind a loading.tsx hydrates as its own Suspense boundary, in slices, so
+ * on a loaded runner the key can be there while the boundary's hydration is
+ * still uncommitted, and React drops an event on such an element: a
+ * shortcut's `x` that clicked a shopping row's checkbox in that window only
+ * flipped the native box, and nothing moved to "In the cart" (MAINT-120).
+ * So this also waits until the element's fiber is mounted, by the same test
+ * React's event system uses (getNearestMountedFiber in react-dom): walking up
+ * the fibers not yet committed twice, none may still be flagged Placement or
+ * Hydrating (4098), and the walk must end at the HostRoot (tag 3). */
 export async function expectHydrated(target: Locator) {
   await expect
-    .poll(() => target.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps"))), {
-      // The default 5 s covers the control streaming in behind a loading.tsx
-      // skeleton and then the page's whole bundle hydrating, which on a loaded
-      // runner has outlasted it twice in a row (MAINT-86: "Add first dinner"
-      // on the phone project). Waiting longer is not a looser check: it still
-      // passes only once React owns the element.
-      timeout: 20_000,
-    })
+    .poll(
+      () =>
+        target.evaluate((el) => {
+          const keys = Object.keys(el);
+          if (!keys.some((key) => key.startsWith("__reactProps"))) return false;
+          const fiberKey = keys.find((key) => key.startsWith("__reactFiber"));
+          type Fiber = { alternate: Fiber | null; flags: number; return: Fiber | null; tag: number };
+          const fiber = fiberKey ? (el as unknown as Record<string, Fiber>)[fiberKey] : null;
+          if (!fiber) return false;
+          let node = fiber;
+          let next: Fiber | null = fiber;
+          while (next && !next.alternate) {
+            node = next;
+            if (node.flags & 4098) return false;
+            next = node.return;
+          }
+          while (node.return) node = node.return;
+          return node.tag === 3;
+        }),
+      {
+        // The default 5 s covers the control streaming in behind a loading.tsx
+        // skeleton and then the page's whole bundle hydrating, which on a loaded
+        // runner has outlasted it twice in a row (MAINT-86: "Add first dinner"
+        // on the phone project). Waiting longer is not a looser check: it still
+        // passes only once React owns the element.
+        timeout: 20_000,
+      },
+    )
     .toBe(true);
 }
 
