@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
@@ -17,13 +17,9 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterEach(async () => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "Recipe" WHERE "householdId" = $1 AND name = $2`, [E2E_HOUSEHOLD.id, name]);
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 for (const [locale, storageState, t] of [

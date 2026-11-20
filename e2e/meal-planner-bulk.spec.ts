@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, unique, uniqueTag, withDb } from "./db";
 import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import {
   dismissCookieNotice,
   expectHydrated,
@@ -18,35 +17,23 @@ import {
 // selected; the two are moved a day together, re-portioned, then removed.
 const DAY_MS = 24 * 60 * 60 * 1000;
 const key = (day: Date) => day.toISOString().slice(0, 10);
-const mondayOf = (day: Date) => new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
-const unique = (label: string) => `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-async function withClient<T>(fn: (client: Client) => Promise<T>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
-
 // A Wednesday years ahead, in a week of its own per test run.
 const farWednesday = () => farDay("meal-planner-bulk", 2);
 
 async function seed(names: { a: string; b: string; cooked: string }, wednesday: Date) {
-  const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const tag = uniqueTag();
   const monday = mondayOf(wednesday);
   const recipeIds: string[] = [];
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
        ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-      [`e2e-plan-bulk-${suffix}`, E2E_HOUSEHOLD.id, monday],
+      [`e2e-plan-bulk-${tag}`, E2E_HOUSEHOLD.id, monday],
     );
     const rows = [
       { name: names.a, day: wednesday, type: "DINNER", cooked: false },
@@ -54,7 +41,7 @@ async function seed(names: { a: string; b: string; cooked: string }, wednesday: 
       { name: names.cooked, day: new Date(wednesday.getTime() + 2 * DAY_MS), type: "LUNCH", cooked: true },
     ];
     for (const [i, row] of rows.entries()) {
-      const recipeId = `e2e-recipe-bulk-${suffix}-${i}`;
+      const recipeId = `e2e-recipe-bulk-${tag}-${i}`;
       recipeIds.push(recipeId);
       await client.query(
         `INSERT INTO "Recipe" (id, "householdId", name, servings) VALUES ($1, $2, $3, 2)`,
@@ -65,7 +52,7 @@ async function seed(names: { a: string; b: string; cooked: string }, wednesday: 
          SELECT $1, plan.id, $2, $3::"MealType", $4, 2, $5
          FROM "MealPlan" plan WHERE plan."householdId" = $6 AND plan."weekStartDate" = $7`,
         [
-          `e2e-entry-bulk-${suffix}-${i}`,
+          `e2e-entry-bulk-${tag}-${i}`,
           row.day,
           row.type,
           recipeId,
@@ -80,7 +67,7 @@ async function seed(names: { a: string; b: string; cooked: string }, wednesday: 
 }
 
 async function cleanup(recipeIds: string[]) {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
        WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry."recipeId" = ANY($2)`,
@@ -216,16 +203,16 @@ test("Undo on a bulk move puts the meals back", async ({ page }) => {
 // (they were cooked at prep time) and leaves the fresh dinner, which takes
 // its ingredients off inventory through its own review.
 async function seedPrepped(names: { prepped: string; fresh: string }, wednesday: Date) {
-  const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const tag = uniqueTag();
   const monday = mondayOf(wednesday);
-  const preppedRecipe = `e2e-recipe-bulk-eat-${suffix}-p`;
-  const freshRecipe = `e2e-recipe-bulk-eat-${suffix}-f`;
-  const batchId = `e2e-batch-bulk-eat-${suffix}`;
-  await withClient(async (client) => {
+  const preppedRecipe = `e2e-recipe-bulk-eat-${tag}-p`;
+  const freshRecipe = `e2e-recipe-bulk-eat-${tag}-f`;
+  const batchId = `e2e-batch-bulk-eat-${tag}`;
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
        ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-      [`e2e-plan-bulk-eat-${suffix}`, E2E_HOUSEHOLD.id, monday],
+      [`e2e-plan-bulk-eat-${tag}`, E2E_HOUSEHOLD.id, monday],
     );
     for (const [id, name] of [
       [preppedRecipe, names.prepped],
@@ -252,7 +239,7 @@ async function seedPrepped(names: { prepped: string; fresh: string }, wednesday:
         `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId", portions, "preparedBatchId", "preparedPortionsUsed")
          SELECT $1, plan.id, $2, $3::"MealType", $4, 1, $5, $6
          FROM "MealPlan" plan WHERE plan."householdId" = $7 AND plan."weekStartDate" = $8`,
-        [`e2e-entry-bulk-eat-${suffix}-${i}`, row.day, row.type, row.recipeId, row.batch, row.batch ? 1 : 0, E2E_HOUSEHOLD.id, monday],
+        [`e2e-entry-bulk-eat-${tag}-${i}`, row.day, row.type, row.recipeId, row.batch, row.batch ? 1 : 0, E2E_HOUSEHOLD.id, monday],
       );
     }
   });

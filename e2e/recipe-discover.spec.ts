@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_CATALOG } from "@/lib/recipe-catalog/data";
@@ -70,9 +70,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 // SET NULL, so the entry would otherwise outlive the recipe), and the
 // pantry items and learned names the ingredient review created for them.
 test.afterEach(async () => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     const names = [NAME_A, NAME_B];
     await client.query(
       `DELETE FROM "MealPlanEntry" WHERE "recipeId" IN (SELECT id FROM "Recipe" WHERE "householdId" = $1 AND name = ANY($2))`,
@@ -87,9 +85,7 @@ test.afterEach(async () => {
       E2E_HOUSEHOLD.id,
       startedAt,
     ]);
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 async function openDiscover(page: Page) {
