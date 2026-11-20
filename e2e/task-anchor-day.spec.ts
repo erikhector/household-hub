@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { unique, uniqueId, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForDialogHistory } from "./ui";
@@ -13,7 +13,6 @@ import { dismissCookieNotice, expectHydrated, expectRouterPatched, waitForDialog
 const ZONE = "Europe/Stockholm";
 test.use({ timezoneId: ZONE });
 
-const suffix = () => Math.random().toString(36).slice(2, 8);
 const ID_PREFIX = `e2e-anchor-w${E2E_WORKER}-`;
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -22,23 +21,13 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 // Only this household's rows, and only the ones this spec made.
 test.afterEach(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
       `${ID_PREFIX}%`,
     ]),
   );
 });
-
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
 
 // The day `offsetDays` after the local day `from` falls on, as the app labels
 // it. Counts calendar days in the zone, not 24 h spans: the app schedules on
@@ -59,9 +48,9 @@ const dayLabel = (from: Date, offsetDays: number) => {
 };
 
 test("editing a task to repeat weekly anchors the schedule on the day of the edit", async ({ page, context }) => {
-  const title = `Water the ferns ${suffix()}`;
-  const id = `${ID_PREFIX}${suffix()}`;
-  await withClient((client) =>
+  const title = unique("Water the ferns");
+  const id = uniqueId("e2e-anchor");
+  await withDb((client) =>
     client.query(
       `INSERT INTO "HouseholdTask" (id, "householdId", title, "recurrenceIntervalDays", "createdAt")
        VALUES ($1, $2, $3, 1, now() - interval '10 days')`,
@@ -111,7 +100,7 @@ test("editing a task to repeat weekly anchors the schedule on the day of the edi
   // local midnight after the save expected a day later than the label the
   // server rendered, and failed. The columns are Prisma's zoneless UTC
   // timestamps, which `pg` would read in the runner's zone, hence AT TIME ZONE.
-  const { anchorAt, createdAt } = await withClient(async (client) => {
+  const { anchorAt, createdAt } = await withDb(async (client) => {
     const { rows } = await client.query(
       `SELECT "recurrenceAnchorAt" AT TIME ZONE 'UTC' AS "anchorAt", "createdAt" AT TIME ZONE 'UTC' AS "createdAt"
        FROM "HouseholdTask" WHERE id = $1 AND "householdId" = $2`,

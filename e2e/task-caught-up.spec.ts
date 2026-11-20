@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { unique, uniqueId, uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
@@ -8,7 +8,6 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from 
 // Completed even on a fresh visit, and one-offs ticked over a week ago sit
 // behind "Show N older". Rows are written straight to Postgres, because
 // there's no way to back-date a completion through the UI.
-const suffix = () => Math.random().toString(36).slice(2, 8);
 const ID_PREFIX = `e2e-caught-up-w${E2E_WORKER}-`;
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -17,7 +16,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 // Only this household's rows, and only the ones this spec made.
 test.afterEach(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
       `${ID_PREFIX}%`,
@@ -25,28 +24,18 @@ test.afterEach(async () => {
   );
 });
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 async function seedCompleted(title: string, daysAgo: number, repeatEveryDays: number | null = null) {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(
       `INSERT INTO "HouseholdTask" (id, "householdId", title, "completedAt", "recurrenceIntervalDays")
        VALUES ($1, $2, $3, now() - ($4 || ' days')::interval, $5)`,
-      [`${ID_PREFIX}${suffix()}`, E2E_HOUSEHOLD.id, title, String(daysAgo), repeatEveryDays],
+      [uniqueId("e2e-caught-up"), E2E_HOUSEHOLD.id, title, String(daysAgo), repeatEveryDays],
     ),
   );
 }
 
 test("old completed one-offs collapse behind Show N older, and come back on tap", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const oldOne = `Paint the fence ${tag}`;
   const oldTwo = `Fix the gate ${tag}`;
   const recent = `Wash the car ${tag}`;
@@ -75,7 +64,7 @@ test("old completed one-offs collapse behind Show N older, and come back on tap"
 });
 
 test("with nothing open, a fresh visit shows the all-caught-up card above Completed", async ({ page }) => {
-  const raked = `Rake the leaves ${suffix()}`;
+  const raked = unique("Rake the leaves");
   await seedCompleted(raked, 1);
   await page.goto("/dashboard/tasks");
 
@@ -106,7 +95,7 @@ test("with nothing open, a fresh visit shows the all-caught-up card above Comple
   // every tick landed before the reload can abort one still in flight.
   await expect
     .poll(() =>
-      withClient(async (client) => {
+      withDb(async (client) => {
         const { rows } = await client.query(
           `SELECT count(*)::int AS n FROM "HouseholdTask" WHERE "householdId" = $1 AND "completedAt" IS NULL`,
           [E2E_HOUSEHOLD.id],
