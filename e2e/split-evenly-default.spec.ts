@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // UX-111: a split starts even. Ticking "Split this expense" with an amount

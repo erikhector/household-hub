@@ -1,12 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
-  budgetTag,
-  insertHouseholdCategory,
-  insertHouseholdTransaction,
-  insertPersonalCategory,
-  insertPersonalTransaction,
-  withDb,
-} from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, insertPersonalCategory, insertPersonalTransaction } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, openAllCategories, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
 
 // Phone pass (Oct 2026), P3: the Transactions tab filters by category
