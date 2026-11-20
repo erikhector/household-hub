@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV, E2E_USER, E2E_USER_SV, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
@@ -47,83 +47,82 @@ for (const locale of ["en", "sv"] as const) {
     test("turning on the morning task reminder files one entry linking to Tasks", async ({ page, request }) => {
       const title = `Nudge task ${locale} ${Math.random().toString(36).slice(2, 8)}`;
       const taskId = `e2e-task-due-w${E2E_WORKER}-${locale}`;
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      await client.connect();
-      const runCron = async () => {
-        const response = await request.get("/api/cron/sync-notifications", {
-          headers: { authorization: `Bearer ${CRON_SECRET}` },
-        });
-        expect(response.status()).toBe(200);
-      };
-      const countEntries = async () =>
-        (
-          await client.query(`SELECT 1 FROM "Notification" WHERE "householdId" = $1 AND kind = 'TASK_DUE'`, [
+      await withDb(async (client) => {
+        const runCron = async () => {
+          const response = await request.get("/api/cron/sync-notifications", {
+            headers: { authorization: `Bearer ${CRON_SECRET}` },
+          });
+          expect(response.status()).toBe(200);
+        };
+        const countEntries = async () =>
+          (
+            await client.query(`SELECT 1 FROM "Notification" WHERE "householdId" = $1 AND kind = 'TASK_DUE'`, [
+              E2E_HOUSEHOLD.id,
+            ])
+          ).rowCount;
+        const reset = async () => {
+          await client.query(`DELETE FROM "Notification" WHERE "householdId" = $1 AND kind = 'TASK_DUE'`, [
             E2E_HOUSEHOLD.id,
-          ])
-        ).rowCount;
-      const reset = async () => {
-        await client.query(`DELETE FROM "Notification" WHERE "householdId" = $1 AND kind = 'TASK_DUE'`, [
-          E2E_HOUSEHOLD.id,
-        ]);
-        await client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id = $2`, [
-          E2E_HOUSEHOLD.id,
-          taskId,
-        ]);
-        await client.query(`UPDATE "User" SET "taskDueNudge" = false WHERE email = $1`, [w.user.email]);
-      };
+          ]);
+          await client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id = $2`, [
+            E2E_HOUSEHOLD.id,
+            taskId,
+          ]);
+          await client.query(`UPDATE "User" SET "taskDueNudge" = false WHERE email = $1`, [w.user.email]);
+        };
 
-      try {
-        await reset();
-        // Due today (the UTC date, the sync's fallback zone), assigned to this member.
-        await client.query(
-          `INSERT INTO "HouseholdTask" (id, "householdId", title, "dueDate", "assignedToMemberId", "createdAt")
-           VALUES ($1, $2, $3, (now() AT TIME ZONE 'UTC')::date, $4, now())`,
-          [taskId, E2E_HOUSEHOLD.id, title, w.member],
-        );
+        try {
+          await reset();
+          // Due today (the UTC date, the sync's fallback zone), assigned to this member.
+          await client.query(
+            `INSERT INTO "HouseholdTask" (id, "householdId", title, "dueDate", "assignedToMemberId", "createdAt")
+             VALUES ($1, $2, $3, (now() AT TIME ZONE 'UTC')::date, $4, now())`,
+            [taskId, E2E_HOUSEHOLD.id, title, w.member],
+          );
 
-        // Off by default: nothing is filed for a household nobody opted in for.
-        await runCron();
-        expect(await countEntries()).toBe(0);
+          // Off by default: nothing is filed for a household nobody opted in for.
+          await runCron();
+          expect(await countEntries()).toBe(0);
 
-        await page.goto("/dashboard/profile");
-        const toggle = page.getByRole("checkbox", { name: w.toggle });
-        await expectHydrated(toggle);
-        await expect(toggle).not.toBeChecked();
-        await toggle.check();
-        await expect(page.getByText(w.toast).first()).toBeVisible();
+          await page.goto("/dashboard/profile");
+          const toggle = page.getByRole("checkbox", { name: w.toggle });
+          await expectHydrated(toggle);
+          await expect(toggle).not.toBeChecked();
+          await toggle.check();
+          await expect(page.getByText(w.toast).first()).toBeVisible();
 
-        await page.reload();
-        await expect(page.getByRole("checkbox", { name: w.toggle })).toBeChecked();
+          await page.reload();
+          await expect(page.getByRole("checkbox", { name: w.toggle })).toBeChecked();
 
-        await runCron();
-        // A second run the same day adds nothing.
-        await runCron();
-        expect(await countEntries()).toBe(1);
+          await runCron();
+          // A second run the same day adds nothing.
+          await runCron();
+          expect(await countEntries()).toBe(1);
 
-        await page.goto("/dashboard/notifications");
-        const entry = page.getByRole("main").getByRole("link", { name: w.entry(title) });
-        await expect(entry).toHaveCount(1);
-        await expect(entry).toHaveAttribute("href", "/dashboard/tasks");
-        // The assignee's name is looked up when the entry is shown, not
-        // stored on it.
-        await expect(entry).toHaveAccessibleName(new RegExp(`${title} \\(${w.user.displayName}\\)`));
-        await expectNoHorizontalOverflow(page);
+          await page.goto("/dashboard/notifications");
+          const entry = page.getByRole("main").getByRole("link", { name: w.entry(title) });
+          await expect(entry).toHaveCount(1);
+          await expect(entry).toHaveAttribute("href", "/dashboard/tasks");
+          // The assignee's name is looked up when the entry is shown, not
+          // stored on it.
+          await expect(entry).toHaveAccessibleName(new RegExp(`${title} \\(${w.user.displayName}\\)`));
+          await expectNoHorizontalOverflow(page);
 
-        // Once the assignee is no longer a member (simulated by pointing the
-        // stored ids at a user who isn't in the household), the entry names
-        // nobody.
-        await client.query(
-          `UPDATE "Notification" SET "taskAssigneeIds" = array_fill('e2e-gone-user'::text, ARRAY[cardinality("taskAssigneeIds")])
-           WHERE "householdId" = $1 AND kind = 'TASK_DUE'`,
-          [E2E_HOUSEHOLD.id],
-        );
-        await page.reload();
-        await expect(entry).toHaveAccessibleName(new RegExp(`${title} \\(${w.formerMember}\\)`));
-        await expect(entry).not.toHaveAccessibleName(new RegExp(w.user.displayName));
-      } finally {
-        await reset();
-        await client.end();
-      }
+          // Once the assignee is no longer a member (simulated by pointing the
+          // stored ids at a user who isn't in the household), the entry names
+          // nobody.
+          await client.query(
+            `UPDATE "Notification" SET "taskAssigneeIds" = array_fill('e2e-gone-user'::text, ARRAY[cardinality("taskAssigneeIds")])
+             WHERE "householdId" = $1 AND kind = 'TASK_DUE'`,
+            [E2E_HOUSEHOLD.id],
+          );
+          await page.reload();
+          await expect(entry).toHaveAccessibleName(new RegExp(`${title} \\(${w.formerMember}\\)`));
+          await expect(entry).not.toHaveAccessibleName(new RegExp(w.user.displayName));
+        } finally {
+          await reset();
+        }
+      });
     });
   });
 }

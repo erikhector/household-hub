@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import bcrypt from "bcryptjs";
-import { Client } from "pg";
+import type { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "../src/lib/i18n/dictionaries/en";
 import { sv } from "../src/lib/i18n/dictionaries/sv";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -25,31 +26,30 @@ async function withEmptyHousehold(
   const userId = `e2e-sd-user-${tag}`;
   const householdId = `e2e-sd-household-${tag}`;
   const email = `e2e-sd-${tag}@squirrel.test`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
-       VALUES ($1, $2, $3, 'Sample Data', now(), $4)`,
-      [userId, email, await bcrypt.hash(PASSWORD, 10), locale],
-    );
-    await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Sample data household')`, [householdId]);
-    await client.query(
-      `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
-      [`e2e-sd-member-${tag}`, householdId, userId],
-    );
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-    await page.getByRole("button", { name: "Log in" }).click();
-    await expect(page).toHaveURL(/\/dashboard/);
-    await run(client, householdId);
-  } finally {
-    // Household first: its members and rows cascade with it.
-    await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
-    await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
-    await client.end();
-  }
+  await withDb(async (client) => {
+    try {
+      await client.query(
+        `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+         VALUES ($1, $2, $3, 'Sample Data', now(), $4)`,
+        [userId, email, await bcrypt.hash(PASSWORD, 10), locale],
+      );
+      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Sample data household')`, [householdId]);
+      await client.query(
+        `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+        [`e2e-sd-member-${tag}`, householdId, userId],
+      );
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+      await page.getByRole("button", { name: "Log in" }).click();
+      await expect(page).toHaveURL(/\/dashboard/);
+      await run(client, householdId);
+    } finally {
+      // Household first: its members and rows cascade with it.
+      await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+      await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
+    }
+  });
 }
 
 test("an empty household tries the sample data, sees rows, and clears only the sample", async ({

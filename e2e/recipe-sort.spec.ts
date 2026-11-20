@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, uniqueTag, withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
 
 // GAP-80: the Recipes tab sorts A–Z by default and can sort by longest since
@@ -12,14 +11,12 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRe
 // most recently) is named so it sorts after B alphabetically, so each sort
 // visibly moves something.
 const t = en.mealPlanning;
-const tag = `Sort ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const sortTag = uniqueTag();
+const tag = `Sort ${sortTag}`;
 const nameA = `${tag} Zucchini bake`;
 const nameB = `${tag} Apple tart`;
-const suffix = `${E2E_WORKER}-${tag.replace(/\W/g, "")}`;
-const idA = `e2e-recipe-${suffix}-a`;
-const idB = `e2e-recipe-${suffix}-b`;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const mondayOf = (day: Date) => new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
+const idA = `e2e-recipe-${sortTag}-a`;
+const idB = `e2e-recipe-${sortTag}-b`;
 
 // Cooked entries in 2025, a year no other spec plans in. B's one cook is
 // older than either of A's.
@@ -28,17 +25,7 @@ const cooks = [
   { recipeId: idA, day: new Date("2025-02-10T00:00:00Z") },
   { recipeId: idA, day: new Date("2025-02-17T00:00:00Z") },
 ];
-const entryIds = cooks.map((_, i) => `e2e-entry-${suffix}-${i}`);
-
-async function withDb(run: (client: Client) => Promise<void>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await run(client);
-  } finally {
-    await client.end();
-  }
-}
+const entryIds = cooks.map((_, i) => `e2e-entry-${sortTag}-${i}`);
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -58,7 +45,7 @@ test.beforeAll(async () => {
       await client.query(
         `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
          ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-        [`e2e-plan-${suffix}-${i}`, E2E_HOUSEHOLD.id, monday],
+        [`e2e-plan-${sortTag}-${i}`, E2E_HOUSEHOLD.id, monday],
       );
       await client.query(
         `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId", "consumedAt")

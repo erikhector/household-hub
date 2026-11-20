@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice } from "./ui";
 
@@ -11,19 +11,9 @@ const tag = `t${Math.random().toString(36).slice(2, 10)}`;
 const COUNT = 25;
 const name = (i: number) => `Bulk ${tag} ${String(i).padStart(2, "0")}`;
 
-async function withClient(run: (client: Client) => Promise<void>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     for (let i = 0; i < COUNT; i++) {
       await client.query(
         `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
@@ -35,7 +25,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE 'e2e-ux123-%'`, [
       E2E_HOUSEHOLD.id,
     ]);

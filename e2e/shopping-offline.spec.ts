@@ -1,15 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { unique } from "./db";
 import { dismissCookieNotice, expectHydrated } from "./ui";
 
 // UX-36: the shopping list survives a dead zone. A tick made offline joins a
 // queue with a "N changes waiting" chip, and is saved when the connection is
 // back. The tests make their own list, so they neither depend on nor change
 // the seeded one.
-//
-// Names end in a letter: the smart add line reads a trailing "x<digits>" as a
-// quantity (see copy-shopping-list-text.spec.ts).
-const unique = (label: string) => `${label} ${Date.now().toString(36)}z`;
 
 const t = en.shoppingList;
 

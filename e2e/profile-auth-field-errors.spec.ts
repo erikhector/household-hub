@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { hashToken } from "@/lib/token-hash";
@@ -110,33 +110,32 @@ for (const locale of ["en", "sv"] as const) {
     // submitted, so the user's password is never touched.
     test("empty passwords on Reset password are flagged under their fields", async ({ page }) => {
       const raw = `fe-reset-${E2E_WORKER}-${locale}-${Date.now().toString(36)}`;
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      await client.connect();
-      try {
-        await client.query(
-          `INSERT INTO "PasswordResetToken" ("id", "userId", "token", "expiresAt")
-           SELECT $1, "id", $2, now() + interval '1 day' FROM "User" WHERE "email" = $3`,
-          [`PasswordResetToken-${raw}`, hashToken(raw), E2E_USER.email],
-        );
+      await withDb(async (client) => {
+        try {
+          await client.query(
+            `INSERT INTO "PasswordResetToken" ("id", "userId", "token", "expiresAt")
+             SELECT $1, "id", $2, now() + interval '1 day' FROM "User" WHERE "email" = $3`,
+            [`PasswordResetToken-${raw}`, hashToken(raw), E2E_USER.email],
+          );
 
-        await page.goto(`/reset-password/${raw}`);
-        const newPassword = page.getByLabel(t.auth.resetPassword.newPassword, { exact: true });
-        await expectHydrated(newPassword);
-        await page.getByRole("button", { name: t.auth.resetPassword.submit }).click();
+          await page.goto(`/reset-password/${raw}`);
+          const newPassword = page.getByLabel(t.auth.resetPassword.newPassword, { exact: true });
+          await expectHydrated(newPassword);
+          await page.getByRole("button", { name: t.auth.resetPassword.submit }).click();
 
-        await expect(page.getByRole("alert").filter({ hasText: t.auth.resetPassword.newPasswordRequired })).toBeVisible();
-        await expect(page.getByRole("alert").filter({ hasText: t.auth.resetPassword.confirmPasswordRequired })).toBeVisible();
-        await expect(newPassword).toHaveAttribute("aria-invalid", "true");
-        await expect(newPassword).toBeFocused();
+          await expect(page.getByRole("alert").filter({ hasText: t.auth.resetPassword.newPasswordRequired })).toBeVisible();
+          await expect(page.getByRole("alert").filter({ hasText: t.auth.resetPassword.confirmPasswordRequired })).toBeVisible();
+          await expect(newPassword).toHaveAttribute("aria-invalid", "true");
+          await expect(newPassword).toBeFocused();
 
-        await newPassword.fill("a-new-password-1");
-        await expect(page.getByRole("alert").filter({ hasText: t.auth.resetPassword.newPasswordRequired })).toHaveCount(0);
-        await expect(page.getByLabel(t.auth.resetPassword.confirmPassword)).toHaveAttribute("aria-invalid", "true");
-        await expect(newPassword).toHaveValue("a-new-password-1");
-      } finally {
-        await client.query(`DELETE FROM "PasswordResetToken" WHERE "id" = $1`, [`PasswordResetToken-${raw}`]);
-        await client.end();
-      }
+          await newPassword.fill("a-new-password-1");
+          await expect(page.getByRole("alert").filter({ hasText: t.auth.resetPassword.newPasswordRequired })).toHaveCount(0);
+          await expect(page.getByLabel(t.auth.resetPassword.confirmPassword)).toHaveAttribute("aria-invalid", "true");
+          await expect(newPassword).toHaveValue("a-new-password-1");
+        } finally {
+          await client.query(`DELETE FROM "PasswordResetToken" WHERE "id" = $1`, [`PasswordResetToken-${raw}`]);
+        }
+      });
     });
   });
 }

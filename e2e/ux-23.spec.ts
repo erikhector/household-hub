@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -16,16 +16,12 @@ test("budget tabs stay on one row at 320 px and Add transaction is usable", asyn
   // seed has none. Write one rather than count on another spec having made
   // one first: each worker has its own household (e2e/seed-data.ts).
   const tag = `${Date.now().toString(36)}-w${E2E_WORKER}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, $3, 'EXPENSE')`,
       [`e2e-ux23-cat-${tag}`, E2E_HOUSEHOLD.id, `Tabs ${tag}`],
     );
-  } finally {
-    await client.end();
-  }
+  });
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto("/dashboard/budget");
 

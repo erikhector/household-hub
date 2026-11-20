@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { STORAGE_STATE_SV } from "./seed";
-import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectNoHorizontalOverflow, expectTouchTargets } from "./ui";
 
 // GAP-63: the Transactions tab has a Search field that narrows the month's

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory } from "./budget-seed";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV, E2E_USER, E2E_USER_SV, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched, LOCALES } from "./ui";
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
@@ -25,16 +25,12 @@ test("the budget transaction amount field asks for the decimal pad and the last 
   // seed has none, so write one straight to Postgres (uniquely named: the
   // desktop and mobile runs share the household).
   const tag = `${Date.now().toString(36)}-w${E2E_WORKER}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, $3, 'EXPENSE')`,
       [`e2e-kbd-cat-${tag}`, E2E_HOUSEHOLD.id, `Keyboards ${tag}`],
     );
-  } finally {
-    await client.end();
-  }
+  });
   await page.goto("/dashboard/budget");
   await page.getByRole("button", { name: "Add transaction" }).first().click();
 

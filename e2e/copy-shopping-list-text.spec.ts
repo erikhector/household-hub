@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { unique } from "./db";
 import { dismissCookieNotice } from "./ui";
 
 // GAP-53: "Copy as text" in the shopping list's ⋯ menu puts the open items on
@@ -7,11 +8,8 @@ import { dismissCookieNotice } from "./ui";
 // neither depends on nor changes the seeded one.
 //
 // The names go through the smart add line, which reads a trailing "x<digits>"
-// as a quantity ("Oat drink x3" is 3 of "Oat drink"). A bare base-36 timestamp
-// ends in one now and then ("mves4x29"), so the row was added as "Oat drink
-// mves4" × 29 and the checkbox named after the full text never appeared. The
-// closing letter keeps a suffix from ever ending in digits.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}z`;
+// as a quantity ("Oat drink x3" is 3 of "Oat drink"); unique() (e2e/db.ts)
+// makes letters-only names, so there's never a digit for it to read.
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

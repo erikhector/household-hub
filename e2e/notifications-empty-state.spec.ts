@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
@@ -19,13 +19,9 @@ for (const [locale, dict, storageState] of [
     test.use({ storageState });
 
     test(`empty notification history names what generates a notification (${locale})`, async ({ page }) => {
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      await client.connect();
-      try {
+      await withDb(async (client) => {
         await client.query(`DELETE FROM "Notification" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
-      } finally {
-        await client.end();
-      }
+      });
 
       await gotoRevealed(page, "/dashboard/notifications");
       // Scoped to <main>: on the phone layout the same text also turns up

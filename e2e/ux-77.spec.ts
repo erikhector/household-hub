@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -34,25 +34,17 @@ test.describe("sole member", () => {
   const parkedId = `ux77-parked-${E2E_WORKER}`;
 
   test.beforeEach(async () => {
-    const db = new Client({ connectionString: process.env.DATABASE_URL });
-    await db.connect();
-    try {
-      await db.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'UX77 Parked')`, [parkedId]);
-      await db.query(`UPDATE "HouseholdMember" SET "householdId" = $1 WHERE id = $2`, [parkedId, E2E_MEMBER_SV]);
-    } finally {
-      await db.end();
-    }
+    await withDb(async (client) => {
+      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'UX77 Parked')`, [parkedId]);
+      await client.query(`UPDATE "HouseholdMember" SET "householdId" = $1 WHERE id = $2`, [parkedId, E2E_MEMBER_SV]);
+    });
   });
 
   test.afterEach(async () => {
-    const db = new Client({ connectionString: process.env.DATABASE_URL });
-    await db.connect();
-    try {
-      await db.query(`UPDATE "HouseholdMember" SET "householdId" = $1 WHERE id = $2`, [E2E_HOUSEHOLD.id, E2E_MEMBER_SV]);
-      await db.query(`DELETE FROM "Household" WHERE id = $1`, [parkedId]);
-    } finally {
-      await db.end();
-    }
+    await withDb(async (client) => {
+      await client.query(`UPDATE "HouseholdMember" SET "householdId" = $1 WHERE id = $2`, [E2E_HOUSEHOLD.id, E2E_MEMBER_SV]);
+      await client.query(`DELETE FROM "Household" WHERE id = $1`, [parkedId]);
+    });
   });
 
   test("danger zone explains the rule and the link lands on an open Delete account", async ({ page }) => {

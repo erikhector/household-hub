@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { unique, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice, openRecipesTab, openRowSheet, waitForDialogHistory, clickListSetting } from "./ui";
 
@@ -7,19 +7,14 @@ import { dismissCookieNotice, openRecipesTab, openRowSheet, waitForDialogHistory
 // lists too, and "Review ingredient matches" in a recipe's sheet reopens a
 // saved recipe's links for correcting. Relies on the "Egg" and "Tomatoes"
 // pantry items seeded in e2e/seed.ts.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 // The desktop and mobile runs share one household, and the whole point here
 // is that an answer is remembered, so each test starts (and ends) with the
 // household's aliases forgotten, as in recipe-ingredients.spec.ts.
 async function forgetAliases() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "ItemAlias" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 test.beforeEach(async ({ context, baseURL }) => {

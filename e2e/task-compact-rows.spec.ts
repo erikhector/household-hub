@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV } from "./seed";
 import { E2E_WORKER, e2eWorkerData } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRevealed, waitForUndoableDelete } from "./ui";
@@ -10,18 +10,8 @@ import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, gotoRe
 const tag = () => `${E2E_WORKER}${Math.random().toString(36).slice(2, 7)}`;
 const idPrefix = `e2e-ux106-${E2E_WORKER}-`;
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 async function seedTask(id: string, title: string, assignedToMemberId: string | null) {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`INSERT INTO "HouseholdTask" (id, "householdId", title, "assignedToMemberId") VALUES ($1, $2, $3, $4)`, [
       `${idPrefix}${id}`,
       E2E_HOUSEHOLD.id,
@@ -37,7 +27,7 @@ async function seedTask(id: string, title: string, assignedToMemberId: string | 
 // happens to run first. That was why #437 passed locally and failed in CI,
 // where the specs land on workers in a different order.
 async function currentDisplayName(): Promise<string> {
-  const { rows } = await withClient((client) =>
+  const { rows } = await withDb((client) =>
     client.query<{ displayName: string }>(`SELECT "displayName" FROM "User" WHERE id = $1`, [e2eWorkerData(E2E_WORKER).user.id]),
   );
   return rows[0].displayName;
@@ -46,7 +36,7 @@ async function currentDisplayName(): Promise<string> {
 // Only this household's rows: a cleanup by id prefix alone could delete
 // another worker's rows mid-test.
 test.afterAll(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${idPrefix}%`]),
   );
 });

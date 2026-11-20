@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, E2E_SHOPPING_LIST } from "./seed-data";
 import { addBillOrIncome, clickRowAction, dismissCookieNotice, expectHydrated, expectRouterPatched, clickListSetting } from "./ui";
@@ -77,31 +77,30 @@ test("budget transaction and recurring dialogs use 16px fields", async ({ page, 
   // The dialogs' triggers stay disabled until the household has a category.
   const categoryId = `e2e-fcs-cat-${Date.now().toString(36)}-w${E2E_WORKER}`;
   // Removed in `finally` so specs sharing the seeded household stay isolated.
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Groceries FCS', 'EXPENSE')`,
-      [categoryId, E2E_HOUSEHOLD.id],
-    );
-    await page.goto("/dashboard/budget");
-    const addTransaction = page.getByRole("button", { name: "Add transaction" }).first();
-    await expectHydrated(addTransaction);
-    await addTransaction.click();
-    // The dialog loads on first use (PERF-30): wait for its form before measuring.
-    await expect(page.getByLabel("Amount", { exact: true })).toBeVisible();
-    await expectFieldsAtLeast16px(page.getByRole("dialog"));
-    await page.keyboard.press("Escape");
+  await withDb(async (client) => {
+    try {
+      await client.query(
+        `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Groceries FCS', 'EXPENSE')`,
+        [categoryId, E2E_HOUSEHOLD.id],
+      );
+      await page.goto("/dashboard/budget");
+      const addTransaction = page.getByRole("button", { name: "Add transaction" }).first();
+      await expectHydrated(addTransaction);
+      await addTransaction.click();
+      // The dialog loads on first use (PERF-30): wait for its form before measuring.
+      await expect(page.getByLabel("Amount", { exact: true })).toBeVisible();
+      await expectFieldsAtLeast16px(page.getByRole("dialog"));
+      await page.keyboard.press("Escape");
 
-    await page.getByRole("button", { name: "All bills & income" }).click();
-    await addBillOrIncome(page, "Repeats every month or year");
-    // As above: the dialog mounts a moment after its menu item is picked, and
-    // evaluateAll doesn't wait for it (MAINT-105: it measured no fields).
-    const recurring = page.getByRole("dialog", { name: "Add recurring item" });
-    await expect(recurring).toBeVisible();
-    await expectFieldsAtLeast16px(recurring);
-  } finally {
-    await client.query(`DELETE FROM "BudgetCategory" WHERE id = $1`, [categoryId]);
-    await client.end();
-  }
+      await page.getByRole("button", { name: "All bills & income" }).click();
+      await addBillOrIncome(page, "Repeats every month or year");
+      // As above: the dialog mounts a moment after its menu item is picked, and
+      // evaluateAll doesn't wait for it (MAINT-105: it measured no fields).
+      const recurring = page.getByRole("dialog", { name: "Add recurring item" });
+      await expect(recurring).toBeVisible();
+      await expectFieldsAtLeast16px(recurring);
+    } finally {
+      await client.query(`DELETE FROM "BudgetCategory" WHERE id = $1`, [categoryId]);
+    }
+  });
 });

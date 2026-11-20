@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { unique, uniqueId, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_SHOPPING_LIST } from "./seed-data";
 import { dismissCookieNotice, expectTargetsApart, expectTouchTargets, expectTouchTargetsInTabs, openRowSheet } from "./ui";
@@ -9,7 +9,6 @@ import { dismissCookieNotice, expectTargetsApart, expectTouchTargets, expectTouc
 // Phones only (hence `.mobile.spec.ts`); a mouse keeps the denser sizing. The
 // household is shared by every project that runs this spec, so rows are named
 // uniquely and the meal goes in a far-future week of its own.
-const suffix = () => Date.now().toString(36);
 
 // MAINT-106: this week is this spec's alone, and the meal goes with the test.
 // It used to be 2031-03-03, the week native-sheets.spec.ts and
@@ -26,20 +25,16 @@ test.beforeEach(async ({ context, baseURL }) => {
 test.afterEach(async () => {
   // By week, not by id: the app made the week's MealPlan, and its entries
   // cascade with it. Only this worker's household.
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = $2`, [
       E2E_HOUSEHOLD.id,
       MEAL_WEEK,
     ]);
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 test("a meal row and its sheet's actions are 44 px and 8 px apart", async ({ page }) => {
-  const name = `Soup ${suffix()}`;
+  const name = unique("Soup");
   await page.goto(`/dashboard/meal-planning?week=${MEAL_WEEK}`);
   await page.getByRole("button", { name: "Add first dinner" }).click();
   const dialog = page.getByRole("dialog", { name: /^Add \w+ · \w+ \d+$/ });
@@ -63,18 +58,14 @@ test("a meal row and its sheet's actions are 44 px and 8 px apart", async ({ pag
 });
 
 test("category chips are 44 px targets kept apart, in every budget tab", async ({ page }) => {
-  const id = `e2e-ux19-cat-${suffix()}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  const id = uniqueId("e2e-ux19-cat");
+  await withDb(async (client) => {
     await client.query(`INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, $3, 'EXPENSE')`, [
       id,
       E2E_HOUSEHOLD.id,
       `Hobbies ${id.slice(-6)}`,
     ]);
-  } finally {
-    await client.end();
-  }
+  });
   await page.goto("/dashboard/budget");
   // Every tab is measured (the guard used to skip the hidden panels); the
   // chips live in Manage. Go there by name and let the assertion wait: the

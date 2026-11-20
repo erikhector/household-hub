@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { unique } from "./db";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import {
   dismissCookieNotice,
@@ -12,7 +13,6 @@ import {
 // GAP-73: a task can carry a few lines of plain-text notes. They're edited in
 // the sheet a tap on the title opens, shown as one truncated line under the
 // title, and survive a reload.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 const COPY = {
   en: {

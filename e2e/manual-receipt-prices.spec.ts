@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
@@ -19,13 +19,9 @@ const PNG = Buffer.from(
 );
 
 async function sql(text: string, values: unknown[] = []) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  return withDb(async (client) => {
     return (await client.query(text, values)).rows;
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 /** Every receipt-scan call comes back as the provider being busy, the way a

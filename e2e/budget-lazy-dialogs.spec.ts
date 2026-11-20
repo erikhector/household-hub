@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
-import { budgetTag, insertHouseholdCategory, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory } from "./budget-seed";
+import { withDb } from "./db";
 import { dismissCookieNotice, expectHydrated, failChunkLoads } from "./ui";
 
 // PERF-30: the budget dialogs (Add/Edit transaction, recurring item, planned

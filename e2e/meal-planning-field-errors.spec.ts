@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched } from "./ui";
@@ -18,15 +18,11 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterEach(async ({}, testInfo) => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     const like = `e2e-ux183b-plan-${E2E_WORKER}-%-${testInfo.project.name}`;
     await client.query(`DELETE FROM "MealPlanEntry" WHERE "mealPlanId" LIKE $1`, [like]);
     await client.query(`DELETE FROM "MealPlan" WHERE id LIKE $1 AND "householdId" = $2`, [like, E2E_HOUSEHOLD.id]);
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 for (const [locale, storageState, t] of [
@@ -76,9 +72,7 @@ for (const [locale, storageState, t] of [
       // in 2036-2093. The menu item doesn't care whether the week is over.
       const week = `2019-04-${{ desktop: { en: "01", sv: "08" }, mobile: { en: "15", sv: "22" } }[testInfo.project.name === "mobile" ? "mobile" : "desktop"][locale]}`;
       const planId = `e2e-ux183b-plan-${E2E_WORKER}-${locale}-${testInfo.project.name}`;
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      await client.connect();
-      try {
+      await withDb(async (client) => {
         await client.query(`DELETE FROM "MealPlanEntry" WHERE "mealPlanId" = $1`, [planId]);
         await client.query(`DELETE FROM "MealPlan" WHERE id = $1`, [planId]);
         await client.query(`INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)`, [
@@ -91,9 +85,7 @@ for (const [locale, storageState, t] of [
            VALUES ($1, $2, $3, 'DINNER', 'Field error pasta', 2)`,
           [`${planId}-entry`, planId, week],
         );
-      } finally {
-        await client.end();
-      }
+      });
       await page.goto(`/dashboard/meal-planning?week=${week}`);
       const more = page.getByRole("button", { name: t.morePlannerActions });
       await expectHydrated(more);
@@ -143,18 +135,14 @@ for (const [locale, storageState, t] of [
       expect(alertBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height);
 
       // Nothing posted: the week has no meal.
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      await client.connect();
-      try {
+      await withDb(async (client) => {
         const { rowCount } = await client.query(
           `SELECT 1 FROM "MealPlanEntry" e JOIN "MealPlan" p ON p.id = e."mealPlanId"
            WHERE p."householdId" = $1 AND p."weekStartDate" = $2`,
           [E2E_HOUSEHOLD.id, week],
         );
         expect(rowCount).toBe(0);
-      } finally {
-        await client.end();
-      }
+      });
 
       await name.fill("Taco night");
       await expect(alert).toHaveCount(0);

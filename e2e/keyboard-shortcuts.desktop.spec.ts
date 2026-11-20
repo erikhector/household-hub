@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { unique, withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
 import { E2E_SHOPPING_LIST, E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
@@ -7,7 +7,6 @@ import { dismissCookieNotice, expectHydrated, gotoRevealed } from "./ui";
 // UX-41c: single-key shortcuts on the list pages and the `?` overlay. A
 // desktop-only feature (a keyboard and a fine pointer), so this spec is
 // desktop-only; the mobile project has no keys to press.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 // The key listener attaches on hydration, which a press right after goto can
 // beat. Press again until the effect shows, so a slow hydration only delays.
@@ -111,40 +110,39 @@ test("x ticks the highlighted shopping row into \"In the cart\"", async ({ page,
   await dismissCookieNotice(context, baseURL!);
   const tag = `${Date.now().toString(36)}-w${E2E_WORKER}`;
   const listId = `e2e-ux41c-list-${tag}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, $3)`, [
-      listId,
-      E2E_HOUSEHOLD.id,
-      `Keys ${tag}`,
-    ]);
-    // Two rows, so ticking one leaves the list in its normal (not "all cleared") state.
-    for (const i of [0, 1]) {
-      await client.query(`INSERT INTO "ShoppingListItem" (id, "shoppingListId", name) VALUES ($1, $2, $3)`, [
-        `e2e-ux41c-item-${tag}-${i}`,
+  await withDb(async (client) => {
+    try {
+      await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, $3)`, [
         listId,
-        `Key item ${i} ${tag}`,
+        E2E_HOUSEHOLD.id,
+        `Keys ${tag}`,
       ]);
+      // Two rows, so ticking one leaves the list in its normal (not "all cleared") state.
+      for (const i of [0, 1]) {
+        await client.query(`INSERT INTO "ShoppingListItem" (id, "shoppingListId", name) VALUES ($1, $2, $3)`, [
+          `e2e-ux41c-item-${tag}-${i}`,
+          listId,
+          `Key item ${i} ${tag}`,
+        ]);
+      }
+      await gotoRevealed(page, `/dashboard/shopping-list/${listId}`);
+      const active = page.locator("[data-shortcut-active]");
+      await pressUntil(page, "j", async () => {
+        await expect(active).toHaveCount(1, { timeout: 1000 });
+      });
+      // The key listener lives in the dashboard layout and the checkbox in the
+      // list's own client component; they hydrate separately, so the highlight
+      // appearing doesn't mean the row's onChange is attached. An x that clicks
+      // a not-yet-hydrated checkbox only flips the native input and nothing
+      // moves to "In the cart" (MAINT-90). Wait until React owns the checkbox,
+      // with its hydration committed rather than just rendered (MAINT-120).
+      await expectHydrated(active.getByRole("checkbox"));
+      await page.keyboard.press("x");
+      await expect(page.getByRole("button", { name: /^In the cart/ })).toContainText("1");
+    } finally {
+      await client.query(`DELETE FROM "ShoppingList" WHERE id = $1 AND "householdId" = $2`, [listId, E2E_HOUSEHOLD.id]);
     }
-    await gotoRevealed(page, `/dashboard/shopping-list/${listId}`);
-    const active = page.locator("[data-shortcut-active]");
-    await pressUntil(page, "j", async () => {
-      await expect(active).toHaveCount(1, { timeout: 1000 });
-    });
-    // The key listener lives in the dashboard layout and the checkbox in the
-    // list's own client component; they hydrate separately, so the highlight
-    // appearing doesn't mean the row's onChange is attached. An x that clicks
-    // a not-yet-hydrated checkbox only flips the native input and nothing
-    // moves to "In the cart" (MAINT-90). Wait until React owns the checkbox,
-    // with its hydration committed rather than just rendered (MAINT-120).
-    await expectHydrated(active.getByRole("checkbox"));
-    await page.keyboard.press("x");
-    await expect(page.getByRole("button", { name: /^In the cart/ })).toContainText("1");
-  } finally {
-    await client.query(`DELETE FROM "ShoppingList" WHERE id = $1 AND "householdId" = $2`, [listId, E2E_HOUSEHOLD.id]);
-    await client.end();
-  }
+  });
 });
 
 test("x toggles the highlighted inventory row's bulk-select checkbox", async ({ page, context, baseURL }) => {

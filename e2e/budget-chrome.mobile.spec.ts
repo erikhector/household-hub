@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction } from "./budget-seed";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 

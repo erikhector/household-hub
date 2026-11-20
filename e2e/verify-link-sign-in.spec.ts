@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { format } from "@/lib/i18n/format";
 import { hashToken } from "@/lib/token-hash";
@@ -13,16 +13,6 @@ test.use({ storageState: { cookies: [], origins: [] } });
 const stamp = `${E2E_WORKER}-${Date.now().toString(36)}`;
 const email = `ux135-${stamp}@squirrel.test`;
 const SENT_TITLE = new RegExp(`${en.auth.signup.checkInboxTitle}|${en.auth.signup.accountCreatedTitle}`);
-
-async function withDb<T>(fn: (c: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

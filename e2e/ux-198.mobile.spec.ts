@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { format, plural } from "../src/lib/i18n/format";
 import { sv } from "../src/lib/i18n/dictionaries/sv";
 import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
@@ -23,19 +23,9 @@ const idPrefix = `e2e-ux198-w${E2E_WORKER}-${tag}`;
 
 test.use({ storageState: STORAGE_STATE_SV });
 
-async function withClient(run: (client: Client) => Promise<void>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     for (let i = 0; i < COUNT; i++) {
       await client.query(
         `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
@@ -47,7 +37,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
       `${idPrefix}-%`,

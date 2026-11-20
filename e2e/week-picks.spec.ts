@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { Client } from "pg";
+import type { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import {
@@ -42,16 +43,6 @@ const ALL_WEEKS = [...Object.values(WEEKS).flatMap((w) => [w.desktop, w.mobile])
 const weekFor = (which: keyof typeof WEEKS, testInfo: TestInfo) =>
   WEEKS[which][testInfo.project.name === "mobile" ? "mobile" : "desktop"];
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 // The same upsert as planner-add-missing.spec.ts: the app may already have
 // made the week's plan, with an id of its own.
 async function planFor(client: Client, week: string): Promise<string> {
@@ -81,7 +72,7 @@ async function clearSpecWeeks(client: Client) {
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await clearSpecWeeks(client);
     // Two recipes, one unstocked ingredient each, so each pick is "1 missing".
     for (const [suffix, name, ingredient] of [
@@ -103,7 +94,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await clearSpecWeeks(client);
     // Meals cooked today and carried picks live in this week's plan, which
     // other specs use too: only this test's own rows go.
@@ -201,7 +192,7 @@ test("pick a meal, shop for it, place it and send it back to the tray", async ({
 
 test("spread picks over the week, then undo it in one go", async ({ page }, testInfo) => {
   const week = weekFor("spread", testInfo);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     const plan = await planFor(client, week);
     await client.query(
       `INSERT INTO "MealPlanPick" (id, "mealPlanId", "recipeId", portions, "createdAt")
@@ -236,7 +227,7 @@ test("spread picks over the week, then undo it in one go", async ({ page }, test
 });
 
 async function seedPicks(week: string, picks: { id: string; recipe?: string; name?: string; carriedFrom?: string }[]) {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     const plan = await planFor(client, week);
     for (const [i, pick] of picks.entries()) {
       await client.query(
@@ -260,7 +251,7 @@ async function openPickSheet(page: Page, name: string, mobile: boolean) {
 
 test("a week with meals but no picks invites, without claiming picks were placed", async ({ page }, testInfo) => {
   const week = weekFor("copy", testInfo);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     const plan = await planFor(client, week);
     await client.query(
       `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "freeformName", portions)
@@ -338,7 +329,7 @@ test("a pick can be cooked today without placing it; closing the review puts it 
   await expect(page.getByText("Marked as cooked — inventory updated")).toBeVisible();
   await expect(chip(page, curry)).toHaveCount(0);
 
-  const cooked = await withClient((client) =>
+  const cooked = await withDb((client) =>
     client.query(
       `SELECT e."consumedAt" FROM "MealPlanEntry" e JOIN "MealPlan" p ON p.id = e."mealPlanId"
        WHERE p."householdId" = $1 AND e."recipeId" = $2`,

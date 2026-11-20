@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueId, uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectRouterPatched, gotoRevealed, waitForDialogHistory } from "./ui";
@@ -15,18 +15,7 @@ import { dismissCookieNotice, expectHydrated, expectRouterPatched, gotoRevealed,
 // it done" in flows.spec.ts, once in a full run, where the worker's
 // household has a long list). Desktop has no scaled page, and there the
 // rows must stay put all the same.
-const suffix = () => Math.random().toString(36).slice(2, 8);
 const ID_PREFIX = `e2e-maint100-w${E2E_WORKER}-`;
-
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
 
 // The task the test adds through the sheet gets its id from the app, so
 // it's found by its title.
@@ -40,7 +29,7 @@ let addedTitle: string | null = null;
 // open row, can land on it. Ticked, it sits under "Completed", below the
 // task this test ticks, and glides with the rest of that section.
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND id LIKE $2`, [
       E2E_HOUSEHOLD.id,
       `${ID_PREFIX}%`,
@@ -62,7 +51,7 @@ test("after a task is added through the sheet, ticking another leaves the rows a
 }) => {
   // On a phone the cookie notice covers the floating primary action (UX-40).
   await dismissCookieNotice(context, baseURL!);
-  const token = suffix();
+  const token = uniqueTag();
   const fillers = [0, 1, 2, 3].map((n) => `Stay put filler ${n} ${token}`);
   const added = `Stay put added ${token}`;
   addedTitle = added;
@@ -81,7 +70,7 @@ test("after a task is added through the sheet, ticking another leaves the rows a
   // filler 2 above filler 1, and both glided. The page breaks ties by id
   // now. The tie, and twenty older open tasks standing in for that long
   // household, keep the check on it every run instead of the odd one.
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "HouseholdTask" (id, "householdId", title, "createdAt")
        SELECT $1 || gen_random_uuid(), $2, 'Older ' || n || ' ' || $3, now() - n * interval '1 minute'
@@ -94,7 +83,7 @@ test("after a task is added through the sheet, ticking another leaves the rows a
     );
     await client.query(
       `INSERT INTO "HouseholdTask" (id, "householdId", title, "createdAt") VALUES ($1, $2, $3, now() + interval '1 day')`,
-      [`${ID_PREFIX}${suffix()}`, E2E_HOUSEHOLD.id, ticked],
+      [uniqueId("e2e-maint100"), E2E_HOUSEHOLD.id, ticked],
     );
   });
 

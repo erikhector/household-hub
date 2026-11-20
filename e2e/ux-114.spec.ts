@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow, saveScreenshot } from "./ui";
 
@@ -17,9 +17,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 async function seedOpenBill() {
   const tag = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Bills', 'EXPENSE')`,
       [`e2e-ux114-cat-${tag}`, E2E_HOUSEHOLD.id],
@@ -35,9 +33,7 @@ async function seedOpenBill() {
        VALUES ($1, $3, $4, 320, 640), ($2, $3, $5, 320, 0)`,
       [`e2e-ux114-sa-${tag}`, `e2e-ux114-sb-${tag}`, `e2e-ux114-tx-${tag}`, E2E_MEMBER, E2E_MEMBER_SV],
     );
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 test("who owes whom is on the Overview while somebody owes, and empty cost cards collapse to one line", async ({
@@ -72,16 +68,12 @@ test("who owes whom is on the Overview while somebody owes, and empty cost cards
 // budget-balances.spec.ts and the test above leave splits behind in this
 // worker's household, so clear them first (scoped to E2E_HOUSEHOLD only).
 test("with nothing owed, who owes whom stays last and a card with data still shows", async ({ page }) => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `DELETE FROM "TransactionSplit" WHERE "transactionId" IN (SELECT id FROM "Transaction" WHERE "householdId" = $1)`,
       [E2E_HOUSEHOLD.id],
     );
-  } finally {
-    await client.end();
-  }
+  });
   await page.goto("/dashboard/budget?tab=insights");
   const main = page.getByRole("main");
 
