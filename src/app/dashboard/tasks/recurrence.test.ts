@@ -56,6 +56,17 @@ describe("isTaskOpen", () => {
     // In UTC the same instant is still the tick's day.
     expect(isTaskOpen(task(completedAt, 1), new Date("2026-09-14T22:30:00.000Z"), "UTC")).toBe(false);
   });
+
+  it("closes a yearly task completed today until 365 days on (GAP-84)", () => {
+    // Made and ticked on Thursday 2026-11-19 in Stockholm (2027 isn't a leap year).
+    const made = new Date("2026-11-19T08:00:00.000Z");
+    const yearly = task(new Date("2026-11-19T10:00:00.000Z"), 365, made, made);
+    expect(isTaskOpen(yearly, new Date("2026-11-20T10:00:00.000Z"), STOCKHOLM)).toBe(false);
+    expect(isTaskOpen(yearly, new Date("2027-11-18T22:59:59.999Z"), STOCKHOLM)).toBe(false);
+    // 00:00 on 2027-11-19 in Stockholm, 365 days after the anchor day.
+    expect(getNextDueDate(yearly, STOCKHOLM)).toEqual(new Date("2027-11-18T23:00:00.000Z"));
+    expect(isTaskOpen(yearly, new Date("2027-11-18T23:00:00.000Z"), STOCKHOLM)).toBe(true);
+  });
 });
 
 describe("getNextDueDate", () => {

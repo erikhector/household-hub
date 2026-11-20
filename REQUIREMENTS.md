@@ -7529,8 +7529,8 @@ co-managers, not kids earning rewards.
   label. It used to collapse to a lone "+" below `sm`, leaving the page's one
   primary action with no visible words on phones. `flows.spec.ts` asserts the
   visible text on the mobile project.
-- **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
-  1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
+- **Recurrence**: `recurrenceIntervalDays` (1–366, the dialog offers every
+  1, 2, 3, 7, 14, 30, 90, 182 or 365 days; null = one-off) is the whole model — no rrule or
   weekday schedule. Nothing is written when a task reopens:
   `isTaskOpen` (`src/app/dashboard/tasks/recurrence.ts`) derives
   open/completed from `completedAt` and the interval at read time, and
@@ -7539,7 +7539,21 @@ co-managers, not kids earning rewards.
   `completedAt`, so there's no completion-history table (the earlier
   `completedAt` still counts for the week it happened in, e.g. in the
   weekly recap). While a recurring task is shown completed the row reads
-  "Next due <date>" (`getNextDueDate`).
+  "Next due <date>" (`getNextDueDate`), with the year added when that date
+  falls in another year than today.
+- **Long repeats (GAP-84)**: the fortnightly bins, the monthly filter and the
+  yearly smoke alarm battery repeat too. Because the model counts days, not
+  calendar months, the long presets say both
+  (`src/app/dashboard/tasks/recurrence-label.ts`), in the Repeat select and
+  on the row's badge: "Every 2 weeks", "Every 30 days", "Every 3 months (90
+  days)", "Every 6 months (182 days)" and "Every year (365 days)" ("Repeats
+  every year (365 days)" on the badge). Any other interval reads as days.
+  The cap is 366 so a leap year fits. Every reader of the interval
+  (`recurrence.ts`, `task-due.ts`, `older-completed.ts`, the tasks-due-today
+  push, taking turns) is interval-agnostic; a 7-day-or-longer repeat keeps
+  its anchor day (UX-137), so a yearly chore comes round on the day it was
+  made. `task-yearly-repeat.spec.ts` covers making one, ticking it and the
+  next year's "Next due".
 - **Rescheduling runs on the local day (UX-137)**: the next due moment is
   always a local midnight, never "the tick plus 24 h". An interval under 7
   days counts from the start of the local day it was ticked on, so a daily

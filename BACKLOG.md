@@ -976,36 +976,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-11-16 scan
 
-- [ ] **GAP-84. Repeat a task every two weeks, month, quarter or year** (impact: med, effort: S) —
-      Grocy's chores repeat daily, weekly, monthly or yearly, and Cozi's
-      to-dos the same, so a household keeps "change the smoke alarm
-      battery" or "descale the coffee machine" there. Squirrel's task
-      dialog offers every 1, 2, 3 or 7 days only
-      (`RECURRENCE_OPTION_DAYS`, `src/components/tasks/task-form-dialog.tsx:78`)
-      and the action refuses anything over 90 days
-      (`recurrenceIntervalDaysSchema`, `src/app/dashboard/tasks/actions.ts:25`),
-      so the fortnightly bins, the monthly filter and every yearly job
-      can't be a repeating task at all. No schema change:
-      `recurrenceIntervalDays` stays the whole model (REQUIREMENTS.md,
-      "Household tasks", Recurrence). Add 14, 30, 90, 182 and 365 to the
-      select and raise the cap to 366. The model counts days, not
-      calendar months, so say that honestly in the label: name the long
-      presets ("Every 2 weeks", "Every 30 days", "Every 3 months (90
-      days)", "Every 6 months (182 days)", "Every year (365 days)") in
-      the option and in the row's badge (`recurrenceBadge`,
-      `tasks-client.tsx:349`) rather than "Repeats every 365 days", and
-      update the `repeatMax` message. Check the readers of the interval
-      still behave at 365: `isTaskOpen`/`getNextDueDate`/`skippedUntilFor`
-      (`recurrence.ts`), `task-due.ts`, `older-completed.ts`, the
-      tasks-due-today sync in `src/lib/notifications.ts`, and taking
-      turns (`src/lib/task-rotation.ts`). Labels in `en.ts` and `sv.ts`.
-      Acceptance: action tests accept 365 and refuse 367; a
-      `recurrence.ts` test that a yearly task completed today is closed
-      tomorrow and open again after 365 days; e2e on `desktop` and
-      `mobile` creates a `unique()` task with "Every year", completes it
-      and, after a reload, sees it completed with a next-due date a year
-      out.
-
 - [ ] **GAP-85. Jump to any week in the meal planner** (impact: low, effort: S) —
       AnyList's December 2025 meal-plan update added jumping to a month
       or year from the calendar header. Squirrel's planner moves one
