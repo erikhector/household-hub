@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.159.0",
+    "date": "2026-11-20",
+    "pr": 1622,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If your connection drops while you add, pin or delete a household note, Squirrel now tells you it couldn't save and keeps the page and what you typed, instead of showing an error screen. The same goes for every \"Are you sure?\" confirmation.\n\nSecurity update to a dependency.\n\nTasks can now repeat every 2 weeks, every 30 days, every 3 months, every 6 months or every year, so jobs like changing the smoke alarm battery can come round on their own.\n\nClosing a pending household invite now asks first and shows whose invite it is, so a link someone is about to use isn't cut off by a stray tap.",
+      "sv": "Om anslutningen bryts när du lägger till, fäster eller tar bort en anteckning i hushållet säger Squirrel nu att det inte gick att spara och behåller sidan och det du skrev, i stället för att visa en felsida. Detsamma gäller alla \"Är du säker?\"-bekräftelser.\n\nSäkerhetsuppdatering av ett beroende.\n\nUppgifter kan nu upprepas varannan vecka, var 30:e dag, var tredje månad, var sjätte månad eller varje år, så att sysslor som att byta batteri i brandvarnaren kommer tillbaka av sig själva.\n\nAtt stänga en väntande inbjudan till hushållet frågar nu först och visar vems inbjudan det är, så att en länk någon tänker använda inte stängs av misstag."
+    }
+  },
+  {
     "version": "0.158.0",
     "date": "2026-11-19",
     "pr": 1600,
