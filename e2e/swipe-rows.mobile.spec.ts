@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { Client } from "pg";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
-import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, todayUtc, withDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, todayUtc } from "./budget-seed";
+import { withDb } from "./db";
 
 // UX-35: swipe row actions on shopping, task and inventory rows. Swipe right
 // ticks or completes; swipe left reveals Edit and a Delete that
@@ -16,13 +16,9 @@ import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, todayUt
 const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 async function sql(text: string, values: unknown[] = []) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(text, values);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 /** Resolves once the page's next Server Action has answered: reloading

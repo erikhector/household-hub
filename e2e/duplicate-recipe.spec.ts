@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
@@ -16,9 +16,7 @@ let name: string;
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   name = `Lasagne ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     const id = `e2e-recipe-${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     await client.query(`INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ($1, $2, $3, 'Layer it')`, [
       id,
@@ -29,23 +27,17 @@ test.beforeEach(async ({ context, baseURL }) => {
       `INSERT INTO "RecipeIngredient" (id, "recipeId", name, quantity, unit) VALUES ($1, $2, 'Lasagne sheets', 12, 'pcs')`,
       [`${id}-ing`, id],
     );
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 test.afterEach(async () => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "Recipe" WHERE "householdId" = $1 AND name IN ($2, $3)`, [
       E2E_HOUSEHOLD.id,
       name,
       `${name} (copy)`,
     ]);
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 test("Duplicate opens the copy for editing and both recipes are there after a reload", async ({ page }) => {

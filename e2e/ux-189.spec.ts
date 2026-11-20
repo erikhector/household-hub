@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { en } from "../src/lib/i18n/dictionaries/en";
 import { format } from "../src/lib/i18n/format";
 import { E2E_HOUSEHOLD } from "./seed";
@@ -15,13 +15,9 @@ const IDS = [`ux189-expiring-w${E2E_WORKER}`, `ux189-out-w${E2E_WORKER}`];
 const EXPIRING = format(t.expiringSoon, { name: E2E_ITEM.name });
 
 async function sql(text: string, values: unknown[]) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(text, values);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 test.beforeEach(async ({ context, baseURL }) => {

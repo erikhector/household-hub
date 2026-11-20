@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, uniqueTag, withDb } from "./db";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { farDay } from "./far-weeks";
 import { E2E_HOUSEHOLD } from "./seed";
@@ -12,29 +12,17 @@ import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet, waitForD
 // cooked case, a meal in a far-future week nobody else plans in) and removes
 // them again, so the shared seeded recipes stay untouched.
 const t = en.mealPlanning;
-const DAY_MS = 24 * 60 * 60 * 1000;
 const key = (day: Date) => day.toISOString().slice(0, 10);
-const mondayOf = (day: Date) => new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
 
 let name: string;
 let recipeId: string;
 
-async function withClient<T>(fn: (client: Client) => Promise<T>) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
-  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  name = `Chili ${suffix}`;
-  recipeId = `e2e-recipe-cooksoon-${E2E_WORKER}-${suffix}`;
-  await withClient((client) =>
+  const tag = uniqueTag();
+  name = `Chili ${tag}`;
+  recipeId = `e2e-recipe-cooksoon-${E2E_WORKER}-${tag}`;
+  await withDb((client) =>
     client.query(`INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ($1, $2, $3, 'Simmer')`, [
       recipeId,
       E2E_HOUSEHOLD.id,
@@ -44,7 +32,7 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(
       `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
        WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry."recipeId" = $2`,
@@ -104,19 +92,19 @@ test("marking a Cook soon recipe as cooked takes it off the shelf", async ({ pag
   // the UI would clear the shelf at planning time, before the cook.
   const day = farDay("cook-soon");
   const monday = mondayOf(day);
-  const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  await withClient(async (client) => {
+  const tag = uniqueTag();
+  await withDb(async (client) => {
     await client.query(`UPDATE "Recipe" SET "cookSoonAt" = now() WHERE id = $1`, [recipeId]);
     await client.query(
       `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
        ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-      [`e2e-plan-cooksoon-${suffix}`, E2E_HOUSEHOLD.id, monday],
+      [`e2e-plan-cooksoon-${tag}`, E2E_HOUSEHOLD.id, monday],
     );
     await client.query(
       `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId", portions)
        SELECT $1, plan.id, $2, 'DINNER', $3, 4
        FROM "MealPlan" plan WHERE plan."householdId" = $4 AND plan."weekStartDate" = $5`,
-      [`e2e-entry-cooksoon-${suffix}`, day, recipeId, E2E_HOUSEHOLD.id, monday],
+      [`e2e-entry-cooksoon-${tag}`, day, recipeId, E2E_HOUSEHOLD.id, monday],
     );
   });
 

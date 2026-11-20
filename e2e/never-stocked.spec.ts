@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { unique } from "./db";
 import { clickRowAction, dismissCookieNotice, waitForUndoableDelete } from "./ui";
 
 // UX-89: a free-text item typed onto a list makes a pantry item at 0 that
@@ -7,11 +8,8 @@ import { clickRowAction, dismissCookieNotice, waitForUndoableDelete } from "./ui
 // rows, so the test names its own item and checks only that one.
 //
 // MAINT-83: the item name goes through smart-add, which reads a trailing
-// "x58" as a quantity. The random base36 suffix ended that way now and then,
-// the row was saved as "Napkins mwlgiydh × 58 pcs" (the "x58" gone from the
-// name) and the checkbox named after the full name never showed. Ending the suffix in a letter (as
-// smart-add-decimal-comma.spec.ts does) leaves nothing for it to parse.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}z`;
+// "x58" as a quantity; unique() (e2e/db.ts) makes letters-only names, so
+// there's nothing for it to parse.
 
 async function inventoryRow(page: Page, url: string, name: string) {
   await page.goto(url);

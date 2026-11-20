@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { unique } from "./db";
 import { E2E_ITEM } from "./seed-data";
 import { clickRowAction, dismissCookieNotice, expectHydrated, holdServerActions, waitForSheetClosed } from "./ui";
 
@@ -16,7 +17,6 @@ import { clickRowAction, dismissCookieNotice, expectHydrated, holdServerActions,
 //
 // Layout shifts are collected the way cls.spec.ts does: every shift except
 // those in the 500 ms after a tap or key, which is what CLS counts.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 type VtAnimation = { pseudo: string; keyframes: string; duration: number };
 type Flip = { id: string; key: string };

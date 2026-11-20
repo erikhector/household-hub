@@ -1,17 +1,12 @@
 import { expect, test } from "@playwright/test";
 import bcrypt from "bcryptjs";
-import { Client } from "pg";
+import { unique, withDb } from "./db";
 import { dismissCookieNotice, expectHydrated, expectOnePrimaryAction } from "./ui";
 
 // UX-24: one primary (solid) action per view. DESIGN.md's hierarchy rule
 // reads the solid `default` Button as "the" call to action, so the checks
 // below read the variant through its background token: `bg-primary` is
 // primary, `bg-secondary` is the quiet one.
-// Timestamp plus a random tail: the specs share one seeded household and
-// never clean up, so a name must not collide with (or be a prefix of) a row
-// left by an earlier project, retry or run.
-const unique = (label: string) =>
-  `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const PRIMARY = /(^|\s)bg-primary(\s|$)/;
 const SECONDARY = /(^|\s)bg-secondary(\s|$)/;
 
@@ -114,34 +109,33 @@ test.describe("budget pages with no categories", () => {
     const userId = `e2e-op-user-${tag}`;
     const householdId = `e2e-op-hh-${tag}`;
     const password = "e2e-password-123";
-    const client = new Client({ connectionString: process.env.DATABASE_URL });
-    await client.connect();
-    try {
-      await client.query(
-        `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
-         VALUES ($1, $2, $3, 'Solo Member', now(), 'en')`,
-        [userId, email, await bcrypt.hash(password, 10)],
-      );
-      await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Quiet House')`, [householdId]);
-      await client.query(
-        `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
-        [`e2e-op-m-${tag}`, householdId, userId],
-      );
-      await page.goto("/login");
-      await page.getByLabel("Email").fill(email);
-      await page.getByLabel("Password", { exact: true }).fill(password);
-      await page.getByRole("button", { name: "Log in" }).click();
-      await expect(page).toHaveURL(/\/dashboard$/);
+    await withDb(async (client) => {
+      try {
+        await client.query(
+          `INSERT INTO "User" (id, email, "passwordHash", "displayName", "emailVerifiedAt", locale)
+           VALUES ($1, $2, $3, 'Solo Member', now(), 'en')`,
+          [userId, email, await bcrypt.hash(password, 10)],
+        );
+        await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Quiet House')`, [householdId]);
+        await client.query(
+          `INSERT INTO "HouseholdMember" (id, "householdId", "userId", role) VALUES ($1, $2, $3, 'OWNER')`,
+          [`e2e-op-m-${tag}`, householdId, userId],
+        );
+        await page.goto("/login");
+        await page.getByLabel("Email").fill(email);
+        await page.getByLabel("Password", { exact: true }).fill(password);
+        await page.getByRole("button", { name: "Log in" }).click();
+        await expect(page).toHaveURL(/\/dashboard$/);
 
-      for (const route of ["/dashboard/budget", "/dashboard/personal-budget"]) {
-        await page.goto(route);
-        await expect(page.getByRole("main").getByText(/set up your budget|Let's set up/i).first()).toBeVisible();
-        await expectOnePrimaryAction(page);
+        for (const route of ["/dashboard/budget", "/dashboard/personal-budget"]) {
+          await page.goto(route);
+          await expect(page.getByRole("main").getByText(/set up your budget|Let's set up/i).first()).toBeVisible();
+          await expectOnePrimaryAction(page);
+        }
+      } finally {
+        await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+        await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
       }
-    } finally {
-      await client.query(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
-      await client.query(`DELETE FROM "User" WHERE id = $1`, [userId]);
-      await client.end();
-    }
+    });
   });
 });

@@ -1,8 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { Client } from "pg";
+import type { Client } from "pg";
 import { DASHBOARD_ROUTES, PUBLIC_ROUTES, type UiRoute } from "./routes";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { budgetTag, insertHouseholdCategory, withDb as withBudgetDb } from "./budget-seed";
+import { budgetTag, insertHouseholdCategory } from "./budget-seed";
+import { withDb } from "./db";
 import { E2E_SHOPPING_LIST, E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, LOCALES, setLocaleCookie } from "./ui";
 
@@ -39,16 +40,6 @@ async function expectBottomBarHolds(page: Page) {
   for (const box of await Promise.all((await floating.all()).map((el) => el.boundingBox()))) {
     if (!box) continue;
     expect(box.y + box.height, "floating action sits above the bar").toBeLessThanOrEqual(navBox.y + 0.5);
-  }
-}
-
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
   }
 }
 
@@ -145,11 +136,11 @@ for (const locale of LOCALES) {
         week,
       ]);
     test.afterEach(async () => {
-      await withClient(dropWeek);
+      await withDb(dropWeek);
     });
     test("the tray header has no sideways scroll", async ({ page, context, baseURL }) => {
       await dismissCookieNotice(context, baseURL!);
-      await withClient(async (client) => {
+      await withDb(async (client) => {
         await dropWeek(client);
         const plan = await client.query<{ id: string }>(
           `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3) RETURNING id`,
@@ -220,11 +211,11 @@ for (const locale of LOCALES) {
     test("the budget keeps its title, month switcher and a short pill", async ({ page }) => {
       // The pill only exists once there is a category to add a transaction to.
       const catId = `e2e-textsize-cat-${budgetTag()}`;
-      await withBudgetDb((client) => insertHouseholdCategory(client, { id: catId, name: "Text size" }));
+      await withDb((client) => insertHouseholdCategory(client, { id: catId, name: "Text size" }));
       try {
         await checkBudget(page);
       } finally {
-        await withBudgetDb((client) => client.query(`DELETE FROM "BudgetCategory" WHERE id = $1 AND "householdId" = $2`, [catId, E2E_HOUSEHOLD.id]));
+        await withDb((client) => client.query(`DELETE FROM "BudgetCategory" WHERE id = $1 AND "householdId" = $2`, [catId, E2E_HOUSEHOLD.id]));
       }
     });
 
@@ -298,11 +289,11 @@ for (const locale of LOCALES) {
     const drop = (client: Client) =>
       client.query(`DELETE FROM "InventoryItem" WHERE id = $1 AND "householdId" = $2`, [id, E2E_HOUSEHOLD.id]);
     test.afterEach(async () => {
-      await withClient(drop);
+      await withDb(drop);
     });
     test("wraps in full instead of truncating", async ({ page, context, baseURL }) => {
       await dismissCookieNotice(context, baseURL!);
-      await withClient(async (client) => {
+      await withDb(async (client) => {
         await drop(client);
         await client.query(
           `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")

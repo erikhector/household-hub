@@ -17,6 +17,27 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // MAINT-108: a spec reaches Postgres and names its rows through
+    // e2e/db.ts. Each spec used to carry its own copy of the client wrapper
+    // and the name suffix, so a fix to the pattern had to be made forty
+    // times and the weaker copies kept spreading to every new spec.
+    files: ["e2e/**/*.spec.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "NewExpression[callee.name='Client']",
+          message: "Open the database with withDb from e2e/db.ts, not a Client of the spec's own.",
+        },
+        {
+          selector:
+            ":matches(FunctionDeclaration, VariableDeclarator)[id.name=/^(withClient|withDb|mondayOf|unique|uniqueId|uniqueTag|suffix)$/]",
+          message: "Import this helper from e2e/db.ts instead of defining a copy in the spec.",
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

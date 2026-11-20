@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { unique, uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -12,7 +12,6 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 const ZONE = "Europe/Stockholm";
 test.use({ timezoneId: ZONE });
 
-const suffix = () => Math.random().toString(36).slice(2, 8);
 const ID_PREFIX = `e2e-due-w${E2E_WORKER}-`;
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -22,23 +21,13 @@ test.beforeEach(async ({ context, baseURL }) => {
 // Rows made through the dialog have generated ids, so they're found by the
 // title prefix; both are scoped to this worker's household.
 test.afterEach(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "HouseholdTask" WHERE "householdId" = $1 AND (id LIKE $2 OR title LIKE 'Due spec %')`, [
       E2E_HOUSEHOLD.id,
       `${ID_PREFIX}%`,
     ]),
   );
 });
-
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
 
 /** The calendar date `offsetDays` from today in ZONE, as YYYY-MM-DD. */
 const dateInput = (offsetDays: number) => {
@@ -67,7 +56,7 @@ async function openInZone(page: Page, path: string) {
 }
 
 test("a task keeps its due date, and a late one shows how late on the list and the overview", async ({ page }) => {
-  const title = `Due spec book the car service ${suffix()}`;
+  const title = unique("Due spec book the car service");
   await openInZone(page, "/dashboard/tasks");
 
   await page.getByRole("button", { name: "Add task" }).click();
@@ -102,7 +91,7 @@ test("a task keeps its due date, and a late one shows how late on the list and t
 });
 
 test("open tasks sort overdue, then today, then later, then undated", async ({ page }) => {
-  const tag = suffix();
+  const tag = uniqueTag();
   const titles = {
     undated: `Due spec undated ${tag}`,
     later: `Due spec later ${tag}`,
@@ -111,7 +100,7 @@ test("open tasks sort overdue, then today, then later, then undated", async ({ p
   };
   // Created in the opposite order to the expected one, so a createdAt sort
   // would show the reverse.
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     const rows: [keyof typeof titles, string | null][] = [
       ["undated", null],
       ["later", dateInput(3)],

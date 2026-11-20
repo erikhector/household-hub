@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { addBillOrIncome, dismissCookieNotice } from "./ui";
@@ -33,45 +33,44 @@ test("budget dialogs turn autofill off and set the Enter key on the last field",
   // Bills & income's Add and "Add transaction" stay disabled until the
   // household has a category, and the seed has none.
   const categoryId = `e2e-autofill-cat-${Date.now().toString(36)}-w${E2E_WORKER}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Autofill cat', 'EXPENSE')`,
-      [categoryId, E2E_HOUSEHOLD.id],
-    );
-    await page.goto("/dashboard/budget?tab=manage");
-    const main = page.getByRole("main");
+  await withDb(async (client) => {
+    try {
+      await client.query(
+        `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Autofill cat', 'EXPENSE')`,
+        [categoryId, E2E_HOUSEHOLD.id],
+      );
+      await page.goto("/dashboard/budget?tab=manage");
+      const main = page.getByRole("main");
 
-    await main.getByRole("button", { name: "Add category", exact: true }).click();
-    let dialog = page.getByRole("dialog");
-    await expectNoAutofill(dialog);
-    // An expense category ends on the monthly limit.
-    await expect(dialog.getByLabel("Monthly limit")).toHaveAttribute("enterkeyhint", "done");
-    await page.keyboard.press("Escape");
+      await main.getByRole("button", { name: "Add category", exact: true }).click();
+      let dialog = page.getByRole("dialog");
+      await expectNoAutofill(dialog);
+      // An expense category ends on the monthly limit.
+      await expect(dialog.getByLabel("Monthly limit")).toHaveAttribute("enterkeyhint", "done");
+      await page.keyboard.press("Escape");
 
-    await addBillOrIncome(page, "Repeats every month or year");
-    dialog = page.getByRole("dialog");
-    await expectNoAutofill(dialog);
-    await expect(dialog.getByLabel("Due day")).toHaveAttribute("enterkeyhint", "done");
-    // Splitting the bill adds one amount field per member after Due day, so
-    // the Enter key moves on from Due day and only the last share ends the form.
-    await dialog.getByLabel("Split this bill").check();
-    await expectNoAutofill(dialog);
-    await expect(dialog.getByLabel("Due day")).toHaveAttribute("enterkeyhint", "next");
-    const shares = dialog.locator('input[name="splitAmount"]');
-    expect(await shares.count()).toBeGreaterThan(1);
-    await expect(shares.first()).toHaveAttribute("enterkeyhint", "next");
-    await expect(shares.last()).toHaveAttribute("enterkeyhint", "done");
-    await page.keyboard.press("Escape");
+      await addBillOrIncome(page, "Repeats every month or year");
+      dialog = page.getByRole("dialog");
+      await expectNoAutofill(dialog);
+      await expect(dialog.getByLabel("Due day")).toHaveAttribute("enterkeyhint", "done");
+      // Splitting the bill adds one amount field per member after Due day, so
+      // the Enter key moves on from Due day and only the last share ends the form.
+      await dialog.getByLabel("Split this bill").check();
+      await expectNoAutofill(dialog);
+      await expect(dialog.getByLabel("Due day")).toHaveAttribute("enterkeyhint", "next");
+      const shares = dialog.locator('input[name="splitAmount"]');
+      expect(await shares.count()).toBeGreaterThan(1);
+      await expect(shares.first()).toHaveAttribute("enterkeyhint", "next");
+      await expect(shares.last()).toHaveAttribute("enterkeyhint", "done");
+      await page.keyboard.press("Escape");
 
-    await page.goto("/dashboard/budget");
-    await page.getByRole("button", { name: "Add transaction" }).first().click();
-    dialog = page.getByRole("dialog");
-    await expectNoAutofill(dialog);
-    await expect(dialog.getByLabel("Description")).toHaveAttribute("enterkeyhint", "done");
-  } finally {
-    await client.query(`DELETE FROM "BudgetCategory" WHERE id = $1`, [categoryId]);
-    await client.end();
-  }
+      await page.goto("/dashboard/budget");
+      await page.getByRole("button", { name: "Add transaction" }).first().click();
+      dialog = page.getByRole("dialog");
+      await expectNoAutofill(dialog);
+      await expect(dialog.getByLabel("Description")).toHaveAttribute("enterkeyhint", "done");
+    } finally {
+      await client.query(`DELETE FROM "BudgetCategory" WHERE id = $1`, [categoryId]);
+    }
+  });
 });

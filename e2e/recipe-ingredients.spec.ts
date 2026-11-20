@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { unique, uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { dismissCookieNotice, expectHydrated, gotoRevealed, openRecipesTab, openRowSheet, waitForDialogHistory } from "./ui";
@@ -9,7 +9,6 @@ import { dismissCookieNotice, expectHydrated, gotoRevealed, openRecipesTab, open
 // else goes through the dialog's "Match ingredients" step first. Relies on
 // the "Tomatoes" and "Olive oil" pantry items seeded in e2e/seed.ts.
 // MATCH-3's unit choices are at the end.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -21,13 +20,9 @@ test.beforeEach(async ({ context, baseURL }) => {
 // find "Tomater" or "vatten" already answered and skip the review these
 // tests are about. Each test starts with the household's aliases forgotten.
 async function forgetAliases() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "ItemAlias" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 // Right after navigation the streamed page can briefly hold two copies of
@@ -267,9 +262,7 @@ test("linking \"eggs\" to Egg once makes it a confident match on the next recipe
 // MATCH-3: a fresh item per run, since a remembered conversion is saved on
 // the item and the desktop and mobile runs share one household.
 async function insertItemCountedInPcs(name: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  return withDb(async (client) => {
     const id = `e2e-inv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     await client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
@@ -277,26 +270,22 @@ async function insertItemCountedInPcs(name: string) {
       [id, E2E_HOUSEHOLD.id, name],
     );
     return id;
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 // Plans `recipeName` for tonight in the current week, the way the planner
 // would, so "Mark as cooked" can be opened on it.
 async function planForToday(recipeName: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const monday = new Date(today);
     monday.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
-    const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const tag = uniqueTag();
     await client.query(
       `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
        ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-      [`e2e-plan-${suffix}`, E2E_HOUSEHOLD.id, monday],
+      [`e2e-plan-${tag}`, E2E_HOUSEHOLD.id, monday],
     );
     await client.query(
       `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId")
@@ -304,11 +293,9 @@ async function planForToday(recipeName: string) {
        FROM "MealPlan" plan, "Recipe" recipe
        WHERE plan."householdId" = $3 AND plan."weekStartDate" = $4
          AND recipe."householdId" = $3 AND recipe.name = $5`,
-      [`e2e-entry-${suffix}`, today, E2E_HOUSEHOLD.id, monday, recipeName],
+      [`e2e-entry-${tag}`, today, E2E_HOUSEHOLD.id, monday, recipeName],
     );
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 test("remembering 1 pcs = 2000 g for an item skips the unit question next time, and cooking uses it", async ({

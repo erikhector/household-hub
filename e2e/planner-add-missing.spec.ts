@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow } from "./ui";
@@ -26,20 +26,10 @@ const ricottaNote = `well drained ${tag}`;
 const tortillas = `Tortillas${tag.replace(/x/g, "k")}`;
 const customWeek = (project: string) => (project === "mobile" ? "2031-04-14" : "2031-04-07");
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 test.beforeEach(async ({ context, baseURL }, testInfo) => {
   await dismissCookieNotice(context, baseURL!);
   const week = plannedWeek(testInfo.project.name);
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     const recipe = `e2e-recipe-${tag}`;
     await client.query(`INSERT INTO "Recipe" (id, "householdId", name) VALUES ($1, $2, $3)`, [
       recipe,
@@ -72,7 +62,7 @@ test.beforeEach(async ({ context, baseURL }, testInfo) => {
 });
 
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     // By week, not by our id prefix: a plan the app created for these
     // far-future weeks has a different id and would otherwise outlive the test.
     await client.query(`DELETE FROM "MealPlan" WHERE "householdId" = $1 AND "weekStartDate" = ANY($2::date[])`, [

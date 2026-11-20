@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
@@ -7,27 +7,17 @@ import { dismissCookieNotice } from "./ui";
 // UX-119: "I used some" and "I bought more" for weights and volumes. The
 // stepper moves by a step that suits the unit, and tapping the quantity opens
 // a sheet whose chips apply an amount in one tap. Items are written straight
-// to Postgres under a per-run suffix so searching for it shows only these.
-const suffix = `${E2E_WORKER}${Math.random().toString(36).slice(2, 7)}`;
+// to Postgres under a per-run tag so searching for it shows only these.
+const tag = uniqueTag();
 const idPrefix = `e2e-ux119-${E2E_WORKER}-`;
-const butter = `Butter ${suffix}`;
-const onion = `Onion ${suffix}`;
-const milk = `Milk ${suffix}`;
-const flour = `Flour ${suffix}`;
-const rice = `Rice ${suffix}`;
-
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
+const butter = `Butter ${tag}`;
+const onion = `Onion ${tag}`;
+const milk = `Milk ${tag}`;
+const flour = `Flour ${tag}`;
+const rice = `Rice ${tag}`;
 
 test.beforeAll(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     const rows: [string, string, number, string][] = [
       ["butter", butter, 500, "g"],
       ["onion", onion, 1.5, "kg"],
@@ -46,7 +36,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${idPrefix}%`]),
   );
 });
@@ -59,7 +49,7 @@ async function showItems(page: Page) {
   await page.goto("/dashboard/inventory");
   const search = page.getByRole("searchbox").filter({ visible: true });
   await expect(search).toHaveCount(1);
-  await search.fill(suffix);
+  await search.fill(tag);
 }
 
 // The visible quantity button of one item (the table on desktop, the card on a phone).

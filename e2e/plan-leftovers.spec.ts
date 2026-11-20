@@ -1,15 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { mondayOf, unique, uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { farDay } from "./far-weeks";
-import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, openRowSheet } from "./ui";
 
 // GAP-39: after "Mark as cooked" records leftovers, the toast offers "Plan
 // leftovers", which opens the add-to-plan dialog prefilled with the recipe,
 // the leftover servings and the next day with no dinner. Nothing is added
 // unless the household confirms.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -29,17 +27,15 @@ const plus = (day: Date, days: number) => new Date(day.getTime() + days * DAY_MS
 // each test also takes its rows away again: a dinner an earlier run left on
 // base + 2 would push the suggestion to base + 3.
 
-// The suffix of each test's seeded rows, for the afterEach below.
+// The tag of each test's seeded rows, for the afterEach below.
 let seeded: string | undefined;
 
 test.afterEach(async () => {
   if (!seeded) return;
-  const suffix = seeded;
+  const tag = seeded;
   seeded = undefined;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    const recipeId = `e2e-recipe-${suffix}`;
+  await withDb(async (client) => {
+    const recipeId = `e2e-recipe-${tag}`;
     // Only this household's rows, and only the ones this test made: its
     // recipe's entries (the cooked dinner and the planned leftovers, whose
     // ids the app chose), the seeded takeaway, then the recipe (its
@@ -50,34 +46,26 @@ test.afterEach(async () => {
       `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
        WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1
          AND (entry."recipeId" = $2 OR entry.id = ANY($3))`,
-      [E2E_HOUSEHOLD.id, recipeId, [`e2e-entry-${suffix}-0`, `e2e-entry-${suffix}-1`]],
+      [E2E_HOUSEHOLD.id, recipeId, [`e2e-entry-${tag}-0`, `e2e-entry-${tag}-1`]],
     );
     await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
     await client.query(
       `DELETE FROM "MealPlan" plan WHERE plan."householdId" = $1 AND plan.id = ANY($2)
          AND NOT EXISTS (SELECT 1 FROM "MealPlanEntry" entry WHERE entry."mealPlanId" = plan.id)`,
-      [E2E_HOUSEHOLD.id, [`e2e-plan-${suffix}-0`, `e2e-plan-${suffix}-1`]],
+      [E2E_HOUSEHOLD.id, [`e2e-plan-${tag}-0`, `e2e-plan-${tag}-1`]],
     );
-  } finally {
-    await client.end();
-  }
+  });
 });
-
-function mondayOf(day: Date) {
-  return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
-}
 
 const key = (day: Date) => day.toISOString().slice(0, 10);
 
 // A recipe to cook on day `base`, plus a dinner already planned the day
 // after, so the suggestion has to skip a day: base + 2.
 async function planCookAndDinnerNextDay(recipeName: string, base: Date) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const recipeId = `e2e-recipe-${suffix}`;
-    seeded = suffix;
+  await withDb(async (client) => {
+    const tag = uniqueTag();
+    const recipeId = `e2e-recipe-${tag}`;
+    seeded = tag;
     await client.query(`INSERT INTO "Recipe" (id, "householdId", name) VALUES ($1, $2, $3)`, [
       recipeId,
       E2E_HOUSEHOLD.id,
@@ -85,25 +73,23 @@ async function planCookAndDinnerNextDay(recipeName: string, base: Date) {
     ]);
     const rows = [
       { day: base, recipe: recipeId, freeform: null },
-      { day: plus(base, 1), recipe: null, freeform: `Takeaway ${suffix}` },
+      { day: plus(base, 1), recipe: null, freeform: `Takeaway ${tag}` },
     ];
     for (const [i, row] of rows.entries()) {
       const monday = mondayOf(row.day);
       await client.query(
         `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
          ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
-        [`e2e-plan-${suffix}-${i}`, E2E_HOUSEHOLD.id, monday],
+        [`e2e-plan-${tag}-${i}`, E2E_HOUSEHOLD.id, monday],
       );
       await client.query(
         `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId", "freeformName")
          SELECT $1, plan.id, $2, 'DINNER', $3, $4
          FROM "MealPlan" plan WHERE plan."householdId" = $5 AND plan."weekStartDate" = $6`,
-        [`e2e-entry-${suffix}-${i}`, row.day, row.recipe, row.freeform, E2E_HOUSEHOLD.id, monday],
+        [`e2e-entry-${tag}-${i}`, row.day, row.recipe, row.freeform, E2E_HOUSEHOLD.id, monday],
       );
     }
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 // DESIGN.md M3: on a phone both toast buttons are at least 44 x 44 px with

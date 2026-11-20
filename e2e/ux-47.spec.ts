@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -29,9 +29,7 @@ test.afterEach(async () => {
 // household stays the active one) and remove it afterwards.
 const OTHER_HOUSEHOLD = `e2e-ux47-other-w${E2E_WORKER}`;
 async function setOtherHousehold(present: boolean) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "Household" WHERE id = $1`, [OTHER_HOUSEHOLD]);
     if (present) {
       await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, 'Other house')`, [OTHER_HOUSEHOLD]);
@@ -40,19 +38,13 @@ async function setOtherHousehold(present: boolean) {
         [`${OTHER_HOUSEHOLD}-member`, OTHER_HOUSEHOLD, E2E_USER.id],
       );
     }
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 async function setName(name: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(`UPDATE "Household" SET name = $1 WHERE id = $2`, [name, E2E_HOUSEHOLD.id]);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 test("a 60-character household name is truncated and the switcher stays on screen", async ({ page }) => {

@@ -164,6 +164,12 @@ easy for AI coding agents to work in correctly:
   (`LazyReceiptScan`, whose real component mounts with its menu already
   open). `e2e/shopping-lazy-dialogs.spec.ts` covers the first tap and the
   failed-load toast and retry.
+  Every lazy-loading spec's failed-load test refuses chunks through
+  `failChunkLoads` (`e2e/ui.ts`), whose `goOnline()` waits until every
+  refused fetch has failed in the page before scripts go through again
+  (MAINT-122): the import fails as soon as one chunk gives up, while
+  Turbopack may still be retrying another, and a tap that joins that
+  retry fails again.
   The inventory page group is lazy too
   (`src/components/inventory/lazy-dialogs.ts`): the header's stock scan,
   bulk paste, bulk scan, AI shelf scan and Add item, a row's Edit form
@@ -10986,10 +10992,10 @@ UX-14's rapid ticks and the rollback toast.
   a test title never contains one (`smoke.spec.ts` titles pages by route
   pattern, and screenshots are named by pattern too). Tests inside a
   file still run in order. A spec names the rows it creates uniquely
-  (a name typed into smart-add ends its random suffix in a letter, since
-  smart-add reads a trailing `x58` as a quantity; MAINT-83: the
-  never-stocked spec's `Napkins <id>` row now and then saved as
-  `Napkins … × 58 pcs` and its checkbox never showed),
+  (a name typed into smart-add carries no digit, since smart-add reads a
+  trailing `x58` as a quantity; MAINT-83: the never-stocked spec's
+  `Napkins <id>` row now and then saved as `Napkins … × 58 pcs` and its
+  checkbox never showed),
   with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
   one file can now run at the same time; and it sets up what it needs
   rather than counting on another spec having run first, and cleans up
@@ -11036,6 +11042,24 @@ UX-14's rapid ticks and the rollback toast.
   (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
+- **One database and naming helper (MAINT-108)**: `e2e/db.ts` is the
+  only way a spec reaches Postgres and names its rows. `withDb(run)` opens
+  a connection, runs `run` and always closes it. `unique(label)` is
+  `label` plus a `uniqueTag()`: the worker as a letter and nine random
+  letters. Letters only, so smart add never reads a quantity in a name,
+  and random rather than time-based, because smart add and the
+  inventory's duplicate check fold names that share enough letter pairs
+  and two runs' timestamps differ only in their last letters.
+  `uniqueId(prefix)` is `prefix-w<worker>-<time><random>`, so a cleanup
+  can match one worker's rows with `LIKE`. `mondayOf(day)` is the week
+  start `getWeekStart` picks. These used to be copied into each spec
+  (125 specs opened their own `pg` client, 47 with a local
+  `withClient`/`withDb`, and `unique`/`suffix` in eight variants, only
+  some with `E2E_WORKER`), so a fix to the pattern had to be made forty
+  times. A `no-restricted-syntax` rule in `eslint.config.mjs`, scoped to
+  `e2e/**/*.spec.ts`, fails a spec that calls `new Client(` or defines
+  its own `withClient`, `withDb`, `mondayOf`, `unique`, `uniqueId`,
+  `uniqueTag` or `suffix`.
 - **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
   every spec in two projects, `desktop` (Desktop Chrome, 1280×720) and
   `mobile` (Pixel 7, 412 px wide with touch; the always-on phone, since
@@ -11156,7 +11180,15 @@ UX-14's rapid ticks and the rollback toast.
   calls `waitForDialogHistory(page)` from `e2e/ui.ts` first. It waits on
   the `data-dialog-back-pending` attribute that `dialog-history.ts` keeps
   on `<html>` while that back is on its way. Without it the reload races
-  the back and comes back `net::ERR_ABORTED`. A scripted
+  the back and comes back `net::ERR_ABORTED`. An optimistic change (a
+  ticked shopping row or task) shows before its Server Action has run, so
+  a reload meant to prove it saved first waits for that action's response
+  (`page.waitForResponse` on a `next-action` POST, registered before the
+  click): `smart-add-last-quantity.spec.ts` reloaded on the put-away
+  button the tick showed at once and, on a loaded run, came back with the
+  row unticked and no button (MAINT-123; `shopping-mode.spec.ts`'s dock
+  test counts its four ticks' responses before its reload the same way).
+  A scripted
   `router.push` after a dialog closes waits the same way (the cached-page
   test in `flows.spec.ts`, MAINT-101): the back would undo the push and
   leave `dialog-history.ts` to step forward onto it again, which is not

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, LOCALES } from "./ui";
@@ -43,17 +43,13 @@ const MESSAGES = {
 
 async function seedItem(): Promise<string> {
   const id = `e2e-unit-errors-${Date.now().toString(36)}-w${E2E_WORKER}`;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
        VALUES ($1, $2, $3, 'Baking', 1, 'pcs', 0.5, now())`,
       [id, E2E_HOUSEHOLD.id, `Unit errors ${id}`],
     );
-  } finally {
-    await client.end();
-  }
+  });
   return id;
 }
 

@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { uniqueTag, withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_WORKER } from "./seed-data";
 import {
   clickRowAction,
   dismissCookieNotice,
@@ -14,35 +13,24 @@ import {
 // status badge, expiry, opened and frozen tags, a stepper, Edit and Delete,
 // and its "Also on" links look like links. Items are written straight to
 // Postgres (like item-page.spec.ts), one per test.
-const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 const PREFIX = "e2e-item-controls-";
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
-
 // Only this household's rows: the other workers' households hold theirs.
 test.afterEach(async () => {
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`DELETE FROM "ShoppingList" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${PREFIX}%`]);
     await client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE $2`, [E2E_HOUSEHOLD.id, `${PREFIX}%`]);
   });
 });
 
 async function seedItem(extra: { quantity?: number; expires?: boolean; opened?: boolean; frozen?: boolean } = {}) {
-  const tag = suffix();
+  const tag = uniqueTag();
   const item = { id: `${PREFIX}${tag}`, name: `Yoghurt ${tag}`, tag };
-  await withClient((client) =>
+  await withDb((client) =>
     client.query(
       `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "expiresAt", "openedAt", "frozenAt", "updatedAt")
        VALUES ($1, $2, $3, 'Dairy', $4, 'pcs', 0.5,
@@ -111,7 +99,7 @@ test("the shopping lists an item is on are links that look like links", async ({
   const item = await seedItem();
   const listId = `${PREFIX}list-${item.tag}`;
   const listName = `Weekend ${item.tag}`;
-  await withClient(async (client) => {
+  await withDb(async (client) => {
     await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name, status) VALUES ($1, $2, $3, 'ACTIVE')`, [
       listId,
       E2E_HOUSEHOLD.id,

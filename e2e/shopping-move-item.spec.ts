@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { format } from "@/lib/i18n/format";
+import { unique } from "./db";
 import {
   dismissCookieNotice,
   expectHydrated,
@@ -12,9 +13,6 @@ import {
 // GAP-82: a row's ⋯ "Move to list…" sends it to another open list. The
 // household holds other specs' lists and rows, so this one makes its own two
 // lists and its own item, all uniquely named, and checks only those.
-// Letters only: the smart add line reads a name ending in "x7" as "× 7".
-const unique = (label: string) =>
-  `${label} ${`${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.replace(/\d/g, (d) => "abcdefghij"[Number(d)])}`;
 const t = en.shoppingList.moveItem;
 
 async function createList(page: Page, name: string) {
