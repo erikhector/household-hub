@@ -1,13 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
+import { unique } from "./db";
 import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectRouterPatched } from "./ui";
 
 // GAP-83: picking a smart add suggestion with nothing typed in front adds
 // the amount last bought, and the suggestion shows that amount first. The
 // household holds other specs' lists and items, so this one makes its own
 // two lists and its own item, all uniquely named, and checks only those.
-// Letters only: the smart add line reads a name ending in "x7" as "× 7".
-const unique = (label: string) =>
-  `${label} ${`${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.replace(/\d/g, (d) => "abcdefghij"[Number(d)])}`;
 
 async function createList(page: Page, name: string) {
   await page.goto("/dashboard/shopping-list");

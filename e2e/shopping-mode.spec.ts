@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -20,13 +20,9 @@ const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 test.use({ serviceWorkers: "block" });
 
 async function sql(text: string, values: unknown[] = []) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(text, values);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 type SeedItem = { name: string; category?: string; note?: string; purchased?: boolean };

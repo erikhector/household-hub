@@ -1,12 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { unique } from "./db";
 import { dismissCookieNotice, clickListSetting } from "./ui";
 
 // UX-85: rename a list, and start a new list from a template or a past list.
 // Every test makes its own lists so it neither depends on nor changes the
-// seeded ones. The closing letter keeps the smart add line from reading a
-// timestamp's trailing digits as a quantity (see copy-shopping-list-text).
-const unique = (label: string) => `${label} ${Date.now().toString(36)}z`;
+// seeded ones.
 const t = en.shoppingList;
 
 test.beforeEach(async ({ context, baseURL }) => {

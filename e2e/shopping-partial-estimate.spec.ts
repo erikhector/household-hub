@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
@@ -12,13 +12,9 @@ import { dismissCookieNotice, expectNoHorizontalOverflow, gotoRevealed } from ".
 const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 async function sql(text: string, values: unknown[] = []): Promise<Record<string, unknown>[]> {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  return withDb(async (client) => {
     return (await client.query(text, values)).rows;
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 async function seedList(name: string, items: { name: string; purchased: boolean; price: number | null }[]) {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated, waitForSheetClosed } from "./ui";
@@ -38,24 +38,18 @@ test.beforeEach(async ({ page, context, baseURL }) => {
 });
 
 test.afterAll(async () => {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     for (const table of ["ShoppingList", "InventoryItem"]) {
       await client.query(`DELETE FROM "${table}" WHERE id LIKE 'e2e-ux54-%' AND "householdId" = $1`, [
         E2E_HOUSEHOLD.id,
       ]);
     }
-  } finally {
-    await client.end();
-  }
+  });
 });
 
 async function seedList(t: string, names: string[]) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
   const listId = `e2e-ux54-list-${t}`;
-  try {
+  await withDb(async (client) => {
     await client.query(`INSERT INTO "ShoppingList" (id, "householdId", name) VALUES ($1, $2, $3)`, [
       listId,
       E2E_HOUSEHOLD.id,
@@ -73,9 +67,7 @@ async function seedList(t: string, names: string[]) {
         [`e2e-ux54-item-${t}-${i}`, listId, name, `e2e-ux54-inv-${t}-${i}`],
       );
     }
-  } finally {
-    await client.end();
-  }
+  });
   return `/dashboard/shopping-list/${listId}`;
 }
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
+import { withDb } from "./db";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
@@ -15,13 +15,9 @@ const token = `e2e-${tag}-token`;
 const longName = `Extra virgin cold pressed organic olive oil from the sunny hills of southern Tuscany ${tag}`;
 
 async function sql(text: string, values: unknown[] = []) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  await withDb(async (client) => {
     await client.query(text, values);
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 async function cleanup() {
