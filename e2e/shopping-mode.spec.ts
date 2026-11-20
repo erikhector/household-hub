@@ -135,6 +135,14 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
   const fillOffset = async () => Number.parseFloat(((await acornFill.getAttribute("style")) ?? "").match(/translateY\(([\d.]+)px\)/)?.[1] ?? "NaN");
   expect(await fillOffset()).toBeCloseTo(44, 1);
 
+  // Each tick is optimistic: the dock moves on before its save lands, so
+  // the reload below that proves every tick saved first waits for all four
+  // saves to answer, or it can abort the last one (MAINT-123).
+  let saves = 0;
+  page.on("response", (response) => {
+    const request = response.request();
+    if (request.method() === "POST" && "next-action" in request.headers()) saves++;
+  });
   for (let done = 1; done <= names.length; done++) {
     const next = dock.getByRole("button", { name: /, into the cart$/ }).first();
     await expectInBottomHalf(page, next);
@@ -164,6 +172,7 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
   expect(scrolled).toBe(0);
 
   // Every tick saved.
+  await expect.poll(() => saves).toBeGreaterThanOrEqual(names.length);
   await page.reload();
   await expect(main.getByRole("button", { name: "Put everything away" })).toBeVisible();
   // UX-177: the full acorn is solid primary, so the all-done tick drawn over

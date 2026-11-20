@@ -11157,7 +11157,15 @@ UX-14's rapid ticks and the rollback toast.
   calls `waitForDialogHistory(page)` from `e2e/ui.ts` first. It waits on
   the `data-dialog-back-pending` attribute that `dialog-history.ts` keeps
   on `<html>` while that back is on its way. Without it the reload races
-  the back and comes back `net::ERR_ABORTED`. A scripted
+  the back and comes back `net::ERR_ABORTED`. An optimistic change (a
+  ticked shopping row or task) shows before its Server Action has run, so
+  a reload meant to prove it saved first waits for that action's response
+  (`page.waitForResponse` on a `next-action` POST, registered before the
+  click): `smart-add-last-quantity.spec.ts` reloaded on the put-away
+  button the tick showed at once and, on a loaded run, came back with the
+  row unticked and no button (MAINT-123; `shopping-mode.spec.ts`'s dock
+  test counts its four ticks' responses before its reload the same way).
+  A scripted
   `router.push` after a dialog closes waits the same way (the cached-page
   test in `flows.spec.ts`, MAINT-101): the back would undo the push and
   leave `dialog-history.ts` to step forward onto it again, which is not
