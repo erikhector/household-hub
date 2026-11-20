@@ -3,7 +3,7 @@
 // TZ-independent by construction — unlike budget-date-utils.ts's local-time
 // helpers.
 import { describe, expect, it } from "vitest";
-import { addDays, getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { addDays, getWeekStart, isDateKey, parseDateKey, toDateKey, weekKeyForPickedDate } from "@/app/dashboard/meal-planning/date-utils";
 
 describe("toDateKey / parseDateKey", () => {
   it("round-trips a UTC date through the yyyy-mm-dd key", () => {
@@ -96,5 +96,28 @@ describe("getWeekStart", () => {
     const withTime = new Date("2026-03-18T23:30:00.000Z");
     const start = getWeekStart(withTime);
     expect(start.toISOString()).toBe("2026-03-16T00:00:00.000Z");
+  });
+});
+
+describe("weekKeyForPickedDate", () => {
+  it("goes to the Monday of the picked date's week", () => {
+    // 2026-11-20 is a Friday.
+    expect(weekKeyForPickedDate("2026-11-20")).toBe("2026-11-16");
+    expect(weekKeyForPickedDate("2026-11-16")).toBe("2026-11-16");
+    // A Sunday belongs to the week that started six days before.
+    expect(weekKeyForPickedDate("2026-11-22")).toBe("2026-11-16");
+    // Across a year boundary.
+    expect(weekKeyForPickedDate("2027-01-01")).toBe("2026-12-28");
+  });
+
+  it("waits while the year is still being typed", () => {
+    expect(weekKeyForPickedDate("0002-11-20")).toBeNull();
+    expect(weekKeyForPickedDate("0202-11-20")).toBeNull();
+  });
+
+  it("ignores an empty or impossible value", () => {
+    expect(weekKeyForPickedDate("")).toBeNull();
+    expect(weekKeyForPickedDate("2026-02-31")).toBeNull();
+    expect(weekKeyForPickedDate("not a date")).toBeNull();
   });
 });

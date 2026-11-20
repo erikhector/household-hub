@@ -951,30 +951,6 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-### 2026-11-16 scan
-
-- [ ] **GAP-85. Jump to any week in the meal planner** (impact: low, effort: S) —
-      AnyList's December 2025 meal-plan update added jumping to a month
-      or year from the calendar header. Squirrel's planner moves one
-      week per tap of the `PeriodSwitcher` arrows
-      (`src/components/period-switcher.tsx:27`, used by
-      `src/components/meal-planning/week-planner.tsx`), so putting the
-      Christmas dinner on the plan in November, or looking back at what
-      was cooked in March, is a tap and a page load per week. Meal-plan
-      search (GAP-59) only reaches a week that already has the meal.
-      Make the planner's range label a button ("Choose week", with the
-      range as its visible text) that opens a native date field; picking
-      any date navigates to the week containing it (the page already
-      takes the week from the URL). Planner only: the budgets' month
-      switcher keeps its plain label. The button meets DESIGN.md's M
-      rules for touch targets and the date field is at least 16 px on
-      phones; "This week" stays as the way back. Labels in `en.ts` and
-      `sv.ts`.
-      Acceptance: e2e on `desktop` and `mobile` opens the planner,
-      activates "Choose week", fills a date ten weeks ahead, and sees
-      the range label show that week and its seven day cards; "This
-      week" returns to today's week.
-
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36

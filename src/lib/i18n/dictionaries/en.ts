@@ -2063,6 +2063,10 @@ export const en = {
     previousWeek: "Previous week",
     nextWeek: "Next week",
     thisWeek: "This week",
+    // GAP-85: the week range is a button that opens a date field; picking
+    // any date shows the week containing it.
+    chooseWeek: "Choose week",
+    chooseWeekDate: "Show the week of",
     morePlannerActions: "More planner actions",
     // The slot picker in the "Add a meal" dialog opened from an empty day (UX-21).
     mealSlotLabel: "Meal",
