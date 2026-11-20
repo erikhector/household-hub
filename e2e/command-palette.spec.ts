@@ -290,9 +290,38 @@ test("Add to shopping list focuses the add box of the list in use", async ({ pag
   await gotoRevealed(page, "/dashboard");
   const palette = await openPalette(page);
   await palette.getByRole("combobox", { name: "Type a command" }).fill("shopping list");
+  // MAINT-124: on the iphone project the URL still had `?add=1` 5 s after
+  // the list showed. SmartAddBar strips it in the same effect that focuses
+  // the box, with router.replace() (a bare history.replaceState on mount is
+  // overwritten by the router's own URL bookkeeping, see WelcomeToast), and
+  // the router only writes the new URL once the list's server render for it
+  // has arrived (see dialog-history.ts, MAINT-118). A cold WebKit on a
+  // loaded runner can take longer than the 5 s default for that round trip,
+  // as it did for the push to Profile (MAINT-112). So wait for the box to
+  // take focus (the effect has run), then for the replace's own request to
+  // go out (if it never does, the strip never ran and this fails here,
+  // saying so), then give the render the 20 s expectHydrated gives a cold
+  // page. Waiting longer is not a looser check: the same URL still has to
+  // arrive. The request wait is armed before Enter, since the effect can
+  // fire it before the focus check returns.
+  const NAVIGATION_TIMEOUT = 20_000;
+  const stripRequested = page.waitForRequest(
+    (request) => {
+      const url = new URL(request.url());
+      return (
+        /^\/dashboard\/shopping-list\/[^/]+$/.test(url.pathname) &&
+        url.searchParams.has("_rsc") &&
+        !url.searchParams.has("add") &&
+        request.headers()["next-router-prefetch"] === undefined
+      );
+    },
+    { timeout: NAVIGATION_TIMEOUT },
+  );
   await page.keyboard.press("Enter");
 
-  await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/?]+$/);
+  await expect(page.getByRole("combobox", { name: "Add to the list" })).toBeFocused({ timeout: NAVIGATION_TIMEOUT });
+  await stripRequested;
+  await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/?]+$/, { timeout: NAVIGATION_TIMEOUT });
   await expect(page.getByRole("combobox", { name: "Add to the list" })).toBeFocused();
 });
 
