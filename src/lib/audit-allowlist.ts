@@ -23,19 +23,7 @@ export type AllowlistEntry = {
   reason: string;
 };
 
-export const AUDIT_ALLOWLIST: AllowlistEntry[] = [
-  {
-    id: "GHSA-fc5q-39xc-vjpf",
-    expires: "2027-02-18",
-    reason:
-      "picomatch ReDoS in repeated extglobs (DEPS-10). No patched release: " +
-      "4.0.7 is the latest and the advisory covers <=4.0.7. Every production " +
-      "path is build-time tooling (@sentry/nextjs > @rollup/plugin-commonjs, " +
-      "@sentry/nextjs > @sentry/cloudflare > vite) matching globs written in " +
-      "the repo; no user input reaches it. When a fix ships, run " +
-      "`npm audit fix` (or add a picomatch `overrides` entry) and delete this.",
-  },
-];
+export const AUDIT_ALLOWLIST: AllowlistEntry[] = [];
 
 export type Advisory = { id: string; title: string; severity: string; url: string; packages: string[] };
 

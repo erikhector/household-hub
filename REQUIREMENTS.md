@@ -9051,11 +9051,16 @@ version or the notes by hand.
   An entry there is for a high advisory with no patched release to move
   to, so neither `npm audit fix` nor an `overrides` pin clears it. Each
   names the GHSA id, why shipping with it is safe, and an expiry date
-  (about three months out) from which CI fails on it again. The first is
-  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), whose latest release 4.0.7 is
-  still affected and whose only production paths are Sentry's build-time
-  Rollup and Vite tooling matching the repo's own globs. The script also
-  prints entries whose advisory is gone, to be deleted. Then
+  (about three months out) from which CI fails on it again. The first,
+  picomatch's ReDoS (GHSA-fc5q-39xc-vjpf), was deleted once npm audit
+  stopped reporting it, so the list is empty for now. The script also
+  prints entries whose advisory is gone, to be deleted. Effect's
+  `Schema.TemplateLiteral` ReDoS (GHSA-7589-6fvf-x4pw, effect ≤3.22.0)
+  did have a patched release, so it's cleared by an `overrides` entry
+  instead: `@prisma/config` pins effect 3.20.0 exactly and Prisma 7.10.1
+  is the last 7.x release, so the override lifts effect to `^3.22.5`
+  under it. Drop it once a Prisma release depends on a patched effect.
+  Then
   `npm run knip`, configured in `knip.jsonc`, fails on files nothing
   imports, on unused or unlisted dependencies, and on exports, types and
   duplicate exports no other file imports. Its framework plugins
