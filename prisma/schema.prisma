@@ -687,6 +687,12 @@ model ShoppingListItem {
   // added, never asked for at add time, so the smart add line stays one
   // quick type-and-enter. null (never "") when there's no note.
   note               String?
+  // GAP-86: "we need this today". An unticked urgent row shows an "Urgent"
+  // badge and sorts first within its aisle, on the list, in shopping mode's
+  // Next up dock and on the share page. Every tick (and a receipt marking
+  // the row bought) clears it, so a re-added or un-ticked row starts
+  // normal. Carried by a move to another list, never into a template.
+  urgent             Boolean  @default(false)
   purchased          Boolean  @default(false)
   // AUTO-9: when someone ticked this row off by hand (togglePurchasedAction
   // or the share-link toggle), cleared again when it's un-ticked. It's the

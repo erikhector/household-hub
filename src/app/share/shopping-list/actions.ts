@@ -58,6 +58,9 @@ type SharedShoppingListItem = {
   // exactly whoever ends up doing the shopping, which is often the person
   // the list was shared with.
   note: string | null;
+  // GAP-86: read-only "Urgent" badge, so the link holder in the shop sees
+  // it too.
+  urgent: boolean;
   // UX-63: the linked inventory item's category, so the share page can group
   // by aisle like the member view. null for an unlinked row.
   category: string | null;
@@ -126,6 +129,7 @@ export async function getShoppingListByShareToken(token: string): Promise<Shared
       unit: item.unit,
       purchased: item.purchased,
       note: item.note ?? null,
+      urgent: item.urgent,
       category: item.inventoryItemId ? (categoryById.get(item.inventoryItemId) ?? null) : null,
     })),
   };
@@ -194,10 +198,11 @@ export async function toggleItemViaShareTokenAction(
         where: { id: item.id },
         // AUTO-9: whoever holds the share link is often the one walking
         // the store, so their ticks teach the store order too — same
-        // set/clear as togglePurchasedAction.
+        // set/clear as togglePurchasedAction (GAP-86's urgent flag too).
         data: nextPurchased
           ? {
               purchased: true,
+              urgent: false,
               checkedOffAt: now,
               // ON_CHECK: arrived and counted now; `priceRecordedAt` only
               // when applyStockArrival below really writes a PriceHistory

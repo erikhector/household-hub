@@ -62,6 +62,7 @@ const row = {
   quantity: 2,
   unit: "l",
   note: "the organic one",
+  urgent: false,
   estimatedPrice: 30,
   addedByUserId: "user-2",
   addedAutomatically: true,
@@ -178,7 +179,7 @@ describe("moveShoppingListItemAction", () => {
   it("merges into the target's pending row in the same unit, summing the quantity and deleting the moved row", async () => {
     mocks.itemFindFirst.mockResolvedValueOnce(row);
     mocks.listFindFirst.mockResolvedValueOnce(target);
-    mocks.tx.shoppingListItem.findFirst.mockResolvedValueOnce({ id: "row-b", unit: "l" });
+    mocks.tx.shoppingListItem.findFirst.mockResolvedValueOnce({ id: "row-b", unit: "l", urgent: false });
 
     const result = await moveShoppingListItemAction("row-1", "list-b");
 
@@ -199,12 +200,42 @@ describe("moveShoppingListItemAction", () => {
         targetItemId: "row-b",
         quantity: 2,
         note: "the organic one",
+        urgent: false,
+        madeTargetUrgent: false,
         estimatedPrice: 30,
         addedByUserId: "user-2",
         addedAutomatically: true,
         sample: "sample-batch-1",
       },
     });
+  });
+
+  it("makes the target row urgent when an urgent row merges into it, and says so for the Undo (GAP-86)", async () => {
+    mocks.itemFindFirst.mockResolvedValueOnce({ ...row, urgent: true });
+    mocks.listFindFirst.mockResolvedValueOnce(target);
+    mocks.tx.shoppingListItem.findFirst.mockResolvedValueOnce({ id: "row-b", unit: "l", urgent: false });
+
+    const result = await moveShoppingListItemAction("row-1", "list-b");
+
+    expect(mocks.tx.shoppingListItem.updateMany).toHaveBeenCalledWith({
+      where: { id: "row-b", shoppingListId: "list-b", purchased: false },
+      data: { quantity: { increment: 2 }, urgent: true },
+    });
+    expect(result.merged).toMatchObject({ urgent: true, madeTargetUrgent: true });
+  });
+
+  it("leaves an already urgent target alone, so the Undo doesn't clear its own flag (GAP-86)", async () => {
+    mocks.itemFindFirst.mockResolvedValueOnce({ ...row, urgent: true });
+    mocks.listFindFirst.mockResolvedValueOnce(target);
+    mocks.tx.shoppingListItem.findFirst.mockResolvedValueOnce({ id: "row-b", unit: "l", urgent: true });
+
+    const result = await moveShoppingListItemAction("row-1", "list-b");
+
+    expect(mocks.tx.shoppingListItem.updateMany).toHaveBeenCalledWith({
+      where: { id: "row-b", shoppingListId: "list-b", purchased: false },
+      data: { quantity: { increment: 2 } },
+    });
+    expect(result.merged).toMatchObject({ urgent: true, madeTargetUrgent: false });
   });
 
   it("rolls the merge back when the target row was ticked between the read and the write", async () => {
@@ -245,6 +276,8 @@ describe("undoMergedShoppingListMoveAction", () => {
     sourceListId: "list-a",
     quantity: 2,
     note: "the organic one",
+    urgent: false,
+    madeTargetUrgent: false,
     estimatedPrice: 30,
     addedByUserId: "user-2",
     addedAutomatically: false,
@@ -282,6 +315,7 @@ describe("undoMergedShoppingListMoveAction", () => {
         unit: "l",
         quantity: 2,
         note: "the organic one",
+        urgent: false,
         estimatedPrice: 30,
         addedByUserId: "user-2",
         addedAutomatically: false,
@@ -290,6 +324,22 @@ describe("undoMergedShoppingListMoveAction", () => {
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/shopping-list/list-a");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/shopping-list/list-b");
+  });
+
+  it("recreates an urgent row as urgent and takes back the urgency the merge lent the target (GAP-86)", async () => {
+    mocks.listFindFirst.mockResolvedValueOnce({ id: "list-a" });
+    mocks.itemFindFirst.mockResolvedValueOnce(targetRow);
+    mocks.memberFindFirst.mockResolvedValueOnce({ userId: "user-2" });
+
+    await undoMergedShoppingListMoveAction({ ...undo, urgent: true, madeTargetUrgent: true });
+
+    expect(mocks.tx.shoppingListItem.updateMany).toHaveBeenCalledWith({
+      where: { id: "row-b", purchased: false, quantity: { gt: 2 } },
+      data: { quantity: { decrement: 2 }, urgent: false },
+    });
+    expect(mocks.tx.shoppingListItem.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ urgent: true }),
+    });
   });
 
   it("recreates an auto-added sample row as one, so AUTO-8's undo and Clear sample data still find it", async () => {
