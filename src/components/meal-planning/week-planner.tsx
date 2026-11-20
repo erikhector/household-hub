@@ -27,6 +27,7 @@ import type { PlanLeftoversRequest } from "@/components/meal-planning/mark-cooke
 import { MealPlanSearch } from "@/components/meal-planning/meal-plan-search";
 import { BulkMealBar } from "@/components/meal-planning/bulk-meal-bar";
 import { AddMealSlot } from "@/components/meal-planning/add-meal-slot";
+import { WeekJump } from "@/components/meal-planning/week-jump";
 import { WeekDayCard } from "@/components/meal-planning/week-day-card";
 import { WeekPicksDialogs } from "@/components/meal-planning/week-picks-dialogs";
 import { useMealSelection } from "@/components/meal-planning/use-meal-selection";
@@ -181,6 +182,7 @@ export function WeekPlanner({
         <PeriodSwitcher
           className="min-w-0 flex-1"
           label={weekRange}
+          labelControl={<WeekJump label={weekRange} weekStartKey={weekStartKey} dict={dict} />}
           prevHref={`/dashboard/meal-planning?week=${prevWeekKey}`}
           nextHref={`/dashboard/meal-planning?week=${nextWeekKey}`}
           currentHref="/dashboard/meal-planning"

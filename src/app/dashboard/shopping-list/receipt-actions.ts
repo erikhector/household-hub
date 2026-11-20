@@ -159,6 +159,8 @@ export async function applyReceiptScanAction(
           data: {
             estimatedPrice: convertedPrice,
             purchased: true,
+            // GAP-86: bought, so no longer urgent (as a tick clears it).
+            urgent: false,
             // Whoever applied the receipt gets the put-away reminder for rows
             // nobody ticked by hand.
             ...(deferStock && !item.purchased ? { checkedOffByUserId: userId } : {}),

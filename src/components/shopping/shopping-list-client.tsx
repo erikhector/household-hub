@@ -1040,6 +1040,7 @@ export function ShoppingListClient({
           next={canFinishFromDock ? null : nextUpItems}
           progress={progress}
           dict={dict.shoppingMode}
+          urgentLabel={dict.urgentBadge}
           onTick={toggleItem}
           finish={
             canFinishFromDock

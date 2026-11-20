@@ -27,6 +27,11 @@ export type ShoppingListItemRow = {
   // GAP-5: optional free-text hint, set from ShoppingItemFormDialog's edit
   // mode. null when there isn't one (never "").
   note: string | null;
+  // GAP-86: flagged "we need this today" from the row's ⋯ or the edit
+  // dialog. An unticked urgent row shows an "Urgent" badge and leads its
+  // aisle (groupPendingItemsByCategory). Always false on a ticked row: the
+  // tick clears it.
+  urgent: boolean;
   // The linked InventoryItem's barcode (AUTO-6), null without a link or a
   // stored code. Only ReceiptScanDialog reads it, to match a receipt line
   // that prints an EAN exactly (AUTO-11).

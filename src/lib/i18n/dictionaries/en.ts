@@ -53,6 +53,8 @@ export const en = {
     moveItemPurchased: "A ticked-off item can't be moved",
     moveUnitMismatch: "{name} is already on {list} in another unit",
     moveUndoStale: "That list has changed, so the move can't be undone",
+    // GAP-86
+    urgentItemPurchased: "A ticked-off item can't be marked urgent",
     shareLinkNotFound: "Share link not found",
     shareLinkInvalid: "This share link is invalid or has been revoked",
     linkItemToPantryFirst: "Link this item to your pantry first",
@@ -933,6 +935,10 @@ export const en = {
       movedToast: "Moved {name} to {list}",
       mergedToast: "Merged {name} into {list}",
     },
+    // GAP-86: the row's ⋯ toggle and the badge an unticked urgent row shows.
+    markUrgent: "Mark urgent",
+    unmarkUrgent: "Not urgent",
+    urgentBadge: "Urgent",
     // AUTO-4: the header's running estimate and each row's tappable "≈
     // price" / inline correction input.
     estimatedTotal: "≈ {amount} still to buy ({priced} of {total} priced)",
@@ -1019,6 +1025,8 @@ export const en = {
       // {item} is the row's own "Milk × 1 l", first so the button's name
       // starts with what it shows (WCAG 2.5.3, label in name).
       tickAriaLabel: "{item}, into the cart",
+      // GAP-86: an urgent row's dock button says so too, not only its badge.
+      tickUrgentAriaLabel: "{item}, urgent, into the cart",
       moreHere: { one: "+{count} more in this aisle", other: "+{count} more in this aisle" },
       inCart: "In the cart",
       waitingToPutAway: {
@@ -1169,6 +1177,9 @@ export const en = {
       unitPlaceholder: "e.g. pcs",
       noteLabel: "Note (optional)",
       notePlaceholder: "e.g. get the ripe ones, any brand is fine",
+      // GAP-86
+      urgentLabel: "Urgent",
+      urgentHint: "Shown first in its aisle, so whoever's at the store sees it.",
       comboboxNoMatches: "No matches yet — keep typing to add a new one.",
       comboboxAddNew: 'Use "{value}"',
       comboboxClear: "Clear {field}",
@@ -2063,6 +2074,10 @@ export const en = {
     previousWeek: "Previous week",
     nextWeek: "Next week",
     thisWeek: "This week",
+    // GAP-85: the week range is a button that opens a date field; picking
+    // any date shows the week containing it.
+    chooseWeek: "Choose week",
+    chooseWeekDate: "Show the week of",
     morePlannerActions: "More planner actions",
     // The slot picker in the "Add a meal" dialog opened from an empty day (UX-21).
     mealSlotLabel: "Meal",
@@ -4553,6 +4568,8 @@ export const en = {
     allDoneTitle: "All done",
     allDoneDescription: "Everything on this list is ticked off.",
     footerNote: "Shared from a Squirrel household.",
+    // GAP-86: read-only, same word as the member view's badge.
+    urgentBadge: "Urgent",
     footerLink: "About Squirrel",
     rateLimited: "Too many changes to this list. Please wait a while and try again.",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",

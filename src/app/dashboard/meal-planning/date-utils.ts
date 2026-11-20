@@ -34,3 +34,19 @@ export function getWeekStart(date: Date): Date {
   monday.setUTCDate(monday.getUTCDate() - daysSinceMonday);
   return monday;
 }
+
+/**
+ * GAP-85: the `?week=` key for a date picked in the planner's "Choose week"
+ * field, or null while there's nothing to go to yet. The field is a native
+ * `<input type="date">`, and desktop Chrome fires `change` on every digit
+ * typed into its year segment (2 → year 0002, 20 → 0020, …), so a year
+ * before 1000 means the user is still typing, not that they want the
+ * Roman empire's meal plan. An empty or impossible value is also null.
+ */
+export function weekKeyForPickedDate(value: string): string | null {
+  if (!isDateKey(value) || Number(value.slice(0, 4)) < 1000) return null;
+  const date = parseDateKey(value);
+  // "2026-02-31" isn't a day; Date would roll it into March.
+  if (toDateKey(date) !== value) return null;
+  return toDateKey(getWeekStart(date));
+}

@@ -213,11 +213,12 @@ const updateItemSchema = z.object({
     .trim()
     .max(SHOPPING_ITEM_NOTE_MAX_LENGTH, v("noteTooLong"))
     .optional(),
+  urgent: z.boolean().optional(),
 });
 
 /**
- * Edits a shopping-list item's own fields (name/quantity/unit, and GAP-5's
- * optional note). Previously
+ * Edits a shopping-list item's own fields (name/quantity/unit, GAP-5's
+ * optional note and GAP-86's urgent flag). Previously
  * the only way to fix a typo or change a quantity was delete-and-re-add,
  * which lost addedAutomatically/estimatedPrice/the inventory link in the
  * process. Scoped the same way as deleteShoppingListItemAction: household
@@ -226,13 +227,13 @@ const updateItemSchema = z.object({
  */
 export async function updateShoppingListItemAction(
   itemId: string,
-  data: { name: string; quantity: number; unit: string; note?: string },
+  data: { name: string; quantity: number; unit: string; note?: string; urgent?: boolean },
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
-    select: { id: true, shoppingListId: true },
+    select: { id: true, shoppingListId: true, purchased: true },
   });
   if (!item) return await fail("itemNotFound");
 
@@ -253,8 +254,44 @@ export async function updateShoppingListItemAction(
         // accident. A blank or whitespace-only note clears it to null
         // rather than storing "", so "has a note" is just `note != null`.
         ...(parsed.data.note !== undefined ? { note: parsed.data.note || null } : {}),
+        // GAP-86: same "left out means don't touch it" rule. A ticked row
+        // is never urgent (the tick cleared it, and the dialog hides the
+        // box for one), so saving it can't set the flag again.
+        ...(parsed.data.urgent !== undefined ? { urgent: parsed.data.urgent && !item.purchased } : {}),
       },
     });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  return {};
+}
+
+/**
+ * GAP-86: the row's ⋯ "Mark urgent" / "Not urgent". Household-scoped through
+ * the item's list like the edit above. Only an unticked row can be marked:
+ * urgency is "whoever is at the store, get this first", which a row already
+ * in the cart has answered, and the tick clears it (togglePurchasedAction).
+ * Clearing is always allowed. The conditional write re-checks `purchased`,
+ * so a tick landing between the read and the write wins.
+ */
+export async function setShoppingListItemUrgentAction(itemId: string, urgent: boolean): Promise<ActionState> {
+  const { household } = await requireHousehold();
+  if (typeof urgent !== "boolean") return await fail("invalidInput");
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: { id: true, shoppingListId: true },
+  });
+  if (!item) return await fail("itemNotFound");
+
+  try {
+    const { count } = await prisma.shoppingListItem.updateMany({
+      where: { id: item.id, ...(urgent ? { purchased: false } : {}) },
+      data: { urgent },
+    });
+    if (count === 0) return await fail("urgentItemPurchased");
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -671,6 +708,11 @@ export type MergedMove = {
   note: string | null;
   estimatedPrice: number | null;
   addedByUserId: string | null;
+  /** GAP-86: the moved row was urgent, so its Undo recreates it urgent. */
+  urgent: boolean;
+  /** GAP-86: the merge made the target row urgent (it wasn't before), so
+   *  the Undo clears that again. */
+  madeTargetUrgent: boolean;
   /** The deleted row's AUTO-8 flag and UX-136 sample batch, so the Undo's
    *  row is still found by undoAutoAddedItemsAction and "Clear sample data". */
   addedAutomatically: boolean;
@@ -689,13 +731,16 @@ const moveIdsSchema = z.object({ itemId: z.string().min(1), targetListId: z.stri
  *
  * Two outcomes, each in one transaction:
  * - **Plain move**: only `shoppingListId` changes, so note, price,
- *   `addedByUserId` and the inventory link travel with the row. Its Undo is
+ *   `addedByUserId`, the urgent flag (GAP-86) and the inventory link travel
+ *   with the row. Its Undo is
  *   this same action with the source list as the target.
  * - **Merge**: the row's inventory item is already pending on the target.
  *   Two pending rows for one item is what UX-80's carry-over avoids (it
  *   leaves such a row behind); here the user asked for the move, so in the
  *   same unit the quantity is added to the target's row, which keeps its own
- *   note, price and author, and the moved row is deleted. What it carried
+ *   note, price and author, and the moved row is deleted. An urgent moved
+ *   row makes the target urgent (GAP-86): someone said it's needed today,
+ *   and merging mustn't quietly drop that. What it carried
  *   comes back as `merged` for undoMergedShoppingListMoveAction. In another
  *   unit the quantities can't be summed, so nothing changes and it says so.
  *
@@ -721,6 +766,7 @@ export async function moveShoppingListItemAction(
       quantity: true,
       unit: true,
       note: true,
+      urgent: true,
       estimatedPrice: true,
       addedByUserId: true,
       addedAutomatically: true,
@@ -745,7 +791,7 @@ export async function moveShoppingListItemAction(
         ? await tx.shoppingListItem.findFirst({
             where: { shoppingListId: target.id, inventoryItemId: item.inventoryItemId, purchased: false },
             orderBy: { createdAt: "asc" },
-            select: { id: true, unit: true },
+            select: { id: true, unit: true, urgent: true },
           })
         : null;
       if (pendingThere && pendingThere.unit !== item.unit) return "unitMismatch";
@@ -768,15 +814,18 @@ export async function moveShoppingListItemAction(
       }
       const { count } = await tx.shoppingListItem.deleteMany({ where: stillPending });
       if (count !== 1) return "gone";
+      const madeTargetUrgent = item.urgent && !pendingThere.urgent;
       const { count: added } = await tx.shoppingListItem.updateMany({
         where: { id: pendingThere.id, shoppingListId: target.id, purchased: false },
-        data: { quantity: { increment: item.quantity } },
+        data: { quantity: { increment: item.quantity }, ...(madeTargetUrgent ? { urgent: true } : {}) },
       });
       if (added !== 1) throw new MoveRaced();
       return {
         targetItemId: pendingThere.id,
         quantity: item.quantity,
         note: item.note,
+        urgent: item.urgent,
+        madeTargetUrgent,
         estimatedPrice: item.estimatedPrice,
         addedByUserId: item.addedByUserId,
         addedAutomatically: item.addedAutomatically,
@@ -810,6 +859,8 @@ const undoMergedMoveSchema = z.object({
   note: z.string().trim().max(SHOPPING_ITEM_NOTE_MAX_LENGTH, v("noteTooLong")).nullable(),
   estimatedPrice: updateItemPriceSchema.shape.price.nullable(),
   addedByUserId: z.string().min(1).nullable(),
+  urgent: z.boolean(),
+  madeTargetUrgent: z.boolean(),
   // Echoed back so the recreated row keeps what it was (see MergedMove).
   // Within the session's own household either value only decides which of
   // its own clean-ups (AUTO-8's undo, "Clear sample data") the row joins.
@@ -835,8 +886,18 @@ export async function undoMergedShoppingListMoveAction(
 
   const parsed = undoMergedMoveSchema.safeParse(data);
   if (!parsed.success) return await zodFail(parsed.error);
-  const { targetItemId, sourceListId, quantity, note, estimatedPrice, addedByUserId, addedAutomatically, sample } =
-    parsed.data;
+  const {
+    targetItemId,
+    sourceListId,
+    quantity,
+    note,
+    urgent,
+    madeTargetUrgent,
+    estimatedPrice,
+    addedByUserId,
+    addedAutomatically,
+    sample,
+  } = parsed.data;
 
   const [source, targetRow, author] = await Promise.all([
     prisma.shoppingList.findFirst({
@@ -864,7 +925,8 @@ export async function undoMergedShoppingListMoveAction(
       // so a tick landing in between can't be undercut.
       const { count } = await tx.shoppingListItem.updateMany({
         where: { id: targetRow.id, purchased: false, quantity: { gt: quantity } },
-        data: { quantity: { decrement: quantity } },
+        // GAP-86: and the urgency the merge lent it goes back with the row.
+        data: { quantity: { decrement: quantity }, ...(madeTargetUrgent ? { urgent: false } : {}) },
       });
       if (count !== 1) return false;
       await tx.shoppingListItem.create({
@@ -875,6 +937,7 @@ export async function undoMergedShoppingListMoveAction(
           unit: targetRow.unit,
           quantity,
           note: note || null,
+          urgent,
           estimatedPrice,
           addedByUserId: author?.userId ?? null,
           addedAutomatically,

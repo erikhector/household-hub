@@ -46,6 +46,8 @@ export const sv = {
     moveItemPurchased: "En avbockad vara kan inte flyttas",
     moveUnitMismatch: "{name} finns redan på {list} i en annan enhet",
     moveUndoStale: "Listan har ändrats, så flytten kan inte ångras",
+    // GAP-86
+    urgentItemPurchased: "En avbockad vara kan inte markeras som brådskande",
     shareLinkNotFound: "Delningslänken hittades inte",
     shareLinkInvalid: "Delningslänken är ogiltig eller har återkallats",
     linkItemToPantryFirst: "Koppla varan till ditt lager först",
@@ -871,6 +873,10 @@ export const sv = {
       movedToast: "Flyttade {name} till {list}",
       mergedToast: "Slog ihop {name} med raden på {list}",
     },
+    // GAP-86: radens ⋯-växel och märket en obockad brådskande rad visar.
+    markUrgent: "Markera som brådskande",
+    unmarkUrgent: "Inte brådskande",
+    urgentBadge: "Brådskande",
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
     estimatedTotal: "≈ {amount} kvar att köpa ({priced} av {total} med pris)",
@@ -945,6 +951,8 @@ export const sv = {
       nextUp: "Näst på tur",
       finishTrip: "Avsluta handlingen",
       tickAriaLabel: "{item}, i vagnen",
+      // GAP-86: en brådskande rads dockknapp säger det också, inte bara märket.
+      tickUrgentAriaLabel: "{item}, brådskande, i vagnen",
       moreHere: { one: "+{count} till i den här avdelningen", other: "+{count} till i den här avdelningen" },
       inCart: "I vagnen",
       waitingToPutAway: {
@@ -1087,6 +1095,9 @@ export const sv = {
       unitPlaceholder: "t.ex. st",
       noteLabel: "Anteckning (valfritt)",
       notePlaceholder: "t.ex. ta de mogna, vilket märke som helst",
+      // GAP-86
+      urgentLabel: "Brådskande",
+      urgentHint: "Visas först i sin gång, så att den som handlar ser den.",
       comboboxNoMatches: "Inga träffar än — fortsätt skriva för att lägga till en ny.",
       comboboxAddNew: 'Använd "{value}"',
       comboboxClear: "Rensa {field}",
@@ -1944,6 +1955,8 @@ export const sv = {
     previousWeek: "Föregående vecka",
     nextWeek: "Nästa vecka",
     thisWeek: "Denna vecka",
+    chooseWeek: "Välj vecka",
+    chooseWeekDate: "Visa veckan med datumet",
     morePlannerActions: "Fler planeringsåtgärder",
     mealSlotLabel: "Måltid",
     copyLastWeek: "Kopiera förra veckan",
@@ -4298,6 +4311,8 @@ export const sv = {
     allDoneTitle: "Allt klart",
     allDoneDescription: "Allt på listan är avbockat.",
     footerNote: "Delad från ett Squirrel-hushåll.",
+    // GAP-86: bara visning, samma ord som medlemsvyns märke.
+    urgentBadge: "Brådskande",
     footerLink: "Om Squirrel",
     rateLimited: "För många ändringar i listan. Vänta en stund och försök igen.",
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",

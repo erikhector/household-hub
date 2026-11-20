@@ -1592,6 +1592,34 @@ every lookup the old one did.
   also shows on the public share page (`getShoppingListByShareToken` returns
   it, since the person the list is shared with is often the one shopping)
   and is the last column of the list's CSV export (see "Data export (CSV)").
+- **Urgent items (GAP-86)** — `ShoppingListItem.urgent` (`Boolean`,
+  default `false`, migration `20261120175219_shopping_item_urgent`) flags
+  "we need this today", so whoever is at the store sees it before the
+  week's staples. Two ways to set it, both click actions household-scoped
+  through the item's list: the row's ⋯ menu ("Mark urgent" / "Not
+  urgent", `setShoppingListItemUrgentAction`), and an "Urgent" checkbox
+  under the note in the row's edit dialog (`updateShoppingListItemAction`'s
+  optional `urgent`; left out keeps the flag). Only an unticked row can be
+  marked: the action's write re-checks `purchased: false` and otherwise
+  answers "A ticked-off item can't be marked urgent", the edit dialog hides
+  the box on a ticked row, and the ⋯ doesn't offer it there. Because the ⋯
+  now always has this action, it shows on every unbought row at every
+  width (see "Swipe row actions"). An unticked urgent row shows an
+  "Urgent" badge (`attention` tint, the word itself, never colour alone)
+  inside its label, so a screen reader hears it with the name, and sorts
+  first within its aisle: `groupPendingItemsByCategory` stable-sorts urgent
+  rows to the top of each group without moving the group, so the list, the
+  Next up dock (whose button then reads "{item}, urgent, into the cart"),
+  the printed list and the share page all follow. Every way a row gets
+  bought clears the flag in the same write: a tick (member or share link)
+  and a receipt marking it purchased, so an un-tick or a later re-add
+  starts normal. "Move to list…" carries it (a plain move changes only the
+  list; a merge makes the target row urgent and its Undo takes that back),
+  as does completing a list with carry-over. Templates and "Start from"
+  copies don't (`ShoppingListTemplateItem` has no such column), since a
+  template is a standing list, not today's. The public share page shows
+  the badge read-only (`getShoppingListByShareToken` returns `urgent`). No
+  notification: the bell is for real problems.
 - **Always-on default list (AUTO-8)** — every household has one
   `ACTIVE` list flagged `ShoppingList.isDefault`, named "Next shop" /
   "Att handla" in the locale of whoever caused it to exist, and restocking
@@ -5426,7 +5454,8 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   an empty week is 7 buttons and a week of dinners isn't 21 "Add meal"
   rows on a phone (DESIGN.md M6). The controls are one row: the shared
   `PeriodSwitcher` (UX-53, as the budgets' month switcher: `‹  Oct 19 – 25  ›`
-  with "This week" under the range only when another week is shown) and a ⋯ menu ("More
+  with "This week" under the range only when another week is shown; see
+  "Choose week" below) and a ⋯ menu ("More
   planner actions") holding "Copy last week" (empty week only), "Fill
   empty days" and "Add missing ingredients to shopping list" (the week's
   main shopping-list action is the bottom "Add N missing" button, UX-91,
@@ -5446,6 +5475,26 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   the first paint (that kept /meal-planning over the UX-42 CLS budget).
   `e2e/meal-planner-empty-slots.spec.ts` and
   `e2e/meal-planner-rows.spec.ts` cover it.
+- **Choose week (GAP-85)**: the week range in the switcher is a button
+  ("Choose week: Nov 16 – 22, 2026" to a screen reader, the range alone
+  as its visible text, with a calendar icon), so a far-off week is one
+  pick rather than a page load per arrow tap. It opens a labelled native
+  date field ("Show the week of", starting on the week shown) under the
+  range; on a touch screen the platform's picker opens straight away
+  (`showPicker`). Picking any date navigates to `?week=<its Monday>`
+  (`weekKeyForPickedDate` in `date-utils.ts`), with a spinner on the
+  button until the week renders, and closes the field. A date typed or
+  arrowed in with the keyboard waits for Enter (or for focus leaving the
+  field): the field starts on a whole date, so desktop Chrome fires
+  `change` on every segment edit, and going on the first would jump to
+  January on the "1" of "12". A `change` with no editing key before it
+  (the picker, Alt+↓'s popup) still goes at once. A year under 1000 is
+  ignored too (2 → year 0002). Escape or the button again closes the
+  field without moving; "This week" stays the way back. Planner only
+  (`PeriodSwitcher`'s optional `labelControl`): the budgets' month
+  label stays plain text. The button is at least 44 px tall on phones
+  and the field 16 px (DESIGN.md M3, M4).
+  `e2e/meal-planner-choose-week.spec.ts` covers it.
 - **Meal rows and their sheet**: each planned meal is one tappable row
   (`MealEntryRow`): the slot, the name and portions, a "Prepped" badge
   (GAP-49) and a "Cooked" tick with the word, and a chevron. Tapping it
@@ -10040,9 +10089,9 @@ Todoist-style. Built as one shared wrapper,
   own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
   `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
   `sm` up the icons show as before, and the ⋯ is hidden unless the row
-  also offers "Move to list…" (GAP-82, below), which has no icon of its
-  own: then it shows at every width, between the edit and delete icons, so
-  delete stays last. Task rows have no ⋯ at all (UX-106):
+  also offers "Move to list…" (GAP-82, below) or "Mark urgent" (GAP-86, on
+  every unbought row), which have no icon of their own: then it shows at
+  every width, between the edit and delete icons, so delete stays last. Task rows have no ⋯ at all (UX-106):
   the edit sheet has a Delete button instead.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
@@ -11180,7 +11229,12 @@ UX-14's rapid ticks and the rollback toast.
   cold WebKit on a loaded runner can take longer than 5 s to get, so the
   same test first waits for the push's RSC request (a push that never
   goes out fails there, by name) and then for the new page's heading
-  with 20 s, and only then checks the URL (MAINT-112). A CSS
+  with 20 s, and only then checks the URL (MAINT-112). A page that
+  strips a hand-off query (the palette's `?add=1`) does it with
+  `router.replace()`, which also writes the URL only once that server
+  render arrives, so the palette's "Add to shopping list" test waits for
+  the add box's focus, then for the replace's RSC request, then for the
+  stripped URL with the same 20 s (MAINT-124). A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing

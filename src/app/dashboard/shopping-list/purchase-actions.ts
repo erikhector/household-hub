@@ -62,10 +62,13 @@ export async function togglePurchasedAction(
         // order costs no extra write per tap. Un-ticking clears it, so an
         // accidental tick never leaves a false step in the sequence, and a
         // re-tick later records when it was actually picked up. Who ticked
-        // it rides along so the put-away reminder reaches them.
+        // it rides along so the put-away reminder reaches them. GAP-86:
+        // the tick answers "we need this today", so it clears the urgent
+        // flag and an un-tick or a later re-add starts normal.
         data: nextPurchased
           ? {
               purchased: true,
+              urgent: false,
               checkedOffAt: now,
               checkedOffByUserId: userId,
               // ON_CHECK: arrived and counted now; `priceRecordedAt` only

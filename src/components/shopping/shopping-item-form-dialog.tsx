@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +41,8 @@ type EditableShoppingItem = {
   unit: string;
   inventoryItemId: string | null;
   note: string | null;
+  urgent: boolean;
+  purchased: boolean;
 };
 
 type ShoppingListDict = Dictionary["shoppingList"];
@@ -168,6 +171,9 @@ export function ShoppingItemFormDialog({
   // "+" quick-add and the smart add line are about getting the item on the
   // list fast; a note is added afterward from here, on the row.
   const [note, setNote] = useState(item?.note ?? "");
+  // GAP-86: edit mode only too, and only for an unticked row (a ticked one
+  // is in the cart, and the tick cleared its flag).
+  const [urgent, setUrgent] = useState(item?.urgent ?? false);
   const [error, setError] = useState<string | null>(null);
   const [editPending, startTransition] = useTransition();
 
@@ -203,6 +209,7 @@ export function ShoppingItemFormDialog({
     setQuantity(String(item.quantity));
     setUnit(item.unit);
     setNote(item.note ?? "");
+    setUrgent(item.urgent);
     setLinkMode(item.inventoryItemId ? "linked" : inventoryItems.length > 0 ? "existing" : "new");
     setSelectedId(item.inventoryItemId ?? orderedItems[0]?.id ?? "");
     setNewCategory("");
@@ -220,6 +227,8 @@ export function ShoppingItemFormDialog({
         // Always sent (possibly as ""), since this dialog is the one place
         // a note is edited — "" is what clears it server-side.
         note,
+        // GAP-86: left out for a ticked row, which has no box for it.
+        ...(item.purchased ? {} : { urgent }),
       });
       if (fieldsResult.error) {
         setError(fieldsResult.error);
@@ -400,6 +409,25 @@ export function ShoppingItemFormDialog({
                     placeholder={dict.editItem.notePlaceholder}
                   />
                 </div>
+                {/* GAP-86: beside the note, the other hint for whoever is at
+                    the store. The whole label is the 44 px tap target (M3). */}
+                {!item.purchased && (
+                  <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1">
+                    <Checkbox
+                      name="urgent"
+                      className="mt-0.5"
+                      checked={urgent}
+                      onChange={(e) => setUrgent(e.target.checked)}
+                      aria-describedby="edit-item-urgent-hint"
+                    />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-sm font-medium">{dict.editItem.urgentLabel}</span>
+                      <span id="edit-item-urgent-hint" className="text-xs text-muted-foreground">
+                        {dict.editItem.urgentHint}
+                      </span>
+                    </span>
+                  </label>
+                )}
 
                 <div className="flex flex-col gap-2 rounded-md border p-3">
                   <Label>{dict.editItem.linkSectionLabel}</Label>

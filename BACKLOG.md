@@ -270,6 +270,11 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
+- [ ] **MAINT-124. Flaky: the URL still has `?add=1` 5 s after the palette's "Add to shopping list" on iphone** (low, S) —
+      `e2e/command-palette.spec.ts:288` ("Add to shopping list focuses the add box of the list in use"), `iphone` project (WebKit). First sighting: **Nightly e2e** run 44715652293 (job 136218234858) on `next` at 08ea77d, 2026-11-20: failed its first attempt and passed on retry #1. Desktop and mobile passed first time there, in the release PR #1642 shards on d6e6db7 and in a local `ci:local` on the same commit. Failing step: `:295`, `expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/?]+$/)` received `…/dashboard/shopping-list/<id>?add=1` after the 5000 ms timeout, so on WebKit the page reached the list but the `?add=1` hand-off query wasn't stripped (yet). Start by checking how the shopping-list page consumes `add=1` (focus, then `router.replace` without the query): whether WebKit's replace is slow on a cold route or the strip never runs when the box is focused before hydration. If the strip can legitimately land late, wait on the add box being focused first and then on the URL with a timeout that fits; if it never runs, fix it in the app.
+      Fix in flight: the PR from `autopilot/maint-124-palette-add-query-flake` (no WebKit where it was built: the proxy blocks Playwright's WebKit download) waits for the add box's focus, then for the `router.replace()` strip's own RSC request, then for the stripped URL with 20 s. The strip is in the same effect as the focus and the router writes the URL only once the list's server render arrives, so a cold WebKit can legitimately take over 5 s. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/command-palette.spec.ts:288` still fails there at the new request wait, the strip never went out: look at SmartAddBar's effect and the palette dialog's history hand-off in the app.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs list `[iphone] › e2e/command-palette.spec.ts:288` passed on the first attempt, not `flaky`).
 
 ### UX (2026-09-26 scout)
 
@@ -928,59 +933,6 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
-
-### 2026-11-16 scan
-
-- [ ] **GAP-85. Jump to any week in the meal planner** (impact: low, effort: S) —
-      AnyList's December 2025 meal-plan update added jumping to a month
-      or year from the calendar header. Squirrel's planner moves one
-      week per tap of the `PeriodSwitcher` arrows
-      (`src/components/period-switcher.tsx:27`, used by
-      `src/components/meal-planning/week-planner.tsx`), so putting the
-      Christmas dinner on the plan in November, or looking back at what
-      was cooked in March, is a tap and a page load per week. Meal-plan
-      search (GAP-59) only reaches a week that already has the meal.
-      Make the planner's range label a button ("Choose week", with the
-      range as its visible text) that opens a native date field; picking
-      any date navigates to the week containing it (the page already
-      takes the week from the URL). Planner only: the budgets' month
-      switcher keeps its plain label. The button meets DESIGN.md's M
-      rules for touch targets and the date field is at least 16 px on
-      phones; "This week" stays as the way back. Labels in `en.ts` and
-      `sv.ts`.
-      Acceptance: e2e on `desktop` and `mobile` opens the planner,
-      activates "Choose week", fills a date ten weeks ahead, and sees
-      the range label show that week and its seven day cards; "This
-      week" returns to today's week.
-
-### 2026-11-20 scan
-
-- [ ] **GAP-86. Mark a shopping-list item urgent** (impact: med, effort: M) —
-      Bring!'s item labels let a member flag an item as urgent, so
-      whoever is at the store sees "we need this today" before the
-      rest. NerdWallet's 2026 roundup names Bring! the best overall
-      list app. Squirrel's rows carry only a free-text note (GAP-5,
-      `src/components/shopping/shopping-row.tsx:328`), which has no
-      visual weight and doesn't change the order, so "nappies, today"
-      sits mid-list between the week's staples in shopping mode
-      (`src/components/shopping/shopping-mode.tsx`). Add
-      `ShoppingListItem.urgent Boolean @default(false)` (Phase 2
-      migration). The edit form (`shopping-item-form-dialog.tsx`) gets
-      an "Urgent" switch next to the note, and the row's actions get a
-      "Mark urgent"/"Not urgent" toggle. Both are click actions scoped
-      by `requireHousehold()` through the item's list. An unticked
-      urgent item shows a small labelled badge ("Urgent", not colour
-      alone) and sorts first within its section in the list and in
-      shopping mode. Ticking it off clears the flag, so a re-add starts
-      normal. It is carried by "Move to list" and kept out of templates.
-      The public share page shows the badge read-only. No
-      notification: Guardrails keep the bell for real problems. Labels
-      in `en.ts` and `sv.ts`.
-      Acceptance: e2e on `desktop` and `mobile` adds two items to a
-      section, marks the second urgent, reloads, and sees it first in
-      that section with the "Urgent" badge, both on the list and in
-      shopping mode; ticking it removes the badge, and unticking shows
-      the item without it.
 
 ## Needs a decision before building
 
