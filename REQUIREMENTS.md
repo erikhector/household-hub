@@ -5426,7 +5426,8 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   an empty week is 7 buttons and a week of dinners isn't 21 "Add meal"
   rows on a phone (DESIGN.md M6). The controls are one row: the shared
   `PeriodSwitcher` (UX-53, as the budgets' month switcher: `‹  Oct 19 – 25  ›`
-  with "This week" under the range only when another week is shown) and a ⋯ menu ("More
+  with "This week" under the range only when another week is shown; see
+  "Choose week" below) and a ⋯ menu ("More
   planner actions") holding "Copy last week" (empty week only), "Fill
   empty days" and "Add missing ingredients to shopping list" (the week's
   main shopping-list action is the bottom "Add N missing" button, UX-91,
@@ -5446,6 +5447,26 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   the first paint (that kept /meal-planning over the UX-42 CLS budget).
   `e2e/meal-planner-empty-slots.spec.ts` and
   `e2e/meal-planner-rows.spec.ts` cover it.
+- **Choose week (GAP-85)**: the week range in the switcher is a button
+  ("Choose week: Nov 16 – 22, 2026" to a screen reader, the range alone
+  as its visible text, with a calendar icon), so a far-off week is one
+  pick rather than a page load per arrow tap. It opens a labelled native
+  date field ("Show the week of", starting on the week shown) under the
+  range; on a touch screen the platform's picker opens straight away
+  (`showPicker`). Picking any date navigates to `?week=<its Monday>`
+  (`weekKeyForPickedDate` in `date-utils.ts`), with a spinner on the
+  button until the week renders, and closes the field. A date typed or
+  arrowed in with the keyboard waits for Enter (or for focus leaving the
+  field): the field starts on a whole date, so desktop Chrome fires
+  `change` on every segment edit, and going on the first would jump to
+  January on the "1" of "12". A `change` with no editing key before it
+  (the picker, Alt+↓'s popup) still goes at once. A year under 1000 is
+  ignored too (2 → year 0002). Escape or the button again closes the
+  field without moving; "This week" stays the way back. Planner only
+  (`PeriodSwitcher`'s optional `labelControl`): the budgets' month
+  label stays plain text. The button is at least 44 px tall on phones
+  and the field 16 px (DESIGN.md M3, M4).
+  `e2e/meal-planner-choose-week.spec.ts` covers it.
 - **Meal rows and their sheet**: each planned meal is one tappable row
   (`MealEntryRow`): the slot, the name and portions, a "Prepped" badge
   (GAP-49) and a "Cooked" tick with the word, and a chevron. Tapping it

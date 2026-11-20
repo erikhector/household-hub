@@ -1944,6 +1944,8 @@ export const sv = {
     previousWeek: "Föregående vecka",
     nextWeek: "Nästa vecka",
     thisWeek: "Denna vecka",
+    chooseWeek: "Välj vecka",
+    chooseWeekDate: "Visa veckan med datumet",
     morePlannerActions: "Fler planeringsåtgärder",
     mealSlotLabel: "Måltid",
     copyLastWeek: "Kopiera förra veckan",

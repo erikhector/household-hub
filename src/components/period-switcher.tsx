@@ -12,6 +12,7 @@
 // rendering a Link, which Base UI announces as a button), because paging is a
 // full server-rendered navigation driven by the URL alone, no client state.
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export type PeriodSwitcherDict = {
 
 export function PeriodSwitcher({
   label,
+  labelControl,
   sublabel,
   prevHref,
   nextHref,
@@ -36,6 +38,10 @@ export function PeriodSwitcher({
 }: {
   /** The period being looked at, already formatted in the viewer's locale. */
   label: string;
+  /** GAP-85: rendered in place of the plain label, for a page that lets
+   * you pick the period (the meal planner's "Choose week"). It shows the
+   * same `label` itself; the budgets leave this out and keep plain text. */
+  labelControl?: ReactNode;
   /** UX-134: the period's dates, when its name alone doesn't say them (a
    * budget month that starts on payday). */
   sublabel?: string | null;
@@ -58,13 +64,15 @@ export function PeriodSwitcher({
       >
         <ChevronLeft className="size-5" />
       </Link>
-      <div className="flex flex-col items-center">
+      {/* A label control is a tap target, so it keeps M3's 8 px from the
+          "This week" link under it; plain text needs no gap. */}
+      <div className={cn("flex flex-col items-center", labelControl && "gap-2")}>
         {/* UX-149: the period is the headline, so it wraps (to two lines at
             200% text) instead of truncating. Its column has no min-w-0, so it
             never gets narrower than its longest word. The arrows are shrink-0 and a
             fixed 44 px (not rem, which doubles at 200% text and left no room
             for the label), so the row squeezes neither. */}
-        <p className="text-balance text-center font-heading text-lg font-semibold">{label}</p>
+        {labelControl ?? <p className="text-balance text-center font-heading text-lg font-semibold">{label}</p>}
         {sublabel && <p className="text-balance text-center text-sm text-muted-foreground">{sublabel}</p>}
         {!isCurrent && (
           <Link
