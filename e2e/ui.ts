@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { expect, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page, type Request, type Route, type TestInfo } from "@playwright/test";
 import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import type { UiRoute } from "./routes";
@@ -454,6 +454,49 @@ export async function holdServerActions(page: Page, path: string) {
     },
   );
   return { release, answered: () => answered };
+}
+
+// Offline (or every chunk replaced by a deploy): each script the page fetches
+// from now on fails, until goOnline(). For the lazy-loading specs' "a failed
+// chunk load says so, and the next tap retries". Block the service worker in
+// those specs, or it fetches past page.route() (#766). `refused` is every URL
+// that was turned away.
+//
+// goOnline() waits until every refused fetch has failed in the page before it
+// lets scripts through (MAINT-122). A lazy dialog is several chunks, and
+// Turbopack retries each failed one once, 200-600 ms later. The import (and
+// so the error toast) fails as soon as one chunk gives up, while another's
+// retry can still be on its way to being refused. A tap then joins that retry
+// instead of fetching afresh, and fails again. A retry that fires after
+// goOnline() goes through. Then it takes the route off rather than leaving it
+// answering route.continue(): that makes the browser wait on this test
+// process, one round trip per script, which under a loaded gate is what can
+// push the retry past its 5 s (MAINT-71).
+export async function failChunkLoads(page: Page) {
+  const pattern = "**/_next/static/**/*.js";
+  const refused = new Set<string>();
+  const failing = new Set<Request>();
+  let offline = true;
+  page.on("requestfailed", (request) => failing.delete(request));
+  const handler = (route: Route) => {
+    if (!offline) return route.continue();
+    refused.add(route.request().url());
+    failing.add(route.request());
+    return route.abort();
+  };
+  await page.route(pattern, handler);
+  const goOnline = async () => {
+    // Checking and flipping in the same callback leaves no gap for one more
+    // fetch to be refused after the check.
+    await expect
+      .poll(() => {
+        if (failing.size === 0) offline = false;
+        return offline;
+      })
+      .toBe(false);
+    await page.unroute(pattern, handler);
+  };
+  return { refused, goOnline };
 }
 
 /** Clicks a swipeable row's Edit or Delete the way the current viewport

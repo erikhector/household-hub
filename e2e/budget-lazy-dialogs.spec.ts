@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { budgetTag, insertHouseholdCategory } from "./budget-seed";
 import { withDb } from "./db";
-import { dismissCookieNotice, expectHydrated } from "./ui";
+import { dismissCookieNotice, expectHydrated, failChunkLoads } from "./ui";
 
 // PERF-30: the budget dialogs (Add/Edit transaction, recurring item, planned
 // bill, log a shared expense) are separate chunks, mounted the first time
@@ -54,13 +54,12 @@ test.describe("a failed chunk load", () => {
     await expectHydrated(add);
 
     // Offline (or a chunk replaced by a deploy): every script fetched from now on fails.
-    let offline = true;
-    await page.route("**/_next/static/**/*.js", (route) => (offline ? route.abort() : route.continue()));
+    const chunks = await failChunkLoads(page);
     await add.click();
     await expect(page.getByText(en.errors.generic)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    offline = false;
+    await chunks.goOnline();
     await add.click();
     await expect(page.getByRole("dialog", { name: t.addTransactionDialogTitle })).toBeVisible();
   });

@@ -164,6 +164,12 @@ easy for AI coding agents to work in correctly:
   (`LazyReceiptScan`, whose real component mounts with its menu already
   open). `e2e/shopping-lazy-dialogs.spec.ts` covers the first tap and the
   failed-load toast and retry.
+  Every lazy-loading spec's failed-load test refuses chunks through
+  `failChunkLoads` (`e2e/ui.ts`), whose `goOnline()` waits until every
+  refused fetch has failed in the page before scripts go through again
+  (MAINT-122): the import fails as soon as one chunk gives up, while
+  Turbopack may still be retrying another, and a tap that joins that
+  retry fails again.
   The inventory page group is lazy too
   (`src/components/inventory/lazy-dialogs.ts`): the header's stock scan,
   bulk paste, bulk scan, AI shelf scan and Add item, a row's Edit form

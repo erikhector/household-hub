@@ -270,10 +270,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/flows.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs (`e2e-nightly.yml`, which since #1579 is the only GitHub run of the `iphone` project) list `[iphone] › e2e/flows.spec.ts:57` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-122. Flaky: the shopping list's "Take photo" item isn't there after the retry tap on mobile** (low, S) —
-      `e2e/shopping-lazy-dialogs.spec.ts:58` ("a failed chunk load says so, and the next tap retries"), `mobile` project. In the builder's first locked `ci:local` on 952fd86 (PR #1604, MAINT-109, which doesn't touch shopping, 2026-11-19), it failed at `:76`: `expect(page.getByRole("menuitem", { name: t.receiptScan.takePhoto })).toBeVisible()` found no element within 5000 ms after `offline = false; await scan.click()`. It passed in a second full run on the same commit and 3/3 on its own. Likely cause: the retry tap lands before the failed chunk's state is reset, or the menu opens only after the re-fetched chunk loads, which can take longer than 5 s under load. Start from a trace.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/shopping-lazy-dialogs.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
