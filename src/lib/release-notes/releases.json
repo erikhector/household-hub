@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.160.1",
+    "date": "2026-11-21",
+    "pr": 1664,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Adding a recurring item or a budget category no longer clears what you typed when something goes wrong. A missing category is now pointed out right under the Category field.",
+      "sv": "När du lägger till en återkommande post eller en budgetkategori försvinner inte längre det du skrivit om något går fel. En saknad kategori visas nu direkt under fältet Kategori."
+    }
+  },
+  {
     "version": "0.160.0",
     "date": "2026-11-20",
     "pr": 1653,
