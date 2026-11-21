@@ -3764,7 +3764,10 @@ month, Upcoming and Paid (paid in the viewed month only), each row's status
 a chip (overdue shows in its amount line instead). A row is one line, like
 a repeating item's: its one visible action, Log payment (Log income for
 income), and a "More actions for {name}" menu with Edit and, last behind a
-separator, Delete (confirmed). A row with a linked payment has no Log and
+separator, Delete (confirmed). Below `sm` Log payment moves to its own line
+under the name and amount, with "…" staying top right, so a long name keeps
+most of the row's width instead of stacking one word per line at 320 px
+(UX-208, M1). A row with a linked payment has no Log and
 its menu only Edit. That includes a past month's bill paid later: it still shows as
 due there, with "Paid {date}" after its due date, since a second payment
 would be refused and deleting it would silently detach the real one
