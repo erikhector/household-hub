@@ -608,8 +608,11 @@ installed here).
       (`mobile`): in "Add recurring item", fill Name and Due day, leave
       Category empty and submit. The category error shows under the
       Category field, no request is sent, and Name and Due day keep their
-      values. In Add category, submit an existing name with a limit: the
-      error shows, and the name and limit are still filled in.
+      values. In "Add one-off bill", fill Name, Amount and Due date, leave
+      Category empty and submit: the category error shows under the
+      Category field and no request is sent. In Add category, submit an
+      existing name with a limit: the error shows, and the name and limit
+      are still filled in.
 - [ ] **UX-208. One-off bill row squeezes the name into one word per line at 320 px** (impact: med, effort: S) —
       In Setup → Bills & income → Once, the row puts "Log payment"
       ("Logga betalning", 107 px) and the "…" button beside the name
