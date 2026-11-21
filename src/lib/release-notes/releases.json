@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.160.2",
+    "date": "2026-11-21",
+    "pr": 1668,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Long one-off bill names are readable on narrow phones again: Log payment now sits under the bill instead of squeezing the name to one word per line.",
+      "sv": "Långa namn på engångsräkningar går att läsa igen på smala telefoner: Logga betalning ligger nu under räkningen i stället för att trycka ihop namnet till ett ord per rad."
+    }
+  },
+  {
     "version": "0.160.1",
     "date": "2026-11-21",
     "pr": 1664,
