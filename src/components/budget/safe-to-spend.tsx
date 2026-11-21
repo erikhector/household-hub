@@ -235,18 +235,24 @@ export function SafeToSpend({
   // UX-116: no income and nothing recurring yet, so there's no number to
   // stand behind. Say what's missing and offer the two ways to supply it,
   // instead of a green "+0.00" and "good shape".
+  // UX-209: both setup steps are outlined, with an edge that holds 3:1
+  // against this card (WCAG 1.4.11). Add income used to be a `secondary`
+  // fill with no border, ~1.05:1 on the card's lilac tint, and read as
+  // disabled. The usual `border` hairline is decorative, and even `input`
+  // (3:1 on the plain page) drops to ~2.9:1 on the tint, so the light edge
+  // is `muted-foreground` (~5.8:1); dark keeps the variant's `input`
+  // (~3.2:1). Add income isn't the filled `primary` because the page's Add
+  // transaction already is (one primary per view, DESIGN.md "Hierarchy");
+  // coming first is what marks it as step one.
+  const setupButtonClass = "border-muted-foreground max-sm:min-h-11 pointer-coarse:min-h-11";
   const setupContent = (
     <>
       <p className="text-sm text-foreground">{dict.setupSummary}</p>
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" render={<Link href={setupHrefs.income} />} className="max-sm:min-h-11 pointer-coarse:min-h-11">
+        <Button variant="outline" render={<Link href={setupHrefs.income} />} className={setupButtonClass}>
           {dict.setupIncome}
         </Button>
-        <Button
-          variant="outline"
-          render={<Link href={setupHrefs.bills} />}
-          className="max-sm:min-h-11 pointer-coarse:min-h-11"
-        >
+        <Button variant="outline" render={<Link href={setupHrefs.bills} />} className={setupButtonClass}>
           {dict.setupBills}
         </Button>
       </div>

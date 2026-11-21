@@ -3170,7 +3170,12 @@ Component page function can't itself be unit-tested.
   spend" with two actions, "Add income" (the Transactions tab) and "Add
   regular bills" (the Manage tab), keeping the month and household in the
   URL. Once there is data the arithmetic carries a one-line legend for the
-  "+", "–" and "→" in front of its lines.
+  "+", "–" and "→" in front of its lines. Both actions are outlined
+  buttons, Add income first, with an edge that holds 3:1 against the
+  card's lilac tint (UX-209, WCAG 1.4.11): `muted-foreground` in light,
+  the outline's `input` in dark. Add income used to be a borderless
+  `secondary` fill that read as disabled; it isn't filled `primary`
+  because the page's Add transaction already is.
 - **No income, no verdict (UX-154)**: `SafeToSpendStatus` has a fourth
   value, `unset`: a non-negative balance with no income, logged or
   expected, to judge it against (`deriveSafeToSpend`). It never gets the
