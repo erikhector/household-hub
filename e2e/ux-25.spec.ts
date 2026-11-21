@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { budgetTag, insertHouseholdCategory } from "./budget-seed";
+import { withDb } from "./db";
+import { E2E_HOUSEHOLD } from "./seed";
 import { collectErrors, dismissCookieNotice } from "./ui";
 
 // UX-25 (light theme polish): computed-style regression guards for the
@@ -317,5 +320,43 @@ test("phone sticky bars are solid under the compact title", async ({ page }) => 
     expect(painted!.backdrop, `backdrop on ${path}`).toBe("none");
     expect(parse(painted!.bg).alpha, `background alpha on ${path}`).toBe(1);
   }
+  expect(errors).toEqual([]);
+});
+
+test("an empty budget's Add income is edged off its card", async ({ page }) => {
+  // UX-209: before any income or bills, Safe to spend offers Add income and
+  // Add regular bills. Add income was a `secondary` fill with no border on
+  // the card's lilac tint, ~1.2:1, and read as disabled. A control's
+  // boundary (its edge or its fill) needs 3:1 against what's around it
+  // (WCAG 1.4.11). Same empty-month setup as e2e/ux-116.spec.ts: only
+  // E2E_HOUSEHOLD's rows are touched, and one category puts the budget
+  // into its setup state.
+  const errors = collectErrors(page);
+  const tag = budgetTag();
+  await withDb(async (client) => {
+    await client.query(`DELETE FROM "RecurringTemplate" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
+    await client.query(`DELETE FROM "PlannedExpense" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
+    await client.query(`DELETE FROM "Transaction" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
+    await insertHouseholdCategory(client, { id: `e2e-u209-cat-${tag}`, name: `Groceries ${tag}` });
+  });
+
+  await page.goto("/dashboard/budget");
+  const link = page.getByRole("main").getByRole("link", { name: "Add income" });
+  await expect(link).toBeVisible();
+  const painted = await link.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      bg: style.backgroundColor,
+      border: style.borderTopColor,
+      borderWidth: style.borderTopWidth,
+      // The card's own fill is a translucent primary wash, so it is
+      // composited over the page ground it sits on.
+      card: getComputedStyle(el.closest('[data-slot="card"]')!).backgroundColor,
+      ground: getComputedStyle(document.documentElement).getPropertyValue("--background").trim(),
+    };
+  });
+  const fill = contrast(painted.bg, 1, painted.card, painted.ground);
+  const edge = painted.borderWidth === "0px" ? 1 : contrast(painted.border, 1, painted.card, painted.ground);
+  expect(Math.max(fill, edge), `Add income fill ${fill.toFixed(2)}:1, edge ${edge.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
   expect(errors).toEqual([]);
 });

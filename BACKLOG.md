@@ -567,37 +567,6 @@ toast. The household notes board and the pending-invites list don't.
 WebKit was not run (no browser installed here), and the audit config
 still needs an uncommitted `executablePath` copy to launch Chromium.
 
-### UX (2026-11-20 scout)
-
-Friday area: household and personal budgets. Swept `desktop`, `mobile`,
-`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
-sweeps; all 290 + 132 tests pass, and the only audit hits are the known
-`text-200` bottom-bar truncations (UX-150) and the hidden "Add
-transaction" and "Invite member" buttons. The deep dive added the starter
-set, then drove the Bills & income menu (a repeating item and a one-off
-bill), the add- and edit-category dialogs and the four tabs, with empty
-submits, a negative amount, a duplicate category name and 60–90-character
-Swedish names, on Pixel 7 and at 320 px. WebKit was not run (no browser
-installed here).
-
-- [ ] **UX-209. "Add income" on the Safe to spend card looks disabled** (impact: med, effort: S) —
-      Before any income or bills exist, Safe to spend offers "Add income"
-      and "Add regular bills" (`src/components/budget/safe-to-spend.tsx:242`).
-      Add income uses `variant="secondary"`, a pale lilac fill
-      (`--secondary`, oklch 0.94) with no border, on the card's own lilac
-      tint. It almost disappears and reads as greyed out, next to an
-      outlined Add regular bills. Both screenshot reviewers flagged it on
-      their own (`landscape-en-dashboard-budget.png`,
-      `desktop-sv-dashboard-budget.png`, `audit/text-200-dashboard-budget.png`,
-      Pixel 7 light). It's the first setup step, but it looks like the
-      weaker one. This breaks the hierarchy and contrast principles
-      (WCAG 1.4.11, 3:1 for a control's boundary). Fix: make Add income
-      the filled default button (it comes first) and keep Add regular
-      bills outlined, or outline both. Acceptance (`mobile`, light theme):
-      on an empty budget, the Add income link's background or border
-      contrasts at least 3:1 with the card background (measured via
-      `getComputedStyle`).
-
 ---
 
 ## Phase 2 — schema changes, one at a time
