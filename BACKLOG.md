@@ -934,6 +934,38 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
+### 2026-11-21 scan
+
+Checked AnyList (Dec 2025 / Jan 2026 meal-plan release), Grocy and Cozi.
+Most of what they ship is already here (meal queue = Cook soon shelf,
+recipe sort by times made = GAP-80, meal notes = GAP-81, week templates,
+step timers, opened/frozen tags, share target). One gap is left:
+
+- [ ] **GAP-87. A repeating task can use up a pantry item** (impact: med,
+      effort: M) — Grocy lets a chore consume a product when it's done
+      ("Run the dishwasher" uses 1 dishwasher tablet, "Change the water
+      filter" uses 1 filter), so household consumables run low, and land
+      on the list through the existing low-stock path, without anyone
+      typing it. Squirrel's `HouseholdTask` (`prisma/schema.prisma`) has
+      no link to inventory, so the stock of cleaning and bathroom items
+      (both already categories) only drops when someone remembers to edit
+      it. Schema change (Phase 2): nullable
+      `HouseholdTask.consumesItemId` (FK to `InventoryItem`, same
+      household, `onDelete: SetNull`) plus `consumesQuantity` (in the
+      item's own unit). Set in the task's Add/Edit sheet as an optional
+      "Uses up" item picker and quantity, so the user opts in per task:
+      nothing is inferred. `toggleTaskCompletedAction`
+      (`src/app/dashboard/tasks/actions.ts:259`) decrements in the same
+      transaction (never below 0, writing an `InventoryItemEvent` like
+      other stock changes), and the success toast names it ("Used 1 pcs
+      Dishwasher tablets") with Undo; un-ticking restores exactly what was
+      taken. The item must be re-checked to belong to the
+      `requireHousehold()` household on save and on tick; a deleted item
+      just drops the link. Skip ("Skip this time", GAP-60) uses nothing.
+      Acceptance: an e2e test (`mobile` and `desktop`) links a task to a
+      seeded item with 3 pcs, ticks it, sees the toast, reloads the
+      item page and reads 2 pcs; un-ticks and reads 3 pcs again.
+
 ## Needs a decision before building
 
 - [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
