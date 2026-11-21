@@ -135,12 +135,14 @@ export function PlannedExpenseDialog({
   // ones a save the server turns down would otherwise wipe (the rest are
   // controlled and survive the form reset on their own).
   const kept = useKeptFormValues(["name", "categoryId"]);
-  // UX-183b: a missing name, amount or due date is worded under its field
-  // in the page's language (`noValidate` on the form), not by the browser.
+  // UX-183b: a missing name, category, amount or due date is worded under
+  // its field in the page's language (`noValidate` on the form), not by the
+  // browser. UX-207 added category, as in TransactionDialog.
   const req = useRequiredFields();
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     const blocked = req.check(event, [
       { name: "name", id: "pe-name", message: dict.nameRequired },
+      { name: "categoryId", id: "pe-category", message: dict.categoryRequired },
       { name: "amount", id: "pe-amount", message: dict.amountRequired, numeric: true },
       { name: "dueDate", id: "pe-due-date", message: dict.dateRequired },
     ]);
@@ -221,9 +223,17 @@ export function PlannedExpenseDialog({
               items={categoryItems}
               name="categoryId"
               defaultValue={kept.values.categoryId ?? bill?.categoryId}
+              // Typing in the input doesn't carry the field's `name`, so
+              // picking a category clears its error by hand.
+              onValueChange={() => req.clearField("categoryId")}
             >
-              <ComboboxInputGroup>
-                <ComboboxInput id="pe-category" placeholder={dict.categoryPlaceholder} />
+              <ComboboxInputGroup aria-invalid={req.messageFor("categoryId") ? true : undefined}>
+                <ComboboxInput
+                  id="pe-category"
+                  placeholder={dict.categoryPlaceholder}
+                  aria-invalid={req.messageFor("categoryId") ? true : undefined}
+                  aria-describedby={req.messageFor("categoryId") ? fieldErrorId("pe-category") : undefined}
+                />
                 <ComboboxTrigger aria-label={dict.categoryToggleLabel} />
               </ComboboxInputGroup>
               <ComboboxContent emptyMessage={dict.categoryNoResults}>
@@ -234,6 +244,7 @@ export function PlannedExpenseDialog({
                 )}
               </ComboboxContent>
             </Combobox>
+            <FieldError fieldId="pe-category">{req.messageFor("categoryId")}</FieldError>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">

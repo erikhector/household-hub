@@ -10,6 +10,10 @@ import { dismissCookieNotice, expectHydrated, expectRouterPatched, LOCALES } fro
 // the first empty field, it gets aria-invalid, and what was typed elsewhere
 // stays. The second slice covers the category add/edit dialogs, Clear debt
 // and the personal budget's Log payment (shared bill) dialog.
+//
+// UX-207: the recurring item and one-off bill dialogs also check Category
+// before sending anything, and the recurring item and category dialogs keep
+// what was typed when the server turns a save down.
 const T = {
   en: {
     addTransaction: "Add transaction",
@@ -19,6 +23,8 @@ const T = {
     noAmount: "Enter an amount",
     noDate: "Enter a date",
     noName: "Enter a name",
+    noCategory: "Pick a category",
+    category: "Category",
     region: "Bills & income",
     add: "Add",
     recurringMenu: "Repeats every month or year",
@@ -27,6 +33,7 @@ const T = {
     recurringSubmit: "Add item",
     recurringName: "Name",
     recurringAmount: "Expected amount",
+    recurringDay: "Due day (optional)",
     billTitle: "Add planned bill",
     billSubmit: "Save",
     billName: "Name",
@@ -35,6 +42,8 @@ const T = {
     addCategory: "Add category",
     editCategoryTitle: "Edit category",
     categoryName: "Name",
+    categoryLimit: "Monthly limit (optional)",
+    nameTaken: "A category with that name already exists",
     save: "Save",
     clearDebt: "Clear debt",
     clearDebtSubmit: "Record repayment",
@@ -52,6 +61,8 @@ const T = {
     noAmount: "Ange ett belopp",
     noDate: "Ange ett datum",
     noName: "Ange ett namn",
+    noCategory: "Välj en kategori",
+    category: "Kategori",
     region: "Räkningar & inkomster",
     add: "Lägg till",
     recurringMenu: "Återkommer varje månad eller år",
@@ -60,6 +71,7 @@ const T = {
     recurringSubmit: "Lägg till post",
     recurringName: "Namn",
     recurringAmount: "Förväntat belopp",
+    recurringDay: "Förfallodag (valfritt)",
     billTitle: "Lägg till planerad räkning",
     billSubmit: "Spara",
     billName: "Namn",
@@ -68,6 +80,8 @@ const T = {
     addCategory: "Lägg till kategori",
     editCategoryTitle: "Redigera kategori",
     categoryName: "Namn",
+    categoryLimit: "Månadsgräns (valfri)",
+    nameTaken: "Det finns redan en kategori med det namnet",
     save: "Spara",
     clearDebt: "Reglera skuld",
     clearDebtSubmit: "Registrera återbetalning",
@@ -126,6 +140,16 @@ async function seedSharedBill(locale: "en" | "sv") {
   return name;
 }
 
+/** Counts the Server Action requests the page sends from now on, so a test
+ * can show a blocked submit never reached the server. */
+function countActionRequests(page: Page) {
+  const counter = { count: 0 };
+  page.on("request", (request) => {
+    if (request.method() === "POST" && "next-action" in request.headers()) counter.count += 1;
+  });
+  return counter;
+}
+
 async function openAddMenu(page: Page, t: (typeof T)[keyof typeof T], item: string) {
   await page.goto("/dashboard/budget?tab=manage");
   const add = page.getByRole("main").getByRole("region", { name: t.region }).getByRole("button", { name: t.add, exact: true });
@@ -179,10 +203,35 @@ for (const locale of LOCALES) {
       await name.fill("Rent");
       await expect(dialog.getByRole("alert").filter({ hasText: t.noName })).toHaveCount(0);
       await dialog.getByRole("button", { name: t.recurringSubmit }).click();
+      // UX-207: Category comes before Amount, so it takes focus first.
+      await expect(dialog.getByRole("combobox", { name: t.category })).toBeFocused();
       const amount = dialog.getByLabel(t.recurringAmount);
-      await expect(amount).toBeFocused();
       await expect(amount).toHaveAttribute("aria-invalid", "true");
       await expect(name).toHaveValue("Rent");
+    });
+
+    test("an empty category in Add recurring item is flagged under the field and keeps what was typed", async ({
+      page,
+    }) => {
+      await seedCategory();
+      await openAddMenu(page, t, t.recurringMenu);
+      const dialog = page.getByRole("dialog", { name: t.recurringTitle });
+      const name = dialog.getByLabel(t.recurringName, { exact: true });
+      const day = dialog.getByLabel(t.recurringDay);
+      await name.fill("Gym");
+      await dialog.getByLabel(t.recurringAmount).fill("30");
+      await day.fill("12");
+      const actions = countActionRequests(page);
+      await dialog.getByRole("button", { name: t.recurringSubmit }).click();
+
+      const category = dialog.getByRole("combobox", { name: t.category });
+      await expect(dialog.getByRole("alert").filter({ hasText: t.noCategory })).toBeVisible();
+      await expect(category).toHaveAttribute("aria-invalid", "true");
+      await expect(category).toHaveAccessibleDescription(t.noCategory);
+      await expect(category).toBeFocused();
+      await expect(name).toHaveValue("Gym");
+      await expect(day).toHaveValue("12");
+      expect(actions.count).toBe(0);
     });
 
     test("an empty name, amount and due date in Add planned bill are flagged under their fields", async ({ page }) => {
@@ -197,6 +246,50 @@ for (const locale of LOCALES) {
       await expect(dialog.getByRole("alert").filter({ hasText: t.noDate })).toBeVisible();
       await expect(name).toHaveAttribute("aria-invalid", "true");
       await expect(name).toBeFocused();
+    });
+
+    test("an empty category in Add planned bill is flagged under the field", async ({ page }) => {
+      await seedCategory();
+      await openAddMenu(page, t, t.billMenu);
+      const dialog = page.getByRole("dialog", { name: t.billTitle });
+      const name = dialog.getByLabel(t.billName, { exact: true });
+      await name.fill("Dentist");
+      await dialog.getByLabel(t.billAmount, { exact: true }).fill("80");
+      await dialog.getByLabel(t.billDue).fill("2030-05-14");
+      const actions = countActionRequests(page);
+      await dialog.getByRole("button", { name: t.billSubmit }).click();
+
+      const category = dialog.getByRole("combobox", { name: t.category });
+      await expect(dialog.getByRole("alert").filter({ hasText: t.noCategory })).toBeVisible();
+      await expect(category).toHaveAttribute("aria-invalid", "true");
+      await expect(category).toHaveAccessibleDescription(t.noCategory);
+      await expect(category).toBeFocused();
+      await expect(name).toHaveValue("Dentist");
+      expect(actions.count).toBe(0);
+    });
+
+    test("an existing name in Add category keeps the name and limit", async ({ page }) => {
+      const tag = budgetTag();
+      const existing = `Taken ${tag}`;
+      await withDb((client) => insertHouseholdCategory(client, { id: `e2e-bfe-taken-${tag}`, name: existing }));
+      await page.goto("/dashboard/budget?tab=manage");
+      const opener = page.getByRole("main").getByRole("button", { name: t.addCategory }).first();
+      await expectHydrated(opener);
+      await expectRouterPatched(page);
+      await opener.click();
+      const dialog = page.getByRole("dialog", { name: t.addCategory });
+      const name = dialog.getByLabel(t.categoryName, { exact: true });
+      const limit = dialog.getByLabel(t.categoryLimit);
+      await name.fill(existing);
+      await limit.fill("250");
+      await dialog.getByRole("button", { name: t.addCategory }).click();
+
+      // The household category actions still return this error in English
+      // whatever the locale (only the personal budget's are localised), so
+      // either wording counts as the turned-down save landing.
+      await expect(dialog.getByText(new RegExp(`${T.en.nameTaken}|${t.nameTaken}`))).toBeVisible();
+      await expect(name).toHaveValue(existing);
+      await expect(limit).toHaveValue("250");
     });
 
     test("an empty name in Add category is flagged under the field", async ({ page }) => {

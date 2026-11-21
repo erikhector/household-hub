@@ -10299,8 +10299,12 @@ approximating them, so the email never disagrees with the app.
   after an error (so the reset-password form, which has nothing else, is
   unchanged). A dialog calls `kept.reset()` when it reopens. Used by
   signup, login, the invite sign-up form, the display-name form, add/edit
-  item (quantity, low-stock threshold, expiry, use-within) and the
-  transaction description. After a *successful* "save & add another", the
+  item (quantity, low-stock threshold, expiry, use-within), the
+  transaction description, the planned bill's name and category, the
+  recurring item's name and due day, and the add/edit category dialogs
+  (name, monthly limit, rollover, savings goal and date; UX-207, so a
+  duplicate name no longer wipes them). The category Combobox and
+  frequency Select keep their own state through the reset. After a *successful* "save & add another", the
   add-item dialog calls `kept.keep(["quantity", "lowStockThreshold"])`:
   those carry into the next item, while expiry and use-within go back to
   blank (so AUTO-7 can still estimate the next item's expiry). Covered by
@@ -10341,7 +10345,11 @@ approximating them, so the email never disagrees with the app.
   `categoryRequired`, `dateRequired`), the field gets `aria-invalid` and
   `aria-describedby` (on the chip group for the category), focus goes to the
   first, and editing a field clears its message. A blocked submit never runs
-  the action, so nothing typed is lost. Covered by
+  the action, so nothing typed is lost. The recurring item and planned bill
+  dialogs check their category combobox the same way (UX-207): the message
+  sits under it, the combobox input and its group get `aria-invalid`, and
+  picking a category clears it, so a missing category no longer takes a
+  round trip to come back at the foot of the sheet. Covered by
   `e2e/budget-field-errors.spec.ts`. The other budget forms and the rest of
   the app still use bare `required` (follow-up in BACKLOG.md).
 - **Profile and password-reset form errors sit next to the field (UX-183b,
