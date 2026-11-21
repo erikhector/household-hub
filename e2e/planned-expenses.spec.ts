@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { withDb } from "./db";
-import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER, STORAGE_STATE_SV } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { addBillOrIncome, dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets, waitForUndoableDelete } from "./ui";
 
@@ -290,6 +290,46 @@ test("a one-off bill is one line: its status, Log payment and a More menu", asyn
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await page.getByRole("dialog", { name: `Delete ${name}?` }).getByRole("button", { name: "Delete" }).click();
   await expect(plannedRow(page, "Due this month", name)).toHaveCount(0);
+});
+
+// UX-208: at 320 px in Swedish, "Logga betalning" (107 px) and the "…"
+// button beside the name left a long name about 110 px, one word per line.
+// Below `sm` the row now puts Log payment under the name and amount, with
+// "…" staying top right, so the name keeps most of the row's width.
+test.describe("in Swedish", () => {
+  test.use({ storageState: STORAGE_STATE_SV });
+
+  test("a one-off bill with a long name keeps it readable at 320 px", async ({ page, isMobile }) => {
+    if (isMobile) await page.setViewportSize({ width: 320, height: 640 });
+    const category = await seedCategory();
+    const t = tag();
+    const name = `Tandläkarbesök med akut rotfyllning hos Folktandvården ${t}`;
+    expect(name.length).toBeGreaterThanOrEqual(60);
+    await withDb((client) =>
+      client.query(
+        `INSERT INTO "PlannedExpense" (id, "householdId", "categoryId", name, amount, "dueDate")
+         VALUES ($1, $2, $3, $4, 1450, $5)`,
+        [`e2e-planned-long-${t}`, E2E_HOUSEHOLD.id, category.id, name, new Date()],
+      ),
+    );
+
+    await page.goto("/dashboard/budget?tab=manage");
+    const row = page.getByRole("main").getByRole("listitem").filter({ hasText: name });
+    const nameText = row.getByText(name, { exact: true });
+    await expect(nameText).toBeVisible();
+    expect((await nameText.boundingBox())!.width).toBeGreaterThanOrEqual(160);
+
+    const log = row.getByRole("button", { name: "Logga betalning" });
+    const more = row.getByRole("button", { name: `Fler åtgärder för ${name}` });
+    await expect(log).toBeVisible();
+    await expect(more).toBeVisible();
+    if (isMobile) {
+      for (const button of [log, more]) {
+        expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+      }
+      await expectTargetsApart(row);
+    }
+    await expectNoHorizontalOverflow(page);  });
 });
 
 // UX-13: a save the server turns down keeps what was typed, so the user
