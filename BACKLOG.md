@@ -567,6 +567,78 @@ toast. The household notes board and the pending-invites list don't.
 WebKit was not run (no browser installed here), and the audit config
 still needs an uncommitted `executablePath` copy to launch Chromium.
 
+### UX (2026-11-20 scout)
+
+Friday area: household and personal budgets. Swept `desktop`, `mobile`,
+`landscape`, `tablet`, `small-phone`, `light`, `text-200` and both dialog
+sweeps; all 290 + 132 tests pass, and the only audit hits are the known
+`text-200` bottom-bar truncations (UX-150) and the hidden "Add
+transaction" and "Invite member" buttons. The deep dive added the starter
+set, then drove the Bills & income menu (a repeating item and a one-off
+bill), the add- and edit-category dialogs and the four tabs, with empty
+submits, a negative amount, a duplicate category name and 60–90-character
+Swedish names, on Pixel 7 and at 320 px. WebKit was not run (no browser
+installed here).
+
+- [ ] **UX-207. Budget dialogs keep what was typed after a server error, and check Category by the field** (impact: high, effort: S) —
+      React 19 resets an uncontrolled form once its action settles, and
+      UX-13's `useKeptFormValues` only reached the transaction and one-off
+      bill dialogs. In "Add recurring item"
+      (`src/components/budget/recurring-template-dialog.tsx:140`, `:203`,
+      `:256`), submitting a name, amount and due day without a category
+      comes back with "Category is required" at the bottom of the sheet,
+      and Name and Due day are now empty, so the user retypes them. Add
+      category (`src/components/budget/category-manager.tsx:431`, limit
+      `:522`) does the same on "A category with that name already
+      exists": the name and monthly limit are wiped. Edit category
+      (`:314`, `:327`) shares the pattern. Category is also left out of
+      the client check in the recurring dialog (`:140`) and the one-off
+      bill dialog (`planned-expense-dialog.tsx:142`), unlike the
+      transaction dialog (`transaction-dialog.tsx:329`). So the error isn't
+      next to the field (DESIGN.md "Errors": the problem, next to the
+      field) and only appears after a round trip. Fix: `useKeptFormValues`
+      in both dialogs, plus a `categoryId` entry in `req.check`. Acceptance
+      (`mobile`): in "Add recurring item", fill Name and Due day, leave
+      Category empty and submit. The category error shows under the
+      Category field, no request is sent, and Name and Due day keep their
+      values. In "Add one-off bill", fill Name, Amount and Due date, leave
+      Category empty and submit: the category error shows under the
+      Category field and no request is sent. In Add category, submit an
+      existing name with a limit: the error shows, and the name and limit
+      are still filled in.
+- [ ] **UX-208. One-off bill row squeezes the name into one word per line at 320 px** (impact: med, effort: S) —
+      In Setup → Bills & income → Once, the row puts "Log payment"
+      ("Logga betalning", 107 px) and the "…" button beside the name
+      (`src/components/budget/planned-expenses-panel.tsx:206`–`:250`). At
+      320 px in Swedish, a 62-character name ("Tandläkarbesök med akut
+      rotfyllning hos Folktandvården Södermalm") gets about 110 px and
+      wraps into eight lines of one word each, and the due date wraps too.
+      The repeating row above it, which has no visible action, reads fine.
+      This breaks M1 (no row that only makes sense wider than the
+      screen). Fix: below `sm`, move Log payment
+      under the name and amount line (the row wraps, with "…" staying top
+      right), or give the name column a floor (`min-w-[55%]`) and let the
+      action wrap. Acceptance (`mobile` at a 320 px viewport, `sv`): with a
+      one-off bill named 60+ characters, the name's box is at least 160 px
+      wide, and Log payment and "…" are still visible, 44 px and 8 px apart.
+- [ ] **UX-209. "Add income" on the Safe to spend card looks disabled** (impact: med, effort: S) —
+      Before any income or bills exist, Safe to spend offers "Add income"
+      and "Add regular bills" (`src/components/budget/safe-to-spend.tsx:242`).
+      Add income uses `variant="secondary"`, a pale lilac fill
+      (`--secondary`, oklch 0.94) with no border, on the card's own lilac
+      tint. It almost disappears and reads as greyed out, next to an
+      outlined Add regular bills. Both screenshot reviewers flagged it on
+      their own (`landscape-en-dashboard-budget.png`,
+      `desktop-sv-dashboard-budget.png`, `audit/text-200-dashboard-budget.png`,
+      Pixel 7 light). It's the first setup step, but it looks like the
+      weaker one. This breaks the hierarchy and contrast principles
+      (WCAG 1.4.11, 3:1 for a control's boundary). Fix: make Add income
+      the filled default button (it comes first) and keep Add regular
+      bills outlined, or outline both. Acceptance (`mobile`, light theme):
+      on an empty budget, the Add income link's background or border
+      contrasts at least 3:1 with the card background (measured via
+      `getComputedStyle`).
+
 ---
 
 ## Phase 2 — schema changes, one at a time
