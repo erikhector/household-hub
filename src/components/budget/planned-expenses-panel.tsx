@@ -190,7 +190,8 @@ function PlannedExpenseItem({
   const t = plannedTexts(dict, bill.type);
   const linked = bill.paidAt !== null;
   // Design review of the budget redesign: a one-off row works like a
-  // repeating one (TemplateRow) on the same card — one line, a status chip,
+  // repeating one (TemplateRow) on the same card — one line (Log payment
+  // drops under it on a phone, UX-208 below), a status chip,
   // one visible action (Log payment / Log income while nothing is linked) and
   // a "…" menu with Edit, then Delete last and set apart (DESIGN.md M2). It
   // used to put Log, a pencil and a trash can on a second line, a third way
@@ -201,9 +202,15 @@ function PlannedExpenseItem({
   const [editHandle] = useState(() => createDialogHandle());
   const [deleteHandle] = useState(() => createDialogHandle());
 
+  // UX-208 (M1): on a phone, Log payment ("Logga betalning" is 107 px) and the
+  // "…" button side by side left the name about 90 px at 320 px, so a long
+  // name stacked one word per line. Below `sm` the row is a two-column grid
+  // instead: name and amount top left, "…" top right, Log payment on its own
+  // line under the amount. From `sm` up there's room, and it's the one line
+  // it always was.
   return (
-    <li className="flex items-center gap-2 rounded-md border py-1.5 pr-1.5 pl-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md border py-1.5 pr-1.5 pl-3 sm:flex sm:gap-2">
+      <div className="col-start-1 row-start-1 flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="min-w-0 max-w-full break-words font-medium" title={bill.name}>
             {bill.name}
@@ -235,18 +242,20 @@ function PlannedExpenseItem({
         />
       </div>
       {!linked && (
-        <PlannedBillLogPayment
-          bill={bill}
-          dict={dict}
-          t={t}
-          numberFormat={numberFormat}
-          categories={categories}
-          members={members}
-          currentMemberId={currentMemberId}
-          monthKey={monthKey}
-          createTransactionAction={createTransactionAction}
-          updateTransactionAction={updateTransactionAction}
-        />
+        <div className="col-start-1 row-start-2 flex justify-self-start">
+          <PlannedBillLogPayment
+            bill={bill}
+            dict={dict}
+            t={t}
+            numberFormat={numberFormat}
+            categories={categories}
+            members={members}
+            currentMemberId={currentMemberId}
+            monthKey={monthKey}
+            createTransactionAction={createTransactionAction}
+            updateTransactionAction={updateTransactionAction}
+          />
+        </div>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -255,6 +264,7 @@ function PlannedExpenseItem({
               ref={moreRef}
               variant="ghost"
               size="icon"
+              className="col-start-2 row-start-1 self-start sm:self-auto"
               aria-label={format(dict.dueWidget.moreAriaLabel, { name: bill.name })}
             >
               <Ellipsis className="size-4" />

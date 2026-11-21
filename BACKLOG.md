@@ -580,21 +580,6 @@ submits, a negative amount, a duplicate category name and 60–90-character
 Swedish names, on Pixel 7 and at 320 px. WebKit was not run (no browser
 installed here).
 
-- [ ] **UX-208. One-off bill row squeezes the name into one word per line at 320 px** (impact: med, effort: S) —
-      In Setup → Bills & income → Once, the row puts "Log payment"
-      ("Logga betalning", 107 px) and the "…" button beside the name
-      (`src/components/budget/planned-expenses-panel.tsx:206`–`:250`). At
-      320 px in Swedish, a 62-character name ("Tandläkarbesök med akut
-      rotfyllning hos Folktandvården Södermalm") gets about 110 px and
-      wraps into eight lines of one word each, and the due date wraps too.
-      The repeating row above it, which has no visible action, reads fine.
-      This breaks M1 (no row that only makes sense wider than the
-      screen). Fix: below `sm`, move Log payment
-      under the name and amount line (the row wraps, with "…" staying top
-      right), or give the name column a floor (`min-w-[55%]`) and let the
-      action wrap. Acceptance (`mobile` at a 320 px viewport, `sv`): with a
-      one-off bill named 60+ characters, the name's box is at least 160 px
-      wide, and Log payment and "…" are still visible, 44 px and 8 px apart.
 - [ ] **UX-209. "Add income" on the Safe to spend card looks disabled** (impact: med, effort: S) —
       Before any income or bills exist, Safe to spend offers "Add income"
       and "Add regular bills" (`src/components/budget/safe-to-spend.tsx:242`).
