@@ -29,6 +29,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 
 type CategoryType = "INCOME" | "EXPENSE" | "SAVINGS";
 
@@ -253,6 +254,19 @@ function CategoryGroup({
   );
 }
 
+// UX-207 (UX-13's pattern): every field of the add/edit category forms is
+// uncontrolled, so a save the server turns down ("A category with that name
+// already exists") would otherwise wipe the name, limit and goal the user
+// just typed. The type Select is controlled and keeps its own value.
+const KEPT_CATEGORY_FIELDS = ["name", "monthlyLimit", "rolloverEnabled", "goalAmount", "goalDate"] as const;
+
+/** The rollover box's default after a turned-down save: what was submitted
+ * (an unticked box isn't in the form data at all, so a kept `name` with no
+ * `rolloverEnabled` means it was off), else `fallback`. */
+function keptRollover(kept: Partial<Record<(typeof KEPT_CATEGORY_FIELDS)[number], string>>, fallback: boolean | undefined) {
+  return kept.name === undefined ? fallback : kept.rolloverEnabled !== undefined;
+}
+
 function EditCategoryDialog({
   category,
   dict,
@@ -270,6 +284,7 @@ function EditCategoryDialog({
   // UX-183b: a missing name is worded under the field in the page's
   // language (`noValidate` on the form), not by the browser.
   const req = useRequiredFields();
+  const kept = useKeptFormValues(KEPT_CATEGORY_FIELDS);
   const nameId = `category-name-${category.id}`;
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -286,6 +301,7 @@ function EditCategoryDialog({
       onOpenChange={(next) => {
         setOpen(next);
         req.clear();
+        kept.reset();
       }}
     >
       <DialogTrigger render={trigger} />
@@ -295,9 +311,9 @@ function EditCategoryDialog({
         </DialogHeader>
         <form
           action={formAction}
-          onSubmit={(event) =>
-            void req.check(event, [{ name: "name", id: nameId, message: dict.categories.nameRequired }])
-          }
+          onSubmit={(event) => {
+            if (!req.check(event, [{ name: "name", id: nameId, message: dict.categories.nameRequired }])) kept.onSubmit(event);
+          }}
           onInput={req.onInput}
           noValidate
           className="flex flex-col gap-4"
@@ -311,7 +327,7 @@ function EditCategoryDialog({
               maxLength={60}
               autoComplete="off"
               enterKeyHint={category.type === "EXPENSE" || category.type === "SAVINGS" ? "next" : "done"}
-              defaultValue={category.name}
+              defaultValue={kept.values.name ?? category.name}
               placeholder={dict.categories.namePlaceholder}
               aria-invalid={req.messageFor("name") ? true : undefined}
               aria-describedby={req.messageFor("name") ? fieldErrorId(nameId) : undefined}
@@ -324,8 +340,8 @@ function EditCategoryDialog({
           {category.type === "EXPENSE" && (
             <MonthlyLimitField
               id={`category-limit-${category.id}`}
-              defaultValue={category.monthlyLimit}
-              defaultRollover={category.rolloverEnabled}
+              defaultValue={kept.values.monthlyLimit ?? category.monthlyLimit}
+              defaultRollover={keptRollover(kept.values, category.rolloverEnabled)}
               dict={dict}
             />
           )}
@@ -333,8 +349,8 @@ function EditCategoryDialog({
           {category.type === "SAVINGS" && (
             <SavingsGoalField
               id={`category-goal-${category.id}`}
-              defaultAmount={category.goalAmount}
-              defaultDate={category.goalDate}
+              defaultAmount={kept.values.goalAmount ?? category.goalAmount}
+              defaultDate={kept.values.goalDate ?? category.goalDate}
               dict={dict}
             />
           )}
@@ -387,6 +403,7 @@ export function AddCategoryDialog({
   const [type, setType] = useState<CategoryType>("EXPENSE");
   // UX-183b: see EditCategoryDialog.
   const req = useRequiredFields();
+  const kept = useKeptFormValues(KEPT_CATEGORY_FIELDS);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -402,6 +419,7 @@ export function AddCategoryDialog({
       onOpenChange={(next) => {
         setOpen(next);
         req.clear();
+        kept.reset();
       }}
     >
       <DialogTrigger
@@ -417,9 +435,11 @@ export function AddCategoryDialog({
         </DialogHeader>
         <form
           action={formAction}
-          onSubmit={(event) =>
-            void req.check(event, [{ name: "name", id: "category-name", message: dict.categories.nameRequired }])
-          }
+          onSubmit={(event) => {
+            if (!req.check(event, [{ name: "name", id: "category-name", message: dict.categories.nameRequired }])) {
+              kept.onSubmit(event);
+            }
+          }}
           onInput={req.onInput}
           noValidate
           className="flex flex-col gap-4"
@@ -432,6 +452,7 @@ export function AddCategoryDialog({
               maxLength={60}
               autoComplete="off"
               enterKeyHint={type === "INCOME" ? "done" : "next"}
+              defaultValue={kept.values.name}
               placeholder={dict.categories.namePlaceholder}
               aria-invalid={req.messageFor("name") ? true : undefined}
               aria-describedby={req.messageFor("name") ? fieldErrorId("category-name") : undefined}
@@ -463,8 +484,22 @@ export function AddCategoryDialog({
               </SelectContent>
             </Select>
           </div>
-          {type === "EXPENSE" && <MonthlyLimitField id="category-limit" dict={dict} />}
-          {type === "SAVINGS" && <SavingsGoalField id="category-goal" dict={dict} />}
+          {type === "EXPENSE" && (
+            <MonthlyLimitField
+              id="category-limit"
+              defaultValue={kept.values.monthlyLimit}
+              defaultRollover={keptRollover(kept.values, false)}
+              dict={dict}
+            />
+          )}
+          {type === "SAVINGS" && (
+            <SavingsGoalField
+              id="category-goal"
+              defaultAmount={kept.values.goalAmount}
+              defaultDate={kept.values.goalDate}
+              dict={dict}
+            />
+          )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
@@ -497,7 +532,8 @@ function MonthlyLimitField({
   dict,
 }: {
   id: string;
-  defaultValue?: number | null;
+  /** A stored limit, or the string typed before a turned-down save. */
+  defaultValue?: number | string | null;
   defaultRollover?: boolean;
   dict: CategoryManagerDict;
 }) {
@@ -564,8 +600,10 @@ function SavingsGoalField({
   dict,
 }: {
   id: string;
-  defaultAmount?: number | null;
-  defaultDate?: Date | null;
+  /** A stored goal, or the string typed before a turned-down save (the date
+   * as the input's own YYYY-MM-DD). */
+  defaultAmount?: number | string | null;
+  defaultDate?: Date | string | null;
   dict: CategoryManagerDict;
 }) {
   const dateId = `${id}-date`;
@@ -600,7 +638,9 @@ function SavingsGoalField({
           enterKeyHint="done"
           // Stored as UTC midnight of the picked day, so its UTC ISO date is
           // that same day whatever the viewer's time zone.
-          defaultValue={defaultDate ? defaultDate.toISOString().slice(0, 10) : undefined}
+          defaultValue={
+            typeof defaultDate === "string" ? defaultDate : defaultDate ? defaultDate.toISOString().slice(0, 10) : undefined
+          }
           aria-describedby={`${dateId}-hint`}
         />
         <p id={`${dateId}-hint`} className="text-xs text-muted-foreground">

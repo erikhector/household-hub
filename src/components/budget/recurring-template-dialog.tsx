@@ -39,6 +39,7 @@ import type { MemberOption } from "@/components/budget/transaction-dialog";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 
 // Shared by both createRecurringTemplateAction/updateRecurringTemplateAction
 // (household) and createPersonalRecurringTemplateAction/
@@ -133,14 +134,25 @@ export function RecurringTemplateDialog({
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
     buildInitialSplitAmounts(template, memberOptions),
   );
-  // UX-183b: a missing name or amount is worded under its field in the
-  // page's language (`noValidate` on the form), not by the browser.
+  // UX-207 (UX-13's pattern): name and due day are the uncontrolled native
+  // inputs, so they're the ones a save the server turns down would
+  // otherwise wipe. Amount and the splits are controlled, and the category
+  // Combobox and frequency Select hold their own state, which a form reset
+  // doesn't touch.
+  const kept = useKeptFormValues(["name", "dayOfMonth"]);
+  // UX-183b: a missing name, category or amount is worded under its field
+  // in the page's language (`noValidate` on the form), not by the browser.
+  // UX-207: category is checked here too, as in TransactionDialog, so its
+  // error sits under the field instead of coming back from the server at
+  // the foot of the sheet.
   const req = useRequiredFields();
   function onSubmit(event: FormEvent<HTMLFormElement>) {
-    req.check(event, [
+    const blocked = req.check(event, [
       { name: "name", id: "rt-name", message: dict.nameRequired },
+      { name: "categoryId", id: "rt-category", message: dict.categoryRequired },
       { name: "amount", id: "rt-amount", message: dict.amountRequired, numeric: true },
     ]);
+    if (!blocked) kept.onSubmit(event);
   }
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -166,6 +178,7 @@ export function RecurringTemplateDialog({
     setAmount(template ? String(template.amount) : "");
     setSplitEnabled(canSplit && !!template && template.splits.length > 0);
     setSplitAmounts(buildInitialSplitAmounts(template, memberOptions));
+    kept.reset();
     req.clear();
   }
 
@@ -200,15 +213,28 @@ export function RecurringTemplateDialog({
               autoComplete="off"
               enterKeyHint="next"
               placeholder={dict.recurring.namePlaceholder}
-              defaultValue={template?.name}
+              defaultValue={kept.values.name ?? template?.name}
             />
             <FieldError fieldId="rt-name">{req.messageFor("name")}</FieldError>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="rt-category">{dict.categoryLabel}</Label>
-            <Combobox items={categoryItems} name="categoryId" defaultValue={template?.categoryId}>
-              <ComboboxInputGroup>
-                <ComboboxInput id="rt-category" autoComplete="off" placeholder={dict.categoryPlaceholder} />
+            <Combobox
+              items={categoryItems}
+              name="categoryId"
+              defaultValue={template?.categoryId}
+              // Typing in the input doesn't carry the field's `name`, so
+              // picking a category clears its error by hand.
+              onValueChange={() => req.clearField("categoryId")}
+            >
+              <ComboboxInputGroup aria-invalid={req.messageFor("categoryId") ? true : undefined}>
+                <ComboboxInput
+                  id="rt-category"
+                  autoComplete="off"
+                  placeholder={dict.categoryPlaceholder}
+                  aria-invalid={req.messageFor("categoryId") ? true : undefined}
+                  aria-describedby={req.messageFor("categoryId") ? fieldErrorId("rt-category") : undefined}
+                />
                 <ComboboxTrigger aria-label={dict.categoryToggleLabel} />
               </ComboboxInputGroup>
               <ComboboxContent emptyMessage={dict.categoryNoResults}>
@@ -219,6 +245,7 @@ export function RecurringTemplateDialog({
                 )}
               </ComboboxContent>
             </Combobox>
+            <FieldError fieldId="rt-category">{req.messageFor("categoryId")}</FieldError>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
@@ -253,7 +280,7 @@ export function RecurringTemplateDialog({
                 max={31}
                 step={1}
                 placeholder={dict.recurring.dayOfMonthPlaceholder}
-                defaultValue={template?.dayOfMonth ?? undefined}
+                defaultValue={kept.values.dayOfMonth ?? template?.dayOfMonth ?? undefined}
               />
             </div>
           </div>
