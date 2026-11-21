@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.160.3",
+    "date": "2026-11-21",
+    "pr": 1672,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Add income\" button on an empty budget no longer looks greyed out. Both setup buttons now have a clear outline.",
+      "sv": "Knappen \"Lägg till inkomst\" i en tom budget ser inte längre utgråad ut. Båda knapparna för att komma igång har nu en tydlig kant."
+    }
+  },
+  {
     "version": "0.160.2",
     "date": "2026-11-21",
     "pr": 1668,
