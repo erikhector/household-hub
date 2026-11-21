@@ -580,32 +580,6 @@ submits, a negative amount, a duplicate category name and 60–90-character
 Swedish names, on Pixel 7 and at 320 px. WebKit was not run (no browser
 installed here).
 
-- [ ] **UX-207. Budget dialogs keep what was typed after a server error, and check Category by the field** (impact: high, effort: S) —
-      React 19 resets an uncontrolled form once its action settles, and
-      UX-13's `useKeptFormValues` only reached the transaction and one-off
-      bill dialogs. In "Add recurring item"
-      (`src/components/budget/recurring-template-dialog.tsx:140`, `:203`,
-      `:256`), submitting a name, amount and due day without a category
-      comes back with "Category is required" at the bottom of the sheet,
-      and Name and Due day are now empty, so the user retypes them. Add
-      category (`src/components/budget/category-manager.tsx:431`, limit
-      `:522`) does the same on "A category with that name already
-      exists": the name and monthly limit are wiped. Edit category
-      (`:314`, `:327`) shares the pattern. Category is also left out of
-      the client check in the recurring dialog (`:140`) and the one-off
-      bill dialog (`planned-expense-dialog.tsx:142`), unlike the
-      transaction dialog (`transaction-dialog.tsx:329`). So the error isn't
-      next to the field (DESIGN.md "Errors": the problem, next to the
-      field) and only appears after a round trip. Fix: `useKeptFormValues`
-      in both dialogs, plus a `categoryId` entry in `req.check`. Acceptance
-      (`mobile`): in "Add recurring item", fill Name and Due day, leave
-      Category empty and submit. The category error shows under the
-      Category field, no request is sent, and Name and Due day keep their
-      values. In "Add one-off bill", fill Name, Amount and Due date, leave
-      Category empty and submit: the category error shows under the
-      Category field and no request is sent. In Add category, submit an
-      existing name with a limit: the error shows, and the name and limit
-      are still filled in.
 - [ ] **UX-208. One-off bill row squeezes the name into one word per line at 320 px** (impact: med, effort: S) —
       In Setup → Bills & income → Once, the row puts "Log payment"
       ("Logga betalning", 107 px) and the "…" button beside the name
