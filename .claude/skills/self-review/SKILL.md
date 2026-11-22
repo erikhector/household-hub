@@ -27,6 +27,11 @@ Stop at the first real problem in a hunk, note it, move on.
       from `formData`/args. Every Prisma `where` on tenant data includes the
       household (or goes through a record already scoped to it).
 - [ ] Input is Zod-validated. Form actions return `ActionState`, not throw.
+- [ ] A write that depends on a row's current state (a quantity, a ticked
+      flag, a merge target) decides it on the server, atomically (`increment`,
+      or `updateMany` whose `where` holds the expected value), never from a
+      value the client last saw: another member may have changed it. Stale
+      client state cost a review round on #1509 and #1512.
 - [ ] `signIn`/`signOut` redirects aren't swallowed (catch `AuthError` only).
 - [ ] No secrets, tokens, emails or other PII logged or sent to Sentry.
 - [ ] `proxy.ts` doesn't import `src/lib/auth.ts`. No bare `new PrismaClient()`.
@@ -55,6 +60,9 @@ Stop at the first real problem in a hunk, note it, move on.
       seeded value. Another spec in the same worker reads them next:
       #1183 (stock-history read a name `pending-button-width` had changed,
       and turned the release PR red) and #1213 (week-picks inherited weeks).
+      A spec that needs a far-off meal-plan week takes it from
+      `e2e/far-weeks.ts`, and a hand-picked week is grepped for under `e2e/`
+      first (#1536, #1551 were sent back for weeks another spec could reach).
 - [ ] e2e text locators are scoped (`page.getByRole("main").getByText(...)`,
       or the `dialog`) because a phone/desktop layout can render the same
       text twice and a bare `getByText` then fails strict mode (blocked
@@ -83,6 +91,11 @@ Stop at the first real problem in a hunk, note it, move on.
       non-readable values has a `children` mapper.
 - [ ] New cookie/localStorage key is in `src/lib/cookie-inventory.ts`.
 - [ ] New env var is in `.env.example`.
+- [ ] A change to `src/components/ui/dialog-history.ts` (or a dialog's
+      Back handling) covers, with a unit test each: a nested dialog closing
+      with its parent, the repair `popstate` never arriving (nothing stays
+      held), and the repair's own landing `popstate`. #1519, #1554 and
+      #1563 were each sent back for one of these.
 - [ ] REQUIREMENTS.md documents the shipped behaviour; finished BACKLOG.md
       item deleted. `version`/`releases.json` untouched.
 - [ ] Nothing still describes the old behaviour. Grep REQUIREMENTS.md and

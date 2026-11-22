@@ -35,6 +35,17 @@ const eslintConfig = defineConfig([
             ":matches(FunctionDeclaration, VariableDeclarator)[id.name=/^(withClient|withDb|mondayOf|unique|uniqueId|uniqueTag|suffix)$/]",
           message: "Import this helper from e2e/db.ts instead of defining a copy in the spec.",
         },
+        {
+          // #1626: plan-leftovers' afterEach called uniqueTag() afresh, so it
+          // matched nothing and every run leaked its meals into the worker's
+          // shared household, where the next spec tripped over them (the
+          // MAINT-79/115/117 family). A cleanup deletes by the tag or id the
+          // test seeded with, kept in a variable, never a newly made one.
+          selector:
+            "CallExpression:matches([callee.name=/^after(Each|All)$/], [callee.property.name=/^after(Each|All)$/]) CallExpression[callee.name=/^unique(Tag|Id)?$/]",
+          message:
+            "A cleanup must reuse the tag/id the test seeded with; a fresh unique()/uniqueTag()/uniqueId() here matches nothing and leaks rows.",
+        },
       ],
     },
   },
