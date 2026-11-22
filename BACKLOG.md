@@ -567,6 +567,86 @@ toast. The household notes board and the pending-invites list don't.
 WebKit was not run (no browser installed here), and the audit config
 still needs an uncommitted `executablePath` copy to launch Chromium.
 
+### UX (2026-11-22 scout)
+
+Sunday area: public, auth and legal pages, and the first-run flow. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps. All 290 + 132 tests pass, and the only
+audit hits are the known `text-200` truncations (UX-150) and the hidden
+"Invite member" button. The screenshot review's touch-target suspicions
+(Forgot password, footer links, status-card links) measured 44 px on
+phones, so they aren't filed. The deep dive drove login, signup and
+forgot password on Pixel 7 (`en`) and at 320 px (`sv`): once submitted
+offline, and once with signup reloaded half-filled. WebKit was not run
+(no browser installed here). The audit config still needs an
+uncommitted `executablePath` copy to launch Chromium.
+
+- [ ] **UX-210. A dropped connection on an auth form shows the crash page and wipes the form** (impact: high, effort: M) —
+      Submitting login, signup or forgot password while offline (or on a
+      request that never arrives) rejects the Server Action. Nothing
+      catches it, so the root `src/app/error.tsx` boundary replaces the
+      page with "Something went wrong … head back to the dashboard". The
+      user is logged out, everything they typed is gone, and Sentry logs
+      it as an unhandled error. Reproduced on Pixel 7 (`en`) and at 320 px
+      (`sv`) on `/login`, `/signup` and `/forgot-password`. The same
+      unguarded `useActionState` call is in
+      `src/components/auth/reset-password-form.tsx`,
+      `src/components/household/join-signup-form.tsx`,
+      `accept-invite-form.tsx` and `create-first-household-form.tsx`, so a
+      new user's whole first-run path is exposed. This breaks M8 (an
+      error state that says what to do, including "you're offline"; input
+      survives), and it is the same gap UX-205 closed for the household
+      notes. Fix: wrap each form's action so a rejection becomes
+      `{ error: dict.errors.requestFailed }` in that form's general error
+      line. Re-throw redirect signals (`unstable_rethrow`) so a successful
+      login still navigates, and keep the typed values (`useKeptFormValues`
+      already covers the server-error path).
+      Acceptance: an e2e spec in `mobile` and `desktop` fills `/login` and
+      `/signup`, calls `context.setOffline(true)` and submits. It asserts
+      that the "Check your connection" message is visible on the same
+      page, the error-boundary heading is not shown, and the email and
+      name fields still hold what was typed. Going back online and
+      submitting again then succeeds.
+- [ ] **UX-211. Keep a half-filled signup across a reload** (impact: med, effort: S) —
+      `/signup` asks for five fields before a new user sees anything. On
+      a phone the usual mid-form interruptions are leaving to check an
+      email, a password manager or an incoming call, and Android may
+      discard the tab. A reload after filling name, household and email
+      brings back an empty form: all three read `""` on Pixel 7 and at
+      320 px (`src/components/auth/signup-form.tsx`). This breaks M8 ("a
+      call, a notification or a locked screen mid-flow loses nothing:
+      form input survives a reload or backgrounding"). Fix: keep a
+      `sessionStorage` draft of `displayName`, `householdName` and
+      `email` only. Never store either password. Clear the draft once the
+      account is created, and add the key to `src/lib/cookie-inventory.ts`
+      as necessary storage. The join-signup form
+      (`src/components/household/join-signup-form.tsx`) gets the same
+      draft.
+      Acceptance: an e2e spec in `mobile` fills name, household name,
+      email and password on `/signup` and reloads. The first three fields
+      keep their values and the password field is empty. After a
+      successful signup, opening `/signup` again shows empty fields.
+- [ ] **UX-212. Paint the page gradient behind the whole page, not just the first screen** (impact: low, effort: S) —
+      `body`'s `radial-gradient` in `src/app/globals.css:359` is
+      `no-repeat` and sized to the first viewport. On any public page
+      taller than the screen, a hard horizontal seam shows where the
+      lavender gradient stops and the flat `--gradient-end` fill begins.
+      It sits at y≈720 in `desktop-sv-signup.png` (through the signup
+      card, beside the submit button), `desktop-sv-root.png` and
+      `desktop-sv-whats-new.png`. On a phone it shows one screen down on
+      the landing page, signup and the legal pages. The comment above the
+      rule assumes `body` never scrolls, which holds only inside the
+      dashboard shell. This breaks the design principle of calm,
+      consistent surfaces. Fix: size the gradient to the document
+      (`background-size: 100% 100%` with `min-height` on `html`), or fade
+      it out within the first screen. Don't use
+      `background-attachment: fixed`, which the comment rules out for
+      iOS PWAs.
+      Acceptance: an e2e check in `desktop` and `mobile` scrolls `/signup`
+      and `/` to the bottom. It samples the page background colour just
+      above and just below one viewport height at the left edge, and the
+      two differ by at most a few RGB units.
+
 ---
 
 ## Phase 2 — schema changes, one at a time
