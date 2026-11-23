@@ -11,21 +11,25 @@ no until new evidence reopens it.
 
 ## Direction
 
-Squirrel covers its original scope, and cook mode, step timers, leftovers, freezing, recipe copy and duplication have all shipped; what's left is making the everyday
-loop (shopping list → receipt → pantry → meal plan → budget) take less
-typing and work well on a phone in a store. Favour automation that
-follows BACKLOG.md's Guardrails (suggest, don't silently mutate; works
-with no AI key), mobile polish, and correctness of anything touching
-money. Not now: new paid infrastructure, native apps, or features that
-add notifications without something actually being wrong.
+Squirrel covers its original scope, and the last fortnight shipped mostly
+small finishing work (urgent items, any-week planner jumps, flexible task
+repeats, budget dialog fixes); what's left is making the everyday loop
+(shopping list → receipt → pantry → meal plan → budget) take less typing
+and work well on a phone in a store, which is why offline adds are next.
+Favour automation that follows BACKLOG.md's Guardrails (suggest, don't
+silently mutate; works with no AI key), mobile polish, correctness of
+anything touching money, and a stable e2e suite: flaky specs are now the
+loop's biggest recurring cost. Server caching waits on a production
+measurement only the owner can take. Not now: new paid infrastructure,
+native apps, or features that add notifications without something
+actually being wrong.
 
 ## Focus
 
 Builder picks these, in order, right after `UX-` items.
 
-1. `UX-183` Add-item errors under the field, in the page's language
-2. `UX-176` Define the shadow and type tokens
-3. `UX-177` Acorn shopping progress ring
+1. `UX-36b` Offline adds on the shopping list
+2. `MAINT-7` Translate the remaining server-returned error messages
 
 ## Owner inbox
 
@@ -35,6 +39,10 @@ Decisions only the owner can make, each with a recommended answer.
   enable Resend inbound and accept temporary storage of receipt content.
 - `PRICE-1`: wait; decide after AUTO-4 shows how much price data exists.
 - `GAP-68`: recommended no (sensitive per-member card data; a wallet app does it better).
+- `UX-43`: make screenshot baselines on the CI runner? Recommended yes,
+  ~30 screens, owner adds the workflow (#1703).
+- `PERF-32`: recommended split behind an off-by-default flag, owner
+  measures in Vercel (#1704).
 - `UX-66`: owner wants the "who we are" sentence; reply on #736 with the accurate wording.
 - `GAP-35`, `GAP-36`, `GAP-37`, `GAP-38`, `GAP-41`: recommended no for now
   (new data model or money-math, no evidence of demand); `GAP-20`/`GAP-26`
@@ -44,6 +52,8 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-11-23 | UX-36b | Offline adds only, replayed through smart add's existing "already on the list" dedupe; offline price edits not planned | In-store need is remembering an item; no client ids or new merge rules; money stays online (UX-36) | Yes |
+| 2026-11-23 | MAINT-38 | Dropped the item-page heading flake | No sighting since 2026-10-20 across dozens of gates; the wait is client hydration, so neither offered fix fits. Re-file on the next sighting | Yes |
 | 2026-11-09 | UX-176 | Define the shadow and type tokens in `@theme`, migrate the call sites | Item's own recommended option | Yes |
 | 2026-11-09 | UX-177 | Character pass starts with the acorn progress ring only; (a), (c), (d) parked | Smallest reversible test of brand on daily screens | Yes |
 | 2026-11-02 | UX-66 | Translate the legal pages to Swedish; "who we are" wording follows from the owner | owner (#736) | Yes |
