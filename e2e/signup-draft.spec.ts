@@ -19,6 +19,15 @@ const token = `ux211-${stamp}`;
 
 async function cleanup() {
   await withDb(async (c) => {
+    // The /signup test creates a household of its own, and deleting the
+    // User only cascades its HouseholdMember row, so drop that household
+    // first. Scoped to `email` alone: `joinEmail` joins E2E_HOUSEHOLD,
+    // which must survive.
+    await c.query(
+      `DELETE FROM "Household" WHERE id IN (
+         SELECT m."householdId" FROM "HouseholdMember" m JOIN "User" u ON u.id = m."userId" WHERE u.email = $1)`,
+      [email],
+    );
     await c.query(`DELETE FROM "User" WHERE "email" = ANY($1)`, [[email, joinEmail]]);
     await c.query(`DELETE FROM "Invitation" WHERE "token" = $1`, [token]);
   });
