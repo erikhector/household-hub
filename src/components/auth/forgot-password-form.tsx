@@ -82,7 +82,11 @@ export function ForgotPasswordForm({
         </div>
         <FieldError fieldId="email">{req.messageFor("email")}</FieldError>
       </div>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.error}
+        </p>
+      )}
       <Button type="submit" disabled={pending} className="w-full">
         <Send className="size-4" />
         <PendingLabel pending={pending} busy={dict.sending} idle={dict.submit} />

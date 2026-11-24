@@ -222,7 +222,7 @@ export function JoinSignupForm({
       </div>
       {/* A blocked submit shows only its own errors, not the last server verdict. */}
       {state.error && Object.keys(req.errors).length === 0 && (
-        <p className="text-sm text-destructive">{state.error}</p>
+        <p role="alert" className="text-sm text-destructive">{state.error}</p>
       )}
       <p className="text-center text-sm text-muted-foreground">
         {legalDict.signupConsentPrefix}{" "}

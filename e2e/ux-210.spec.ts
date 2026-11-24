@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { hashToken } from "@/lib/token-hash";
 import { unique, withDb } from "./db";
-import { E2E_USER } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_PASSWORD, E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectHydrated } from "./ui";
 
@@ -112,7 +113,72 @@ test("a reset link requested offline says to check the connection and keeps the 
   await context.setOffline(true);
   await submit.click();
 
-  await expect(page.getByText(en.errors.requestFailed)).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: en.errors.requestFailed })).toBeVisible();
   await expect(crashHeading(page)).toHaveCount(0);
   await expect(email).toHaveValue(E2E_USER.email);
+});
+
+// The reset page only renders its form for a live token, so one is inserted
+// for the worker's seeded user. The submit never arrives, so the user's
+// password is never touched.
+test("a new password sent offline says to check the connection", async ({ page, context }) => {
+  const t = en.auth.resetPassword;
+  const raw = `ux210-reset-${E2E_WORKER}-${Date.now().toString(36)}`;
+  const id = `PasswordResetToken-${raw}`;
+  await withDb((c) =>
+    c.query(
+      `INSERT INTO "PasswordResetToken" ("id", "userId", "token", "expiresAt")
+       SELECT $1, "id", $2, now() + interval '1 day' FROM "User" WHERE "email" = $3`,
+      [id, hashToken(raw), E2E_USER.email],
+    ),
+  );
+  try {
+    await page.goto(`/reset-password/${raw}`);
+    const password = page.getByLabel(t.newPassword, { exact: true });
+    await expectHydrated(password);
+    await password.fill(E2E_PASSWORD);
+    await page.getByLabel(t.confirmPassword, { exact: true }).fill(E2E_PASSWORD);
+    await context.setOffline(true);
+    await page.getByRole("button", { name: t.submit }).click();
+
+    // Announced, so a screen-reader user hears why nothing happened.
+    await expect(page.getByRole("alert").filter({ hasText: en.errors.requestFailed })).toBeVisible();
+    await expect(crashHeading(page)).toHaveCount(0);
+  } finally {
+    await withDb((c) => c.query(`DELETE FROM "PasswordResetToken" WHERE "id" = $1`, [id]));
+  }
+});
+
+test("an invite sign-up sent offline says to check the connection and keeps the name and email", async ({
+  page,
+  context,
+}) => {
+  const t = en.auth.join;
+  const token = `ux210-join-${E2E_WORKER}-${Date.now().toString(36)}`;
+  await withDb((c) =>
+    c.query(
+      `INSERT INTO "Invitation" ("id", "householdId", "token", "expiresAt", "invitedById") VALUES ($1, $2, $3, now() + interval '1 day', $4)`,
+      [`inv-${token}`, E2E_HOUSEHOLD.id, token, E2E_USER.id],
+    ),
+  );
+  try {
+    await page.goto(`/join/${token}`);
+    const name = page.getByLabel(t.yourName);
+    await expectHydrated(name);
+    const form = page.locator("form").filter({ has: name });
+    const email = form.getByLabel(t.email);
+    await name.fill("Ux Twoten");
+    await email.fill(signupEmail);
+    await form.getByLabel(t.password, { exact: true }).fill(E2E_PASSWORD);
+    await form.getByLabel(t.confirmPassword, { exact: true }).fill(E2E_PASSWORD);
+    await context.setOffline(true);
+    await form.getByRole("button", { name: t.submit }).click();
+
+    await expect(form.getByRole("alert").filter({ hasText: en.errors.requestFailed })).toBeVisible();
+    await expect(crashHeading(page)).toHaveCount(0);
+    await expect(name).toHaveValue("Ux Twoten");
+    await expect(email).toHaveValue(signupEmail);
+  } finally {
+    await withDb((c) => c.query(`DELETE FROM "Invitation" WHERE "token" = $1`, [token]));
+  }
 });

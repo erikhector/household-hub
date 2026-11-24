@@ -62,7 +62,11 @@ export function CreateFirstHouseholdForm({
         />
         <FieldError fieldId="first-household-name">{req.messageFor("name")}</FieldError>
       </div>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.error}
+        </p>
+      )}
       <Button type="submit" disabled={pending} className="w-full">
         <PendingLabel pending={pending} busy={dict.creating} idle={dict.create} />
       </Button>

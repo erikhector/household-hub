@@ -27,7 +27,11 @@ export function AcceptInviteForm({
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="token" value={token} />
       <p className="text-sm text-muted-foreground">{dict.acceptConsequence}</p>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.error}
+        </p>
+      )}
       <Button type="submit" disabled={pending} className="w-full">
         <PendingLabel pending={pending} busy={dict.accepting} idle={dict.accept} />
       </Button>
