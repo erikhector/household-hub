@@ -8,6 +8,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import {
   NUTRITION_RECAP_DISMISSED_STORAGE_KEY,
+  SIGNUP_DRAFT_STORAGE_KEY,
   STORAGE_INVENTORY,
   TASKS_FILTER_STORAGE_KEY,
   TASKS_RECAP_DISMISSED_STORAGE_KEY,
@@ -61,6 +62,18 @@ describe("preference keys", () => {
       kind: "localStorage",
       category: "preference",
     });
+  });
+});
+
+describe("draft keys", () => {
+  // useSessionDraft only accepts these (typed via DraftStorageKey). UX-211:
+  // the signup draft holds an email, so it must be listed as session storage
+  // (ends with the tab) and say on /privacy that no password is kept.
+  it("are each listed as necessary session storage that rules out the password", () => {
+    const entry = STORAGE_INVENTORY.find((e) => e.name === SIGNUP_DRAFT_STORAGE_KEY);
+    expect(entry).toMatchObject({ kind: "sessionStorage", category: "necessary" });
+    expect(entry?.purpose).toMatch(/never your password/);
+    expect(entry?.purposeSv).toMatch(/aldrig lösenordet/);
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, type FormEvent } from "react";
+import { useActionState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { MailCheck, AlertTriangle, Lock, Mail, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { StatusCardLink } from "@/components/auth/status-card";
 import { loginPath } from "@/lib/login-path";
 import { PasswordInput } from "@/components/auth/password-input";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { useSessionDraft } from "@/components/shared/use-session-draft";
+import { SIGNUP_DRAFT_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { EMAIL_PATTERN } from "@/lib/email-pattern";
@@ -42,6 +44,16 @@ export function JoinSignupForm({
   );
   // UX-13, as in SignupForm: an error keeps the name and email.
   const kept = useKeptFormValues(["displayName", "email"]);
+  // UX-211, as in SignupForm: a reload keeps the name and email (never the
+  // passwords), and the draft goes once the account exists.
+  const {
+    formRef: draftFormRef,
+    onInput: saveDraft,
+    clear: clearDraft,
+  } = useSessionDraft(SIGNUP_DRAFT_STORAGE_KEY, ["displayName", "email"]);
+  useEffect(() => {
+    if (state.status === "verification-sent") clearDraft();
+  }, [state.status, clearDraft]);
   // UX-183b: a missing name, email or password is worded under its field in
   // the page's language (`noValidate`), not by the browser's own bubble.
   // UX-194: so are a malformed email, a password under 8 characters and a
@@ -133,7 +145,17 @@ export function JoinSignupForm({
   }
 
   return (
-    <form action={formAction} onSubmit={onSubmit} onInput={req.onInput} noValidate className="flex flex-col gap-4">
+    <form
+      ref={draftFormRef}
+      action={formAction}
+      onSubmit={onSubmit}
+      onInput={(event) => {
+        req.onInput(event);
+        saveDraft(event);
+      }}
+      noValidate
+      className="flex flex-col gap-4"
+    >
       <input type="hidden" name="token" value={token} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>

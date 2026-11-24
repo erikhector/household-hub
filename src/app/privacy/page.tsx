@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return titleOnlyMetadata(dict.meta.privacyTitle);
 }
 
-const LAST_UPDATED = "November 2, 2026";
+const LAST_UPDATED = "November 24, 2026";
 
 const SECTIONS: LegalJumpItem[] = [
   { id: "overview", title: "1. Overview" },
@@ -114,7 +114,7 @@ export default async function PrivacyPage() {
             <p>
               Squirrel only stores small pieces of data on your device that are either strictly
               necessary to provide the features you use (staying signed in, keeping your
-              household selected) or that remember a preference you chose yourself (language,
+              household selected, not losing a half-filled sign-up form) or that remember a preference you chose yourself (language,
               theme, sidebar). None of them is used for advertising, analytics or tracking, and
               none is shared with a third party. Because of that, we don&apos;t ask for consent
               — we just tell you here. You can delete any of them through your browser&apos;s
@@ -131,6 +131,7 @@ export default async function PrivacyPage() {
                 cookie: "Cookie",
                 cache: "Offline cache",
                 localStorage: "Local storage",
+                sessionStorage: "Session storage",
                 necessary: "necessary",
                 preference: "preference",
               }}

@@ -10327,6 +10327,26 @@ approximating them, so the email never disagrees with the app.
   those carry into the next item, while expiry and use-within go back to
   blank (so AUTO-7 can still estimate the next item's expiry). Covered by
   `e2e/form-errors.spec.ts`.
+- **A half-filled signup survives a reload (UX-211, DESIGN.md M8).** On a
+  phone the usual mid-signup interruptions (the inbox, a password manager,
+  a call, Android discarding the tab) used to end in an empty form. `/signup`
+  and the invite sign-up at `/join/<token>` keep a draft in `sessionStorage`
+  under `auth.signupDraft` (`SIGNUP_DRAFT_STORAGE_KEY`) through
+  `useSessionDraft(key, names)` (`src/components/shared/use-session-draft.ts`):
+  every input saves the listed fields, and right after hydration each saved
+  value fills its field if it's still empty. The names are an allowlist
+  (`displayName`, `householdName`, `email`; the invite form has no
+  household), so neither password is ever stored, and a stored value under
+  any other name is ignored on restore. The key is typed to
+  `DraftStorageKey` in `src/lib/cookie-inventory.ts`, whose `StorageKind`
+  now includes `"sessionStorage"`: the entry is necessary storage, and the
+  privacy page's card labels it "Session storage" / "Sessionslagring" and
+  says what's kept, never the password, and that it lasts until the
+  account is created or the tab closes. The form clears it as soon as the
+  account exists (`status: "verification-sent"`). Restoring writes the DOM
+  value instead of `defaultValue`, so it leaves `useKeptFormValues`'s
+  reset values alone. Covered by `e2e/signup-draft.spec.ts` and
+  `use-session-draft.test.ts`.
 - **Signup and login errors sit next to the field (UX-59).** Both forms
   are `noValidate` and check in the browser first
   (`src/components/auth/signup-form.tsx`, `login-form.tsx`): a missing
