@@ -375,6 +375,21 @@
       background-attachment: fixed;
     }
   }
+  /* UX-212: touch devices, where `fixed` is off (the safe-area quirk
+     above). The gradient is still one viewport tall (`html` is `h-dvh`),
+     so on a page that scrolls (landing, auth, legal) a hard seam showed
+     one screen down, where it stopped and the flat fill began. A second
+     layer fades the bottom half of that screen into `--gradient-end`, so
+     the gradient meets the fill exactly, along the whole edge, in either
+     orientation. The top half, and the shape of the glow, are unchanged.
+     Written as the exact complement of the desktop query. */
+  @media not all and (hover: hover) and (pointer: fine) {
+    body {
+      background-image:
+        linear-gradient(transparent 50%, var(--gradient-end)),
+        radial-gradient(circle, var(--gradient-start), var(--gradient-end));
+    }
+  }
   html {
     @apply font-sans;
     /* UX-33: on desktop the body scrolls, so the list growing past one

@@ -24,7 +24,7 @@ export default async function SignupPage() {
           <BrandBadge />
           {dict.auth.brand}
         </Link>
-        <SignupForm dict={dict.auth.signup} legalDict={dict.legal} />
+        <SignupForm dict={dict.auth.signup} legalDict={dict.legal} requestFailed={dict.errors.requestFailed} />
       </main>
       <LegalFooter dict={dict.legal} />
     </div>

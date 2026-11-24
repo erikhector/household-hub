@@ -852,6 +852,9 @@ export const sv = {
       one: "{count} ändring väntar på synk",
       other: "{count} ändringar väntar på synk",
     },
+    offlineAddsLabel: "Väntar på att läggas till",
+    offlineAddBadge: "Väntar",
+    offlineAddDroppedToast: "”{name}” lades inte till på listan",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {
@@ -905,6 +908,10 @@ export const sv = {
       addedAnnouncement: {
         one: "La till {count} vara",
         other: "La till {count} varor",
+      },
+      queuedAnnouncement: {
+        one: "{count} vara läggs till när du är online igen",
+        other: "{count} varor läggs till när du är online igen",
       },
       scanLabel: "Skanna en streckkod för att lägga till",
       scanAddedToast: "La till {name}",

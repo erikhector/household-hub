@@ -15,7 +15,8 @@ import { canNativeShare } from "@/components/ui/copy-link-button";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { formatShoppingListText } from "@/lib/shopping-list-text";
-import { queuedPurchased, queueTick } from "@/lib/shopping/offline-tick-queue";
+import { smartAddShoppingListItemsAction } from "@/app/dashboard/shopping-list/smart-add-actions";
+import { isTick, queuedAdds, queuedPurchased, queueTick } from "@/lib/shopping/offline-tick-queue";
 import {
   getQueuedTicks,
   getServerQueuedTicks,
@@ -231,8 +232,18 @@ export function useShoppingTicks({
     const replay = () => {
       if (!navigator.onLine) return;
       void replayQueuedTicks(
-        ({ itemId, purchased }) => replayTickAction(itemId, purchased),
-        () => toast.error(dict.saveFailedToast),
+        // UX-36b: an add goes through the smart add line's own action, so
+        // its "already on the list" dedupe decides, as for an online add.
+        (entry) =>
+          isTick(entry)
+            ? replayTickAction(entry.itemId, entry.purchased)
+            : smartAddShoppingListItemsAction(entry.listId, [entry.row]),
+        (entry, error) => {
+          if (isTick(entry)) toast.error(dict.saveFailedToast);
+          // The list was completed or deleted meanwhile (or the row was
+          // refused): the add is dropped, and the toast says which one.
+          else toast.error(format(dict.offlineAddDroppedToast, { name: entry.row.name }), { description: error });
+        },
       ).then((settled) => {
         if (settled) router.refresh();
       });
@@ -254,7 +265,7 @@ export function useShoppingTicks({
       document.removeEventListener("visibilitychange", replayWhenVisible);
       window.clearInterval(retry);
     };
-  }, [hasQueuedTicks, router, dict.saveFailedToast]);
+  }, [hasQueuedTicks, router, dict.saveFailedToast, dict.offlineAddDroppedToast]);
 
   return {
     items,
@@ -268,6 +279,8 @@ export function useShoppingTicks({
     setCelebrate,
     queuedTicks,
     hasQueuedTicks,
+    // UX-36b: this list's rows typed offline, shown as pending rows.
+    queuedAdds: queuedAdds(queuedTicks, list.id),
     isTicking,
     toggleItem,
     deleteItem,

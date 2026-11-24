@@ -2,7 +2,16 @@
 
 import { unstable_rethrow } from "next/navigation";
 import { SHOPPING_TICK_QUEUE_STORAGE_KEY } from "@/lib/cookie-inventory";
-import { dropTick, NO_QUEUED_TICKS, parseQueue, type TickQueue } from "@/lib/shopping/offline-tick-queue";
+import {
+  dropAdd,
+  dropTick,
+  isTick,
+  NO_QUEUED_TICKS,
+  parseQueue,
+  queuedPurchased,
+  type QueuedEntry,
+  type TickQueue,
+} from "@/lib/shopping/offline-tick-queue";
 
 // UX-36: the browser-side half of the offline tick queue — a tiny external
 // store over localStorage, read with useSyncExternalStore so the chip and the
@@ -75,17 +84,17 @@ type ReplayResult = { error?: string };
 let replaying = false;
 
 /**
- * Saves the queued ticks in order, dropping each from the queue once the
- * server has answered it. Stops at the first request that never arrives (the
- * connection dropped again), leaving that entry and the rest queued for the
- * next `online`. An answer carrying an error is dropped too, so one bad row
- * can't block the ones behind it; `onFailed` reports it. Only one replay runs
- * at a time (the online event, a mount and a new tick can all ask for one).
- * Resolves true when at least one entry was settled.
+ * Saves the queued ticks and adds in order, dropping each from the queue once
+ * the server has answered it. Stops at the first request that never arrives
+ * (the connection dropped again), leaving that entry and the rest queued for
+ * the next `online`. An answer carrying an error is dropped too, so one bad
+ * row can't block the ones behind it; `onFailed` reports it. Only one replay
+ * runs at a time (the online event, a mount and a new tick can all ask for
+ * one). Resolves true when at least one entry was settled.
  */
 export async function replayQueuedTicks(
-  replay: (tick: { itemId: string; purchased: boolean }) => Promise<ReplayResult>,
-  onFailed: () => void,
+  replay: (entry: QueuedEntry) => Promise<ReplayResult>,
+  onFailed: (entry: QueuedEntry, error: string) => void,
 ): Promise<boolean> {
   if (replaying) return false;
   replaying = true;
@@ -94,25 +103,36 @@ export async function replayQueuedTicks(
     // Repeats while taps made during a pass left something new behind it.
     for (let more = true; more; ) {
       more = false;
-      for (const tick of getQueuedTicks()) {
+      const pass = getQueuedTicks();
+      for (const entry of pass) {
         let result: ReplayResult;
         try {
-          result = await replay(tick);
+          result = await replay(entry);
         } catch (error) {
           // A redirect or not-found signal (an expired session) belongs to
           // the router; anything else is the network.
           unstable_rethrow(error);
           return settled;
         }
-        // A tap on this row while its save was on the way replaced the
-        // entry; that newer wish still has to be sent, so only an unchanged
-        // one goes.
-        const latest = getQueuedTicks().find((entry) => entry.itemId === tick.itemId);
-        if (latest?.purchased === tick.purchased) setQueuedTicks(dropTick(getQueuedTicks(), tick.itemId));
-        else more = true;
+        if (isTick(entry)) {
+          // A tap on this row while its save was on the way replaced the
+          // entry; that newer wish still has to be sent, so only an
+          // unchanged one goes.
+          if (queuedPurchased(getQueuedTicks(), entry.itemId) === entry.purchased) {
+            setQueuedTicks(dropTick(getQueuedTicks(), entry.itemId));
+          } else {
+            more = true;
+          }
+        } else {
+          // An add is never replaced, only answered.
+          setQueuedTicks(dropAdd(getQueuedTicks(), entry.key));
+        }
         settled = true;
-        if (result.error) onFailed();
+        if (result.error) onFailed(entry, result.error);
       }
+      // UX-36b: a row typed (or a row ticked) while this pass ran was
+      // queued behind it; send it now rather than at the next retry.
+      if (getQueuedTicks().some((entry) => !pass.includes(entry))) more = true;
     }
   } finally {
     replaying = false;
