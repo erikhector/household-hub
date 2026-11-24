@@ -618,34 +618,53 @@ uncommitted `executablePath` copy to launch Chromium.
       form input survives a reload or backgrounding"). Fix: keep a
       `sessionStorage` draft of `displayName`, `householdName` and
       `email` only. Never store either password. Clear the draft once the
-      account is created, and add the key to `src/lib/cookie-inventory.ts`
-      as necessary storage. The join-signup form
+      account is created. The join-signup form
       (`src/components/household/join-signup-form.tsx`) gets the same
-      draft.
+      draft. Storage inventory: `StorageKind` in
+      `src/lib/cookie-inventory.ts` is `"cookie" | "localStorage" |
+      "cache"` today, so add a `"sessionStorage"` kind, add the draft key
+      as necessary storage, and make the storage cards in
+      `src/components/legal/legal-page.tsx` (which branch on `kind`)
+      label it as session storage in both languages. Because the draft
+      holds the user's email, its privacy-page entry (en and sv) says
+      what's kept (name, household name, email; never the password) and
+      that it's cleared on successful signup or when the tab closes.
       Acceptance: an e2e spec in `mobile` fills name, household name,
       email and password on `/signup` and reloads. The first three fields
       keep their values and the password field is empty. After a
-      successful signup, opening `/signup` again shows empty fields.
-- [ ] **UX-212. Paint the page gradient behind the whole page, not just the first screen** (impact: low, effort: S) —
-      `body`'s `radial-gradient` in `src/app/globals.css:359` is
-      `no-repeat` and sized to the first viewport. On any public page
-      taller than the screen, a hard horizontal seam shows where the
-      lavender gradient stops and the flat `--gradient-end` fill begins.
-      It sits at y≈720 in `desktop-sv-signup.png` (through the signup
-      card, beside the submit button), `desktop-sv-root.png` and
-      `desktop-sv-whats-new.png`. On a phone it shows one screen down on
-      the landing page, signup and the legal pages. The comment above the
-      rule assumes `body` never scrolls, which holds only inside the
-      dashboard shell. This breaks the design principle of calm,
-      consistent surfaces. Fix: size the gradient to the document
-      (`background-size: 100% 100%` with `min-height` on `html`), or fade
-      it out within the first screen. Don't use
-      `background-attachment: fixed`, which the comment rules out for
-      iOS PWAs.
-      Acceptance: an e2e check in `desktop` and `mobile` scrolls `/signup`
-      and `/` to the bottom. It samples the page background colour just
-      above and just below one viewport height at the left edge, and the
-      two differ by at most a few RGB units.
+      successful signup, opening `/signup` again shows empty fields. The
+      cookie-inventory drift-guard test passes with the new key, and
+      `/privacy` lists the draft as session storage in `en` and `sv`.
+- [ ] **UX-212. Paint the page gradient behind the whole page on touch devices, not just the first screen** (impact: low, effort: S) —
+      `body`'s `radial-gradient` in `src/app/globals.css` (~line 359) is
+      `no-repeat` and sized to the first viewport, with a flat
+      `--gradient-end` `background-color` behind it. On desktop this is
+      already handled: the rule right after it,
+      `@media (hover: hover) and (pointer: fine) { body {
+      background-attachment: fixed; } }`, pins the gradient to the
+      viewport, and its comment says the body does scroll on the landing,
+      legal and auth pages. Keep that rule. (The y≈720 seam in the
+      `desktop-*.png` screenshots is likely an artefact of Playwright's
+      full-page capture with a fixed background, not something a desktop
+      user sees.) On touch / coarse-pointer devices `fixed` is
+      deliberately off because of the iOS standalone-PWA safe-area
+      quirk the comment above the rule describes, so on a phone or
+      tablet a hard horizontal seam shows one screen down where the
+      lavender gradient stops and the flat fill begins: on the landing
+      page, signup and the legal pages. This breaks the design principle
+      of calm, consistent surfaces. Fix, scoped to touch devices only
+      (outside the fine-pointer media query): size the gradient to the
+      document (`background-size: 100% 100%` with `min-height` on
+      `html`), or fade it out within the first screen. Don't turn on
+      `background-attachment: fixed` for touch devices, and don't change
+      the desktop rule.
+      Acceptance: an e2e check in `mobile` (and the tablet project if it
+      runs there) scrolls `/signup` and `/` to the bottom in a live
+      viewport (not a full-page screenshot). It samples the page
+      background colour just above and just below one viewport height at
+      the left edge, and the two differ by at most a few RGB units. A
+      `desktop` assertion only guards that `body` still computes
+      `background-attachment: fixed` there.
 
 ---
 
