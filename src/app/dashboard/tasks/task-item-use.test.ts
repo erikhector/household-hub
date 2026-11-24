@@ -15,7 +15,7 @@ vi.mock("@/lib/shopping/default-list", () => ({ addToDefaultListOnLowStock: addT
 const { consumeTaskItem, restoreTaskItem } = await import("@/app/dashboard/tasks/task-item-use");
 
 const tx = {
-  inventoryItem: { findFirst: vi.fn(), update: vi.fn() },
+  inventoryItem: { findFirst: vi.fn(), updateMany: vi.fn() },
   inventoryItemEvent: { findFirst: vi.fn(), updateMany: vi.fn() },
   notification: { updateMany: vi.fn() },
 };
@@ -26,6 +26,7 @@ const unlink = { where: { taskId: "task-1", householdId: "household-1" }, data: 
 
 beforeEach(() => {
   addToDefaultListOnLowStockMock.mockResolvedValue(null);
+  tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
 });
 
 afterEach(() => {
@@ -43,9 +44,10 @@ describe("consumeTaskItem", () => {
       where: { id: "item-1", householdId: "household-1" },
       select: { id: true, name: true, unit: true, quantity: true },
     });
-    expect(tx.inventoryItem.update).toHaveBeenCalledWith({
-      where: { id: "item-1" },
-      data: { quantity: 2, updatedByUserId: "user-1" },
+    // Compare-and-set on the amount it read, so a tap in between isn't lost.
+    expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith({
+      where: { id: "item-1", householdId: "household-1", quantity: 3 },
+      data: { quantity: 2, everStocked: true, updatedByUserId: "user-1" },
     });
     expect(recordStockEventMock).toHaveBeenCalledWith(db, {
       householdId: "household-1",
@@ -66,7 +68,7 @@ describe("consumeTaskItem", () => {
 
     const result = await consumeTaskItem(db, { ...ids, itemId: "item-1", quantity: 2 });
 
-    expect(tx.inventoryItem.update.mock.calls[0][0].data.quantity).toBe(0);
+    expect(tx.inventoryItem.updateMany.mock.calls[0][0].data.quantity).toBe(0);
     expect(result.used).toEqual({ itemName: "Filters", quantity: 0.5, unit: "pcs" });
   });
 
@@ -79,16 +81,33 @@ describe("consumeTaskItem", () => {
 
     expect(await consumeTaskItem(db, { ...ids, itemId: null, quantity: null })).toEqual({ used: null, autoAdded: null });
 
-    expect(tx.inventoryItem.update).not.toHaveBeenCalled();
+    expect(tx.inventoryItem.updateMany).not.toHaveBeenCalled();
     expect(recordStockEventMock).not.toHaveBeenCalled();
     expect(tx.inventoryItemEvent.updateMany).toHaveBeenCalledTimes(3);
+  });
+
+  it("re-reads and retries when another write moved the amount in between", async () => {
+    tx.inventoryItem.findFirst
+      .mockResolvedValueOnce({ id: "item-1", name: "Filters", unit: "pcs", quantity: 3 })
+      .mockResolvedValueOnce({ id: "item-1", name: "Filters", unit: "pcs", quantity: 5 });
+    tx.inventoryItem.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 });
+
+    const result = await consumeTaskItem(db, { ...ids, itemId: "item-1", quantity: 1 });
+
+    expect(tx.inventoryItem.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "item-1", householdId: "household-1", quantity: 5 },
+      data: { quantity: 4, everStocked: true, updatedByUserId: "user-1" },
+    });
+    expect(recordStockEventMock).toHaveBeenCalledTimes(1);
+    expect(recordStockEventMock.mock.calls[0][1]).toMatchObject({ previousQuantity: 5, nextQuantity: 4 });
+    expect(result.used?.quantity).toBe(1);
   });
 });
 
 describe("restoreTaskItem", () => {
   it("adds back exactly what the task's latest used event took, then unlinks it", async () => {
     tx.inventoryItemEvent.findFirst.mockResolvedValue({ itemId: "item-1", delta: -0.5 });
-    tx.inventoryItem.findFirst.mockResolvedValue({ id: "item-1", quantity: 0 });
+    tx.inventoryItem.findFirst.mockResolvedValue({ id: "item-1", name: "Filters", unit: "pcs", quantity: 0 });
 
     expect(await restoreTaskItem(db, ids)).toBe(true);
 
@@ -100,10 +119,10 @@ describe("restoreTaskItem", () => {
     expect(tx.inventoryItemEvent.updateMany).toHaveBeenCalledWith(unlink);
     expect(tx.inventoryItem.findFirst).toHaveBeenCalledWith({
       where: { id: "item-1", householdId: "household-1" },
-      select: { id: true, quantity: true },
+      select: { id: true, name: true, unit: true, quantity: true },
     });
-    expect(tx.inventoryItem.update).toHaveBeenCalledWith({
-      where: { id: "item-1" },
+    expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith({
+      where: { id: "item-1", householdId: "household-1", quantity: 0 },
       data: { quantity: 0.5, everStocked: true, updatedByUserId: "user-1" },
     });
     expect(recordStockEventMock).toHaveBeenCalledWith(db, {
@@ -129,7 +148,7 @@ describe("restoreTaskItem", () => {
     tx.inventoryItem.findFirst.mockResolvedValueOnce(null);
     expect(await restoreTaskItem(db, ids)).toBe(false);
 
-    expect(tx.inventoryItem.update).not.toHaveBeenCalled();
+    expect(tx.inventoryItem.updateMany).not.toHaveBeenCalled();
     expect(tx.inventoryItemEvent.updateMany).toHaveBeenCalledTimes(2);
   });
 });

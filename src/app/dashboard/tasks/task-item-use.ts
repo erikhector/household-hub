@@ -34,6 +34,37 @@ function unlinkTaskEvents(tx: Tx, householdId: string, taskId: string) {
   return tx.inventoryItemEvent.updateMany({ where: { taskId, householdId }, data: { taskId: null } });
 }
 
+// How often a stock write is retried when another write moved the amount
+// between the read and the write. Two members tapping at the same moment
+// is the case; a third clash in a row is a real fight, and the tick just
+// uses nothing rather than guessing.
+const STOCK_WRITE_ATTEMPTS = 3;
+
+/**
+ * Moves an item of the session household by `delta` (never below 0) as a
+ * compare-and-set on the amount it read, so a +/- tap or a cook that lands
+ * between the read and the write is never overwritten. Returns the item as
+ * read and where it landed, or null when the item isn't this household's.
+ * A change that leaves the amount where it was writes nothing.
+ */
+async function moveStock(tx: Tx, householdId: string, userId: string, itemId: string, delta: number) {
+  for (let attempt = 0; attempt < STOCK_WRITE_ATTEMPTS; attempt++) {
+    const item = await tx.inventoryItem.findFirst({
+      where: { id: itemId, householdId },
+      select: { id: true, name: true, unit: true, quantity: true },
+    });
+    if (!item) return null;
+    const nextQuantity = nextQuantityAfterDelta(item.quantity, delta);
+    if (nextQuantity === item.quantity) return { item, nextQuantity };
+    const { count } = await tx.inventoryItem.updateMany({
+      where: { id: item.id, householdId, quantity: item.quantity },
+      data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
+    });
+    if (count === 1) return { item, nextQuantity };
+  }
+  return null;
+}
+
 /**
  * The tick half: takes `quantity` of the linked item off, never below 0.
  * The item is re-read within the session household, so a link that somehow
@@ -49,19 +80,10 @@ export async function consumeTaskItem(
   const nothing = { used: null, autoAdded: null };
   if (!itemId || !quantity || quantity <= 0) return nothing;
 
-  const item = await tx.inventoryItem.findFirst({
-    where: { id: itemId, householdId },
-    select: { id: true, name: true, unit: true, quantity: true },
-  });
-  if (!item) return nothing;
+  const moved = await moveStock(tx, householdId, userId, itemId, -quantity);
+  if (!moved || moved.nextQuantity === moved.item.quantity) return nothing;
+  const { item, nextQuantity } = moved;
 
-  const nextQuantity = nextQuantityAfterDelta(item.quantity, -quantity);
-  if (nextQuantity === item.quantity) return nothing;
-
-  await tx.inventoryItem.update({
-    where: { id: item.id },
-    data: { quantity: nextQuantity, updatedByUserId: userId },
-  });
   await recordOutOfStockTransition(tx, householdId, item.id, item.quantity, nextQuantity, userId);
   await recordStockEvent(tx, {
     householdId,
@@ -98,17 +120,10 @@ export async function restoreTaskItem(
   await unlinkTaskEvents(tx, householdId, taskId);
   if (!event || event.delta >= 0) return false;
 
-  const item = await tx.inventoryItem.findFirst({
-    where: { id: event.itemId, householdId },
-    select: { id: true, quantity: true },
-  });
-  if (!item) return false;
+  const moved = await moveStock(tx, householdId, userId, event.itemId, -event.delta);
+  if (!moved || moved.nextQuantity === moved.item.quantity) return false;
+  const { item, nextQuantity } = moved;
 
-  const nextQuantity = nextQuantityAfterDelta(item.quantity, -event.delta);
-  await tx.inventoryItem.update({
-    where: { id: item.id },
-    data: { quantity: nextQuantity, ...(nextQuantity > 0 ? { everStocked: true } : {}), updatedByUserId: userId },
-  });
   await recordStockEvent(tx, {
     householdId,
     itemId: item.id,

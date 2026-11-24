@@ -7829,7 +7829,9 @@ co-managers, not kids earning rewards.
   compare-and-set completion write, and only when that write matched, so a
   double tap or two members ticking at once use it up once
   (`consumeTaskItem`, `src/app/dashboard/tasks/task-item-use.ts`). Never
-  below 0; it writes a `used` stock event (GAP-66 history), raises "Out of
+  below 0, and the stock write is itself a compare-and-set on the amount it
+  read (re-read and retried up to three times), so a tap in between is
+  never overwritten; it writes a `used` stock event (GAP-66 history), raises "Out of
   stock" and auto-adds like a −1 tap, and sets the event's nullable
   `InventoryItemEvent.taskId` (FK to `HouseholdTask`, `onDelete: SetNull`).
   The "Done: {title}" toast gains "Used 1 pcs Dishwasher tablets" once the

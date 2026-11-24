@@ -484,7 +484,7 @@ export function TaskFormDialog({
           {/* GAP-87: offered once the household has a pantry to use up. The
               picker gets its own row; the amount sits under it in a 6rem
               column beside its unit (M1). */}
-          {(pantryItems.length > 0 || usesItem) && (
+          {pantryItems.length > 0 && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-uses-up">{dict.usesUpLabel}</Label>
               {usesItem && <input type="hidden" name="consumesItemId" value={usesItem.id} />}
