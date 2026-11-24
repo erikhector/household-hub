@@ -28,6 +28,9 @@ export type StockChange = {
   previousQuantity: number;
   nextQuantity: number;
   reason: StockEventReason;
+  // GAP-87: the task whose tick made this change, so un-ticking it can find
+  // exactly this event (see src/app/dashboard/tasks/task-item-use.ts).
+  taskId?: string | null;
 };
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -51,6 +54,7 @@ export async function recordStockEvents(db: DbClient, changes: readonly StockCha
       userId: change.userId ?? null,
       delta: round2(change.nextQuantity - change.previousQuantity),
       reason: change.reason,
+      taskId: change.taskId ?? null,
     }))
     .filter((row) => row.delta !== 0);
   if (rows.length === 0) return;

@@ -20,7 +20,9 @@ import { recurrenceText } from "@/app/dashboard/tasks/recurrence-label";
 import { daysOverdue, getTaskUrgency, sortByUrgency, todayDayNumber } from "@/app/dashboard/tasks/task-due";
 import { TaskOverdueBadge } from "@/components/tasks/overdue-badge";
 import { isOlderCompletedOneOff } from "@/app/dashboard/tasks/older-completed";
-import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { TaskFormDialog, type PantryItemOption } from "@/components/tasks/task-form-dialog";
+import { usedToastText } from "@/components/tasks/used-toast";
+import { useUnitLabel } from "@/components/units-provider";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
 import { useLocalPreference } from "@/components/shared/use-local-preference";
@@ -61,6 +63,9 @@ type TaskRow = {
   rotationMemberIds: string[];
   /** GAP-38: who's up after the current turn; null unless the task rotates. */
   nextInRotationMemberId: string | null;
+  /** GAP-87: the pantry item a tick uses up, and how much; null for none. */
+  consumesItemId: string | null;
+  consumesQuantity: number | null;
 };
 
 type TasksDict = Dictionary["tasks"];
@@ -68,6 +73,7 @@ type TasksDict = Dictionary["tasks"];
 export function TasksClient({
   dict,
   members,
+  pantryItems,
   currentMemberId,
   tasks: serverTasks,
   now,
@@ -81,6 +87,8 @@ export function TasksClient({
    * out then). */
   emptyAction?: ReactNode;
   members: MemberOption[];
+  /** GAP-87: what the edit sheet's "Uses up" picker offers. */
+  pantryItems: PantryItemOption[];
   /** Who's ticking, for a completion shown before the server answers. */
   currentMemberId: string | null;
   tasks: TaskRow[];
@@ -91,6 +99,7 @@ export function TasksClient({
   locale: Locale;
 }) {
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
+  const unitLabel = useUnitLabel();
 
   // UX-33: a tick or a delete shows, and moves its row, at tap time (see
   // local-row-changes.ts); the weekly recap above follows it too. Each save
@@ -116,18 +125,38 @@ export function TasksClient({
   const toggleCompleted = (task: TaskRow) => {
     const completing = !task.completed;
     const settle = local.markDone(task.id, completing);
+    let toastId: string | number | undefined;
+    let undone = false;
+    const doneText = format(dict.doneToast, { title: task.title });
+    const doneOptions = {
+      duration: 5000,
+      action: {
+        label: dict.swipe.undo,
+        onClick: () => {
+          undone = true;
+          toggleCompleted({ ...task, completed: true });
+        },
+      },
+    };
     if (completing) {
       // The row leaves for "Completed" below the fold, so say what
       // happened and offer the way back (M5, User control). Undo is the
       // same toggle, from the state this tick left the task in.
-      toast(format(dict.doneToast, { title: task.title }), {
-        duration: 5000,
-        action: { label: dict.swipe.undo, onClick: () => toggleCompleted({ ...task, completed: true }) },
-      });
+      toastId = toast(doneText, doneOptions);
     }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
       settle(result !== null);
+      // GAP-87: the same toast names what the tick took off the pantry, once
+      // the server says how much (less than asked when stock ran out). Its
+      // Undo puts that back too. Not after an Undo, which closed it.
+      if (toastId !== undefined && result?.used && !undone) {
+        toast(doneText, {
+          ...doneOptions,
+          id: toastId,
+          description: usedToastText(dict.usedToast, result.used, locale, unitLabel),
+        });
+      }
     })();
   };
   // GAP-60: "Skip this time" moves the row to "Completed" at tap time like a
@@ -239,6 +268,7 @@ export function TasksClient({
                 key={task.id}
                 task={task}
                 members={members}
+                pantryItems={pantryItems}
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
                 onDelete={deleteTask}
@@ -278,6 +308,7 @@ export function TasksClient({
                 key={task.id}
                 task={task}
                 members={members}
+                pantryItems={pantryItems}
                 memberNameById={memberNameById}
                 onToggleCompleted={toggleCompleted}
                 onDelete={deleteTask}
@@ -309,6 +340,7 @@ export function TasksClient({
 function TaskItemRow({
   task,
   members,
+  pantryItems,
   memberNameById,
   onToggleCompleted,
   onDelete,
@@ -320,6 +352,7 @@ function TaskItemRow({
 }: {
   task: TaskRow;
   members: MemberOption[];
+  pantryItems: PantryItemOption[];
   memberNameById: Map<string, string>;
   onToggleCompleted: (task: TaskRow) => void;
   onDelete: (task: TaskRow) => void;
@@ -499,6 +532,7 @@ function TaskItemRow({
             mode="edit"
             task={task}
             members={members}
+            pantryItems={pantryItems}
             dict={dict}
             onDelete={() => deleteButtonRef.current?.click()}
             onSkip={canSkip ? () => skipButtonRef.current?.click() : undefined}

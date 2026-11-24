@@ -5,7 +5,7 @@ import { requireHousehold } from "@/lib/session";
 import { getTimeZone } from "@/lib/get-time-zone";
 import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
-import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { TaskFormDialog, type PantryItemOption } from "@/components/tasks/task-form-dialog";
 import { TasksClient } from "@/components/tasks/tasks-client";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { formatDueDateInput, getTaskDueDay } from "@/app/dashboard/tasks/task-due";
@@ -19,7 +19,7 @@ import { PrimaryAction } from "@/components/dashboard/primary-action";
 // "Add task" button and the list below (both Suspense-isolated, see
 // TasksPage) share one query instead of one each.
 const getTasksData = cache(async (householdId: string) => {
-  const [tasks, householdMembers] = await Promise.all([
+  const [tasks, householdMembers, pantryItems] = await Promise.all([
     prisma.householdTask.findMany({
       where: { householdId },
       // MAINT-114: id breaks createdAt ties (the column keeps milliseconds,
@@ -33,6 +33,12 @@ const getTasksData = cache(async (householdId: string) => {
       include: { user: { select: { displayName: true } } },
       orderBy: { createdAt: "asc" },
     }),
+    // GAP-87: what the "Uses up" picker offers.
+    prisma.inventoryItem.findMany({
+      where: { householdId },
+      select: { id: true, name: true, unit: true },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    }),
   ]);
 
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
@@ -44,6 +50,7 @@ const getTasksData = cache(async (householdId: string) => {
   return {
     timeZone,
     memberOptions,
+    pantryItems,
     memberIdByUserId: new Map(householdMembers.map((m) => [m.userId, m.id])),
     // The weekly recap is worked out in TasksClient (UX-33: so a tick shows
     // in it at tap time), against the server's clock for the week.
@@ -86,16 +93,23 @@ const getTasksData = cache(async (householdId: string) => {
         // re-saves) someone who has left the household.
         rotationMemberIds: activeRotationMembers(t.rotationMemberIds, activeMemberIds),
         nextInRotationMemberId,
+        consumesItemId: t.consumesItemId,
+        consumesQuantity: t.consumesQuantity,
       };
     }),
   };
 });
 
-function addTaskDialog(memberOptions: { id: string; displayName: string }[],dict: Dictionary["tasks"]) {
+function addTaskDialog(
+  memberOptions: { id: string; displayName: string }[],
+  pantryItems: PantryItemOption[],
+  dict: Dictionary["tasks"],
+) {
   return (
     <TaskFormDialog
       mode="create"
       members={memberOptions}
+      pantryItems={pantryItems}
       dict={dict}
       trigger={
         <Button className="gap-1.5" data-shortcut="new">
@@ -112,9 +126,9 @@ function addTaskDialog(memberOptions: { id: string; displayName: string }[],dict
 // UX-50: with no tasks at all the empty state below holds "Add task" (see
 // TasksClient), so the header leaves it out: one primary on screen, not two.
 async function AddTaskButton({ householdId, dict }: { householdId: string; dict: Dictionary["tasks"] }) {
-  const { memberOptions, tasks } = await getTasksData(householdId);
+  const { memberOptions, pantryItems, tasks } = await getTasksData(householdId);
   if (tasks.length === 0) return null;
-  return <PrimaryAction>{addTaskDialog(memberOptions, dict)}</PrimaryAction>;
+  return <PrimaryAction>{addTaskDialog(memberOptions, pantryItems, dict)}</PrimaryAction>;
 }
 
 function TasksListSkeleton({ label }: { label: string }) {
@@ -138,17 +152,18 @@ async function TasksSection({
   dict: Dictionary["tasks"];
   locale: Locale;
 }) {
-  const { tasks, memberOptions, memberIdByUserId, now, timeZone } = await getTasksData(householdId);
+  const { tasks, memberOptions, pantryItems, memberIdByUserId, now, timeZone } = await getTasksData(householdId);
   return (
     <TasksClient
       dict={dict}
       members={memberOptions}
+      pantryItems={pantryItems}
       currentMemberId={memberIdByUserId.get(userId) ?? null}
       tasks={tasks}
       now={now}
       timeZone={timeZone}
       locale={locale}
-      emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, dict) : undefined}
+      emptyAction={tasks.length === 0 ? addTaskDialog(memberOptions, pantryItems, dict) : undefined}
     />
   );
 }

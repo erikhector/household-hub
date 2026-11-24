@@ -7607,6 +7607,7 @@ co-managers, not kids earning rewards.
   `completedByMemberId`, nullable `recurrenceIntervalDays`, nullable `recurrenceAnchorAt`,
   nullable `skippedUntil` (GAP-60),
   `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`,
+  nullable `consumesItemId`/`consumesQuantity` (GAP-87),
   nullable `dueDate`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
   `assignedToMemberId`/`completedByMemberId` are two independent, both-
@@ -7810,6 +7811,44 @@ co-managers, not kids earning rewards.
   does dropping the repeat in the edit dialog. UX-137's anchoring rule is
   untouched: if it changes, the skip follows it. Covered by
   `recurrence.test.ts`, `actions.test.ts` and `e2e/task-skip.spec.ts`.
+- **A task can use up a pantry item (GAP-87)**: Grocy's "a chore consumes a
+  product". "Run the dishwasher" uses 1 dishwasher tablet, so household
+  consumables run low, and reach "Next shop" through the usual low-stock
+  auto-add, without anyone typing it. Opt-in per task, repeating or
+  one-off: the Add/Edit sheet has an optional **Uses up** picker
+  (`ItemCombobox` over the household's pantry items, shown once there is
+  one) and, once an item is picked, an amount (starts at 1, `inputMode`
+  decimal, 6rem beside the item's unit) and a "Use nothing" button that
+  unlinks it. Nothing is inferred. Stored as nullable
+  `HouseholdTask.consumesItemId` (FK to `InventoryItem`, `onDelete:
+  SetNull`, so deleting the item just drops the link) and
+  `consumesQuantity` (in the item's own unit, above 0, two decimals). The
+  item is re-checked to belong to the `requireHousehold()` household on
+  save ("Item not found" otherwise) and again on every tick. A tick
+  (`toggleTaskCompletedAction`) decrements in the same transaction as its
+  compare-and-set completion write, and only when that write matched, so a
+  double tap or two members ticking at once use it up once
+  (`consumeTaskItem`, `src/app/dashboard/tasks/task-item-use.ts`). Never
+  below 0; it writes a `used` stock event (GAP-66 history), raises "Out of
+  stock" and auto-adds like a −1 tap, and sets the event's nullable
+  `InventoryItemEvent.taskId` (FK to `HouseholdTask`, `onDelete: SetNull`).
+  The "Done: {title}" toast gains "Used 1 pcs Dishwasher tablets" once the
+  server answers (the amount really used, less when stock ran out); its
+  Undo is the un-tick. Un-ticking (`restoreTaskItem`) finds the task's
+  latest `used` event by `taskId` and adds back its `delta`, writing an
+  `adjusted` event and dismissing an open "Out of stock" when the item comes
+  back from 0. Matching on `taskId`, not a timestamp or "the latest used
+  event", means a cook or a manual −1 after the tick is never reversed by
+  mistake. Only the current completion's event stays linked: a tick first
+  unlinks older ones and an un-tick unlinks what it reversed, so a later
+  un-tick (say, after a tick at 0 stock wrote nothing) can't reach back to
+  an earlier completion. "Skip this time" uses nothing. "Change unit…"
+  rescales `consumesQuantity` with the stock, and a merge moves the link to
+  the kept item, converted into its unit (dropped when it can't convert).
+  The overview's Today block ticks the same way and shows the same toast
+  line. Covered by `actions.test.ts`, `task-item-use.test.ts`,
+  `inventory/items/actions.test.ts` and `e2e/task-uses-up.spec.ts` (links a
+  3 pcs item, ticks, reads 2 pcs on the item page, un-ticks, reads 3).
 - **All caught up, and old one-offs that leave (UX-105)**: with no open
   task (and at least one completed) the mascot "You're all caught up!" card
   shows above Completed on every visit, not only right after a tick, so the
