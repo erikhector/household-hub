@@ -257,10 +257,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: the PR from `autopilot/maint-124-palette-add-query-flake` (no WebKit where it was built: the proxy blocks Playwright's WebKit download) waits for the add box's focus, then for the `router.replace()` strip's own RSC request, then for the stripped URL with 20 s. The strip is in the same effect as the focus and the router writes the URL only once the list's server render arrives, so a cold WebKit can legitimately take over 5 s. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/command-palette.spec.ts:288` still fails there at the new request wait, the strip never went out: look at SmartAddBar's effect and the palette dialog's history hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs list `[iphone] › e2e/command-palette.spec.ts:288` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-125. Flaky: the URL is still `/dashboard/tasks?add=1` 5 s after the palette's Add task under a held history entry on mobile** (low, S) —
-      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone"), `mobile` project. First sighting: 2026-11-20, builder's `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` on the MAINT-124 branch (4338fb3, which changes only the `:288` test): 1 failed of 60 mobile runs (repeat 25), every other run and the desktop project passed. The locked `ci:local` on the same commit passed it. Failing step: `:118`, `expect(page).toHaveURL(/\/dashboard\/tasks$/)` still received `/dashboard/tasks?add=1` after the 5000 ms timeout. This is the tasks page's version of the `?add=1` strip that MAINT-124 found landing late on WebKit (the strip is a `router.replace`, which writes the URL only after the server render returns), here combined with the held `history.back()` of the MAINT-118 dialog-history repair. Start from the trace (keep one with `--trace on` and `--repeat-each=30`): check whether the replace's RSC request went out and was slow (then wait for it, as MAINT-124's PR #1645 does for `:288`) or the strip never ran because the repair's history step raced it (an app bug in `dialog-history.ts` or the tasks page's strip, fix it there).
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-126. Flaky: the Recipes tab click doesn't select the tab in the phone recipe-sheet keyboard spec** (low, S) —
       `e2e/sheet-keyboard.mobile.spec.ts:13` ("a filled recipe form keeps its submit in view on a phone"), `mobile` project. First sighting: 2026-11-20, builder's locked `ci:local` on 576e3c0 (PR #1632, GAP-85, which doesn't touch the Recipes tab or this spec), under a loaded runner: `openRecipesTab`'s `aria-selected="true"` assertion (`e2e/ui.ts:427`, called from the spec's `:20`) timed out after 5 s, so "New recipe" was never reached. It passed 12/12 alone with `--repeat-each=10` and on the full rerun of `ci:local` on the same commit. A pre-hydration click is not the cause: `openRecipesTab` already runs `expectHydrated(tab)` and `expectRouterPatched(page)` before `tab.click()`, so the click reached a hydrated tab and `aria-selected` still didn't flip. Start from a trace (`--trace on --repeat-each=30` under load). Check whether the tab switch waits on a slow transition or server render under load, or whether the click was swallowed by a layout shift or overlay (the spec already dismisses the cookie notice, so look at things like the week strip GAP-85 added). MAINT-85 fails in the same helper (the same tab in the recipe photo import specs), so fix both together if it's the same cause.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -571,62 +567,6 @@ offline, and once with signup reloaded half-filled. WebKit was not run
 (no browser installed here). The audit config still needs an
 uncommitted `executablePath` copy to launch Chromium.
 
-- [ ] **UX-210. A dropped connection on an auth form shows the crash page and wipes the form** (impact: high, effort: M) —
-      Submitting login, signup or forgot password while offline (or on a
-      request that never arrives) rejects the Server Action. Nothing
-      catches it, so the root `src/app/error.tsx` boundary replaces the
-      page with "Something went wrong … head back to the dashboard". The
-      user is logged out, everything they typed is gone, and Sentry logs
-      it as an unhandled error. Reproduced on Pixel 7 (`en`) and at 320 px
-      (`sv`) on `/login`, `/signup` and `/forgot-password`. The same
-      unguarded `useActionState` call is in
-      `src/components/auth/reset-password-form.tsx`,
-      `src/components/household/join-signup-form.tsx`,
-      `accept-invite-form.tsx` and `create-first-household-form.tsx`, so a
-      new user's whole first-run path is exposed. This breaks M8 (an
-      error state that says what to do, including "you're offline"; input
-      survives), and it is the same gap UX-205 closed for the household
-      notes. Fix: wrap each form's action so a rejection becomes
-      `{ error: dict.errors.requestFailed }` in that form's general error
-      line. Re-throw redirect signals (`unstable_rethrow`) so a successful
-      login still navigates, and keep the typed values (`useKeptFormValues`
-      already covers the server-error path).
-      Acceptance: an e2e spec in `mobile` and `desktop` fills `/login` and
-      `/signup`, calls `context.setOffline(true)` and submits. It asserts
-      that the "Check your connection" message is visible on the same
-      page, the error-boundary heading is not shown, and the email and
-      name fields still hold what was typed. Going back online and
-      submitting again then succeeds.
-- [ ] **UX-212. Paint the page gradient behind the whole page on touch devices, not just the first screen** (impact: low, effort: S) —
-      `body`'s `radial-gradient` in `src/app/globals.css` (~line 359) is
-      `no-repeat` and sized to the first viewport, with a flat
-      `--gradient-end` `background-color` behind it. On desktop this is
-      already handled: the rule right after it,
-      `@media (hover: hover) and (pointer: fine) { body {
-      background-attachment: fixed; } }`, pins the gradient to the
-      viewport, and its comment says the body does scroll on the landing,
-      legal and auth pages. Keep that rule. (The y≈720 seam in the
-      `desktop-*.png` screenshots is likely an artefact of Playwright's
-      full-page capture with a fixed background, not something a desktop
-      user sees.) On touch / coarse-pointer devices `fixed` is
-      deliberately off because of the iOS standalone-PWA safe-area
-      quirk the comment above the rule describes, so on a phone or
-      tablet a hard horizontal seam shows one screen down where the
-      lavender gradient stops and the flat fill begins: on the landing
-      page, signup and the legal pages. This breaks the design principle
-      of calm, consistent surfaces. Fix, scoped to touch devices only
-      (outside the fine-pointer media query): size the gradient to the
-      document (`background-size: 100% 100%` with `min-height` on
-      `html`), or fade it out within the first screen. Don't turn on
-      `background-attachment: fixed` for touch devices, and don't change
-      the desktop rule.
-      Acceptance: an e2e check in `mobile` (and the tablet project if it
-      runs there) scrolls `/signup` and `/` to the bottom in a live
-      viewport (not a full-page screenshot). It samples the page
-      background colour just above and just below one viewport height at
-      the left edge, and the two differ by at most a few RGB units. A
-      `desktop` assertion only guards that `body` still computes
-      `background-attachment: fixed` there.
 
 ---
 
@@ -652,27 +592,8 @@ actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
 charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline ticks in the shop) shipped; UX-36b adds offline adds
-(price edits stay online).
-
-- [ ] **UX-36b. Offline adds on the shopping list** (medium, L) — follow-up
-      to UX-36 (offline ticks, shipped). With no signal, a name typed in the
-      smart add line is queued beside the ticks (the queue and replay in
-      `src/lib/shopping/offline-tick-queue*.ts`), shown at once as a pending
-      row and in the offline chip's count, and replayed in order through the
-      same smart-add action when the signal returns. Merge rule: no new one.
-      The replay goes through the action's existing "already on the list"
-      dedupe, so the same name added offline on two phones ends as one row,
-      exactly as two online adds do today; an add whose list was completed
-      or deleted meanwhile is dropped with a toast naming it. Price edits,
-      item edits and deletes stay online-only (UX-36: money stays online).
-      Acceptance: an e2e test goes offline, adds an item from the smart add
-      line, sees it as a pending row and in the chip count, goes online,
-      reloads and asserts it persisted once, on desktop and mobile.
-      Decided 2026-11-23 by autopilot-product: adds only, replayed through
-      the existing dedupe; price edits not planned. Why: the in-store
-      need is "I remembered something", and reusing the online dedupe
-      needs no client ids or new merge rules. See PRODUCT.md.
+UX-36 (offline ticks in the shop) and UX-36b (offline adds) shipped;
+price edits stay online.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish

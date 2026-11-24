@@ -49,8 +49,8 @@ export const SHOPPING_LIST_CACHE_NAME = "squirrel-shopping-list-v1";
 
 // UX-36: the shopping list's offline tick queue (src/lib/shopping/
 // offline-tick-queue.ts). Not a preference: it is the ticks the user made
-// with no signal, waiting for the connection so they can be saved. Removed
-// as each one syncs, and on logout.
+// with no signal, and (UX-36b) the rows they added, waiting for the
+// connection so they can be saved. Removed as each one syncs, and on logout.
 export const SHOPPING_TICK_QUEUE_STORAGE_KEY = "shopping.offlineTicks";
 
 // UX-211: a half-filled /signup or /join/<token> form, kept in
@@ -261,8 +261,9 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     kind: "localStorage",
     category: "necessary",
     purpose:
-      "Holds the items you ticked on the shopping list while offline, until you are back online and they can be saved.",
-    purposeSv: "Håller de varor du bockade av i inköpslistan utan uppkoppling, tills du är online igen och de kan sparas.",
+      "Holds the items you ticked or added on the shopping list while offline, until you are back online and they can be saved.",
+    purposeSv:
+      "Håller de varor du bockade av eller lade till i inköpslistan utan uppkoppling, tills du är online igen och de kan sparas.",
     duration: "Until they sync, or you log out",
     durationSv: "Tills de har synkats, eller du loggar ut",
   },

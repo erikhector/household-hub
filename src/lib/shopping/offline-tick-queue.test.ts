@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { dropTick, NO_QUEUED_TICKS, parseQueue, queuedPurchased, queueTick } from "@/lib/shopping/offline-tick-queue";
+import {
+  dropAdd,
+  dropTick,
+  NO_QUEUED_TICKS,
+  parseQueue,
+  queueAdds,
+  queuedAdds,
+  queuedPurchased,
+  queueTick,
+} from "@/lib/shopping/offline-tick-queue";
 
 describe("queueTick", () => {
   it("adds an entry for a tick the server doesn't have yet", () => {
@@ -66,5 +75,64 @@ describe("parseQueue", () => {
       null,
     ]);
     expect(parseQueue(raw)).toEqual([{ itemId: "a", purchased: true }]);
+  });
+});
+
+describe("offline adds (UX-36b)", () => {
+  let n = 0;
+  const key = () => `k${++n}`;
+
+  it("queues each typed row after what is already waiting, and ticks still work beside them", () => {
+    n = 0;
+    const ticked = queueTick(NO_QUEUED_TICKS, "a", true, false);
+    const added = queueAdds(
+      ticked,
+      "list-1",
+      [
+        { name: "Milk", quantity: 2, unit: "l" },
+        { name: "Bread", quantity: 1 },
+      ],
+      key,
+    );
+    expect(added).toEqual([
+      { itemId: "a", purchased: true },
+      { kind: "add", key: "k1", listId: "list-1", row: { name: "Milk", quantity: 2, unit: "l" } },
+      { kind: "add", key: "k2", listId: "list-1", row: { name: "Bread", quantity: 1 } },
+    ]);
+    // Ticks on "a" only ever touch the tick, never an add.
+    expect(queuedPurchased(added, "a")).toBe(true);
+    expect(queueTick(added, "a", false, false)).toEqual(added.slice(1));
+    expect(dropTick(added, "a")).toEqual(added.slice(1));
+  });
+
+  it("lists one list's adds in order and drops one by its key", () => {
+    n = 0;
+    const one = queueAdds(NO_QUEUED_TICKS, "list-1", [{ name: "Milk", quantity: 1 }], key);
+    const queue = queueAdds(one, "list-2", [{ name: "Eggs", quantity: 6 }], key);
+    expect(queuedAdds(queue, "list-1").map((add) => add.row.name)).toEqual(["Milk"]);
+    expect(queuedAdds(queue, "list-3")).toEqual([]);
+    expect(dropAdd(queue, "k1")).toEqual([queue[1]]);
+    expect(dropAdd(queue, "zzz")).toBe(queue);
+  });
+
+  it("round-trips adds through storage, beside a tick in UX-36's shape", () => {
+    const raw = JSON.stringify([
+      { itemId: "a", purchased: true },
+      { kind: "add", key: "k1", listId: "list-1", row: { name: "Milk", quantity: 2, unit: "l", inventoryItemId: "i" } },
+    ]);
+    expect(parseQueue(raw)).toEqual(JSON.parse(raw));
+  });
+
+  it("skips malformed and duplicate adds, and keeps only the known fields", () => {
+    const raw = JSON.stringify([
+      { kind: "add", key: "k1", listId: "list-1", row: { name: "Milk", quantity: 1, extra: "x" } },
+      { kind: "add", key: "k1", listId: "list-1", row: { name: "Milk", quantity: 1 } },
+      { kind: "add", key: "k2", listId: "", row: { name: "Milk", quantity: 1 } },
+      { kind: "add", key: "k3", listId: "list-1", row: { name: " ", quantity: 1 } },
+      { kind: "add", key: "k4", listId: "list-1", row: { name: "Milk", quantity: "2" } },
+      { kind: "add", key: "k5", listId: "list-1", row: { name: "Milk", quantity: 1, unit: 3 } },
+      { kind: "add", key: "k6", listId: "list-1" },
+    ]);
+    expect(parseQueue(raw)).toEqual([{ kind: "add", key: "k1", listId: "list-1", row: { name: "Milk", quantity: 1 } }]);
   });
 });

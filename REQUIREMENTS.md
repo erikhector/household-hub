@@ -8047,7 +8047,18 @@ on the viewport at every scroll position, so on a page taller than one
 screen (the landing page, mainly) content near the top/bottom edge of a
 scrolled viewport sits in the gradient's outer stop; a true black there made
 `bg-card` surfaces nearly invisible. Keep both themes' outer stops
-non-extreme for this reason.
+non-extreme for this reason. That `fixed` is desktop-only (a fine pointer
+that hovers): on touch devices it's off because of an iOS standalone-PWA
+quirk that leaves the home-indicator strip unpainted, so there the gradient
+is sized to the root box, one screen tall, with the flat `--gradient-end`
+behind it. UX-212 added a second layer on touch devices only that fades the
+bottom half of that first screen into `--gradient-end`, so a page that
+scrolls (landing, auth, legal) has no seam one screen down where the
+gradient used to stop. `e2e/ux-212.mobile.spec.ts` samples the live viewport
+just above and below that line on `/` and `/signup` in both themes and
+both orientations (on the
+`mobile` and `tablet` projects), and `ux-212.desktop.spec.ts` guards that
+desktop still pins the gradient.
 
 The light palette (`:root` in `globals.css`) isn't shadcn's generic gray
 default — it carries the same violet tint as dark mode (soft
@@ -8203,6 +8214,35 @@ stay that way rather than re-adding per-page redirect checks:
   `src/app/page.tsx` does **not** duplicate that check with its own
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
+
+### Dropped requests on the signed-out forms (UX-210)
+
+A new user's first-run path (login, signup, forgot password, reset
+password, join via invite, accept invite, and the no-household page's
+"Create household") survives a request that never arrives (offline, a
+dropped mobile connection), as the household notes do (UX-205, M8):
+
+- Each form's action is wrapped in `guardFormAction(action,
+  errors.requestFailed)` (`src/components/shared/guard-form-action.ts`).
+  A rejection becomes `{ error, requestFailed: true }`, shown in the form's
+  general error line ("That didn't go through. Check your connection and
+  try again."), instead of reaching the root error boundary and Sentry.
+  Next's redirect signal is re-thrown (`unstable_rethrow`), so a
+  successful login or household creation still navigates.
+- On `/login` the message sits in its own line above the button, not under
+  the password, and the password isn't marked invalid: the credentials
+  weren't wrong. The "Resend verification email" buttons on login, signup
+  and join are guarded the same way and show their error under the button.
+- The typed values survive through `useKeptFormValues` (UX-13): login's
+  email, signup's name, household and email, join's name and email, the
+  forgot-password email and the first household's name. Passwords clear,
+  as after any failed submit.
+- Wrapping the Server Action in a client function means these forms no
+  longer post without JavaScript; React still replays a submit made
+  before hydration.
+
+`e2e/ux-210.spec.ts` submits `/login`, `/signup` and `/forgot-password`
+offline, then logs in and signs up once back online.
 
 ### Public page titles and link previews (UX-64)
 
@@ -10134,9 +10174,10 @@ the unit tests beside `swipe-row-calc.ts` and `deferred-delete.ts`.
 
 ### Offline shopping list (UX-36)
 
-The shopping list survives a dead zone in a store. Ticks only: adds, price
-edits and every other page stay online-only (decided 2026-10-15, see
-PRODUCT.md).
+The shopping list survives a dead zone in a store. Ticks (UX-36) and adds
+from the smart add line (UX-36b) work offline; price edits, item edits,
+deletes and every other page stay online-only, so money stays online
+(decided 2026-10-15 and 2026-11-23, see PRODUCT.md).
 
 - **Reads**: `src/lib/service-worker.js` serves a navigation to
   `/dashboard/shopping-list/<id>` network first and keeps the last good
@@ -10162,12 +10203,29 @@ PRODUCT.md).
   deleted meanwhile (or foreign to the household) answers `{}`, skipped
   silently. A request that never arrives stops the replay and keeps the
   rest; an answer with an error drops that entry with the "couldn't save"
-  toast. The page is then refreshed to show what the server holds.
+  toast. The page is then refreshed to show what the server holds. An entry
+  queued while a replay runs is sent in the same pass.
+- **Adds** (UX-36b): with no connection, or while anything is already
+  queued, rows typed in the smart add line (typed, picked from the
+  dropdown or spoken; the barcode scan needs the server and stays online)
+  join the same queue under the same `localStorage` key, one entry per row
+  in the order typed (`{ kind: "add", key, listId, row }`; `key` is local
+  to the queue and never sent). They show at once under the add line as
+  read-only pending rows (`OfflinePendingAdds`: dashed, a "Waiting" badge,
+  in a list named "Waiting to be added") and in the chip's count. The
+  replay sends each through `smartAddShoppingListItemsAction(listId,
+  [row])`, the online add's own action, so its "already on the list"
+  dedupe is the merge rule: the same name added offline on two phones, or
+  one already on the list, ends as one row. An add the server refuses (its
+  list completed or deleted meanwhile) is dropped with a toast naming it
+  ("“Milk” wasn't added to the list", the reason underneath).
 - **Logout** (`useLogout`) deletes the cached list and clears the queue
   (`src/lib/shopping/offline-cache.ts`).
 - Covered by `e2e/shopping-offline.spec.ts` (offline tick, chip, back
-  online, persisted after reload; offline reload of a visited list) and the
-  `replayTickAction` and queue unit tests.
+  online, persisted after reload; an offline add shown pending and in the
+  chip, saved once after reload, with a name already on the list deduped;
+  offline reload of a visited list) and the `replayTickAction` and queue
+  unit tests.
 
 ### Browser floor (UX-29)
 
@@ -10312,11 +10370,12 @@ approximating them, so the email never disagrees with the app.
   its `onSubmit` records the listed fields' values as the form is
   submitted, and each field reads `defaultValue={kept.values.x ?? fallback}`,
   so the reset lands on what was typed. It's client-side, so the actions'
-  return types and no-JS fallback are unchanged. The names are an
-  allowlist and never include a password: password fields still clear
-  after an error (so the reset-password form, which has nothing else, is
-  unchanged). A dialog calls `kept.reset()` when it reopens. Used by
-  signup, login, the invite sign-up form, the display-name form, add/edit
+  return types are unchanged. The names are an allowlist and never
+  include a password: password fields still clear after an error (so the
+  reset-password form, which has nothing else, is unchanged). A dialog
+  calls `kept.reset()` when it reopens. Used by signup, login, forgot
+  password and the first household's name (UX-210), the invite sign-up
+  form, the display-name form, add/edit
   item (quantity, low-stock threshold, expiry, use-within), the
   transaction description, the planned bill's name and category, the
   recurring item's name and due day, and the add/edit category dialogs
@@ -11280,7 +11339,10 @@ UX-14's rapid ticks and the rollback toast.
   `router.replace()`, which also writes the URL only once that server
   render arrives, so the palette's "Add to shopping list" test waits for
   the add box's focus, then for the replace's RSC request, then for the
-  stripped URL with the same 20 s (MAINT-124). A CSS
+  stripped URL with the same 20 s (MAINT-124), and the palette's "Add
+  task" test under a held history entry waits the same way for the tasks
+  page's dialog, its strip request and then the stripped URL (MAINT-125).
+  A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing
