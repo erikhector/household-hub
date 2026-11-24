@@ -31,7 +31,12 @@ export default async function ResetPasswordPage(props: PageProps<"/reset-passwor
               <CardTitle as="h1" className="text-xl">{dict.auth.resetPassword.pageTitle}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResetPasswordForm token={token} email={email} dict={dict.auth.resetPassword} />
+              <ResetPasswordForm
+                token={token}
+                email={email}
+                dict={dict.auth.resetPassword}
+                requestFailed={dict.errors.requestFailed}
+              />
             </CardContent>
           </Card>
         ) : (

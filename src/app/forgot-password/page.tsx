@@ -30,7 +30,7 @@ export default async function ForgotPasswordPage() {
             <CardTitle as="h1" className="text-xl">{dict.auth.forgotPassword.pageTitle}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ForgotPasswordForm dict={dict.auth.forgotPassword} />
+            <ForgotPasswordForm dict={dict.auth.forgotPassword} requestFailed={dict.errors.requestFailed} />
           </CardContent>
         </Card>
       </main>

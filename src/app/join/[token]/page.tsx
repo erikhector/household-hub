@@ -96,9 +96,14 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
               </CardHeader>
               <CardContent>
                 {session?.user ? (
-                  <AcceptInviteForm token={token} dict={dict.auth.join} />
+                  <AcceptInviteForm token={token} dict={dict.auth.join} requestFailed={dict.errors.requestFailed} />
                 ) : (
-                  <JoinSignupForm token={token} dict={dict.auth.join} legalDict={dict.legal} />
+                  <JoinSignupForm
+                    token={token}
+                    dict={dict.auth.join}
+                    legalDict={dict.legal}
+                    requestFailed={dict.errors.requestFailed}
+                  />
                 )}
               </CardContent>
             </Card>

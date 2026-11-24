@@ -571,32 +571,6 @@ offline, and once with signup reloaded half-filled. WebKit was not run
 (no browser installed here). The audit config still needs an
 uncommitted `executablePath` copy to launch Chromium.
 
-- [ ] **UX-210. A dropped connection on an auth form shows the crash page and wipes the form** (impact: high, effort: M) —
-      Submitting login, signup or forgot password while offline (or on a
-      request that never arrives) rejects the Server Action. Nothing
-      catches it, so the root `src/app/error.tsx` boundary replaces the
-      page with "Something went wrong … head back to the dashboard". The
-      user is logged out, everything they typed is gone, and Sentry logs
-      it as an unhandled error. Reproduced on Pixel 7 (`en`) and at 320 px
-      (`sv`) on `/login`, `/signup` and `/forgot-password`. The same
-      unguarded `useActionState` call is in
-      `src/components/auth/reset-password-form.tsx`,
-      `src/components/household/join-signup-form.tsx`,
-      `accept-invite-form.tsx` and `create-first-household-form.tsx`, so a
-      new user's whole first-run path is exposed. This breaks M8 (an
-      error state that says what to do, including "you're offline"; input
-      survives), and it is the same gap UX-205 closed for the household
-      notes. Fix: wrap each form's action so a rejection becomes
-      `{ error: dict.errors.requestFailed }` in that form's general error
-      line. Re-throw redirect signals (`unstable_rethrow`) so a successful
-      login still navigates, and keep the typed values (`useKeptFormValues`
-      already covers the server-error path).
-      Acceptance: an e2e spec in `mobile` and `desktop` fills `/login` and
-      `/signup`, calls `context.setOffline(true)` and submits. It asserts
-      that the "Check your connection" message is visible on the same
-      page, the error-boundary heading is not shown, and the email and
-      name fields still hold what was typed. Going back online and
-      submitting again then succeeds.
 - [ ] **UX-211. Keep a half-filled signup across a reload** (impact: med, effort: S) —
       `/signup` asks for five fields before a new user sees anything. On
       a phone the usual mid-form interruptions are leaving to check an
