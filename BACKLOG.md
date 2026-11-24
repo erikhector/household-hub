@@ -101,20 +101,6 @@ Parallel-safe except where noted.
 
 ### Dependencies
 
-- [ ] **DEPS-11. Group the in-range patch/minor bumps** (impact: low, effort: S, own PR — touches `package.json`/lockfile) —
-      `npm outdated` on 2026-11-20: `@sentry/nextjs` 11.12.0 → 11.15.0,
-      `lucide-react` 1.73.0 → 1.77.0, `resend` 6.38.1 → 6.39.0 and
-      `vitest` 5.1.0 → 5.1.1 (all inside their `^` ranges, lockfile only),
-      plus the exact pins `axe-core` 4.14.0 → 4.14.1 and `knip`
-      6.45.1 → 6.46.1. `npm audit --omit=dev` is clean (0 advisories), so
-      this is hygiene, not a fix. Not in scope: `eslint` 10 (MAINT-12, the
-      three `eslint-config-next` plugins still cap at `^9`), `typescript` 7
-      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` majors
-      (follow the Node 22 pin), and `next-auth`/`prisma` "latest" (npm's
-      `latest` tag points at 4.24.15 and 8.0.0-rc.34, a downgrade and a
-      release candidate). Acceptance: `npm outdated` lists none of the six;
-      `npm run check`, `npm run build` and the e2e suite pass.
-
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:
@@ -554,34 +540,6 @@ offline, and once with signup reloaded half-filled. WebKit was not run
 (no browser installed here). The audit config still needs an
 uncommitted `executablePath` copy to launch Chromium.
 
-- [ ] **UX-211. Keep a half-filled signup across a reload** (impact: med, effort: S) —
-      `/signup` asks for five fields before a new user sees anything. On
-      a phone the usual mid-form interruptions are leaving to check an
-      email, a password manager or an incoming call, and Android may
-      discard the tab. A reload after filling name, household and email
-      brings back an empty form: all three read `""` on Pixel 7 and at
-      320 px (`src/components/auth/signup-form.tsx`). This breaks M8 ("a
-      call, a notification or a locked screen mid-flow loses nothing:
-      form input survives a reload or backgrounding"). Fix: keep a
-      `sessionStorage` draft of `displayName`, `householdName` and
-      `email` only. Never store either password. Clear the draft once the
-      account is created. The join-signup form
-      (`src/components/household/join-signup-form.tsx`) gets the same
-      draft. Storage inventory: `StorageKind` in
-      `src/lib/cookie-inventory.ts` is `"cookie" | "localStorage" |
-      "cache"` today, so add a `"sessionStorage"` kind, add the draft key
-      as necessary storage, and make the storage cards in
-      `src/components/legal/legal-page.tsx` (which branch on `kind`)
-      label it as session storage in both languages. Because the draft
-      holds the user's email, its privacy-page entry (en and sv) says
-      what's kept (name, household name, email; never the password) and
-      that it's cleared on successful signup or when the tab closes.
-      Acceptance: an e2e spec in `mobile` fills name, household name,
-      email and password on `/signup` and reloads. The first three fields
-      keep their values and the password field is empty. After a
-      successful signup, opening `/signup` again shows empty fields. The
-      cookie-inventory drift-guard test passes with the new key, and
-      `/privacy` lists the draft as session storage in `en` and `sv`.
 
 ---
 

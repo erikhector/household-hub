@@ -11,7 +11,7 @@ import {
 // ids, same meaning) whenever either changes, and bump LAST_UPDATED in both.
 // Human-only area (AUTOPILOT.md): the owner reviews the wording.
 
-const LAST_UPDATED = "2 november 2026";
+const LAST_UPDATED = "24 november 2026";
 
 const SECTIONS: LegalJumpItem[] = [
   { id: "overview", title: "1. Översikt" },
@@ -79,7 +79,7 @@ export function PrivacySv({ jumpListLabel }: { jumpListLabel: string }) {
         <p>
           Squirrel sparar bara små uppgifter på din enhet som antingen är absolut nödvändiga för
           att de funktioner du använder ska fungera (att hålla dig inloggad, att hålla ditt hushåll
-          valt) eller som kommer ihåg en inställning du själv har gjort (språk, tema, sidofält).
+          valt, att inte tappa ett halvifyllt registreringsformulär) eller som kommer ihåg en inställning du själv har gjort (språk, tema, sidofält).
           Ingen av dem används för reklam, analys eller spårning, och ingen delas med en tredje
           part. Därför ber vi inte om samtycke – vi berättar bara om dem här. Du kan ta bort vilken
           som helst via webbläsarens inställningar för webbplatsdata; det enda som händer är att du
@@ -95,6 +95,7 @@ export function PrivacySv({ jumpListLabel }: { jumpListLabel: string }) {
             cookie: "Cookie",
             cache: "Offlinecache",
             localStorage: "Lokal lagring",
+            sessionStorage: "Sessionslagring",
             necessary: "nödvändig",
             preference: "inställning",
           }}

@@ -1,5 +1,5 @@
 // Single source of truth for everything Squirrel stores on a visitor's device
-// (cookies + localStorage). Rendered by the privacy policy's "Cookies and
+// (cookies, localStorage, sessionStorage and the offline cache). Rendered by the privacy policy's "Cookies and
 // local storage" section (src/app/privacy/page.tsx), and cross-checked
 // against the *_COOKIE constants in src/ by cookie-inventory.test.ts so a
 // newly added cookie can't ship without being listed here.
@@ -53,7 +53,18 @@ export const SHOPPING_LIST_CACHE_NAME = "squirrel-shopping-list-v1";
 // connection so they can be saved. Removed as each one syncs, and on logout.
 export const SHOPPING_TICK_QUEUE_STORAGE_KEY = "shopping.offlineTicks";
 
-type StorageKind = "cookie" | "localStorage" | "cache";
+// UX-211: a half-filled /signup or /join/<token> form, kept in
+// sessionStorage so a reload, a discarded tab or a detour to the email app
+// doesn't empty it (DESIGN.md M8). Holds the name, household name and email
+// only, never a password; useSessionDraft
+// (src/components/shared/use-session-draft.ts) only accepts this key, and
+// the forms clear it once the account is created. sessionStorage ends with
+// the tab, so it never outlives the visit.
+export const SIGNUP_DRAFT_STORAGE_KEY = "auth.signupDraft";
+
+export type DraftStorageKey = typeof SIGNUP_DRAFT_STORAGE_KEY;
+
+type StorageKind = "cookie" | "localStorage" | "sessionStorage" | "cache";
 type StorageCategory = "necessary" | "preference";
 
 export type StorageEntry = {
@@ -265,6 +276,17 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     purposeSv: "Sparar en kopia av inköpslistan du senast öppnade på den här enheten så att den går att öppna utan täckning. Inget annat sparas offline.",
     duration: "Until you log out or clear site data",
     durationSv: "Tills du loggar ut eller rensar webbplatsdata",
+  },
+  {
+    name: SIGNUP_DRAFT_STORAGE_KEY,
+    kind: "sessionStorage",
+    category: "necessary",
+    purpose:
+      "Keeps what you've typed into the sign-up form (your name, household name and email, never your password) so a reload doesn't empty it.",
+    purposeSv:
+      "Sparar det du har skrivit i registreringsformuläret (ditt namn, hushållets namn och e-postadress, aldrig lösenordet) så att det inte töms om sidan laddas om.",
+    duration: "Until your account is created or you close the tab",
+    durationSv: "Tills kontot har skapats eller du stänger fliken",
   },
   {
     name: TASKS_FILTER_STORAGE_KEY,

@@ -59,6 +59,7 @@ export type CookieListLabels = {
   cookie: string;
   cache: string;
   localStorage: string;
+  sessionStorage: string;
   necessary: string;
   preference: string;
 };
@@ -78,7 +79,9 @@ export function CookieList({ locale, labels }: { locale: "en" | "sv"; labels: Co
                 ? labels.cookie
                 : entry.kind === "cache"
                   ? labels.cache
-                  : labels.localStorage}
+                  : entry.kind === "sessionStorage"
+                    ? labels.sessionStorage
+                    : labels.localStorage}
               , {entry.category === "necessary" ? labels.necessary : labels.preference}
             </dd>
             <dt className="text-muted-foreground">{labels.purpose}</dt>
