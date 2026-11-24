@@ -138,9 +138,9 @@ test("the current week opens with today in view", async ({ page }) => {
 test("the Recipes tab opens on a page that jumped to today", async ({ page }) => {
   // MAINT-126: a screen short enough that even Monday's card starts below
   // the fold (the title, tabs and picks tray fill it), so hydrating the
-  // planner scrolls to today. The tab
-  // tapped around that jump must still open (openRecipesTab waits for it;
-  // week-planner.tsx makes the jump part of the planner's hydration).
+  // planner scrolls to today. The tab tapped around that jump must still
+  // open (openRecipesTab waits for it; week-planner.tsx makes the jump part
+  // of the planner's hydration).
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 420 });
   await withCurrentWeekMeal(`jump-${Date.now().toString(36)}`, async () => {
     await page.goto("/dashboard/meal-planning");
