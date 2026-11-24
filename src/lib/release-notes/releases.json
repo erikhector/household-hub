@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.161.1",
+    "date": "2026-11-24",
+    "pr": 1747,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "If you reload the page or leave it halfway through signing up, your name, household name and email are still filled in when you come back. Your password is never saved.",
+      "sv": "Om du laddar om sidan eller lämnar den mitt i registreringen finns ditt namn, hushållets namn och din e-postadress kvar när du kommer tillbaka. Lösenordet sparas aldrig."
+    }
+  },
+  {
     "version": "0.161.0",
     "date": "2026-11-24",
     "pr": 1744,
