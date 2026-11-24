@@ -27,6 +27,12 @@ import { normalizeVoiceTranscript, speechRecognitionLang } from "@/lib/shopping/
 import { useSpeechRecognition } from "@/components/shopping/use-speech-recognition";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
+import { queueAdds } from "@/lib/shopping/offline-tick-queue";
+import { getQueuedTicks, setQueuedTicks } from "@/lib/shopping/offline-tick-queue-store";
+
+// A queued add's local key: only has to differ from the other entries on
+// this device (crypto.randomUUID needs a secure context, so not that).
+const newQueueKey = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 /**
  * The shopping list's primary add path (AUTO-1): one always-visible line
@@ -107,6 +113,17 @@ export function SmartAddBar({
     setValue("");
     setActiveIndex(-1);
     inputRef.current?.focus();
+
+    // UX-36b: with no signal (or changes already waiting, which must go
+    // first so the order holds, as a tick does) the rows join the offline
+    // queue and show under this line as pending rows. The list's replay
+    // sends them through this same action, and its dedupe, once the
+    // connection is back.
+    if (!navigator.onLine || getQueuedTicks().length > 0) {
+      setQueuedTicks(queueAdds(getQueuedTicks(), listId, rows, newQueueKey));
+      setAnnouncement(format(plural(rows.length, dict.queuedAnnouncement), { count: rows.length }));
+      return;
+    }
 
     startTransition(async () => {
       const result = await smartAddShoppingListItemsAction(listId, rows);

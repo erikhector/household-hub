@@ -912,6 +912,12 @@ export const en = {
       one: "{count} change waiting to sync",
       other: "{count} changes waiting to sync",
     },
+    // UX-36b: rows typed into the smart add line with no signal, shown
+    // under it until the replay adds them; the toast is for an add the
+    // server refused on replay (its list completed or deleted meanwhile).
+    offlineAddsLabel: "Waiting to be added",
+    offlineAddBadge: "Waiting",
+    offlineAddDroppedToast: "“{name}” wasn't added to the list",
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {
@@ -968,6 +974,11 @@ export const en = {
       addedAnnouncement: {
         one: "Added {count} item",
         other: "Added {count} items",
+      },
+      // UX-36b: the screen-reader echo of an add made with no signal.
+      queuedAnnouncement: {
+        one: "{count} item will be added when you're back online",
+        other: "{count} items will be added when you're back online",
       },
       scanLabel: "Scan a barcode to add",
       scanAddedToast: "Added {name}",
@@ -2858,6 +2869,13 @@ export const en = {
     dueDateLabel: "Due date",
     dueDateHint: "Optional. Leave it empty for no deadline.",
     clearDueDate: "Clear due date",
+    // GAP-87: "Uses up", the pantry item a tick takes off.
+    usesUpLabel: "Uses up",
+    usesUpPlaceholder: "Nothing from the pantry",
+    usesUpNoResults: "No pantry item by that name",
+    usesUpQuantityLabel: "Amount each time",
+    usesUpHint: "Optional. Ticking the task off takes this much off the pantry.",
+    usesUpClear: "Use nothing",
     dueTodayLabel: "Due today",
     dueLabel: "Due {date}",
     overdueLabel: {
@@ -2888,6 +2906,8 @@ export const en = {
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
+    // GAP-87: added under the done toast when the tick used a pantry item.
+    usedToast: "Used {quantity} {unit} {name}",
     caughtUpTitle: "You're all caught up!",
     showOlder: "Show {count} older",
     hideOlder: "Hide older",

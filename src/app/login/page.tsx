@@ -60,7 +60,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
                 {dict.auth.login.sessionExpiredPasswordChanged}
               </p>
             )}
-            <LoginForm dict={dict.auth.login} initialEmail={initialEmail} />
+            <LoginForm dict={dict.auth.login} initialEmail={initialEmail} requestFailed={dict.errors.requestFailed} />
           </CardContent>
         </Card>
       </main>

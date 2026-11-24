@@ -409,10 +409,12 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
                 alreadyOnListToast: dict.mealPlanning.missingIngredientsAlreadyOnListToast,
                 openList: dict.mealPlanning.openShoppingList,
               }}
+              locale={locale}
               taskDict={{
                 toggleCompleteAriaLabel: dict.tasks.toggleCompleteAriaLabel,
                 toggleIncompleteAriaLabel: dict.tasks.toggleIncompleteAriaLabel,
                 doneToast: dict.tasks.doneToast,
+                usedToast: dict.tasks.usedToast,
                 undo: dict.tasks.swipe.undo,
                 saveFailedToast: dict.tasks.saveFailedToast,
                 overdueLabel: dict.tasks.overdueLabel,

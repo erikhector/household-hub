@@ -5473,7 +5473,10 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   rather than showing a blurred strip of the page under it), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
   row, when it isn't already fully visible (the old "Jump to today" button
-  is gone). Today's card says so in words (UX-99): a "Today" badge
+  is gone). The jump happens in the commit that hydrates the planner (a
+  layout effect), not a moment after it, so a tap aimed at the tabs above
+  as the planner comes alive can't land on what the jump moved under it
+  (MAINT-126). Today's card says so in words (UX-99): a "Today" badge
   beside the day number and `aria-current="date"`, besides the ring (never
   colour alone). Each day's button is named by its day ("Add meal, Mon 12"),
   and a recipe's star by the recipe ("Favorite Greek salad"), so a screen
@@ -7607,6 +7610,7 @@ co-managers, not kids earning rewards.
   `completedByMemberId`, nullable `recurrenceIntervalDays`, nullable `recurrenceAnchorAt`,
   nullable `skippedUntil` (GAP-60),
   `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`,
+  nullable `consumesItemId`/`consumesQuantity` (GAP-87),
   nullable `dueDate`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
   `assignedToMemberId`/`completedByMemberId` are two independent, both-
@@ -7810,6 +7814,46 @@ co-managers, not kids earning rewards.
   does dropping the repeat in the edit dialog. UX-137's anchoring rule is
   untouched: if it changes, the skip follows it. Covered by
   `recurrence.test.ts`, `actions.test.ts` and `e2e/task-skip.spec.ts`.
+- **A task can use up a pantry item (GAP-87)**: Grocy's "a chore consumes a
+  product". "Run the dishwasher" uses 1 dishwasher tablet, so household
+  consumables run low, and reach "Next shop" through the usual low-stock
+  auto-add, without anyone typing it. Opt-in per task, repeating or
+  one-off: the Add/Edit sheet has an optional **Uses up** picker
+  (`ItemCombobox` over the household's pantry items, shown once there is
+  one) and, once an item is picked, an amount (starts at 1, `inputMode`
+  decimal, 6rem beside the item's unit) and a "Use nothing" button that
+  unlinks it. Nothing is inferred. Stored as nullable
+  `HouseholdTask.consumesItemId` (FK to `InventoryItem`, `onDelete:
+  SetNull`, so deleting the item just drops the link) and
+  `consumesQuantity` (in the item's own unit, above 0, two decimals). The
+  item is re-checked to belong to the `requireHousehold()` household on
+  save ("Item not found" otherwise) and again on every tick. A tick
+  (`toggleTaskCompletedAction`) decrements in the same transaction as its
+  compare-and-set completion write, and only when that write matched, so a
+  double tap or two members ticking at once use it up once
+  (`consumeTaskItem`, `src/app/dashboard/tasks/task-item-use.ts`). Never
+  below 0, and the stock write is itself a compare-and-set on the amount it
+  read (re-read and retried up to three times), so a tap in between is
+  never overwritten; it writes a `used` stock event (GAP-66 history), raises "Out of
+  stock" and auto-adds like a −1 tap, and sets the event's nullable
+  `InventoryItemEvent.taskId` (FK to `HouseholdTask`, `onDelete: SetNull`).
+  The "Done: {title}" toast gains "Used 1 pcs Dishwasher tablets" once the
+  server answers (the amount really used, less when stock ran out); its
+  Undo is the un-tick. Un-ticking (`restoreTaskItem`) finds the task's
+  latest `used` event by `taskId` and adds back its `delta`, writing an
+  `adjusted` event and dismissing an open "Out of stock" when the item comes
+  back from 0. Matching on `taskId`, not a timestamp or "the latest used
+  event", means a cook or a manual −1 after the tick is never reversed by
+  mistake. Only the current completion's event stays linked: a tick first
+  unlinks older ones and an un-tick unlinks what it reversed, so a later
+  un-tick (say, after a tick at 0 stock wrote nothing) can't reach back to
+  an earlier completion. "Skip this time" uses nothing. "Change unit…"
+  rescales `consumesQuantity` with the stock, and a merge moves the link to
+  the kept item, converted into its unit (dropped when it can't convert).
+  The overview's Today block ticks the same way and shows the same toast
+  line. Covered by `actions.test.ts`, `task-item-use.test.ts`,
+  `inventory/items/actions.test.ts` and `e2e/task-uses-up.spec.ts` (links a
+  3 pcs item, ticks, reads 2 pcs on the item page, un-ticks, reads 3).
 - **All caught up, and old one-offs that leave (UX-105)**: with no open
   task (and at least one completed) the mascot "You're all caught up!" card
   shows above Completed on every visit, not only right after a tick, so the
@@ -8047,7 +8091,18 @@ on the viewport at every scroll position, so on a page taller than one
 screen (the landing page, mainly) content near the top/bottom edge of a
 scrolled viewport sits in the gradient's outer stop; a true black there made
 `bg-card` surfaces nearly invisible. Keep both themes' outer stops
-non-extreme for this reason.
+non-extreme for this reason. That `fixed` is desktop-only (a fine pointer
+that hovers): on touch devices it's off because of an iOS standalone-PWA
+quirk that leaves the home-indicator strip unpainted, so there the gradient
+is sized to the root box, one screen tall, with the flat `--gradient-end`
+behind it. UX-212 added a second layer on touch devices only that fades the
+bottom half of that first screen into `--gradient-end`, so a page that
+scrolls (landing, auth, legal) has no seam one screen down where the
+gradient used to stop. `e2e/ux-212.mobile.spec.ts` samples the live viewport
+just above and below that line on `/` and `/signup` in both themes and
+both orientations (on the
+`mobile` and `tablet` projects), and `ux-212.desktop.spec.ts` guards that
+desktop still pins the gradient.
 
 The light palette (`:root` in `globals.css`) isn't shadcn's generic gray
 default — it carries the same violet tint as dark mode (soft
@@ -8203,6 +8258,35 @@ stay that way rather than re-adding per-page redirect checks:
   `src/app/page.tsx` does **not** duplicate that check with its own
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
+
+### Dropped requests on the signed-out forms (UX-210)
+
+A new user's first-run path (login, signup, forgot password, reset
+password, join via invite, accept invite, and the no-household page's
+"Create household") survives a request that never arrives (offline, a
+dropped mobile connection), as the household notes do (UX-205, M8):
+
+- Each form's action is wrapped in `guardFormAction(action,
+  errors.requestFailed)` (`src/components/shared/guard-form-action.ts`).
+  A rejection becomes `{ error, requestFailed: true }`, shown in the form's
+  general error line ("That didn't go through. Check your connection and
+  try again."), instead of reaching the root error boundary and Sentry.
+  Next's redirect signal is re-thrown (`unstable_rethrow`), so a
+  successful login or household creation still navigates.
+- On `/login` the message sits in its own line above the button, not under
+  the password, and the password isn't marked invalid: the credentials
+  weren't wrong. The "Resend verification email" buttons on login, signup
+  and join are guarded the same way and show their error under the button.
+- The typed values survive through `useKeptFormValues` (UX-13): login's
+  email, signup's name, household and email, join's name and email, the
+  forgot-password email and the first household's name. Passwords clear,
+  as after any failed submit.
+- Wrapping the Server Action in a client function means these forms no
+  longer post without JavaScript; React still replays a submit made
+  before hydration.
+
+`e2e/ux-210.spec.ts` submits `/login`, `/signup` and `/forgot-password`
+offline, then logs in and signs up once back online.
 
 ### Public page titles and link previews (UX-64)
 
@@ -10134,9 +10218,10 @@ the unit tests beside `swipe-row-calc.ts` and `deferred-delete.ts`.
 
 ### Offline shopping list (UX-36)
 
-The shopping list survives a dead zone in a store. Ticks only: adds, price
-edits and every other page stay online-only (decided 2026-10-15, see
-PRODUCT.md).
+The shopping list survives a dead zone in a store. Ticks (UX-36) and adds
+from the smart add line (UX-36b) work offline; price edits, item edits,
+deletes and every other page stay online-only, so money stays online
+(decided 2026-10-15 and 2026-11-23, see PRODUCT.md).
 
 - **Reads**: `src/lib/service-worker.js` serves a navigation to
   `/dashboard/shopping-list/<id>` network first and keeps the last good
@@ -10162,12 +10247,29 @@ PRODUCT.md).
   deleted meanwhile (or foreign to the household) answers `{}`, skipped
   silently. A request that never arrives stops the replay and keeps the
   rest; an answer with an error drops that entry with the "couldn't save"
-  toast. The page is then refreshed to show what the server holds.
+  toast. The page is then refreshed to show what the server holds. An entry
+  queued while a replay runs is sent in the same pass.
+- **Adds** (UX-36b): with no connection, or while anything is already
+  queued, rows typed in the smart add line (typed, picked from the
+  dropdown or spoken; the barcode scan needs the server and stays online)
+  join the same queue under the same `localStorage` key, one entry per row
+  in the order typed (`{ kind: "add", key, listId, row }`; `key` is local
+  to the queue and never sent). They show at once under the add line as
+  read-only pending rows (`OfflinePendingAdds`: dashed, a "Waiting" badge,
+  in a list named "Waiting to be added") and in the chip's count. The
+  replay sends each through `smartAddShoppingListItemsAction(listId,
+  [row])`, the online add's own action, so its "already on the list"
+  dedupe is the merge rule: the same name added offline on two phones, or
+  one already on the list, ends as one row. An add the server refuses (its
+  list completed or deleted meanwhile) is dropped with a toast naming it
+  ("“Milk” wasn't added to the list", the reason underneath).
 - **Logout** (`useLogout`) deletes the cached list and clears the queue
   (`src/lib/shopping/offline-cache.ts`).
 - Covered by `e2e/shopping-offline.spec.ts` (offline tick, chip, back
-  online, persisted after reload; offline reload of a visited list) and the
-  `replayTickAction` and queue unit tests.
+  online, persisted after reload; an offline add shown pending and in the
+  chip, saved once after reload, with a name already on the list deduped;
+  offline reload of a visited list) and the `replayTickAction` and queue
+  unit tests.
 
 ### Browser floor (UX-29)
 
@@ -10312,11 +10414,12 @@ approximating them, so the email never disagrees with the app.
   its `onSubmit` records the listed fields' values as the form is
   submitted, and each field reads `defaultValue={kept.values.x ?? fallback}`,
   so the reset lands on what was typed. It's client-side, so the actions'
-  return types and no-JS fallback are unchanged. The names are an
-  allowlist and never include a password: password fields still clear
-  after an error (so the reset-password form, which has nothing else, is
-  unchanged). A dialog calls `kept.reset()` when it reopens. Used by
-  signup, login, the invite sign-up form, the display-name form, add/edit
+  return types are unchanged. The names are an allowlist and never
+  include a password: password fields still clear after an error (so the
+  reset-password form, which has nothing else, is unchanged). A dialog
+  calls `kept.reset()` when it reopens. Used by signup, login, forgot
+  password and the first household's name (UX-210), the invite sign-up
+  form, the display-name form, add/edit
   item (quantity, low-stock threshold, expiry, use-within), the
   transaction description, the planned bill's name and category, the
   recurring item's name and due day, and the add/edit category dialogs
@@ -11260,7 +11363,10 @@ UX-14's rapid ticks and the rollback toast.
   `router.replace()`, which also writes the URL only once that server
   render arrives, so the palette's "Add to shopping list" test waits for
   the add box's focus, then for the replace's RSC request, then for the
-  stripped URL with the same 20 s (MAINT-124). A CSS
+  stripped URL with the same 20 s (MAINT-124), and the palette's "Add
+  task" test under a held history entry waits the same way for the tasks
+  page's dialog, its strip request and then the stripped URL (MAINT-125).
+  A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing
@@ -11292,6 +11398,13 @@ UX-14's rapid ticks and the rollback toast.
   tapped that way on the phone project, never showed its sheet
   (MAINT-119). That test also waits out the save's `history.back()`
   (`waitForDialogHistory`) before its `goto` to the planner.
+  `openRecipesTab` also waits for every streamed boundary to be revealed
+  and, when the week shows today's card, for that card to be hydrated
+  before it clicks the tab: on a phone late in the week, once another spec
+  has planned a meal in the worker's household, hydrating the planner
+  scrolls `main` to today, and a click aimed at the tab just before that
+  landed on the planner, so the tab stayed unselected (MAINT-126,
+  MAINT-85).
   A helper that presses a toggle until a dialog shows checks that the
   dialog is open (`data-open` on the Base UI popup), not just visible. A
   closing sheet stays visible while it slides out, long enough on a phone

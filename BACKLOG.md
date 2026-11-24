@@ -238,15 +238,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       `e2e/meal-plan-templates.spec.ts:20` ("a saved week can be stamped onto an empty week"), `desktop` project. In the local `npm run ci:local` run on release commit ca7801a (2026-11-01) it failed inside its own seed insert (line 31) with `duplicate key value violates unique constraint "MealPlan_householdId_weekStartDate_key"`. It passed on a local re-run of the same commit, desktop and mobile. The week it seeds collides with a `MealPlan` another test of the same worker household created: pick a week no other spec uses, or delete the row first, scoped to `E2E_HOUSEHOLD`.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `npx playwright test e2e/meal-plan-templates.spec.ts --project=desktop --repeat-each=30` passes 30/30.
-- [ ] **MAINT-85. Flaky: the Recipes tab isn't open yet in the recipe photo import specs on mobile** (low, S) `[!]` —
-      `e2e/recipe-photo-import.spec.ts:59` ("a photo pre-fills the name and ingredient rows, and nothing is saved until Save") and `:93` ("a failed read shows an error toast and leaves the form untouched"), `mobile` project. In the GitHub e2e job on release PR #1143 (run 41947757548, 2026-11-05) both passed only on retry in the re-run, each failing inside `openNewRecipe` -> `openRecipesTab` (`e2e/ui.ts:358`). The helper already waits on `expectHydrated(tab)` and `expectRouterPatched`, so start from the failing trace: the tab click may land before the tab's handler is attached on a phone, or the selection is reset by a later render.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/recipe-photo-import.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-      Further sighting (2026-11-12, release PR #1352 on 1599687), in another spec with the same shape: `e2e/recipe-discover.spec.ts:159` ("search and tag filter narrow the list"), `mobile` project. In the GitHub e2e job (job 131535355165) the first attempt failed because `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` until the 5 s timeout; it passed on the retry. So the cause is likely in the Recipes tab (or `openRecipesTab`), not in the photo import spec: the fix should also cover this spec, and `npx playwright test e2e/recipe-discover.spec.ts --project=mobile --repeat-each=30` must pass 30/30 too.
-      Further sighting (2026-11-14, release PR #1408 on 0522167), two more tests in the same spec: `e2e/recipe-discover.spec.ts:146` ("rows never say the pantry has none of a recipe") and `:298` ("ask for ideas lists AI ideas and previews one without pantry markers"), `mobile` project. In the GitHub e2e job (job 132278197181) both first attempts failed at `openRecipesTab` (`e2e/ui.ts:367`, via `openTabAndDiscover` at `recipe-discover.spec.ts:106`): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s, after `expectRouterPatched` had passed. Both passed on the retry, and the local `ci:local` on the same commit was clean. Same cause as above, so the one fix covers all three call sites.
-      Further sighting (2026-11-15, release PR #1449 on 57e93f4, GitHub run 43676498568, job 132697723956): `e2e/recipe-photo-import.spec.ts:59` again, `mobile` project. The first attempt failed at `openRecipesTab` (`e2e/ui.ts:367`, called from spec line 89): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s. It passed on the retry, and the local `ci:local` on the same commit passed this test.
-      Further sighting (2026-11-15, builder's locked `ci:local` on 6faed9d, PR #1453's branch merged with `next`), another test in `e2e/recipe-discover.spec.ts` with a different symptom: `:185` ("save a catalog recipe through the form"), `mobile` project. The New recipe dialog's Name field never got its value and the test timed out. It passed in the next full gate (b9fb3e1) and 20/20 in a loaded `--repeat-each=10` on that build. Not ruled out: #1453 (now on `next`) changed `src/components/ui/dialog-history.ts`, which this dialog goes through, and no run on a clean checkout from before it was made, so compare against 46ed05c before treating it as the same flake.
-      Further sighting (2026-11-15, release PR #1477 on ac3cfae, GitHub run 43769100329, job 132980784373), a fourth test in the same spec: `e2e/recipe-discover.spec.ts:383` ("preview offline shows the inline retry and keeps the sheet"), `mobile` project. The first attempt failed at `openRecipesTab` (`e2e/ui.ts:367`, via `openTabAndDiscover` at `:106`, called from spec line 398): `getByRole('tab', { name: 'Recipes' })` kept `aria-selected="false"` for the whole 5 s, after `expectHydrated` and `expectRouterPatched` had both passed. It passed on the retry, and the local `ci:local` on the same commit passed with no failure (1695 passed). Same symptom as the 2026-11-12 and 2026-11-14 sightings, so the tab click is still being lost on `mobile`.
 - [ ] **MAINT-112. Flaky: the page is still on Tasks 5 s after a scripted push to Profile on iphone** (low, S) —
       `e2e/flows.spec.ts:57` ("an edit still shows after navigating away and back"), `iphone` project (WebKit), GitHub `End-to-end (Playwright)` job only. Third sighting, the first since #1487 added the `waitForDialogHistory(page)` wait before the push: release PR #1506 on b66e4ce, 2026-11-16, job 133437206856, failed its first attempt and passed on retry #1. Fourth sighting: release PR #1518 on fa83d4c, 2026-11-16, job 133656933989, same step and same URL, passed on retry #1 (local `ci:local` has no `iphone` project and was clean). Failing step: `:81`, `expect(page).toHaveURL(/\/dashboard\/profile/)` after `window.next.router.push("/dashboard/profile")`; the page was still on `http://localhost:3000/dashboard/tasks` after the 5000 ms timeout. Desktop and mobile passed first time, locally and on GitHub. The first two sightings: release PR #1425 on 138ae29, 2026-11-14, job 132417142477, and release PR #1484 on f77b161, 2026-11-16, job 133033346476 (already with the MAINT-103 repair). With the dialog's history settled before the push, the pending `history.back()` is ruled out as the cause; the remaining candidate is a slow first client navigation to `/dashboard/profile` in a cold WebKit (the route's RSC payload not prefetched yet). Start from a trace of an `iphone` run (keep one with `--trace on` in the GitHub job, or wherever WebKit installs), and check whether the push is issued but the navigation is slow (then wait on the navigation, e.g. on Profile's heading, with a timeout that fits a cold compile, rather than the URL's default 5 s) or never issued at all (an app bug in the router hand-off, fix in the app).
       Fix in flight: the PR from `autopilot/maint-112-profile-push-flake` (no WebKit where it was built, and the GitHub job kept no trace, since it uploads the report only when the job fails and these runs passed on retry) waits for the push's RSC request, then for Profile's heading with 20 s, before the URL check. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/flows.spec.ts:57` still fails there, and at the new request wait, the push never went out: look at the router hand-off in the app.
@@ -257,14 +248,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: the PR from `autopilot/maint-124-palette-add-query-flake` (no WebKit where it was built: the proxy blocks Playwright's WebKit download) waits for the add box's focus, then for the `router.replace()` strip's own RSC request, then for the stripped URL with 20 s. The strip is in the same effect as the focus and the router writes the URL only once the list's server render arrives, so a cold WebKit can legitimately take over 5 s. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/command-palette.spec.ts:288` still fails there at the new request wait, the strip never went out: look at SmartAddBar's effect and the palette dialog's history hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs list `[iphone] › e2e/command-palette.spec.ts:288` passed on the first attempt, not `flaky`).
-- [ ] **MAINT-125. Flaky: the URL is still `/dashboard/tasks?add=1` 5 s after the palette's Add task under a held history entry on mobile** (low, S) —
-      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone"), `mobile` project. First sighting: 2026-11-20, builder's `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` on the MAINT-124 branch (4338fb3, which changes only the `:288` test): 1 failed of 60 mobile runs (repeat 25), every other run and the desktop project passed. The locked `ci:local` on the same commit passed it. Failing step: `:118`, `expect(page).toHaveURL(/\/dashboard\/tasks$/)` still received `/dashboard/tasks?add=1` after the 5000 ms timeout. This is the tasks page's version of the `?add=1` strip that MAINT-124 found landing late on WebKit (the strip is a `router.replace`, which writes the URL only after the server render returns), here combined with the held `history.back()` of the MAINT-118 dialog-history repair. Start from the trace (keep one with `--trace on` and `--repeat-each=30`): check whether the replace's RSC request went out and was slow (then wait for it, as MAINT-124's PR #1645 does for `:288`) or the strip never ran because the repair's history step raced it (an app bug in `dialog-history.ts` or the tasks page's strip, fix it there).
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-126. Flaky: the Recipes tab click doesn't select the tab in the phone recipe-sheet keyboard spec** (low, S) —
-      `e2e/sheet-keyboard.mobile.spec.ts:13` ("a filled recipe form keeps its submit in view on a phone"), `mobile` project. First sighting: 2026-11-20, builder's locked `ci:local` on 576e3c0 (PR #1632, GAP-85, which doesn't touch the Recipes tab or this spec), under a loaded runner: `openRecipesTab`'s `aria-selected="true"` assertion (`e2e/ui.ts:427`, called from the spec's `:20`) timed out after 5 s, so "New recipe" was never reached. It passed 12/12 alone with `--repeat-each=10` and on the full rerun of `ci:local` on the same commit. A pre-hydration click is not the cause: `openRecipesTab` already runs `expectHydrated(tab)` and `expectRouterPatched(page)` before `tab.click()`, so the click reached a hydrated tab and `aria-selected` still didn't flip. Start from a trace (`--trace on --repeat-each=30` under load). Check whether the tab switch waits on a slow transition or server render under load, or whether the click was swallowed by a layout shift or overlay (the spec already dismisses the cookie notice, so look at things like the week strip GAP-85 added). MAINT-85 fails in the same helper (the same tab in the recipe photo import specs), so fix both together if it's the same cause.
-      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/sheet-keyboard.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -571,32 +554,6 @@ offline, and once with signup reloaded half-filled. WebKit was not run
 (no browser installed here). The audit config still needs an
 uncommitted `executablePath` copy to launch Chromium.
 
-- [ ] **UX-210. A dropped connection on an auth form shows the crash page and wipes the form** (impact: high, effort: M) —
-      Submitting login, signup or forgot password while offline (or on a
-      request that never arrives) rejects the Server Action. Nothing
-      catches it, so the root `src/app/error.tsx` boundary replaces the
-      page with "Something went wrong … head back to the dashboard". The
-      user is logged out, everything they typed is gone, and Sentry logs
-      it as an unhandled error. Reproduced on Pixel 7 (`en`) and at 320 px
-      (`sv`) on `/login`, `/signup` and `/forgot-password`. The same
-      unguarded `useActionState` call is in
-      `src/components/auth/reset-password-form.tsx`,
-      `src/components/household/join-signup-form.tsx`,
-      `accept-invite-form.tsx` and `create-first-household-form.tsx`, so a
-      new user's whole first-run path is exposed. This breaks M8 (an
-      error state that says what to do, including "you're offline"; input
-      survives), and it is the same gap UX-205 closed for the household
-      notes. Fix: wrap each form's action so a rejection becomes
-      `{ error: dict.errors.requestFailed }` in that form's general error
-      line. Re-throw redirect signals (`unstable_rethrow`) so a successful
-      login still navigates, and keep the typed values (`useKeptFormValues`
-      already covers the server-error path).
-      Acceptance: an e2e spec in `mobile` and `desktop` fills `/login` and
-      `/signup`, calls `context.setOffline(true)` and submits. It asserts
-      that the "Check your connection" message is visible on the same
-      page, the error-boundary heading is not shown, and the email and
-      name fields still hold what was typed. Going back online and
-      submitting again then succeeds.
 - [ ] **UX-211. Keep a half-filled signup across a reload** (impact: med, effort: S) —
       `/signup` asks for five fields before a new user sees anything. On
       a phone the usual mid-form interruptions are leaving to check an
@@ -625,36 +582,6 @@ uncommitted `executablePath` copy to launch Chromium.
       successful signup, opening `/signup` again shows empty fields. The
       cookie-inventory drift-guard test passes with the new key, and
       `/privacy` lists the draft as session storage in `en` and `sv`.
-- [ ] **UX-212. Paint the page gradient behind the whole page on touch devices, not just the first screen** (impact: low, effort: S) —
-      `body`'s `radial-gradient` in `src/app/globals.css` (~line 359) is
-      `no-repeat` and sized to the first viewport, with a flat
-      `--gradient-end` `background-color` behind it. On desktop this is
-      already handled: the rule right after it,
-      `@media (hover: hover) and (pointer: fine) { body {
-      background-attachment: fixed; } }`, pins the gradient to the
-      viewport, and its comment says the body does scroll on the landing,
-      legal and auth pages. Keep that rule. (The y≈720 seam in the
-      `desktop-*.png` screenshots is likely an artefact of Playwright's
-      full-page capture with a fixed background, not something a desktop
-      user sees.) On touch / coarse-pointer devices `fixed` is
-      deliberately off because of the iOS standalone-PWA safe-area
-      quirk the comment above the rule describes, so on a phone or
-      tablet a hard horizontal seam shows one screen down where the
-      lavender gradient stops and the flat fill begins: on the landing
-      page, signup and the legal pages. This breaks the design principle
-      of calm, consistent surfaces. Fix, scoped to touch devices only
-      (outside the fine-pointer media query): size the gradient to the
-      document (`background-size: 100% 100%` with `min-height` on
-      `html`), or fade it out within the first screen. Don't turn on
-      `background-attachment: fixed` for touch devices, and don't change
-      the desktop rule.
-      Acceptance: an e2e check in `mobile` (and the tablet project if it
-      runs there) scrolls `/signup` and `/` to the bottom in a live
-      viewport (not a full-page screenshot). It samples the page
-      background colour just above and just below one viewport height at
-      the left edge, and the two differ by at most a few RGB units. A
-      `desktop` assertion only guards that `body` still computes
-      `background-attachment: fixed` there.
 
 ---
 
@@ -680,27 +607,8 @@ actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
 charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline ticks in the shop) shipped; UX-36b adds offline adds
-(price edits stay online).
-
-- [ ] **UX-36b. Offline adds on the shopping list** (medium, L) — follow-up
-      to UX-36 (offline ticks, shipped). With no signal, a name typed in the
-      smart add line is queued beside the ticks (the queue and replay in
-      `src/lib/shopping/offline-tick-queue*.ts`), shown at once as a pending
-      row and in the offline chip's count, and replayed in order through the
-      same smart-add action when the signal returns. Merge rule: no new one.
-      The replay goes through the action's existing "already on the list"
-      dedupe, so the same name added offline on two phones ends as one row,
-      exactly as two online adds do today; an add whose list was completed
-      or deleted meanwhile is dropped with a toast naming it. Price edits,
-      item edits and deletes stay online-only (UX-36: money stays online).
-      Acceptance: an e2e test goes offline, adds an item from the smart add
-      line, sees it as a pending row and in the chip count, goes online,
-      reloads and asserts it persisted once, on desktop and mobile.
-      Decided 2026-11-23 by autopilot-product: adds only, replayed through
-      the existing dedupe; price edits not planned. Why: the in-store
-      need is "I remembered something", and reusing the online dedupe
-      needs no client ids or new merge rules. See PRODUCT.md.
+UX-36 (offline ticks in the shop) and UX-36b (offline adds) shipped;
+price edits stay online.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
@@ -1047,49 +955,6 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance (if approved): a per-user card on a store, shown as a
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
-
-### 2026-11-21 scan
-
-Checked AnyList (Dec 2025 / Jan 2026 meal-plan release), Grocy and Cozi.
-Most of what they ship is already here (meal queue = Cook soon shelf,
-recipe sort by times made = GAP-80, meal notes = GAP-81, week templates,
-step timers, opened/frozen tags, share target). One gap is left:
-
-- [ ] **GAP-87. A task can use up a pantry item** (impact: med,
-      effort: M) — Grocy lets a chore consume a product when it's done
-      ("Run the dishwasher" uses 1 dishwasher tablet, "Change the water
-      filter" uses 1 filter), so household consumables run low, and land
-      on the list through the existing low-stock path, without anyone
-      typing it. Squirrel's `HouseholdTask` (`prisma/schema.prisma`) has
-      no link to inventory, so the stock of cleaning and bathroom items
-      (both already categories) only drops when someone remembers to edit
-      it. Schema change (Phase 2): nullable
-      `HouseholdTask.consumesItemId` (FK to `InventoryItem`, same
-      household, `onDelete: SetNull`) plus `consumesQuantity` (in the
-      item's own unit). Set in the task's Add/Edit sheet as an optional
-      "Uses up" item picker and quantity, so the user opts in per task:
-      nothing is inferred. It works on any task, repeating or one-off:
-      the opt-in is the link, not the recurrence. On a tick,
-      `toggleTaskCompletedAction`
-      (`src/app/dashboard/tasks/actions.ts:259`) decrements in the same
-      transaction, and only when its compare-and-set completion write
-      matched (a double tap or two members ticking at once must not use
-      it up twice). Never below 0, writing an `InventoryItemEvent`
-      (reason `used`) like other stock changes; the success toast names
-      it ("Used 1 pcs Dishwasher tablets") with Undo. The tick sets a new
-      nullable `InventoryItemEvent.taskId` (FK to `HouseholdTask`,
-      `onDelete: SetNull`; additive migration) on that event. Un-ticking
-      finds the latest `used` event with that `taskId` and adds back its
-      `delta` (it can be less than `consumesQuantity` when stock hit 0).
-      Matching on `taskId` rather than `createdAt = completedAt` or "the
-      latest used event" means a cook or manual −1 made after the tick
-      can't be reversed by mistake, and doesn't hang on timestamp
-      precision. The item must be re-checked to belong to the
-      `requireHousehold()` household on save and on tick; a deleted item
-      just drops the link. Skip ("Skip this time", GAP-60) uses nothing.
-      Acceptance: an e2e test (`mobile` and `desktop`) links a task to a
-      seeded item with 3 pcs, ticks it, sees the toast, reloads the
-      item page and reads 2 pcs; un-ticks and reads 3 pcs again.
 
 ## Needs a decision before building
 

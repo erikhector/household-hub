@@ -1,6 +1,6 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { withCurrentWeekMeal } from "./current-week-meal";
-import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectRouterPatched } from "./ui";
+import { dismissCookieNotice, expectHydrated, expectNoHorizontalOverflow, expectRouterPatched, openRecipesTab } from "./ui";
 
 // UX-5 / UX-21 / UX-50: a day with nothing planned is one "+ Add meal" button
 // that asks for the slot, not four "<slot> + Add meal" rows, and a week with
@@ -132,5 +132,19 @@ test("the current week opens with today in view", async ({ page }) => {
     await page.goto("/dashboard/meal-planning");
 
     await expect(page.locator("#meal-planner-today-card:visible")).toBeInViewport();
+  });
+});
+
+test("the Recipes tab opens on a page that jumped to today", async ({ page }) => {
+  // MAINT-126: a screen short enough that even Monday's card starts below
+  // the fold (the title, tabs and picks tray fill it), so hydrating the
+  // planner scrolls to today. The tab tapped around that jump must still
+  // open (openRecipesTab waits for it; week-planner.tsx makes the jump part
+  // of the planner's hydration).
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: 420 });
+  await withCurrentWeekMeal(`jump-${Date.now().toString(36)}`, async () => {
+    await page.goto("/dashboard/meal-planning");
+    await openRecipesTab(page);
+    await expect(page.getByRole("button", { name: "New recipe" })).toBeVisible();
   });
 });

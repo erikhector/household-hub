@@ -44,6 +44,7 @@ const {
     itemAlias: { updateMany: vi.fn(), upsert: vi.fn() },
     notification: { deleteMany: vi.fn() },
     inventoryItemEvent: { updateMany: vi.fn() },
+    householdTask: { updateMany: vi.fn(), findMany: vi.fn(async (): Promise<unknown[]> => []), update: vi.fn() },
   },
   recordStockEventMock: vi.fn(),
 }));
@@ -59,6 +60,7 @@ vi.mock("@/lib/prisma", () => {
     priceHistory: db.priceHistory,
     notification: db.notification,
     inventoryItemEvent: db.inventoryItemEvent,
+    householdTask: db.householdTask,
     itemUnitConversion: {
       findFirst: conversionFindFirstMock,
       delete: conversionDeleteMock,
@@ -248,6 +250,11 @@ describe("changeItemUnitAction", () => {
     expect(db.inventoryItemEvent.updateMany).toHaveBeenCalledWith({
       where: { itemId: "item-1", householdId: "household-1" },
       data: { delta: { multiply: 2000 } },
+    });
+    // GAP-87: so is a task's "Uses up" amount.
+    expect(db.householdTask.updateMany).toHaveBeenCalledWith({
+      where: { consumesItemId: "item-1", householdId: "household-1" },
+      data: { consumesQuantity: { multiply: 2000 } },
     });
   });
 
@@ -529,6 +536,25 @@ describe("mergeInventoryItemsAction", () => {
       skipDuplicates: true,
     });
     expect(itemUpdateManyMock.mock.calls[0][0].data.quantity).toBe(4);
+  });
+
+  it("moves a task's \"Uses up\" link to the keeper, converted into its unit (GAP-87)", async () => {
+    mergeHappyPath([
+      { id: "creme", unit: "pcs", quantity: 2 },
+      { id: "creme-dl", unit: "dl", quantity: 4 },
+    ]);
+    db.householdTask.findMany.mockResolvedValueOnce([
+      { id: "task-1", consumesItemId: "creme-dl", consumesQuantity: 2 },
+    ]);
+    expect(await mergeInventoryItemsAction({ keeperId: "creme", merge: [{ id: "creme-dl", factor: 0.5 }] })).toEqual({});
+    expect(db.householdTask.findMany).toHaveBeenCalledWith({
+      where: { consumesItemId: { in: ["creme-dl"] }, householdId: household.id },
+      select: { id: true, consumesItemId: true, consumesQuantity: true },
+    });
+    expect(db.householdTask.update).toHaveBeenCalledWith({
+      where: { id: "task-1" },
+      data: { consumesItemId: "creme", consumesQuantity: 1 },
+    });
   });
 
   it("adds a merged pending row into the keeper's row on the same list", async () => {

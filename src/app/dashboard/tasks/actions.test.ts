@@ -3,7 +3,7 @@
 // Actions. All I/O (Prisma, requireHousehold, next/cache) is mocked — no
 // database is touched. Same convention as src/lib/actions/household.test.ts
 // and src/app/dashboard/shopping-list/list-actions.test.ts.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireHouseholdMock,
@@ -16,6 +16,11 @@ const {
   householdMemberFindManyMock,
   revalidatePathMock,
   getTimeZoneMock,
+  inventoryItemFindFirstMock,
+  transactionMock,
+  consumeTaskItemMock,
+  restoreTaskItemMock,
+  revalidateAutoAddedMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   householdTaskCreateMock: vi.fn(),
@@ -27,10 +32,16 @@ const {
   householdMemberFindManyMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   getTimeZoneMock: vi.fn(async () => "UTC"),
+  inventoryItemFindFirstMock: vi.fn(),
+  transactionMock: vi.fn(),
+  consumeTaskItemMock: vi.fn(),
+  restoreTaskItemMock: vi.fn(),
+  revalidateAutoAddedMock: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
+    $transaction: transactionMock,
     householdTask: {
       create: householdTaskCreateMock,
       findFirst: householdTaskFindFirstMock,
@@ -39,8 +50,20 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: householdTaskDeleteManyMock,
     },
     householdMember: { findFirst: householdMemberFindFirstMock, findMany: householdMemberFindManyMock },
-  },
+    inventoryItem: { findFirst: inventoryItemFindFirstMock },
+  };
+  // The transaction hands the callback the same mocks, so a write inside it
+  // is asserted like one outside.
+  transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
+  return { prisma };
+});
+// GAP-87: the stock half has its own tests (task-item-use.test.ts); here it
+// only matters when it's called, and with what.
+vi.mock("@/app/dashboard/tasks/task-item-use", () => ({
+  consumeTaskItem: consumeTaskItemMock,
+  restoreTaskItem: restoreTaskItemMock,
 }));
+vi.mock("@/lib/shopping/default-list", () => ({ revalidateAutoAdded: revalidateAutoAddedMock }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/get-time-zone", () => ({ getTimeZone: getTimeZoneMock }));
@@ -77,6 +100,13 @@ const restoredNothing = {
   previousCompletedByMemberId: null,
   skippedUntil: null,
 };
+
+beforeEach(() => {
+  // A compare-and-set write that matched, unless a test says otherwise.
+  householdTaskUpdateManyMock.mockResolvedValue({ count: 1 });
+  consumeTaskItemMock.mockResolvedValue({ used: null, autoAdded: null });
+  restoreTaskItemMock.mockResolvedValue(false);
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -419,6 +449,8 @@ describe("toggleTaskCompletedAction", () => {
         assignedToMemberId: true,
         rotationMemberIds: true,
         rotationPreviousAssigneeId: true,
+        consumesItemId: true,
+        consumesQuantity: true,
       },
     });
     expect(result.error).toBe("Task not found");
@@ -1126,5 +1158,143 @@ describe("toggleTaskCompletedAction on a skipped task (GAP-60)", () => {
     const data = householdTaskUpdateManyMock.mock.calls[0][0].data;
     expect(data).toMatchObject({ skippedUntil: null });
     expect(data.completedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("a task that uses up a pantry item (GAP-87)", () => {
+  const linkedOpen = {
+    ...notRotating,
+    ...noHistory,
+    id: "task-1",
+    completedAt: null,
+    recurrenceIntervalDays: 7,
+    skippedUntil: null,
+    consumesItemId: "item-1",
+    consumesQuantity: 1,
+  };
+
+  beforeEach(() => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+  });
+
+  it("saves the link on create, after checking the item is this household's", async () => {
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await createTaskAction(
+      {},
+      formData({ title: "Run the dishwasher", consumesItemId: "item-1", consumesQuantity: "0.333" }),
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(inventoryItemFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "item-1", householdId: "household-1" },
+      select: { id: true },
+    });
+    expect(householdTaskCreateMock.mock.calls[0][0].data).toMatchObject({
+      consumesItemId: "item-1",
+      consumesQuantity: 0.33,
+    });
+  });
+
+  it("refuses another household's item (forged id)", async () => {
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await createTaskAction(
+      {},
+      formData({ title: "Run the dishwasher", consumesItemId: "foreign", consumesQuantity: "1" }),
+    );
+
+    expect(result.error).toBe("Item not found");
+    expect(householdTaskCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("needs an amount above 0 with an item", async () => {
+    for (const consumesQuantity of ["", "0", "-1"]) {
+      const result = await createTaskAction(
+        {},
+        formData({ title: "Run the dishwasher", consumesItemId: "item-1", consumesQuantity }),
+      );
+      expect(result.error).toBe("Quantity must be greater than 0");
+    }
+    expect(householdTaskCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("clears the link on edit when no item is sent, and leaves it alone when the field is omitted", async () => {
+    householdTaskFindFirstMock.mockResolvedValue({ id: "task-1", recurrenceIntervalDays: null });
+    const base = { assignedToMemberId: null, recurrenceIntervalDays: null, rotationMemberIds: [] };
+
+    await updateTaskAction("task-1", { ...base, consumesItemId: null, consumesQuantity: null });
+    expect(householdTaskUpdateMock.mock.calls[0][0].data).toMatchObject({ consumesItemId: null, consumesQuantity: null });
+
+    await updateTaskAction("task-1", base);
+    expect(householdTaskUpdateMock.mock.calls[1][0].data).not.toHaveProperty("consumesItemId");
+    expect(inventoryItemFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the item up in the tick's transaction and names it for the toast", async () => {
+    householdTaskFindFirstMock.mockResolvedValue(linkedOpen);
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    const used = { itemName: "Dishwasher tablets", quantity: 1, unit: "pcs" };
+    consumeTaskItemMock.mockResolvedValue({ used, autoAdded: null });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result).toEqual({ used });
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(consumeTaskItemMock).toHaveBeenCalledWith(expect.anything(), {
+      householdId: "household-1",
+      userId: "user-1",
+      taskId: "task-1",
+      itemId: "item-1",
+      quantity: 1,
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory");
+  });
+
+  it("uses nothing when the tick lost the race (a double tap, or two members at once)", async () => {
+    householdTaskFindFirstMock.mockResolvedValue(linkedOpen);
+    householdTaskUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result).toEqual({});
+    expect(consumeTaskItemMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/dashboard/inventory");
+  });
+
+  it("un-ticking puts the item back, only when its own write matched", async () => {
+    const ticked = { ...linkedOpen, completedAt: new Date(), completedByMemberId: "member-1" };
+    householdTaskFindFirstMock.mockResolvedValue(ticked);
+    restoreTaskItemMock.mockResolvedValue(true);
+
+    expect(await toggleTaskCompletedAction("task-1")).toEqual({});
+    expect(restoreTaskItemMock).toHaveBeenCalledWith(expect.anything(), {
+      householdId: "household-1",
+      userId: "user-1",
+      taskId: "task-1",
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory");
+
+    restoreTaskItemMock.mockClear();
+    householdTaskUpdateManyMock.mockResolvedValue({ count: 0 });
+    await toggleTaskCompletedAction("task-1");
+    expect(restoreTaskItemMock).not.toHaveBeenCalled();
+  });
+
+  it("skipping, and un-ticking a skip, use and restore nothing", async () => {
+    householdTaskFindFirstMock.mockResolvedValue({ ...linkedOpen, recurrenceAnchorAt: null, createdAt: new Date() });
+    await skipTaskAction("task-1");
+
+    householdTaskFindFirstMock.mockResolvedValue({
+      ...linkedOpen,
+      recurrenceAnchorAt: null,
+      createdAt: new Date("2026-08-01T12:00:00.000Z"),
+      completedAt: new Date("2026-09-01T12:00:00.000Z"),
+      skippedUntil: new Date(Date.now() + 86_400_000),
+    });
+    await toggleTaskCompletedAction("task-1");
+
+    expect(consumeTaskItemMock).not.toHaveBeenCalled();
+    expect(restoreTaskItemMock).not.toHaveBeenCalled();
   });
 });

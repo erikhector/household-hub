@@ -34,6 +34,8 @@ import { AddMissingButton, type MissingRow } from "@/components/dashboard/home-a
 import { Checkbox } from "@/components/ui/checkbox";
 import { toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
+import { usedToastText } from "@/components/tasks/used-toast";
+import { useUnitLabel } from "@/components/units-provider";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -79,6 +81,7 @@ export function TodayBlock({
   dict,
   missingDict,
   taskDict,
+  locale,
 }: {
   tasks: TodayTask[];
   /** Open tasks beyond the ones listed. */
@@ -91,12 +94,15 @@ export function TodayBlock({
   leftovers: TodayLeftover[];
   dict: Dictionary["dashboard"]["today"];
   missingDict: { addedToast: Dictionary["mealPlanning"]["missingIngredientsAddedToast"]; alreadyOnListToast: string; openList: string };
-  taskDict: Pick<Dictionary["tasks"], "toggleCompleteAriaLabel" | "toggleIncompleteAriaLabel" | "doneToast"> & {
+  /** GAP-87: the decimal mark of the "Used …" toast line. */
+  locale: string;
+  taskDict: Pick<Dictionary["tasks"], "toggleCompleteAriaLabel" | "toggleIncompleteAriaLabel" | "doneToast" | "usedToast"> & {
     undo: string;
     saveFailedToast: string;
     overdueLabel: Dictionary["tasks"]["overdueLabel"];
   };
 }) {
+  const unitLabel = useUnitLabel();
   // What this visit has ticked, by task id, with the row's place in the
   // list. Completing a task revalidates the page, so the server soon sends
   // a list without it (MAINT-25: the row used to vanish a moment after the
@@ -130,16 +136,34 @@ export function TodayBlock({
         return next;
       });
     set(completing);
+    let toastId: string | number | undefined;
+    let undone = false;
+    const doneText = format(taskDict.doneToast, { title: task.title });
+    const doneOptions = {
+      duration: 5000,
+      action: {
+        label: taskDict.undo,
+        onClick: () => {
+          undone = true;
+          toggle(task, false, index);
+        },
+      },
+    };
     if (completing) {
       // Undo is the same toggle, from the state this tick left behind.
-      toast(format(taskDict.doneToast, { title: task.title }), {
-        duration: 5000,
-        action: { label: taskDict.undo, onClick: () => toggle(task, false, index) },
-      });
+      toastId = toast(doneText, doneOptions);
     }
     void (async () => {
       const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), taskDict.saveFailedToast);
       if (result === null) set(!completing);
+      // GAP-87: name what the tick used up, as the tasks page does.
+      if (toastId !== undefined && result?.used && !undone) {
+        toast(doneText, {
+          ...doneOptions,
+          id: toastId,
+          description: usedToastText(taskDict.usedToast, result.used, locale, unitLabel),
+        });
+      }
     })();
   };
 

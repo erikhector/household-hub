@@ -11,17 +11,33 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { guardFormAction } from "@/components/shared/guard-form-action";
 
 const initialState: RequestPasswordResetState = {};
 
-export function ForgotPasswordForm({ dict }: { dict: Dictionary["auth"]["forgotPassword"] }) {
-  const [state, formAction, pending] = useActionState(requestPasswordResetAction, initialState);
+export function ForgotPasswordForm({
+  dict,
+  requestFailed,
+}: {
+  dict: Dictionary["auth"]["forgotPassword"];
+  /** `errors.requestFailed`, for a request that never arrives (UX-210). */
+  requestFailed: string;
+}) {
+  // UX-210: a dropped connection is an error line, not the crash page.
+  const [state, formAction, pending] = useActionState(
+    guardFormAction(requestPasswordResetAction, requestFailed),
+    initialState,
+  );
+  // UX-210: an error (a lost request, a malformed email) keeps the email,
+  // as on /login (UX-13), so trying again is one tap.
+  const kept = useKeptFormValues(["email"]);
   // UX-183b: a missing email is worded under the field in the page's
   // language (`noValidate`), not by the browser's own bubble. A malformed one
   // still reaches the server, which words that too.
   const req = useRequiredFields();
   function onSubmit(event: FormEvent<HTMLFormElement>) {
-    req.check(event, [{ name: "email", id: "email", message: dict.emailRequired }]);
+    if (!req.check(event, [{ name: "email", id: "email", message: dict.emailRequired }])) kept.onSubmit(event);
   }
 
   // Once a request goes through — including for an email with no matching
@@ -58,6 +74,7 @@ export function ForgotPasswordForm({ dict }: { dict: Dictionary["auth"]["forgotP
             required
             maxLength={254}
             autoComplete="email"
+            defaultValue={kept.values.email}
             aria-invalid={req.messageFor("email") ? true : undefined}
             aria-describedby={req.messageFor("email") ? fieldErrorId("email") : undefined}
             className="pl-8"
@@ -65,7 +82,11 @@ export function ForgotPasswordForm({ dict }: { dict: Dictionary["auth"]["forgotP
         </div>
         <FieldError fieldId="email">{req.messageFor("email")}</FieldError>
       </div>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.error}
+        </p>
+      )}
       <Button type="submit" disabled={pending} className="w-full">
         <Send className="size-4" />
         <PendingLabel pending={pending} busy={dict.sending} idle={dict.submit} />

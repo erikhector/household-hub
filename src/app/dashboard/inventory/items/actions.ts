@@ -188,6 +188,11 @@ export async function changeItemUnitAction(_prevState: ActionState, formData: Fo
         where: { itemId: item.id, householdId: household.id },
         data: { delta: { multiply: parsed.data.factor } },
       });
+      // GAP-87: a task's "Uses up" amount is in the item's unit too.
+      await tx.householdTask.updateMany({
+        where: { consumesItemId: item.id, householdId: household.id },
+        data: { consumesQuantity: { multiply: parsed.data.factor } },
+      });
       // lastKnownPrice and PriceHistory stay: they're per purchase line and
       // record their own unit (GAP-9).
       await tx.itemUnitConversion.deleteMany({ where: { inventoryItemId: item.id } });
@@ -520,6 +525,25 @@ export async function mergeInventoryItemsAction(input: {
         data: toKeeper,
       });
       await tx.itemAlias.updateMany({ where: { ...moved, householdId: household.id }, data: toKeeper });
+      // GAP-87: a task that used up a merged item uses up the keeper, its
+      // amount converted into the keeper's unit. One that can't convert keeps
+      // pointing at the merged item, so the delete below drops the link.
+      const consumingTasks = await tx.householdTask.findMany({
+        where: { consumesItemId: { in: mergeIds }, householdId: household.id },
+        select: { id: true, consumesItemId: true, consumesQuantity: true },
+      });
+      for (const task of consumingTasks) {
+        const from = merged.find((item) => item.id === task.consumesItemId);
+        const quantity =
+          from && task.consumesQuantity !== null
+            ? convertBetweenUnits(task.consumesQuantity, from.unit, keeper.unit, keeper, keeperConversions)
+            : null;
+        if (quantity === null || !(quantity > 0)) continue;
+        await tx.householdTask.update({
+          where: { id: task.id },
+          data: { consumesItemId: keeper.id, consumesQuantity: Math.round(quantity * 100) / 100 },
+        });
+      }
       // The merged names, so the next import matches the keeper. A name
       // already learned (even as "Don't track") now means the keeper.
       for (const normalizedName of plan.aliases) {

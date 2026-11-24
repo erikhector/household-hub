@@ -418,11 +418,25 @@ export async function expectRouterPatched(page: Page) {
  * hydration. A click in that gap changes the URL and nothing else, and the
  * tab stays unselected. So wait for the tab to be hydrated and replaceState
  * to be patched (no longer native code), click, then assert the tab took,
- * before reaching for anything inside the panel. */
+ * before reaching for anything inside the panel.
+ *
+ * Nor is a patched router (MAINT-126, MAINT-85). The planner below the tab
+ * bar is its own Suspense boundary and can stream and hydrate after the bar.
+ * When the week has today's card and it's below the fold (a phone, late in
+ * the week, once another spec has planned a meal in this worker's
+ * household), hydrating the planner scrolls `main` to it (UX-21), and a
+ * click aimed at the tab just before that lands on whatever moved under it:
+ * the tab stayed unselected. That jump happens in the commit that hydrates
+ * the planner (a layout effect in week-planner.tsx), so wait for every
+ * streamed boundary to be revealed and, when there is a today's card, for
+ * it to be hydrated. Playwright then scrolls the tab back into view itself. */
 export async function openRecipesTab(page: Page) {
   const tab = page.getByRole("tab", { name: "Recipes" });
   await expectHydrated(tab);
   await expectRouterPatched(page);
+  await page.waitForFunction(() => !document.querySelector("template[id^='B:'], div[hidden][id^='S:']"));
+  const today = page.getByRole("main").locator('[aria-current="date"]');
+  if ((await today.count()) > 0) await expectHydrated(today.first());
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { guardFormAction, type GuardedState } from "@/components/shared/guard-form-action";
 import {
   loginAction,
   resendVerificationEmailForLoginAction,
@@ -18,7 +19,7 @@ import {
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
 
-const initialState: LoginState = {};
+const initialState: GuardedState<LoginState> = {};
 const initialResendState: ResendVerificationForLoginState = {};
 
 // No-op subscribe: the "next" query param never changes after the initial
@@ -31,14 +32,18 @@ function subscribe() {
 export function LoginForm({
   dict,
   initialEmail,
+  requestFailed,
 }: {
   dict: Dictionary["auth"]["login"];
   // UX-61: from `?email=` after verifying an email or resetting a password.
   initialEmail?: string;
+  /** `errors.requestFailed`, for a request that never arrives (UX-210). */
+  requestFailed: string;
 }) {
-  const [state, formAction, pending] = useActionState(loginAction, initialState);
+  // UX-210: a dropped connection becomes an error line, not the crash page.
+  const [state, formAction, pending] = useActionState(guardFormAction(loginAction, requestFailed), initialState);
   const [resendState, resendFormAction, resendPending] = useActionState(
-    resendVerificationEmailForLoginAction,
+    guardFormAction(resendVerificationEmailForLoginAction, requestFailed),
     initialResendState,
   );
   // UX-13: a wrong password keeps the email filled in.
@@ -49,10 +54,14 @@ export function LoginForm({
   const blocked = Boolean(clientErrors.email || clientErrors.password);
   // The server's verdict is about the credentials as a pair (it never says
   // which half was wrong, on purpose), so it sits under the password, the
-  // field that was just wiped and needs retyping.
+  // field that was just wiped and needs retyping. A request that never
+  // arrived (UX-210) says nothing about the credentials, so it gets a line
+  // of its own above the button.
   const emailError = clientErrors.email;
-  const passwordError = blocked ? clientErrors.password : state.error;
-  // After a refused login the password is empty: put the cursor back there.
+  const passwordError = blocked ? clientErrors.password : state.requestFailed ? undefined : state.error;
+  const generalError = !blocked && state.requestFailed ? state.error : undefined;
+  // After a refused (or lost) login the password is empty: put the cursor
+  // back there.
   useEffect(() => {
     if (state.error) document.getElementById("password")?.focus();
   }, [state]);
@@ -135,6 +144,11 @@ export function LoginForm({
           />
           <FieldError fieldId="password">{passwordError}</FieldError>
         </div>
+        {generalError && (
+          <p role="alert" className="text-sm text-destructive">
+            {generalError}
+          </p>
+        )}
         <Button type="submit" disabled={pending} className="w-full">
           <LogIn className="size-4" />
           <PendingLabel pending={pending} busy={dict.loggingIn} idle={dict.submit} />
@@ -153,6 +167,11 @@ export function LoginForm({
             <Button type="submit" variant="outline" disabled={resendPending} className="w-full">
               {resendPending ? dict.resendingVerification : dict.resendVerification}
             </Button>
+            {resendState.error && (
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                {resendState.error}
+              </p>
+            )}
           </form>
         ))}
       <p className="text-center text-sm text-muted-foreground">
