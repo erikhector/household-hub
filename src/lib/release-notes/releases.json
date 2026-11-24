@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.160.4",
+    "date": "2026-11-24",
+    "pr": 1729,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Importing a recipe from a link is now better protected against links that point at internal network addresses.",
+      "sv": "Att importera ett recept från en länk är nu bättre skyddat mot länkar som pekar på interna nätverksadresser."
+    }
+  },
+  {
     "version": "0.160.3",
     "date": "2026-11-21",
     "pr": 1672,
