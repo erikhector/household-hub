@@ -51,16 +51,78 @@ export function isPrivateOrReservedIPv4(ip: string): boolean {
   return false;
 }
 
+/**
+ * Parses an IPv6 address (any spelling: `::` compression, a dotted IPv4
+ * tail, a `%zone` suffix) to its 16 bytes, or null if it isn't one.
+ *
+ * SEC-15: the range checks below used to be string prefix matches, which
+ * only work for one spelling of an address. The WHATWG URL parser rewrites
+ * `[::ffff:169.254.169.254]` to `[::ffff:a9fe:a9fe]` before
+ * validateRecipeUrl ever sees it, so the dotted-only IPv4-mapped regex
+ * never matched and the metadata address passed as public. Comparing bytes
+ * makes every spelling of the same address the same.
+ */
+function ipv6ToBytes(ip: string): Uint8Array | null {
+  const address = ip.split("%")[0];
+  if (!net.isIPv6(address)) return null;
+
+  const groupsOf = (part: string): number[] => {
+    if (part === "") return [];
+    const groups: number[] = [];
+    for (const piece of part.split(":")) {
+      if (piece.includes(".")) {
+        const v4 = ipv4ToInt(piece);
+        if (v4 === null) return [];
+        groups.push(v4 >>> 16, v4 & 0xffff);
+      } else {
+        groups.push(parseInt(piece, 16));
+      }
+    }
+    return groups;
+  };
+
+  const [headPart, tailPart] = address.split("::");
+  const head = groupsOf(headPart);
+  const tail = tailPart === undefined ? [] : groupsOf(tailPart);
+  const groups = [...head, ...new Array<number>(8 - head.length - tail.length).fill(0), ...tail];
+  if (groups.length !== 8) return null;
+
+  const bytes = new Uint8Array(16);
+  groups.forEach((group, i) => {
+    bytes[i * 2] = group >> 8;
+    bytes[i * 2 + 1] = group & 0xff;
+  });
+  return bytes;
+}
+
+function allZero(bytes: Uint8Array, from: number, to: number): boolean {
+  for (let i = from; i < to; i++) if (bytes[i] !== 0) return false;
+  return true;
+}
+
+function embeddedIPv4(bytes: Uint8Array, offset: number): string {
+  return `${bytes[offset]}.${bytes[offset + 1]}.${bytes[offset + 2]}.${bytes[offset + 3]}`;
+}
+
 export function isPrivateOrReservedIPv6(ip: string): boolean {
-  const lower = ip.toLowerCase();
-  if (lower === "::1" || lower === "::") return true; // loopback / unspecified
-  if (lower.startsWith("fe80:") || lower.startsWith("fe8") || lower.startsWith("fe9")) return true; // link-local (fe80::/10)
-  if (lower.startsWith("fea") || lower.startsWith("feb")) return true;
-  if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // unique local (fc00::/7)
-  if (lower.startsWith("2001:db8:")) return true; // documentation
-  // IPv4-mapped addresses (::ffff:a.b.c.d) — check the embedded IPv4.
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateOrReservedIPv4(mapped[1]);
+  const b = ipv6ToBytes(ip);
+  if (b === null) return true; // unparsable — refuse rather than guess safe
+
+  // Ranges that carry an IPv4 address inside them: a socket to one of these
+  // can end up at that IPv4 (the kernel for mapped/compatible, a NAT64 or
+  // 6to4 gateway for the others), so they're only as public as the IPv4 is.
+  // ::/96 covers `::` (0.0.0.0) and `::1` (0.0.0.1) too, both in 0.0.0.0/8.
+  if (allZero(b, 0, 10) && b[10] === 0xff && b[11] === 0xff) return isPrivateOrReservedIPv4(embeddedIPv4(b, 12)); // ::ffff:0:0/96 IPv4-mapped
+  if (allZero(b, 0, 12)) return isPrivateOrReservedIPv4(embeddedIPv4(b, 12)); // ::/96 IPv4-compatible
+  if (b[0] === 0x00 && b[1] === 0x64 && b[2] === 0xff && b[3] === 0x9b) {
+    if (allZero(b, 4, 12)) return isPrivateOrReservedIPv4(embeddedIPv4(b, 12)); // 64:ff9b::/96 NAT64
+    if (b[4] === 0x00 && b[5] === 0x01) return true; // 64:ff9b:1::/48 local-use NAT64, translates however the operator likes
+  }
+  if (b[0] === 0x20 && b[1] === 0x02) return isPrivateOrReservedIPv4(embeddedIPv4(b, 2)); // 2002::/16 6to4
+
+  if (b[0] === 0xfe && (b[1] & 0xc0) === 0x80) return true; // link-local (fe80::/10)
+  if ((b[0] & 0xfe) === 0xfc) return true; // unique local (fc00::/7)
+  if (b[0] === 0x20 && b[1] === 0x01 && b[2] === 0x0d && b[3] === 0xb8) return true; // documentation (2001:db8::/32)
   return false;
 }
 

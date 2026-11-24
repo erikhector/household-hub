@@ -190,6 +190,51 @@ describe("isPrivateOrReservedIPv6", () => {
   it("does not flag a public IPv6 address", () => {
     expect(isPrivateOrReservedIPv6("2606:4700:4700::1111")).toBe(false);
   });
+
+  // SEC-15: the check used to be a string match that only knew the dotted
+  // `::ffff:a.b.c.d` spelling, but the WHATWG URL parser (and dns.lookup)
+  // hand over the compressed hex form, so these all passed as public.
+  it("flags an IPv4-mapped private address in its hex form", () => {
+    expect(isPrivateOrReservedIPv6("::ffff:7f00:1")).toBe(true);
+    expect(isPrivateOrReservedIPv6("::ffff:a9fe:a9fe")).toBe(true);
+    expect(isPrivateOrReservedIPv6("0:0:0:0:0:ffff:7f00:1")).toBe(true);
+  });
+
+  it("flags IPv4-compatible, NAT64 and 6to4 addresses that wrap a private IPv4", () => {
+    expect(isPrivateOrReservedIPv6("::7f00:1")).toBe(true);
+    expect(isPrivateOrReservedIPv6("64:ff9b::a9fe:a9fe")).toBe(true);
+    expect(isPrivateOrReservedIPv6("64:ff9b::10.0.0.1")).toBe(true);
+    expect(isPrivateOrReservedIPv6("2002:a9fe:a9fe::")).toBe(true);
+    expect(isPrivateOrReservedIPv6("2002:c0a8:0101::1")).toBe(true);
+  });
+
+  it("does not flag NAT64 or 6to4 addresses that wrap a public IPv4", () => {
+    expect(isPrivateOrReservedIPv6("::ffff:5db8:d822")).toBe(false); // 93.184.216.34
+    expect(isPrivateOrReservedIPv6("64:ff9b::5db8:d822")).toBe(false);
+    expect(isPrivateOrReservedIPv6("2002:5db8:d822::1")).toBe(false);
+  });
+
+  it("flags the expanded loopback spelling and anything it can't parse", () => {
+    expect(isPrivateOrReservedIPv6("0:0:0:0:0:0:0:1")).toBe(true);
+    expect(isPrivateOrReservedIPv6("not-an-address")).toBe(true);
+  });
+});
+
+describe("validateRecipeUrl — IPv6 literals wrapping an IPv4 (SEC-15)", () => {
+  it.each([
+    "http://[::ffff:127.0.0.1]/",
+    "http://[::ffff:a9fe:a9fe]/",
+    "http://[::ffff:169.254.169.254]/",
+    "http://[::127.0.0.1]/",
+    "http://[64:ff9b::a9fe:a9fe]/",
+    "http://[2002:a9fe:a9fe::]/",
+  ])("blocks %s", (url) => {
+    expect(validateRecipeUrl(url)).toEqual({ ok: false, error: "blockedHost" });
+  });
+
+  it("still allows a public IPv6 literal", () => {
+    expect(validateRecipeUrl("http://[2606:4700::1111]/").ok).toBe(true);
+  });
 });
 
 
@@ -240,6 +285,27 @@ describe("fetchRecipeHtml — DNS-rebinding guard (SEC-2)", () => {
     // Exactly one connection — hop 0. Hop 1's private resolution must never
     // reach a connection at all, not merely fail after connecting.
     expect(connectSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // SEC-15: Node never calls `lookup` for an IP-literal host, so for a
+  // redirect to one, validateRecipeUrl's check on the hop is the only guard.
+  it("blocks a redirect to an IPv4-mapped IPv6 literal of the metadata address, and never connects to it", async () => {
+    lookupMock.mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }]);
+    responsePlans.push({ statusCode: 302, headers: { location: "http://[::ffff:a9fe:a9fe]/latest/meta-data" } });
+
+    const result = await fetchRecipeHtml("http://recipe-site.example/page");
+
+    expect(result).toEqual({ ok: false, error: "blockedHost" });
+    expect(connectSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a hostname whose DNS answer is an IPv4-mapped loopback in hex form", async () => {
+    lookupMock.mockResolvedValueOnce([{ address: "::ffff:7f00:1", family: 6 }]);
+
+    const result = await fetchRecipeHtml("http://attacker.example/recipe");
+
+    expect(result).toEqual({ ok: false, error: "blockedHost" });
+    expect(connectSpy).not.toHaveBeenCalled();
   });
 });
 

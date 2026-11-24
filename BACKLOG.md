@@ -115,37 +115,6 @@ Parallel-safe except where noted.
       release candidate). Acceptance: `npm outdated` lists none of the six;
       `npm run check`, `npm run build` and the e2e suite pass.
 
-### Security hardening (2026-09-26 audit)
-
-Tenancy held up everywhere the audit traced it (every client id is scoped by
-`householdId`/`userId`); these are the gaps around it, highest severity first.
-
-- [ ] **SEC-15. Close the IPv6-literal SSRF gap in the recipe URL import**
-      (impact: high, effort: S) — `isPrivateOrReservedIPv6`
-      (`src/lib/recipe-import/fetch.ts:54`) only recognises an IPv4-mapped
-      address in dotted form (`/^::ffff:(\d+\.\d+\.\d+\.\d+)$/`), but
-      `validateRecipeUrl` (`:84`) checks `url.hostname`, and the WHATWG URL
-      parser rewrites `http://[::ffff:169.254.169.254]/` to
-      `[::ffff:a9fe:a9fe]` and `[::ffff:127.0.0.1]` to `[::ffff:7f00:1]`.
-      Both pass as public. For an IP-literal host Node never calls the
-      pinned `lookup` (`:240`), so this check is the only guard, and the
-      redirect hop (`:324`) uses the same function, so a public page that
-      302s to the hex form gets through too. On a dual-stack host that's a
-      fetch of loopback or the cloud metadata endpoint from
-      `importRecipeFromUrlAction`. Also unblocked: IPv4-compatible
-      `::7f00:1` (from `[::127.0.0.1]`), NAT64 `64:ff9b::/96` and 6to4
-      `2002::/16` wrapping a private IPv4. Fix: parse the IPv6 address to
-      its 16 bytes (or use `net.BlockList`) and, for `::ffff:0:0/96`,
-      `::/96`, `64:ff9b::/96` and `2002::/16`, run the embedded IPv4
-      through `isPrivateOrReservedIPv4`; use the same check in
-      `createPinnedPublicLookup`. Acceptance: `fetch.test.ts` asserts
-      `validateRecipeUrl` returns `blockedHost` for
-      `http://[::ffff:127.0.0.1]/`, `http://[::ffff:a9fe:a9fe]/`,
-      `http://[::127.0.0.1]/`, `http://[64:ff9b::a9fe:a9fe]/` and
-      `http://[2002:a9fe:a9fe::]/`, and still `ok` for a public
-      `http://[2606:4700::1111]/`; a redirect to one of them fails with
-      `blockedHost`.
-
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:
