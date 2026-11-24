@@ -12,22 +12,23 @@ import { dismissCookieNotice, expectHydrated } from "./ui";
 // back online, the same form goes through.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const stamp = `${E2E_WORKER}-${Date.now().toString(36)}`;
-const signupEmail = `ux210-${stamp}@squirrel.test`;
-const householdName = unique("Offline house");
+// Fresh per test, not per file: one worker can run the signup test on both
+// projects, and the second run must not find its email taken.
+let signupEmail = "";
+let householdName = "";
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
+  signupEmail = `ux210-${E2E_WORKER}-${Date.now().toString(36)}@squirrel.test`;
+  householdName = unique("Offline house");
 });
 test.afterEach(async ({ context }) => {
   await context.setOffline(false);
-});
-test.afterAll(() =>
-  withDb(async (c) => {
+  await withDb(async (c) => {
     await c.query(`DELETE FROM "User" WHERE "email" = $1`, [signupEmail]);
     await c.query(`DELETE FROM "Household" WHERE "name" = $1`, [householdName]);
-  }),
-);
+  });
+});
 
 // The root boundary's heading, in either language.
 const crashHeading = (page: Page) => page.getByRole("heading", { name: /something went wrong|något gick fel/i });
