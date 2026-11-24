@@ -8194,6 +8194,35 @@ stay that way rather than re-adding per-page redirect checks:
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
 
+### Dropped requests on the signed-out forms (UX-210)
+
+A new user's first-run path (login, signup, forgot password, reset
+password, join via invite, accept invite, and the no-household page's
+"Create household") survives a request that never arrives (offline, a
+dropped mobile connection), as the household notes do (UX-205, M8):
+
+- Each form's action is wrapped in `guardFormAction(action,
+  errors.requestFailed)` (`src/components/shared/guard-form-action.ts`).
+  A rejection becomes `{ error, requestFailed: true }`, shown in the form's
+  general error line ("That didn't go through. Check your connection and
+  try again."), instead of reaching the root error boundary and Sentry.
+  Next's redirect signal is re-thrown (`unstable_rethrow`), so a
+  successful login or household creation still navigates.
+- On `/login` the message sits in its own line above the button, not under
+  the password, and the password isn't marked invalid: the credentials
+  weren't wrong. The "Resend verification email" buttons on login, signup
+  and join are guarded the same way and show their error under the button.
+- The typed values survive through `useKeptFormValues` (UX-13): login's
+  email, signup's name, household and email, join's name and email, the
+  forgot-password email and the first household's name. Passwords clear,
+  as after any failed submit.
+- Wrapping the Server Action in a client function means these forms no
+  longer post without JavaScript; React still replays a submit made
+  before hydration.
+
+`e2e/ux-210.spec.ts` submits `/login`, `/signup` and `/forgot-password`
+offline, then logs in and signs up once back online.
+
 ### Public page titles and link previews (UX-64)
 
 - Every public route has a localised `<title>` and exactly one `<h1>`. The

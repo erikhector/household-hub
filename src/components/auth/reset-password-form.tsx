@@ -11,6 +11,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { guardFormAction } from "@/components/shared/guard-form-action";
 
 const initialState: ActionState = {};
 
@@ -18,12 +19,17 @@ export function ResetPasswordForm({
   token,
   email,
   dict,
+  requestFailed,
 }: {
   token: string;
   email: string;
   dict: Dictionary["auth"]["resetPassword"];
+  /** `errors.requestFailed`, for a request that never arrives (UX-210). */
+  requestFailed: string;
 }) {
-  const [state, formAction, pending] = useActionState(resetPasswordAction, initialState);
+  // UX-210: a dropped connection is an error line, not the crash page. Only
+  // passwords here, and those clear after any failed submit, as everywhere.
+  const [state, formAction, pending] = useActionState(guardFormAction(resetPasswordAction, requestFailed), initialState);
   // UX-183b: a missing password is worded under its field in the page's
   // language (`noValidate`), not by the browser's own bubble.
   // UX-194: so are a password under 8 characters and a confirmation that

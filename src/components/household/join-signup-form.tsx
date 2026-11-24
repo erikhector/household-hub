@@ -11,6 +11,7 @@ import { StatusCardLink } from "@/components/auth/status-card";
 import { loginPath } from "@/lib/login-path";
 import { PasswordInput } from "@/components/auth/password-input";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { guardFormAction } from "@/components/shared/guard-form-action";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { EMAIL_PATTERN } from "@/lib/email-pattern";
@@ -28,16 +29,23 @@ export function JoinSignupForm({
   token,
   dict,
   legalDict,
+  requestFailed,
 }: {
   token: string;
   dict: Dictionary["auth"]["join"];
   legalDict: Dictionary["legal"];
+  /** `errors.requestFailed`, for a request that never arrives (UX-210). */
+  requestFailed: string;
 }) {
-  const [state, formAction, pending] = useActionState(joinViaInviteSignupAction, initialState);
+  // UX-210: a dropped connection is an error line, not the crash page.
+  const [state, formAction, pending] = useActionState(
+    guardFormAction(joinViaInviteSignupAction, requestFailed),
+    initialState,
+  );
   // Same retry-without-reload treatment as SignupForm (A4 in
   // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md).
   const [resendState, resendFormAction, resendPending] = useActionState(
-    resendVerificationEmailForLoginAction,
+    guardFormAction(resendVerificationEmailForLoginAction, requestFailed),
     initialResendState,
   );
   // UX-13, as in SignupForm: an error keeps the name and email.
@@ -122,6 +130,11 @@ export function JoinSignupForm({
             <Button type="submit" variant="outline" disabled={resendPending}>
               {resendPending ? dict.resending : dict.resend}
             </Button>
+            {resendState.error && (
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                {resendState.error}
+              </p>
+            )}
           </form>
         )}
         {/* UX-195: a 44 px target (M3) that carries the address just typed

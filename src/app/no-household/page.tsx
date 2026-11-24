@@ -33,7 +33,7 @@ export default async function NoHouseholdPage() {
             <p className="text-sm text-muted-foreground">{t.description}</p>
             <section className="flex flex-col gap-3">
               <h2 className="text-sm font-semibold">{t.createHeading}</h2>
-              <CreateFirstHouseholdForm dict={t} />
+              <CreateFirstHouseholdForm dict={t} requestFailed={dict.errors.requestFailed} />
             </section>
             <section className="flex flex-col gap-2">
               <h2 className="text-sm font-semibold">{t.joinHeading}</h2>

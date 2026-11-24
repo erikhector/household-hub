@@ -6,17 +6,22 @@ import { acceptInviteAction } from "@/lib/actions/household";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { guardFormAction } from "@/components/shared/guard-form-action";
 
 const initialState: ActionState = {};
 
 export function AcceptInviteForm({
   token,
   dict,
+  requestFailed,
 }: {
   token: string;
   dict: Dictionary["auth"]["join"];
+  /** `errors.requestFailed`, for a request that never arrives (UX-210). */
+  requestFailed: string;
 }) {
-  const [state, formAction, pending] = useActionState(acceptInviteAction, initialState);
+  // UX-210: a dropped connection is an error line, not the crash page.
+  const [state, formAction, pending] = useActionState(guardFormAction(acceptInviteAction, requestFailed), initialState);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">

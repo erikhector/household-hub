@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { guardFormAction } from "@/components/shared/guard-form-action";
 import {
   signupAction,
   resendVerificationEmailForLoginAction,
@@ -62,11 +63,16 @@ function describedBy(field: string, hint: boolean, hasError: boolean) {
 export function SignupForm({
   dict,
   legalDict,
+  requestFailed,
 }: {
   dict: Dictionary["auth"]["signup"];
   legalDict: Dictionary["legal"];
+  /** `errors.requestFailed`, for a request that never arrives (UX-210). */
+  requestFailed: string;
 }) {
-  const [state, formAction, pending] = useActionState(signupAction, initialState);
+  // UX-210: a dropped connection lands on the general error line below
+  // (it has no `field`), not on the crash page.
+  const [state, formAction, pending] = useActionState(guardFormAction(signupAction, requestFailed), initialState);
   // Lets the confirmation screen below offer a real retry — either because
   // the initial send failed (state.emailError, see A1 in
   // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md) or because the email just never
@@ -74,7 +80,7 @@ export function SignupForm({
   // already knows this is their own email, but this reuses the same action
   // LoginForm's unverified-login flow uses either way.
   const [resendState, resendFormAction, resendPending] = useActionState(
-    resendVerificationEmailForLoginAction,
+    guardFormAction(resendVerificationEmailForLoginAction, requestFailed),
     initialResendState,
   );
   // UX-13: an "email already in use" error mustn't wipe the name, household
@@ -306,6 +312,11 @@ export function SignupForm({
                 <Button type="submit" variant="outline" disabled={resendPending}>
                   {resendPending ? dict.resending : dict.resend}
                 </Button>
+                {resendState.error && (
+                  <p role="alert" className="mt-2 text-sm text-destructive">
+                    {resendState.error}
+                  </p>
+                )}
               </form>
             )}
             {/* UX-195: the view's only way on stands alone, so it gets the
