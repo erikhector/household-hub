@@ -941,7 +941,7 @@ Most of what they ship is already here (meal queue = Cook soon shelf,
 recipe sort by times made = GAP-80, meal notes = GAP-81, week templates,
 step timers, opened/frozen tags, share target). One gap is left:
 
-- [ ] **GAP-87. A repeating task can use up a pantry item** (impact: med,
+- [ ] **GAP-87. A task can use up a pantry item** (impact: med,
       effort: M) — Grocy lets a chore consume a product when it's done
       ("Run the dishwasher" uses 1 dishwasher tablet, "Change the water
       filter" uses 1 filter), so household consumables run low, and land
@@ -954,12 +954,17 @@ step timers, opened/frozen tags, share target). One gap is left:
       household, `onDelete: SetNull`) plus `consumesQuantity` (in the
       item's own unit). Set in the task's Add/Edit sheet as an optional
       "Uses up" item picker and quantity, so the user opts in per task:
-      nothing is inferred. `toggleTaskCompletedAction`
+      nothing is inferred. It works on any task, repeating or one-off:
+      the opt-in is the link, not the recurrence. On a tick,
+      `toggleTaskCompletedAction`
       (`src/app/dashboard/tasks/actions.ts:259`) decrements in the same
-      transaction (never below 0, writing an `InventoryItemEvent` like
-      other stock changes), and the success toast names it ("Used 1 pcs
-      Dishwasher tablets") with Undo; un-ticking restores exactly what was
-      taken. The item must be re-checked to belong to the
+      transaction, and only when its compare-and-set completion write
+      matched (a double tap or two members ticking at once must not use
+      it up twice). Never below 0, writing an `InventoryItemEvent`
+      (reason `used`) like other stock changes; the success toast names
+      it ("Used 1 pcs Dishwasher tablets") with Undo. Un-ticking adds
+      back the `delta` of the event the tick wrote (it can be less than
+      `consumesQuantity` when stock hit 0), so no extra column is needed. The item must be re-checked to belong to the
       `requireHousehold()` household on save and on tick; a deleted item
       just drops the link. Skip ("Skip this time", GAP-60) uses nothing.
       Acceptance: an e2e test (`mobile` and `desktop`) links a task to a
