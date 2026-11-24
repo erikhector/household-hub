@@ -6012,7 +6012,17 @@ imported recipe" requirement.
   `validateRecipeUrl` (pure) rejects anything that isn't `http:`/`https:`,
   `localhost`/`*.localhost`, and an IP-literal hostname in a
   private/loopback/link-local/reserved range (checked via small CIDR-range
-  helpers for both IPv4 and IPv6, including IPv4-mapped IPv6 addresses).
+  helpers for both IPv4 and IPv6). The IPv6 check parses the address to its
+  16 bytes rather than matching strings (SEC-15), because the WHATWG URL
+  parser rewrites `[::ffff:169.254.169.254]` to `[::ffff:a9fe:a9fe]` and a
+  dotted-only pattern let that through; and for every range that wraps an
+  IPv4 address — IPv4-mapped `::ffff:0:0/96`, IPv4-compatible `::/96`,
+  NAT64 `64:ff9b::/96` and 6to4 `2002::/16` — it runs the embedded IPv4
+  through the IPv4 check (local-use NAT64 `64:ff9b:1::/48` is refused
+  outright). This literal check is the only guard for an IP-literal host,
+  since Node never calls `lookup` for one, and it's the same function
+  `createPinnedPublicLookup` uses on resolved addresses and every redirect
+  hop is re-validated with.
   `fetchRecipeHtml` is built on `node:http`/`node:https` rather than
   `fetch`, specifically so DNS resolution can be pinned: `createPinnedPublicLookup`
   is passed as the `lookup` option on every request, so the *same* `dns.lookup`
