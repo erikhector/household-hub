@@ -5473,7 +5473,10 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   rather than showing a blurred strip of the page under it), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
   row, when it isn't already fully visible (the old "Jump to today" button
-  is gone). Today's card says so in words (UX-99): a "Today" badge
+  is gone). The jump happens in the commit that hydrates the planner (a
+  layout effect), not a moment after it, so a tap aimed at the tabs above
+  as the planner comes alive can't land on what the jump moved under it
+  (MAINT-126). Today's card says so in words (UX-99): a "Today" badge
   beside the day number and `aria-current="date"`, besides the ring (never
   colour alone). Each day's button is named by its day ("Add meal, Mon 12"),
   and a recipe's star by the recipe ("Favorite Greek salad"), so a screen
@@ -11354,6 +11357,13 @@ UX-14's rapid ticks and the rollback toast.
   tapped that way on the phone project, never showed its sheet
   (MAINT-119). That test also waits out the save's `history.back()`
   (`waitForDialogHistory`) before its `goto` to the planner.
+  `openRecipesTab` also waits for every streamed boundary to be revealed
+  and, when the week shows today's card, for that card to be hydrated
+  before it clicks the tab: on a phone late in the week, once another spec
+  has planned a meal in the worker's household, hydrating the planner
+  scrolls `main` to today, and a click aimed at the tab just before that
+  landed on the planner, so the tab stayed unselected (MAINT-126,
+  MAINT-85).
   A helper that presses a toggle until a dialog shows checks that the
   dialog is open (`data-open` on the Base UI popup), not just visible. A
   closing sheet stays visible while it slides out, long enough on a phone
