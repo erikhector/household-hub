@@ -8047,7 +8047,18 @@ on the viewport at every scroll position, so on a page taller than one
 screen (the landing page, mainly) content near the top/bottom edge of a
 scrolled viewport sits in the gradient's outer stop; a true black there made
 `bg-card` surfaces nearly invisible. Keep both themes' outer stops
-non-extreme for this reason.
+non-extreme for this reason. That `fixed` is desktop-only (a fine pointer
+that hovers): on touch devices it's off because of an iOS standalone-PWA
+quirk that leaves the home-indicator strip unpainted, so there the gradient
+is sized to the root box, one screen tall, with the flat `--gradient-end`
+behind it. UX-212 added a second layer on touch devices only that fades the
+bottom half of that first screen into `--gradient-end`, so a page that
+scrolls (landing, auth, legal) has no seam one screen down where the
+gradient used to stop. `e2e/ux-212.mobile.spec.ts` samples the live viewport
+just above and below that line on `/` and `/signup` in both themes and
+both orientations (on the
+`mobile` and `tablet` projects), and `ux-212.desktop.spec.ts` guards that
+desktop still pins the gradient.
 
 The light palette (`:root` in `globals.css`) isn't shadcn's generic gray
 default — it carries the same violet tint as dark mode (soft

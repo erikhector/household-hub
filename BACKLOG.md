@@ -599,36 +599,6 @@ uncommitted `executablePath` copy to launch Chromium.
       successful signup, opening `/signup` again shows empty fields. The
       cookie-inventory drift-guard test passes with the new key, and
       `/privacy` lists the draft as session storage in `en` and `sv`.
-- [ ] **UX-212. Paint the page gradient behind the whole page on touch devices, not just the first screen** (impact: low, effort: S) —
-      `body`'s `radial-gradient` in `src/app/globals.css` (~line 359) is
-      `no-repeat` and sized to the first viewport, with a flat
-      `--gradient-end` `background-color` behind it. On desktop this is
-      already handled: the rule right after it,
-      `@media (hover: hover) and (pointer: fine) { body {
-      background-attachment: fixed; } }`, pins the gradient to the
-      viewport, and its comment says the body does scroll on the landing,
-      legal and auth pages. Keep that rule. (The y≈720 seam in the
-      `desktop-*.png` screenshots is likely an artefact of Playwright's
-      full-page capture with a fixed background, not something a desktop
-      user sees.) On touch / coarse-pointer devices `fixed` is
-      deliberately off because of the iOS standalone-PWA safe-area
-      quirk the comment above the rule describes, so on a phone or
-      tablet a hard horizontal seam shows one screen down where the
-      lavender gradient stops and the flat fill begins: on the landing
-      page, signup and the legal pages. This breaks the design principle
-      of calm, consistent surfaces. Fix, scoped to touch devices only
-      (outside the fine-pointer media query): size the gradient to the
-      document (`background-size: 100% 100%` with `min-height` on
-      `html`), or fade it out within the first screen. Don't turn on
-      `background-attachment: fixed` for touch devices, and don't change
-      the desktop rule.
-      Acceptance: an e2e check in `mobile` (and the tablet project if it
-      runs there) scrolls `/signup` and `/` to the bottom in a live
-      viewport (not a full-page screenshot). It samples the page
-      background colour just above and just below one viewport height at
-      the left edge, and the two differ by at most a few RGB units. A
-      `desktop` assertion only guards that `body` still computes
-      `background-attachment: fixed` there.
 
 ---
 
