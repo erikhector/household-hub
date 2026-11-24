@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.161.0",
+    "date": "2026-11-24",
+    "pr": 1744,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If your connection drops while you log in, sign up or reset your password, Squirrel now says to check your connection and keeps what you typed, instead of showing an error page.\n\nPhones and tablets: the background on the welcome, sign-up and legal pages no longer has a visible line where it changes colour as you scroll.\n\nOut of signal in the shop? Items you type into the shopping list now show up right away, marked \"Waiting\", and are added as soon as you're back online. Anything already on the list isn't added twice.\n\nOn a phone, a tap on the meal planner's tabs while the page is still loading no longer lands on a day when the planner scrolls to today.\n\nA task can now use up something from your pantry. Pick it under \"Uses up\" when you add or edit the task. Ticking \"Run the dishwasher\" then takes a dishwasher tablet off the stock, and Undo puts it back.",
+      "sv": "Om anslutningen bryts när du loggar in, skapar konto eller återställer lösenordet ber Squirrel dig nu kontrollera anslutningen och behåller det du skrivit, i stället för att visa en felsida.\n\nMobiler och surfplattor: bakgrunden på välkomst-, registrerings- och villkorssidorna har inte längre en synlig linje där färgen byter när du scrollar.\n\nIngen täckning i butiken? Varor du skriver in i inköpslistan syns direkt, märkta \"Väntar\", och läggs till så fort du är online igen. Det som redan står på listan läggs inte till två gånger.\n\nPå mobilen hamnar ett tryck på måltidsplanerarens flikar medan sidan laddas inte längre på en dag när planeraren rullar fram till i dag.\n\nEn uppgift kan nu förbruka något från lagret. Välj det under \"Förbrukar\" när du lägger till eller redigerar uppgiften. När du bockar av \"Kör diskmaskinen\" dras en diskmaskinstablett från lagret, och Ångra lägger tillbaka den."
+    }
+  },
+  {
     "version": "0.160.4",
     "date": "2026-11-24",
     "pr": 1729,
