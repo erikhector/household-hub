@@ -554,34 +554,6 @@ offline, and once with signup reloaded half-filled. WebKit was not run
 (no browser installed here). The audit config still needs an
 uncommitted `executablePath` copy to launch Chromium.
 
-- [ ] **UX-211. Keep a half-filled signup across a reload** (impact: med, effort: S) —
-      `/signup` asks for five fields before a new user sees anything. On
-      a phone the usual mid-form interruptions are leaving to check an
-      email, a password manager or an incoming call, and Android may
-      discard the tab. A reload after filling name, household and email
-      brings back an empty form: all three read `""` on Pixel 7 and at
-      320 px (`src/components/auth/signup-form.tsx`). This breaks M8 ("a
-      call, a notification or a locked screen mid-flow loses nothing:
-      form input survives a reload or backgrounding"). Fix: keep a
-      `sessionStorage` draft of `displayName`, `householdName` and
-      `email` only. Never store either password. Clear the draft once the
-      account is created. The join-signup form
-      (`src/components/household/join-signup-form.tsx`) gets the same
-      draft. Storage inventory: `StorageKind` in
-      `src/lib/cookie-inventory.ts` is `"cookie" | "localStorage" |
-      "cache"` today, so add a `"sessionStorage"` kind, add the draft key
-      as necessary storage, and make the storage cards in
-      `src/components/legal/legal-page.tsx` (which branch on `kind`)
-      label it as session storage in both languages. Because the draft
-      holds the user's email, its privacy-page entry (en and sv) says
-      what's kept (name, household name, email; never the password) and
-      that it's cleared on successful signup or when the tab closes.
-      Acceptance: an e2e spec in `mobile` fills name, household name,
-      email and password on `/signup` and reloads. The first three fields
-      keep their values and the password field is empty. After a
-      successful signup, opening `/signup` again shows empty fields. The
-      cookie-inventory drift-guard test passes with the new key, and
-      `/privacy` lists the draft as session storage in `en` and `sv`.
 
 ---
 

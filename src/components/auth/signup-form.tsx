@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { useSessionDraft } from "@/components/shared/use-session-draft";
+import { SIGNUP_DRAFT_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { guardFormAction } from "@/components/shared/guard-form-action";
 import {
   signupAction,
@@ -87,6 +89,13 @@ export function SignupForm({
   // and email (the passwords still clear — see useKeptFormValues).
   const kept = useKeptFormValues(["displayName", "householdName", "email"]);
   const [clientErrors, setClientErrors] = useState<FieldErrors>({});
+  // UX-211: a reload mid-signup (a detour to the inbox, a discarded tab)
+  // brings these three back; the passwords are never stored.
+  const {
+    formRef: draftFormRef,
+    onInput: saveDraft,
+    clear: clearDraft,
+  } = useSessionDraft(SIGNUP_DRAFT_STORAGE_KEY, ["displayName", "householdName", "email"]);
 
   // A blocked submit shows only its own errors; otherwise the last server
   // verdict stands until the next result.
@@ -107,6 +116,11 @@ export function SignupForm({
     if (state.field) document.getElementById(state.field)?.focus();
   }, [state]);
 
+  // The account exists, so the draft has done its job.
+  useEffect(() => {
+    if (state.status === "verification-sent") clearDraft();
+  }, [state.status, clearDraft]);
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     const found = validate(new FormData(event.currentTarget), dict);
     setClientErrors(found);
@@ -123,7 +137,14 @@ export function SignupForm({
   const invalid = (field: Field) => (errors[field] ? true : undefined);
 
   const signupForm = (
-    <form action={formAction} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form
+      ref={draftFormRef}
+      action={formAction}
+      onSubmit={onSubmit}
+      onInput={saveDraft}
+      noValidate
+      className="flex flex-col gap-4"
+    >
       <p className="text-sm text-muted-foreground">{dict.joinHint}</p>
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>
