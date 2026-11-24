@@ -1,6 +1,6 @@
 // Guards against the privacy policy's cookie list drifting from the code:
 // every `*_COOKIE = "name"`, `*_COOKIE_PREFIX = "prefix"` (a cookie keyed per
-// id, e.g. per household) and `*_STORAGE_KEY = "name"` (localStorage)
+// id, e.g. per household) and `*_STORAGE_KEY = "name"` (localStorage or sessionStorage)
 // constant under src/ must have an entry in STORAGE_INVENTORY
 // (src/lib/cookie-inventory.ts).
 import { describe, expect, it } from "vitest";
