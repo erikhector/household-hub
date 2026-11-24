@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useLayoutEffect, useState, useTransition } from "react";
 import { BookmarkPlus, CalendarPlus, Copy, LayoutTemplate, ListChecks, ListPlus, MoreHorizontal } from "lucide-react";
 import type { RecipeTag } from "@/lib/recipe-tags";
 import { Button } from "@/components/ui/button";
@@ -148,7 +148,16 @@ export function WeekPlanner({
   // screens down, so bring it into view on load. Only when it isn't already
   // fully visible (the desktop grid shows it in the first row), and never
   // when the planner tab is hidden (its rect is empty).
-  useEffect(() => {
+  //
+  // A layout effect, so the jump lands in the commit that hydrates the
+  // planner and not in a task after it (MAINT-126). The planner is its own
+  // Suspense boundary and often hydrates after the tab bar above it is
+  // already live, so as a passive effect the jump could come between a tap
+  // being aimed at the Recipes tab and landing: the tap hit whatever the
+  // jump scrolled under it, and the tab didn't open. Now "the planner is
+  // hydrated" means "the jump is done", which is what e2e/ui.ts's
+  // openRecipesTab waits for.
+  useLayoutEffect(() => {
     // querySelectorAll, not getElementById: take the rendered card, not a
     // hidden duplicate (e.g. streamed content not yet swapped in).
     const card = [...document.querySelectorAll<HTMLElement>(`#${TODAY_CARD_ID}`)].find(
