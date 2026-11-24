@@ -962,9 +962,15 @@ step timers, opened/frozen tags, share target). One gap is left:
       matched (a double tap or two members ticking at once must not use
       it up twice). Never below 0, writing an `InventoryItemEvent`
       (reason `used`) like other stock changes; the success toast names
-      it ("Used 1 pcs Dishwasher tablets") with Undo. Un-ticking adds
-      back the `delta` of the event the tick wrote (it can be less than
-      `consumesQuantity` when stock hit 0), so no extra column is needed. The item must be re-checked to belong to the
+      it ("Used 1 pcs Dishwasher tablets") with Undo. The tick sets a new
+      nullable `InventoryItemEvent.taskId` (FK to `HouseholdTask`,
+      `onDelete: SetNull`; additive migration) on that event. Un-ticking
+      finds the latest `used` event with that `taskId` and adds back its
+      `delta` (it can be less than `consumesQuantity` when stock hit 0).
+      Matching on `taskId` rather than `createdAt = completedAt` or "the
+      latest used event" means a cook or manual −1 made after the tick
+      can't be reversed by mistake, and doesn't hang on timestamp
+      precision. The item must be re-checked to belong to the
       `requireHousehold()` household on save and on tick; a deleted item
       just drops the link. Skip ("Skip this time", GAP-60) uses nothing.
       Acceptance: an e2e test (`mobile` and `desktop`) links a task to a
