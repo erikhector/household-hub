@@ -99,10 +99,52 @@ Parallel-safe except where noted.
 
 ### Bugs
 
+### Dependencies
+
+- [ ] **DEPS-11. Group the in-range patch/minor bumps** (impact: low, effort: S, own PR — touches `package.json`/lockfile) —
+      `npm outdated` on 2026-11-20: `@sentry/nextjs` 11.12.0 → 11.15.0,
+      `lucide-react` 1.73.0 → 1.77.0, `resend` 6.38.1 → 6.39.0 and
+      `vitest` 5.1.0 → 5.1.1 (all inside their `^` ranges, lockfile only),
+      plus the exact pins `axe-core` 4.14.0 → 4.14.1 and `knip`
+      6.45.1 → 6.46.1. `npm audit --omit=dev` is clean (0 advisories), so
+      this is hygiene, not a fix. Not in scope: `eslint` 10 (MAINT-12, the
+      three `eslint-config-next` plugins still cap at `^9`), `typescript` 7
+      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` majors
+      (follow the Node 22 pin), and `next-auth`/`prisma` "latest" (npm's
+      `latest` tag points at 4.24.15 and 8.0.0-rc.34, a downgrade and a
+      release candidate). Acceptance: `npm outdated` lists none of the six;
+      `npm run check`, `npm run build` and the e2e suite pass.
+
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
+
+- [ ] **SEC-15. Close the IPv6-literal SSRF gap in the recipe URL import**
+      (impact: high, effort: S) — `isPrivateOrReservedIPv6`
+      (`src/lib/recipe-import/fetch.ts:54`) only recognises an IPv4-mapped
+      address in dotted form (`/^::ffff:(\d+\.\d+\.\d+\.\d+)$/`), but
+      `validateRecipeUrl` (`:84`) checks `url.hostname`, and the WHATWG URL
+      parser rewrites `http://[::ffff:169.254.169.254]/` to
+      `[::ffff:a9fe:a9fe]` and `[::ffff:127.0.0.1]` to `[::ffff:7f00:1]`.
+      Both pass as public. For an IP-literal host Node never calls the
+      pinned `lookup` (`:240`), so this check is the only guard, and the
+      redirect hop (`:324`) uses the same function, so a public page that
+      302s to the hex form gets through too. On a dual-stack host that's a
+      fetch of loopback or the cloud metadata endpoint from
+      `importRecipeFromUrlAction`. Also unblocked: IPv4-compatible
+      `::7f00:1` (from `[::127.0.0.1]`), NAT64 `64:ff9b::/96` and 6to4
+      `2002::/16` wrapping a private IPv4. Fix: parse the IPv6 address to
+      its 16 bytes (or use `net.BlockList`) and, for `::ffff:0:0/96`,
+      `::/96`, `64:ff9b::/96` and `2002::/16`, run the embedded IPv4
+      through `isPrivateOrReservedIPv4`; use the same check in
+      `createPinnedPublicLookup`. Acceptance: `fetch.test.ts` asserts
+      `validateRecipeUrl` returns `blockedHost` for
+      `http://[::ffff:127.0.0.1]/`, `http://[::ffff:a9fe:a9fe]/`,
+      `http://[::127.0.0.1]/`, `http://[64:ff9b::a9fe:a9fe]/` and
+      `http://[2002:a9fe:a9fe::]/`, and still `ok` for a public
+      `http://[2606:4700::1111]/`; a redirect to one of them fails with
+      `blockedHost`.
 
 ### Performance (2026-09-26 audit)
 
@@ -198,35 +240,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       declare `eslint` peers up to `^9`, so 10 only installs by overriding
       them. When all three accept 10, bump `eslint` + `eslint-config-next`
       and drop the `eslint` ignore in `.github/dependabot.yml`.
-- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
-      `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
-      `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
-      clicking the flour ingredient link in the recipe sheet (line 173),
-      `getByRole("heading", { name: "Flour …", level: 1 })` was not found
-      within 5 s. Passed on a re-run of the same spec on the same commit,
-      and the GitHub e2e job was green. Find why the item page can be slow
-      to show its heading after that navigation and fix it in the app or
-      the spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/item-page.spec.ts:139
-      --project=mobile --repeat-each=30` passes 30/30.
-      Investigated 2026-10-20, not fixed: it does not reproduce (30/30 and
-      40/40 on the production build, 3 workers, also with 2 busy CPU loops
-      beside it). The server is not the slow part: the item page's RSC
-      request answers in 10 to 200 ms. The wait is client-side (route
-      chunk, hydrating the item page's client tree): click to heading is
-      0.15 to 1.2 s normally, 1 to 2.9 s with Chromium's CPU throttled 8x
-      and 2.5 to 3.5 s at 25x, so a loaded `ci:local` gate (3 browsers, a
-      build and sibling worktrees on one box) can cross the 5 s default.
-      No dialog-history `back()` runs on this path (checked by logging
-      history calls), so it is not a history race. Needs a decision, since
-      every honest fix changes the budget or the page: (a) give post-
-      navigation heading waits in this spec a longer explicit timeout (a
-      loosened wait, which this item's rules forbid unless the Owner
-      allows it), or (b) restructure the item page so the heading and back
-      arrow render before the eight queries and the controls' client tree
-      (a Suspense split, larger than S).
-
-
 - [ ] **MAINT-74. Flaky: a phone dialog's comboboxes aren't there yet when `form-field-room` measures them** (low, S) `[!]` —
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -275,6 +288,14 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       Fix in flight: the PR from `autopilot/maint-124-palette-add-query-flake` (no WebKit where it was built: the proxy blocks Playwright's WebKit download) waits for the add box's focus, then for the `router.replace()` strip's own RSC request, then for the stripped URL with 20 s. The strip is in the same effect as the focus and the router writes the URL only once the list's server render arrives, so a cold WebKit can legitimately take over 5 s. Don't build this a second time. The item is done when the fallback acceptance below holds on a `master` that has it; if `[iphone] › e2e/command-palette.spec.ts:288` still fails there at the new request wait, the strip never went out: look at SmartAddBar's effect and the palette dialog's history hand-off in the app.
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
       Acceptance: `E2E_WEBKIT=1 npx playwright test e2e/command-palette.spec.ts --project=iphone --repeat-each=30` passes 30/30 (where WebKit can't be installed, the next two **Nightly e2e** runs list `[iphone] › e2e/command-palette.spec.ts:288` passed on the first attempt, not `flaky`).
+- [ ] **MAINT-125. Flaky: the URL is still `/dashboard/tasks?add=1` 5 s after the palette's Add task under a held history entry on mobile** (low, S) —
+      `e2e/command-palette.spec.ts:85` ("Enter still navigates when the router pushes before the palette's history entry is gone"), `mobile` project. First sighting: 2026-11-20, builder's `npx playwright test e2e/command-palette.spec.ts --project=desktop --project=mobile --repeat-each=30` on the MAINT-124 branch (4338fb3, which changes only the `:288` test): 1 failed of 60 mobile runs (repeat 25), every other run and the desktop project passed. The locked `ci:local` on the same commit passed it. Failing step: `:118`, `expect(page).toHaveURL(/\/dashboard\/tasks$/)` still received `/dashboard/tasks?add=1` after the 5000 ms timeout. This is the tasks page's version of the `?add=1` strip that MAINT-124 found landing late on WebKit (the strip is a `router.replace`, which writes the URL only after the server render returns), here combined with the held `history.back()` of the MAINT-118 dialog-history repair. Start from the trace (keep one with `--trace on` and `--repeat-each=30`): check whether the replace's RSC request went out and was slow (then wait for it, as MAINT-124's PR #1645 does for `:288`) or the strip never ran because the repair's history step raced it (an app bug in `dialog-history.ts` or the tasks page's strip, fix it there).
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/command-palette.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-126. Flaky: the Recipes tab click doesn't select the tab in the phone recipe-sheet keyboard spec** (low, S) —
+      `e2e/sheet-keyboard.mobile.spec.ts:13` ("a filled recipe form keeps its submit in view on a phone"), `mobile` project. First sighting: 2026-11-20, builder's locked `ci:local` on 576e3c0 (PR #1632, GAP-85, which doesn't touch the Recipes tab or this spec), under a loaded runner: `openRecipesTab`'s `aria-selected="true"` assertion (`e2e/ui.ts:427`, called from the spec's `:20`) timed out after 5 s, so "New recipe" was never reached. It passed 12/12 alone with `--repeat-each=10` and on the full rerun of `ci:local` on the same commit. A pre-hydration click is not the cause: `openRecipesTab` already runs `expectHydrated(tab)` and `expectRouterPatched(page)` before `tab.click()`, so the click reached a hydrated tab and `aria-selected` still didn't flip. Start from a trace (`--trace on --repeat-each=30` under load). Check whether the tab switch waits on a slow transition or server render under load, or whether the click was swallowed by a layout shift or overlay (the spec already dismisses the cookie notice, so look at things like the week strip GAP-85 added). MAINT-85 fails in the same helper (the same tab in the recipe photo import specs), so fix both together if it's the same cause.
+      The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
+      Acceptance: `npx playwright test e2e/sheet-keyboard.mobile.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
@@ -567,6 +588,105 @@ toast. The household notes board and the pending-invites list don't.
 WebKit was not run (no browser installed here), and the audit config
 still needs an uncommitted `executablePath` copy to launch Chromium.
 
+### UX (2026-11-22 scout)
+
+Sunday area: public, auth and legal pages, and the first-run flow. Swept
+`desktop`, `mobile`, `landscape`, `tablet`, `small-phone`, `light`,
+`text-200` and both dialog sweeps. All 290 + 132 tests pass, and the only
+audit hits are the known `text-200` truncations (UX-150) and the hidden
+"Invite member" button. The screenshot review's touch-target suspicions
+(Forgot password, footer links, status-card links) measured 44 px on
+phones, so they aren't filed. The deep dive drove login, signup and
+forgot password on Pixel 7 (`en`) and at 320 px (`sv`): once submitted
+offline, and once with signup reloaded half-filled. WebKit was not run
+(no browser installed here). The audit config still needs an
+uncommitted `executablePath` copy to launch Chromium.
+
+- [ ] **UX-210. A dropped connection on an auth form shows the crash page and wipes the form** (impact: high, effort: M) —
+      Submitting login, signup or forgot password while offline (or on a
+      request that never arrives) rejects the Server Action. Nothing
+      catches it, so the root `src/app/error.tsx` boundary replaces the
+      page with "Something went wrong … head back to the dashboard". The
+      user is logged out, everything they typed is gone, and Sentry logs
+      it as an unhandled error. Reproduced on Pixel 7 (`en`) and at 320 px
+      (`sv`) on `/login`, `/signup` and `/forgot-password`. The same
+      unguarded `useActionState` call is in
+      `src/components/auth/reset-password-form.tsx`,
+      `src/components/household/join-signup-form.tsx`,
+      `accept-invite-form.tsx` and `create-first-household-form.tsx`, so a
+      new user's whole first-run path is exposed. This breaks M8 (an
+      error state that says what to do, including "you're offline"; input
+      survives), and it is the same gap UX-205 closed for the household
+      notes. Fix: wrap each form's action so a rejection becomes
+      `{ error: dict.errors.requestFailed }` in that form's general error
+      line. Re-throw redirect signals (`unstable_rethrow`) so a successful
+      login still navigates, and keep the typed values (`useKeptFormValues`
+      already covers the server-error path).
+      Acceptance: an e2e spec in `mobile` and `desktop` fills `/login` and
+      `/signup`, calls `context.setOffline(true)` and submits. It asserts
+      that the "Check your connection" message is visible on the same
+      page, the error-boundary heading is not shown, and the email and
+      name fields still hold what was typed. Going back online and
+      submitting again then succeeds.
+- [ ] **UX-211. Keep a half-filled signup across a reload** (impact: med, effort: S) —
+      `/signup` asks for five fields before a new user sees anything. On
+      a phone the usual mid-form interruptions are leaving to check an
+      email, a password manager or an incoming call, and Android may
+      discard the tab. A reload after filling name, household and email
+      brings back an empty form: all three read `""` on Pixel 7 and at
+      320 px (`src/components/auth/signup-form.tsx`). This breaks M8 ("a
+      call, a notification or a locked screen mid-flow loses nothing:
+      form input survives a reload or backgrounding"). Fix: keep a
+      `sessionStorage` draft of `displayName`, `householdName` and
+      `email` only. Never store either password. Clear the draft once the
+      account is created. The join-signup form
+      (`src/components/household/join-signup-form.tsx`) gets the same
+      draft. Storage inventory: `StorageKind` in
+      `src/lib/cookie-inventory.ts` is `"cookie" | "localStorage" |
+      "cache"` today, so add a `"sessionStorage"` kind, add the draft key
+      as necessary storage, and make the storage cards in
+      `src/components/legal/legal-page.tsx` (which branch on `kind`)
+      label it as session storage in both languages. Because the draft
+      holds the user's email, its privacy-page entry (en and sv) says
+      what's kept (name, household name, email; never the password) and
+      that it's cleared on successful signup or when the tab closes.
+      Acceptance: an e2e spec in `mobile` fills name, household name,
+      email and password on `/signup` and reloads. The first three fields
+      keep their values and the password field is empty. After a
+      successful signup, opening `/signup` again shows empty fields. The
+      cookie-inventory drift-guard test passes with the new key, and
+      `/privacy` lists the draft as session storage in `en` and `sv`.
+- [ ] **UX-212. Paint the page gradient behind the whole page on touch devices, not just the first screen** (impact: low, effort: S) —
+      `body`'s `radial-gradient` in `src/app/globals.css` (~line 359) is
+      `no-repeat` and sized to the first viewport, with a flat
+      `--gradient-end` `background-color` behind it. On desktop this is
+      already handled: the rule right after it,
+      `@media (hover: hover) and (pointer: fine) { body {
+      background-attachment: fixed; } }`, pins the gradient to the
+      viewport, and its comment says the body does scroll on the landing,
+      legal and auth pages. Keep that rule. (The y≈720 seam in the
+      `desktop-*.png` screenshots is likely an artefact of Playwright's
+      full-page capture with a fixed background, not something a desktop
+      user sees.) On touch / coarse-pointer devices `fixed` is
+      deliberately off because of the iOS standalone-PWA safe-area
+      quirk the comment above the rule describes, so on a phone or
+      tablet a hard horizontal seam shows one screen down where the
+      lavender gradient stops and the flat fill begins: on the landing
+      page, signup and the legal pages. This breaks the design principle
+      of calm, consistent surfaces. Fix, scoped to touch devices only
+      (outside the fine-pointer media query): size the gradient to the
+      document (`background-size: 100% 100%` with `min-height` on
+      `html`), or fade it out within the first screen. Don't turn on
+      `background-attachment: fixed` for touch devices, and don't change
+      the desktop rule.
+      Acceptance: an e2e check in `mobile` (and the tablet project if it
+      runs there) scrolls `/signup` and `/` to the bottom in a live
+      viewport (not a full-page screenshot). It samples the page
+      background colour just above and just below one viewport height at
+      the left edge, and the two differ by at most a few RGB units. A
+      `desktop` assertion only guards that `body` still computes
+      `background-attachment: fixed` there.
+
 ---
 
 ## Phase 2 — schema changes, one at a time
@@ -591,8 +711,27 @@ actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
 charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline ticks in the shop) shipped; UX-36b parks offline adds
-and price edits.
+UX-36 (offline ticks in the shop) shipped; UX-36b adds offline adds
+(price edits stay online).
+
+- [ ] **UX-36b. Offline adds on the shopping list** (medium, L) — follow-up
+      to UX-36 (offline ticks, shipped). With no signal, a name typed in the
+      smart add line is queued beside the ticks (the queue and replay in
+      `src/lib/shopping/offline-tick-queue*.ts`), shown at once as a pending
+      row and in the offline chip's count, and replayed in order through the
+      same smart-add action when the signal returns. Merge rule: no new one.
+      The replay goes through the action's existing "already on the list"
+      dedupe, so the same name added offline on two phones ends as one row,
+      exactly as two online adds do today; an add whose list was completed
+      or deleted meanwhile is dropped with a toast naming it. Price edits,
+      item edits and deletes stay online-only (UX-36: money stays online).
+      Acceptance: an e2e test goes offline, adds an item from the smart add
+      line, sees it as a pending row and in the chip count, goes online,
+      reloads and asserts it persisted once, on desktop and mobile.
+      Decided 2026-11-23 by autopilot-product: adds only, replayed through
+      the existing dedupe; price edits not planned. Why: the in-store
+      need is "I remembered something", and reusing the online dedupe
+      needs no client ids or new merge rules. See PRODUCT.md.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
@@ -628,6 +767,9 @@ and price edits.
       light/dark x en/sv x mobile/desktop is 80 PNGs; suggest desktop+mobile
       en light plus sv/dark on mobile only, about 30) keeps runtime and
       repo size reasonable. Once decided, this is a buildable M.
+      Recommendation (2026-11-23): yes to the runner-made baselines and the
+      ~30-screen set; the owner adds the `workflow_dispatch` workflow
+      (`.github/workflows/` is human-only). See #1703.
 
 ---
 
@@ -735,6 +877,9 @@ Rules every follow-up keeps (from the original item):
       handler plus Home cached, behind an env flag that defaults to off)
       and PERF-32b (measure in production, then flip the flag or revert).
       Say which.
+      Recommendation (2026-11-23): (b). The flag keeps it dormant and
+      reversible; the owner flips it in Vercel and reads the Home timings,
+      and PERF-33 to PERF-36 wait on that number. See #1704.
 - [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
       reads for the inventory list and item pages (tags
       `householdTag(id, "inventory")`) and for completed shopping lists. The
@@ -934,17 +1079,50 @@ out to be a product-scope question rather than a scoped task should move to
       Code 128/EAN barcode at full brightness on `mobile`, never
       visible to other members and never in logs.
 
-## Needs a decision before building
+### 2026-11-21 scan
 
-- [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
-      (ticks only, shipped). Adding an item or editing a price with no
-      signal needs client-made ids and merge rules (a duplicate name added
-      on two phones, a price edit on a row someone deleted) that ticks
-      don't. Decide those rules before building; the queue and replay in
-      `src/lib/shopping/offline-tick-queue*.ts` are the foundation.
-      Acceptance: an e2e test goes offline, adds an item and edits a price,
-      sees them in the chip count, goes online and asserts both persisted
-      after reload, on desktop and mobile.
+Checked AnyList (Dec 2025 / Jan 2026 meal-plan release), Grocy and Cozi.
+Most of what they ship is already here (meal queue = Cook soon shelf,
+recipe sort by times made = GAP-80, meal notes = GAP-81, week templates,
+step timers, opened/frozen tags, share target). One gap is left:
+
+- [ ] **GAP-87. A task can use up a pantry item** (impact: med,
+      effort: M) — Grocy lets a chore consume a product when it's done
+      ("Run the dishwasher" uses 1 dishwasher tablet, "Change the water
+      filter" uses 1 filter), so household consumables run low, and land
+      on the list through the existing low-stock path, without anyone
+      typing it. Squirrel's `HouseholdTask` (`prisma/schema.prisma`) has
+      no link to inventory, so the stock of cleaning and bathroom items
+      (both already categories) only drops when someone remembers to edit
+      it. Schema change (Phase 2): nullable
+      `HouseholdTask.consumesItemId` (FK to `InventoryItem`, same
+      household, `onDelete: SetNull`) plus `consumesQuantity` (in the
+      item's own unit). Set in the task's Add/Edit sheet as an optional
+      "Uses up" item picker and quantity, so the user opts in per task:
+      nothing is inferred. It works on any task, repeating or one-off:
+      the opt-in is the link, not the recurrence. On a tick,
+      `toggleTaskCompletedAction`
+      (`src/app/dashboard/tasks/actions.ts:259`) decrements in the same
+      transaction, and only when its compare-and-set completion write
+      matched (a double tap or two members ticking at once must not use
+      it up twice). Never below 0, writing an `InventoryItemEvent`
+      (reason `used`) like other stock changes; the success toast names
+      it ("Used 1 pcs Dishwasher tablets") with Undo. The tick sets a new
+      nullable `InventoryItemEvent.taskId` (FK to `HouseholdTask`,
+      `onDelete: SetNull`; additive migration) on that event. Un-ticking
+      finds the latest `used` event with that `taskId` and adds back its
+      `delta` (it can be less than `consumesQuantity` when stock hit 0).
+      Matching on `taskId` rather than `createdAt = completedAt` or "the
+      latest used event" means a cook or manual −1 made after the tick
+      can't be reversed by mistake, and doesn't hang on timestamp
+      precision. The item must be re-checked to belong to the
+      `requireHousehold()` household on save and on tick; a deleted item
+      just drops the link. Skip ("Skip this time", GAP-60) uses nothing.
+      Acceptance: an e2e test (`mobile` and `desktop`) links a task to a
+      seeded item with 3 pcs, ticks it, sees the toast, reloads the
+      item page and reads 2 pcs; un-ticks and reads 3 pcs again.
+
+## Needs a decision before building
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
       decision — ICA, Hemköp and Willys already deliver digital receipts
