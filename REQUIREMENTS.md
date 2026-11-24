@@ -10331,11 +10331,12 @@ approximating them, so the email never disagrees with the app.
   its `onSubmit` records the listed fields' values as the form is
   submitted, and each field reads `defaultValue={kept.values.x ?? fallback}`,
   so the reset lands on what was typed. It's client-side, so the actions'
-  return types and no-JS fallback are unchanged. The names are an
-  allowlist and never include a password: password fields still clear
-  after an error (so the reset-password form, which has nothing else, is
-  unchanged). A dialog calls `kept.reset()` when it reopens. Used by
-  signup, login, the invite sign-up form, the display-name form, add/edit
+  return types are unchanged. The names are an allowlist and never
+  include a password: password fields still clear after an error (so the
+  reset-password form, which has nothing else, is unchanged). A dialog
+  calls `kept.reset()` when it reopens. Used by signup, login, forgot
+  password and the first household's name (UX-210), the invite sign-up
+  form, the display-name form, add/edit
   item (quantity, low-stock threshold, expiry, use-within), the
   transaction description, the planned bill's name and category, the
   recurring item's name and due day, and the add/edit category dialogs

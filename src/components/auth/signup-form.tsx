@@ -101,7 +101,7 @@ export function SignupForm({
   // general line above the consent text.
   const generalError = !blocked && !state.field ? state.error : undefined;
 
-  // Server-side rejections (a taken email, or the no-JS path) move focus to
+  // Server-side rejections (a taken email) move focus to
   // the offending field once the result lands.
   useEffect(() => {
     if (state.field) document.getElementById(state.field)?.focus();
