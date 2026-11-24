@@ -240,35 +240,6 @@ shopping-list actions per feature, in the files MAINT-3 split them into.
       declare `eslint` peers up to `^9`, so 10 only installs by overriding
       them. When all three accept 10, bump `eslint` + `eslint-config-next`
       and drop the `eslint` ignore in `.github/dependabot.yml`.
-- [ ] **MAINT-38. Flaky: item page back arrow doesn't reach the item heading from the recipe sheet** (low, S) `[!]` —
-      `e2e/item-page.spec.ts:139`, `mobile` project. Failed in the local
-      `ci:local` gate on release PR #448 (`aec8755`, 2026-10-20): after
-      clicking the flour ingredient link in the recipe sheet (line 173),
-      `getByRole("heading", { name: "Flour …", level: 1 })` was not found
-      within 5 s. Passed on a re-run of the same spec on the same commit,
-      and the GitHub e2e job was green. Find why the item page can be slow
-      to show its heading after that navigation and fix it in the app or
-      the spec's waiting, never a loosened assertion, a skip or a retry.
-      Acceptance: `npx playwright test e2e/item-page.spec.ts:139
-      --project=mobile --repeat-each=30` passes 30/30.
-      Investigated 2026-10-20, not fixed: it does not reproduce (30/30 and
-      40/40 on the production build, 3 workers, also with 2 busy CPU loops
-      beside it). The server is not the slow part: the item page's RSC
-      request answers in 10 to 200 ms. The wait is client-side (route
-      chunk, hydrating the item page's client tree): click to heading is
-      0.15 to 1.2 s normally, 1 to 2.9 s with Chromium's CPU throttled 8x
-      and 2.5 to 3.5 s at 25x, so a loaded `ci:local` gate (3 browsers, a
-      build and sibling worktrees on one box) can cross the 5 s default.
-      No dialog-history `back()` runs on this path (checked by logging
-      history calls), so it is not a history race. Needs a decision, since
-      every honest fix changes the budget or the page: (a) give post-
-      navigation heading waits in this spec a longer explicit timeout (a
-      loosened wait, which this item's rules forbid unless the Owner
-      allows it), or (b) restructure the item page so the heading and back
-      arrow render before the eight queries and the controls' client tree
-      (a Suspense split, larger than S).
-
-
 - [ ] **MAINT-74. Flaky: a phone dialog's comboboxes aren't there yet when `form-field-room` measures them** (low, S) `[!]` —
       `e2e/form-field-room.mobile.spec.ts:89` ("the shopping edit item dialog gives every combobox room on a phone") and `:98` ("the new recipe dialog gives the ingredient row room on a phone"), `mobile` project. Seen on release commit b13ba5e (2026-11-01). Line 89 failed in the local `ci:local` gate with `dialog has at least one combobox` expected `> 0`, received `0` (`expectComboboxesHaveRoom`, line 30) and passed on a re-run; line 98 failed once in the GitHub e2e job and passed on its retry. The helper measures the comboboxes once, right after the dialog opens, so it can run before the dialog's fields have rendered. Wait for the fields (`expect(...).not.toHaveCount(0)` or the dialog's heading and a field) before measuring, and check the click on the row's ⋯ menu is hydrated first (`expectHydrated`).
       The fix is in the app or the test's waiting, never a loosened assertion, a skip or a retry.
@@ -740,8 +711,27 @@ actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
 charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline ticks in the shop) shipped; UX-36b parks offline adds
-and price edits.
+UX-36 (offline ticks in the shop) shipped; UX-36b adds offline adds
+(price edits stay online).
+
+- [ ] **UX-36b. Offline adds on the shopping list** (medium, L) — follow-up
+      to UX-36 (offline ticks, shipped). With no signal, a name typed in the
+      smart add line is queued beside the ticks (the queue and replay in
+      `src/lib/shopping/offline-tick-queue*.ts`), shown at once as a pending
+      row and in the offline chip's count, and replayed in order through the
+      same smart-add action when the signal returns. Merge rule: no new one.
+      The replay goes through the action's existing "already on the list"
+      dedupe, so the same name added offline on two phones ends as one row,
+      exactly as two online adds do today; an add whose list was completed
+      or deleted meanwhile is dropped with a toast naming it. Price edits,
+      item edits and deletes stay online-only (UX-36: money stays online).
+      Acceptance: an e2e test goes offline, adds an item from the smart add
+      line, sees it as a pending row and in the chip count, goes online,
+      reloads and asserts it persisted once, on desktop and mobile.
+      Decided 2026-11-23 by autopilot-product: adds only, replayed through
+      the existing dedupe; price edits not planned. Why: the in-store
+      need is "I remembered something", and reusing the online dedupe
+      needs no client ids or new merge rules. See PRODUCT.md.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
@@ -777,6 +767,9 @@ and price edits.
       light/dark x en/sv x mobile/desktop is 80 PNGs; suggest desktop+mobile
       en light plus sv/dark on mobile only, about 30) keeps runtime and
       repo size reasonable. Once decided, this is a buildable M.
+      Recommendation (2026-11-23): yes to the runner-made baselines and the
+      ~30-screen set; the owner adds the `workflow_dispatch` workflow
+      (`.github/workflows/` is human-only). See #1703.
 
 ---
 
@@ -884,6 +877,9 @@ Rules every follow-up keeps (from the original item):
       handler plus Home cached, behind an env flag that defaults to off)
       and PERF-32b (measure in production, then flip the flag or revert).
       Say which.
+      Recommendation (2026-11-23): (b). The flag keeps it dormant and
+      reversible; the owner flips it in Vercel and reads the Home timings,
+      and PERF-33 to PERF-36 wait on that number. See #1704.
 - [ ] **PERF-33. Cache inventory and closed shopping lists** (M) — cached
       reads for the inventory list and item pages (tags
       `householdTag(id, "inventory")`) and for completed shopping lists. The
@@ -1127,16 +1123,6 @@ step timers, opened/frozen tags, share target). One gap is left:
       item page and reads 2 pcs; un-ticks and reads 3 pcs again.
 
 ## Needs a decision before building
-
-- [ ] **UX-36b. Offline adds and price edits** (L) `[!]` needs a product decision — follow-up to UX-36
-      (ticks only, shipped). Adding an item or editing a price with no
-      signal needs client-made ids and merge rules (a duplicate name added
-      on two phones, a price edit on a row someone deleted) that ticks
-      don't. Decide those rules before building; the queue and replay in
-      `src/lib/shopping/offline-tick-queue*.ts` are the foundation.
-      Acceptance: an e2e test goes offline, adds an item and edits a price,
-      sees them in the chip count, goes online and asserts both persisted
-      after reload, on desktop and mobile.
 
 - [ ] **AUTO-13. Receipts that arrive by themselves** `[!]` needs a product
       decision — ICA, Hemköp and Willys already deliver digital receipts
