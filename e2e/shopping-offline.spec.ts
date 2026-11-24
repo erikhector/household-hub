@@ -66,6 +66,40 @@ test("a tick made offline waits in a queue and is saved when the connection is b
   await expect(page.getByRole("status").filter({ hasText: "waiting to sync" })).toHaveCount(0);
 });
 
+test("an add typed offline shows as a pending row and is saved once when the connection is back", async ({
+  page,
+  context,
+}) => {
+  const listName = unique("Offline add");
+  const oat = unique("Oat drink");
+  const rye = unique("Rye bread");
+  await openListWith(page, listName, [oat]);
+
+  const addBox = page.getByRole("combobox", { name: "Add to the list" });
+  await expectHydrated(addBox);
+  await context.setOffline(true);
+  // Rye is new; oat is already on the list, so the replay's own dedupe must
+  // leave one oat row, as an online add of it would.
+  await addBox.fill(`${rye}, ${oat}`);
+  await addBox.press("Enter");
+
+  const pending = page.getByRole("list", { name: t.offlineAddsLabel });
+  await expect(pending.getByRole("listitem").filter({ hasText: rye })).toBeVisible();
+  await expect(pending.getByRole("listitem").filter({ hasText: oat })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "2 changes waiting to sync" })).toBeVisible();
+
+  await context.setOffline(false);
+  await expect(page.getByRole("status").filter({ hasText: "waiting to sync" })).toHaveCount(0);
+  await expect(pending).toHaveCount(0);
+
+  // Saved on the server, once each.
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: listName })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: new RegExp(`^${rye}\\b`, "i") })).toHaveCount(1);
+  await expect(page.getByRole("checkbox", { name: new RegExp(`^${oat}\\b`, "i") })).toHaveCount(1);
+  await expect(page.getByRole("status").filter({ hasText: "waiting to sync" })).toHaveCount(0);
+});
+
 test("the list you last opened still opens with no connection", async ({ page, context }) => {
   const listName = unique("Cached shop");
   const oat = unique("Oat drink");

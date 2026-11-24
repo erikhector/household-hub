@@ -10174,9 +10174,10 @@ the unit tests beside `swipe-row-calc.ts` and `deferred-delete.ts`.
 
 ### Offline shopping list (UX-36)
 
-The shopping list survives a dead zone in a store. Ticks only: adds, price
-edits and every other page stay online-only (decided 2026-10-15, see
-PRODUCT.md).
+The shopping list survives a dead zone in a store. Ticks (UX-36) and adds
+from the smart add line (UX-36b) work offline; price edits, item edits,
+deletes and every other page stay online-only, so money stays online
+(decided 2026-10-15 and 2026-11-23, see PRODUCT.md).
 
 - **Reads**: `src/lib/service-worker.js` serves a navigation to
   `/dashboard/shopping-list/<id>` network first and keeps the last good
@@ -10202,12 +10203,29 @@ PRODUCT.md).
   deleted meanwhile (or foreign to the household) answers `{}`, skipped
   silently. A request that never arrives stops the replay and keeps the
   rest; an answer with an error drops that entry with the "couldn't save"
-  toast. The page is then refreshed to show what the server holds.
+  toast. The page is then refreshed to show what the server holds. An entry
+  queued while a replay runs is sent in the same pass.
+- **Adds** (UX-36b): with no connection, or while anything is already
+  queued, rows typed in the smart add line (typed, picked from the
+  dropdown or spoken; the barcode scan needs the server and stays online)
+  join the same queue under the same `localStorage` key, one entry per row
+  in the order typed (`{ kind: "add", key, listId, row }`; `key` is local
+  to the queue and never sent). They show at once under the add line as
+  read-only pending rows (`OfflinePendingAdds`: dashed, a "Waiting" badge,
+  in a list named "Waiting to be added") and in the chip's count. The
+  replay sends each through `smartAddShoppingListItemsAction(listId,
+  [row])`, the online add's own action, so its "already on the list"
+  dedupe is the merge rule: the same name added offline on two phones, or
+  one already on the list, ends as one row. An add the server refuses (its
+  list completed or deleted meanwhile) is dropped with a toast naming it
+  ("“Milk” wasn't added to the list", the reason underneath).
 - **Logout** (`useLogout`) deletes the cached list and clears the queue
   (`src/lib/shopping/offline-cache.ts`).
 - Covered by `e2e/shopping-offline.spec.ts` (offline tick, chip, back
-  online, persisted after reload; offline reload of a visited list) and the
-  `replayTickAction` and queue unit tests.
+  online, persisted after reload; an offline add shown pending and in the
+  chip, saved once after reload, with a name already on the list deduped;
+  offline reload of a visited list) and the `replayTickAction` and queue
+  unit tests.
 
 ### Browser floor (UX-29)
 

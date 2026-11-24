@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
+import { OfflinePendingAdds } from "@/components/shopping/offline-pending-adds";
 import { NextUpDock } from "@/components/shopping/shopping-mode";
 import {
   completeShoppingListAction,
@@ -189,6 +190,7 @@ export function ShoppingListClient({
     setCelebrate,
     queuedTicks,
     hasQueuedTicks,
+    queuedAdds,
     isTicking,
     toggleItem,
     deleteItem,
@@ -876,6 +878,8 @@ export function ShoppingListClient({
       {isActive && repurchaseSuggestions}
 
       {showCompleted && <CompletedActions dict={dict} tripSummary={tripSummary} nextListId={nextListId} />}
+
+      <OfflinePendingAdds adds={queuedAdds} dict={dict} locale={locale} />
 
       <div ref={listRef} className="relative flex flex-col gap-2">
         {showCleared ? (
