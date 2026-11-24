@@ -680,27 +680,8 @@ actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
 charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline ticks in the shop) shipped; UX-36b adds offline adds
-(price edits stay online).
-
-- [ ] **UX-36b. Offline adds on the shopping list** (medium, L) — follow-up
-      to UX-36 (offline ticks, shipped). With no signal, a name typed in the
-      smart add line is queued beside the ticks (the queue and replay in
-      `src/lib/shopping/offline-tick-queue*.ts`), shown at once as a pending
-      row and in the offline chip's count, and replayed in order through the
-      same smart-add action when the signal returns. Merge rule: no new one.
-      The replay goes through the action's existing "already on the list"
-      dedupe, so the same name added offline on two phones ends as one row,
-      exactly as two online adds do today; an add whose list was completed
-      or deleted meanwhile is dropped with a toast naming it. Price edits,
-      item edits and deletes stay online-only (UX-36: money stays online).
-      Acceptance: an e2e test goes offline, adds an item from the smart add
-      line, sees it as a pending row and in the chip count, goes online,
-      reloads and asserts it persisted once, on desktop and mobile.
-      Decided 2026-11-23 by autopilot-product: adds only, replayed through
-      the existing dedupe; price edits not planned. Why: the in-store
-      need is "I remembered something", and reusing the online dedupe
-      needs no client ids or new merge rules. See PRODUCT.md.
+UX-36 (offline ticks in the shop) and UX-36b (offline adds) shipped;
+price edits stay online.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) `[!]` needs a decision on
       how baselines are made — Keep the polish
