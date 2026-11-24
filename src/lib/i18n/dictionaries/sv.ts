@@ -2713,6 +2713,13 @@ export const sv = {
     dueDateLabel: "Förfaller",
     dueDateHint: "Valfritt. Lämna tomt om det inte finns någon deadline.",
     clearDueDate: "Rensa datum",
+    // GAP-87
+    usesUpLabel: "Förbrukar",
+    usesUpPlaceholder: "Inget från lagret",
+    usesUpNoResults: "Ingen vara i lagret med det namnet",
+    usesUpQuantityLabel: "Mängd varje gång",
+    usesUpHint: "Valfritt. När uppgiften bockas av dras så här mycket från lagret.",
+    usesUpClear: "Förbruka inget",
     dueTodayLabel: "Förfaller i dag",
     dueLabel: "Förfaller {date}",
     overdueLabel: {
@@ -2743,6 +2750,7 @@ export const sv = {
     toggleCompleteAriaLabel: "Markera {title} som klar",
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     doneToast: "Klart: {title}",
+    usedToast: "Använde {quantity} {unit} {name}",
     caughtUpTitle: "Nu är allt klart!",
     showOlder: "Visa {count} äldre",
     hideOlder: "Dölj äldre",

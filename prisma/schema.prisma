@@ -468,6 +468,7 @@ model InventoryItem {
   priceHistory      PriceHistory[]
   stockEvents       InventoryItemEvent[]
   recipeIngredients RecipeIngredient[]
+  consumingTasks    HouseholdTask[]
   aliases           ItemAlias[]
   unitConversions   ItemUnitConversion[]
   notifications     Notification[]
@@ -807,12 +808,19 @@ model InventoryItemEvent {
   delta       Float
   // used | restocked | adjusted | cooked | trip — see STOCK_EVENT_REASONS.
   reason      String
+  // GAP-87: the task whose tick wrote this `used` event, so un-ticking it
+  // reverses exactly this change and never a later cook or -1. Only the
+  // current completion's event keeps it (see task-item-use.ts); SetNull, so
+  // deleting the task leaves the history.
+  taskId      String?
   createdAt   DateTime @default(now())
 
-  item InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  item InventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  task HouseholdTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([itemId, createdAt])
   @@index([householdId])
+  @@index([taskId])
 }
 
 model PriceHistory {
@@ -1783,6 +1791,12 @@ model HouseholdTask {
   dueDate                DateTime? @db.Date
   rotationMemberIds          String[]  @default([])
   rotationPreviousAssigneeId String?
+  // GAP-87: the pantry item a tick uses up ("Run the dishwasher" uses 1
+  // dishwasher tablet), and how much of it, in the item's own unit. Opt-in
+  // per task from the Add/Edit sheet; both null for none. SetNull, so
+  // deleting the item just drops the link. See task-item-use.ts.
+  consumesItemId         String?
+  consumesQuantity       Float?
   createdAt              DateTime  @default(now())
   // UX-136: batch id of the opt-in sample data this row came from (see
   // src/lib/sample-data.ts); null for everything a person made. "Clear sample
@@ -1792,9 +1806,12 @@ model HouseholdTask {
   household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   assignedToMember  HouseholdMember? @relation("TaskAssignedTo", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
   completedByMember HouseholdMember? @relation("TaskCompletedBy", fields: [completedByMemberId], references: [id], onDelete: SetNull)
+  consumesItem      InventoryItem?   @relation(fields: [consumesItemId], references: [id], onDelete: SetNull)
+  stockEvents       InventoryItemEvent[]
 
   @@index([householdId])
   @@index([assignedToMemberId])
+  @@index([consumesItemId])
 }
 
 // GAP-16: a shared household notes board — free-text notes ("the plumber's

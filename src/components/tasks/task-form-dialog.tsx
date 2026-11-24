@@ -21,6 +21,10 @@
 // `rotationMemberIds` inputs, which FormData.getAll preserves. While a
 // rotation is set, "Assign to" becomes "whose turn it is now" and only
 // offers the people taking turns, matching what the server enforces.
+//
+// GAP-87: "Uses up" links the task to a pantry item, so a tick takes that
+// much off the shelf (see src/app/dashboard/tasks/task-item-use.ts). Opt-in:
+// nothing is picked until the user picks it, and "Use nothing" unlinks it.
 
 import { useActionState, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -39,6 +43,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
+import { ItemCombobox } from "@/components/inventory/item-combobox";
+import { useUnitLabel } from "@/components/units-provider";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
 import { ADD_PARAM } from "@/components/dashboard/command-palette-commands";
 import { createTaskAction, updateTaskAction } from "@/app/dashboard/tasks/actions";
@@ -49,6 +55,8 @@ import { RECURRENCE_OPTION_DAYS, recurrenceText } from "@/app/dashboard/tasks/re
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MemberOption = { id: string; displayName: string };
+/** GAP-87: a pantry item the "Uses up" picker offers. */
+export type PantryItemOption = { id: string; name: string; unit: string };
 
 type EditableTask = {
   id: string;
@@ -60,6 +68,9 @@ type EditableTask = {
   /** UX-133: a one-off's due date as YYYY-MM-DD. */
   dueDate: string | null;
   rotationMemberIds: string[];
+  /** GAP-87: the "Uses up" item and amount, or null for none. */
+  consumesItemId: string | null;
+  consumesQuantity: number | null;
 };
 
 type TasksDict = Dictionary["tasks"];
@@ -81,6 +92,7 @@ export function TaskFormDialog({
   mode,
   task,
   members,
+  pantryItems,
   dict,
   trigger,
   onDelete,
@@ -90,6 +102,7 @@ export function TaskFormDialog({
   /** Only meaningful (and required in practice) in edit mode. */
   task?: EditableTask;
   members: MemberOption[];
+  pantryItems: PantryItemOption[];
   dict: TasksDict;
   trigger: ReactElement;
   /** Edit mode only (UX-106): adds a Delete button to the sheet. The row
@@ -113,6 +126,11 @@ export function TaskFormDialog({
   const [dueDate, setDueDate] = useState(mode === "edit" ? (task?.dueDate ?? "") : "");
   const [notes, setNotes] = useState(mode === "edit" ? (task?.notes ?? "") : "");
   const showNotesCounter = notes.length >= NOTES_COUNTER_FROM;
+  const [usesItemId, setUsesItemId] = useState(mode === "edit" ? (task?.consumesItemId ?? "") : "");
+  const [usesQuantity, setUsesQuantity] = useState(
+    mode === "edit" && task?.consumesQuantity != null ? String(task.consumesQuantity) : "",
+  );
+  const unitLabel = useUnitLabel();
 
   // UX-41a: the command palette's "Add task" lands here with `?add=1`. Only
   // the create form listens (the edit dialogs share this component). The
@@ -151,6 +169,8 @@ export function TaskFormDialog({
       setRotation(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
       setDueDate(mode === "edit" ? (task?.dueDate ?? "") : "");
       setNotes(mode === "edit" ? (task?.notes ?? "") : "");
+      setUsesItemId(mode === "edit" ? (task?.consumesItemId ?? "") : "");
+      setUsesQuantity(mode === "edit" && task?.consumesQuantity != null ? String(task.consumesQuantity) : "");
     }
   };
 
@@ -170,6 +190,7 @@ export function TaskFormDialog({
   // UX-103: one person isn't a rotation. Saving it used to drop the list
   // silently, so block the submit and show the hint as the error instead.
   const lonelyRotation = canRotate && rotation.length === 1;
+  const usesItem = pantryItems.find((item) => item.id === usesItemId) ?? null;
 
   // The first person added to an empty list starts from the current assignee,
   // as #1, so choosing "Take turns" on an assigned task needs one more pick
@@ -209,6 +230,9 @@ export function TaskFormDialog({
               : null,
             dueDate: String(formData.get("dueDate") ?? ""),
             rotationMemberIds: formData.getAll("rotationMemberIds").map(String),
+            // GAP-87: both sent only while an item is picked; none unlinks it.
+            consumesItemId: (formData.get("consumesItemId") as string | null) || null,
+            consumesQuantity: formData.has("consumesQuantity") ? Number(formData.get("consumesQuantity")) : null,
           });
         };
 
@@ -455,6 +479,59 @@ export function TaskFormDialog({
                   {dict.rotationNeedsTwo}
                 </p>
               )}
+            </div>
+          )}
+          {/* GAP-87: offered once the household has a pantry to use up. The
+              picker gets its own row; the amount sits under it in a 6rem
+              column beside its unit (M1). */}
+          {pantryItems.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-uses-up">{dict.usesUpLabel}</Label>
+              {usesItem && <input type="hidden" name="consumesItemId" value={usesItem.id} />}
+              <ItemCombobox
+                id="task-uses-up"
+                items={pantryItems.map((item) => ({ id: item.id, label: item.name }))}
+                value={usesItem?.id ?? ""}
+                onValueChange={(id) => {
+                  setUsesItemId(id);
+                  if (id && usesQuantity === "") setUsesQuantity("1");
+                }}
+                placeholder={dict.usesUpPlaceholder}
+                emptyMessage={dict.usesUpNoResults}
+                ariaLabel={dict.usesUpLabel}
+              />
+              {usesItem && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="task-uses-up-quantity"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="any"
+                    autoComplete="off"
+                    name="consumesQuantity"
+                    value={usesQuantity}
+                    onChange={(e) => setUsesQuantity(e.target.value)}
+                    aria-label={dict.usesUpQuantityLabel}
+                    className="w-24 shrink-0 max-sm:min-h-11"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                    {unitLabel(usesItem.unit, Number(usesQuantity) || 0)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="shrink-0 max-sm:min-h-11 pointer-coarse:min-h-11"
+                    onClick={() => {
+                      setUsesItemId("");
+                      setUsesQuantity("");
+                    }}
+                  >
+                    {dict.usesUpClear}
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">{dict.usesUpHint}</p>
             </div>
           )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}

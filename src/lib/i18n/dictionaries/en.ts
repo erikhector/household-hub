@@ -2869,6 +2869,13 @@ export const en = {
     dueDateLabel: "Due date",
     dueDateHint: "Optional. Leave it empty for no deadline.",
     clearDueDate: "Clear due date",
+    // GAP-87: "Uses up", the pantry item a tick takes off.
+    usesUpLabel: "Uses up",
+    usesUpPlaceholder: "Nothing from the pantry",
+    usesUpNoResults: "No pantry item by that name",
+    usesUpQuantityLabel: "Amount each time",
+    usesUpHint: "Optional. Ticking the task off takes this much off the pantry.",
+    usesUpClear: "Use nothing",
     dueTodayLabel: "Due today",
     dueLabel: "Due {date}",
     overdueLabel: {
@@ -2899,6 +2906,8 @@ export const en = {
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     doneToast: "Done: {title}",
+    // GAP-87: added under the done toast when the tick used a pantry item.
+    usedToast: "Used {quantity} {unit} {name}",
     caughtUpTitle: "You're all caught up!",
     showOlder: "Show {count} older",
     hideOlder: "Hide older",

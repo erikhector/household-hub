@@ -7,6 +7,7 @@
 // member/task id without checking it belongs to this household).
 
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
@@ -15,6 +16,9 @@ import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { getTimeZone } from "@/lib/get-time-zone";
 import { isClosedBySkipOnly, isTaskOpen, skippedUntilFor } from "@/app/dashboard/tasks/recurrence";
 import { parseDueDateInput } from "@/app/dashboard/tasks/task-due";
+import { consumeTaskItem, restoreTaskItem, type TaskItemUse } from "@/app/dashboard/tasks/task-item-use";
+import { INTERACTIVE_TX_OPTIONS } from "@/lib/db-transaction";
+import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import {
   MAX_ROTATION_MEMBERS,
   MIN_ROTATION_MEMBERS,
@@ -69,6 +73,20 @@ const rotationMemberIdsSchema = z
   .refine((ids) => new Set(ids).size === ids.length, v("eachPersonOnce"))
   .default([]);
 
+// GAP-87: "Uses up", the pantry item a tick takes off and how much of it, in
+// the item's own unit. Opt-in: no item means none. A picked item needs an
+// amount above 0; the form starts it at 1. Rounded to the 2 decimals the
+// item's quantity keeps.
+const consumesItemIdSchema = z.string().trim().min(1).nullable().optional();
+const consumesQuantitySchema = z.coerce
+  .number()
+  .positive(v("quantityPositive"))
+  .max(1_000_000, v("invalidInput"))
+  .transform((value) => Math.round(value * 100) / 100)
+  .refine((value) => value > 0, v("quantityPositive"))
+  .nullable()
+  .optional();
+
 const createTaskSchema = z.object({
   title: z.string().trim().min(1, v("titleRequired")).max(120, v("titleTooLong")),
   notes: notesSchema,
@@ -76,6 +94,8 @@ const createTaskSchema = z.object({
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
   dueDate: dueDateSchema,
   rotationMemberIds: rotationMemberIdsSchema,
+  consumesItemId: consumesItemIdSchema,
+  consumesQuantity: consumesQuantitySchema,
 });
 
 const updateTaskSchema = z.object({
@@ -87,7 +107,31 @@ const updateTaskSchema = z.object({
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
   dueDate: dueDateSchema,
   rotationMemberIds: rotationMemberIdsSchema,
+  consumesItemId: consumesItemIdSchema,
+  consumesQuantity: consumesQuantitySchema,
 });
+
+/**
+ * GAP-87: the "Uses up" columns for a parsed form. The item id comes from
+ * the client, so it's re-checked to belong to the session household; no
+ * item clears both columns. `undefined` (an edit caller that didn't send the
+ * field) leaves the link alone.
+ */
+async function resolveConsumesItem(
+  householdId: string,
+  itemId: string | null | undefined,
+  quantity: number | null | undefined,
+): Promise<{ error: string } | { data: { consumesItemId?: string | null; consumesQuantity?: number | null } }> {
+  if (itemId === undefined) return { data: {} };
+  if (itemId === null) return { data: { consumesItemId: null, consumesQuantity: null } };
+  if (quantity == null) return await fail("quantityPositive");
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: itemId, householdId },
+    select: { id: true },
+  });
+  if (!item) return await fail("itemNotFound");
+  return { data: { consumesItemId: item.id, consumesQuantity: quantity } };
+}
 
 type TaskAssignment = {
   assignedToMemberId: string | null;
@@ -166,6 +210,9 @@ export async function createTaskAction(
     dueDate: formData.get("dueDate") || undefined,
     // One hidden input per person, in turn order — getAll keeps that order.
     rotationMemberIds: formData.getAll("rotationMemberIds"),
+    // GAP-87: both only sent while an item is picked.
+    consumesItemId: formData.get("consumesItemId") || null,
+    consumesQuantity: formData.get("consumesQuantity") || null,
   });
   if (!parsed.success) {
     return await zodFail(parsed.error);
@@ -177,6 +224,12 @@ export async function createTaskAction(
     rotationMemberIds: parsed.data.rotationMemberIds,
   });
   if ("error" in resolved) return { error: resolved.error };
+  const consumes = await resolveConsumesItem(
+    household.id,
+    parsed.data.consumesItemId ?? undefined,
+    parsed.data.consumesQuantity,
+  );
+  if ("error" in consumes) return { error: consumes.error };
 
   try {
     await prisma.householdTask.create({
@@ -186,6 +239,7 @@ export async function createTaskAction(
         notes: parsed.data.notes || null,
         ...resolved.data,
         dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
+        ...consumes.data,
         // UX-144: a repeating task's anchor day starts as the day it is made.
         recurrenceAnchorAt: resolved.data.recurrenceIntervalDays === null ? null : new Date(),
       },
@@ -207,6 +261,9 @@ export async function updateTaskAction(
     recurrenceIntervalDays: number | null;
     dueDate?: string | null;
     rotationMemberIds: string[];
+    /** GAP-87: the "Uses up" item, null for none; omitted leaves it alone. */
+    consumesItemId?: string | null;
+    consumesQuantity?: number | null;
   },
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
@@ -228,12 +285,15 @@ export async function updateTaskAction(
     rotationMemberIds: parsed.data.rotationMemberIds,
   });
   if ("error" in resolved) return { error: resolved.error };
+  const consumes = await resolveConsumesItem(household.id, parsed.data.consumesItemId, parsed.data.consumesQuantity);
+  if ("error" in consumes) return { error: consumes.error };
 
   try {
     await prisma.householdTask.update({
       where: { id: task.id },
       data: {
         ...resolved.data,
+        ...consumes.data,
         dueDate: dueDateFor(parsed.data.dueDate, resolved.data.recurrenceIntervalDays),
         ...(parsed.data.title !== undefined && { title: parsed.data.title }),
         ...(parsed.data.notes !== undefined && { notes: parsed.data.notes || null }),
@@ -256,7 +316,9 @@ export async function updateTaskAction(
   return {};
 }
 
-export async function toggleTaskCompletedAction(taskId: string): Promise<ActionState> {
+// GAP-87: `used` is set when the tick took a linked pantry item off the
+// shelf, for the toast to name it.
+export async function toggleTaskCompletedAction(taskId: string): Promise<ActionState & { used?: TaskItemUse }> {
   const { household, userId } = await requireHousehold();
 
   const task = await prisma.householdTask.findFirst({
@@ -274,6 +336,8 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       assignedToMemberId: true,
       rotationMemberIds: true,
       rotationPreviousAssigneeId: true,
+      consumesItemId: true,
+      consumesQuantity: true,
     },
   });
   if (!task) return await fail("taskNotFound");
@@ -296,6 +360,10 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
     completedAt: task.completedAt,
     skippedUntil: task.skippedUntil,
   };
+  // GAP-87: what the linked pantry item did, set only by a write that matched.
+  let used: TaskItemUse | null = null;
+  let autoAdded: AutoAddedItem | null = null;
+  let stockMoved = false;
 
   try {
     if (nextCompleted) {
@@ -325,20 +393,32 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
           rotationPreviousAssigneeId: task.assignedToMemberId,
         };
       }
-      await prisma.householdTask.updateMany({
-        where: unchangedSinceRead,
-        data: {
-          completedAt: now,
-          completedByMemberId: member?.id ?? null,
-          // UX-102: park the completion this tick overwrites (null for a
-          // never-done task) so un-ticking can put it back.
-          previousCompletedAt: task.completedAt,
-          previousCompletedByMemberId: task.completedByMemberId,
-          // GAP-60: a tick after a skip has run out starts the schedule afresh.
-          skippedUntil: null,
-          ...rotationData,
-        },
-      });
+      ({ used, autoAdded } = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.householdTask.updateMany({
+          where: unchangedSinceRead,
+          data: {
+            completedAt: now,
+            completedByMemberId: member?.id ?? null,
+            // UX-102: park the completion this tick overwrites (null for a
+            // never-done task) so un-ticking can put it back.
+            previousCompletedAt: task.completedAt,
+            previousCompletedByMemberId: task.completedByMemberId,
+            // GAP-60: a tick after a skip has run out starts the schedule afresh.
+            skippedUntil: null,
+            ...rotationData,
+          },
+        });
+        // GAP-87: only the tick that really closed the task uses the item.
+        if (count === 0) return { used: null, autoAdded: null };
+        return consumeTaskItem(tx, {
+          householdId: household.id,
+          userId,
+          taskId: task.id,
+          itemId: task.consumesItemId,
+          quantity: task.consumesQuantity,
+        });
+      }, INTERACTIVE_TX_OPTIONS));
+      stockMoved = used !== null;
     } else if (isClosedBySkipOnly(task, now, timeZone)) {
       // GAP-60: the task is closed by a skip alone, so reopening it undoes
       // just the skip. completedAt and its completer are the real last
@@ -363,7 +443,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
         });
         restoredBy = previousCompleter?.id ?? null;
       }
-      const restoreData = {
+      let restoreData: Prisma.HouseholdTaskUncheckedUpdateManyInput = {
         completedAt: task.previousCompletedAt,
         completedByMemberId: restoredBy,
         previousCompletedAt: null,
@@ -383,20 +463,29 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
           });
           previous = member?.id ?? null;
         }
-        await prisma.householdTask.updateMany({
-          where: unchangedSinceRead,
-          data: { ...restoreData, assignedToMemberId: previous },
-        });
-      } else {
-        await prisma.householdTask.updateMany({ where: unchangedSinceRead, data: restoreData });
+        restoreData = { ...restoreData, assignedToMemberId: previous };
       }
+      // GAP-87: the un-tick is an undo, so it also puts back what the tick
+      // used up. Same transaction and same guard: an undo that lost the race
+      // restores nothing.
+      stockMoved = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.householdTask.updateMany({ where: unchangedSinceRead, data: restoreData });
+        if (count === 0) return false;
+        return restoreTaskItem(tx, { householdId: household.id, userId, taskId: task.id });
+      }, INTERACTIVE_TX_OPTIONS);
     }
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath("/dashboard/tasks");
-  return {};
+  if (stockMoved) {
+    revalidatePath("/dashboard/inventory");
+    revalidatePath("/dashboard/inventory/items/[id]", "page");
+    revalidatePath("/dashboard");
+    revalidateAutoAdded([autoAdded]);
+  }
+  return used ? { used } : {};
 }
 
 /**
