@@ -101,20 +101,6 @@ Parallel-safe except where noted.
 
 ### Dependencies
 
-- [ ] **DEPS-11. Group the in-range patch/minor bumps** (impact: low, effort: S, own PR — touches `package.json`/lockfile) —
-      `npm outdated` on 2026-11-20: `@sentry/nextjs` 11.12.0 → 11.15.0,
-      `lucide-react` 1.73.0 → 1.77.0, `resend` 6.38.1 → 6.39.0 and
-      `vitest` 5.1.0 → 5.1.1 (all inside their `^` ranges, lockfile only),
-      plus the exact pins `axe-core` 4.14.0 → 4.14.1 and `knip`
-      6.45.1 → 6.46.1. `npm audit --omit=dev` is clean (0 advisories), so
-      this is hygiene, not a fix. Not in scope: `eslint` 10 (MAINT-12, the
-      three `eslint-config-next` plugins still cap at `^9`), `typescript` 7
-      (`typescript-eslint` still accepts `<6.1.0`), `@types/node` majors
-      (follow the Node 22 pin), and `next-auth`/`prisma` "latest" (npm's
-      `latest` tag points at 4.24.15 and 8.0.0-rc.34, a downgrade and a
-      release candidate). Acceptance: `npm outdated` lists none of the six;
-      `npm run check`, `npm run build` and the e2e suite pass.
-
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:

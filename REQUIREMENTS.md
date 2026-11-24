@@ -8437,7 +8437,9 @@ needs a pin rather than a fix: `@vercel/cli-config` (under
 Drop the override once `@vercel/cli-config` ships a patched `zod`. Re-run the
 audit on dependency bumps: it was still clean after DEPS-9's grouped
 patch/minor bumps (`next` 16.4.6, `@playwright/test` 1.65.1, `@sentry/nextjs`
-11.12.0 and others), none of which was a security fix. `next-auth` is still
+11.12.0 and others) and DEPS-11's (`@sentry/nextjs` 11.17.0, `lucide-react`
+1.79.0, `resend` 6.39.0, `vitest` 5.1.1, `axe-core` 4.14.1, `knip` 6.48.0),
+none of which was a security fix. `next-auth` is still
 `5.0.0-beta.32`; there is no stable v5, so watch its advisories through MAINT-12's Dependabot config.
 
 ## Navigation & responsive layout
