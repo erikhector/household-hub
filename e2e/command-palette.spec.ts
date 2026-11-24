@@ -113,9 +113,36 @@ test("Enter still navigates when the router pushes before the palette's history 
   await page.evaluate(() => {
     (window as unknown as { holdNextBack?: boolean }).holdNextBack = true;
   });
+  // MAINT-125: on the mobile project the URL still had `?add=1` 5 s after
+  // Enter. Nothing was lost: the tasks page strips it with router.replace()
+  // once the pushed page has rendered, and the router writes the stripped
+  // URL only when that replace's server render has arrived, so the URL
+  // waits on two round trips after the push. A probe that held each step
+  // of the repair for 0.5 s and 1.5 s, and slowed the strip's answer by
+  // 3 s, still landed on /dashboard/tasks every time, later. So the same
+  // waits as the shopping list's strip (MAINT-124): the dialog first (the
+  // page has rendered and the strip's effect has run), then the replace's
+  // own request (a strip that never goes out fails here, by name), then
+  // the URL with the 20 s a cold page gets. Armed before Enter, since the
+  // request can go out before the dialog check returns.
+  const NAVIGATION_TIMEOUT = 20_000;
+  const stripRequested = page.waitForRequest(
+    (request) => {
+      const url = new URL(request.url());
+      return (
+        url.pathname === "/dashboard/tasks" &&
+        url.searchParams.has("_rsc") &&
+        !url.searchParams.has("add") &&
+        request.headers()["next-router-prefetch"] === undefined
+      );
+    },
+    { timeout: NAVIGATION_TIMEOUT },
+  );
   await page.keyboard.press("Enter");
 
-  await expect(page).toHaveURL(/\/dashboard\/tasks$/);
+  await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible({ timeout: NAVIGATION_TIMEOUT });
+  await stripRequested;
+  await expect(page).toHaveURL(/\/dashboard\/tasks$/, { timeout: NAVIGATION_TIMEOUT });
   await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
 });
 

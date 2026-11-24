@@ -11301,7 +11301,10 @@ UX-14's rapid ticks and the rollback toast.
   `router.replace()`, which also writes the URL only once that server
   render arrives, so the palette's "Add to shopping list" test waits for
   the add box's focus, then for the replace's RSC request, then for the
-  stripped URL with the same 20 s (MAINT-124). A CSS
+  stripped URL with the same 20 s (MAINT-124), and the palette's "Add
+  task" test under a held history entry waits the same way for the tasks
+  page's dialog, its strip request and then the stripped URL (MAINT-125).
+  A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing
