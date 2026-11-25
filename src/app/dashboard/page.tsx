@@ -5,6 +5,7 @@ import { TodayBlock, type TodayMissing, type TodayTask } from "@/components/dash
 import { ShoppingPantryCard } from "@/components/dashboard/shopping-pantry-card";
 import { SafeToSpendTiles } from "@/components/dashboard/safe-to-spend-tiles";
 import { HomeAddToList } from "@/components/dashboard/home-add-to-list";
+import { ComingUpCard } from "@/components/dashboard/coming-up-card";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
@@ -419,6 +420,16 @@ export default async function DashboardOverviewPage(props: PageProps<"/dashboard
                 saveFailedToast: dict.tasks.saveFailedToast,
                 overdueLabel: dict.tasks.overdueLabel,
               }}
+            />
+            {/* GAP-35: the next few calendar events, or nothing. One small
+                indexed query of its own, rendered with the page rather than
+                streamed in after it, so the cards below never jump (M8). */}
+            <ComingUpCard
+              householdId={household.id}
+              today={today}
+              locale={locale}
+              dict={dict.dashboard.comingUp}
+              calendarDict={dict.calendar}
             />
           </div>
           <div className="flex min-w-0 flex-col gap-6">

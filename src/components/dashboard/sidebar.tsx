@@ -127,11 +127,14 @@ export function Sidebar({
     // a phone in landscape) the nav list and the six footer rows can't
     // share the height: scrolling just the nav left it a ~40 px window, so
     // the whole aside scrolls instead and the nav takes its natural height
-    // (UX-7). box-content + the safe-area padding keeps w-56/w-16 as the
+    // (UX-7). Since GAP-35's tenth section the list no longer fits a 720 px
+    // laptop either, so the aside scrolls at every height, with the footer
+    // rows pinned to its bottom (sticky) wherever there's room for them,
+    // and scrolling with the rest on a short screen. box-content + the safe-area padding keeps w-56/w-16 as the
     // content width while clearing a landscape notch on the left.
     <aside
       className={cn(
-        "sticky top-0 hidden h-dvh shrink-0 box-content flex-col border-r bg-background pl-[env(safe-area-inset-left)] transition-[width] duration-150 sm:flex short:overflow-y-auto short:overscroll-contain print:hidden",
+        "sticky top-0 hidden h-dvh shrink-0 box-content flex-col border-r bg-background pl-[env(safe-area-inset-left)] transition-[width] duration-150 sm:flex overflow-y-auto overscroll-contain print:hidden",
         expanded ? "w-56" : "w-16",
       )}
     >
@@ -153,7 +156,7 @@ export function Sidebar({
           </Tooltip>
         )}
       </div>
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2 short:flex-none short:overflow-visible">
+      <nav className="flex flex-1 flex-col gap-1 p-2">
         {navItems.map(({ href, key, icon: Icon, color }) => {
           const active = isNavItemActive(pathname, href);
           const label = dict.nav[key];
@@ -190,7 +193,7 @@ export function Sidebar({
           );
         })}
       </nav>
-      <div className="flex flex-col gap-1 border-t p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-0 flex flex-col gap-1 border-t bg-background p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] short:static">
         {/* Doubles as the app's version display. The dot stays until the
             user opens What's new for the newest release (see
             src/lib/release-notes/index.ts). The version arrives as a prop so

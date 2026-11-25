@@ -43,7 +43,7 @@ Decisions only the owner can make, each with a recommended answer.
 - `PERF-32`: recommended split behind an off-by-default flag, owner
   measures in Vercel (#1704).
 - `UX-66`: owner wants the "who we are" sentence; reply on #736 with the accurate wording.
-- `GAP-35`, `GAP-36`, `GAP-37`, `GAP-38`, `GAP-41`: recommended no for now
+- `GAP-36`, `GAP-37`, `GAP-38`, `GAP-41`: recommended no for now
   (new data model or money-math, no evidence of demand); `GAP-20`/`GAP-26`
   wait for real usage.
 
@@ -51,6 +51,7 @@ Decisions only the owner can make, each with a recommended answer.
 
 | Date | ID | Decision | Why | Reversible? |
 |---|---|---|---|---|
+| 2026-11-25 | GAP-35 | Build the household calendar: a `HouseholdEvent` (title, date, optional times, notes, who it's for, weekly/monthly/yearly repeat), an agenda page behind More, a light "Coming up" card on Home, and events in the `.ics` feed with RRULEs; everyone sees every event; reminders later (GAP-88) | owner | Hard (migration) |
 | 2026-11-25 | MAINT-7 | Convert the household budget's errors now; BUDGET-6 no longer blocks it | owner; the conversion doesn't depend on BUDGET-6's answer, which stays open as its own question | Yes |
 | 2026-11-23 | UX-36b | Offline adds only, replayed through smart add's existing "already on the list" dedupe; offline price edits not planned | In-store need is remembering an item; no client ids or new merge rules; money stays online (UX-36) | Yes |
 | 2026-11-23 | MAINT-38 | Dropped the item-page heading flake | No sighting since 2026-10-20 across dozens of gates; the wait is client hydration, so neither offered fix fits. Re-file on the next sighting | Yes |
