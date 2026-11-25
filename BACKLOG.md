@@ -534,7 +534,16 @@ order below is a suggestion, not a dependency, unless noted.
       "the morning of" means the run on that day in the recipient's own
       zone (their push devices' `PushSubscription.timeZone`, UTC when
       unknown), "the day before" the run on the day before; a run that
-      finds the day already past sends nothing late. Push only, no bell
+      finds the day already past sends nothing late. The run is at
+      06:00 UTC (`0 6 * * *` in `vercel.json`), which is still the
+      previous evening west of UTC, so a run's "today" is the later of
+      the recipient's local date and the UTC date, the rule
+      `syncTaskDueNudge` already uses (`Math.max(todayDayNumber(now,
+      timeZone), todayDayNumber(now))`, `src/lib/notifications.ts`, with
+      `todayDayNumber` in `src/app/dashboard/tasks/task-due.ts`). East of
+      UTC that lands in the morning; west of UTC "the morning of" arrives
+      the evening before the event's day and "the day before" two
+      evenings before, never after the event has started. Push only, no bell
       entry: a bell badge must mean something's wrong. Opt-in and off by
       default. Acceptance: a member picks "The morning of" in the event
       sheet, it saves and shows on reopen; the Profile toggle saves; the
