@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { unique, uniqueId, withDb } from "./db";
-import { clickRowAction, dismissCookieNotice, expectHydrated, waitForDialogHistory } from "./ui";
+import { clickRowAction, dismissCookieNotice, expectHydrated, expectRouterPatched, waitForDialogHistory } from "./ui";
 
 // PERF-32a: Home's household data can be cached across requests (behind
 // HOME_CACHE, off by default), so every edit made elsewhere in the app has to
@@ -93,6 +93,7 @@ test("a task renamed on Tasks and ticked on Home shows on Home at once", async (
     await page.goto("/dashboard/tasks");
     const titleButton = main.getByRole("button", { name: title, exact: true });
     await expectHydrated(titleButton);
+    await expectRouterPatched(page);
     await titleButton.click();
     const dialog = page.getByRole("dialog", { name: `Edit "${title}"` });
     await dialog.getByRole("textbox", { name: "Task title" }).fill(renamed);
@@ -138,6 +139,10 @@ test("an item renamed on its page shows under Use soon on Home at once", async (
     await expect(chip).toBeVisible();
 
     await page.goto(`/dashboard/inventory/items/${itemId}`);
+    // The Edit button on a wide screen, the ⋯ menu on a phone (clickRowAction).
+    const isWide = (page.viewportSize()?.width ?? 1280) >= 640;
+    await expectHydrated(page.getByRole("button", { name: isWide ? "Edit item" : "More actions", exact: true }));
+    await expectRouterPatched(page);
     await clickRowAction(page, { button: "Edit item", menu: "More actions", item: "Edit" });
     const dialog = page.getByRole("dialog", { name: "Edit inventory item" });
     await dialog.getByRole("textbox", { name: "Name" }).fill(renamed);

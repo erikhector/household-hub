@@ -178,7 +178,7 @@ export function createRedisCacheHandler({ redis, now = Date.now }) {
       }
     },
 
-    async getExpiration() {
+    async getExpiration(_tags) {
       // get() checks the soft tags itself (see the header comment).
       return Infinity;
     },
