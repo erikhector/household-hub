@@ -8,6 +8,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { errorText, fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 import { parseDueDate } from "@/lib/planned-expense-calc";
+import { invalidateHome } from "@/lib/household-cache";
 
 // Planned bills (BUDGET-8): one-off bills with a due date. Kept out of
 // actions.ts, which is already 1 000+ lines. Editing a bill never touches the
@@ -100,6 +101,7 @@ export async function createPlannedExpenseAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }
@@ -172,6 +174,7 @@ export async function updatePlannedExpenseAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }
@@ -188,6 +191,7 @@ export async function deletePlannedExpenseAction(id: string): Promise<ActionStat
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateBudgetPages();
   return {};
 }

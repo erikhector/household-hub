@@ -21,6 +21,7 @@ import {
   MAX_FREEFORM_INGREDIENTS_LENGTH,
   normalizeFreeformIngredients,
 } from "@/app/dashboard/meal-planning/custom-meal-ingredients";
+import { invalidateHome } from "@/lib/household-cache";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -90,6 +91,7 @@ export async function addMealEntryAction(
       if (error instanceof PrepAssignError) return await fail(error.key);
       return toFriendlyError(error);
     }
+    invalidateHome(household.id);
     revalidatePath(MEAL_PLANNING_PATH);
     revalidatePath("/dashboard");
     return {};
@@ -144,6 +146,7 @@ export async function addMealEntryAction(
   // GAP-51: a recipe with a day no longer belongs on the Cook soon shelf.
   await clearCookSoon(prisma, household.id, linkedRecipeId);
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
 }
@@ -223,6 +226,7 @@ export async function updateMealEntryAction(
   if (!unlink) {
     await prisma.mealPlanEntry.update(edit);
     await clearCookSoon(prisma, household.id, linkedRecipeId);
+    invalidateHome(household.id);
     revalidatePath(MEAL_PLANNING_PATH);
     return {};
   }
@@ -251,6 +255,7 @@ export async function updateMealEntryAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};
@@ -355,6 +360,7 @@ export async function moveMealEntryAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
 }
@@ -383,6 +389,7 @@ export async function deleteMealEntryAction(entryId: string): Promise<ActionStat
     } catch (error) {
       return toFriendlyError(error);
     }
+    invalidateHome(household.id);
     revalidatePath(MEAL_PLANNING_PATH);
     return {};
   }
@@ -411,6 +418,7 @@ export async function deleteMealEntryAction(entryId: string): Promise<ActionStat
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};
@@ -534,6 +542,7 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return { copied: created.length, entryIds: created.map((e) => e.id) };
 }
@@ -615,6 +624,7 @@ export async function fillEmptyDaysAction(
     select: { id: true },
   });
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return { copied: created.length, entryIds: created.map((e) => e.id) };
 }
@@ -650,6 +660,7 @@ export async function undoCopyWeekAction(entryIds: string[]): Promise<ActionStat
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
 }

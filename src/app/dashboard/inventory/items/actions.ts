@@ -19,6 +19,7 @@ import {
   planMerge,
   type MergeItem,
 } from "@/lib/inventory/merge";
+import { invalidateHome } from "@/lib/household-cache";
 
 // The item page's writes (MATCH-6, design §6.1): an item's unit
 // conversions, "Change unit…" and removing a learned alias. Then the item
@@ -99,6 +100,7 @@ export async function saveUnitConversionAction(_prevState: ActionState, formData
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateItem(item.id);
   return {};
 }
@@ -118,6 +120,7 @@ export async function deleteUnitConversionAction(conversionId: string): Promise<
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateItem(itemId);
   return {};
 }
@@ -205,6 +208,7 @@ export async function changeItemUnitAction(_prevState: ActionState, formData: Fo
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateItem(item.id);
   revalidatePath("/dashboard");
   return {};
@@ -571,6 +575,7 @@ export async function mergeInventoryItemsAction(input: {
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateCatalog();
   revalidateItem(keeper.id);
   revalidatePath("/dashboard/shopping-list", "layout");

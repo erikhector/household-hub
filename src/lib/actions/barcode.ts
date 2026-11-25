@@ -14,6 +14,7 @@ import { recordOutOfStockTransition } from "@/lib/notifications";
 import { reasonForDelta, recordStockEvent } from "@/lib/inventory/stock-history";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
+import { invalidateHome } from "@/lib/household-cache";
 
 // Two halves live here:
 //
@@ -185,6 +186,7 @@ export async function scanStockChangeAction(barcode: string, delta: number): Pro
     return { kind: "error", error: (await toFriendlyError(error)).error ?? "Something went wrong" };
   }
 
+  invalidateHome(household.id);
   revalidateInventory();
   revalidateAutoAdded([autoAdded]);
   return {
@@ -238,6 +240,7 @@ export async function undoScanStockChangeAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidateInventory();
   revalidateAutoAdded([autoAdded]);
   return { item: toScannedItem(item, nextQuantity) };
@@ -296,6 +299,7 @@ export async function linkBarcodeAction(
     return { kind: "error", error: (await toFriendlyError(error)).error ?? "Something went wrong" };
   }
 
+  invalidateHome(household.id);
   revalidateInventory();
   revalidateAutoAdded([autoAdded]);
   return {
@@ -359,6 +363,7 @@ export async function createItemFromBarcodeAction(input: {
     return { kind: "error", error: (await toFriendlyError(error)).error ?? "Something went wrong" };
   }
 
+  invalidateHome(household.id);
   revalidateInventory();
   return { kind: "applied", item: toScannedItem(created, quantity), appliedDelta: quantity };
 }

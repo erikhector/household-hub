@@ -15,6 +15,7 @@ import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { repurchaseSnoozeUntil } from "@/lib/inventory/repurchase-calc";
 import { loadRepurchaseRhythm } from "@/lib/inventory/repurchase-suggestions";
 import { defaultLineEstimate } from "@/lib/shopping/unit-price";
+import { invalidateHome } from "@/lib/household-cache";
 
 /**
  * One tap on a chip: puts the item on the list being viewed. The amount is
@@ -77,6 +78,7 @@ export async function addRepurchaseSuggestionAction(
     return toFriendlyError(error);
   }
 
+  invalidateHome(household.id);
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   return { itemId };
 }
