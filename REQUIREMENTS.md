@@ -8637,11 +8637,15 @@ components directly.
 - **In between (640 px wide and up, but a tablet or a phone in landscape;
   UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
   863×393 too. The content column next to the sidebar is `min-w-0`, so a
-  wide row wraps instead of widening the page. The sidebar is `h-dvh`; on a
-  short screen (the `short:` variant, `max-height: 500px`, defined in
-  `globals.css`) the whole aside scrolls and the nav list takes its
+  wide row wraps instead of widening the page. The sidebar is `h-dvh`, and
+  the whole aside scrolls at every height while the nav list takes its
   natural height, instead of the nav getting a sliver of inner scroll
-  between the household switcher and the footer. The aside pads
+  between the household switcher and the footer. The footer rows are
+  `sticky bottom-0` where they fit, and scroll with the rest on a short
+  screen (the `short:` variant, `max-height: 500px`, defined in
+  `globals.css`). Until GAP-35 only `short:` screens scrolled the aside;
+  the calendar's tenth section made the nav list too tall for a 720 px
+  laptop as well. The aside pads
   `env(safe-area-inset-left)` (content-box, so `w-56`/`w-16` stay the
   content width) and its footer the bottom inset; `main` pads the right
   inset, and the left one on phones where there's no sidebar. The
