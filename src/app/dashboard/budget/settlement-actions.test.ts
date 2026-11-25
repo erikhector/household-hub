@@ -5,6 +5,7 @@
 // — no database is touched. See REQUIREMENTS.md's "Testing" section and the
 // identical convention in src/lib/actions/household.test.ts.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   requireHouseholdMock,
@@ -186,7 +187,24 @@ describe("settling up", () => {
   it("rejects a zero amount", async () => {
     const result = await recordSettlementAction({}, settlementFormData({ amount: "0" }));
 
-    expect(result.error).toBe("Amount must be greater than 0");
+    expect(result.error).toBe("Amount must be greater than zero");
+  });
+
+  // MAINT-7: the errors are in the request's language.
+  it("answers in Swedish for a Swedish user", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const zero = await recordSettlementAction({}, settlementFormData({ amount: "0" }));
+    expect(zero.error).toBe(sv.errors.amountPositive);
+
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const self = await recordSettlementAction({}, settlementFormData({ toMemberId: "member-2" }));
+    expect(self.error).toBe(sv.errors.chooseTwoDifferentMembers);
+    expect(self.error).not.toBe("Choose two different members");
+
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }]);
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const gone = await recordSettlementAction({}, settlementFormData());
+    expect(gone.error).toBe(sv.errors.splitMemberGone);
   });
 
   it("scopes deleting a repayment to the caller's household", async () => {
