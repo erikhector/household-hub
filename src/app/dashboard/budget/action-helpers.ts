@@ -6,6 +6,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { fail } from "@/lib/actions/errors";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 
 /**
@@ -39,9 +40,7 @@ export async function assertNoDuplicateTemplatePeriod(
     select: { date: true },
   });
   const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency, startDay) === periodKey);
-  return alreadyLogged
-    ? { error: "A transaction for this recurring item already exists for this period" }
-    : null;
+  return alreadyLogged ? fail("recurringItemAlreadyLogged") : null;
 }
 
 export type ParsedSplit = { householdMemberId: string; amountOwed: number; amountPaid: number };

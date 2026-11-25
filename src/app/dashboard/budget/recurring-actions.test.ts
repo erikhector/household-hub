@@ -5,6 +5,7 @@
 // — no database is touched. See REQUIREMENTS.md's "Testing" section and the
 // identical convention in src/lib/actions/household.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   requireHouseholdMock,
@@ -165,7 +166,7 @@ describe("recurring templates", () => {
     );
   });
 
-  it("updateRecurringTemplateAction returns 'Recurring template not found' for another household's template (IDOR guard)", async () => {
+  it("updateRecurringTemplateAction returns 'Recurring item not found' for another household's template (IDOR guard)", async () => {
     categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
     recurringTemplateFindFirstMock.mockResolvedValue(null);
 
@@ -174,8 +175,22 @@ describe("recurring templates", () => {
       formData({ ...templateBase, id: "someone-elses-template" }),
     );
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(recurringTemplateUpdateMock).not.toHaveBeenCalled();
+  });
+
+  // MAINT-7: the errors are in the request's language.
+  it("answers in Swedish for a Swedish user", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const blank = await createRecurringTemplateAction({}, formData({ ...templateBase, name: " " }));
+    expect(blank.error).toBe(sv.errors.nameRequired);
+
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    recurringTemplateFindFirstMock.mockResolvedValue(null);
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    const missing = await updateRecurringTemplateAction({}, formData({ ...templateBase, id: "gone" }));
+    expect(missing.error).toBe(sv.errors.recurringItemNotFound);
+    expect(missing.error).not.toBe("Recurring item not found");
   });
 
   it("setRecurringTemplateActiveAction scopes the update to the caller's household", async () => {
@@ -199,12 +214,12 @@ describe("recurring templates", () => {
     });
   });
 
-  it("acknowledgeTemplatePeriodAction returns 'Recurring template not found' for another household's template", async () => {
+  it("acknowledgeTemplatePeriodAction returns 'Recurring item not found' for another household's template", async () => {
     recurringTemplateFindFirstMock.mockResolvedValue(null);
 
     const result = await acknowledgeTemplatePeriodAction("someone-elses-template");
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(recurringTemplateAckUpsertMock).not.toHaveBeenCalled();
   });
 
@@ -226,22 +241,22 @@ describe("recurring templates", () => {
     );
   });
 
-  it("unacknowledgeTemplatePeriodAction returns 'Recurring template not found' for another household's template", async () => {
+  it("unacknowledgeTemplatePeriodAction returns 'Recurring item not found' for another household's template", async () => {
     recurringTemplateFindFirstMock.mockResolvedValue(null);
 
     const result = await unacknowledgeTemplatePeriodAction("someone-elses-template");
 
-    expect(result.error).toBe("Recurring template not found");
+    expect(result.error).toBe("Recurring item not found");
     expect(recurringTemplateAckDeleteManyMock).not.toHaveBeenCalled();
   });
 
   describe("logRecurringTemplateAction", () => {
-    it("returns 'Recurring template not found' for another household's template (IDOR guard)", async () => {
+    it("returns 'Recurring item not found' for another household's template (IDOR guard)", async () => {
       recurringTemplateFindFirstMock.mockResolvedValue(null);
 
       const result = await logRecurringTemplateAction("someone-elses-template");
 
-      expect(result.error).toBe("Recurring template not found");
+      expect(result.error).toBe("Recurring item not found");
       expect(transactionCreateMock).not.toHaveBeenCalled();
       expect(recurringTemplateFindFirstMock).toHaveBeenCalledWith(
         expect.objectContaining({
