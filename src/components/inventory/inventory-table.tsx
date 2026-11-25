@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import {
   Select,
   SelectContent,
@@ -60,6 +61,7 @@ import { PendingLabel } from "@/components/ui/pending-label";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
+import { parseDecimal } from "@/lib/decimal-input";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
@@ -259,7 +261,7 @@ export function InventoryTable({
   // a real value since Prisma can't coerce an empty string into a number.
   function isBulkValueValid(field: BulkEditableField, value: string) {
     if (field === "quantity" || field === "lowStockThreshold") {
-      return value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
+      return value.trim() !== "" && Number.isFinite(parseDecimal(value)) && parseDecimal(value) >= 0;
     }
     if (field === "unit") return value.trim() !== "";
     return true;
@@ -380,11 +382,7 @@ export function InventoryTable({
               </SelectContent>
             </Select>
             {bulkField === "quantity" || bulkField === "lowStockThreshold" ? (
-              <Input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="any"
+              <DecimalInput
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
                 className="h-8 w-28 max-sm:h-11 max-sm:w-auto max-sm:min-w-32 max-sm:flex-1"

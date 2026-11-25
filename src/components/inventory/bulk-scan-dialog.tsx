@@ -5,6 +5,7 @@ import { Camera, CameraOff, Loader2, ScanLine, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import { lookupBarcodeAction } from "@/lib/actions/barcode";
 import { useBarcodeCamera } from "@/components/shared/use-barcode-camera";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { parseDecimal } from "@/lib/decimal-input";
 
 // How long the queue ignores detections after a hit —
 // long enough that the same can/box still in frame isn't immediately
@@ -80,7 +82,7 @@ export function BulkScanDialog({
       const idx = prev.findIndex((q) => q.barcode === barcode);
       if (idx >= 0) {
         const next = [...prev];
-        const nextQuantity = (Number(next[idx].quantity) || 0) + 1;
+        const nextQuantity = (parseDecimal(next[idx].quantity) || 0) + 1;
         next[idx] = { ...next[idx], quantity: String(nextQuantity) };
         addedName = next[idx].name || barcode;
         becameQuantity = nextQuantity;
@@ -142,7 +144,7 @@ export function BulkScanDialog({
     const result = await bulkCreateInventoryItemsAction(
       queue.map((row) => ({
         name: row.name.trim(),
-        quantity: Number(row.quantity) || 0,
+        quantity: parseDecimal(row.quantity) || 0,
         unit: "pcs",
         category: row.category ?? undefined,
         // Remembered on the created item (AUTO-6), so a later stock scan
@@ -193,11 +195,11 @@ export function BulkScanDialog({
                   {queue.length > 0
                     ? format(
                         plural(
-                          queue.reduce((n, r) => n + (Number(r.quantity) || 0), 0),
+                          queue.reduce((n, r) => n + (parseDecimal(r.quantity) || 0), 0),
                           t.queuedCount,
                         ),
                         {
-                          count: queue.reduce((n, r) => n + (Number(r.quantity) || 0), 0),
+                          count: queue.reduce((n, r) => n + (parseDecimal(r.quantity) || 0), 0),
                         },
                       )
                     : t.queueEmptyHint}
@@ -280,11 +282,7 @@ export function BulkScanDialog({
                     aria-invalid={!row.name.trim()}
                     aria-label={dict.nameLabel}
                   />
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="any"
+                  <DecimalInput
                     value={row.quantity}
                     onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
                     className="w-16"

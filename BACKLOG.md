@@ -234,17 +234,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 
-- [ ] **UX-30. Decimal comma in number fields on iOS** `[verify on device]`
-      (high if it reproduces, S) — There are 48 `type="number"
-      inputMode="decimal"` fields, for example
-      `transaction-dialog.tsx:319` and `quick-add-bar.tsx:102`. With a
-      Swedish region, iOS's decimal pad offers only ",". WebKit has
-      treated "12,5" in a number input as invalid and submitted `""`.
-
-      Test on a Swedish-region iPhone. If it reproduces, switch money and
-      quantity fields to `type="text" inputMode="decimal"` with a pattern,
-      and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
-
 ### UX (2026-10-15 full UI review)
 
 The owner asked for an extensive review of every page, logged in and

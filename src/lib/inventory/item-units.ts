@@ -7,6 +7,7 @@
 import { canonicalUnit, convertForItem, convertQuantity, type ItemUnitConversionLike } from "@/lib/units";
 import { conversionLeadUnit } from "@/lib/recipes/unit-hints";
 import { MAX_UNIT_FACTOR, MIN_UNIT_FACTOR } from "@/lib/recipes/unit-choice";
+import { parseDecimal } from "@/lib/decimal-input";
 
 export const isFactorInRange = (factor: number) =>
   Number.isFinite(factor) && factor >= MIN_UNIT_FACTOR && factor <= MAX_UNIT_FACTOR;
@@ -65,8 +66,8 @@ export function conversionSentence(fromUnit: string, factor: number, itemUnit: s
  * sentence "1 lead = [amount] other", or null when it isn't a positive
  * number within the factor bounds. */
 export function factorFromSentence(fromUnit: string, itemUnit: string, typed: string): number | null {
-  const amount = Number(typed.trim().replace(",", "."));
-  if (!typed.trim() || !Number.isFinite(amount) || amount <= 0) return null;
+  const amount = parseDecimal(typed);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
   const factor = conversionLeadUnit(fromUnit, itemUnit) === "item" ? 1 / amount : amount;
   return isFactorInRange(factor) ? factor : null;
 }

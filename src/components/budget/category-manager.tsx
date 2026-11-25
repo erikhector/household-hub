@@ -7,6 +7,7 @@ import { LearnMore } from "@/components/budget/learn-more";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -546,14 +547,9 @@ function MonthlyLimitField({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor={id}>{dict.categories.limitLabel}</Label>
-        <Input
+        <DecimalInput
           id={id}
           name="monthlyLimit"
-          type="number"
-          min={0.01}
-          step="any"
-          inputMode="decimal"
-          autoComplete="off"
           enterKeyHint="done"
           defaultValue={defaultValue ?? undefined}
           placeholder={dict.categories.limitPlaceholder}
@@ -611,14 +607,9 @@ function SavingsGoalField({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor={id}>{dict.categories.goalLabel}</Label>
-        <Input
+        <DecimalInput
           id={id}
           name="goalAmount"
-          type="number"
-          min={0.01}
-          step="any"
-          inputMode="decimal"
-          autoComplete="off"
           enterKeyHint="next"
           defaultValue={defaultAmount ?? undefined}
           placeholder={dict.categories.goalPlaceholder}

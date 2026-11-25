@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { parseDecimal } from "@/lib/decimal-input";
 
 export type PutAwayItem = {
   id: string;
@@ -152,7 +154,7 @@ export function PutAwayDialog({
         entries.push({ itemId: item.id, notBought: true });
         continue;
       }
-      const quantity = Number(row.quantity.replace(",", "."));
+      const quantity = parseDecimal(row.quantity);
       if (!Number.isFinite(quantity) || quantity <= 0) {
         setError(format(t.quantityInvalid, { name: item.name }));
         return;
@@ -262,11 +264,7 @@ export function PutAwayDialog({
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-[6rem_1fr_1fr]">
                       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                         {format(t.quantityLabel, { unit: unitLabel(item.unit) })}
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          step="any"
+                        <DecimalInput
                           value={row.quantity}
                           disabled={pending}
                           onChange={(e) => update(item, { quantity: e.target.value })}

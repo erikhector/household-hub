@@ -293,6 +293,20 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     expect(result.error).toBe("Quantity must be greater than 0");
   });
 
+  it("reads a quantity typed with a decimal comma (UX-30)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await addAdHocItemAction({}, formData({ listId: "list-1", name: "Mjöl", quantity: "12,5" }));
+
+    expect(result.error).toBeUndefined();
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ name: "Mjöl", quantity: 12.5 }),
+    });
+  });
+
   it("refuses to add to a list from another household", async () => {
     shoppingListFindFirstMock.mockResolvedValue(null);
 

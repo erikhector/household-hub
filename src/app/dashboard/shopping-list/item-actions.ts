@@ -20,6 +20,7 @@ import { createInventoryLinker } from "@/lib/shopping/inventory-link";
 import { defaultLineEstimate } from "@/lib/shopping/unit-price";
 import { findExactInventoryItem, findFuzzyInventoryItem } from "./inventory-lookup";
 import { updateItemPriceSchema } from "./price-schema";
+import { normalizeDecimal } from "@/lib/decimal-input";
 import { invalidateHome } from "@/lib/household-cache";
 
 const addItemSchema = z.object({
@@ -118,7 +119,7 @@ export async function addAdHocItemAction(
   const parsed = addItemSchema.safeParse({
     listId: formData.get("listId"),
     name: formData.get("name"),
-    quantity: formData.get("quantity") || 1,
+    quantity: normalizeDecimal(formData.get("quantity") || 1),
     unit: formData.get("unit") || undefined,
   });
   if (!parsed.success) {

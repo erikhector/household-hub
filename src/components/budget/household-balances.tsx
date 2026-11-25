@@ -40,6 +40,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import type { Settlement } from "@/lib/settle-up-calc";
 import { buildSwishPaymentUrl, formatSwishNumber } from "@/lib/swish";
@@ -139,13 +140,9 @@ function ClearDebtDialog({
               <Label htmlFor="settle-amount">{dict.amountLabel}</Label>
               {/* Pre-filled with the whole debt; lower it for a partial
                   repayment. */}
-              <Input
+              <DecimalInput
                 id="settle-amount"
                 name="amount"
-                type="number"
-                inputMode="decimal"
-                min={0.01}
-                step="any"
                 defaultValue={settlement.amount.toFixed(2)}
                 aria-invalid={req.messageFor("amount") ? true : undefined}
                 aria-describedby={req.messageFor("amount") ? fieldErrorId("settle-amount") : undefined}

@@ -10,6 +10,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 import { assertNoDuplicateTemplatePeriod, revalidateBudgetPages, type ParsedSplit } from "./action-helpers";
+import { normalizeMoney } from "@/lib/decimal-input";
 import { invalidateHome } from "@/lib/household-cache";
 
 // --- Recurring templates --------------------------------------------------
@@ -19,7 +20,7 @@ import { invalidateHome } from "@/lib/household-cache";
 const recurringTemplateSchema = z.object({
   name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
   categoryId: z.string().min(1, v("categoryRequired")),
-  amount: z.coerce.number().positive(v("amountPositive")),
+  amount: z.coerce.number({ error: v("amountFormat") }).positive(v("amountPositive")),
   frequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]),
   dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
 });
@@ -28,7 +29,7 @@ function parseRecurringTemplateFormData(formData: FormData) {
   return recurringTemplateSchema.safeParse({
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });
@@ -101,7 +102,7 @@ export async function updateRecurringTemplateAction(
     id: formData.get("id"),
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    amount: formData.get("amount"),
+    amount: normalizeMoney(formData.get("amount")),
     frequency: formData.get("frequency"),
     dayOfMonth: formData.get("dayOfMonth") || undefined,
   });

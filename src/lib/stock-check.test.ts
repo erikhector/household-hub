@@ -56,6 +56,15 @@ describe("readCountedAmount", () => {
     expect(readCountedAmount(2, "abc")).toEqual({ kind: "invalid" });
     expect(readCountedAmount(2, "-1")).toEqual({ kind: "invalid" });
   });
+
+  // UX-30: the field is free text now, so it reads like every other
+  // decimal field (parseDecimal), not like Number().
+  it("reads what the decimal keypad types and rejects what Number() would accept", () => {
+    expect(readCountedAmount(2, "12,5")).toEqual({ kind: "changed", quantity: 12.5 });
+    expect(readCountedAmount(2, "1 234,5")).toEqual({ kind: "changed", quantity: 1234.5 });
+    expect(readCountedAmount(2, "0x10")).toEqual({ kind: "invalid" });
+    expect(readCountedAmount(2, "1e3")).toEqual({ kind: "invalid" });
+  });
 });
 
 describe("inputModeForUnit", () => {

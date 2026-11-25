@@ -1007,3 +1007,54 @@ describe("setPersonalBudgetMonthStartDayAction", () => {
     expect(userUpdateMock).not.toHaveBeenCalled();
   });
 });
+
+// UX-30: the amount fields are free text. Money with more than two decimals
+// ("1,200", twelve hundred to an English-locale user) is turned down rather
+// than saved as 1.2; a decimal comma and thousands spaces are read.
+describe("typed personal amounts (UX-30)", () => {
+  const rejected = ["0,00", "-12,5", "abc", "1.234,5", "1e3", "1,200"];
+  const accepted: [string, number][] = [
+    ["12,5", 12.5],
+    ["12,50", 12.5],
+    ["1 200,50", 1200.5],
+  ];
+  const tx = { categoryId: "cat-1", date: "2026-01-15", isRecurring: "" };
+  const template = { name: "Gym", categoryId: "cat-1", frequency: "MONTHLY" };
+
+  beforeEach(() => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", name: "Rent", type: "EXPENSE" });
+    transactionFindFirstMock.mockResolvedValue({ id: "t1", plannedExpense: null });
+    transactionCreateMock.mockResolvedValue({ id: "new-tx" });
+    transactionUpdateMock.mockResolvedValue({});
+    recurringTemplateFindFirstMock.mockResolvedValue({ id: "tpl-1" });
+    recurringTemplateCreateMock.mockResolvedValue({});
+    recurringTemplateUpdateMock.mockResolvedValue({});
+  });
+
+  it.each(rejected)("turns down %j on every amount", async (amount) => {
+    expect((await createPersonalTransactionAction({}, formData({ ...tx, amount }))).error).toBeTruthy();
+    expect((await updatePersonalTransactionAction({}, formData({ ...tx, id: "t1", amount }))).error).toBeTruthy();
+    expect((await createPersonalRecurringTemplateAction({}, formData({ ...template, amount }))).error).toBeTruthy();
+    expect(
+      (await updatePersonalRecurringTemplateAction({}, formData({ ...template, id: "tpl-1", amount }))).error,
+    ).toBeTruthy();
+
+    expect(transactionCreateMock).not.toHaveBeenCalled();
+    expect(transactionUpdateMock).not.toHaveBeenCalled();
+    expect(recurringTemplateCreateMock).not.toHaveBeenCalled();
+    expect(recurringTemplateUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it.each(accepted)("saves %j as %d on every amount", async (amount, expected) => {
+    const saved = expect.objectContaining({ data: expect.objectContaining({ amount: expected }) });
+
+    expect((await createPersonalTransactionAction({}, formData({ ...tx, amount }))).error).toBeUndefined();
+    expect(transactionCreateMock).toHaveBeenCalledWith(saved);
+    expect(await updatePersonalTransactionAction({}, formData({ ...tx, id: "t1", amount }))).toEqual({});
+    expect(transactionUpdateMock).toHaveBeenCalledWith(saved);
+    expect(await createPersonalRecurringTemplateAction({}, formData({ ...template, amount }))).toEqual({});
+    expect(recurringTemplateCreateMock).toHaveBeenCalledWith(saved);
+    expect(await updatePersonalRecurringTemplateAction({}, formData({ ...template, id: "tpl-1", amount }))).toEqual({});
+    expect(recurringTemplateUpdateMock).toHaveBeenCalledWith(saved);
+  });
+});

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/shared/decimal-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -37,6 +38,7 @@ import type { PlannedItemType } from "@/lib/planned-expense-calc";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { FieldError, fieldErrorId } from "@/components/auth/field-error";
 import { useRequiredFields } from "@/components/shared/use-required-fields";
+import { parseMoney } from "@/lib/decimal-input";
 
 // createPlannedExpenseAction / updatePlannedExpenseAction
 // (src/app/dashboard/budget/planned-expense-actions.ts), or the personal
@@ -162,7 +164,7 @@ export function PlannedExpenseDialog({
   }, initialState);
 
   function evenShares(total: string) {
-    const even = evenSplitAmounts(Number(total) || 0, members.length);
+    const even = evenSplitAmounts(parseMoney(total) || 0, members.length);
     return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
   }
 
@@ -249,13 +251,9 @@ export function PlannedExpenseDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="pe-amount">{t.amountLabel}</Label>
-              <Input
+              <DecimalInput
                 id="pe-amount"
                 name="amount"
-                type="number"
-                inputMode="decimal"
-                min={0.01}
-                step="any"
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
                 aria-invalid={req.messageFor("amount") ? true : undefined}
@@ -310,12 +308,8 @@ export function PlannedExpenseDialog({
                         <span className="min-w-0 flex-1 truncate text-sm" title={m.displayName}>
                           {m.displayName}
                         </span>
-                        <Input
+                        <DecimalInput
                           name="splitAmount"
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          step="any"
                           className="w-24 shrink-0"
                           value={splitAmounts[m.id] ?? "0"}
                           onChange={(e) => {
