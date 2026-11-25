@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.161.2",
+    "date": "2026-11-25",
+    "pr": 1766,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Swedish users now see budget error messages in Swedish.",
+      "sv": "Felmeddelanden i budgeten visas nu på svenska för den som använder appen på svenska."
+    }
+  },
+  {
     "version": "0.161.1",
     "date": "2026-11-24",
     "pr": 1747,

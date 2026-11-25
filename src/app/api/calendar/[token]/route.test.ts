@@ -3,17 +3,20 @@
 // the real one, reset between tests.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { householdFindUniqueMock, mealPlanEntryFindManyMock, recurringTemplateFindManyMock } = vi.hoisted(() => ({
-  householdFindUniqueMock: vi.fn(),
-  mealPlanEntryFindManyMock: vi.fn(async (): Promise<unknown[]> => []),
-  recurringTemplateFindManyMock: vi.fn(async (): Promise<unknown[]> => []),
-}));
+const { householdFindUniqueMock, mealPlanEntryFindManyMock, recurringTemplateFindManyMock, householdEventFindManyMock } =
+  vi.hoisted(() => ({
+    householdFindUniqueMock: vi.fn(),
+    mealPlanEntryFindManyMock: vi.fn(async (): Promise<unknown[]> => []),
+    recurringTemplateFindManyMock: vi.fn(async (): Promise<unknown[]> => []),
+    householdEventFindManyMock: vi.fn(async (): Promise<unknown[]> => []),
+  }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     household: { findUnique: householdFindUniqueMock },
     mealPlanEntry: { findMany: mealPlanEntryFindManyMock },
     recurringTemplate: { findMany: recurringTemplateFindManyMock },
+    householdEvent: { findMany: householdEventFindManyMock },
   },
 }));
 
@@ -88,6 +91,52 @@ describe("GET /api/calendar/[token]", () => {
     expect(body).toContain("UID:bill-b1-20260928@squirrel-calendar-feed\r\n");
     expect(body).toContain("SUMMARY:Due: Rent\r\n");
     expect(body).toContain("DTSTAMP:20260925T120000Z\r\n");
+  });
+
+  it("carries household events, with times and repeats, but never who they're for (GAP-35)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-25T12:00:00Z"));
+    householdFindUniqueMock.mockResolvedValue({ id: "h1", name: "Home" });
+    householdEventFindManyMock.mockResolvedValue([
+      {
+        id: "e1",
+        title: "Dentist",
+        date: new Date("2026-10-02T00:00:00Z"),
+        startTime: "14:30",
+        endTime: "15:00",
+        notes: "Bring the card",
+        recurrence: null,
+      },
+      {
+        id: "e2",
+        title: "Zoe's birthday",
+        date: new Date("2019-02-28T00:00:00Z"),
+        startTime: null,
+        endTime: null,
+        notes: null,
+        recurrence: "YEARLY",
+      },
+    ]);
+
+    const body = await (await call(TOKEN)).text();
+
+    expect(body).toContain("UID:event-e1@squirrel-calendar-feed\r\n");
+    expect(body).toContain("DTSTART:20261002T143000\r\nDTEND:20261002T150000\r\n");
+    expect(body).toContain("SUMMARY:Dentist\r\nDESCRIPTION:Bring the card\r\n");
+    expect(body).toContain("DTSTART;VALUE=DATE:20190228\r\nDTEND;VALUE=DATE:20190301\r\nRRULE:FREQ=YEARLY\r\n");
+    expect(body).toContain("SUMMARY:Zoe's birthday\r\n");
+    expect(householdEventFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          householdId: "h1",
+          date: { lte: new Date("2027-03-27T00:00:00Z") },
+          OR: [{ recurrence: { not: null } }, { date: { gte: new Date("2026-08-26T00:00:00Z") } }],
+        },
+      }),
+    );
+    const select = (householdEventFindManyMock.mock.calls[0] as unknown as [{ select: object }])[0].select;
+    expect(select).not.toHaveProperty("forMemberId");
+    expect(select).not.toHaveProperty("createdByMemberId");
   });
 
   it("scopes both queries to the token's household and the bounded window", async () => {

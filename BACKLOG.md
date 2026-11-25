@@ -505,6 +505,20 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
+- [ ] **GAP-88. Reminders for household calendar events** — follow-up to
+      GAP-35, which shipped the calendar without any notification. A
+      member should be able to ask for a reminder on an event ("the
+      dentist, an hour before"; "Zoe's birthday, the morning of"), sent
+      as a push (`web-push`, `src/lib/notifications.ts`) to whoever opted
+      in. Needs a per-event reminder offset on `HouseholdEvent` (a
+      migration), a per-user opt-in like the task-due nudge (GAP-74,
+      `syncTaskDueNudge`), and a cron pass that expands repeats with
+      `expandEventOccurrences` (`src/lib/household-events.ts`) and sends
+      each reminder once (an idempotency row, as `WeeklyDigestSend`). Times
+      are floating wall-clock times, so the send time is the event's time
+      in the recipient's own zone. Guardrails: opt-in and off by default,
+      since a bell badge must mean something's wrong.
+
 ## Phase 3 — larger items, own PR each
 
 ### State-of-the-art UI (2026-10-04 design audit)
@@ -772,20 +786,6 @@ out to be a product-scope question rather than a scoped task should move to
       committing, rather than treating it as a routine feature slice.
 
 ### 2026-09-26 scan
-
-- [ ] **GAP-35. Household-wide calendar for events, not just meals and bills** `[!]` —
-      needs a product decision. Cozi's core differentiator is a shared
-      family calendar for appointments, birthdays and school events —
-      Squirrel's `.ics` feed (`src/lib/calendar-feed.ts`,
-      `src/app/api/calendar/[token]/route.ts`) only ever publishes
-      meal-plan entries and recurring-bill due dates; there's no
-      `HouseholdEvent` model or in-app view for a one-off or recurring
-      appointment. The delivery mechanism (the existing opt-in `.ics`
-      feed, `buildCalendarFeedEvents`) is already built and could carry
-      a third event source cheaply, but the feature itself needs
-      decisions the meal/bill feed didn't: does an event need its own
-      reminder/push, per-member visibility, or in-app recurrence — none
-      of which this app's calendar surface has had to answer before.
 
 - [ ] **GAP-36. "Give every dollar a job" zero-based budgeting** `[!]` —
       needs a product decision. YNAB's defining feature is requiring the

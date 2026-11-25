@@ -195,3 +195,41 @@ describe("buildIcalCalendar", () => {
     expect(ics.indexOf("UID:b")).toBeLessThan(ics.indexOf("UID:a"));
   });
 });
+
+// GAP-35: household calendar events can carry a time and a repeat.
+describe("buildIcalCalendar timed and repeating events", () => {
+  const now = new Date("2026-09-25T12:00:00Z");
+
+  it("writes a start and end time as floating local DATE-TIMEs", () => {
+    const ics = buildIcalCalendar({
+      name: "Home",
+      now,
+      events: [
+        { uid: "event-1@x", date: new Date(Date.UTC(2026, 11, 3)), summary: "Dentist", startTime: "09:05", endTime: "10:30" },
+      ],
+    });
+    expect(ics).toContain(
+      ["DTSTAMP:20260925T120000Z", "DTSTART:20261203T090500", "DTEND:20261203T103000", "SUMMARY:Dentist"].join("\r\n"),
+    );
+    expect(ics).not.toContain("VALUE=DATE");
+  });
+
+  it("leaves DTEND out for a start time with no end", () => {
+    const ics = buildIcalCalendar({
+      name: "Home",
+      now,
+      events: [{ uid: "event-1@x", date: new Date(Date.UTC(2026, 11, 3)), summary: "Pickup", startTime: "15:00" }],
+    });
+    expect(ics).toContain("DTSTART:20261203T150000\r\nSUMMARY:Pickup");
+    expect(ics).not.toContain("DTEND");
+  });
+
+  it("adds the RRULE after the dates", () => {
+    const ics = buildIcalCalendar({
+      name: "Home",
+      now,
+      events: [{ uid: "event-2@x", date: new Date(Date.UTC(2024, 1, 29)), summary: "Birthday", rrule: "FREQ=YEARLY" }],
+    });
+    expect(ics).toContain("DTSTART;VALUE=DATE:20240229\r\nDTEND;VALUE=DATE:20240301\r\nRRULE:FREQ=YEARLY\r\n");
+  });
+});
